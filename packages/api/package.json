@@ -1,0 +1,11 @@
+{
+	"name": "@leylibre/api",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@leylibre/pipeline": "workspace:*"
+	}
+}

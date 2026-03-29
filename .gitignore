@@ -1,0 +1,38 @@
+# dependencies
+node_modules
+
+# output
+out
+dist
+*.tgz
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+
+# dotenv
+.env
+.env.*.local
+
+# caches
+.cache
+*.tsbuildinfo
+
+# pipeline data and generated repos
+data/
+output/
+
+# IDE
+.idea
+.vscode
+
+# OS
+.DS_Store
+
+# tools
+.gstack/
+.claude/

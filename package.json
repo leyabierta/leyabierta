@@ -1,0 +1,24 @@
+{
+	"name": "leylibre",
+	"type": "module",
+	"private": true,
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"check": "biome check .",
+		"format": "biome check --write .",
+		"test": "bun test",
+		"pipeline": "bun run packages/pipeline/src/cli.ts",
+		"api": "bun run packages/api/src/index.ts",
+		"web": "bun run packages/web/src/index.ts"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.10",
+		"@types/bun": "latest",
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"fast-xml-parser": "^5.5.9"
+	}
+}
