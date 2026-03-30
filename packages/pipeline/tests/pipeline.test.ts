@@ -20,7 +20,7 @@ const CONSTITUCION_METADATA: NormMetadata = {
 };
 
 function makeTmpDir(): string {
-	return mkdtempSync(join(tmpdir(), "leylibre-test-"));
+	return mkdtempSync(join(tmpdir(), "leyabierta-test-"));
 }
 
 describe("bootstrapFromLocalXml", () => {

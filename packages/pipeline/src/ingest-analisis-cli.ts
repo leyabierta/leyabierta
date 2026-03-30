@@ -14,7 +14,7 @@ import { Database } from "bun:sqlite";
 import { createSchema } from "./db/schema.ts";
 import { BoeClient } from "./spain/boe-client.ts";
 
-const dbPath = process.argv[2] || "./data/leylibre.db";
+const dbPath = process.argv[2] || "./data/leyabierta.db";
 const concurrency = Number(
 	process.argv.includes("--concurrency")
 		? process.argv[process.argv.indexOf("--concurrency") + 1]

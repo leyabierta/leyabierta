@@ -21,8 +21,8 @@ import type {
 	Reform,
 } from "../models.ts";
 
-const AUTHOR_NAME = "Ley Libre";
-const AUTHOR_EMAIL = "bot@leylibre.es";
+const AUTHOR_NAME = "Ley Abierta";
+const AUTHOR_EMAIL = "bot@leyabierta.es";
 
 export function buildCommitInfo(
 	commitType: CommitType,

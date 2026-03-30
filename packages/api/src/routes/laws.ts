@@ -2,7 +2,7 @@
  * Law endpoints: search, detail, versions, diff, references, graph.
  */
 
-import { type BoeAnalisis, BoeClient } from "@leylibre/pipeline";
+import { type BoeAnalisis, BoeClient } from "@leyabierta/pipeline";
 import { Elysia, t } from "elysia";
 import { LruCache } from "../services/cache.ts";
 import type { DbService } from "../services/db.ts";
@@ -359,7 +359,7 @@ export function lawRoutes(
 					.map(
 						(r) => `  <item>
     <title>${escapeXml(r.title)} — ${r.date}</title>
-    <link>https://leylibre.es/laws/${r.norm_id}</link>
+    <link>https://leyabierta.es/laws/${r.norm_id}</link>
     <guid>${r.norm_id}:${r.date}:${r.source_id}</guid>
     <pubDate>${new Date(r.date).toUTCString()}</pubDate>
     <description>Reforma de ${escapeXml(r.title)} (${r.source_id})</description>
@@ -371,8 +371,8 @@ export function lawRoutes(
 				return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>
-  <title>Ley Libre — Reformas recientes</title>
-  <link>https://leylibre.es</link>
+  <title>Ley Abierta — Reformas recientes</title>
+  <link>https://leyabierta.es</link>
   <description>Cambios recientes en la legislación española consolidada</description>
   <language>es</language>
 ${items}

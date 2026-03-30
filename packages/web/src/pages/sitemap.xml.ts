@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import type { Law } from "../lib/api";
 import { searchLaws } from "../lib/api";
 
-const SITE_URL = "https://leylibre.es";
+const SITE_URL = "https://leyabierta.es";
 const PAGE_LIMIT = 100;
 
 async function fetchAllLaws(): Promise<Law[]> {

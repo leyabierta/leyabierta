@@ -1,8 +1,8 @@
-# Ley Libre
+# Ley Abierta
 
 **Legislacion abierta para todos.** Cada ley es un archivo Markdown. Cada reforma es un commit de Git.
 
-Ley Libre descarga legislacion oficial, la convierte en datos versionados y legibles por maquina, y los pone a disposicion de cualquier ciudadano a traves de una web y una API abierta.
+Ley Abierta descarga legislacion oficial, la convierte en datos versionados y legibles por maquina, y los pone a disposicion de cualquier ciudadano a traves de una web y una API abierta.
 
 ## Por que
 
@@ -23,14 +23,14 @@ El proyecto se divide en multiples repositorios:
 
 | Repo | Contenido |
 |------|-----------|
-| **leylibre** (este) | Codigo fuente: pipeline, API, web |
-| **[leyes-es](https://github.com/leylibre/leyes-es)** | Legislacion espanola en Markdown + Git history |
+| **leyabierta** (este) | Codigo fuente: pipeline, API, web |
+| **[leyes-es](https://github.com/leyabierta/leyes-es)** | Legislacion espanola en Markdown + Git history |
 
 El repo de leyes es generado automaticamente por el pipeline. Cada archivo es una norma, cada commit es una reforma:
 
 ```bash
 # Clonar la legislacion espanola
-git clone https://github.com/leylibre/leyes-es.git
+git clone https://github.com/leyabierta/leyes-es.git
 
 # Ver la Constitucion
 cat es/BOE-A-1978-31229.md
@@ -129,7 +129,7 @@ bun run web   # http://localhost:4321
 
 ## Contribuir
 
-Ley Libre es un proyecto abierto. Si quieres ayudar:
+Ley Abierta es un proyecto abierto. Si quieres ayudar:
 
 - Reporta errores en el texto de una ley (incluye la ley, articulo y fuente oficial)
 - Anade soporte para un nuevo pais

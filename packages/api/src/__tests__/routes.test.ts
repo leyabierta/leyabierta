@@ -7,7 +7,7 @@
 
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { createSchema } from "@leylibre/pipeline";
+import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
 import { lawRoutes } from "../routes/laws.ts";
 import { LruCache } from "../services/cache.ts";

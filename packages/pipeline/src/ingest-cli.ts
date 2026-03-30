@@ -6,7 +6,7 @@
 
 import { ingestJsonDir, openDatabase } from "./db/index.ts";
 
-const dbPath = process.argv[2] || "./data/leylibre.db";
+const dbPath = process.argv[2] || "./data/leyabierta.db";
 const jsonDir = process.argv[3] || "./data/json";
 
 async function main() {

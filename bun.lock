@@ -13,21 +13,21 @@
       },
     },
     "packages/api": {
-      "name": "@leylibre/api",
+      "name": "@leyabierta/api",
       "version": "0.1.0",
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/swagger": "^1.3.1",
-        "@leylibre/pipeline": "workspace:*",
+        "@leyabierta/pipeline": "workspace:*",
         "elysia": "^1.4.28",
       },
     },
     "packages/pipeline": {
-      "name": "@leylibre/pipeline",
+      "name": "@leyabierta/pipeline",
       "version": "0.1.0",
     },
     "packages/web": {
-      "name": "@leylibre/web",
+      "name": "@leyabierta/web",
       "version": "0.1.0",
       "dependencies": {
         "@astrojs/node": "^10.0.4",
@@ -193,11 +193,11 @@
 
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
-    "@leylibre/api": ["@leylibre/api@workspace:packages/api"],
+    "@leyabierta/api": ["@leyabierta/api@workspace:packages/api"],
 
-    "@leylibre/pipeline": ["@leylibre/pipeline@workspace:packages/pipeline"],
+    "@leyabierta/pipeline": ["@leyabierta/pipeline@workspace:packages/pipeline"],
 
-    "@leylibre/web": ["@leylibre/web@workspace:packages/web"],
+    "@leyabierta/web": ["@leyabierta/web@workspace:packages/web"],
 
     "@oslojs/encoding": ["@oslojs/encoding@1.1.0", "", {}, "sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ=="],
 

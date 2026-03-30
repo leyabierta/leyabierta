@@ -18,7 +18,7 @@ import "./spain/index.ts";
 const OUTPUT_DIR = process.env.REPO_PATH ?? "../leyes-es";
 const DATA_DIR = "./data";
 const STATE_PATH = `${DATA_DIR}/state.json`;
-const DB_PATH = `${DATA_DIR}/leylibre.db`;
+const DB_PATH = `${DATA_DIR}/leyabierta.db`;
 const JSON_DIR = `${DATA_DIR}/json`;
 
 const command = process.argv[2];

@@ -1,8 +1,8 @@
-# Ley Libre — Estado del Proyecto
+# Ley Abierta — Estado del Proyecto
 
 Documento de referencia para continuar el desarrollo en futuras sesiones.
 
-## Que es Ley Libre
+## Que es Ley Abierta
 
 Un motor open source en TypeScript que descarga legislacion oficial (empezando por Espana/BOE), la convierte en archivos Markdown versionados con Git — donde cada reforma es un commit con su fecha historica — y expone esos datos mediante una API y una web para que cualquiera pueda buscar, comparar versiones y entender como cambian las leyes.
 

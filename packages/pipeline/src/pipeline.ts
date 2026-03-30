@@ -28,8 +28,8 @@ export interface PipelineConfig {
 const DEFAULT_CONFIG: PipelineConfig = {
 	repoPath: "./output/es",
 	dataDir: "./data",
-	committerName: "Ley Libre",
-	committerEmail: "bot@leylibre.es",
+	committerName: "Ley Abierta",
+	committerEmail: "bot@leyabierta.es",
 };
 
 /**
