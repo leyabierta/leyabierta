@@ -96,7 +96,9 @@ const hasDiff = diffResult.diff.length > 0;
 			No se encontraron diferencias entre estas fechas.
 		</div>
 	) : (
-		<div id="diff-container"></div>
+		<div id="diff-container">
+			<div id="diff-loading" style="text-align: center; padding: 3rem 0; color: var(--text-muted); font-size: 0.875rem;">Cargando diferencias...</div>
+		</div>
 	)}
 
 	{hasDiff && (
@@ -107,6 +109,8 @@ const hasDiff = diffResult.diff.length > 0;
 				script.src = "https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui-slim.min.js";
 				script.onload = () => {
 					const targetElement = document.getElementById("diff-container");
+					const loading = document.getElementById("diff-loading");
+					if (loading) loading.remove();
 					const configuration = {
 						drawFileList: false,
 						matching: "lines",
@@ -116,6 +120,10 @@ const hasDiff = diffResult.diff.length > 0;
 					};
 					const diff2htmlUi = new Diff2HtmlUI(targetElement, rawDiff, configuration);
 					diff2htmlUi.draw();
+				};
+				script.onerror = () => {
+					const loading = document.getElementById("diff-loading");
+					if (loading) loading.textContent = "Error al cargar el visor de diferencias. Recarga la pagina para intentarlo de nuevo.";
 				};
 				document.head.appendChild(script);
 			</script>

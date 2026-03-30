@@ -513,6 +513,7 @@ for (const ref of analisis.referencias.anteriores) {
 				document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
 				tab.classList.add('active');
 				document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
+				tab.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 			});
 		});
 	</script>
