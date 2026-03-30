@@ -59,9 +59,9 @@ async function main() {
 			const materiaCodes = await boe.getMateriaCodes(normId);
 			const fullMaterias =
 				materiaCodes.length > 0
-					? (materiaCodes
-							.map((code) => materiaLookup[code])
-							.filter(Boolean) as string[])
+					? materiaCodes.map(
+							(code) => materiaLookup[code] ?? `[código ${code}]`,
+						)
 					: analisis.materias;
 
 			db.transaction(() => {
