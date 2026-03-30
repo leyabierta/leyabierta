@@ -291,8 +291,18 @@ export class DbService {
 		return (r?.c ?? 0) + (r2?.c ?? 0) > 0;
 	}
 
-	/** Detect data anomalies in BOE source data. */
-	getAnomalies(): {
+	private anomalyCache: ReturnType<DbService["getAnomaliesUncached"]> | null =
+		null;
+
+	/** Detect data anomalies in BOE source data (cached after first call). */
+	getAnomalies() {
+		if (!this.anomalyCache) {
+			this.anomalyCache = this.getAnomaliesUncached();
+		}
+		return this.anomalyCache;
+	}
+
+	private getAnomaliesUncached(): {
 		futureDates: Array<{ type: string; norm_id: string; title: string; date: string; source_id?: string }>;
 		emptyBlocks: Array<{ norm_id: string; title: string; block_id: string; block_type: string }>;
 		unresolvedMaterias: Array<{ norm_id: string; title: string; materia: string }>;
@@ -321,28 +331,30 @@ export class DbService {
 				.map((r) => ({ type: "norm_ancient_date" as const, ...r })),
 		];
 
-		// Use partial index first (fast), then filter metadata sections in JS
-		const METADATA_BLOCKS = new Set([
+		// Two-step: fast partial-index scan, then enrich with norm title and filter
+		const METADATA_IDS = new Set([
 			"ir", "informacionrelacionada", "documentosrelacionados",
 		]);
-		const emptyBlocks = this.db
+		const rawEmpty = this.db
 			.query<
-				{ norm_id: string; title: string; block_id: string; block_type: string; block_title: string },
+				{ norm_id: string; block_id: string; block_type: string; block_title: string },
 				[]
 			>(
-				`SELECT b.norm_id, n.title, b.block_id, b.block_type, b.title as block_title
-				 FROM blocks b INDEXED BY idx_blocks_empty_precepto
-				 JOIN norms n ON n.id = b.norm_id
-				 WHERE b.block_type = 'precepto'
-				 AND (b.current_text = '' OR b.current_text IS NULL)`,
+				`SELECT norm_id, block_id, block_type, title as block_title
+				 FROM blocks
+				 WHERE block_type = 'precepto'
+				 AND (current_text = '' OR current_text IS NULL)`,
 			)
 			.all()
 			.filter((b) =>
-				!METADATA_BLOCKS.has(b.block_id) &&
-				!b.block_title.includes("nformación relacionada") &&
-				!b.block_title.includes("ocumentos") &&
-				!b.block_title.includes("Relacionados"),
+				!METADATA_IDS.has(b.block_id) &&
+				!b.block_title.toLowerCase().includes("relacionad"),
 			);
+
+		const emptyBlocks = rawEmpty.map((b) => {
+			const norm = this.getLaw(b.norm_id);
+			return { ...b, title: norm?.title ?? "" };
+		});
 
 		const unresolvedMaterias = this.db
 			.query<{ norm_id: string; title: string; materia: string }, []>(
