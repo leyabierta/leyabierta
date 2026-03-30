@@ -256,8 +256,8 @@ export class DbService {
 		newest: string;
 	} {
 		const norms = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM norms").get()!.c;
-		const articles = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM blocks").get()!.c;
-		const versions = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM versions").get()!.c;
+		const articles = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM blocks WHERE block_type = 'precepto'").get()!.c;
+		const versions = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM versions v JOIN blocks b ON b.norm_id = v.norm_id AND b.block_id = v.block_id WHERE b.block_type = 'precepto'").get()!.c;
 		const reforms = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM reforms").get()!.c;
 		const categories = this.db.query<{ c: number }, []>("SELECT count(DISTINCT materia) as c FROM materias").get()!.c;
 		const oldest = this.db.query<{ d: string }, []>("SELECT min(published_at) as d FROM norms").get()!.d;
