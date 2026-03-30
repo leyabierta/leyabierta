@@ -46,12 +46,7 @@ describe("bootstrapFromLocalXml", () => {
 			{ repoPath: join(tmpDir, "repo"), dataDir: join(tmpDir, "data") },
 		);
 
-		const mdPath = join(
-			tmpDir,
-			"repo",
-			"es",
-			"BOE-A-1978-31229.md",
-		);
+		const mdPath = join(tmpDir, "repo", "es", "BOE-A-1978-31229.md");
 		const content = await Bun.file(mdPath).text();
 		expect(content).toContain("Constitución Española");
 		expect(content).toContain("---");

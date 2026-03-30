@@ -371,8 +371,14 @@ describe("GET /v1/ranks", () => {
 describe("GET /v1/materias", () => {
 	it("returns materia list with counts", async () => {
 		insertNorm({ id: "N1", rank: "ley" });
-		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["N1", "Derecho penal"]);
-		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["N1", "Seguridad"]);
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+			"N1",
+			"Derecho penal",
+		]);
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+			"N1",
+			"Seguridad",
+		]);
 
 		const { status, body } = await json("/v1/materias");
 		expect(status).toBe(200);
