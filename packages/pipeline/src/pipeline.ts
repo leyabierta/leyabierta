@@ -178,15 +178,19 @@ function normToJson(norm: Norm): object {
 				sourceId: v.normId,
 				text: v.paragraphs.map((p) => p.text).join("\n\n"),
 			})),
-			currentText:
-				block.versions.length > 0
-					? block.versions
-							.toSorted((a, b) =>
-								b.publishedAt.localeCompare(a.publishedAt),
-							)[0]!
-							.paragraphs.map((p) => p.text)
-							.join("\n\n")
-					: "",
+			currentText: (() => {
+				if (block.versions.length === 0) return "";
+				// Use the most recent version that has text content,
+				// falling back to the most recent version overall
+				const sorted = block.versions.toSorted((a, b) =>
+					b.publishedAt.localeCompare(a.publishedAt),
+				);
+				const withText = sorted.find((v) =>
+					v.paragraphs.some((p) => p.text.trim()),
+				);
+				const best = withText ?? sorted[0]!;
+				return best.paragraphs.map((p) => p.text).join("\n\n");
+			})(),
 		})),
 		reforms: reforms.map((r) => ({
 			date: r.date,
