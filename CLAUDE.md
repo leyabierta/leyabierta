@@ -141,16 +141,39 @@ The site is fully server-rendered. Interactive behavior (tabs, search form, diff
 When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components. The rest of the page stays as static HTML.
 
 **Current pages:**
-- `/` — search and list laws (form with query, rank, status filters; paginated)
+- `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results when query active
 - `/laws/[id]` — law detail with tabs (summary, full text, reforms timeline)
 - `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
+- `/anomalias` — detected data quality issues in BOE source data
+- `/feed.xml` — RSS feed proxy
+- `/sitemap.xml` — dynamic sitemap for all laws
 
-**Features:**
-- Browse laws by country, type, status
-- Full-text search
-- Visual diff viewer (side-by-side version comparison)
-- Timeline of reforms per law
-- Direct links to official sources
+## Design Principles
+
+**Ley Libre should feel like how the BOE _should_ be — accessible to every citizen.**
+
+We are NOT a developer tool, a SaaS dashboard, or a startup landing page. We are a public service that makes legislation understandable. Every design decision should pass this test: "Would my non-technical parent understand and trust this?"
+
+**Core values:**
+- **Trust** — Institutional feel. The user must feel this is a reliable, authoritative source. Conservative colors, serif headings, clean layouts.
+- **Clarity** — Plain language. No jargon. "Leyes" not "normas". "Articulos" not "bloques". "Cambios" not "diffs". If a citizen doesn't understand a word, rewrite it.
+- **Transparency** — Show where the data comes from (always link to BOE). Document anomalies publicly. Never hide limitations.
+- **Accessibility** — Works for everyone. Light mode by default (dark mode available). Large readable text. Works on mobile. No JS required for core content.
+
+**Visual direction:**
+- Light mode by default — white/cream background, institutional blue accents
+- Serif font for headings (authority, tradition), sans-serif for body (readability)
+- Stats as natural language ("Mas de 12.000 leyes desde 1835") not dashboard numbers
+- Generous whitespace, single-column reading for legal text
+- Reference sites: GOV.UK (clarity), BOE (institutional trust), La Moncloa (Spanish gov aesthetics)
+
+**Language rules:**
+- All user-facing text in Spanish
+- Use "leyes" not "normas" in citizen-facing copy (normas is the technical term)
+- Use "articulos" not "bloques" or "preceptos"
+- Use "cambios" or "modificaciones" not "diffs" or "reformas" in headings
+- Use "temas" or "categorias" not "materias" in citizen-facing copy
+- Technical terms (norm IDs, API references) are fine in developer-facing contexts
 
 ## Data Sources
 
