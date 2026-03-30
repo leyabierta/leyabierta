@@ -98,8 +98,13 @@ const SCHEMA_SQL = /* sql */ `
   );
 
   CREATE INDEX IF NOT EXISTS idx_materias_norm ON materias(norm_id);
+  CREATE INDEX IF NOT EXISTS idx_materias_materia ON materias(materia);
   CREATE INDEX IF NOT EXISTS idx_referencias_norm ON referencias(norm_id);
   CREATE INDEX IF NOT EXISTS idx_referencias_target ON referencias(target_id);
+
+  -- Partial indexes for anomaly detection (fast scans)
+  CREATE INDEX IF NOT EXISTS idx_blocks_empty_precepto
+    ON blocks(norm_id) WHERE block_type = 'precepto' AND (current_text = '' OR current_text IS NULL);
 
   -- FTS5 virtual table for full-text search (title + content)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
