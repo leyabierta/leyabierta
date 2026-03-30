@@ -77,10 +77,12 @@ export class GitRepo {
 
 		const message = formatCommitMessage(info);
 
-		// Git doesn't accept pre-1970 dates
+		// Clamp dates to valid git range
 		let gitDate = info.authorDate;
 		if (gitDate < "1970-01-02") {
 			gitDate = "1970-01-02";
+		} else if (gitDate > "2099-12-31") {
+			gitDate = "2099-12-31";
 		}
 		const authorDate = `${gitDate}T00:00:00`;
 
