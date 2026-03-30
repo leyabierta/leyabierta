@@ -245,6 +245,69 @@ export class DbService {
 			.all(limit);
 	}
 
+	/** Global stats for the home page. */
+	getStats(): {
+		norms: number;
+		articles: number;
+		versions: number;
+		reforms: number;
+		categories: number;
+		oldest: string;
+		newest: string;
+	} {
+		const norms = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM norms").get()!.c;
+		const articles = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM blocks").get()!.c;
+		const versions = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM versions").get()!.c;
+		const reforms = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM reforms").get()!.c;
+		const categories = this.db.query<{ c: number }, []>("SELECT count(DISTINCT materia) as c FROM materias").get()!.c;
+		const oldest = this.db.query<{ d: string }, []>("SELECT min(published_at) as d FROM norms").get()!.d;
+		const newest = this.db.query<{ d: string }, []>("SELECT max(published_at) as d FROM norms").get()!.d;
+		return { norms, articles, versions, reforms, categories, oldest, newest };
+	}
+
+	/** Most reformed laws, for the home page. */
+	getMostReformed(limit: number): Array<{ id: string; title: string; rank: string; reform_count: number }> {
+		return this.db
+			.query<{ id: string; title: string; rank: string; reform_count: number }, [number]>(
+				`SELECT n.id, n.title, n.rank, count(*) as reform_count
+				 FROM reforms r JOIN norms n ON n.id = r.norm_id
+				 GROUP BY r.norm_id ORDER BY reform_count DESC LIMIT ?`,
+			)
+			.all(limit);
+	}
+
+	/** Jurisdiction counts for the home page. */
+	getJurisdictions(): Array<{ jurisdiction: string; count: number }> {
+		return this.db
+			.query<{ jurisdiction: string; count: number }, []>(
+				`SELECT
+					CASE
+						WHEN source_url LIKE '%/eli/es/%' AND source_url NOT LIKE '%/eli/es-__/%' THEN 'es'
+						WHEN source_url LIKE '%/eli/es-an/%' THEN 'es-an'
+						WHEN source_url LIKE '%/eli/es-ar/%' THEN 'es-ar'
+						WHEN source_url LIKE '%/eli/es-as/%' THEN 'es-as'
+						WHEN source_url LIKE '%/eli/es-cb/%' THEN 'es-cb'
+						WHEN source_url LIKE '%/eli/es-cl/%' THEN 'es-cl'
+						WHEN source_url LIKE '%/eli/es-cm/%' THEN 'es-cm'
+						WHEN source_url LIKE '%/eli/es-cn/%' THEN 'es-cn'
+						WHEN source_url LIKE '%/eli/es-ct/%' THEN 'es-ct'
+						WHEN source_url LIKE '%/eli/es-ex/%' THEN 'es-ex'
+						WHEN source_url LIKE '%/eli/es-ga/%' THEN 'es-ga'
+						WHEN source_url LIKE '%/eli/es-ib/%' THEN 'es-ib'
+						WHEN source_url LIKE '%/eli/es-mc/%' THEN 'es-mc'
+						WHEN source_url LIKE '%/eli/es-md/%' THEN 'es-md'
+						WHEN source_url LIKE '%/eli/es-nc/%' THEN 'es-nc'
+						WHEN source_url LIKE '%/eli/es-pv/%' THEN 'es-pv'
+						WHEN source_url LIKE '%/eli/es-ri/%' THEN 'es-ri'
+						WHEN source_url LIKE '%/eli/es-vc/%' THEN 'es-vc'
+						ELSE 'es'
+					END as jurisdiction,
+					count(*) as count
+				 FROM norms GROUP BY jurisdiction ORDER BY count DESC`,
+			)
+			.all();
+	}
+
 	getMaterias(normId: string): string[] {
 		return this.db
 			.query<{ materia: string }, [string]>(

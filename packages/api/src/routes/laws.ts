@@ -327,7 +327,27 @@ export function lawRoutes(
 			})
 
 			// 10. GET /v1/feed.xml — RSS feed of recent reforms
-			// 12. GET /v1/anomalias — detected data quality issues
+			// 12. GET /v1/stats — global statistics
+			.get("/stats", () => {
+				return dbService.getStats();
+			})
+
+			// 13. GET /v1/most-reformed — most reformed laws
+			.get("/most-reformed", () => {
+				return { data: dbService.getMostReformed(10) };
+			})
+
+			// 14. GET /v1/jurisdictions — jurisdiction counts
+			.get("/jurisdictions", () => {
+				return { data: dbService.getJurisdictions() };
+			})
+
+			// 15. GET /v1/recent-reforms — latest reforms
+			.get("/recent-reforms", () => {
+				return { data: dbService.getRecentReforms(10) };
+			})
+
+			// 16. GET /v1/anomalias — detected data quality issues
 			.get("/anomalias", () => {
 				return dbService.getAnomalies();
 			})

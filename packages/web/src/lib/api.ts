@@ -138,3 +138,48 @@ export interface AnomaliesResult {
 export function getAnomalies(): Promise<AnomaliesResult> {
 	return fetchApi("/v1/anomalias");
 }
+
+export interface Stats {
+	norms: number;
+	articles: number;
+	versions: number;
+	reforms: number;
+	categories: number;
+	oldest: string;
+	newest: string;
+}
+
+export interface MostReformedLaw {
+	id: string;
+	title: string;
+	rank: string;
+	reform_count: number;
+}
+
+export interface Jurisdiction {
+	jurisdiction: string;
+	count: number;
+}
+
+export interface RecentReform {
+	norm_id: string;
+	date: string;
+	source_id: string;
+	title: string;
+}
+
+export function getStats(): Promise<Stats> {
+	return fetchApi("/v1/stats");
+}
+
+export function getMostReformed(): Promise<{ data: MostReformedLaw[] }> {
+	return fetchApi("/v1/most-reformed");
+}
+
+export function getJurisdictions(): Promise<{ data: Jurisdiction[] }> {
+	return fetchApi("/v1/jurisdictions");
+}
+
+export function getRecentReforms(): Promise<{ data: RecentReform[] }> {
+	return fetchApi("/v1/recent-reforms");
+}
