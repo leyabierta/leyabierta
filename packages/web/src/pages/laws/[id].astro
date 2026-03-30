@@ -17,8 +17,8 @@ try {
 }
 
 const RANK_LABELS: Record<string, string> = {
-	constitucion: "Constitucion",
-	ley_organica: "Ley Organica",
+	constitucion: "Constitución",
+	ley_organica: "Ley Orgánica",
 	ley: "Ley",
 	real_decreto_ley: "Real Decreto-ley",
 	real_decreto_legislativo: "Real Decreto Legislativo",
@@ -26,7 +26,7 @@ const RANK_LABELS: Record<string, string> = {
 	orden: "Orden",
 	decreto: "Decreto",
 	circular: "Circular",
-	resolucion: "Resolucion",
+	resolucion: "Resolución",
 	acuerdo_internacional: "Acuerdo Internacional",
 };
 
@@ -275,7 +275,7 @@ for (const ref of analisis.referencias.anteriores) {
 		}
 	</style>
 
-	<a href="/" class="back-link">&larr; Volver a busqueda</a>
+	<a href="/" class="back-link">&larr; Volver a búsqueda</a>
 
 	<div class="law-header">
 		<div>
@@ -366,12 +366,12 @@ for (const ref of analisis.referencias.anteriores) {
 					<div class="meta-item-value"><span class={`badge badge-${law.status}`}>{law.status}</span></div>
 				</div>
 				<div>
-					<div class="meta-item-label">Publicacion</div>
+					<div class="meta-item-label">Publicación</div>
 					<div class="meta-item-value">{law.published_at}</div>
 				</div>
 				{law.updated_at && law.updated_at !== law.published_at && (
 					<div>
-						<div class="meta-item-label">Ultima actualizacion</div>
+						<div class="meta-item-label">Última actualización</div>
 						<div class="meta-item-value">{law.updated_at}</div>
 					</div>
 				)}
@@ -472,9 +472,9 @@ for (const ref of analisis.referencias.anteriores) {
 									this.textContent = 'Mostrar menos';
 								} else {
 									text.classList.add('collapsed');
-									this.textContent = 'Leer mas...';
+									this.textContent = 'Leer más...';
 								}
-							">Leer mas...</button>
+							">Leer más...</button>
 						)}
 					</div>
 				);

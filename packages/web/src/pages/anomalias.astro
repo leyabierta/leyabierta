@@ -136,15 +136,15 @@ const totalIssues =
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.futureDates.length}</div>
-			<div class="label">Fechas erroneas</div>
+			<div class="label">Fechas erróneas</div>
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.emptyBlocks.length}</div>
-			<div class="label">Articulos vacios</div>
+			<div class="label">Artículos vacíos</div>
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.unresolvedMaterias.length}</div>
-			<div class="label">Categorias sin nombre</div>
+			<div class="label">Categorías sin nombre</div>
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.missingEli.length}</div>
@@ -155,9 +155,9 @@ const totalIssues =
 	{data.futureDates.length > 0 && (
 		<div class="anomaly-section">
 			<h2>Fechas imposibles</h2>
-			<p class="desc">Leyes cuya fecha de modificacion es imposible (por ejemplo, ano 2929). Son errores tipograficos en la fuente oficial del BOE.</p>
+			<p class="desc">Leyes cuya fecha de modificación es imposible (por ejemplo, año 2929). Son errores tipográficos en la fuente oficial del BOE.</p>
 			<table class="anomaly-table">
-				<thead><tr><th>Ley</th><th>Nombre</th><th>Fecha erronea</th><th>Modificada por</th></tr></thead>
+				<thead><tr><th>Ley</th><th>Nombre</th><th>Fecha errónea</th><th>Modificada por</th></tr></thead>
 				<tbody>
 					{data.futureDates.map(d => (
 						<tr>
@@ -174,10 +174,10 @@ const totalIssues =
 
 	{data.emptyBlocks.length > 0 && (
 		<div class="anomaly-section">
-			<h2>Articulos sin contenido</h2>
+			<h2>Artículos sin contenido</h2>
 			<p class="desc">Artículos dentro de leyes que no tienen texto. Normalmente son artículos que fueron eliminados por una reforma posterior, pero cuyo hueco sigue existiendo en la estructura de la ley.</p>
 			<table class="anomaly-table">
-				<thead><tr><th>Ley</th><th>Nombre</th><th>Articulo</th></tr></thead>
+				<thead><tr><th>Ley</th><th>Nombre</th><th>Artículo</th></tr></thead>
 				<tbody>
 					{data.emptyBlocks.map(d => (
 						<tr>
@@ -193,10 +193,10 @@ const totalIssues =
 
 	{data.unresolvedMaterias.length > 0 && (
 		<div class="anomaly-section">
-			<h2>Categorias sin nombre</h2>
-			<p class="desc">El BOE clasifica cada ley por temas (materias) usando codigos numericos. Estos codigos deberian tener un nombre asociado, pero {new Set(data.unresolvedMaterias.map(d => d.materia)).size} de ellos no aparecen en el catalogo publico del BOE. Afectan a {data.unresolvedMaterias.length} clasificaciones.</p>
+			<h2>Categorías sin nombre</h2>
+			<p class="desc">El BOE clasifica cada ley por temas (materias) usando códigos numéricos. Estos códigos deberían tener un nombre asociado, pero {new Set(data.unresolvedMaterias.map(d => d.materia)).size} de ellos no aparecen en el catálogo público del BOE. Afectan a {data.unresolvedMaterias.length} clasificaciones.</p>
 			<table class="anomaly-table">
-				<thead><tr><th>Ley</th><th>Nombre</th><th>Codigo sin nombre</th></tr></thead>
+				<thead><tr><th>Ley</th><th>Nombre</th><th>Código sin nombre</th></tr></thead>
 				<tbody>
 					{data.unresolvedMaterias.map(d => (
 						<tr>
@@ -219,7 +219,7 @@ const totalIssues =
 					Mostrar {data.missingEli.length} normas
 				</summary>
 				<table class="anomaly-table">
-					<thead><tr><th>ID</th><th>Titulo</th><th>URL fuente</th></tr></thead>
+					<thead><tr><th>ID</th><th>Título</th><th>URL fuente</th></tr></thead>
 					<tbody>
 						{data.missingEli.map(d => (
 							<tr>

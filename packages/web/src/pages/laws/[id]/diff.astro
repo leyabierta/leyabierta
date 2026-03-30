@@ -23,6 +23,64 @@ try {
 }
 
 const hasDiff = diffResult.diff.length > 0;
+
+// Strip frontmatter changes from the diff so citizens only see law text changes
+function stripFrontmatterDiff(raw: string): { cleaned: string; stats: { additions: number; deletions: number; sections: string[] } } {
+	const lines = raw.split("\n");
+	const outputLines: string[] = [];
+	let skipUntilNextHunk = false;
+	const additions = new Set<string>();
+	const deletions = new Set<string>();
+	const sections: string[] = [];
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i]!;
+
+		if (line.startsWith("@@")) {
+			const hunkContext = line.match(/@@.*@@\s*(.*)/)?.[1] ?? "";
+			const isFrontmatter = /^(titulo|identificador|pais|jurisdiccion|rango|fecha_publicacion|ultima_actualizacion|estado|departamento|fuente):/.test(hunkContext.trim())
+				|| /^---/.test(hunkContext.trim());
+
+			if (isFrontmatter) {
+				skipUntilNextHunk = true;
+				continue;
+			}
+
+			skipUntilNextHunk = false;
+
+			if (hunkContext.trim()) {
+				sections.push(hunkContext.trim());
+			}
+
+			outputLines.push(line);
+			continue;
+		}
+
+		if (skipUntilNextHunk) continue;
+
+		if (line.startsWith("+") && !line.startsWith("+++")) {
+			additions.add(line);
+		} else if (line.startsWith("-") && !line.startsWith("---")) {
+			deletions.add(line);
+		}
+
+		outputLines.push(line);
+	}
+
+	return {
+		cleaned: outputLines.join("\n"),
+		stats: {
+			additions: additions.size,
+			deletions: deletions.size,
+			sections: [...new Set(sections)],
+		},
+	};
+}
+
+const { cleaned: cleanedDiff, stats: diffStats } = hasDiff
+	? stripFrontmatterDiff(diffResult.diff)
+	: { cleaned: "", stats: { additions: 0, deletions: 0, sections: [] } };
+const hasCleanedDiff = cleanedDiff.trim().length > 0 && (diffStats.additions > 0 || diffStats.deletions > 0);
 ---
 
 <Base
@@ -47,34 +105,131 @@ const hasDiff = diffResult.diff.length > 0;
 		}
 		.diff-dates .arrow { color: var(--text-muted); }
 
-		/* Force light mode on diff2html — it has no dark mode support */
+		/* ── Summary + toolbar ── */
+		.diff-bar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 1rem;
+			margin-bottom: 0.75rem;
+			font-size: 0.8125rem;
+			flex-wrap: wrap;
+		}
+		.diff-stats {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+			color: var(--text-muted);
+		}
+		.diff-stat-add { color: var(--success); font-weight: 600; }
+		.diff-stat-del { color: var(--danger); font-weight: 600; }
+		.view-toggle {
+			display: inline-flex;
+			gap: 0.25rem;
+		}
+		.view-btn {
+			padding: 0.35rem 0.75rem;
+			font-size: 0.75rem;
+			font-weight: 500;
+			font-family: var(--font-sans);
+			cursor: pointer;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: transparent;
+			color: var(--text-muted);
+			transition: all 0.15s;
+		}
+		.view-btn:hover { color: var(--text-secondary); border-color: var(--text-muted); }
+		.view-btn.active {
+			background: var(--accent-bg);
+			color: var(--accent);
+			border-color: var(--accent);
+			font-weight: 600;
+		}
+
+		/* ── Wider than normal container but not full viewport ── */
+		.diff-wide {
+			width: 100vw;
+			max-width: 72rem;
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+			padding-left: 1.5rem;
+			padding-right: 1.5rem;
+			box-sizing: border-box;
+		}
+
+		/* ── Diff container ── */
 		#diff-container {
 			border: 1px solid var(--border);
 			border-radius: 6px;
 			overflow: hidden;
 			background: #fff;
 			color: #1a1a1a;
-			font-size: 0.8125rem;
-			line-height: 1.5;
+			font-size: 0.875rem;
+			line-height: 1.65;
 		}
 
-		/* Override diff2html internals for cleaner look */
-		#diff-container :global(.d2h-wrapper) {
-			font-family: var(--font-mono) !important;
+		@media (max-width: 640px) {
+			.diff-wide { padding-left: 0.75rem; padding-right: 0.75rem; }
+			.diff-bar { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
 		}
-		#diff-container :global(.d2h-file-header) {
-			display: none;
+	</style>
+
+	<!-- diff2html overrides — must be global to beat diff2html's own specificity -->
+	<style is:global>
+		#diff-container .d2h-wrapper {
+			font-family: "Inter", system-ui, sans-serif !important;
 		}
-		#diff-container :global(.d2h-diff-table) {
+		#diff-container .d2h-file-header {
+			display: none !important;
+		}
+		#diff-container .d2h-diff-table {
+			font-size: 0.875rem !important;
+			width: 100% !important;
+		}
+		#diff-container .d2h-code-line-ctn {
+			white-space: pre-wrap !important;
+			word-break: break-word !important;
+			padding: 0.2rem 1rem !important;
+		}
+		/* Hide line numbers — they are markdown line numbers, meaningless to citizens */
+		#diff-container .d2h-code-linenumber,
+		#diff-container .d2h-code-side-linenumber {
+			display: none !important;
+		}
+		/* Hide +/- prefix markers — citizens don't need diff syntax */
+		#diff-container .d2h-code-line-prefix {
+			display: none !important;
+		}
+		/* Side-by-side content cells need the same wrapping */
+		#diff-container .d2h-code-side-line-ctn {
+			white-space: pre-wrap !important;
+			word-break: break-word !important;
+			padding: 0.2rem 1rem !important;
+		}
+		/* Hunk headers: show as readable section separators */
+		#diff-container .d2h-info {
+			background: #f0f4f8 !important;
+			color: #4a6078 !important;
+			border-color: #e0e6ed !important;
+			font-family: "Source Serif 4", Georgia, serif !important;
+			font-weight: 600 !important;
 			font-size: 0.8125rem !important;
 		}
-		#diff-container :global(.d2h-code-line-ctn) {
-			white-space: pre-wrap !important;
-			word-break: break-word;
+		/* Side-by-side: each side takes 50%, no horizontal scroll */
+		#diff-container .d2h-file-side-diff {
+			width: 50% !important;
+			overflow-x: hidden;
 		}
-		/* Make side-by-side scrollable on mobile */
-		#diff-container :global(.d2h-file-side-diff) {
-			overflow-x: auto;
+		/* Word-level highlights */
+		#diff-container ins {
+			background: #b7f5b7 !important;
+			text-decoration: none !important;
+		}
+		#diff-container del {
+			background: #f5b7b7 !important;
+			text-decoration: none !important;
 		}
 	</style>
 
@@ -91,39 +246,102 @@ const hasDiff = diffResult.diff.length > 0;
 		</div>
 	</div>
 
-	{!hasDiff ? (
+	{!hasDiff || !hasCleanedDiff ? (
 		<div style="text-align: center; padding: 4rem 0; color: var(--text-muted); font-size: 0.9375rem;">
 			No se encontraron diferencias entre estas fechas.
 		</div>
 	) : (
-		<div id="diff-container">
-			<div id="diff-loading" style="text-align: center; padding: 3rem 0; color: var(--text-muted); font-size: 0.875rem;">Cargando diferencias...</div>
-		</div>
+		<>
+			<div class="diff-bar">
+				<div class="diff-stats">
+					<span class="diff-stat-add">+{diffStats.additions}</span>
+					<span class="diff-stat-del">&minus;{diffStats.deletions}</span>
+					{diffStats.sections.length > 0 && (
+						<span>en {diffStats.sections.length} {diffStats.sections.length === 1 ? "sección" : "secciones"}</span>
+					)}
+				</div>
+				<div class="view-toggle">
+					<button class="view-btn active" data-view="unified" type="button">Unificada</button>
+					<button class="view-btn" data-view="side" type="button">Lado a lado</button>
+				</div>
+			</div>
+
+			<div class="diff-wide">
+				<div id="diff-container">
+					<div id="diff-loading" style="text-align: center; padding: 3rem 0; color: #6b8299; font-size: 0.875rem;">Cargando diferencias...</div>
+				</div>
+			</div>
+		</>
 	)}
 
-	{hasDiff && (
+	{hasDiff && hasCleanedDiff && (
 		<>
 			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
-			<script is:inline define:vars={{ rawDiff: diffResult.diff }}>
-				const script = document.createElement("script");
-				script.src = "https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui-slim.min.js";
-				script.onload = () => {
-					const targetElement = document.getElementById("diff-container");
-					const loading = document.getElementById("diff-loading");
-					if (loading) loading.remove();
-					const configuration = {
+			<script is:inline define:vars={{ rawDiff: cleanedDiff }}>
+				function cleanMarkdown(text) {
+					// Strip markdown heading markers (##### Artículo 21. → Artículo 21.)
+					return text.replace(/^#{1,6}\s+/, "");
+				}
+
+				function cleanHunkHeaders(container) {
+					// Clean @@ headers — unified uses .d2h-code-line, side-by-side uses .d2h-code-side-line
+					container.querySelectorAll("td.d2h-info").forEach(function (td) {
+						var codeLine = td.querySelector(".d2h-code-line, .d2h-code-side-line");
+						if (!codeLine) return;
+						var text = codeLine.textContent || "";
+						var match = text.match(/@@[^@]*@@\s*(.*)/);
+						if (match && match[1] && match[1].trim()) {
+							codeLine.textContent = cleanMarkdown(match[1].trim());
+						} else if (text.includes("@@")) {
+							codeLine.textContent = "···";
+						}
+					});
+
+					// Clean markdown heading markers from all diff content lines
+					container.querySelectorAll(".d2h-code-line-ctn, .d2h-code-side-line-ctn").forEach(function (ctn) {
+						ctn.childNodes.forEach(function (node) {
+							if (node.nodeType === 3) {
+								node.textContent = node.textContent.replace(/^#{1,6}\s+/, "");
+							}
+						});
+					});
+				}
+
+				function renderDiff(format) {
+					var targetElement = document.getElementById("diff-container");
+					targetElement.innerHTML = "";
+					var configuration = {
 						drawFileList: false,
-						matching: "lines",
-						outputFormat: "line-by-line",
+						matching: "words",
+						outputFormat: format,
 						highlight: false,
 						colorScheme: "light",
+						renderNothingWhenEmpty: false,
 					};
-					const diff2htmlUi = new Diff2HtmlUI(targetElement, rawDiff, configuration);
+					var diff2htmlUi = new Diff2HtmlUI(targetElement, rawDiff, configuration);
 					diff2htmlUi.draw();
+					cleanHunkHeaders(targetElement);
+				}
+
+				var script = document.createElement("script");
+				script.src = "https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui-slim.min.js";
+				script.onload = function () {
+					var loading = document.getElementById("diff-loading");
+					if (loading) loading.remove();
+					renderDiff("line-by-line");
+
+					document.querySelectorAll(".view-btn").forEach(function (btn) {
+						btn.addEventListener("click", function () {
+							document.querySelectorAll(".view-btn").forEach(function (b) { b.classList.remove("active"); });
+							btn.classList.add("active");
+							var format = btn.dataset.view === "side" ? "side-by-side" : "line-by-line";
+							renderDiff(format);
+						});
+					});
 				};
-				script.onerror = () => {
-					const loading = document.getElementById("diff-loading");
-					if (loading) loading.textContent = "Error al cargar el visor de diferencias. Recarga la pagina para intentarlo de nuevo.";
+				script.onerror = function () {
+					var loading = document.getElementById("diff-loading");
+					if (loading) loading.textContent = "Error al cargar el visor de diferencias. Recarga la página para intentarlo de nuevo.";
 				};
 				document.head.appendChild(script);
 			</script>
