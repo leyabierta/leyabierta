@@ -1,10 +1,11 @@
 ---
 import Base from "../layouts/Base.astro";
-import { searchLaws, getMaterias } from "../lib/api";
+import { searchLaws, getRanks, getMaterias } from "../lib/api";
 
 const q = Astro.url.searchParams.get("q") ?? "";
 const rank = Astro.url.searchParams.get("rank") ?? "";
 const status = Astro.url.searchParams.get("status") ?? "";
+const materia = Astro.url.searchParams.get("materia") ?? "";
 const page = Number(Astro.url.searchParams.get("page") ?? "1");
 const limit = 20;
 const offset = (page - 1) * limit;
@@ -13,9 +14,11 @@ const params: Record<string, string> = { limit: String(limit), offset: String(of
 if (q) params.q = q;
 if (rank) params.rank = rank;
 if (status) params.status = status;
+if (materia) params.materia = materia;
 
-const [result, materias] = await Promise.all([
+const [result, ranks, materiasList] = await Promise.all([
 	searchLaws(params),
+	getRanks(),
 	getMaterias(),
 ]);
 
@@ -42,6 +45,7 @@ function buildPageUrl(p: number): string {
 	if (q) u.set("q", q);
 	if (rank) u.set("rank", rank);
 	if (status) u.set("status", status);
+	if (materia) u.set("materia", materia);
 	if (p > 1) u.set("page", String(p));
 	const s = u.toString();
 	return s ? `/?${s}` : "/";
@@ -61,39 +65,77 @@ function pageNumbers(current: number, total: number): (number | "...")[] {
 	return pages;
 }
 
-const hasFilters = q || rank || status;
+const hasFilters = q || rank || status || materia;
+
+// Top 50 materias for the dropdown (keep it manageable)
+const topMaterias = materiasList.data.slice(0, 50);
 ---
 
-<Base title="Buscar leyes">
+<Base
+	title="Legislacion Espanola Consolidada"
+	description="Busca y consulta las leyes consolidadas de Espana. Textos legislativos actualizados, comparador de versiones y linea temporal de reformas."
+	ogTitle="Legislacion Espanola Consolidada — Ley Libre"
+	ogDescription="Busca y consulta las leyes consolidadas de Espana. Textos legislativos actualizados, comparador de versiones y linea temporal de reformas."
+	canonicalUrl="/"
+>
 	<style>
+		/* ── Hero ── */
 		.hero {
-			margin-bottom: 2rem;
+			text-align: center;
+			padding: 2.5rem 0 2rem;
 		}
 		.hero h1 {
 			font-family: var(--font-serif);
-			font-size: 1.75rem;
+			font-size: 2.25rem;
 			font-weight: 700;
-			margin-bottom: 0.25rem;
+			line-height: 1.15;
 			letter-spacing: -0.02em;
 		}
-		.hero p {
-			color: var(--text-muted);
-			font-size: 0.875rem;
+		.hero h1 em { font-style: normal; color: var(--accent-light); }
+		.hero-sub {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			margin-top: 0.75rem;
+			max-width: 36rem;
+			margin-left: auto;
+			margin-right: auto;
+			line-height: 1.6;
+		}
+		.hero-stats {
+			display: flex;
+			justify-content: center;
+			gap: 2rem;
+			margin-top: 1.5rem;
+		}
+		.hero-stat {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
+		.hero-stat-icon { color: var(--accent-light); opacity: 0.7; }
+		.hero-stat-value {
+			font-family: var(--font-mono);
+			font-size: 1.125rem;
+			font-weight: 700;
+		}
+		.hero-stat-label { font-size: 0.75rem; color: var(--text-muted); }
+		.hero-stat + .hero-stat {
+			padding-left: 2rem;
+			border-left: 1px solid var(--border);
 		}
 
-		.search-form {
-			margin-bottom: 1.75rem;
-		}
+		/* ── Search ── */
+		.search-form { margin-bottom: 1.75rem; }
 		.search-row {
 			display: flex;
 			gap: 0.5rem;
-			margin-bottom: 0.625rem;
+			margin-bottom: 0.5rem;
 		}
 		.search-input {
 			flex: 1;
-			padding: 0.5rem 0.75rem;
+			padding: 0.625rem 0.875rem;
 			border: 1px solid var(--border);
-			border-radius: 4px;
+			border-radius: 6px;
 			background: var(--surface);
 			color: var(--text);
 			font-size: 0.875rem;
@@ -104,6 +146,26 @@ const hasFilters = q || rank || status;
 			border-color: var(--accent);
 			box-shadow: 0 0 0 2px var(--accent-bg);
 		}
+
+		/* ── Collapsible filters ── */
+		.filter-toggle {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			background: none;
+			border: none;
+			color: var(--text-muted);
+			font-size: 0.8125rem;
+			font-family: var(--font-sans);
+			font-weight: 500;
+			cursor: pointer;
+			padding: 0.25rem 0;
+		}
+		.filter-toggle:hover { color: var(--text-secondary); }
+		.filter-toggle .arrow { transition: transform 0.2s; font-size: 0.625rem; }
+		.filter-toggle.open .arrow { transform: rotate(180deg); }
+		.filter-panel { display: none; margin-top: 0.5rem; }
+		.filter-panel.open { display: block; }
 		.filter-row {
 			display: flex;
 			gap: 0.5rem;
@@ -113,22 +175,55 @@ const hasFilters = q || rank || status;
 		.filter-select {
 			padding: 0.375rem 0.5rem;
 			border: 1px solid var(--border);
-			border-radius: 4px;
+			border-radius: 6px;
 			background: var(--surface);
 			color: var(--text-secondary);
 			font-size: 0.8125rem;
 			font-family: var(--font-sans);
 		}
-		.filter-select:focus {
-			outline: none;
-			border-color: var(--accent);
+		.filter-select:focus { outline: none; border-color: var(--accent); }
+		.clear-filters { font-size: 0.75rem; color: var(--text-muted); margin-left: 0.25rem; }
+
+		/* ── Empty state ── */
+		.empty-state {
+			text-align: center;
+			padding: 3rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
 		}
-		.clear-filters {
-			font-size: 0.75rem;
-			color: var(--text-muted);
-			margin-left: 0.25rem;
+		.empty-icon {
+			width: 2.5rem;
+			height: 2.5rem;
+			margin: 0 auto 1rem;
+			color: var(--accent-light);
+			opacity: 0.5;
+		}
+		.empty-title { font-weight: 600; font-size: 1rem; margin-bottom: 0.375rem; }
+		.empty-sub { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem; }
+		.suggest-chips {
+			display: flex;
+			justify-content: center;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+		}
+		.suggest-chip {
+			padding: 0.3rem 0.75rem;
+			border: 1px solid var(--border);
+			border-radius: 100px;
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			background: var(--surface);
+			transition: all 0.15s;
+		}
+		.suggest-chip:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+			background: var(--accent-bg);
+			text-decoration: none;
 		}
 
+		/* ── Results ── */
 		.results-info {
 			font-size: 0.75rem;
 			color: var(--text-muted);
@@ -136,7 +231,6 @@ const hasFilters = q || rank || status;
 			padding-bottom: 0.75rem;
 			border-bottom: 1px solid var(--border-light);
 		}
-
 		.law-card {
 			padding: 0.875rem 0;
 			border-bottom: 1px solid var(--border-light);
@@ -159,32 +253,43 @@ const hasFilters = q || rank || status;
 			font-size: 0.75rem;
 			color: var(--text-muted);
 		}
-		.law-card-dept {
-			font-size: 0.6875rem;
-			color: var(--text-muted);
-			margin-top: 0.25rem;
-		}
-
-		.empty-state {
-			color: var(--text-muted);
-			text-align: center;
-			padding: 4rem 0;
-			font-size: 0.9375rem;
-		}
 
 		@media (max-width: 640px) {
-			.hero h1 { font-size: 1.375rem; }
+			.hero h1 { font-size: 1.625rem; }
+			.hero-stats { flex-direction: column; gap: 0.75rem; align-items: center; }
+			.hero-stat + .hero-stat { padding-left: 0; border-left: none; padding-top: 0.75rem; border-top: 1px solid var(--border); }
 			.search-row { flex-direction: column; }
 			.filter-row { flex-direction: column; }
 			.filter-select { width: 100%; }
 		}
 	</style>
 
+	<!-- Hero -->
 	<div class="hero">
-		<h1>Legislacion Espanola Consolidada</h1>
-		<p>{result.total.toLocaleString("es")} normas disponibles</p>
+		<h1>Legislacion abierta,<br><em>version a version</em></h1>
+		<p class="hero-sub">
+			Explora la legislacion espanola como nunca antes. Cada reforma es
+			un commit con su fecha historica. Busca, compara, entiende.
+		</p>
+		<div class="hero-stats">
+			<div class="hero-stat">
+				<svg class="hero-stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+				<div>
+					<div class="hero-stat-value">{result.total.toLocaleString("es")}</div>
+					<div class="hero-stat-label">normas disponibles</div>
+				</div>
+			</div>
+			<div class="hero-stat">
+				<svg class="hero-stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
+				<div>
+					<div class="hero-stat-value">100%</div>
+					<div class="hero-stat-label">codigo abierto</div>
+				</div>
+			</div>
+		</div>
 	</div>
 
+	<!-- Search -->
 	<form method="get" action="/" class="search-form">
 		<div class="search-row">
 			<input
@@ -197,31 +302,63 @@ const hasFilters = q || rank || status;
 			<button type="submit" class="btn btn-primary">Buscar</button>
 		</div>
 
-		<div class="filter-row">
-			<select name="rank" class="filter-select">
-				<option value="">Todos los rangos</option>
-				{materias.data.map((m) => (
-					<option value={m.rank} selected={m.rank === rank}>
-						{RANK_LABELS[m.rank] ?? m.rank} ({m.count})
-					</option>
-				))}
-			</select>
-			<select name="status" class="filter-select">
-				<option value="">Todos los estados</option>
-				<option value="vigente" selected={status === "vigente"}>Vigente</option>
-				<option value="derogada" selected={status === "derogada"}>Derogada</option>
-				<option value="parcialmente_derogada" selected={status === "parcialmente_derogada"}>Parcialmente derogada</option>
-			</select>
-			{hasFilters && (
-				<a href="/" class="clear-filters">Limpiar filtros</a>
-			)}
+		<button type="button" class={`filter-toggle${hasFilters ? " open" : ""}`} id="filter-toggle">
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+			Filtros
+			<span class="arrow">&#9660;</span>
+		</button>
+
+		<div class={`filter-panel${hasFilters ? " open" : ""}`} id="filter-panel">
+			<div class="filter-row">
+				<select name="rank" class="filter-select">
+					<option value="">Todos los rangos</option>
+					{ranks.data.map((r) => (
+						<option value={r.rank} selected={r.rank === rank}>
+							{RANK_LABELS[r.rank] ?? r.rank} ({r.count})
+						</option>
+					))}
+				</select>
+				<select name="status" class="filter-select">
+					<option value="">Todos los estados</option>
+					<option value="vigente" selected={status === "vigente"}>Vigente</option>
+					<option value="derogada" selected={status === "derogada"}>Derogada</option>
+					<option value="parcialmente_derogada" selected={status === "parcialmente_derogada"}>Parcialmente derogada</option>
+				</select>
+				{topMaterias.length > 0 && (
+					<select name="materia" class="filter-select">
+						<option value="">Todas las materias</option>
+						{topMaterias.map((m) => (
+							<option value={m.materia} selected={m.materia === materia}>
+								{m.materia} ({m.count})
+							</option>
+						))}
+					</select>
+				)}
+				{hasFilters && (
+					<a href="/" class="clear-filters">Limpiar filtros</a>
+				)}
+			</div>
 		</div>
 	</form>
 
-	{result.data.length === 0 ? (
-		<p class="empty-state">
-			No se encontraron resultados{q ? ` para "${q}"` : ""}.
-		</p>
+	<!-- Results or empty state -->
+	{result.data.length === 0 && !hasFilters ? (
+		<div class="empty-state">
+			<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+			<div class="empty-title">Explora la legislacion</div>
+			<div class="empty-sub">Escribe un termino de busqueda o utiliza los filtros para encontrar normas.</div>
+			<div class="suggest-chips">
+				<a href="/?q=Constitucion" class="suggest-chip">Constitucion</a>
+				<a href="/?q=Codigo+Penal" class="suggest-chip">Codigo Penal</a>
+				<a href="/?q=LOPD" class="suggest-chip">LOPD</a>
+				<a href="/?q=Codigo+Civil" class="suggest-chip">Codigo Civil</a>
+			</div>
+		</div>
+	) : result.data.length === 0 ? (
+		<div class="empty-state">
+			<div class="empty-title">Sin resultados</div>
+			<div class="empty-sub">No se encontraron resultados{q ? ` para "${q}"` : ""}. Prueba con otros terminos.</div>
+		</div>
 	) : (
 		<div>
 			<div class="results-info">
@@ -262,4 +399,11 @@ const hasFilters = q || rank || status;
 			)}
 		</nav>
 	)}
+
+	<script is:inline>
+		document.getElementById("filter-toggle").addEventListener("click", function () {
+			this.classList.toggle("open");
+			document.getElementById("filter-panel").classList.toggle("open");
+		});
+	</script>
 </Base>

@@ -89,8 +89,14 @@ export function getLawDiff(
 	return fetchApi(`/v1/laws/${id}/diff?from=${from}&to=${to}`);
 }
 
-export function getMaterias(): Promise<{
+export function getRanks(): Promise<{
 	data: Array<{ rank: string; count: number }>;
+}> {
+	return fetchApi("/v1/ranks");
+}
+
+export function getMaterias(): Promise<{
+	data: Array<{ materia: string; count: number }>;
 }> {
 	return fetchApi("/v1/materias");
 }

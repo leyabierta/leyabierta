@@ -25,7 +25,13 @@ try {
 const hasDiff = diffResult.diff.length > 0;
 ---
 
-<Base title={`Cambios — ${law.short_title || law.title}`}>
+<Base
+	title={`Cambios — ${law.short_title || law.title}`}
+	ogTitle={`Cambios en ${law.short_title || law.title}`}
+	ogDescription={`Diferencias entre las versiones del ${from} y el ${to} de ${law.short_title || law.title}.`}
+	ogType="article"
+	canonicalUrl={`/laws/${id}/diff?from=${from}&to=${to}`}
+>
 	<style>
 		.diff-header {
 			margin-bottom: 1.5rem;
