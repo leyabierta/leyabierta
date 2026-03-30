@@ -90,9 +90,9 @@ export async function commitNorm(
 
 		if (!changed && !isFirst) continue;
 
-		if (changed) {
-			await repo.add(filePath);
-		}
+		// Always stage — even if unchanged for bootstrap (file may have been
+		// written by another norm's commit, we still need our own commit)
+		await repo.add(filePath);
 
 		const info = buildCommitInfo(
 			commitType,
@@ -102,7 +102,7 @@ export async function commitNorm(
 			filePath,
 			markdown,
 		);
-		const sha = await repo.commit(info);
+		const sha = await repo.commit(info, isFirst);
 
 		if (sha) {
 			commitsCreated++;
@@ -135,7 +135,7 @@ export async function bootstrapFromApi(
 	const reforms = textParser.extractReforms(blocks);
 
 	if (blocks.length === 0 || reforms.length === 0) {
-		return 0;
+		return -1; // -1 means no text available (vs 0 = already up to date)
 	}
 
 	const norm: Norm = { metadata, blocks, reforms };

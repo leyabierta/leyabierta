@@ -53,36 +53,57 @@ export class DbService {
 			country?: string;
 			rank?: string;
 			status?: string;
+			materia?: string;
 		},
 		limit: number,
 		offset: number,
 	): { laws: LawRow[]; total: number } {
 		if (query) {
-			// FTS5 search
-			const matchIds = this.db
-				.query<{ norm_id: string }, [string]>(
-					"SELECT norm_id FROM norms_fts WHERE norms_fts MATCH ? ORDER BY rank",
-				)
-				.all(query);
+			// If the query looks like a norm ID (e.g. BOE-A-2018-6405), search by ID directly
+			const isNormId = /^[A-Z]+-[A-Z]+-\d{4}-\d+$/i.test(query.trim());
+			let ids: string[];
 
-			if (matchIds.length === 0) return { laws: [], total: 0 };
+			if (isNormId) {
+				const direct = this.db
+					.query<{ id: string }, [string]>(
+						"SELECT id FROM norms WHERE id = ?",
+					)
+					.all(query.trim().toUpperCase());
+				ids = direct.map((r) => r.id);
+			} else {
+				// Escape FTS5 query: wrap each token in double quotes to avoid
+				// hyphens and special chars being treated as operators
+				const safeQuery = query
+					.replace(/"/g, "")
+					.split(/\s+/)
+					.filter(Boolean)
+					.map((token) => `"${token}"`)
+					.join(" ");
 
-			const ids = matchIds.map((r) => r.norm_id);
+				try {
+					const matchIds = this.db
+						.query<{ norm_id: string }, [string]>(
+							"SELECT norm_id FROM norms_fts WHERE norms_fts MATCH ? ORDER BY rank",
+						)
+						.all(safeQuery);
+					ids = matchIds.map((r) => r.norm_id);
+				} catch {
+					// If FTS still fails, fallback to LIKE on title
+					const likeIds = this.db
+						.query<{ id: string }, [string]>(
+							"SELECT id FROM norms WHERE title LIKE ?",
+						)
+						.all(`%${query}%`);
+					ids = likeIds.map((r) => r.id);
+				}
+			}
+
+			if (ids.length === 0) return { laws: [], total: 0 };
+
 			const conditions: string[] = [`id IN (${ids.map(() => "?").join(",")})`];
 			const params: unknown[] = [...ids];
 
-			if (filters.country) {
-				conditions.push("country = ?");
-				params.push(filters.country);
-			}
-			if (filters.rank) {
-				conditions.push("rank = ?");
-				params.push(filters.rank);
-			}
-			if (filters.status) {
-				conditions.push("status = ?");
-				params.push(filters.status);
-			}
+			this.applyFilters(conditions, params, filters);
 
 			const where = conditions.join(" AND ");
 
@@ -105,18 +126,7 @@ export class DbService {
 		const conditions: string[] = [];
 		const params: unknown[] = [];
 
-		if (filters.country) {
-			conditions.push("country = ?");
-			params.push(filters.country);
-		}
-		if (filters.rank) {
-			conditions.push("rank = ?");
-			params.push(filters.rank);
-		}
-		if (filters.status) {
-			conditions.push("status = ?");
-			params.push(filters.status);
-		}
+		this.applyFilters(conditions, params, filters);
 
 		const where =
 			conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -140,6 +150,40 @@ export class DbService {
 		return this.db
 			.query<LawRow, [string]>("SELECT * FROM norms WHERE id = ?")
 			.get(id);
+	}
+
+	/** List distinct materias with norm count, for the filter dropdown. */
+	listMaterias(): Array<{ materia: string; count: number }> {
+		return this.db
+			.query<{ materia: string; count: number }, []>(
+				"SELECT materia, count(*) as count FROM materias GROUP BY materia ORDER BY count DESC",
+			)
+			.all();
+	}
+
+	private applyFilters(
+		conditions: string[],
+		params: unknown[],
+		filters: { country?: string; rank?: string; status?: string; materia?: string },
+	): void {
+		if (filters.country) {
+			conditions.push("country = ?");
+			params.push(filters.country);
+		}
+		if (filters.rank) {
+			conditions.push("rank = ?");
+			params.push(filters.rank);
+		}
+		if (filters.status) {
+			conditions.push("status = ?");
+			params.push(filters.status);
+		}
+		if (filters.materia) {
+			conditions.push(
+				"id IN (SELECT norm_id FROM materias WHERE materia = ?)",
+			);
+			params.push(filters.materia);
+		}
 	}
 
 	getBlocks(normId: string): BlockRow[] {

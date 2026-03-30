@@ -354,17 +354,31 @@ describe("GET /v1/laws/:id/graph", () => {
 // GET /v1/materias
 // ---------------------------------------------------------------------------
 
-describe("GET /v1/materias", () => {
+describe("GET /v1/ranks", () => {
 	it("returns ranks with counts", async () => {
 		insertNorm({ id: "N1", rank: "ley" });
 		insertNorm({ id: "N2", rank: "ley" });
 		insertNorm({ id: "N3", rank: "constitucion" });
 
-		const { status, body } = await json("/v1/materias");
+		const { status, body } = await json("/v1/ranks");
 		expect(status).toBe(200);
 		expect(body.data).toHaveLength(2);
 		expect(body.data[0].rank).toBe("ley");
 		expect(body.data[0].count).toBe(2);
+	});
+});
+
+describe("GET /v1/materias", () => {
+	it("returns materia list with counts", async () => {
+		insertNorm({ id: "N1", rank: "ley" });
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["N1", "Derecho penal"]);
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["N1", "Seguridad"]);
+
+		const { status, body } = await json("/v1/materias");
+		expect(status).toBe(200);
+		expect(body.data).toHaveLength(2);
+		expect(body.data[0].materia).toBeDefined();
+		expect(body.data[0].count).toBe(1);
 	});
 });
 

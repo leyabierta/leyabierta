@@ -68,9 +68,12 @@ async function bootstrap() {
 				{ repoPath: OUTPUT_DIR, dataDir: DATA_DIR },
 			);
 
-			if (commits === 0) {
+			if (commits === -1) {
 				state.markSkipped(normId);
-				console.log(`${progress} ${normId} — skipped`);
+				console.log(`${progress} ${normId} — no text available`);
+			} else if (commits === 0) {
+				state.markDone(normId, 0);
+				// Already up to date, don't log to reduce noise
 			} else {
 				state.markDone(normId, commits);
 				console.log(`${progress} ${normId} — ${commits} commits`);

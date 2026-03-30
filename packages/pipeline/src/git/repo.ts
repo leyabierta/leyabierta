@@ -68,9 +68,12 @@ export class GitRepo {
 		await this.run(["add", relPath]);
 	}
 
-	async commit(info: CommitInfo): Promise<string | null> {
+	async commit(
+		info: CommitInfo,
+		allowEmpty = false,
+	): Promise<string | null> {
 		const status = await this.run(["status", "--porcelain"]);
-		if (!status) return null;
+		if (!status && !allowEmpty) return null;
 
 		const message = formatCommitMessage(info);
 
@@ -81,7 +84,11 @@ export class GitRepo {
 		}
 		const authorDate = `${gitDate}T00:00:00`;
 
-		await this.run(["-c", "commit.gpgsign=false", "commit", "-m", message], {
+		const args = ["-c", "commit.gpgsign=false", "commit"];
+		if (!status) args.push("--allow-empty");
+		args.push("-m", message);
+
+		await this.run(args, {
 			GIT_AUTHOR_DATE: authorDate,
 			GIT_COMMITTER_DATE: authorDate,
 			GIT_AUTHOR_NAME: info.authorName,

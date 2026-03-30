@@ -43,7 +43,8 @@ export class StateStore {
 	}
 
 	isProcessed(normId: string): boolean {
-		return this.data.norms[normId]?.status === "done";
+		const s = this.data.norms[normId]?.status;
+		return s === "done" || s === "skipped";
 	}
 
 	markDone(normId: string, commits: number, lastSha?: string): void {

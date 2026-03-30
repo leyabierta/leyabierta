@@ -49,7 +49,7 @@ describe("bootstrapFromLocalXml", () => {
 		const mdPath = join(
 			tmpDir,
 			"repo",
-			"constituciones",
+			"es",
 			"BOE-A-1978-31229.md",
 		);
 		const content = await Bun.file(mdPath).text();

@@ -10,25 +10,11 @@ import type { GitService } from "../services/git.ts";
 
 const boeClient = new BoeClient();
 
-// Map norm id to its filepath in the git repo
-function normFilepath(id: string, rank: string): string {
-	const RANK_FOLDERS: Record<string, string> = {
-		constitucion: "constituciones",
-		ley_organica: "leyes-organicas",
-		ley: "leyes",
-		real_decreto_ley: "reales-decretos-ley",
-		real_decreto_legislativo: "reales-decretos-legislativos",
-		real_decreto: "reales-decretos",
-		orden: "ordenes",
-		resolucion: "resoluciones",
-		acuerdo_internacional: "acuerdos-internacionales",
-		circular: "circulares",
-		instruccion: "instrucciones",
-		decreto: "decretos",
-		reglamento: "reglamentos",
-	};
-	const folder = RANK_FOLDERS[rank] ?? "otros";
-	return `${folder}/${id}.md`;
+// Map norm to its filepath in the git repo (ELI convention: jurisdiction/ID.md)
+function normFilepath(id: string, sourceUrl: string, country: string): string {
+	const match = sourceUrl.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
+	const jurisdiction = match ? match[1]! : country;
+	return `${jurisdiction}/${id}.md`;
 }
 
 const analisisCache = new LruCache<BoeAnalisis>(200);
@@ -52,6 +38,7 @@ export function lawRoutes(
 							country: query.country,
 							rank: query.rank,
 							status: query.status,
+							materia: query.materia,
 						},
 						limit,
 						offset,
@@ -69,6 +56,7 @@ export function lawRoutes(
 						country: t.Optional(t.String()),
 						rank: t.Optional(t.String()),
 						status: t.Optional(t.String()),
+						materia: t.Optional(t.String()),
 						limit: t.Optional(t.Numeric()),
 						offset: t.Optional(t.Numeric()),
 					}),
@@ -194,7 +182,7 @@ export function lawRoutes(
 						set.status = 404;
 						return { error: "Law not found" };
 					}
-					const filePath = normFilepath(params.id, law.rank);
+					const filePath = normFilepath(params.id, law.source_url, law.country);
 					const content = await gitService.getFileAtDate(filePath, params.date);
 					if (content === null) {
 						set.status = 404;
@@ -224,7 +212,7 @@ export function lawRoutes(
 					const cacheKey = `${params.id}:${query.from}:${query.to}`;
 					let diff = diffCache.get(cacheKey);
 					if (diff === undefined) {
-						const filePath = normFilepath(params.id, law.rank);
+						const filePath = normFilepath(params.id, law.source_url, law.country);
 						const result = await gitService.diff(
 							filePath,
 							query.from,
@@ -328,9 +316,14 @@ export function lawRoutes(
 				},
 			)
 
-			// 9. GET /v1/materias — ranks/categories available
-			.get("/materias", () => {
+			// 9. GET /v1/ranks — rank types with counts
+			.get("/ranks", () => {
 				return { data: dbService.getRanks() };
+			})
+
+			// 10. GET /v1/materias — subject categories with counts
+			.get("/materias", () => {
+				return { data: dbService.listMaterias() };
 			})
 
 			// 10. GET /v1/feed.xml — RSS feed of recent reforms
