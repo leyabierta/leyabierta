@@ -327,6 +327,12 @@ export function lawRoutes(
 			})
 
 			// 10. GET /v1/feed.xml — RSS feed of recent reforms
+			// 12. GET /v1/anomalias — detected data quality issues
+			.get("/anomalias", () => {
+				return dbService.getAnomalies();
+			})
+
+			// 13. GET /v1/feed.xml — RSS feed of recent reforms
 			.get("/feed.xml", ({ set }) => {
 				const reforms = dbService.getRecentReforms(50);
 				const items = reforms

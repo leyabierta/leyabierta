@@ -290,4 +290,67 @@ export class DbService {
 			.get(normId);
 		return (r?.c ?? 0) + (r2?.c ?? 0) > 0;
 	}
+
+	/** Detect data anomalies in BOE source data. */
+	getAnomalies(): {
+		futureDates: Array<{ type: string; norm_id: string; title: string; date: string; source_id?: string }>;
+		emptyBlocks: Array<{ norm_id: string; title: string; block_id: string; block_type: string }>;
+		unresolvedMaterias: Array<{ norm_id: string; title: string; materia: string }>;
+		missingEli: Array<{ id: string; title: string; source_url: string }>;
+	} {
+		const futureDates = [
+			// Reforms with impossible future dates (>2100)
+			...this.db
+				.query<
+					{ norm_id: string; title: string; date: string; source_id: string },
+					[]
+				>(
+					`SELECT r.norm_id, n.title, r.date, r.source_id
+					 FROM reforms r JOIN norms n ON n.id = r.norm_id
+					 WHERE r.date > '2100-01-01' ORDER BY r.date DESC`,
+				)
+				.all()
+				.map((r) => ({ type: "reform_future_date" as const, ...r })),
+			// Norms published before 1800 (suspicious)
+			...this.db
+				.query<{ norm_id: string; title: string; date: string }, []>(
+					`SELECT id as norm_id, title, published_at as date
+					 FROM norms WHERE published_at < '1800-01-01' ORDER BY published_at`,
+				)
+				.all()
+				.map((r) => ({ type: "norm_ancient_date" as const, ...r })),
+		];
+
+		const emptyBlocks = this.db
+			.query<
+				{ norm_id: string; title: string; block_id: string; block_type: string },
+				[]
+			>(
+				`SELECT b.norm_id, n.title, b.block_id, b.block_type
+				 FROM blocks b JOIN norms n ON n.id = b.norm_id
+				 WHERE b.block_type = 'precepto'
+				 AND (b.current_text = '' OR b.current_text IS NULL)
+				 LIMIT 100`,
+			)
+			.all();
+
+		const unresolvedMaterias = this.db
+			.query<{ norm_id: string; title: string; materia: string }, []>(
+				`SELECT m.norm_id, n.title, m.materia
+				 FROM materias m JOIN norms n ON n.id = m.norm_id
+				 WHERE m.materia LIKE '[código%'
+				 ORDER BY m.materia`,
+			)
+			.all();
+
+		const missingEli = this.db
+			.query<{ id: string; title: string; source_url: string }, []>(
+				`SELECT id, title, source_url FROM norms
+				 WHERE source_url NOT LIKE '%/eli/%'
+				 ORDER BY id`,
+			)
+			.all();
+
+		return { futureDates, emptyBlocks, unresolvedMaterias, missingEli };
+	}
 }

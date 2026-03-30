@@ -114,3 +114,27 @@ export interface AnalisisResult {
 export function getLawAnalisis(id: string): Promise<AnalisisResult> {
 	return fetchApi(`/v1/laws/${id}/analisis`);
 }
+
+export interface AnomalyItem {
+	type?: string;
+	norm_id: string;
+	title: string;
+	date?: string;
+	source_id?: string;
+	block_id?: string;
+	block_type?: string;
+	materia?: string;
+	id?: string;
+	source_url?: string;
+}
+
+export interface AnomaliesResult {
+	futureDates: AnomalyItem[];
+	emptyBlocks: AnomalyItem[];
+	unresolvedMaterias: AnomalyItem[];
+	missingEli: AnomalyItem[];
+}
+
+export function getAnomalies(): Promise<AnomaliesResult> {
+	return fetchApi("/v1/anomalias");
+}
