@@ -15,7 +15,7 @@ import { StateStore } from "./utils/state-store.ts";
 // Register Spain
 import "./spain/index.ts";
 
-const OUTPUT_DIR = "./output/es";
+const OUTPUT_DIR = process.env.REPO_PATH ?? "../leyes-es";
 const DATA_DIR = "./data";
 const STATE_PATH = `${DATA_DIR}/state.json`;
 const DB_PATH = `${DATA_DIR}/leylibre.db`;
