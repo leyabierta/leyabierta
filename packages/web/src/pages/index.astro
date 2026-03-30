@@ -1,0 +1,265 @@
+---
+import Base from "../layouts/Base.astro";
+import { searchLaws, getMaterias } from "../lib/api";
+
+const q = Astro.url.searchParams.get("q") ?? "";
+const rank = Astro.url.searchParams.get("rank") ?? "";
+const status = Astro.url.searchParams.get("status") ?? "";
+const page = Number(Astro.url.searchParams.get("page") ?? "1");
+const limit = 20;
+const offset = (page - 1) * limit;
+
+const params: Record<string, string> = { limit: String(limit), offset: String(offset) };
+if (q) params.q = q;
+if (rank) params.rank = rank;
+if (status) params.status = status;
+
+const [result, materias] = await Promise.all([
+	searchLaws(params),
+	getMaterias(),
+]);
+
+const totalPages = Math.ceil(result.total / limit);
+
+const RANK_LABELS: Record<string, string> = {
+	constitucion: "Constitucion",
+	ley_organica: "Ley Organica",
+	ley: "Ley",
+	real_decreto_ley: "Real Decreto-ley",
+	real_decreto_legislativo: "RD Legislativo",
+	real_decreto: "Real Decreto",
+	orden: "Orden",
+	resolucion: "Resolucion",
+	acuerdo_internacional: "Acuerdo Int.",
+	circular: "Circular",
+	instruccion: "Instruccion",
+	decreto: "Decreto",
+	reglamento: "Reglamento",
+};
+
+function buildPageUrl(p: number): string {
+	const u = new URLSearchParams();
+	if (q) u.set("q", q);
+	if (rank) u.set("rank", rank);
+	if (status) u.set("status", status);
+	if (p > 1) u.set("page", String(p));
+	const s = u.toString();
+	return s ? `/?${s}` : "/";
+}
+
+/** Generate page numbers with ellipsis: [1, 2, ..., 5, 6, 7, ..., 20] */
+function pageNumbers(current: number, total: number): (number | "...")[] {
+	if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+	const pages: (number | "...")[] = [];
+	const near = [current - 1, current, current + 1].filter(n => n >= 1 && n <= total);
+	const all = new Set([1, 2, ...near, total - 1, total]);
+	const sorted = [...all].sort((a, b) => a - b);
+	for (let i = 0; i < sorted.length; i++) {
+		if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) pages.push("...");
+		pages.push(sorted[i]!);
+	}
+	return pages;
+}
+
+const hasFilters = q || rank || status;
+---
+
+<Base title="Buscar leyes">
+	<style>
+		.hero {
+			margin-bottom: 2rem;
+		}
+		.hero h1 {
+			font-family: var(--font-serif);
+			font-size: 1.75rem;
+			font-weight: 700;
+			margin-bottom: 0.25rem;
+			letter-spacing: -0.02em;
+		}
+		.hero p {
+			color: var(--text-muted);
+			font-size: 0.875rem;
+		}
+
+		.search-form {
+			margin-bottom: 1.75rem;
+		}
+		.search-row {
+			display: flex;
+			gap: 0.5rem;
+			margin-bottom: 0.625rem;
+		}
+		.search-input {
+			flex: 1;
+			padding: 0.5rem 0.75rem;
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--text);
+			font-size: 0.875rem;
+			font-family: var(--font-sans);
+		}
+		.search-input:focus {
+			outline: none;
+			border-color: var(--accent);
+			box-shadow: 0 0 0 2px var(--accent-bg);
+		}
+		.filter-row {
+			display: flex;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+			align-items: center;
+		}
+		.filter-select {
+			padding: 0.375rem 0.5rem;
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			background: var(--surface);
+			color: var(--text-secondary);
+			font-size: 0.8125rem;
+			font-family: var(--font-sans);
+		}
+		.filter-select:focus {
+			outline: none;
+			border-color: var(--accent);
+		}
+		.clear-filters {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			margin-left: 0.25rem;
+		}
+
+		.results-info {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			margin-bottom: 0.75rem;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+
+		.law-card {
+			padding: 0.875rem 0;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.law-card:last-child { border-bottom: none; }
+		.law-card-title {
+			font-family: var(--font-serif);
+			font-weight: 600;
+			font-size: 1rem;
+			line-height: 1.4;
+			color: var(--text);
+		}
+		.law-card-title:hover { color: var(--accent); }
+		.law-card-meta {
+			margin-top: 0.375rem;
+			display: flex;
+			gap: 0.625rem;
+			flex-wrap: wrap;
+			align-items: center;
+			font-size: 0.75rem;
+			color: var(--text-muted);
+		}
+		.law-card-dept {
+			font-size: 0.6875rem;
+			color: var(--text-muted);
+			margin-top: 0.25rem;
+		}
+
+		.empty-state {
+			color: var(--text-muted);
+			text-align: center;
+			padding: 4rem 0;
+			font-size: 0.9375rem;
+		}
+
+		@media (max-width: 640px) {
+			.hero h1 { font-size: 1.375rem; }
+			.search-row { flex-direction: column; }
+			.filter-row { flex-direction: column; }
+			.filter-select { width: 100%; }
+		}
+	</style>
+
+	<div class="hero">
+		<h1>Legislacion Espanola Consolidada</h1>
+		<p>{result.total.toLocaleString("es")} normas disponibles</p>
+	</div>
+
+	<form method="get" action="/" class="search-form">
+		<div class="search-row">
+			<input
+				type="search"
+				name="q"
+				value={q}
+				placeholder="Buscar por titulo o contenido..."
+				class="search-input"
+			/>
+			<button type="submit" class="btn btn-primary">Buscar</button>
+		</div>
+
+		<div class="filter-row">
+			<select name="rank" class="filter-select">
+				<option value="">Todos los rangos</option>
+				{materias.data.map((m) => (
+					<option value={m.rank} selected={m.rank === rank}>
+						{RANK_LABELS[m.rank] ?? m.rank} ({m.count})
+					</option>
+				))}
+			</select>
+			<select name="status" class="filter-select">
+				<option value="">Todos los estados</option>
+				<option value="vigente" selected={status === "vigente"}>Vigente</option>
+				<option value="derogada" selected={status === "derogada"}>Derogada</option>
+				<option value="parcialmente_derogada" selected={status === "parcialmente_derogada"}>Parcialmente derogada</option>
+			</select>
+			{hasFilters && (
+				<a href="/" class="clear-filters">Limpiar filtros</a>
+			)}
+		</div>
+	</form>
+
+	{result.data.length === 0 ? (
+		<p class="empty-state">
+			No se encontraron resultados{q ? ` para "${q}"` : ""}.
+		</p>
+	) : (
+		<div>
+			<div class="results-info">
+				Mostrando {offset + 1}–{Math.min(offset + limit, result.total)} de {result.total.toLocaleString("es")} resultados
+				{q && <> para <strong>"{q}"</strong></>}
+			</div>
+
+			{result.data.map((law) => (
+				<article class="law-card">
+					<a href={`/laws/${law.id}`} class="law-card-title">
+						{law.title}
+					</a>
+					<div class="law-card-meta">
+						<span class={`badge badge-${law.status}`}>{law.status}</span>
+						<span>{RANK_LABELS[law.rank] ?? law.rank}</span>
+						<span>{law.published_at}</span>
+						<span style="font-family: var(--font-mono); font-size: 0.6875rem; opacity: 0.6;">{law.id}</span>
+					</div>
+				</article>
+			))}
+		</div>
+	)}
+
+	{totalPages > 1 && (
+		<nav class="pagination">
+			{page > 1 && (
+				<a href={buildPageUrl(page - 1)} class="btn" style="margin-right: 0.25rem;">&larr;</a>
+			)}
+			{pageNumbers(page, totalPages).map(p =>
+				p === "..." ? (
+					<span class="page-ellipsis">...</span>
+				) : (
+					<a href={buildPageUrl(p)} class={`page-num${p === page ? " current" : ""}`}>{p}</a>
+				)
+			)}
+			{page < totalPages && (
+				<a href={buildPageUrl(page + 1)} class="btn" style="margin-left: 0.25rem;">&rarr;</a>
+			)}
+		</nav>
+	)}
+</Base>

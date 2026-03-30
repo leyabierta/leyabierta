@@ -2,10 +2,14 @@
 	"name": "@leylibre/web",
 	"version": "0.1.0",
 	"type": "module",
-	"exports": {
-		".": "./src/index.ts"
+	"scripts": {
+		"dev": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview"
 	},
 	"dependencies": {
-		"@leylibre/api": "workspace:*"
+		"@astrojs/node": "^10.0.4",
+		"astro": "^6.1.1",
+		"diff2html": "^3.4.56"
 	}
 }

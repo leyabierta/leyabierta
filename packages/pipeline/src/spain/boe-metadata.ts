@@ -6,6 +6,7 @@
 
 import type { MetadataParser } from "../country.ts";
 import type { NormMetadata, NormStatus, Rank } from "../models.ts";
+import { parseBoeDate } from "../utils/date.ts";
 
 /** Map BOE rank codes to our Rank values. */
 const RANK_MAP: Record<string, Rank> = {
@@ -82,14 +83,7 @@ function deriveStatus(item: Record<string, unknown>): NormStatus {
 	return "vigente";
 }
 
-function parseBoeDate(raw: string | undefined): string | undefined {
-	if (!raw || raw === "99999999") return undefined;
-	if (raw.includes("-")) return raw;
-	if (raw.length >= 8) {
-		return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-	}
-	return undefined;
-}
+// parseBoeDate imported from ../utils/date.ts
 
 function cleanTitle(raw: string): string {
 	return raw?.replace(/\.$/, "").trim() ?? "";

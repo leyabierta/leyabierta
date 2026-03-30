@@ -1,0 +1,118 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { getLaw, getLawDiff } from "../../../lib/api";
+import type { LawDetail, DiffResult } from "../../../lib/api";
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/");
+
+const from = Astro.url.searchParams.get("from");
+const to = Astro.url.searchParams.get("to");
+
+if (!from || !to) return Astro.redirect(`/laws/${id}`);
+
+let law: LawDetail;
+let diffResult: DiffResult;
+try {
+	[law, diffResult] = await Promise.all([
+		getLaw(id),
+		getLawDiff(id, from, to),
+	]);
+} catch {
+	return Astro.redirect(`/laws/${id}`);
+}
+
+const hasDiff = diffResult.diff.length > 0;
+---
+
+<Base title={`Cambios — ${law.short_title || law.title}`}>
+	<style>
+		.diff-header {
+			margin-bottom: 1.5rem;
+		}
+		.diff-dates {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+			font-variant-numeric: tabular-nums;
+			margin-top: 0.5rem;
+		}
+		.diff-dates .arrow { color: var(--text-muted); }
+
+		/* Force light mode on diff2html — it has no dark mode support */
+		#diff-container {
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			overflow: hidden;
+			background: #fff;
+			color: #1a1a1a;
+			font-size: 0.8125rem;
+			line-height: 1.5;
+		}
+
+		/* Override diff2html internals for cleaner look */
+		#diff-container :global(.d2h-wrapper) {
+			font-family: var(--font-mono) !important;
+		}
+		#diff-container :global(.d2h-file-header) {
+			display: none;
+		}
+		#diff-container :global(.d2h-diff-table) {
+			font-size: 0.8125rem !important;
+		}
+		#diff-container :global(.d2h-code-line-ctn) {
+			white-space: pre-wrap !important;
+			word-break: break-word;
+		}
+		/* Make side-by-side scrollable on mobile */
+		#diff-container :global(.d2h-file-side-diff) {
+			overflow-x: auto;
+		}
+	</style>
+
+	<a href={`/laws/${id}`} style="font-size: 0.8125rem; color: var(--text-muted);">&larr; {law.short_title || "Volver"}</a>
+
+	<div class="diff-header">
+		<h1 style="font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; margin: 0.75rem 0 0; line-height: 1.35;">
+			Cambios en {law.short_title || law.title}
+		</h1>
+		<div class="diff-dates">
+			<span>{from}</span>
+			<span class="arrow">&rarr;</span>
+			<span>{to}</span>
+		</div>
+	</div>
+
+	{!hasDiff ? (
+		<div style="text-align: center; padding: 4rem 0; color: var(--text-muted); font-size: 0.9375rem;">
+			No se encontraron diferencias entre estas fechas.
+		</div>
+	) : (
+		<div id="diff-container"></div>
+	)}
+
+	{hasDiff && (
+		<>
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+			<script is:inline define:vars={{ rawDiff: diffResult.diff }}>
+				const script = document.createElement("script");
+				script.src = "https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui-slim.min.js";
+				script.onload = () => {
+					const targetElement = document.getElementById("diff-container");
+					const configuration = {
+						drawFileList: false,
+						matching: "lines",
+						outputFormat: "line-by-line",
+						highlight: false,
+						colorScheme: "light",
+					};
+					const diff2htmlUi = new Diff2HtmlUI(targetElement, rawDiff, configuration);
+					diff2htmlUi.draw();
+				};
+				document.head.appendChild(script);
+			</script>
+		</>
+	)}
+</Base>

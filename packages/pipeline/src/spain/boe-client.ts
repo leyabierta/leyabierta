@@ -6,6 +6,7 @@
  */
 
 import type { LegislativeClient } from "../country.ts";
+import { withRetry } from "../utils/retry.ts";
 
 const BASE_URL = "https://www.boe.es/datosabiertos/api";
 const DEFAULT_DELAY_MS = 200; // ~5 req/s courtesy limit
@@ -23,6 +24,69 @@ export class BoeClient implements LegislativeClient {
 	async getMetadata(normId: string): Promise<Uint8Array> {
 		const url = `${BASE_URL}/legislacion-consolidada/id/${normId}/metadatos`;
 		return this.fetch(url, "application/json");
+	}
+
+	async getAnalisis(normId: string): Promise<BoeAnalisis> {
+		const url = `${BASE_URL}/legislacion-consolidada/id/${normId}/analisis`;
+		const bytes = await this.fetch(url, "application/json");
+		const json = JSON.parse(new TextDecoder().decode(bytes));
+		if (json.status?.code !== "200") {
+			return {
+				materias: [],
+				notas: [],
+				referencias: { anteriores: [], posteriores: [] },
+			};
+		}
+		const data = json.data?.[0];
+		if (!data) {
+			return {
+				materias: [],
+				notas: [],
+				referencias: { anteriores: [], posteriores: [] },
+			};
+		}
+		return {
+			materias: toArray(data.materias).map((m: any) => m.materia?.texto ?? ""),
+			notas: extractNotas(data.notas),
+			referencias: {
+				anteriores: flattenRefs(
+					toArray(data.referencias?.anteriores),
+					"anterior",
+				),
+				posteriores: flattenRefs(
+					toArray(data.referencias?.posteriores),
+					"posterior",
+				),
+			},
+		};
+	}
+
+	/**
+	 * Extract materia codes from the ELI meta tags in the consolidated HTML.
+	 * The /analisis endpoint only returns a subset — the HTML has all of them.
+	 */
+	async getMateriaCodes(normId: string): Promise<string[]> {
+		const url = `https://www.boe.es/buscar/act.php?id=${normId}`;
+		try {
+			await this.throttle();
+			const res = await globalThis.fetch(url);
+			if (!res.ok) return [];
+			const html = await res.text();
+			const codes: string[] = [];
+			const re =
+				/resource="https:\/\/www\.boe\.es\/legislacion\/eli\/materias\/(\d+)"/g;
+			let match: RegExpExecArray | null;
+			const seen = new Set<string>();
+			while ((match = re.exec(html)) !== null) {
+				if (!seen.has(match[1]!)) {
+					seen.add(match[1]!);
+					codes.push(match[1]!);
+				}
+			}
+			return codes;
+		} catch {
+			return [];
+		}
 	}
 
 	async close(): Promise<void> {
@@ -49,17 +113,29 @@ export class BoeClient implements LegislativeClient {
 	}
 
 	private async fetch(url: string, accept: string): Promise<Uint8Array> {
-		await this.throttle();
+		return withRetry(
+			async () => {
+				await this.throttle();
 
-		const response = await globalThis.fetch(url, {
-			headers: { Accept: accept },
-		});
+				const response = await globalThis.fetch(url, {
+					headers: { Accept: accept },
+				});
 
-		if (!response.ok) {
-			throw new Error(`BOE request failed: ${response.status} ${url}`);
-		}
+				if (!response.ok) {
+					throw new Error(`BOE request failed: ${response.status} ${url}`);
+				}
 
-		return new Uint8Array(await response.arrayBuffer());
+				return new Uint8Array(await response.arrayBuffer());
+			},
+			{
+				maxRetries: 3,
+				baseDelayMs: 1000,
+				onRetry: (attempt, error) => {
+					const msg = error instanceof Error ? error.message : String(error);
+					console.warn(`  ⟳ Retry ${attempt}/3 for ${url}: ${msg}`);
+				},
+			},
+		);
 	}
 
 	private async throttle(): Promise<void> {
@@ -72,6 +148,62 @@ export class BoeClient implements LegislativeClient {
 		}
 		this.lastRequestAt = Date.now();
 	}
+}
+
+/** Normalize BOE API values that can be object, array, or empty. */
+function toArray(val: unknown): any[] {
+	if (Array.isArray(val)) return val;
+	if (val && typeof val === "object" && Object.keys(val).length > 0)
+		return [val];
+	return [];
+}
+
+/** Extract notas — can be [{nota: [...]}, ...] or {nota: "..."} */
+function extractNotas(raw: unknown): string[] {
+	if (!raw) return [];
+	const items = toArray(raw);
+	const result: string[] = [];
+	for (const item of items) {
+		const nota = item?.nota;
+		if (typeof nota === "string") {
+			result.push(nota);
+		} else if (Array.isArray(nota)) {
+			for (const n of nota) {
+				if (typeof n === "string") result.push(n);
+			}
+		}
+	}
+	return result;
+}
+
+function flattenRefs(groups: any[], key: string): BoeReference[] {
+	const refs: BoeReference[] = [];
+	for (const group of groups) {
+		const items = toArray(group[key]);
+		for (const ref of items) {
+			refs.push({
+				relation: ref.relacion?.texto ?? "",
+				normId: ref.id_norma ?? "",
+				text: ref.texto ?? "",
+			});
+		}
+	}
+	return refs;
+}
+
+export interface BoeReference {
+	relation: string;
+	normId: string;
+	text: string;
+}
+
+export interface BoeAnalisis {
+	materias: string[];
+	notas: string[];
+	referencias: {
+		anteriores: BoeReference[];
+		posteriores: BoeReference[];
+	};
 }
 
 /** Shape of a single item in the BOE list response. */

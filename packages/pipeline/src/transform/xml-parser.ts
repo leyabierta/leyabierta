@@ -8,6 +8,7 @@
 
 import { XMLParser } from "fast-xml-parser";
 import type { Block, Paragraph, Reform, Version } from "../models.ts";
+import { parseBoeDate } from "../utils/date.ts";
 
 // biome-ignore lint/suspicious/noExplicitAny: XML tree nodes have dynamic shape
 type XmlNode = Record<string, any>;
@@ -379,19 +380,6 @@ export function getBlockAtDate(
 		.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 
 	return applicable[0];
-}
-
-/**
- * Parse BOE date format (YYYYMMDD) to ISO date (YYYY-MM-DD).
- * Sentinel value 99999999 returns undefined.
- */
-function parseBoeDate(raw: string): string | undefined {
-	if (!raw || raw === "99999999") return undefined;
-	if (raw.includes("-")) return raw;
-	if (raw.length === 8) {
-		return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-	}
-	return undefined;
 }
 
 /** Decode HTML entities to characters. */

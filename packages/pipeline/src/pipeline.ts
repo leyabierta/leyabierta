@@ -90,7 +90,9 @@ export async function commitNorm(
 
 		if (!changed && !isFirst) continue;
 
-		await repo.add(filePath);
+		if (changed) {
+			await repo.add(filePath);
+		}
 
 		const info = buildCommitInfo(
 			commitType,

@@ -36,3 +36,4 @@ output/
 # tools
 .gstack/
 .claude/
+packages/web/.astro/

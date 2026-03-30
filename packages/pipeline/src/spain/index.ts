@@ -8,7 +8,11 @@ import { BoeClient } from "./boe-client.ts";
 import { BoeDiscovery } from "./boe-discovery.ts";
 import { BoeMetadataParser } from "./boe-metadata.ts";
 
-export { BoeClient } from "./boe-client.ts";
+export {
+	type BoeAnalisis,
+	BoeClient,
+	type BoeReference,
+} from "./boe-client.ts";
 export { BoeDiscovery } from "./boe-discovery.ts";
 export { BoeMetadataParser } from "./boe-metadata.ts";
 

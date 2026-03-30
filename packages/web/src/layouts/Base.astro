@@ -1,0 +1,199 @@
+---
+interface Props {
+	title: string;
+	description?: string;
+}
+
+const { title, description = "Legislacion espanola consolidada, accesible para todos." } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="description" content={description} />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="alternate" type="application/rss+xml" title="Ley Libre — RSS" href="/feed.xml" />
+	<title>{title} — Ley Libre</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+	<style is:global>
+		:root {
+			--bg: #fafaf8;
+			--surface: #ffffff;
+			--text: #1a1a1a;
+			--text-secondary: #555;
+			--text-muted: #888;
+			--border: #e0ddd8;
+			--border-light: #eee;
+			--accent: #1a5276;
+			--accent-light: #2874a6;
+			--accent-bg: #eaf2f8;
+			--success: #1e7e34;
+			--success-bg: #e8f5e9;
+			--warning: #b8860b;
+			--warning-bg: #fdf6e3;
+			--danger: #c0392b;
+			--danger-bg: #fdecea;
+			--max-w: 52rem;
+			--font-serif: "Source Serif 4", Georgia, serif;
+			--font-sans: "DM Sans", system-ui, sans-serif;
+			--font-mono: "JetBrains Mono", monospace;
+		}
+
+		*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+		html {
+			font-family: var(--font-sans);
+			background: var(--bg);
+			color: var(--text);
+			line-height: 1.65;
+			font-size: 16px;
+			-webkit-font-smoothing: antialiased;
+		}
+
+		a { color: var(--accent-light); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+
+		.container { max-width: var(--max-w); margin: 0 auto; padding: 0 1.25rem; }
+
+		/* ── Header ── */
+		header {
+			border-bottom: 1px solid var(--border);
+			background: var(--surface);
+		}
+		header nav {
+			max-width: var(--max-w);
+			margin: 0 auto;
+			padding: 0.875rem 1.25rem;
+			display: flex;
+			align-items: center;
+			gap: 1.75rem;
+		}
+		.logo {
+			font-family: var(--font-serif);
+			font-size: 1.125rem;
+			font-weight: 700;
+			color: var(--text);
+			letter-spacing: -0.01em;
+		}
+		.logo:hover { text-decoration: none; color: var(--text); }
+		.nav-links {
+			display: flex;
+			gap: 1.25rem;
+			align-items: center;
+			margin-left: auto;
+		}
+		header nav a:not(.logo) {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			font-weight: 500;
+		}
+		header nav a:not(.logo):hover { color: var(--text); text-decoration: none; }
+
+		/* ── Footer ── */
+		footer {
+			border-top: 1px solid var(--border);
+			padding: 2rem 0;
+			margin-top: 4rem;
+			text-align: center;
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			line-height: 1.8;
+		}
+		footer a { color: var(--text-muted); text-decoration: underline; }
+
+		/* ── Badges ── */
+		.badge {
+			display: inline-block;
+			padding: 0.1rem 0.5rem;
+			border-radius: 3px;
+			font-size: 0.6875rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+		}
+		.badge-vigente { background: var(--success-bg); color: var(--success); }
+		.badge-derogada { background: var(--danger-bg); color: var(--danger); }
+		.badge-parcialmente_derogada { background: var(--warning-bg); color: var(--warning); }
+
+		/* ── Buttons ── */
+		.btn {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			padding: 0.375rem 0.875rem;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			border-radius: 4px;
+			border: 1px solid var(--border);
+			background: var(--surface);
+			color: var(--text-secondary);
+			cursor: pointer;
+			transition: border-color 0.15s, color 0.15s;
+		}
+		.btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+		.btn-primary {
+			background: var(--accent);
+			color: white;
+			border-color: var(--accent);
+		}
+		.btn-primary:hover { background: var(--accent-light); border-color: var(--accent-light); color: white; }
+
+		/* ── Pagination ── */
+		.pagination {
+			margin-top: 1.5rem;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: 0.25rem;
+			font-size: 0.8125rem;
+		}
+		.page-num {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 2rem;
+			height: 2rem;
+			padding: 0 0.375rem;
+			border-radius: 4px;
+			color: var(--text-secondary);
+			font-variant-numeric: tabular-nums;
+		}
+		.page-num:hover { background: var(--accent-bg); color: var(--accent); text-decoration: none; }
+		.page-num.current { background: var(--accent); color: white; font-weight: 600; }
+		.page-ellipsis { color: var(--text-muted); padding: 0 0.25rem; }
+
+		/* ── Responsive ── */
+		@media (max-width: 640px) {
+			.container { padding: 0 1rem; }
+			header nav { padding: 0.75rem 1rem; gap: 1rem; }
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<nav>
+			<a href="/" class="logo">Ley Libre</a>
+			<div class="nav-links">
+				<a href="/">Buscar</a>
+				<a href="/feed.xml" target="_blank" rel="noopener">RSS</a>
+				<a href="https://github.com/pinka/leylibre" target="_blank" rel="noopener">GitHub</a>
+			</div>
+		</nav>
+	</header>
+
+	<main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+		<slot />
+	</main>
+
+	<footer>
+		<div class="container">
+			<p>Fuente: <a href="https://www.boe.es" target="_blank" rel="noopener">Agencia Estatal Boletin Oficial del Estado</a>. Los textos legislativos consolidados tienen caracter informativo.</p>
+			<p>Ley Libre es software libre (MIT). Los textos legislativos son de dominio publico.</p>
+		</div>
+	</footer>
+</body>
+</html>

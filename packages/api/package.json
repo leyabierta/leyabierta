@@ -6,6 +6,9 @@
 		".": "./src/index.ts"
 	},
 	"dependencies": {
-		"@leylibre/pipeline": "workspace:*"
+		"@elysiajs/cors": "^1.4.1",
+		"@elysiajs/swagger": "^1.3.1",
+		"@leylibre/pipeline": "workspace:*",
+		"elysia": "^1.4.28"
 	}
 }

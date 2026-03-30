@@ -92,7 +92,20 @@ Planned endpoints:
 
 ### Web (`packages/web/`)
 
-Citizen-facing website. Features:
+Citizen-facing website built with Astro (`output: "server"`, Node adapter).
+
+**Architecture: static-first, no islands yet.**
+The site is fully server-rendered. Interactive behavior (tabs, search form, diff viewer) uses inline `<script>` with vanilla JS — no UI framework (React, Svelte, etc.) is installed. This is intentional: the content is mostly static legislative text, so shipping zero JS by default keeps pages fast and accessible.
+
+**When to introduce islands:**
+When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components. The rest of the page stays as static HTML.
+
+**Current pages:**
+- `/` — search and list laws (form with query, rank, status filters; paginated)
+- `/laws/[id]` — law detail with tabs (summary, full text, reforms timeline)
+- `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
+
+**Features:**
 - Browse laws by country, type, status
 - Full-text search
 - Visual diff viewer (side-by-side version comparison)

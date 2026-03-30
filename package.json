@@ -10,8 +10,10 @@
 		"format": "biome check --write .",
 		"test": "bun test",
 		"pipeline": "bun run packages/pipeline/src/cli.ts",
+		"ingest": "bun run packages/pipeline/src/ingest-cli.ts",
+		"ingest-analisis": "bun run packages/pipeline/src/ingest-analisis-cli.ts",
 		"api": "bun run packages/api/src/index.ts",
-		"web": "bun run packages/web/src/index.ts"
+		"web": "bun run --cwd packages/web astro dev"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.10",

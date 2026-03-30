@@ -32,7 +32,7 @@ export function renderFrontmatter(
 }
 
 function escapeYaml(text: string): string {
-	return text.replace(/"/g, '\\"');
+	return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ");
 }
 
 function cleanTitle(title: string): string {

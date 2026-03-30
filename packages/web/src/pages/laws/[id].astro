@@ -1,0 +1,393 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getLaw, getLawAnalisis } from "../../lib/api";
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/");
+
+let law;
+let analisis;
+try {
+	[law, analisis] = await Promise.all([
+		getLaw(id),
+		getLawAnalisis(id),
+	]);
+} catch {
+	return Astro.redirect("/");
+}
+
+const RANK_LABELS: Record<string, string> = {
+	constitucion: "Constitucion",
+	ley_organica: "Ley Organica",
+	ley: "Ley",
+	real_decreto_ley: "Real Decreto-ley",
+	real_decreto_legislativo: "Real Decreto Legislativo",
+	real_decreto: "Real Decreto",
+	orden: "Orden",
+	decreto: "Decreto",
+	circular: "Circular",
+	resolucion: "Resolucion",
+	acuerdo_internacional: "Acuerdo Internacional",
+};
+
+function cleanText(block: { title: string; current_text: string }): string {
+	let text = block.current_text.trim();
+	const title = block.title.replace(/[\[\]]/g, "").trim();
+	if (title && text.startsWith(title)) {
+		text = text.slice(title.length).trim();
+	}
+	return text;
+}
+
+const contentBlocks = law.blocks
+	.filter(b => b.current_text && b.current_text.trim().length > 0)
+	.map(b => ({
+		...b,
+		cleanedText: cleanText(b),
+		displayTitle: b.title && !b.title.startsWith("[")
+			? b.title
+			: b.block_type === "preambulo" ? "Preambulo"
+			: b.block_type === "firma" ? "Firma"
+			: null,
+	}))
+	.filter(b => b.cleanedText.length > 0);
+
+const hasAnalisis = analisis.materias.length > 0
+	|| analisis.notas.length > 0
+	|| analisis.referencias.anteriores.length > 0
+	|| analisis.referencias.posteriores.length > 0;
+
+// Group posteriores by relation type
+const postByRelation = new Map<string, Array<{ normId: string; text: string }>>();
+for (const ref of analisis.referencias.posteriores) {
+	const key = ref.relation || "OTROS";
+	if (!postByRelation.has(key)) postByRelation.set(key, []);
+	postByRelation.get(key)!.push(ref);
+}
+const antByRelation = new Map<string, Array<{ normId: string; text: string }>>();
+for (const ref of analisis.referencias.anteriores) {
+	const key = ref.relation || "OTROS";
+	if (!antByRelation.has(key)) antByRelation.set(key, []);
+	antByRelation.get(key)!.push(ref);
+}
+---
+
+<Base title={law.short_title || law.title}>
+	<style>
+		.back-link { font-size: 0.8125rem; color: var(--text-muted); }
+		.back-link:hover { color: var(--text-secondary); }
+
+		.law-title {
+			font-family: var(--font-serif);
+			font-size: 1.375rem;
+			font-weight: 700;
+			margin: 0.75rem 0 0.625rem;
+			line-height: 1.35;
+			letter-spacing: -0.01em;
+		}
+
+		.meta-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			align-items: center;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 1.5rem;
+		}
+		.meta-sep { color: var(--border); }
+
+		/* ── Tabs ── */
+		.tabs {
+			display: flex;
+			gap: 0;
+			border-bottom: 1px solid var(--border);
+		}
+		.tab {
+			padding: 0.5rem 1rem;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--text-muted);
+			cursor: pointer;
+			border: none;
+			background: none;
+			border-bottom: 2px solid transparent;
+			margin-bottom: -1px;
+			font-family: var(--font-sans);
+		}
+		.tab:hover { color: var(--text); }
+		.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+		.tab-panel { display: none; padding-top: 1.5rem; }
+		.tab-panel.active { display: block; }
+
+		/* ── Timeline ── */
+		.timeline { list-style: none; padding: 0; }
+		.timeline-item { position: relative; padding: 0 0 1rem 1.5rem; }
+		.timeline-item::before { content: ""; position: absolute; left: 0.28rem; top: 0.5rem; bottom: -0.25rem; width: 1px; background: var(--border); }
+		.timeline-item:last-child::before { display: none; }
+		.timeline-dot { position: absolute; left: 0; top: 0.35rem; width: 0.625rem; height: 0.625rem; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); }
+		.timeline-item:last-child .timeline-dot { border-color: var(--accent); background: var(--accent); }
+		.timeline-date { font-weight: 600; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+		.timeline-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
+		.timeline-source { font-family: var(--font-mono); font-size: 0.6875rem; }
+		.timeline-link { font-size: 0.75rem; margin-top: 0.25rem; display: inline-block; }
+
+		/* ── Content blocks ── */
+		.law-content { font-family: var(--font-serif); line-height: 1.8; font-size: 0.9375rem; }
+		.block-section { margin-bottom: 1.75rem; padding-bottom: 1.75rem; border-bottom: 1px solid var(--border-light); }
+		.block-section:last-child { border-bottom: none; }
+		.block-title { font-family: var(--font-sans); font-weight: 600; font-size: 0.8125rem; color: var(--accent); margin-bottom: 0.625rem; }
+		.block-text { color: var(--text); white-space: pre-line; }
+		.block-text.collapsed { max-height: 14rem; overflow: hidden; position: relative; }
+		.block-text.collapsed::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 4rem; background: linear-gradient(transparent, var(--bg)); pointer-events: none; }
+		.expand-btn { display: inline-block; margin-top: 0.375rem; font-size: 0.8125rem; color: var(--accent-light); cursor: pointer; background: none; border: none; font-family: var(--font-sans); padding: 0; }
+		.expand-btn:hover { text-decoration: underline; }
+
+		/* ── Análisis ── */
+		.analisis-section { margin-bottom: 2rem; }
+		.analisis-heading {
+			font-size: 0.9375rem;
+			font-weight: 600;
+			margin-bottom: 0.75rem;
+			padding-bottom: 0.375rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.ref-group { margin-bottom: 1.25rem; }
+		.ref-relation {
+			font-size: 0.8125rem;
+			font-weight: 600;
+			color: var(--text-secondary);
+			margin-bottom: 0.375rem;
+		}
+		.ref-list { list-style: disc; padding-left: 1.5rem; margin: 0; }
+		.ref-list li { font-size: 0.8125rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 0.25rem; }
+		.ref-list a { font-family: var(--font-mono); font-size: 0.75rem; }
+		.materia-tag {
+			display: inline-block;
+			padding: 0.125rem 0.5rem;
+			border: 1px solid var(--border);
+			border-radius: 3px;
+			font-size: 0.75rem;
+			color: var(--text-secondary);
+			margin: 0.125rem 0.25rem 0.125rem 0;
+			transition: background 0.15s;
+		}
+		.materia-tag:hover { background: var(--accent-bg); color: var(--accent); text-decoration: none; }
+		.nota-item { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.375rem; }
+		.meta-dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; font-size: 0.8125rem; margin: 0; }
+		.meta-dl dt { color: var(--text-muted); font-weight: 500; }
+		.meta-dl dd { color: var(--text); margin: 0; }
+
+		/* ── Quick stats ── */
+		.quick-stats {
+			display: flex;
+			gap: 1.5rem;
+			margin-bottom: 1.5rem;
+			padding: 1rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 6px;
+		}
+		.stat-item { text-align: center; }
+		.stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+		.stat-label { font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+		@media (max-width: 640px) {
+			.quick-stats { gap: 1rem; padding: 0.75rem; }
+			.stat-value { font-size: 1rem; }
+		}
+	</style>
+
+	<a href="/" class="back-link">&larr; Volver</a>
+
+	<h1 class="law-title">{law.title}</h1>
+
+	<div class="meta-row">
+		<span class={`badge badge-${law.status}`}>{law.status}</span>
+		<span class="meta-sep">·</span>
+		<span>{RANK_LABELS[law.rank] ?? law.rank}</span>
+		<span class="meta-sep">·</span>
+		<span>{law.published_at}</span>
+		{law.updated_at && law.updated_at !== law.published_at && (
+			<>
+				<span class="meta-sep">·</span>
+				<span>Act. {law.updated_at}</span>
+			</>
+		)}
+		<span class="meta-sep">·</span>
+		<a href={law.source_url} target="_blank" rel="noopener" style="font-size: 0.8125rem;">BOE &nearr;</a>
+	</div>
+
+	<!-- Tabs -->
+	<div class="tabs">
+		<button class="tab active" data-tab="resumen">Resumen</button>
+		<button class="tab" data-tab="texto">Texto</button>
+		{law.reforms.length > 1 && (
+			<button class="tab" data-tab="reformas">Reformas ({law.reforms.length})</button>
+		)}
+	</div>
+
+	<!-- Tab: Resumen (default) -->
+	<div class="tab-panel active" id="tab-resumen">
+		<div class="quick-stats">
+			<div class="stat-item">
+				<div class="stat-value">{law.blocks.length}</div>
+				<div class="stat-label">Articulos</div>
+			</div>
+			<div class="stat-item">
+				<div class="stat-value">{law.reforms.length}</div>
+				<div class="stat-label">Versiones</div>
+			</div>
+			{analisis.materias.length > 0 && (
+				<div class="stat-item">
+					<div class="stat-value">{analisis.materias.length}</div>
+					<div class="stat-label">Materias</div>
+				</div>
+			)}
+			{(analisis.referencias.anteriores.length + analisis.referencias.posteriores.length) > 0 && (
+				<div class="stat-item">
+					<div class="stat-value">{analisis.referencias.anteriores.length + analisis.referencias.posteriores.length}</div>
+					<div class="stat-label">Referencias</div>
+				</div>
+			)}
+		</div>
+
+		<div class="analisis-section">
+			<h3 class="analisis-heading">Datos generales</h3>
+			<dl class="meta-dl">
+				<dt>Rango</dt><dd>{RANK_LABELS[law.rank] ?? law.rank}</dd>
+				<dt>Fecha de publicacion</dt><dd>{law.published_at}</dd>
+				{law.updated_at && law.updated_at !== law.published_at && (
+					<><dt>Fecha de entrada en vigor</dt><dd>{law.updated_at}</dd></>
+				)}
+				<dt>Estado</dt><dd><span class={`badge badge-${law.status}`}>{law.status}</span></dd>
+				<dt>Departamento</dt><dd>{law.department}</dd>
+				{law.reforms.length > 1 && (
+					<><dt>Reformas</dt><dd>{law.reforms.length} ({law.reforms[0]!.date} — {law.reforms[law.reforms.length - 1]!.date})</dd></>
+				)}
+			</dl>
+		</div>
+
+		{analisis.notas.length > 0 && (
+			<div class="analisis-section">
+				<h3 class="analisis-heading">Notas</h3>
+				{analisis.notas.map(nota => (
+					<p class="nota-item">{nota}</p>
+				))}
+			</div>
+		)}
+
+		{analisis.referencias.anteriores.length > 0 && (
+			<div class="analisis-section">
+				<h3 class="analisis-heading">Referencias anteriores</h3>
+				{[...antByRelation.entries()].map(([relation, refs]) => (
+					<div class="ref-group">
+						<div class="ref-relation">{relation}:</div>
+						<ul class="ref-list">
+							{refs.map(ref => (
+								<li>
+									{ref.text}{ref.text ? " " : ""}
+									{ref.normId && <a href={`/laws/${ref.normId}`}>Ref. {ref.normId}</a>}
+								</li>
+							))}
+						</ul>
+					</div>
+				))}
+			</div>
+		)}
+
+		{analisis.referencias.posteriores.length > 0 && (
+			<div class="analisis-section">
+				<h3 class="analisis-heading">Referencias posteriores</h3>
+				{[...postByRelation.entries()].map(([relation, refs]) => (
+					<div class="ref-group">
+						<div class="ref-relation">{relation}:</div>
+						<ul class="ref-list">
+							{refs.map(ref => (
+								<li>
+									{ref.text}{ref.text ? " " : ""}
+									{ref.normId && <a href={`/laws/${ref.normId}`}>Ref. {ref.normId}</a>}
+								</li>
+							))}
+						</ul>
+					</div>
+				))}
+			</div>
+		)}
+
+		{analisis.materias.length > 0 && (
+			<div class="analisis-section">
+				<h3 class="analisis-heading">Materias</h3>
+				<div>
+					{analisis.materias.map(m => (
+						<a href={`/?q=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
+					))}
+				</div>
+			</div>
+		)}
+	</div>
+
+	<!-- Tab: Texto -->
+	<div class="tab-panel" id="tab-texto">
+		<div class="law-content">
+			{contentBlocks.map((block) => {
+				const isLong = block.cleanedText.length > 2000;
+				return (
+					<div class="block-section">
+						{block.displayTitle && <div class="block-title">{block.displayTitle}</div>}
+						<div class={`block-text${isLong ? " collapsed" : ""}`}>
+							{block.cleanedText}
+						</div>
+						{isLong && (
+							<button class="expand-btn" onclick="
+								const text = this.previousElementSibling;
+								if (text.classList.contains('collapsed')) {
+									text.classList.remove('collapsed');
+									this.textContent = 'Mostrar menos';
+								} else {
+									text.classList.add('collapsed');
+									this.textContent = 'Leer mas...';
+								}
+							">Leer mas...</button>
+						)}
+					</div>
+				);
+			})}
+		</div>
+	</div>
+
+	<!-- Tab: Reformas -->
+	{law.reforms.length > 1 && (
+		<div class="tab-panel" id="tab-reformas">
+			<ul class="timeline">
+				{law.reforms.map((reform, i) => {
+					const isFirst = i === 0;
+					const prevDate = i > 0 ? law.reforms[i - 1]!.date : null;
+					const diffUrl = prevDate ? `/laws/${id}/diff?from=${prevDate}&to=${reform.date}` : null;
+					return (
+						<li class="timeline-item">
+							<div class="timeline-dot"></div>
+							<div class="timeline-date">{reform.date}</div>
+							<div class="timeline-detail">
+								{isFirst ? "Version original" : `${reform.affected_blocks.length} bloques modificados`}
+								{" "}<span class="timeline-source">{reform.source_id}</span>
+							</div>
+							{diffUrl && <a href={diffUrl} class="timeline-link">Ver cambios &rarr;</a>}
+						</li>
+					);
+				})}
+			</ul>
+		</div>
+	)}
+
+	<script is:inline>
+		document.querySelectorAll('.tab').forEach(tab => {
+			tab.addEventListener('click', () => {
+				document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+				document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+				tab.classList.add('active');
+				document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
+			});
+		});
+	</script>
+</Base>
