@@ -208,8 +208,8 @@ for (const ref of analisis.referencias.anteriores) {
 			border-radius: 10px;
 		}
 		.stat-icon { color: var(--accent-light); opacity: 0.6; flex-shrink: 0; }
-		.stat-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
-		.stat-label { font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+		.stat-value { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+		.stat-label { font-size: 0.6875rem; color: var(--text-muted); text-transform: none; letter-spacing: 0.04em; }
 
 		/* ── Cards ── */
 		.card {
@@ -308,9 +308,9 @@ for (const ref of analisis.referencias.anteriores) {
 	<!-- Tabs -->
 	<div class="tabs">
 		<button class="tab active" data-tab="resumen">Resumen</button>
-		<button class="tab" data-tab="texto">Texto</button>
+		<button class="tab" data-tab="texto">Texto completo</button>
 		{law.reforms.length > 1 && (
-			<button class="tab" data-tab="reformas">Reformas <span class="tab-badge">{law.reforms.length}</span></button>
+			<button class="tab" data-tab="reformas">Historial de cambios <span class="tab-badge">{law.reforms.length}</span></button>
 		)}
 	</div>
 
@@ -321,7 +321,7 @@ for (const ref of analisis.referencias.anteriores) {
 				<svg class="stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
 				<div>
 					<div class="stat-value">{law.blocks.length}</div>
-					<div class="stat-label">Articulos</div>
+					<div class="stat-label">Artículos</div>
 				</div>
 			</div>
 			<div class="stat-card">
@@ -336,7 +336,7 @@ for (const ref of analisis.referencias.anteriores) {
 					<svg class="stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
 					<div>
 						<div class="stat-value">{analisis.materias.length}</div>
-						<div class="stat-label">Materias</div>
+						<div class="stat-label">Temas</div>
 					</div>
 				</div>
 			)}
@@ -354,7 +354,7 @@ for (const ref of analisis.referencias.anteriores) {
 		<div class="card">
 			<h3 class="card-heading">
 				<svg class="card-heading-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-				Datos generales
+				Información general
 			</h3>
 			<div class="meta-grid">
 				<div>
@@ -399,7 +399,7 @@ for (const ref of analisis.referencias.anteriores) {
 
 		{analisis.referencias.anteriores.length > 0 && (
 			<div class="section">
-				<h3 class="section-heading">Referencias anteriores</h3>
+				<h3 class="section-heading">Esta ley se basa en</h3>
 				{[...antByRelation.entries()].map(([relation, refs]) => (
 					<div class="ref-group">
 						<div class="ref-relation">{relation}:</div>
@@ -421,7 +421,7 @@ for (const ref of analisis.referencias.anteriores) {
 
 		{analisis.referencias.posteriores.length > 0 && (
 			<div class="section">
-				<h3 class="section-heading">Referencias posteriores</h3>
+				<h3 class="section-heading">Leyes que modifican esta</h3>
 				{[...postByRelation.entries()].map(([relation, refs]) => (
 					<div class="ref-group">
 						<div class="ref-relation">{relation}:</div>
@@ -443,7 +443,7 @@ for (const ref of analisis.referencias.anteriores) {
 
 		{analisis.materias.length > 0 && (
 			<div class="section">
-				<h3 class="section-heading">Materias</h3>
+				<h3 class="section-heading">Temas</h3>
 				<div>
 					{analisis.materias.map(m => (
 						<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
@@ -495,7 +495,7 @@ for (const ref of analisis.referencias.anteriores) {
 							<div class="timeline-dot"></div>
 							<div class="timeline-date">{reform.date}</div>
 							<div class="timeline-detail">
-								{isFirst ? "Version original" : `${reform.affected_blocks.length} bloques modificados`}
+								{isFirst ? "Versión original" : `${reform.affected_blocks.length} artículos modificados`}
 								{" "}<span class="timeline-source">{reform.source_id}</span>
 							</div>
 							{diffUrl && <a href={diffUrl} class="timeline-link">Ver cambios &rarr;</a>}

@@ -115,10 +115,10 @@ const topMaterias = materiasList.data.slice(0, 50);
 ---
 
 <Base
-	title="Legislacion Espanola Consolidada"
-	description="12.000+ leyes espanolas con historial completo de reformas. Busca, compara versiones y consulta 190 anos de legislacion consolidada."
-	ogTitle="Ley Libre — Legislacion abierta, version a version"
-	ogDescription="12.000+ leyes espanolas con 680.000+ versiones de articulos. Busca, compara y entiende como cambian las leyes."
+	title="Legislación Española Consolidada"
+	description="Más de 12.000 leyes españolas con historial completo de cambios. Busca, compara versiones y consulta 190 años de legislación consolidada."
+	ogTitle="Ley Libre — Todas las leyes de España, actualizadas y accesibles"
+	ogDescription="Más de 12.000 leyes españolas con historial completo de cambios. Consulta, compara y entiende la legislación."
 	canonicalUrl="/"
 >
 	<style>
@@ -130,7 +130,6 @@ const topMaterias = materiasList.data.slice(0, 50);
 			line-height: 1.15;
 			letter-spacing: -0.02em;
 		}
-		.hero h1 em { font-style: normal; color: var(--accent-light); }
 		.hero-sub {
 			color: var(--text-secondary);
 			font-size: 1rem;
@@ -139,33 +138,6 @@ const topMaterias = materiasList.data.slice(0, 50);
 			margin-left: auto;
 			margin-right: auto;
 			line-height: 1.7;
-		}
-
-		/* ── Big stats ── */
-		.big-stats {
-			display: grid;
-			grid-template-columns: repeat(4, 1fr);
-			gap: 0.75rem;
-			margin: 2rem 0;
-		}
-		.big-stat {
-			text-align: center;
-			padding: 1.25rem 0.5rem;
-			background: var(--surface);
-			border: 1px solid var(--border-light);
-			border-radius: 10px;
-		}
-		.big-stat-value {
-			font-family: var(--font-mono);
-			font-size: 1.5rem;
-			font-weight: 700;
-			color: var(--accent);
-			line-height: 1.2;
-		}
-		.big-stat-label {
-			font-size: 0.75rem;
-			color: var(--text-muted);
-			margin-top: 0.25rem;
 		}
 
 		/* ── Search ── */
@@ -235,7 +207,7 @@ const topMaterias = materiasList.data.slice(0, 50);
 			border-radius: 8px; font-size: 0.875rem; color: var(--text); transition: all 0.15s;
 		}
 		.juri-card:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-		.juri-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); }
+		.juri-count { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-size: 0.75rem; color: var(--text-muted); }
 
 		/* Most reformed */
 		.reformed-list { list-style: none; padding: 0; }
@@ -245,7 +217,7 @@ const topMaterias = materiasList.data.slice(0, 50);
 		}
 		.reformed-item:last-child { border-bottom: none; }
 		.reformed-count {
-			font-family: var(--font-mono); font-size: 1.125rem; font-weight: 700;
+			font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-size: 1.125rem; font-weight: 700;
 			color: var(--accent); min-width: 2.5rem; text-align: right; flex-shrink: 0;
 		}
 		.reformed-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
@@ -271,7 +243,6 @@ const topMaterias = materiasList.data.slice(0, 50);
 
 		@media (max-width: 640px) {
 			.hero h1 { font-size: 1.625rem; }
-			.big-stats { grid-template-columns: repeat(2, 1fr); }
 			.search-row { flex-direction: column; }
 			.filter-row { flex-direction: column; }
 			.filter-select { width: 100%; }
@@ -282,39 +253,18 @@ const topMaterias = materiasList.data.slice(0, 50);
 
 	<!-- Hero -->
 	<div class="hero">
-		<h1>Legislacion abierta,<br><em>version a version</em></h1>
+		<h1>Todas las leyes de España,<br>actualizadas y accesibles</h1>
 		<p class="hero-sub">
-			Explora la legislacion espanola como nunca antes. Cada reforma es
-			un commit con su fecha historica. Busca, compara, entiende.
+			Más de {stats ? stats.norms.toLocaleString("es") : "12.000"} leyes
+			y {stats ? stats.articles.toLocaleString("es") : "435.000"} artículos desde 1835.
+			Consulta el texto completo, compara versiones y sigue los cambios de cualquier ley.
 		</p>
 	</div>
-
-	{/* Big stats — only on landing */}
-	{stats && (
-		<div class="big-stats">
-			<div class="big-stat">
-				<div class="big-stat-value">{stats.norms.toLocaleString("es")}</div>
-				<div class="big-stat-label">leyes</div>
-			</div>
-			<div class="big-stat">
-				<div class="big-stat-value">{stats.articles.toLocaleString("es")}</div>
-				<div class="big-stat-label">articulos</div>
-			</div>
-			<div class="big-stat">
-				<div class="big-stat-value">{stats.versions.toLocaleString("es")}</div>
-				<div class="big-stat-label">versiones</div>
-			</div>
-			<div class="big-stat">
-				<div class="big-stat-value">{stats.reforms.toLocaleString("es")}</div>
-				<div class="big-stat-label">reformas</div>
-			</div>
-		</div>
-	)}
 
 	<!-- Search -->
 	<form method="get" action="/" class="search-form">
 		<div class="search-row">
-			<input type="search" name="q" value={q} placeholder="Buscar por titulo, contenido o ID de norma..." class="search-input" />
+			<input type="search" name="q" value={q} placeholder="Buscar leyes..." class="search-input" />
 			<button type="submit" class="btn btn-primary">Buscar</button>
 		</div>
 		<button type="button" class={`filter-toggle${hasSearch ? " open" : ""}`} id="filter-toggle">
@@ -402,7 +352,7 @@ const topMaterias = materiasList.data.slice(0, 50);
 		<>
 			{/* Jurisdictions */}
 			<div class="section">
-				<h2 class="section-title">Por jurisdiccion</h2>
+				<h2 class="section-title">Explora por comunidad autónoma</h2>
 				<div class="juri-grid">
 					{jurisdictions.data.map(j => (
 						<a href={`/?q=&rank=&status=&materia=&page=1`} class="juri-card">
@@ -416,7 +366,7 @@ const topMaterias = materiasList.data.slice(0, 50);
 			{/* Two-column: Most reformed + Recent reforms */}
 			<div class="two-col section">
 				<div>
-					<h2 class="section-title">Las mas reformadas</h2>
+					<h2 class="section-title">Leyes que más han cambiado</h2>
 					<ul class="reformed-list">
 						{mostReformed!.data.map(law => (
 							<li class="reformed-item">
@@ -430,7 +380,7 @@ const topMaterias = materiasList.data.slice(0, 50);
 					</ul>
 				</div>
 				<div>
-					<h2 class="section-title">Ultimas reformas</h2>
+					<h2 class="section-title">Cambios recientes</h2>
 					<ul class="recent-list">
 						{recentReforms!.data.map(r => (
 							<li class="recent-item">

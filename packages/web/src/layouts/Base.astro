@@ -65,15 +65,15 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
 	<style is:global>
 		:root {
-			--bg: #f7f4ef;
+			--bg: #fafaf8;
 			--surface: #ffffff;
 			--text: #0b1120;
 			--text-secondary: #4a6078;
 			--text-muted: #6b8299;
 			--border: #c4ced8;
 			--border-light: #e8ecf0;
-			--accent: #1a3f7a;
-			--accent-light: #2b5ea7;
+			--accent: #1a365d;
+			--accent-light: #2b5797;
 			--accent-bg: #e6eef8;
 			--accent-faint: #f2f6fb;
 			--success: #1a7a4e;
@@ -155,25 +155,12 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		/* ── Header ── */
 		header {
 			border-bottom: 1px solid var(--border);
-			background: rgba(247,244,239,0.88);
-			backdrop-filter: blur(16px);
+			background: var(--surface);
 			position: sticky;
 			top: 0;
 			z-index: 100;
 		}
-		@media (prefers-color-scheme: dark) {
-			:root:not([data-theme="light"]) header {
-				background: rgba(15,17,23,0.88);
-			}
-		}
-		:root[data-theme="dark"] header {
-			background: rgba(15,17,23,0.88);
-		}
-		:root[data-theme="light"] header {
-			background: rgba(247,244,239,0.88);
-		}
-		/* ── Theme toggle dropdown ── */
-		.theme-wrap { position: relative; }
+		/* ── Theme toggle ── */
 		.theme-toggle {
 			background: none;
 			border: 1px solid var(--border);
@@ -189,37 +176,6 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			color: var(--accent);
 			border-color: var(--accent);
 		}
-		.theme-menu {
-			display: none;
-			position: absolute;
-			right: 0;
-			top: calc(100% + 0.375rem);
-			background: var(--surface);
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			padding: 0.375rem;
-			min-width: 9rem;
-			box-shadow: 0 4px 16px rgba(11,17,32,0.12);
-			z-index: 200;
-		}
-		.theme-menu.open { display: block; }
-		.theme-option {
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-			width: 100%;
-			padding: 0.4rem 0.625rem;
-			border: none;
-			background: none;
-			color: var(--text-secondary);
-			font-size: 0.8125rem;
-			font-family: var(--font-sans);
-			border-radius: 4px;
-			cursor: pointer;
-			white-space: nowrap;
-		}
-		.theme-option:hover { background: var(--accent-bg); color: var(--accent); }
-		.theme-option.active { color: var(--accent); font-weight: 600; }
 		header nav {
 			max-width: var(--max-w);
 			margin: 0 auto;
@@ -372,17 +328,10 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			</a>
 			<div class="nav-links">
 				<a href="/"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> Buscar</a>
-				<a href="/anomalias">Anomalias</a>
+				<a href="/anomalias">Datos</a>
 				<a href="/feed.xml" target="_blank" rel="noopener" class="nav-hide-mobile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg> RSS</a>
 				<a href="https://github.com/pinka/leylibre" target="_blank" rel="noopener" class="nav-hide-mobile"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg> GitHub</a>
-				<div class="theme-wrap">
-					<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
-					<div class="theme-menu" id="theme-menu">
-						<button class="theme-option" data-theme-value="light"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg> Claro</button>
-						<button class="theme-option" data-theme-value="dark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg> Oscuro</button>
-						<button class="theme-option" data-theme-value="system"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg> Sistema</button>
-					</div>
-				</div>
+				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
 		</nav>
 	</header>
@@ -409,67 +358,38 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<script is:inline>
 		(function () {
 			var btn = document.getElementById("theme-toggle");
-			var menu = document.getElementById("theme-menu");
-			var options = menu.querySelectorAll(".theme-option");
-
-			function getEffective(theme) {
-				if (theme === "light" || theme === "dark") return theme;
-				return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-			}
-
-			function updateIcon(theme) {
-				var effective = getEffective(theme);
-				btn.innerHTML = effective === "dark"
-					? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>'
-					: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
-			}
-
-			function updateActive(theme) {
-				var val = theme || "system";
-				options.forEach(function (o) {
-					o.classList.toggle("active", o.getAttribute("data-theme-value") === val);
-				});
-			}
+			var order = ["system", "light", "dark"];
+			var icons = { system: "\u25D1", light: "\u2600", dark: "\u263D" };
 
 			function currentPref() {
 				var stored = localStorage.getItem("theme");
 				if (stored === "light" || stored === "dark") return stored;
-				return null;
+				return "system";
 			}
 
-			function apply(theme) {
-				if (theme === "light" || theme === "dark") {
-					document.documentElement.setAttribute("data-theme", theme);
-					localStorage.setItem("theme", theme);
+			function updateIcon(pref) {
+				btn.textContent = icons[pref];
+			}
+
+			function apply(pref) {
+				if (pref === "light" || pref === "dark") {
+					document.documentElement.setAttribute("data-theme", pref);
+					localStorage.setItem("theme", pref);
 				} else {
 					document.documentElement.removeAttribute("data-theme");
 					localStorage.removeItem("theme");
 				}
-				updateIcon(theme);
-				updateActive(theme);
+				updateIcon(pref);
 			}
 
-			btn.addEventListener("click", function (e) {
-				e.stopPropagation();
-				menu.classList.toggle("open");
+			btn.addEventListener("click", function () {
+				var current = currentPref();
+				var idx = order.indexOf(current);
+				var next = order[(idx + 1) % order.length];
+				apply(next);
 			});
 
-			options.forEach(function (o) {
-				o.addEventListener("click", function (e) {
-					e.stopPropagation();
-					var val = o.getAttribute("data-theme-value");
-					apply(val === "system" ? null : val);
-					menu.classList.remove("open");
-				});
-			});
-
-			document.addEventListener("click", function () {
-				menu.classList.remove("open");
-			});
-
-			var pref = currentPref();
-			updateIcon(pref);
-			updateActive(pref);
+			updateIcon(currentPref());
 
 			window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
 				updateIcon(currentPref());

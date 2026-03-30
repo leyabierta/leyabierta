@@ -12,8 +12,8 @@ const totalIssues =
 ---
 
 <Base
-	title="Anomalias detectadas"
-	description="Errores y anomalias encontradas en los datos del BOE. Informacion util para mejorar la calidad de los datos oficiales."
+	title="Anomalías detectadas"
+	description="Errores y anomalías encontradas en los datos del BOE. Información útil para mejorar la calidad de los datos oficiales."
 	canonicalUrl="/anomalias"
 >
 	<style>
@@ -121,18 +121,18 @@ const totalIssues =
 	</style>
 
 	<div class="anomaly-intro">
-		<h1>Anomalias en datos del BOE</h1>
+		<h1>Anomalías en datos del BOE</h1>
 		<p>
-			Ley Libre es un espejo fiel de los datos del BOE. Estas anomalias son errores o inconsistencias
-			detectadas automaticamente en los datos oficiales. No las corregimos — las documentamos para
-			ayudar a mejorar la calidad de los datos publicos.
+			Ley Libre es un espejo fiel de los datos del BOE. Estas anomalías son errores o inconsistencias
+			detectadas automáticamente en los datos oficiales. No las corregimos — las documentamos para
+			ayudar a mejorar la calidad de los datos públicos.
 		</p>
 	</div>
 
 	<div class="anomaly-summary">
 		<div class="summary-card">
 			<div class="count">{totalIssues}</div>
-			<div class="label">Total anomalias</div>
+			<div class="label">Total anomalías</div>
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.futureDates.length}</div>
@@ -175,7 +175,7 @@ const totalIssues =
 	{data.emptyBlocks.length > 0 && (
 		<div class="anomaly-section">
 			<h2>Articulos sin contenido</h2>
-			<p class="desc">Articulos dentro de leyes que no tienen texto. Normalmente son articulos que fueron eliminados por una reforma posterior, pero cuyo hueco sigue existiendo en la estructura de la ley.</p>
+			<p class="desc">Artículos dentro de leyes que no tienen texto. Normalmente son artículos que fueron eliminados por una reforma posterior, pero cuyo hueco sigue existiendo en la estructura de la ley.</p>
 			<table class="anomaly-table">
 				<thead><tr><th>Ley</th><th>Nombre</th><th>Articulo</th></tr></thead>
 				<tbody>
@@ -213,7 +213,7 @@ const totalIssues =
 	{data.missingEli.length > 0 && (
 		<div class="anomaly-section">
 			<h2>Leyes sin enlace europeo (ELI)</h2>
-			<p class="desc">La mayoria de las leyes tienen un enlace estandarizado europeo llamado ELI que permite identificarlas de forma unica. Estas {data.missingEli.length} leyes, publicadas en boletines de comunidades autonomas, no lo tienen. Funcionan correctamente, pero no siguen el estandar.</p>
+			<p class="desc">La mayoría de las leyes tienen un enlace estandarizado europeo llamado ELI que permite identificarlas de forma única. Estas {data.missingEli.length} leyes, publicadas en boletines de comunidades autónomas, no lo tienen. Funcionan correctamente, pero no siguen el estándar.</p>
 			<details>
 				<summary style="cursor: pointer; font-size: 0.8125rem; color: var(--accent); margin-bottom: 0.75rem;">
 					Mostrar {data.missingEli.length} normas
@@ -235,6 +235,6 @@ const totalIssues =
 	)}
 
 	{totalIssues === 0 && (
-		<div class="empty-state">No se han detectado anomalias en los datos.</div>
+		<div class="empty-state">No se han detectado anomalías en los datos.</div>
 	)}
 </Base>
