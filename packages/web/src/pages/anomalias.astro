@@ -136,7 +136,7 @@ const totalIssues =
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.futureDates.length}</div>
-			<div class="label">Fechas imposibles</div>
+			<div class="label">Fechas erroneas</div>
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.emptyBlocks.length}</div>
@@ -144,20 +144,20 @@ const totalIssues =
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.unresolvedMaterias.length}</div>
-			<div class="label">Materias sin resolver</div>
+			<div class="label">Categorias sin nombre</div>
 		</div>
 		<div class="summary-card">
 			<div class="count">{data.missingEli.length}</div>
-			<div class="label">Sin URL ELI</div>
+			<div class="label">Sin enlace europeo</div>
 		</div>
 	</div>
 
 	{data.futureDates.length > 0 && (
 		<div class="anomaly-section">
 			<h2>Fechas imposibles</h2>
-			<p class="desc">Reformas con fecha de publicacion posterior al ano 2100 o normas con fecha anterior a 1800. Probables errores tipograficos en los datos del BOE.</p>
+			<p class="desc">Leyes cuya fecha de modificacion es imposible (por ejemplo, ano 2929). Son errores tipograficos en la fuente oficial del BOE.</p>
 			<table class="anomaly-table">
-				<thead><tr><th>Norma</th><th>Titulo</th><th>Fecha</th><th>Fuente</th></tr></thead>
+				<thead><tr><th>Ley</th><th>Nombre</th><th>Fecha erronea</th><th>Modificada por</th></tr></thead>
 				<tbody>
 					{data.futureDates.map(d => (
 						<tr>
@@ -174,17 +174,16 @@ const totalIssues =
 
 	{data.emptyBlocks.length > 0 && (
 		<div class="anomaly-section">
-			<h2>Articulos con texto vacio</h2>
-			<p class="desc">Bloques de tipo "precepto" (articulos) que no tienen contenido de texto. Pueden ser articulos derogados o errores en el XML del BOE.</p>
+			<h2>Articulos sin contenido</h2>
+			<p class="desc">Articulos dentro de leyes que no tienen texto. Normalmente son articulos que fueron eliminados por una reforma posterior, pero cuyo hueco sigue existiendo en la estructura de la ley.</p>
 			<table class="anomaly-table">
-				<thead><tr><th>Norma</th><th>Titulo</th><th>Bloque</th><th>Tipo</th></tr></thead>
+				<thead><tr><th>Ley</th><th>Nombre</th><th>Articulo</th></tr></thead>
 				<tbody>
 					{data.emptyBlocks.map(d => (
 						<tr>
 							<td><a href={`/laws/${d.norm_id}`}>{d.norm_id}</a></td>
 							<td class="title-cell">{d.title}</td>
-							<td><code>{d.block_id}</code></td>
-							<td>{d.block_type}</td>
+							<td>{d.block_title || d.block_id}</td>
 						</tr>
 					))}
 				</tbody>
@@ -194,10 +193,10 @@ const totalIssues =
 
 	{data.unresolvedMaterias.length > 0 && (
 		<div class="anomaly-section">
-			<h2>Materias sin resolver</h2>
-			<p class="desc">Codigos de materia que aparecen en los meta tags ELI del BOE pero no estan en su API de datos auxiliares. El BOE usa estos codigos pero no los expone en su catalogo publico.</p>
+			<h2>Categorias sin nombre</h2>
+			<p class="desc">El BOE clasifica cada ley por temas (materias) usando codigos numericos. Estos codigos deberian tener un nombre asociado, pero {new Set(data.unresolvedMaterias.map(d => d.materia)).size} de ellos no aparecen en el catalogo publico del BOE. Afectan a {data.unresolvedMaterias.length} clasificaciones.</p>
 			<table class="anomaly-table">
-				<thead><tr><th>Norma</th><th>Titulo</th><th>Codigo</th></tr></thead>
+				<thead><tr><th>Ley</th><th>Nombre</th><th>Codigo sin nombre</th></tr></thead>
 				<tbody>
 					{data.unresolvedMaterias.map(d => (
 						<tr>
@@ -213,8 +212,8 @@ const totalIssues =
 
 	{data.missingEli.length > 0 && (
 		<div class="anomaly-section">
-			<h2>Normas sin URL ELI</h2>
-			<p class="desc">Normas consolidadas que no tienen identificador ELI (European Legislation Identifier). Son principalmente normas publicadas en boletines autonomicos. La jurisdiccion se infiere del prefijo del identificador.</p>
+			<h2>Leyes sin enlace europeo (ELI)</h2>
+			<p class="desc">La mayoria de las leyes tienen un enlace estandarizado europeo llamado ELI que permite identificarlas de forma unica. Estas {data.missingEli.length} leyes, publicadas en boletines de comunidades autonomas, no lo tienen. Funcionan correctamente, pero no siguen el estandar.</p>
 			<details>
 				<summary style="cursor: pointer; font-size: 0.8125rem; color: var(--accent); margin-bottom: 0.75rem;">
 					Mostrar {data.missingEli.length} normas

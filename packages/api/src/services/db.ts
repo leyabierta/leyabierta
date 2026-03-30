@@ -321,18 +321,28 @@ export class DbService {
 				.map((r) => ({ type: "norm_ancient_date" as const, ...r })),
 		];
 
+		// Use partial index first (fast), then filter metadata sections in JS
+		const METADATA_BLOCKS = new Set([
+			"ir", "informacionrelacionada", "documentosrelacionados",
+		]);
 		const emptyBlocks = this.db
 			.query<
-				{ norm_id: string; title: string; block_id: string; block_type: string },
+				{ norm_id: string; title: string; block_id: string; block_type: string; block_title: string },
 				[]
 			>(
-				`SELECT b.norm_id, n.title, b.block_id, b.block_type
-				 FROM blocks b JOIN norms n ON n.id = b.norm_id
+				`SELECT b.norm_id, n.title, b.block_id, b.block_type, b.title as block_title
+				 FROM blocks b INDEXED BY idx_blocks_empty_precepto
+				 JOIN norms n ON n.id = b.norm_id
 				 WHERE b.block_type = 'precepto'
-				 AND (b.current_text = '' OR b.current_text IS NULL)
-				 LIMIT 100`,
+				 AND (b.current_text = '' OR b.current_text IS NULL)`,
 			)
-			.all();
+			.all()
+			.filter((b) =>
+				!METADATA_BLOCKS.has(b.block_id) &&
+				!b.block_title.includes("nformación relacionada") &&
+				!b.block_title.includes("ocumentos") &&
+				!b.block_title.includes("Relacionados"),
+			);
 
 		const unresolvedMaterias = this.db
 			.query<{ norm_id: string; title: string; materia: string }, []>(
