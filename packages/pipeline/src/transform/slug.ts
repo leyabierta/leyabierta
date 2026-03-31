@@ -42,7 +42,8 @@ export function extractJurisdiction(metadata: NormMetadata): string {
 
 	// 2. Try bulletin prefix from norm ID (e.g. BOA-d-2019-90260 → BOA → es-ar)
 	const prefix = metadata.id.split("-")[0]!;
-	if (BULLETIN_TO_JURISDICTION[prefix]) return BULLETIN_TO_JURISDICTION[prefix]!;
+	if (BULLETIN_TO_JURISDICTION[prefix])
+		return BULLETIN_TO_JURISDICTION[prefix]!;
 
 	// 3. Fallback to country
 	return metadata.country;

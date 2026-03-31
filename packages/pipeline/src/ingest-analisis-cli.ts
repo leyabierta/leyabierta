@@ -65,9 +65,7 @@ async function main() {
 		const materiaCodes = await boe.getMateriaCodes(normId);
 		const fullMaterias =
 			materiaCodes.length > 0
-				? materiaCodes.map(
-						(code) => materiaLookup[code] ?? `[código ${code}]`,
-					)
+				? materiaCodes.map((code) => materiaLookup[code] ?? `[código ${code}]`)
 				: analisis.materias;
 
 		// DB writes are synchronous and fast — no contention issue
@@ -136,9 +134,7 @@ async function main() {
 	}
 
 	// Launch workers
-	await Promise.all(
-		Array.from({ length: concurrency }, (_, i) => worker(i)),
-	);
+	await Promise.all(Array.from({ length: concurrency }, (_, i) => worker(i)));
 
 	// Cleanup
 	for (const c of clients) await c.close();

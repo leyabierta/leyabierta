@@ -7,8 +7,12 @@
  *   bun run pipeline status [--state PATH]
  */
 
+import type {
+	LegislativeClient,
+	MetadataParser,
+	TextParser,
+} from "./country.ts";
 import { getCountry } from "./country.ts";
-import type { LegislativeClient, MetadataParser, TextParser } from "./country.ts";
 import { ingestJsonDir, openDatabase } from "./db/index.ts";
 import type { Norm } from "./models.ts";
 import { commitNorm, fetchNorm } from "./pipeline.ts";
@@ -64,7 +68,9 @@ async function bootstrap() {
 	const startTime = Date.now();
 
 	// ── Phase 1: Parallel fetch ──
-	console.log(`Phase 1: Fetching ${pending.length} norms (${concurrency} workers)...\n`);
+	console.log(
+		`Phase 1: Fetching ${pending.length} norms (${concurrency} workers)...\n`,
+	);
 
 	const clients = Array.from({ length: concurrency }, () => new BoeClient());
 	const fetched: Array<{ id: string; norm: Norm | null; error?: string }> = [];
@@ -77,7 +83,13 @@ async function bootstrap() {
 			const i = fetchIndex++;
 			const normId = pending[i]!;
 			try {
-				const norm = await fetchNorm(normId, client, textParser, metadataParser, DATA_DIR);
+				const norm = await fetchNorm(
+					normId,
+					client,
+					textParser,
+					metadataParser,
+					DATA_DIR,
+				);
 				fetched.push({ id: normId, norm });
 				fetchDone++;
 				if (fetchDone % 50 === 0 || fetchDone === pending.length) {
@@ -97,7 +109,9 @@ async function bootstrap() {
 	}
 
 	await Promise.all(
-		Array.from({ length: Math.min(concurrency, pending.length) }, (_, i) => fetchWorker(i)),
+		Array.from({ length: Math.min(concurrency, pending.length) }, (_, i) =>
+			fetchWorker(i),
+		),
 	);
 	for (const c of clients) await c.close();
 
@@ -130,7 +144,10 @@ async function bootstrap() {
 		}
 
 		try {
-			const commits = await commitNorm(norm, { repoPath: OUTPUT_DIR, dataDir: DATA_DIR });
+			const commits = await commitNorm(norm, {
+				repoPath: OUTPUT_DIR,
+				dataDir: DATA_DIR,
+			});
 
 			if (commits === 0) {
 				state.markDone(id, 0);
@@ -160,7 +177,9 @@ async function bootstrap() {
 	const stats = state.stats;
 
 	console.log("\n─── Bootstrap Summary ───");
-	console.log(`Fetch:   ${formatDuration(fetchElapsed)} (${concurrency} workers)`);
+	console.log(
+		`Fetch:   ${formatDuration(fetchElapsed)} (${concurrency} workers)`,
+	);
 	console.log(`Commit:  ${formatDuration((Date.now() - commitStart) / 1000)}`);
 	console.log(`Total:   ${formatDuration(totalElapsed)}`);
 	console.log(`Done:    ${stats.done}`);

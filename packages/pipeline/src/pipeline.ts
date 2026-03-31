@@ -162,7 +162,13 @@ export async function bootstrapFromApi(
 ): Promise<number> {
 	const cfg = { ...DEFAULT_CONFIG, ...config };
 
-	const norm = await fetchNorm(normId, client, textParser, metadataParser, cfg.dataDir);
+	const norm = await fetchNorm(
+		normId,
+		client,
+		textParser,
+		metadataParser,
+		cfg.dataDir,
+	);
 	if (!norm) return -1;
 
 	return commitNorm(norm, cfg);

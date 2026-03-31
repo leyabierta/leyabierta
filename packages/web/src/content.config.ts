@@ -5,6 +5,7 @@ const laws = defineCollection({
 	loader: glob({
 		pattern: "**/*.md",
 		base: "../../content/laws",
+		retainBody: false,
 	}),
 	schema: z.object({
 		titulo: z.string(),

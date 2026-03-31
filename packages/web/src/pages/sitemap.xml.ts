@@ -2,8 +2,8 @@
  * Sitemap generated from Content Collections at build time.
  */
 
-import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
+import type { APIRoute } from "astro";
 
 export const prerender = true;
 

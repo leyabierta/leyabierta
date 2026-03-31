@@ -2,8 +2,8 @@
  * RSS feed generated from Content Collections at build time.
  */
 
-import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
+import type { APIRoute } from "astro";
 
 export const prerender = true;
 
@@ -14,7 +14,9 @@ export const GET: APIRoute = async () => {
 
 	// Sort by most recently updated
 	const sorted = laws
-		.sort((a, b) => b.data.ultima_actualizacion.localeCompare(a.data.ultima_actualizacion))
+		.sort((a, b) =>
+			b.data.ultima_actualizacion.localeCompare(a.data.ultima_actualizacion),
+		)
 		.slice(0, 50);
 
 	const items = sorted.map((law) => {
@@ -46,5 +48,9 @@ ${items.join("\n")}
 };
 
 function escapeXml(s: string): string {
-	return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+	return s
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;");
 }

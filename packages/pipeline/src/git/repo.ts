@@ -68,10 +68,7 @@ export class GitRepo {
 		await this.run(["add", relPath]);
 	}
 
-	async commit(
-		info: CommitInfo,
-		allowEmpty = false,
-	): Promise<string | null> {
+	async commit(info: CommitInfo, allowEmpty = false): Promise<string | null> {
 		const status = await this.run(["status", "--porcelain"]);
 		if (!status && !allowEmpty) return null;
 

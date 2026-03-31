@@ -212,7 +212,11 @@ export function lawRoutes(
 					const cacheKey = `${params.id}:${query.from}:${query.to}`;
 					let diff = diffCache.get(cacheKey);
 					if (diff === undefined) {
-						const filePath = normFilepath(params.id, law.source_url, law.country);
+						const filePath = normFilepath(
+							params.id,
+							law.source_url,
+							law.country,
+						);
 						const result = await gitService.diff(
 							filePath,
 							query.from,
