@@ -3,17 +3,21 @@
 ## Arquitectura
 
 ```
+Registrador: DonDominio (~7 EUR/ano + IVA)
+  NS delegados a Cloudflare (gratis)
+
+Cloudflare (free tier — todo en un solo panel)
+  DNS         → leyabierta.es + api.leyabierta.es
+  Pages       → leyabierta.es (HTML estatico, CDN global, BW ilimitado)
+  Tunnel      → api.leyabierta.es (proxy a servidor privado)
+  Bot protection + DDoS + cache + analytics gratis
+
 GitHub Actions (cron diario 06:00 UTC)
   1. Pipeline: descarga reformas del BOE
   2. Commitea en repo "leyes"
   3. Ingest: genera leyabierta.db
   4. Sube DB como release asset en GitHub
-  5. Build Astro (static) → deploy a Cloudflare Pages
-
-Cloudflare
-  Pages → leyabierta.es (HTML estatico, CDN global)
-  Tunnel → api.leyabierta.es (proxy a servidor privado)
-  Bot protection + DDoS gratis en ambos
+  5. Build Astro (static) → deploy a Cloudflare Pages (wrangler)
 
 Servidor privado (detras Tailscale, sin puertos abiertos)
   cloudflared (tunnel outbound → Cloudflare)
@@ -27,7 +31,7 @@ Servidor privado (detras Tailscale, sin puertos abiertos)
 ```
 BOE API → GitHub Actions → repo "leyes" (git push)
                          → leyabierta.db (release asset)
-                         → Cloudflare Pages (astro build)
+                         → Cloudflare Pages (wrangler pages deploy)
 
 GitHub Releases ← servidor descarga DB (pull, no push)
 repo "leyes"   ← servidor hace git pull (para diffs)
@@ -44,16 +48,27 @@ Usuario → Cloudflare CDN → HTML estatico (99% del trafico)
 - No hay SSH keys del servidor en GitHub secrets
 - Cloudflare filtra bots/DDoS antes de que lleguen al tunnel
 - Rate limiting en Cloudflare protege la API
+- HTTPS gratuito en ambos dominios (Cloudflare Universal SSL)
 
 ### Coste estimado
 
 | Fase | Coste |
 |------|-------|
-| Ahora (0 usuarios) | Dominio (~8 EUR/ano) |
-| Miles de usuarios | Dominio (~8 EUR/ano) |
-| Escala masiva | Cloudflare Workers $5/mes + dominio |
+| Ahora (0 usuarios) | Dominio DonDominio (~7 EUR/ano + IVA) |
+| Miles de usuarios | Dominio (~7 EUR/ano + IVA) |
+| Escala masiva | Cloudflare Pro $20/mes + dominio (mejora todo: WAF, cache, analytics) |
 
-Todo usa free tiers: Cloudflare Pages, Cloudflare Tunnel, GitHub Actions (repo publico).
+Todo usa free tiers: Cloudflare Pages (BW ilimitado, 20k archivos/deploy), Cloudflare Tunnel, GitHub Actions (repo publico).
+
+### Limites del free tier de Cloudflare Pages
+
+| Limite | Valor | Uso estimado |
+|--------|-------|-------------|
+| Archivos por deploy | 20,000 | ~12,200 (12k leyes + assets) |
+| Tamano por archivo | 25 MiB | <1 MiB (HTML texto legal) |
+| Builds por mes | 500 | ~30 (1/dia) |
+| Bandwidth | Ilimitado | — |
+| Custom domains | 100 | 2 (apex + www) |
 
 ---
 
@@ -134,9 +149,11 @@ ingress:
 - Install (`bun install --frozen-lockfile`), lint (`bun run check`), test (`bun test`)
 
 **`.github/workflows/deploy-web.yml`** — push a main o dispatch manual (PENDIENTE):
-1. Build Astro con adapter Cloudflare
-2. Deploy a Cloudflare Pages via `wrangler pages deploy`
+1. Install deps (`bun install --frozen-lockfile`)
+2. Build Astro estatico (`bun run build` en `packages/web`)
+3. Deploy a Cloudflare Pages via `bunx wrangler pages deploy dist --project-name=leyabierta`
 - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+- El proyecto Cloudflare Pages se crea una vez desde el dashboard o con `wrangler pages project create leyabierta`
 
 **`.github/workflows/daily-pipeline.yml`** — cron `0 6 * * *` + dispatch manual:
 1. Checkout repos `leyabierta` y `leyes`
@@ -160,12 +177,24 @@ cd /opt/leyabierta/data/leyes && git pull
 
 ### Fase 6: Dominio y DNS
 
-1. Comprar `leyabierta.es`
-2. Nameservers → Cloudflare
-3. DNS:
-   - `leyabierta.es` → Cloudflare Pages (CNAME)
-   - `api.leyabierta.es` → Cloudflare Tunnel (CNAME automatico)
-4. Activar: bot protection, DDoS, cache rules
+**Registrador:** DonDominio (~7 EUR/ano + IVA). Elegido porque:
+- Mas barato con DNS completo para `.es`
+- Permite delegar NS a Cloudflare (Strato NO lo permite para `.es`)
+- Empresa espanola, precio consistente (registro = renovacion)
+- Cloudflare no vende dominios `.es` directamente
+
+**Nota sobre SSL:** DonDominio no incluye SSL, pero es irrelevante. Cloudflare proporciona HTTPS gratuito (Universal SSL) para todo dominio proxied. No comprar SSL del registrador.
+
+**Pasos:**
+1. Registrar `leyabierta.es` en DonDominio
+2. En DonDominio: cambiar nameservers a los de Cloudflare (`*.ns.cloudflare.com`)
+3. En Cloudflare (panel gratuito):
+   - Anadir sitio `leyabierta.es`
+   - DNS: `leyabierta.es` → Cloudflare Pages (CNAME a `<proyecto>.pages.dev`)
+   - DNS: `www.leyabierta.es` → redirect a apex (Page Rule o Redirect Rule)
+   - DNS: `api.leyabierta.es` → Cloudflare Tunnel (CNAME automatico al crear tunnel)
+4. Activar: bot protection, DDoS, cache rules, HTTPS forzado
+5. Verificar dominio en GitHub org (prevenir domain takeover)
 
 ### Fase 7: Rate limiting y proteccion
 
@@ -185,13 +214,23 @@ cd /opt/leyabierta/data/leyes && git pull
 | 1 | Fase 0: Renombrado | Codigo + manual | Ninguna |
 | 2 | Fase 1: Astro estatico | Codigo | Fase 0 |
 | 3 | Fase 2: Dockerfile API | Codigo | Fase 0 |
-| 4 | Fase 6: Dominio + Cloudflare | Manual | Comprar dominio |
+| 4 | Fase 6: Dominio (DonDominio) + NS a Cloudflare | Manual | Registrar dominio |
 | 5 | Fase 3: Cloudflare Tunnel | Manual (servidor) | Fase 6 |
-| 6 | Fase 4: GitHub Actions | Codigo | Fases 0-2 |
+| 6 | Fase 4: GitHub Actions (CI + deploy a Cloudflare Pages) | Codigo | Fases 0-2, 6 |
 | 7 | Fase 5: Script DB | Manual (servidor) | Fases 4, 6 |
 | 8 | Fase 7: Rate limiting | Codigo + Cloudflare | Fases 3, 4 |
 
 Fases 0-2 son codigo. Fases 3-6 requieren acciones manuales. Fase 7 es mixta.
+
+### Decisiones de infraestructura
+
+| Decision | Elegido | Alternativas descartadas | Razon |
+|----------|---------|------------------------|-------|
+| Registrador | DonDominio | Strato (no NS para .es), Namecheap (caro), Porkbun (no .es) | Mas barato con NS delegation, empresa espanola |
+| DNS | Cloudflare (gratis) | Strato DNS | Strato no permite NS delegation en .es |
+| Web hosting | Cloudflare Pages | GitHub Pages (1GB limite), Netlify (300 min build), Vercel (no-comercial) | BW ilimitado, todo en Cloudflare, sin limites criticos |
+| API hosting | Cloudflare Tunnel + KonarServer | Exponer servidor directamente | Sin puertos abiertos, DDoS gratis |
+| SSL | Cloudflare Universal SSL (gratis) | SSL del registrador | Registrador SSL es irrelevante cuando el CDN termina HTTPS |
 
 ---
 
