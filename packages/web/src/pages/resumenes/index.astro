@@ -1,0 +1,173 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getProfiles } from "../../lib/api";
+import fs from "node:fs";
+import path from "node:path";
+
+const { data: profiles } = await getProfiles();
+
+// Scan public/resumenes/ to find latest digest per profile
+const resumenesDir = path.join(process.cwd(), "public", "resumenes");
+
+function getLatestWeek(profileId: string): string | null {
+	const profileDir = path.join(resumenesDir, profileId);
+	try {
+		const files = fs.readdirSync(profileDir)
+			.filter((f: string) => f.endsWith(".html") && f !== "index.html")
+			.sort()
+			.reverse();
+		if (files.length === 0) return null;
+		return files[0]!.replace(".html", "");
+	} catch {
+		return null;
+	}
+}
+
+function getDigestCount(profileId: string): number {
+	const profileDir = path.join(resumenesDir, profileId);
+	try {
+		return fs.readdirSync(profileDir)
+			.filter((f: string) => f.endsWith(".html") && f !== "index.html")
+			.length;
+	} catch {
+		return 0;
+	}
+}
+
+const profilesWithData = profiles.map((p) => ({
+	...p,
+	latestWeek: getLatestWeek(p.id),
+	digestCount: getDigestCount(p.id),
+}));
+---
+
+<Base
+	title="Resumenes semanales"
+	description="Resumenes semanales de cambios legislativos por perfil profesional. Escritos en lenguaje ciudadano."
+	ogTitle="Resumenes — Ley Abierta"
+	canonicalUrl="/resumenes"
+>
+	<style>
+		.hero { text-align: center; padding: 2.5rem 0 2rem; }
+		.hero h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.15;
+			letter-spacing: -0.02em;
+		}
+		.hero-sub {
+			color: var(--text-secondary);
+			font-size: 1rem;
+			margin-top: 0.75rem;
+			max-width: 34rem;
+			margin-left: auto;
+			margin-right: auto;
+			line-height: 1.7;
+		}
+
+		.profiles-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+			gap: 1rem;
+			margin-bottom: 2rem;
+		}
+		.profile-card {
+			border: 1.5px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1.25rem;
+			transition: all 0.15s;
+			background: var(--surface);
+			text-decoration: none;
+			color: inherit;
+			display: block;
+		}
+		.profile-card:hover {
+			border-color: var(--accent);
+			background: var(--accent-faint);
+			text-decoration: none;
+		}
+		.profile-icon {
+			font-size: 1.75rem;
+			margin-bottom: 0.5rem;
+		}
+		.profile-name {
+			font-family: var(--font-serif);
+			font-weight: 600;
+			font-size: 1rem;
+			margin-bottom: 0.25rem;
+		}
+		.profile-desc {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			line-height: 1.5;
+		}
+		.profile-meta {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			margin-top: 0.75rem;
+			padding-top: 0.625rem;
+			border-top: 1px solid var(--border-light);
+		}
+		.profile-meta span { color: var(--accent); font-weight: 500; }
+		.no-digests {
+			color: var(--text-muted);
+			font-style: italic;
+		}
+
+		.cta-section {
+			margin-top: 2rem;
+			padding: 1.5rem;
+			background: var(--accent-faint);
+			border-radius: 10px;
+			text-align: center;
+		}
+		.cta-section p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			line-height: 1.6;
+			margin-bottom: 1rem;
+		}
+
+		@media (max-width: 640px) {
+			.profiles-grid { grid-template-columns: 1fr 1fr; }
+		}
+	</style>
+
+	<section class="hero">
+		<h1>Resumenes semanales</h1>
+		<p class="hero-sub">
+			Cada semana, un resumen de los cambios legislativos que importan,
+			escrito en lenguaje ciudadano. Elige tu perfil y consulta el historico.
+		</p>
+	</section>
+
+	<div class="profiles-grid">
+		{profilesWithData.map((p) => (
+			p.digestCount > 0 ? (
+				<a href={`/resumenes/${p.id}/`} class="profile-card">
+					<div class="profile-icon">{p.icon}</div>
+					<div class="profile-name">{p.name}</div>
+					<div class="profile-desc">{p.description}</div>
+					<div class="profile-meta">
+						<span>{p.digestCount} resumen{p.digestCount === 1 ? "" : "es"}</span> · Ultimo: {p.latestWeek}
+					</div>
+				</a>
+			) : (
+				<div class="profile-card">
+					<div class="profile-icon">{p.icon}</div>
+					<div class="profile-name">{p.name}</div>
+					<div class="profile-desc">{p.description}</div>
+					<div class="profile-meta no-digests">Sin resumenes aun</div>
+				</div>
+			)
+		))}
+	</div>
+
+	<div class="cta-section">
+		<p>
+			Quieres recibir estos resumenes directamente en tu email cada lunes?
+		</p>
+		<a href="/alertas" class="btn btn-primary">Suscribirme a alertas</a>
+	</div>
+</Base>

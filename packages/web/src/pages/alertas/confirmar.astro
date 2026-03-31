@@ -1,0 +1,79 @@
+---
+import Base from "../../layouts/Base.astro";
+import { confirmSubscription } from "../../lib/api";
+
+const token = Astro.url.searchParams.get("token") ?? "";
+
+let success = false;
+let errorMsg = "";
+
+if (token) {
+	try {
+		const result = await confirmSubscription(token);
+		success = !!result.ok;
+		if (!success) errorMsg = result.error ?? "Enlace no valido.";
+	} catch {
+		errorMsg = "Error al confirmar. Intentalo de nuevo.";
+	}
+} else {
+	errorMsg = "Enlace no valido.";
+}
+---
+
+<Base
+	title="Confirmar suscripcion"
+	description="Confirma tu suscripcion a las alertas legislativas de Ley Abierta."
+	canonicalUrl="/alertas/confirmar"
+>
+	<style>
+		.confirm-page {
+			max-width: 28rem;
+			margin: 4rem auto;
+			text-align: center;
+		}
+		.confirm-icon {
+			font-size: 3rem;
+			margin-bottom: 1rem;
+		}
+		.confirm-page h1 {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			margin-bottom: 0.75rem;
+		}
+		.confirm-page p {
+			color: var(--text-secondary);
+			line-height: 1.7;
+			margin-bottom: 1.5rem;
+		}
+		.error-msg {
+			color: var(--danger);
+			background: var(--danger-bg);
+			padding: 1rem;
+			border-radius: 8px;
+			margin-bottom: 1.5rem;
+		}
+	</style>
+
+	<div class="confirm-page">
+		{success ? (
+			<>
+				<div class="confirm-icon">&#10003;</div>
+				<h1>Suscripcion confirmada</h1>
+				<p>
+					A partir de ahora recibiras un email semanal con los cambios legislativos
+					que te afectan. Puedes cancelar la suscripcion en cualquier momento
+					desde el enlace en cada email.
+				</p>
+				<a href="/alertas" class="btn btn-primary">Volver a alertas</a>
+			</>
+		) : (
+			<>
+				<div class="confirm-icon">&#10007;</div>
+				<h1>No se pudo confirmar</h1>
+				<div class="error-msg">{errorMsg}</div>
+				<a href="/alertas" class="btn">Volver a alertas</a>
+			</>
+		)}
+	</div>
+</Base>

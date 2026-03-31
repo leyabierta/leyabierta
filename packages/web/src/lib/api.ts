@@ -183,3 +183,43 @@ export function getJurisdictions(): Promise<{ data: Jurisdiction[] }> {
 export function getRecentReforms(): Promise<{ data: RecentReform[] }> {
 	return fetchApi("/v1/recent-reforms");
 }
+
+// ── Alert/newsletter endpoints ──
+
+export interface Profile {
+	id: string;
+	name: string;
+	description: string;
+	icon: string;
+}
+
+export function getProfiles(): Promise<{ data: Profile[] }> {
+	return fetchApi("/v1/profiles");
+}
+
+export async function subscribe(
+	email: string,
+	profileId: string,
+	jurisdiction: string,
+): Promise<{ ok?: boolean; error?: string; message?: string }> {
+	const res = await fetch(`${API_BASE}/v1/alerts/subscribe`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ email, profileId, jurisdiction }),
+	});
+	return res.json();
+}
+
+export async function confirmSubscription(
+	token: string,
+): Promise<{ ok?: boolean; error?: string; message?: string }> {
+	const res = await fetch(`${API_BASE}/v1/alerts/confirm/${token}`);
+	return res.json();
+}
+
+export async function cancelSubscription(
+	token: string,
+): Promise<{ ok?: boolean; error?: string; message?: string }> {
+	const res = await fetch(`${API_BASE}/v1/alerts/unsubscribe/${token}`);
+	return res.json();
+}

@@ -65,9 +65,7 @@ export class DbService {
 
 			if (isNormId) {
 				const direct = this.db
-					.query<{ id: string }, [string]>(
-						"SELECT id FROM norms WHERE id = ?",
-					)
+					.query<{ id: string }, [string]>("SELECT id FROM norms WHERE id = ?")
 					.all(query.trim().toUpperCase());
 				ids = direct.map((r) => r.id);
 			} else {
@@ -164,7 +162,12 @@ export class DbService {
 	private applyFilters(
 		conditions: string[],
 		params: unknown[],
-		filters: { country?: string; rank?: string; status?: string; materia?: string },
+		filters: {
+			country?: string;
+			rank?: string;
+			status?: string;
+			materia?: string;
+		},
 	): void {
 		if (filters.country) {
 			conditions.push("country = ?");
@@ -179,9 +182,7 @@ export class DbService {
 			params.push(filters.status);
 		}
 		if (filters.materia) {
-			conditions.push(
-				"id IN (SELECT norm_id FROM materias WHERE materia = ?)",
-			);
+			conditions.push("id IN (SELECT norm_id FROM materias WHERE materia = ?)");
 			params.push(filters.materia);
 		}
 	}
@@ -255,20 +256,45 @@ export class DbService {
 		oldest: string;
 		newest: string;
 	} {
-		const norms = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM norms").get()!.c;
-		const articles = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM blocks WHERE block_type = 'precepto'").get()!.c;
-		const versions = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM versions v JOIN blocks b ON b.norm_id = v.norm_id AND b.block_id = v.block_id WHERE b.block_type = 'precepto'").get()!.c;
-		const reforms = this.db.query<{ c: number }, []>("SELECT count(*) as c FROM reforms").get()!.c;
-		const categories = this.db.query<{ c: number }, []>("SELECT count(DISTINCT materia) as c FROM materias").get()!.c;
-		const oldest = this.db.query<{ d: string }, []>("SELECT min(published_at) as d FROM norms").get()!.d;
-		const newest = this.db.query<{ d: string }, []>("SELECT max(published_at) as d FROM norms").get()!.d;
+		const norms = this.db
+			.query<{ c: number }, []>("SELECT count(*) as c FROM norms")
+			.get()!.c;
+		const articles = this.db
+			.query<{ c: number }, []>(
+				"SELECT count(*) as c FROM blocks WHERE block_type = 'precepto'",
+			)
+			.get()!.c;
+		const versions = this.db
+			.query<{ c: number }, []>(
+				"SELECT count(*) as c FROM versions v JOIN blocks b ON b.norm_id = v.norm_id AND b.block_id = v.block_id WHERE b.block_type = 'precepto'",
+			)
+			.get()!.c;
+		const reforms = this.db
+			.query<{ c: number }, []>("SELECT count(*) as c FROM reforms")
+			.get()!.c;
+		const categories = this.db
+			.query<{ c: number }, []>(
+				"SELECT count(DISTINCT materia) as c FROM materias",
+			)
+			.get()!.c;
+		const oldest = this.db
+			.query<{ d: string }, []>("SELECT min(published_at) as d FROM norms")
+			.get()!.d;
+		const newest = this.db
+			.query<{ d: string }, []>("SELECT max(published_at) as d FROM norms")
+			.get()!.d;
 		return { norms, articles, versions, reforms, categories, oldest, newest };
 	}
 
 	/** Most reformed laws, for the home page. */
-	getMostReformed(limit: number): Array<{ id: string; title: string; rank: string; reform_count: number }> {
+	getMostReformed(
+		limit: number,
+	): Array<{ id: string; title: string; rank: string; reform_count: number }> {
 		return this.db
-			.query<{ id: string; title: string; rank: string; reform_count: number }, [number]>(
+			.query<
+				{ id: string; title: string; rank: string; reform_count: number },
+				[number]
+			>(
 				`SELECT n.id, n.title, n.rank, count(*) as reform_count
 				 FROM reforms r JOIN norms n ON n.id = r.norm_id
 				 GROUP BY r.norm_id ORDER BY reform_count DESC LIMIT ?`,
@@ -366,9 +392,24 @@ export class DbService {
 	}
 
 	private getAnomaliesUncached(): {
-		futureDates: Array<{ type: string; norm_id: string; title: string; date: string; source_id?: string }>;
-		emptyBlocks: Array<{ norm_id: string; title: string; block_id: string; block_type: string }>;
-		unresolvedMaterias: Array<{ norm_id: string; title: string; materia: string }>;
+		futureDates: Array<{
+			type: string;
+			norm_id: string;
+			title: string;
+			date: string;
+			source_id?: string;
+		}>;
+		emptyBlocks: Array<{
+			norm_id: string;
+			title: string;
+			block_id: string;
+			block_type: string;
+		}>;
+		unresolvedMaterias: Array<{
+			norm_id: string;
+			title: string;
+			materia: string;
+		}>;
 		missingEli: Array<{ id: string; title: string; source_url: string }>;
 	} {
 		const futureDates = [
@@ -396,11 +437,18 @@ export class DbService {
 
 		// Two-step: fast partial-index scan, then enrich with norm title and filter
 		const METADATA_IDS = new Set([
-			"ir", "informacionrelacionada", "documentosrelacionados",
+			"ir",
+			"informacionrelacionada",
+			"documentosrelacionados",
 		]);
 		const rawEmpty = this.db
 			.query<
-				{ norm_id: string; block_id: string; block_type: string; block_title: string },
+				{
+					norm_id: string;
+					block_id: string;
+					block_type: string;
+					block_title: string;
+				},
 				[]
 			>(
 				`SELECT norm_id, block_id, block_type, title as block_title
@@ -409,9 +457,10 @@ export class DbService {
 				 AND (current_text = '' OR current_text IS NULL)`,
 			)
 			.all()
-			.filter((b) =>
-				!METADATA_IDS.has(b.block_id) &&
-				!b.block_title.toLowerCase().includes("relacionad"),
+			.filter(
+				(b) =>
+					!METADATA_IDS.has(b.block_id) &&
+					!b.block_title.toLowerCase().includes("relacionad"),
 			);
 
 		const emptyBlocks = rawEmpty.map((b) => {
@@ -437,5 +486,137 @@ export class DbService {
 			.all();
 
 		return { futureDates, emptyBlocks, unresolvedMaterias, missingEli };
+	}
+
+	// ── Subscriber methods ──
+
+	addSubscriber(
+		email: string,
+		profileId: string,
+		jurisdiction: string,
+		token: string,
+	): boolean {
+		try {
+			this.db
+				.query(
+					"INSERT INTO subscribers (email, profile_id, jurisdiction, token) VALUES (?, ?, ?, ?)",
+				)
+				.run(email, profileId, jurisdiction, token);
+			return true;
+		} catch {
+			// UNIQUE constraint violation — already subscribed
+			return false;
+		}
+	}
+
+	confirmSubscriber(token: string): boolean {
+		const result = this.db
+			.query(
+				"UPDATE subscribers SET confirmed = 1 WHERE token = ? AND confirmed = 0",
+			)
+			.run(token);
+		return result.changes > 0;
+	}
+
+	removeSubscriber(token: string): boolean {
+		const result = this.db
+			.query("DELETE FROM subscribers WHERE token = ?")
+			.run(token);
+		return result.changes > 0;
+	}
+
+	getSubscriberByToken(token: string): {
+		id: number;
+		email: string;
+		profile_id: string;
+		jurisdiction: string;
+		confirmed: number;
+	} | null {
+		return this.db
+			.query<
+				{
+					id: number;
+					email: string;
+					profile_id: string;
+					jurisdiction: string;
+					confirmed: number;
+				},
+				[string]
+			>(
+				"SELECT id, email, profile_id, jurisdiction, confirmed FROM subscribers WHERE token = ?",
+			)
+			.get(token);
+	}
+
+	getConfirmedSubscribers(): Array<{
+		id: number;
+		email: string;
+		profile_id: string;
+		jurisdiction: string;
+		token: string;
+	}> {
+		return this.db
+			.query<
+				{
+					id: number;
+					email: string;
+					profile_id: string;
+					jurisdiction: string;
+					token: string;
+				},
+				[]
+			>(
+				"SELECT id, email, profile_id, jurisdiction, token FROM subscribers WHERE confirmed = 1",
+			)
+			.all();
+	}
+
+	getRecentReformsByMaterias(
+		materias: string[],
+		jurisdiction: string,
+		since: string,
+	): Array<{
+		id: string;
+		title: string;
+		rank: string;
+		status: string;
+		date: string;
+		source_id: string;
+	}> {
+		if (materias.length === 0) return [];
+
+		const placeholders = materias.map(() => "?").join(",");
+
+		// If jurisdiction is 'es' (national), include all national laws.
+		// Otherwise filter by jurisdiction in the ELI source URL.
+		const jurisdictionClause =
+			jurisdiction === "es"
+				? "(n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
+				: `n.source_url LIKE '%/eli/${jurisdiction}/%'`;
+
+		const sql = `
+			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id
+			FROM reforms r
+			JOIN norms n ON n.id = r.norm_id
+			JOIN materias m ON m.norm_id = r.norm_id
+			WHERE r.date >= ?
+			  AND m.materia IN (${placeholders})
+			  AND ${jurisdictionClause}
+			ORDER BY r.date DESC
+		`;
+
+		return this.db
+			.query<
+				{
+					id: string;
+					title: string;
+					rank: string;
+					status: string;
+					date: string;
+					source_id: string;
+				},
+				unknown[]
+			>(sql)
+			.all(since, ...materias);
 	}
 }

@@ -1,0 +1,374 @@
+---
+import Base from "../layouts/Base.astro";
+import { getProfiles } from "../lib/api";
+
+const { data: profiles } = await getProfiles();
+
+const JURISDICTION_OPTIONS = [
+	{ value: "es", label: "Estatal (toda Espana)" },
+	{ value: "es-an", label: "Andalucia" },
+	{ value: "es-ar", label: "Aragon" },
+	{ value: "es-as", label: "Asturias" },
+	{ value: "es-cb", label: "Cantabria" },
+	{ value: "es-cl", label: "Castilla y Leon" },
+	{ value: "es-cm", label: "Castilla-La Mancha" },
+	{ value: "es-cn", label: "Canarias" },
+	{ value: "es-ct", label: "Cataluna" },
+	{ value: "es-ex", label: "Extremadura" },
+	{ value: "es-ga", label: "Galicia" },
+	{ value: "es-ib", label: "Illes Balears" },
+	{ value: "es-mc", label: "Murcia" },
+	{ value: "es-md", label: "Madrid" },
+	{ value: "es-nc", label: "Navarra" },
+	{ value: "es-pv", label: "Pais Vasco" },
+	{ value: "es-ri", label: "La Rioja" },
+	{ value: "es-vc", label: "C. Valenciana" },
+];
+---
+
+<Base
+	title="Alertas legislativas"
+	description="Recibe por email un resumen semanal de las leyes que te afectan. Elige tu perfil profesional y tu comunidad autonoma."
+	ogTitle="Alertas — Ley Abierta"
+	canonicalUrl="/alertas"
+>
+	<style>
+		.hero { text-align: center; padding: 2.5rem 0 2rem; }
+		.hero h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.15;
+			letter-spacing: -0.02em;
+		}
+		.hero-sub {
+			color: var(--text-secondary);
+			font-size: 1rem;
+			margin-top: 0.75rem;
+			max-width: 34rem;
+			margin-left: auto;
+			margin-right: auto;
+			line-height: 1.7;
+		}
+
+		/* ── Profiles grid ── */
+		.profiles-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+			gap: 1rem;
+			margin-bottom: 2rem;
+		}
+		.profile-card {
+			border: 1.5px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1.25rem;
+			cursor: pointer;
+			transition: all 0.15s;
+			background: var(--surface);
+		}
+		.profile-card:hover {
+			border-color: var(--accent);
+			background: var(--accent-faint);
+		}
+		.profile-card.selected {
+			border-color: var(--accent);
+			background: var(--accent-bg);
+			box-shadow: 0 0 0 1px var(--accent);
+		}
+		.profile-icon {
+			font-size: 1.75rem;
+			margin-bottom: 0.5rem;
+		}
+		.profile-name {
+			font-family: var(--font-serif);
+			font-weight: 600;
+			font-size: 1rem;
+			margin-bottom: 0.25rem;
+		}
+		.profile-desc {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			line-height: 1.5;
+		}
+
+		/* ── Subscribe form ── */
+		.subscribe-form {
+			max-width: 28rem;
+			margin: 0 auto;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.5rem;
+			display: none;
+		}
+		.subscribe-form.visible { display: block; }
+		.subscribe-form h3 {
+			font-family: var(--font-serif);
+			font-size: 1.125rem;
+			font-weight: 600;
+			margin-bottom: 1rem;
+		}
+
+		.form-group {
+			margin-bottom: 1rem;
+		}
+		.form-group label {
+			display: block;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--text-secondary);
+			margin-bottom: 0.375rem;
+		}
+		.form-group select,
+		.form-group input[type="email"] {
+			width: 100%;
+			padding: 0.625rem 0.75rem;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--bg);
+			color: var(--text);
+			font-size: 0.875rem;
+			font-family: var(--font-sans);
+		}
+		.form-group select:focus,
+		.form-group input:focus {
+			outline: none;
+			border-color: var(--accent);
+			box-shadow: 0 0 0 2px var(--accent-bg);
+		}
+
+		.submit-btn {
+			width: 100%;
+			padding: 0.75rem;
+			font-size: 0.9375rem;
+			font-weight: 600;
+			border-radius: 8px;
+			border: none;
+			background: var(--accent);
+			color: white;
+			cursor: pointer;
+			font-family: var(--font-sans);
+			transition: background 0.15s;
+		}
+		.submit-btn:hover { background: var(--accent-light); }
+		.submit-btn:disabled {
+			opacity: 0.6;
+			cursor: not-allowed;
+		}
+
+		/* ── Messages ── */
+		.message {
+			max-width: 28rem;
+			margin: 1rem auto 0;
+			padding: 1rem;
+			border-radius: 8px;
+			font-size: 0.875rem;
+			line-height: 1.5;
+			display: none;
+		}
+		.message.visible { display: block; }
+		.message-success {
+			background: var(--success-bg);
+			color: var(--success);
+		}
+		.message-error {
+			background: var(--danger-bg);
+			color: var(--danger);
+		}
+
+		/* ── How it works ── */
+		.how-it-works {
+			margin-top: 3rem;
+			padding-top: 2rem;
+			border-top: 1px solid var(--border-light);
+		}
+		.how-it-works h2 {
+			font-family: var(--font-serif);
+			font-size: 1.375rem;
+			font-weight: 600;
+			text-align: center;
+			margin-bottom: 1.5rem;
+		}
+		.steps {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 1.5rem;
+			text-align: center;
+		}
+		.step-num {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 2rem;
+			height: 2rem;
+			border-radius: 50%;
+			background: var(--accent-bg);
+			color: var(--accent);
+			font-weight: 700;
+			font-size: 0.875rem;
+			margin-bottom: 0.5rem;
+		}
+		.step h3 {
+			font-size: 0.9375rem;
+			font-weight: 600;
+			margin-bottom: 0.25rem;
+		}
+		.step p {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			line-height: 1.5;
+		}
+
+		@media (max-width: 640px) {
+			.profiles-grid { grid-template-columns: 1fr 1fr; }
+			.steps { grid-template-columns: 1fr; gap: 1rem; }
+		}
+	</style>
+
+	<section class="hero">
+		<h1>Recibe las leyes que te afectan</h1>
+		<p class="hero-sub">
+			Cada lunes, un email con los cambios legislativos de la semana
+			que son relevantes para ti. Gratis, sin spam, te puedes dar de baja en un clic.
+		</p>
+	</section>
+
+	<!-- Profile cards -->
+	<div class="profiles-grid" id="profiles-grid">
+		{profiles.map((p) => (
+			<div class="profile-card" data-profile-id={p.id} data-profile-name={p.name}>
+				<div class="profile-icon">{p.icon}</div>
+				<div class="profile-name">{p.name}</div>
+				<div class="profile-desc">{p.description}</div>
+			</div>
+		))}
+	</div>
+
+	<!-- Subscribe form (hidden until profile selected) -->
+	<form class="subscribe-form" id="subscribe-form">
+		<h3 id="form-title">Suscribirme</h3>
+
+		<div class="form-group">
+			<label for="jurisdiction">Tu comunidad autonoma</label>
+			<select id="jurisdiction" name="jurisdiction">
+				{JURISDICTION_OPTIONS.map((j) => (
+					<option value={j.value}>{j.label}</option>
+				))}
+			</select>
+		</div>
+
+		<div class="form-group">
+			<label for="email">Tu email</label>
+			<input type="email" id="email" name="email" placeholder="tu@email.com" required />
+		</div>
+
+		<input type="hidden" id="profile-id" name="profileId" value="" />
+
+		<button type="submit" class="submit-btn" id="submit-btn">Suscribirme</button>
+	</form>
+
+	<!-- Status messages -->
+	<div class="message message-success" id="msg-success">
+		<strong>Revisa tu email.</strong> Te hemos enviado un enlace de confirmacion.
+		Si no lo ves, revisa la carpeta de spam.
+	</div>
+	<div class="message message-error" id="msg-error"></div>
+
+	<!-- How it works -->
+	<section class="how-it-works">
+		<h2>Como funciona</h2>
+		<div class="steps">
+			<div class="step">
+				<div class="step-num">1</div>
+				<h3>Elige tu perfil</h3>
+				<p>Selecciona el ambito profesional o personal que te interese.</p>
+			</div>
+			<div class="step">
+				<div class="step-num">2</div>
+				<h3>Confirma tu email</h3>
+				<p>Te enviamos un enlace para verificar tu direccion.</p>
+			</div>
+			<div class="step">
+				<div class="step-num">3</div>
+				<h3>Recibe tu resumen</h3>
+				<p>Cada lunes, un email con los cambios que te afectan.</p>
+			</div>
+		</div>
+	</section>
+
+	<script is:inline>
+		(function () {
+			var grid = document.getElementById("profiles-grid");
+			var form = document.getElementById("subscribe-form");
+			var formTitle = document.getElementById("form-title");
+			var profileIdInput = document.getElementById("profile-id");
+			var submitBtn = document.getElementById("submit-btn");
+			var msgSuccess = document.getElementById("msg-success");
+			var msgError = document.getElementById("msg-error");
+			var selected = null;
+
+			// Profile selection
+			grid.addEventListener("click", function (e) {
+				var card = e.target.closest(".profile-card");
+				if (!card) return;
+
+				// Deselect previous
+				if (selected) selected.classList.remove("selected");
+
+				// Select new
+				card.classList.add("selected");
+				selected = card;
+
+				var profileId = card.dataset.profileId;
+				var profileName = card.dataset.profileName;
+
+				profileIdInput.value = profileId;
+				formTitle.textContent = "Suscribirme a " + profileName;
+				form.classList.add("visible");
+				msgSuccess.classList.remove("visible");
+				msgError.classList.remove("visible");
+
+				// Scroll to form
+				form.scrollIntoView({ behavior: "smooth", block: "center" });
+			});
+
+			// Form submission
+			form.addEventListener("submit", function (e) {
+				e.preventDefault();
+				submitBtn.disabled = true;
+				submitBtn.textContent = "Enviando...";
+				msgSuccess.classList.remove("visible");
+				msgError.classList.remove("visible");
+
+				var email = document.getElementById("email").value;
+				var profileId = profileIdInput.value;
+				var jurisdiction = document.getElementById("jurisdiction").value;
+
+				fetch("/api/subscribe", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email: email, profileId: profileId, jurisdiction: jurisdiction }),
+				})
+				.then(function (res) { return res.json(); })
+				.then(function (data) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = "Suscribirme";
+					if (data.ok) {
+						form.classList.remove("visible");
+						msgSuccess.classList.add("visible");
+						msgSuccess.scrollIntoView({ behavior: "smooth", block: "center" });
+					} else {
+						msgError.textContent = data.error || "Ha ocurrido un error. Intentalo de nuevo.";
+						msgError.classList.add("visible");
+					}
+				})
+				.catch(function () {
+					submitBtn.disabled = false;
+					submitBtn.textContent = "Suscribirme";
+					msgError.textContent = "Error de conexion. Intentalo de nuevo.";
+					msgError.classList.add("visible");
+				});
+			});
+		})();
+	</script>
+</Base>

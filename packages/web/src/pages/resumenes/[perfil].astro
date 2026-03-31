@@ -1,0 +1,183 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getProfiles } from "../../lib/api";
+import fs from "node:fs";
+import path from "node:path";
+
+const { perfil } = Astro.params;
+
+const { data: profiles } = await getProfiles();
+const profile = profiles.find((p) => p.id === perfil);
+
+if (!profile) {
+	return Astro.redirect("/resumenes");
+}
+
+// Scan public/resumenes/{perfil}/ for available digests
+const profileDir = path.join(process.cwd(), "public", "resumenes", perfil!);
+
+interface DigestEntry {
+	week: string;
+	url: string;
+	year: string;
+	weekNum: string;
+}
+
+let digests: DigestEntry[] = [];
+try {
+	digests = fs.readdirSync(profileDir)
+		.filter((f: string) => f.endsWith(".html") && f !== "index.html")
+		.map((f: string) => {
+			const week = f.replace(".html", "");
+			const [year, weekPart] = week.split("-");
+			return {
+				week,
+				url: `/resumenes/${perfil}/${f}`,
+				year: year!,
+				weekNum: weekPart!.replace("W", ""),
+			};
+		})
+		.sort((a: DigestEntry, b: DigestEntry) => b.week.localeCompare(a.week));
+} catch {
+	// Directory doesn't exist yet
+}
+---
+
+<Base
+	title={`Resumenes — ${profile.name}`}
+	description={`Historico de resumenes semanales del perfil ${profile.name}. Cambios legislativos explicados en lenguaje ciudadano.`}
+	ogTitle={`Resumenes ${profile.name} — Ley Abierta`}
+	canonicalUrl={`/resumenes/${perfil}`}
+>
+	<style>
+		.back-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.3rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 1.5rem;
+		}
+		.back-link:hover { color: var(--accent); text-decoration: none; }
+
+		.profile-header {
+			margin-bottom: 2rem;
+		}
+		.profile-header .icon {
+			font-size: 2.5rem;
+			margin-bottom: 0.5rem;
+		}
+		.profile-header h1 {
+			font-family: var(--font-serif);
+			font-size: 1.75rem;
+			font-weight: 700;
+			line-height: 1.2;
+			margin-bottom: 0.375rem;
+		}
+		.profile-header .desc {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			line-height: 1.6;
+		}
+		.profile-header .count {
+			color: var(--text-muted);
+			font-size: 0.8125rem;
+			margin-top: 0.5rem;
+		}
+
+		.digest-list {
+			list-style: none;
+			padding: 0;
+		}
+		.digest-item {
+			border: 1px solid var(--border-light);
+			border-radius: 8px;
+			margin-bottom: 0.75rem;
+			transition: all 0.15s;
+		}
+		.digest-item:hover {
+			border-color: var(--accent);
+			background: var(--accent-faint);
+		}
+		.digest-item a {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 1rem 1.25rem;
+			text-decoration: none;
+			color: inherit;
+		}
+		.digest-week {
+			font-family: var(--font-serif);
+			font-weight: 600;
+			font-size: 1rem;
+		}
+		.digest-meta {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.digest-arrow {
+			color: var(--text-muted);
+			font-size: 1.125rem;
+		}
+
+		.empty-state {
+			text-align: center;
+			padding: 3rem 1rem;
+			color: var(--text-muted);
+		}
+		.empty-state p {
+			font-size: 0.9375rem;
+			line-height: 1.6;
+			margin-bottom: 1.5rem;
+		}
+
+		.cta-section {
+			margin-top: 2rem;
+			padding: 1.25rem;
+			background: var(--accent-faint);
+			border-radius: 8px;
+			text-align: center;
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+		}
+		.cta-section a { font-weight: 600; }
+	</style>
+
+	<a href="/resumenes" class="back-link">&#8592; Todos los perfiles</a>
+
+	<div class="profile-header">
+		<div class="icon">{profile.icon}</div>
+		<h1>{profile.name}</h1>
+		<p class="desc">{profile.description}</p>
+		<p class="count">{digests.length} resumen{digests.length === 1 ? "" : "es"} disponible{digests.length === 1 ? "" : "s"}</p>
+	</div>
+
+	{digests.length > 0 ? (
+		<ul class="digest-list">
+			{digests.map((d) => (
+				<li class="digest-item">
+					<a href={d.url}>
+						<div>
+							<div class="digest-week">Semana {d.weekNum}, {d.year}</div>
+							<div class="digest-meta">{d.week}</div>
+						</div>
+						<span class="digest-arrow">&#8594;</span>
+					</a>
+				</li>
+			))}
+		</ul>
+	) : (
+		<div class="empty-state">
+			<p>Aun no hay resumenes para este perfil. Se generan cada semana.</p>
+			<a href="/alertas" class="btn btn-primary">Recibir por email cuando esten listos</a>
+		</div>
+	)}
+
+	{digests.length > 0 && (
+		<div class="cta-section">
+			Recibe estos resumenes en tu email cada lunes.
+			<a href="/alertas">Suscribirme →</a>
+		</div>
+	)}
+</Base>

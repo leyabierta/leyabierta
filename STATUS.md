@@ -71,6 +71,28 @@ Ver `~/.claude-profiles/konar/plans/eventual-nibbling-waterfall.md` para el plan
 - **Gotchas:** Accept header obligatorio, limit=-1 capped a 10K, query param requiere JSON estructurado, varios endpoints XML-only, fecha_caducidad en bloques
 - **Docs oficiales:** APIconsolidada.pdf (2025-09-02), APIsumarioBOE.pdf (2024-06-28)
 
+## Despliegue (pendiente)
+
+Arquitectura decidida, documentada en `DEPLOY.md`. Resumen:
+
+- **Web:** Astro estatico → Cloudflare Pages (CDN + proteccion bots)
+- **API:** Elysia + SQLite → servidor privado detras de Cloudflare Tunnel (sin puertos abiertos)
+- **Pipeline:** GitHub Actions (cron diario, descarga reformas del BOE)
+- **DB:** ~2.5-3 GB con FTS5. Generada en GitHub Actions, descargada por el servidor
+- **Coste:** ~8 EUR/ano (dominio)
+
+**Fases pendientes:**
+1. Renombrado a LeyAbierta (codigo + crear org GitHub)
+2. Astro a modo estatico (eliminar SSR, client-side search)
+3. Dockerfile para la API
+4. Comprar dominio + configurar Cloudflare
+5. Cloudflare Tunnel en servidor
+6. GitHub Actions (CI + deploy web + pipeline diario)
+7. Script de actualizacion de DB en servidor
+8. Rate limiting y hardening
+
+Fases 1-3 son codigo. Fases 4-7 requieren acciones manuales. Ver `DEPLOY.md` para detalles.
+
 ## Como continuar
 
 ```bash
@@ -80,5 +102,6 @@ cd /Users/alex/00_Programacion/01_Alex/leylibre
 bun test          # 51 tests, todos pasan
 bun run check     # Biome lint
 
-# Siguiente: "Continua con Phase 1a: SQLite schema + ingest"
+# Siguiente paso de codigo: "Renombrar a LeyAbierta y preparar para despliegue"
+# Ver DEPLOY.md para el plan completo
 ```
