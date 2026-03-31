@@ -25,6 +25,7 @@ logs
 # pipeline data and generated repos
 data/
 output/
+content/
 
 # IDE
 .idea

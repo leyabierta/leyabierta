@@ -114,17 +114,16 @@ export async function commitNorm(
 }
 
 /**
- * Bootstrap a single norm from the remote API.
+ * Fetch and parse a single norm from the remote API.
+ * Returns the Norm object without committing. Returns null if no text available.
  */
-export async function bootstrapFromApi(
+export async function fetchNorm(
 	normId: string,
 	client: LegislativeClient,
 	textParser: TextParser,
 	metadataParser: MetadataParser,
-	config: Partial<PipelineConfig> = {},
-): Promise<number> {
-	const cfg = { ...DEFAULT_CONFIG, ...config };
-
+	dataDir: string = "./data",
+): Promise<Norm | null> {
 	const [textData, metaData] = await Promise.all([
 		client.getText(normId),
 		client.getMetadata(normId),
@@ -135,17 +134,36 @@ export async function bootstrapFromApi(
 	const reforms = textParser.extractReforms(blocks);
 
 	if (blocks.length === 0 || reforms.length === 0) {
-		return -1; // -1 means no text available (vs 0 = already up to date)
+		return null;
 	}
 
 	const norm: Norm = { metadata, blocks, reforms };
 
 	// Save JSON cache
-	const jsonDir = `${cfg.dataDir}/json`;
+	const jsonDir = `${dataDir}/json`;
 	await Bun.write(
 		`${jsonDir}/${metadata.id}.json`,
 		JSON.stringify(normToJson(norm), null, 2),
 	);
+
+	return norm;
+}
+
+/**
+ * Bootstrap a single norm from the remote API (fetch + commit).
+ * Kept for backwards compatibility and simple single-norm usage.
+ */
+export async function bootstrapFromApi(
+	normId: string,
+	client: LegislativeClient,
+	textParser: TextParser,
+	metadataParser: MetadataParser,
+	config: Partial<PipelineConfig> = {},
+): Promise<number> {
+	const cfg = { ...DEFAULT_CONFIG, ...config };
+
+	const norm = await fetchNorm(normId, client, textParser, metadataParser, cfg.dataDir);
+	if (!norm) return -1;
 
 	return commitNorm(norm, cfg);
 }

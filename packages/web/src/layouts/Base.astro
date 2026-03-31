@@ -10,6 +10,7 @@ interface Props {
 }
 
 const SITE_URL = "https://leyabierta.es";
+const API_BASE = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3000";
 
 const {
 	title,
@@ -29,7 +30,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang="es" data-api={API_BASE}>
 <script is:inline>
 	(function () {
 		var stored = localStorage.getItem("theme");

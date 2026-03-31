@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      - DB_PATH=/data/leyabierta.db
+      - REPO_PATH=/data/leyes

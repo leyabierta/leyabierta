@@ -1,0 +1,157 @@
+---
+import Base from "../../../layouts/Base.astro";
+import fs from "node:fs";
+import path from "node:path";
+import yaml from "js-yaml";
+
+export function getStaticPaths() {
+	const digestDir = path.join(process.cwd(), "..", "..", "data", "digests");
+	const paths: Array<{ params: { perfil: string; week: string } }> = [];
+
+	try {
+		for (const year of fs.readdirSync(digestDir)) {
+			const yearDir = path.join(digestDir, year);
+			if (!fs.statSync(yearDir).isDirectory()) continue;
+			for (const weekDir of fs.readdirSync(yearDir)) {
+				const weekPath = path.join(yearDir, weekDir);
+				if (!fs.statSync(weekPath).isDirectory()) continue;
+				const weekId = `${year}-${weekDir}`;
+				for (const file of fs.readdirSync(weekPath)) {
+					if (!file.endsWith(".yaml")) continue;
+					const perfil = file.replace(".yaml", "");
+					paths.push({ params: { perfil, week: weekId } });
+				}
+			}
+		}
+	} catch {
+		// No digests directory yet
+	}
+
+	return paths;
+}
+
+interface DigestReform {
+	id: string;
+	title: string;
+	rank: string;
+	date: string;
+	source_id: string;
+	relevant: boolean | null;
+	te_afecta_porque: string;
+	headline: string;
+	summary: string;
+}
+
+interface DigestData {
+	week: string;
+	profile: { id: string; name: string; icon: string; description: string };
+	summary: string;
+	generated_at: string;
+	reforms: DigestReform[];
+}
+
+const { perfil, week } = Astro.params;
+
+// Parse week: "2026-W13" → year "2026", weekDir "W13"
+const [yearStr, weekPart] = week!.split("-");
+const weekNum = weekPart!.replace("W", "");
+
+const yamlPath = path.join(process.cwd(), "..", "..", "data", "digests", yearStr!, weekPart!, `${perfil}.yaml`);
+
+let data: DigestData | null = null;
+try {
+	const content = fs.readFileSync(yamlPath, "utf-8");
+	data = yaml.load(content) as DigestData;
+} catch {
+	// YAML not found
+}
+
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function formatDate(iso: string): string {
+	if (!iso) return '';
+	const d = new Date(iso);
+	return `${d.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`;
+}
+
+// Get reforms to display: only relevant if AI has run, otherwise all
+function getDisplayReforms(reforms: DigestReform[]): DigestReform[] {
+	const aiHasRun = reforms.some((r) => r.relevant !== null);
+	if (!aiHasRun) return reforms;
+	return reforms.filter((r) => r.relevant === true);
+}
+
+const reforms = data ? getDisplayReforms(data.reforms) : [];
+const weekLabel = `Semana ${weekNum}, ${yearStr}`;
+---
+
+<Base
+	title={data ? `Resumen semanal — ${data.profile.name} (${week})` : "Resumen no encontrado"}
+	description={data ? `Resumen de cambios legislativos para ${data.profile.name}, semana ${weekNum} de ${yearStr}` : ""}
+	canonicalUrl={`/resumenes/${perfil}/${week}`}
+>
+	<style>
+		.back-link { font-size: 0.8125rem; color: var(--text-muted); }
+		.back-link:hover { color: var(--text-secondary); text-decoration: none; }
+		.digest-header { padding: 1.5rem 0; }
+		.profile-icon { font-size: 2rem; }
+		.digest-header h1 {
+			font-family: var(--font-serif);
+			font-size: 1.75rem;
+			font-weight: 700;
+			line-height: 1.2;
+			margin-top: 0.5rem;
+		}
+		.digest-meta { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.375rem; }
+		.digest-summary {
+			color: var(--text-secondary);
+			font-size: 1rem;
+			line-height: 1.7;
+			margin-top: 1rem;
+			padding: 1rem;
+			background: var(--accent-faint);
+			border-radius: 8px;
+			border-left: 3px solid var(--accent);
+		}
+		.reform { padding: 1.25rem 0; border-bottom: 1px solid var(--border-light); }
+		.reform:last-child { border-bottom: none; }
+		.reform-date { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 0.25rem; }
+		.reform h3 { font-family: var(--font-serif); font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem; }
+		.reform p { color: var(--text-secondary); line-height: 1.7; font-size: 0.9375rem; }
+		.reform-link { display: inline-block; margin-top: 0.5rem; font-size: 0.8125rem; font-weight: 500; }
+		.te-afecta { font-size: 0.875rem; color: var(--success); font-style: italic; margin-top: 0.5rem; line-height: 1.6; }
+		.empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
+	</style>
+
+	<a href={`/resumenes/${perfil}/`} class="back-link">&larr; Todos los resumenes</a>
+
+	{data ? (
+		<>
+			<div class="digest-header">
+				<div class="profile-icon">{data.profile.icon}</div>
+				<h1>Resumen semanal — {data.profile.name}</h1>
+				<div class="digest-meta">{weekLabel} · {reforms.length} cambios · Generado el {formatDate(data.generated_at)}</div>
+				{data.summary && <div class="digest-summary">{data.summary}</div>}
+			</div>
+
+			<section>
+				{reforms.length > 0 ? (
+					reforms.map((r) => (
+						<article class="reform">
+							<div class="reform-date">{r.date}</div>
+							<h3>{r.headline || r.title}</h3>
+							<p>{r.summary || `Cambios en: ${r.title}`}</p>
+							{r.te_afecta_porque && (
+								<p class="te-afecta"><strong>Te afecta porque:</strong> {r.te_afecta_porque}</p>
+							)}
+							<a href={`/laws/${r.id}`} class="reform-link">Ver ley completa &rarr;</a>
+						</article>
+					))
+				) : (
+					<div class="empty-state">No hay cambios relevantes para este perfil esta semana.</div>
+				)}
+			</section>
+		</>
+	) : (
+		<div class="empty-state">Resumen no encontrado.</div>
+	)}
+</Base>

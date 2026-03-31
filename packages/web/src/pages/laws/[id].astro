@@ -1,20 +1,19 @@
 ---
+import { getCollection, render } from "astro:content";
 import Base from "../../layouts/Base.astro";
-import { getLaw, getLawAnalisis } from "../../lib/api";
 
-const { id } = Astro.params;
-if (!id) return Astro.redirect("/");
-
-let law;
-let analisis;
-try {
-	[law, analisis] = await Promise.all([
-		getLaw(id),
-		getLawAnalisis(id),
-	]);
-} catch {
-	return Astro.redirect("/");
+export async function getStaticPaths() {
+	const laws = await getCollection("laws");
+	return laws.map((entry) => ({
+		params: { id: entry.data.identificador },
+		props: { entry },
+	}));
 }
+
+const { entry } = Astro.props;
+const { id } = Astro.params;
+const law = entry.data;
+const { Content } = await render(entry);
 
 const RANK_LABELS: Record<string, string> = {
 	constitucion: "Constitución",
@@ -30,53 +29,18 @@ const RANK_LABELS: Record<string, string> = {
 	acuerdo_internacional: "Acuerdo Internacional",
 };
 
-function cleanText(block: { title: string; current_text: string }): string {
-	let text = block.current_text.trim();
-	const title = block.title.replace(/[\[\]]/g, "").trim();
-	if (title && text.startsWith(title)) {
-		text = text.slice(title.length).trim();
-	}
-	return text;
-}
-
-const contentBlocks = law.blocks
-	.filter(b => b.current_text && b.current_text.trim().length > 0)
-	.map(b => ({
-		...b,
-		cleanedText: cleanText(b),
-		displayTitle: b.title && !b.title.startsWith("[")
-			? b.title
-			: b.block_type === "preambulo" ? "Preambulo"
-			: b.block_type === "firma" ? "Firma"
-			: null,
-	}))
-	.filter(b => b.cleanedText.length > 0);
-
-const hasAnalisis = analisis.materias.length > 0
-	|| analisis.notas.length > 0
-	|| analisis.referencias.anteriores.length > 0
-	|| analisis.referencias.posteriores.length > 0;
-
-// Group posteriores by relation type
-const postByRelation = new Map<string, Array<{ normId: string; text: string }>>();
-for (const ref of analisis.referencias.posteriores) {
-	const key = ref.relation || "OTROS";
-	if (!postByRelation.has(key)) postByRelation.set(key, []);
-	postByRelation.get(key)!.push(ref);
-}
-const antByRelation = new Map<string, Array<{ normId: string; text: string }>>();
-for (const ref of analisis.referencias.anteriores) {
-	const key = ref.relation || "OTROS";
-	if (!antByRelation.has(key)) antByRelation.set(key, []);
-	antByRelation.get(key)!.push(ref);
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function formatDate(iso: string): string {
+	if (!iso) return '';
+	const [y, m, d] = iso.split('-');
+	return `${parseInt(d!, 10)} de ${MONTHS[parseInt(m!, 10) - 1]} de ${y}`;
 }
 ---
 
 <Base
-	title={law.short_title || law.title}
-	description={`${RANK_LABELS[law.rank] ?? law.rank} · ${law.status} · Publicada ${law.published_at} · ${law.department}`}
-	ogTitle={law.short_title || law.title}
-	ogDescription={`${RANK_LABELS[law.rank] ?? law.rank} · ${law.status} · Publicada ${law.published_at} · ${law.department}`}
+	title={law.titulo}
+	description={`${RANK_LABELS[law.rango] ?? law.rango} · ${law.estado} · Publicada ${law.fecha_publicacion} · ${law.departamento}`}
+	ogTitle={law.titulo}
 	ogType="article"
 	canonicalUrl={`/laws/${id}`}
 >
@@ -84,7 +48,6 @@ for (const ref of analisis.referencias.anteriores) {
 		.back-link { font-size: 0.8125rem; color: var(--text-muted); }
 		.back-link:hover { color: var(--text-secondary); }
 
-		/* ── Header area ── */
 		.law-header {
 			display: flex;
 			justify-content: space-between;
@@ -128,12 +91,9 @@ for (const ref of analisis.referencias.anteriores) {
 			line-height: 1.4;
 		}
 		.meta-sep { color: var(--border); }
-		.meta-item {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.3rem;
-		}
-		.meta-item svg { flex-shrink: 0; }
+		.meta-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+		.meta-item svg { flex-shrink: 0; opacity: 0.5; }
+		.meta-id { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); position: relative; top: 0.5px; }
 
 		/* ── Tabs ── */
 		.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
@@ -168,366 +128,288 @@ for (const ref of analisis.referencias.anteriores) {
 		.tab-panel { display: none; padding-top: 1.5rem; }
 		.tab-panel.active { display: block; }
 
-		/* ── Timeline ── */
+		/* ── Content ── */
+		.law-content {
+			font-family: var(--font-serif);
+			line-height: 1.8;
+			font-size: 0.9375rem;
+		}
+		.law-content :global(h1) { font-size: 1.25rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
+		.law-content :global(h2) { font-size: 1rem; font-weight: 600; color: var(--accent); margin: 1.25rem 0 0.5rem; font-family: var(--font-sans); }
+		.law-content :global(h3) { font-size: 0.9375rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+		.law-content :global(p) { margin-bottom: 0.75rem; }
+
+		/* ── Loading states ── */
+		.loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
+		.loading-spinner { display: inline-block; width: 1.25rem; height: 1.25rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+		@keyframes spin { to { transform: rotate(360deg); } }
+
+		@media (max-width: 640px) {
+			.law-header { flex-direction: column; }
+		}
+	</style>
+
+	<!-- Styles for JS-injected tab content (must be global) -->
+	<style is:global>
+		.quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+		.stat-card { display: flex; align-items: center; gap: 0.625rem; padding: 0.875rem 1rem; background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; }
+		.stat-value { font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+		.stat-label { font-size: 0.6875rem; color: var(--text-muted); }
 		.timeline { list-style: none; padding: 0; }
 		.timeline-item { position: relative; padding: 0 0 1rem 1.5rem; }
 		.timeline-item::before { content: ""; position: absolute; left: 0.28rem; top: 0.5rem; bottom: -0.25rem; width: 1px; background: var(--border); }
 		.timeline-item:last-child::before { display: none; }
 		.timeline-dot { position: absolute; left: 0; top: 0.35rem; width: 0.625rem; height: 0.625rem; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); }
 		.timeline-item:last-child .timeline-dot { border-color: var(--accent); background: var(--accent); }
-		.timeline-date { font-weight: 600; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+		.timeline-date { font-weight: 600; font-size: 0.8125rem; }
 		.timeline-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
-		.timeline-source { font-family: var(--font-mono); font-size: 0.6875rem; }
 		.timeline-link { font-size: 0.75rem; margin-top: 0.25rem; display: inline-block; }
-
-		/* ── Content blocks ── */
-		.law-content { font-family: var(--font-serif); line-height: 1.8; font-size: 0.9375rem; }
-		.block-section { margin-bottom: 1.75rem; padding-bottom: 1.75rem; border-bottom: 1px solid var(--border-light); }
-		.block-section:last-child { border-bottom: none; }
-		.block-title { font-family: var(--font-sans); font-weight: 600; font-size: 0.8125rem; color: var(--accent); margin-bottom: 0.625rem; }
-		.block-text { color: var(--text); white-space: pre-line; }
-		.block-text.collapsed { max-height: 14rem; overflow: hidden; position: relative; }
-		.block-text.collapsed::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 4rem; background: linear-gradient(transparent, var(--bg)); pointer-events: none; }
-		.expand-btn { display: inline-block; margin-top: 0.375rem; font-size: 0.8125rem; color: var(--accent-light); cursor: pointer; background: none; border: none; font-family: var(--font-sans); padding: 0; }
-		.expand-btn:hover { text-decoration: underline; }
-
-		/* ── Quick stats with icons ── */
-		.quick-stats {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-			gap: 0.75rem;
-			margin-bottom: 1.5rem;
-		}
-		.stat-card {
-			display: flex;
-			align-items: center;
-			gap: 0.625rem;
-			padding: 0.875rem 1rem;
-			background: var(--surface);
-			border: 1px solid var(--border-light);
-			border-radius: 10px;
-		}
-		.stat-icon { color: var(--accent-light); opacity: 0.6; flex-shrink: 0; }
-		.stat-value { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
-		.stat-label { font-size: 0.6875rem; color: var(--text-muted); text-transform: none; letter-spacing: 0.04em; }
-
-		/* ── Cards ── */
-		.card {
-			background: var(--surface);
-			border: 1px solid var(--border-light);
-			border-radius: 10px;
-			padding: 1.25rem 1.5rem;
-			margin-bottom: 1rem;
-		}
-		.card-heading {
-			font-size: 1rem;
-			font-weight: 600;
-			margin-bottom: 0.75rem;
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-		}
-		.card-heading-icon { color: var(--accent-light); opacity: 0.6; }
-
-		/* ── Datos generales grid ── */
-		.meta-grid {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: 1.25rem;
-			font-size: 0.875rem;
-		}
-		.meta-item-label { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.125rem; }
-		.meta-item-value { color: var(--text); font-weight: 500; }
-
-		/* ── Flat sections (no card) ── */
 		.section { margin-bottom: 2rem; }
-		.section-heading {
-			font-size: 1.0625rem;
-			font-weight: 600;
-			margin-bottom: 0.75rem;
-			padding-bottom: 0.5rem;
-			border-bottom: 1px solid var(--border-light);
-		}
-
-		/* ── References ── */
-		.ref-group { margin-bottom: 1.25rem; }
-		.ref-relation { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.375rem; }
+		.section-heading { font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light); }
+		.materia-tag { display: inline-block; padding: 0.25rem 0.75rem; border: 1px solid var(--border); border-radius: 100px; font-size: 0.8125rem; color: var(--text-secondary); margin: 0.125rem 0.25rem 0.125rem 0; transition: all 0.15s; }
+		.materia-tag:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); text-decoration: none; }
 		.ref-list { list-style: disc; padding-left: 1.5rem; margin: 0; }
 		.ref-list li { font-size: 0.875rem; line-height: 1.65; color: var(--text-secondary); margin-bottom: 0.375rem; }
 		.ref-list a { font-family: var(--font-mono); font-size: 0.8125rem; }
-		.materia-tag {
-			display: inline-block;
-			padding: 0.25rem 0.75rem;
-			border: 1px solid var(--border);
-			border-radius: 100px;
-			font-size: 0.8125rem;
-			color: var(--text-secondary);
-			margin: 0.125rem 0.25rem 0.125rem 0;
-			transition: all 0.15s;
-		}
-		.materia-tag:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); text-decoration: none; }
 		.nota-item { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.375rem; }
-
+		.card { background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+		.card-heading { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+		.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; font-size: 0.875rem; }
+		.meta-item-label { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.125rem; }
+		.meta-item-value { color: var(--text); font-weight: 500; }
 		@media (max-width: 640px) {
-			.law-header { flex-direction: column; }
 			.meta-grid { grid-template-columns: 1fr; }
 			.quick-stats { grid-template-columns: repeat(2, 1fr); }
 		}
 	</style>
 
-	<a href="/" class="back-link">&larr; Volver a búsqueda</a>
+	<a href="/" class="back-link">&larr; Volver</a>
 
 	<div class="law-header">
 		<div>
 			<div style="display: flex; gap: 0.375rem; margin-bottom: 0.375rem;">
-				<span class={`badge badge-${law.status}`}>{law.status}</span>
-				<span class="badge" style="background: var(--accent-bg); color: var(--accent);">{RANK_LABELS[law.rank] ?? law.rank}</span>
+				<span class={`badge badge-${law.estado}`}>{law.estado}</span>
+				<span class="badge" style="background: var(--accent-bg); color: var(--accent);">{RANK_LABELS[law.rango] ?? law.rango}</span>
 			</div>
-			<h1 class="law-title">{law.title}</h1>
+			<h1 class="law-title">{law.titulo}</h1>
 		</div>
-		<a href={`https://www.boe.es/buscar/act.php?id=${law.id}`} target="_blank" rel="noopener" class="boe-btn">
+		<a href={`https://www.boe.es/buscar/act.php?id=${law.identificador}`} target="_blank" rel="noopener" class="boe-btn">
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
 			Ver en BOE
 		</a>
 	</div>
 
 	<div class="meta-row">
-		<span class="meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg> Publicado: {law.published_at}</span>
-		{law.updated_at && law.updated_at !== law.published_at && (
+		<span class="meta-item">
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+			{formatDate(law.fecha_publicacion)}
+		</span>
+		{law.ultima_actualizacion && law.ultima_actualizacion !== law.fecha_publicacion && (
 			<>
-				<span class="meta-sep">·</span>
-				<span class="meta-item">Act. {law.updated_at}</span>
+				<span class="meta-sep">&middot;</span>
+				<span class="meta-item">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+					{formatDate(law.ultima_actualizacion)}
+				</span>
 			</>
 		)}
-		<span class="meta-sep">·</span>
-		<span class="meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg> {law.department}</span>
-		<span class="meta-sep">·</span>
-		<span style="font-family: var(--font-mono); font-size: 0.8125rem; opacity: 0.5; position: relative; top: 1px;">{id}</span>
+		<span class="meta-sep">&middot;</span>
+		<span class="meta-item">
+			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+			{law.departamento}
+		</span>
+		<span class="meta-sep">&middot;</span>
+		<span class="meta-item meta-id">{id}</span>
 	</div>
 
 	<!-- Tabs -->
 	<div class="tabs">
 		<button class="tab active" data-tab="resumen">Resumen</button>
+		<button class="tab" data-tab="reformas">Historial de cambios</button>
 		<button class="tab" data-tab="texto">Texto completo</button>
-		{law.reforms.length > 1 && (
-			<button class="tab" data-tab="reformas">Historial de cambios <span class="tab-badge">{law.reforms.length}</span></button>
-		)}
 	</div>
 
-	<!-- Tab: Resumen (default) -->
+	<!-- Tab: Resumen (default, loaded client-side from API) -->
 	<div class="tab-panel active" id="tab-resumen">
-		<div class="quick-stats">
-			<div class="stat-card">
-				<svg class="stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-				<div>
-					<div class="stat-value">{law.blocks.length}</div>
-					<div class="stat-label">Artículos</div>
-				</div>
-			</div>
-			<div class="stat-card">
-				<svg class="stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
-				<div>
-					<div class="stat-value">{law.reforms.length}</div>
-					<div class="stat-label">Versiones</div>
-				</div>
-			</div>
-			{analisis.materias.length > 0 && (
-				<div class="stat-card">
-					<svg class="stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-					<div>
-						<div class="stat-value">{analisis.materias.length}</div>
-						<div class="stat-label">Temas</div>
-					</div>
-				</div>
-			)}
-			{(analisis.referencias.anteriores.length + analisis.referencias.posteriores.length) > 0 && (
-				<div class="stat-card">
-					<svg class="stat-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-					<div>
-						<div class="stat-value">{analisis.referencias.anteriores.length + analisis.referencias.posteriores.length}</div>
-						<div class="stat-label">Referencias</div>
-					</div>
-				</div>
-			)}
+		<div class="loading" id="resumen-loading">
+			<span class="loading-spinner"></span> Cargando resumen...
 		</div>
-
-		<div class="card">
-			<h3 class="card-heading">
-				<svg class="card-heading-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-				Información general
-			</h3>
-			<div class="meta-grid">
-				<div>
-					<div class="meta-item-label">Rango</div>
-					<div class="meta-item-value">{RANK_LABELS[law.rank] ?? law.rank}</div>
-				</div>
-				<div>
-					<div class="meta-item-label">Estado</div>
-					<div class="meta-item-value"><span class={`badge badge-${law.status}`}>{law.status}</span></div>
-				</div>
-				<div>
-					<div class="meta-item-label">Publicación</div>
-					<div class="meta-item-value">{law.published_at}</div>
-				</div>
-				{law.updated_at && law.updated_at !== law.published_at && (
-					<div>
-						<div class="meta-item-label">Última actualización</div>
-						<div class="meta-item-value">{law.updated_at}</div>
-					</div>
-				)}
-				<div>
-					<div class="meta-item-label">Departamento</div>
-					<div class="meta-item-value">{law.department}</div>
-				</div>
-				{law.reforms.length > 1 && (
-					<div>
-						<div class="meta-item-label">Periodo de reformas</div>
-						<div class="meta-item-value">{law.reforms[0]!.date} — {law.reforms[law.reforms.length - 1]!.date}</div>
-					</div>
-				)}
-			</div>
-		</div>
-
-		{analisis.notas.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Notas</h3>
-				{analisis.notas.map(nota => (
-					<p class="nota-item">{nota}</p>
-				))}
-			</div>
-		)}
-
-		{analisis.referencias.anteriores.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Esta ley se basa en</h3>
-				{[...antByRelation.entries()].map(([relation, refs]) => (
-					<div class="ref-group">
-						<div class="ref-relation">{relation}:</div>
-						<ul class="ref-list">
-							{refs.map(ref => {
-								const cleanText = ref.text.replace(/^[,\s]+/, "").replace(/[,\s]+$/, "");
-								return (
-									<li>
-										{cleanText}{cleanText ? " " : ""}
-										{ref.normId && <a href={`/laws/${ref.normId}`}>{ref.normId}</a>}
-									</li>
-								);
-							})}
-						</ul>
-					</div>
-				))}
-			</div>
-		)}
-
-		{analisis.referencias.posteriores.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Leyes que modifican esta</h3>
-				{[...postByRelation.entries()].map(([relation, refs]) => (
-					<div class="ref-group">
-						<div class="ref-relation">{relation}:</div>
-						<ul class="ref-list">
-							{refs.map(ref => {
-								const cleanText = ref.text.replace(/^[,\s]+/, "").replace(/[,\s]+$/, "");
-								return (
-									<li>
-										{cleanText}{cleanText ? " " : ""}
-										{ref.normId && <a href={`/laws/${ref.normId}`}>{ref.normId}</a>}
-									</li>
-								);
-							})}
-						</ul>
-					</div>
-				))}
-			</div>
-		)}
-
-		{analisis.materias.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Temas</h3>
-				<div>
-					{analisis.materias.map(m => (
-						<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
-					))}
-				</div>
-			</div>
-		)}
+		<div id="resumen-content" style="display:none;"></div>
 	</div>
 
-	<!-- Tab: Texto -->
+	<!-- Tab: Reformas (loaded client-side from API) -->
+	<div class="tab-panel" id="tab-reformas">
+		<div class="loading" id="reformas-loading">
+			<span class="loading-spinner"></span> Cargando historial...
+		</div>
+		<div id="reformas-content" style="display:none;"></div>
+	</div>
+
+	<!-- Tab: Texto completo (static, pre-rendered from Markdown) -->
 	<div class="tab-panel" id="tab-texto">
 		<div class="law-content">
-			{contentBlocks.map((block) => {
-				const isLong = block.cleanedText.length > 2000;
-				return (
-					<div class="block-section">
-						{block.displayTitle && <div class="block-title">{block.displayTitle}</div>}
-						<div class={`block-text${isLong ? " collapsed" : ""}`}>
-							{block.cleanedText}
-						</div>
-						{isLong && (
-							<button class="expand-btn" onclick="
-								const text = this.previousElementSibling;
-								if (text.classList.contains('collapsed')) {
-									text.classList.remove('collapsed');
-									this.textContent = 'Mostrar menos';
-								} else {
-									text.classList.add('collapsed');
-									this.textContent = 'Leer más...';
-								}
-							">Leer más...</button>
-						)}
-					</div>
-				);
-			})}
+			<Content />
 		</div>
 	</div>
 
-	<!-- Tab: Reformas -->
-	{law.reforms.length > 1 && (
-		<div class="tab-panel" id="tab-reformas">
-			<ul class="timeline">
-				{law.reforms.map((reform, i) => {
-					const isFirst = i === 0;
-					const prevDate = i > 0 ? law.reforms[i - 1]!.date : null;
-					const diffUrl = prevDate ? `/laws/${id}/diff?from=${prevDate}&to=${reform.date}` : null;
-					return (
-						<li class="timeline-item">
-							<div class="timeline-dot"></div>
-							<div class="timeline-date">{reform.date}</div>
-							<div class="timeline-detail">
-								{isFirst ? "Versión original" : `${reform.affected_blocks.length} artículos modificados`}
-								{" "}<span class="timeline-source">{reform.source_id}</span>
-							</div>
-							{diffUrl && <a href={diffUrl} class="timeline-link">Ver cambios &rarr;</a>}
-						</li>
-					);
-				})}
-			</ul>
-		</div>
-	)}
+	<script is:inline define:vars={{ lawId: id }}>
+		const API = document.documentElement.dataset.api;
+		const loaded = { resumen: false, reformas: false };
 
-	<script is:inline>
+		// Tab switching
 		document.querySelectorAll('.tab').forEach(tab => {
 			tab.addEventListener('click', () => {
 				document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 				document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
 				tab.classList.add('active');
 				document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
-				tab.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+				// Lazy load data
+				if (tab.dataset.tab === 'resumen' && !loaded.resumen) loadResumen();
+				if (tab.dataset.tab === 'reformas' && !loaded.reformas) loadReformas();
 			});
 		});
+
+		async function loadResumen() {
+			loaded.resumen = true;
+			try {
+				const [lawRes, analisisRes] = await Promise.all([
+					fetch(`${API}/v1/laws/${lawId}`),
+					fetch(`${API}/v1/laws/${lawId}/analisis`),
+				]);
+				const law = await lawRes.json();
+				const analisis = await analisisRes.json();
+
+				var RANKS = {"constitucion":"Constitución","ley_organica":"Ley Orgánica","ley":"Ley","real_decreto_ley":"Real Decreto-ley","real_decreto_legislativo":"RD Legislativo","real_decreto":"Real Decreto","orden":"Orden","decreto":"Decreto","circular":"Circular","resolucion":"Resolución","acuerdo_internacional":"Acuerdo Internacional","instruccion":"Instrucción","reglamento":"Reglamento"};
+				function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+				function formatDate(iso) {
+					if (!iso) return '';
+					var months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+					var parts = iso.split('-');
+					return parseInt(parts[2],10) + ' de ' + months[parseInt(parts[1],10)-1] + ' de ' + parts[0];
+				}
+
+				let html = '<div class="quick-stats">';
+				html += `<div class="stat-card"><div><div class="stat-value">${law.blocks?.length ?? 0}</div><div class="stat-label">Artículos</div></div></div>`;
+				html += `<div class="stat-card"><div><div class="stat-value">${law.reforms?.length ?? 0}</div><div class="stat-label">Versiones</div></div></div>`;
+				if (analisis.materias?.length > 0) {
+					html += `<div class="stat-card"><div><div class="stat-value">${analisis.materias.length}</div><div class="stat-label">Temas</div></div></div>`;
+				}
+				html += '</div>';
+
+				// General info card
+				html += '<div class="card"><h3 class="card-heading">Información general</h3><div class="meta-grid">';
+				html += `<div><div class="meta-item-label">Rango</div><div class="meta-item-value">${RANKS[law.rank] || capitalize(law.rank?.replace(/_/g,' ')) || ''}</div></div>`;
+				html += `<div><div class="meta-item-label">Estado</div><div class="meta-item-value">${capitalize(law.status)}</div></div>`;
+				html += `<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">${formatDate(law.published_at)}</div></div>`;
+				html += `<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">${law.department ?? ''}</div></div>`;
+				html += '</div></div>';
+
+				// Materias
+				if (analisis.materias?.length > 0) {
+					html += '<div class="section"><h3 class="section-heading">Temas</h3><div>';
+					for (const m of analisis.materias) {
+						html += `<a href="/?materia=${encodeURIComponent(m)}" class="materia-tag">${m}</a>`;
+					}
+					html += '</div></div>';
+				}
+
+				// Notas
+				if (analisis.notas?.length > 0) {
+					html += '<div class="section"><h3 class="section-heading">Notas</h3>';
+					for (const nota of analisis.notas) {
+						html += `<p class="nota-item">${nota}</p>`;
+					}
+					html += '</div>';
+				}
+
+				// Referencias
+				if (analisis.referencias?.anteriores?.length > 0) {
+					html += '<div class="section"><h3 class="section-heading">Esta ley se basa en</h3><ul class="ref-list">';
+					for (const ref of analisis.referencias.anteriores) {
+						const text = (ref.text || '').replace(/^[,\s]+/, '').replace(/[,\s]+$/, '');
+						html += `<li>${text} ${ref.normId ? `<a href="/laws/${ref.normId}">${ref.normId}</a>` : ''}</li>`;
+					}
+					html += '</ul></div>';
+				}
+				if (analisis.referencias?.posteriores?.length > 0) {
+					html += '<div class="section"><h3 class="section-heading">Leyes que modifican esta</h3><ul class="ref-list">';
+					for (const ref of analisis.referencias.posteriores) {
+						const text = (ref.text || '').replace(/^[,\s]+/, '').replace(/[,\s]+$/, '');
+						html += `<li>${text} ${ref.normId ? `<a href="/laws/${ref.normId}">${ref.normId}</a>` : ''}</li>`;
+					}
+					html += '</ul></div>';
+				}
+
+				document.getElementById('resumen-loading').style.display = 'none';
+				document.getElementById('resumen-content').innerHTML = html;
+				document.getElementById('resumen-content').style.display = 'block';
+			} catch {
+				document.getElementById('resumen-loading').innerHTML = 'No se pudo cargar el resumen. La API no está disponible.';
+			}
+		}
+
+		async function loadReformas() {
+			loaded.reformas = true;
+			try {
+				const res = await fetch(`${API}/v1/laws/${lawId}`);
+				const law = await res.json();
+
+				if (!law.reforms || law.reforms.length <= 1) {
+					document.getElementById('reformas-loading').innerHTML = 'Esta ley no tiene reformas registradas.';
+					return;
+				}
+
+				// Update tab badge
+				const reformTab = document.querySelector('[data-tab="reformas"]');
+				if (reformTab && !reformTab.querySelector('.tab-badge')) {
+					reformTab.innerHTML += ` <span class="tab-badge">${law.reforms.length}</span>`;
+				}
+
+				let html = '<ul class="timeline">';
+				for (let i = 0; i < law.reforms.length; i++) {
+					const reform = law.reforms[i];
+					const isFirst = i === 0;
+					const prevDate = i > 0 ? law.reforms[i - 1].date : null;
+					const diffUrl = prevDate ? `/diff?id=${lawId}&from=${prevDate}&to=${reform.date}` : null;
+
+					html += '<li class="timeline-item">';
+					html += '<div class="timeline-dot"></div>';
+					html += `<div class="timeline-date">${reform.date}</div>`;
+					html += `<div class="timeline-detail">${isFirst ? 'Versión original' : `${reform.affected_blocks?.length ?? 0} artículos modificados`} <span style="font-family:var(--font-mono);font-size:0.6875rem">${reform.source_id ?? ''}</span></div>`;
+					if (diffUrl) html += `<a href="${diffUrl}" class="timeline-link">Ver cambios &rarr;</a>`;
+					html += '</li>';
+				}
+				html += '</ul>';
+
+				document.getElementById('reformas-loading').style.display = 'none';
+				document.getElementById('reformas-content').innerHTML = html;
+				document.getElementById('reformas-content').style.display = 'block';
+			} catch {
+				document.getElementById('reformas-loading').innerHTML = 'No se pudo cargar el historial. La API no está disponible.';
+			}
+		}
+
+		// Auto-load resumen (default tab) + prefetch reform count for badge
+		loadResumen();
+		fetch(API + '/v1/laws/' + lawId).then(function (r) { return r.json(); }).then(function (law) {
+			if (law.reforms && law.reforms.length > 1) {
+				var reformTab = document.querySelector('[data-tab="reformas"]');
+				if (reformTab) reformTab.innerHTML = 'Historial de cambios <span class="tab-badge">' + law.reforms.length + '</span>';
+			}
+		}).catch(function () {});
 	</script>
 
-	<!-- JSON-LD Structured Data -->
+	<!-- JSON-LD -->
 	<script
 		type="application/ld+json"
 		set:html={JSON.stringify({
 			"@context": "https://schema.org",
 			"@type": "Legislation",
-			name: law.title,
-			datePublished: law.published_at,
-			legislationDate: law.published_at,
-			legislationType: RANK_LABELS[law.rank] ?? law.rank,
+			name: law.titulo,
+			datePublished: law.fecha_publicacion,
+			legislationDate: law.fecha_publicacion,
+			legislationType: RANK_LABELS[law.rango] ?? law.rango,
 			inLanguage: "es",
 			url: `https://leyabierta.es/laws/${id}`,
 			publisher: {

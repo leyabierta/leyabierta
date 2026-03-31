@@ -4,7 +4,13 @@ import { getProfiles } from "../../lib/api";
 import fs from "node:fs";
 import path from "node:path";
 
-const { data: profiles } = await getProfiles();
+let profiles: Array<{ id: string; name: string; description: string; icon: string }> = [];
+try {
+	const result = await getProfiles();
+	profiles = result.data;
+} catch {
+	// API not available at build time
+}
 
 // Scan public/resumenes/ to find latest digest per profile
 const resumenesDir = path.join(process.cwd(), "public", "resumenes");

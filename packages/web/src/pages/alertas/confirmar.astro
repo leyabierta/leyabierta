@@ -1,23 +1,5 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { confirmSubscription } from "../../lib/api";
-
-const token = Astro.url.searchParams.get("token") ?? "";
-
-let success = false;
-let errorMsg = "";
-
-if (token) {
-	try {
-		const result = await confirmSubscription(token);
-		success = !!result.ok;
-		if (!success) errorMsg = result.error ?? "Enlace no valido.";
-	} catch {
-		errorMsg = "Error al confirmar. Intentalo de nuevo.";
-	}
-} else {
-	errorMsg = "Enlace no valido.";
-}
 ---
 
 <Base
@@ -26,54 +8,41 @@ if (token) {
 	canonicalUrl="/alertas/confirmar"
 >
 	<style>
-		.confirm-page {
-			max-width: 28rem;
-			margin: 4rem auto;
-			text-align: center;
-		}
-		.confirm-icon {
-			font-size: 3rem;
-			margin-bottom: 1rem;
-		}
-		.confirm-page h1 {
-			font-family: var(--font-serif);
-			font-size: 1.5rem;
-			font-weight: 700;
-			margin-bottom: 0.75rem;
-		}
-		.confirm-page p {
-			color: var(--text-secondary);
-			line-height: 1.7;
-			margin-bottom: 1.5rem;
-		}
-		.error-msg {
-			color: var(--danger);
-			background: var(--danger-bg);
-			padding: 1rem;
-			border-radius: 8px;
-			margin-bottom: 1.5rem;
-		}
+		.confirm-page { max-width: 28rem; margin: 4rem auto; text-align: center; }
+		.confirm-icon { font-size: 3rem; margin-bottom: 1rem; }
+		.confirm-page h1 { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
+		.confirm-page p { color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem; }
+		.error-msg { color: var(--danger); background: var(--danger-bg); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; }
+		.loading { color: var(--text-muted); }
 	</style>
 
-	<div class="confirm-page">
-		{success ? (
-			<>
-				<div class="confirm-icon">&#10003;</div>
-				<h1>Suscripcion confirmada</h1>
-				<p>
-					A partir de ahora recibiras un email semanal con los cambios legislativos
-					que te afectan. Puedes cancelar la suscripcion en cualquier momento
-					desde el enlace en cada email.
-				</p>
-				<a href="/alertas" class="btn btn-primary">Volver a alertas</a>
-			</>
-		) : (
-			<>
-				<div class="confirm-icon">&#10007;</div>
-				<h1>No se pudo confirmar</h1>
-				<div class="error-msg">{errorMsg}</div>
-				<a href="/alertas" class="btn">Volver a alertas</a>
-			</>
-		)}
+	<div class="confirm-page" id="confirm-content">
+		<div class="loading">Confirmando suscripcion...</div>
 	</div>
+
+	<script is:inline>
+		(function () {
+			var API = document.documentElement.dataset.api;
+			var token = new URLSearchParams(window.location.search).get("token");
+			var el = document.getElementById("confirm-content");
+
+			if (!token) {
+				el.innerHTML = '<div class="confirm-icon">&#10007;</div><h1>Enlace no valido</h1><div class="error-msg">Falta el token de confirmacion.</div><a href="/alertas" class="btn">Volver a alertas</a>';
+				return;
+			}
+
+			fetch(API + "/v1/alerts/confirm/" + token)
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (data.ok) {
+						el.innerHTML = '<div class="confirm-icon">&#10003;</div><h1>Suscripcion confirmada</h1><p>A partir de ahora recibiras un email semanal con los cambios legislativos que te afectan.</p><a href="/alertas" class="btn btn-primary">Volver a alertas</a>';
+					} else {
+						el.innerHTML = '<div class="confirm-icon">&#10007;</div><h1>No se pudo confirmar</h1><div class="error-msg">' + (data.error || "Enlace no valido.") + '</div><a href="/alertas" class="btn">Volver a alertas</a>';
+					}
+				})
+				.catch(function () {
+					el.innerHTML = '<div class="confirm-icon">&#10007;</div><h1>Error</h1><div class="error-msg">Error al confirmar. Intentalo de nuevo.</div><a href="/alertas" class="btn">Volver a alertas</a>';
+				});
+		})();
+	</script>
 </Base>

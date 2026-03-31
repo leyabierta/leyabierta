@@ -83,55 +83,32 @@ Organizacion: `leyabierta`
 - Crear repos `leyabierta` y `leyes`
 - Push inicial
 
-### Fase 1: Astro a modo estatico
+### Fase 1: Astro estatico con Content Collections (COMPLETADO)
 
-**Archivos a modificar:**
-- `packages/web/astro.config.mjs` — cambiar output de "server" a "static"
-- `packages/web/src/lib/api.ts` — API_BASE en build time para paginas estaticas
-- Eliminar dependencia de `@astrojs/node`
+**Arquitectura:** `output: "static"`, sin adapter. Content Collections lee los Markdown del repo de leyes directamente desde disco. Cloudflare Pages puro (HTML en CDN, sin compute).
 
-**Consideraciones:**
-- Home, paginas de leyes, diffs, anomalias, feed, sitemap → estaticas
-- Busqueda → client-side JS contra la API directamente
-- Alertas/suscripciones → client-side JS contra la API
+**Archivos modificados:**
+- `packages/web/astro.config.mjs` — `output: "static"`, sin adapter
+- `packages/web/package.json` — eliminada dependencia de `@astrojs/cloudflare`
+- `packages/web/src/content.config.ts` — collection `laws` con glob loader
+- `packages/web/src/pages/laws/[id].astro` — getStaticPaths() desde Content Collections
+- `packages/web/src/pages/diff.astro` — pagina unica, diff 100% client-side
+- `packages/web/src/pages/index.astro` — landing desde collection, busqueda client-side
+- `packages/web/src/pages/alertas/confirmar.astro` — client-side token handling
+- `packages/web/src/pages/alertas/cancelar.astro` — client-side token handling
+- Feed RSS y sitemap generados desde Content Collections (sin API)
+- Eliminado: `pages/api/subscribe.ts` (frontend llama API directamente)
 
-### Fase 2: Dockerfile para la API
+**Paginas estaticas (build):** leyes, landing, anomalias, alertas, resumenes, feed, sitemap
+**Client-side JS (runtime):** busqueda, diffs, resumen/historial tabs, suscripciones
 
-**Archivos nuevos:**
-- `Dockerfile` (solo API, no web)
-- `docker-compose.yml` (API + volumes)
-- `.dockerignore`
+### Fase 2: Dockerfile para la API (COMPLETADO)
 
-```dockerfile
-FROM oven/bun:1-slim
-WORKDIR /app
-COPY package.json bun.lock* ./
-COPY packages/api/package.json packages/api/
-COPY packages/pipeline/package.json packages/pipeline/
-RUN bun install --production
-COPY packages/api packages/api
-COPY packages/pipeline packages/pipeline
-COPY tsconfig.json .
-EXPOSE 3000
-ENV DB_PATH=/data/leyabierta.db
-ENV REPO_PATH=/data/leyes
-CMD ["bun", "run", "packages/api/src/index.ts"]
-```
-
-```yaml
-# docker-compose.yml
-services:
-  api:
-    build: .
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:3000:3000"  # Solo localhost, Cloudflare Tunnel expone
-    volumes:
-      - ./data:/data
-    environment:
-      - DB_PATH=/data/leyabierta.db
-      - REPO_PATH=/data/leyes
-```
+**Archivos creados:** `Dockerfile`, `docker-compose.yml`, `.dockerignore`
+- Base: `oven/bun:1-slim` + git (para GitService diffs)
+- HEALTHCHECK contra `/health`
+- Puerto `127.0.0.1:3000:3000` (solo localhost)
+- Volume `./data:/data` para DB + repo leyes
 
 ### Fase 3: Cloudflare Tunnel
 
@@ -153,11 +130,11 @@ ingress:
 
 ### Fase 4: GitHub Actions — CI/CD
 
-**`.github/workflows/ci.yml`** — push a main:
-- Install, lint (biome check), test (bun test)
+**`.github/workflows/ci.yml`** — push a main y PRs (COMPLETADO):
+- Install (`bun install --frozen-lockfile`), lint (`bun run check`), test (`bun test`)
 
-**`.github/workflows/deploy-web.yml`** — push a main o dispatch manual:
-1. Build Astro (output: static)
+**`.github/workflows/deploy-web.yml`** — push a main o dispatch manual (PENDIENTE):
+1. Build Astro con adapter Cloudflare
 2. Deploy a Cloudflare Pages via `wrangler pages deploy`
 - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 

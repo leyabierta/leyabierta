@@ -1,0 +1,219 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+	title="Comparar versiones"
+	description="Compara las diferencias entre dos versiones de una ley."
+	canonicalUrl="/diff"
+>
+	<style>
+		.diff-header { margin-bottom: 1.5rem; }
+		.diff-title {
+			font-family: var(--font-serif);
+			font-size: 1.25rem;
+			font-weight: 700;
+			margin: 0.75rem 0 0;
+			line-height: 1.35;
+		}
+		.diff-dates {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+			font-variant-numeric: tabular-nums;
+			margin-top: 0.5rem;
+		}
+		.diff-dates .arrow { color: var(--text-muted); }
+		.diff-bar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 1rem;
+			margin-bottom: 0.75rem;
+			font-size: 0.8125rem;
+			flex-wrap: wrap;
+		}
+		.diff-stats { display: flex; align-items: center; gap: 0.75rem; color: var(--text-muted); }
+		.diff-stat-add { color: var(--success); font-weight: 600; }
+		.diff-stat-del { color: var(--danger); font-weight: 600; }
+		.view-toggle { display: inline-flex; gap: 0.25rem; }
+		.view-btn {
+			padding: 0.35rem 0.75rem;
+			font-size: 0.75rem;
+			font-weight: 500;
+			font-family: var(--font-sans);
+			cursor: pointer;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: transparent;
+			color: var(--text-muted);
+			transition: all 0.15s;
+		}
+		.view-btn:hover { color: var(--text-secondary); border-color: var(--text-muted); }
+		.view-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+		.diff-wide {
+			width: 100vw;
+			max-width: 72rem;
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+			padding-left: 1.5rem;
+			padding-right: 1.5rem;
+			box-sizing: border-box;
+		}
+		#diff-container {
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			overflow: hidden;
+			background: #fff;
+			color: #1a1a1a;
+			font-size: 0.875rem;
+			line-height: 1.65;
+		}
+		.loading { text-align: center; padding: 3rem 0; color: var(--text-muted); font-size: 0.875rem; }
+		.loading-spinner { display: inline-block; width: 1.25rem; height: 1.25rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+		@keyframes spin { to { transform: rotate(360deg); } }
+		.error-msg { text-align: center; padding: 4rem 0; color: var(--text-muted); font-size: 0.9375rem; }
+		@media (max-width: 640px) {
+			.diff-wide { padding-left: 0.75rem; padding-right: 0.75rem; }
+			.diff-bar { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+		}
+	</style>
+
+	<style is:global>
+		#diff-container .d2h-wrapper { font-family: "Inter", system-ui, sans-serif !important; }
+		#diff-container .d2h-file-header { display: none !important; }
+		#diff-container .d2h-diff-table { font-size: 0.875rem !important; width: 100% !important; }
+		#diff-container .d2h-code-line-ctn { white-space: pre-wrap !important; word-break: break-word !important; padding: 0.2rem 1rem !important; }
+		#diff-container .d2h-code-linenumber, #diff-container .d2h-code-side-linenumber { display: none !important; }
+		#diff-container .d2h-code-line-prefix { display: none !important; }
+		#diff-container .d2h-code-side-line-ctn { white-space: pre-wrap !important; word-break: break-word !important; padding: 0.2rem 1rem !important; }
+		#diff-container .d2h-info { background: #f0f4f8 !important; color: #4a6078 !important; font-family: "Source Serif 4", Georgia, serif !important; font-weight: 600 !important; font-size: 0.8125rem !important; }
+		#diff-container .d2h-file-side-diff { width: 50% !important; overflow-x: hidden; }
+		#diff-container ins { background: #b7f5b7 !important; text-decoration: none !important; }
+		#diff-container del { background: #f5b7b7 !important; text-decoration: none !important; }
+	</style>
+
+	<div id="back-link"></div>
+
+	<div class="diff-header">
+		<h1 class="diff-title" id="diff-title">Cargando...</h1>
+		<div class="diff-dates" id="diff-dates"></div>
+	</div>
+
+	<div id="diff-toolbar" style="display:none;">
+		<div class="diff-bar">
+			<div class="diff-stats" id="diff-stats"></div>
+			<div class="view-toggle">
+				<button class="view-btn active" data-view="unified" type="button">Unificada</button>
+				<button class="view-btn" data-view="side" type="button">Lado a lado</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="diff-wide">
+		<div id="diff-container">
+			<div class="loading"><span class="loading-spinner"></span> Cargando diferencias...</div>
+		</div>
+	</div>
+
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+
+	<script is:inline>
+		(function () {
+			var API = document.documentElement.dataset.api;
+			var params = new URLSearchParams(window.location.search);
+			var id = params.get("id");
+			var from = params.get("from");
+			var to = params.get("to");
+
+			if (!id || !from || !to) {
+				document.getElementById("diff-title").textContent = "Parámetros incompletos";
+				document.getElementById("diff-container").innerHTML = '<div class="error-msg">Faltan parámetros. <a href="/">Volver al inicio</a></div>';
+				return;
+			}
+
+			document.getElementById("back-link").innerHTML = '<a href="/laws/' + id + '" style="font-size:0.8125rem;color:var(--text-muted)">&larr; Volver a la ley</a>';
+			document.getElementById("diff-dates").innerHTML = '<span>' + from + '</span><span class="arrow">&rarr;</span><span>' + to + '</span>';
+
+			function stripFrontmatterDiff(raw) {
+				var lines = raw.split("\n");
+				var out = [];
+				var skip = false;
+				var adds = 0, dels = 0, sections = [];
+
+				for (var i = 0; i < lines.length; i++) {
+					var line = lines[i];
+					if (line.startsWith("@@")) {
+						var ctx = (line.match(/@@.*@@\s*(.*)/) || [])[1] || "";
+						if (/^(titulo|identificador|pais|jurisdiccion|rango|fecha_publicacion|ultima_actualizacion|estado|departamento|fuente):/.test(ctx.trim()) || /^---/.test(ctx.trim())) {
+							skip = true; continue;
+						}
+						skip = false;
+						if (ctx.trim()) sections.push(ctx.trim());
+						out.push(line); continue;
+					}
+					if (skip) continue;
+					if (line.startsWith("+") && !line.startsWith("+++")) adds++;
+					else if (line.startsWith("-") && !line.startsWith("---")) dels++;
+					out.push(line);
+				}
+				return { cleaned: out.join("\n"), adds: adds, dels: dels, sections: sections };
+			}
+
+			Promise.all([
+				fetch(API + "/v1/laws/" + id).then(function (r) { return r.json(); }),
+				fetch(API + "/v1/laws/" + id + "/diff?from=" + from + "&to=" + to).then(function (r) { return r.json(); }),
+			]).then(function (results) {
+				var law = results[0];
+				var diffResult = results[1];
+
+				document.getElementById("diff-title").textContent = "Cambios en " + (law.short_title || law.title);
+
+				if (!diffResult.diff || diffResult.diff.length === 0) {
+					document.getElementById("diff-container").innerHTML = '<div class="error-msg">No se encontraron diferencias entre estas fechas.</div>';
+					return;
+				}
+
+				var parsed = stripFrontmatterDiff(diffResult.diff);
+				if (parsed.adds === 0 && parsed.dels === 0) {
+					document.getElementById("diff-container").innerHTML = '<div class="error-msg">No se encontraron diferencias en el texto legal (solo cambios en metadatos).</div>';
+					return;
+				}
+
+				document.getElementById("diff-stats").innerHTML =
+					'<span class="diff-stat-add">+' + parsed.adds + '</span>' +
+					'<span class="diff-stat-del">&minus;' + parsed.dels + '</span>' +
+					(parsed.sections.length > 0 ? '<span>en ' + parsed.sections.length + (parsed.sections.length === 1 ? ' sección' : ' secciones') + '</span>' : '');
+				document.getElementById("diff-toolbar").style.display = "block";
+
+				var script = document.createElement("script");
+				script.src = "https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui-slim.min.js";
+				script.onload = function () {
+					function renderDiff(format) {
+						var el = document.getElementById("diff-container");
+						el.innerHTML = "";
+						var ui = new Diff2HtmlUI(el, parsed.cleaned, {
+							drawFileList: false, matching: "words", outputFormat: format,
+							highlight: false, colorScheme: "light", renderNothingWhenEmpty: false,
+						});
+						ui.draw();
+					}
+					renderDiff("line-by-line");
+					document.querySelectorAll(".view-btn").forEach(function (btn) {
+						btn.addEventListener("click", function () {
+							document.querySelectorAll(".view-btn").forEach(function (b) { b.classList.remove("active"); });
+							btn.classList.add("active");
+							renderDiff(btn.dataset.view === "side" ? "side-by-side" : "line-by-line");
+						});
+					});
+				};
+				document.head.appendChild(script);
+			}).catch(function () {
+				document.getElementById("diff-container").innerHTML = '<div class="error-msg">No se pudo cargar el diff. La API no está disponible.</div>';
+			});
+		})();
+	</script>
+</Base>

@@ -1,0 +1,11 @@
+node_modules
+.git
+data
+output
+packages/web
+branding
+*.md
+.claude
+.claude-profiles
+.github
+--full-page

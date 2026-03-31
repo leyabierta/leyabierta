@@ -2,7 +2,12 @@
 import Base from "../layouts/Base.astro";
 import { getAnomalies } from "../lib/api";
 
-const data = await getAnomalies();
+let data = { futureDates: [], emptyBlocks: [], unresolvedMaterias: [], missingEli: [] };
+try {
+	data = await getAnomalies();
+} catch {
+	// API not available at build time
+}
 
 const totalIssues =
 	data.futureDates.length +

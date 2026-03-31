@@ -1,189 +1,70 @@
 ---
+import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
-import {
-	searchLaws, getRanks, getMaterias as getMateriasFilter,
-	getStats, getMostReformed, getJurisdictions, getRecentReforms,
-} from "../lib/api";
 
-const q = Astro.url.searchParams.get("q") ?? "";
-const rank = Astro.url.searchParams.get("rank") ?? "";
-const status = Astro.url.searchParams.get("status") ?? "";
-const materia = Astro.url.searchParams.get("materia") ?? "";
-const page = Number(Astro.url.searchParams.get("page") ?? "1");
-const limit = 20;
-const offset = (page - 1) * limit;
+const laws = await getCollection("laws");
 
-const hasSearch = q || rank || status || materia || page > 1;
+// Compute stats from Content Collections
+const totalNorms = laws.length;
+const jurisdictionCounts = new Map<string, number>();
+const rankCounts = new Map<string, number>();
+for (const law of laws) {
+	const j = law.data.jurisdiccion;
+	jurisdictionCounts.set(j, (jurisdictionCounts.get(j) ?? 0) + 1);
+	const r = law.data.rango;
+	rankCounts.set(r, (rankCounts.get(r) ?? 0) + 1);
+}
+const jurisdictions = [...jurisdictionCounts.entries()]
+	.sort((a, b) => b[1] - a[1])
+	.map(([jurisdiction, count]) => ({ jurisdiction, count }));
+const ranks = [...rankCounts.entries()]
+	.sort((a, b) => b[1] - a[1])
+	.map(([rank, count]) => ({ rank, count }));
 
-// Always fetch search results + filters
-const params: Record<string, string> = { limit: String(limit), offset: String(offset) };
-if (q) params.q = q;
-if (rank) params.rank = rank;
-if (status) params.status = status;
-if (materia) params.materia = materia;
-
-const [result, ranks, materiasList] = await Promise.all([
-	searchLaws(params),
-	getRanks(),
-	getMateriasFilter(),
-]);
-
-// Only fetch landing page data when no search active
-const [stats, mostReformed, jurisdictions, recentReforms] = hasSearch
-	? [null, null, null, null]
-	: await Promise.all([
-		getStats(),
-		getMostReformed(),
-		getJurisdictions(),
-		getRecentReforms(),
-	]);
-
-const totalPages = Math.ceil(result.total / limit);
+const dates = laws.map(l => l.data.fecha_publicacion).filter(Boolean).sort();
+const earliest = dates[0] ?? "1835";
+const earliestYear = earliest.slice(0, 4);
 
 const RANK_LABELS: Record<string, string> = {
-	constitucion: "Constitución",
-	ley_organica: "Ley Orgánica",
-	ley: "Ley",
-	real_decreto_ley: "Real Decreto-ley",
-	real_decreto_legislativo: "RD Legislativo",
-	real_decreto: "Real Decreto",
-	orden: "Orden",
-	resolucion: "Resolución",
-	acuerdo_internacional: "Acuerdo Int.",
-	circular: "Circular",
-	instruccion: "Instrucción",
-	decreto: "Decreto",
-	reglamento: "Reglamento",
+	constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
+	real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+	real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
+	acuerdo_internacional: "Acuerdo Int.", circular: "Circular",
+	instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento",
 };
 
 const JURISDICTION_LABELS: Record<string, string> = {
-	"es": "Estatal",
-	"es-an": "Andalucía",
-	"es-ar": "Aragón",
-	"es-as": "Asturias",
-	"es-cb": "Cantabria",
-	"es-cl": "Castilla y León",
-	"es-cm": "Castilla-La Mancha",
-	"es-cn": "Canarias",
-	"es-ct": "Cataluña",
-	"es-ex": "Extremadura",
-	"es-ga": "Galicia",
-	"es-ib": "Illes Balears",
-	"es-mc": "Murcia",
-	"es-md": "Madrid",
-	"es-nc": "Navarra",
-	"es-pv": "País Vasco",
-	"es-ri": "La Rioja",
-	"es-vc": "C. Valenciana",
+	"es": "Estatal", "es-an": "Andalucía", "es-ar": "Aragón", "es-as": "Asturias",
+	"es-cb": "Cantabria", "es-cl": "Castilla y León", "es-cm": "Castilla-La Mancha",
+	"es-cn": "Canarias", "es-ct": "Cataluña", "es-ex": "Extremadura", "es-ga": "Galicia",
+	"es-ib": "Illes Balears", "es-mc": "Murcia", "es-md": "Madrid", "es-nc": "Navarra",
+	"es-pv": "País Vasco", "es-ri": "La Rioja", "es-vc": "C. Valenciana",
 };
-
-function buildPageUrl(p: number): string {
-	const u = new URLSearchParams();
-	if (q) u.set("q", q);
-	if (rank) u.set("rank", rank);
-	if (status) u.set("status", status);
-	if (materia) u.set("materia", materia);
-	if (p > 1) u.set("page", String(p));
-	const s = u.toString();
-	return s ? `/?${s}` : "/";
-}
-
-function pageNumbers(current: number, total: number): (number | "...")[] {
-	if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-	const pages: (number | "...")[] = [];
-	const near = [current - 1, current, current + 1].filter(n => n >= 1 && n <= total);
-	const all = new Set([1, 2, ...near, total - 1, total]);
-	const sorted = [...all].sort((a, b) => a - b);
-	for (let i = 0; i < sorted.length; i++) {
-		if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) pages.push("...");
-		pages.push(sorted[i]!);
-	}
-	return pages;
-}
-
-function buildUrlWithout(excludeKey: string): string {
-	const u = new URLSearchParams();
-	if (q && excludeKey !== "q") u.set("q", q);
-	if (rank && excludeKey !== "rank") u.set("rank", rank);
-	if (status && excludeKey !== "status") u.set("status", status);
-	if (materia && excludeKey !== "materia") u.set("materia", materia);
-	const s = u.toString();
-	return s ? `/?${s}` : "/";
-}
-
-const topMaterias = materiasList.data.slice(0, 50);
 ---
 
 <Base
 	title="Legislación Española Consolidada"
-	description="Más de 12.000 leyes españolas con historial completo de cambios. Busca, compara versiones y consulta 190 años de legislación consolidada."
+	description={`Más de ${totalNorms.toLocaleString("es")} leyes españolas con historial completo de cambios.`}
 	ogTitle="Ley Abierta — Todas las leyes de España, actualizadas y accesibles"
-	ogDescription="Más de 12.000 leyes españolas con historial completo de cambios. Consulta, compara y entiende la legislación."
 	canonicalUrl="/"
 >
 	<style>
 		.hero { text-align: center; padding: 2.5rem 0 2rem; }
-		.hero h1 {
-			font-family: var(--font-serif);
-			font-size: 2.25rem;
-			font-weight: 700;
-			line-height: 1.15;
-			letter-spacing: -0.02em;
-		}
-		.hero-sub {
-			color: var(--text-secondary);
-			font-size: 1rem;
-			margin-top: 0.75rem;
-			max-width: 38rem;
-			margin-left: auto;
-			margin-right: auto;
-			line-height: 1.7;
-		}
-
-		/* ── Search ── */
+		.hero h1 { font-family: var(--font-serif); font-size: 2.25rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+		.hero-sub { color: var(--text-secondary); font-size: 1rem; margin-top: 0.75rem; max-width: 38rem; margin-left: auto; margin-right: auto; line-height: 1.7; }
 		.search-form { margin-bottom: 1.75rem; }
 		.search-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-		.search-input {
-			flex: 1; padding: 0.75rem 1rem;
-			border: 1px solid var(--border); border-radius: 8px;
-			background: var(--surface); color: var(--text);
-			font-size: 1rem; font-family: var(--font-sans);
-		}
+		.search-input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 1rem; font-family: var(--font-sans); }
 		.search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
-		.filter-toggle {
-			display: inline-flex; align-items: center; gap: 0.375rem;
-			background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
-			color: var(--text-muted); font-size: 0.8125rem; font-family: var(--font-sans);
-			font-weight: 500; cursor: pointer; padding: 0.35rem 0.75rem; transition: all 0.15s;
-		}
+		.filter-toggle { display: inline-flex; align-items: center; gap: 0.375rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 0.8125rem; font-family: var(--font-sans); font-weight: 500; cursor: pointer; padding: 0.35rem 0.75rem; transition: all 0.15s; }
 		.filter-toggle:hover { color: var(--text-secondary); border-color: var(--accent); }
-		.filter-toggle .arrow { transition: transform 0.2s; font-size: 0.625rem; }
-		.filter-toggle.open .arrow { transform: rotate(180deg); }
 		.filter-panel { display: none; margin-top: 0.5rem; }
 		.filter-panel.open { display: block; }
 		.filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-		.filter-select {
-			padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: 6px;
-			background: var(--surface); color: var(--text-secondary); font-size: 0.875rem; font-family: var(--font-sans);
-		}
-		.filter-select:focus { outline: none; border-color: var(--accent); }
-		.clear-filters { font-size: 0.75rem; color: var(--text-muted); margin-left: 0.25rem; }
+		.filter-select { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-secondary); font-size: 0.875rem; font-family: var(--font-sans); }
 
-		/* ── Active filters ── */
-		.active-filters { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-		.active-filter {
-			display: inline-flex; align-items: center; gap: 0.25rem;
-			padding: 0.2rem 0.5rem; background: var(--accent-bg); color: var(--accent);
-			border-radius: 100px; font-size: 0.75rem; font-weight: 500;
-		}
-		.active-filter-remove {
-			width: 1rem; height: 1rem; border-radius: 50%; font-size: 0.625rem;
-			color: var(--accent); opacity: 0.6; text-decoration: none;
-			display: inline-flex; align-items: center; justify-content: center;
-		}
-		.active-filter-remove:hover { opacity: 1; text-decoration: none; }
-
-		/* ── Results ── */
+		/* Results (rendered by JS) */
+		#search-results { display: none; }
 		.results-info { font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); }
 		.law-card { padding: 1rem; margin: 0 -1rem; border-radius: 8px; transition: background 0.15s; }
 		.law-card:hover { background: var(--surface); }
@@ -191,55 +72,24 @@ const topMaterias = materiasList.data.slice(0, 50);
 		.law-card-title { font-family: var(--font-serif); font-weight: 600; font-size: 1.0625rem; line-height: 1.45; color: var(--text); }
 		.law-card-title:hover { color: var(--accent); text-decoration: none; }
 		.law-card-meta { margin-top: 0.5rem; display: flex; gap: 0.625rem; flex-wrap: wrap; align-items: center; font-size: 0.8125rem; color: var(--text-muted); }
+		.pagination { display: flex; gap: 0.25rem; justify-content: center; margin-top: 1.5rem; }
+		.page-num { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; border-radius: 6px; font-size: 0.8125rem; color: var(--text-muted); cursor: pointer; border: 1px solid transparent; }
+		.page-num:hover { background: var(--surface); color: var(--text); text-decoration: none; }
+		.page-num.current { background: var(--accent-bg); color: var(--accent); font-weight: 600; border-color: var(--accent); }
 
-		/* ── Landing sections ── */
+		/* Landing sections */
 		.section { margin-top: 3rem; }
-		.section-title {
-			font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700;
-			margin-bottom: 1rem; letter-spacing: -0.01em;
-		}
-
-		/* Jurisdictions grid */
+		.section-title { font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; }
 		.juri-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; }
-		.juri-card {
-			display: flex; justify-content: space-between; align-items: center;
-			padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border-light);
-			border-radius: 8px; font-size: 0.875rem; color: var(--text); transition: all 0.15s;
-		}
+		.juri-card { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border-light); border-radius: 8px; font-size: 0.875rem; color: var(--text); transition: all 0.15s; }
 		.juri-card:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-		.juri-count { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-size: 0.75rem; color: var(--text-muted); }
+		.juri-count { font-variant-numeric: tabular-nums; font-size: 0.75rem; color: var(--text-muted); }
 
-		/* Most reformed */
-		.reformed-list { list-style: none; padding: 0; }
-		.reformed-item {
-			display: flex; gap: 1rem; align-items: baseline;
-			padding: 0.75rem 0; border-bottom: 1px solid var(--border-light);
-		}
-		.reformed-item:last-child { border-bottom: none; }
-		.reformed-count {
-			font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-size: 1.125rem; font-weight: 700;
-			color: var(--accent); min-width: 2.5rem; text-align: right; flex-shrink: 0;
-		}
-		.reformed-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
-		.reformed-title:hover { color: var(--accent); text-decoration: none; }
-		.reformed-rank { font-size: 0.6875rem; color: var(--text-muted); }
-
-		/* Recent reforms */
-		.recent-list { list-style: none; padding: 0; }
-		.recent-item {
-			display: flex; gap: 0.75rem; align-items: baseline;
-			padding: 0.625rem 0; border-bottom: 1px solid var(--border-light);
-		}
-		.recent-item:last-child { border-bottom: none; }
-		.recent-date {
-			font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);
-			min-width: 5.5rem; flex-shrink: 0;
-		}
-		.recent-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
-		.recent-title:hover { color: var(--accent); text-decoration: none; }
-
-		/* Two-column layout for bottom sections */
 		.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+
+		.loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
+		.loading-spinner { display: inline-block; width: 1.25rem; height: 1.25rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+		@keyframes spin { to { transform: rotate(360deg); } }
 
 		@media (max-width: 640px) {
 			.hero h1 { font-size: 1.625rem; }
@@ -251,153 +101,228 @@ const topMaterias = materiasList.data.slice(0, 50);
 		}
 	</style>
 
-	<!-- Hero -->
+	<!-- Styles for JS-injected content (must be global since Astro scopes don't apply to innerHTML) -->
+	<style is:global>
+		.reformed-list, .recent-list { list-style: none; padding: 0; }
+		.reformed-item { display: flex; gap: 1rem; align-items: baseline; padding: 0.75rem 0; border-bottom: 1px solid var(--border-light); }
+		.reformed-item:last-child { border-bottom: none; }
+		.reformed-count { font-variant-numeric: tabular-nums; font-size: 1.125rem; font-weight: 700; color: var(--accent); min-width: 2.5rem; text-align: right; flex-shrink: 0; }
+		.reformed-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
+		.reformed-title:hover { color: var(--accent); text-decoration: none; }
+		.reformed-rank { font-size: 0.6875rem; color: var(--text-muted); }
+		.recent-item { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.625rem 0; border-bottom: 1px solid var(--border-light); }
+		.recent-item:last-child { border-bottom: none; }
+		.recent-date { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); min-width: 5.5rem; flex-shrink: 0; }
+		.recent-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
+		.recent-title:hover { color: var(--accent); text-decoration: none; }
+	</style>
+
 	<div class="hero">
 		<h1>Todas las leyes de España,<br>actualizadas y accesibles</h1>
 		<p class="hero-sub">
-			Más de {stats ? stats.norms.toLocaleString("es") : "12.000"} leyes
-			y {stats ? stats.articles.toLocaleString("es") : "435.000"} artículos desde 1835.
+			Más de {totalNorms.toLocaleString("es")} leyes
+			desde {earliestYear}.
 			Consulta el texto completo, compara versiones y sigue los cambios de cualquier ley.
 		</p>
 	</div>
 
 	<!-- Search -->
-	<form method="get" action="/" class="search-form">
+	<div class="search-form">
 		<div class="search-row">
-			<input type="search" name="q" value={q} placeholder="Buscar leyes..." class="search-input" />
-			<button type="submit" class="btn btn-primary">Buscar</button>
+			<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" />
+			<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
 		</div>
-		<button type="button" class={`filter-toggle${hasSearch ? " open" : ""}`} id="filter-toggle">
+		<button type="button" class="filter-toggle" id="filter-toggle">
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-			Filtros <span class="arrow">&#9660;</span>
+			Filtros <span style="font-size:0.625rem">&#9660;</span>
 		</button>
-		<div class={`filter-panel${hasSearch ? " open" : ""}`} id="filter-panel">
+		<div class="filter-panel" id="filter-panel">
 			<div class="filter-row">
-				<select name="rank" class="filter-select">
+				<select id="filter-rank" class="filter-select">
 					<option value="">Todos los rangos</option>
-					{ranks.data.map((r) => (
-						<option value={r.rank} selected={r.rank === rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
+					{ranks.map((r) => (
+						<option value={r.rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
 					))}
 				</select>
-				<select name="status" class="filter-select">
+				<select id="filter-status" class="filter-select">
 					<option value="">Todos los estados</option>
-					<option value="vigente" selected={status === "vigente"}>Vigente</option>
-					<option value="derogada" selected={status === "derogada"}>Derogada</option>
+					<option value="vigente">Vigente</option>
+					<option value="derogada">Derogada</option>
 				</select>
-				{topMaterias.length > 0 && (
-					<select name="materia" class="filter-select">
-						<option value="">Todas las materias</option>
-						{topMaterias.map((m) => (
-							<option value={m.materia} selected={m.materia === materia}>{m.materia} ({m.count})</option>
-						))}
-					</select>
-				)}
-				{hasSearch && <a href="/" class="clear-filters">Limpiar</a>}
 			</div>
 		</div>
-	</form>
+	</div>
 
-	{/* Active filter chips */}
-	{hasSearch && (
-		<div class="active-filters">
-			{q && <span class="active-filter">"{q}" <a href={buildUrlWithout("q")} class="active-filter-remove">&times;</a></span>}
-			{rank && <span class="active-filter">{RANK_LABELS[rank] ?? rank} <a href={buildUrlWithout("rank")} class="active-filter-remove">&times;</a></span>}
-			{status && <span class="active-filter">{status} <a href={buildUrlWithout("status")} class="active-filter-remove">&times;</a></span>}
-			{materia && <span class="active-filter">{materia} <a href={buildUrlWithout("materia")} class="active-filter-remove">&times;</a></span>}
+	<!-- Search results (hidden by default, shown by JS) -->
+	<div id="search-results"></div>
+
+	<!-- Landing sections (hidden when searching) -->
+	<div id="landing-content">
+		<div class="section">
+			<h2 class="section-title">Explora por comunidad autónoma</h2>
+			<div class="juri-grid">
+				{jurisdictions.map(j => (
+					<span class="juri-card" style="cursor:default">
+						{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}
+						<span class="juri-count">{j.count.toLocaleString("es")}</span>
+					</span>
+				))}
+			</div>
 		</div>
-	)}
 
-	{/* ── Search results mode ── */}
-	{hasSearch && (
-		<>
-			{result.data.length === 0 ? (
-				<div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-					No se encontraron resultados{q ? ` para "${q}"` : ""}.
-				</div>
-			) : (
-				<div>
-					<div class="results-info">
-						Mostrando {offset + 1}–{Math.min(offset + limit, result.total)} de {result.total.toLocaleString("es")}
-						{q && <> para <strong>"{q}"</strong></>}
-					</div>
-					{result.data.map((law) => (
-						<article class="law-card">
-							<a href={`/laws/${law.id}`} class="law-card-title">{law.title}</a>
-							<div class="law-card-meta">
-								<span class={`badge badge-${law.status}`}>{law.status}</span>
-								<span>{RANK_LABELS[law.rank] ?? law.rank}</span>
-								<span>{law.published_at}</span>
-								<span style="font-family: var(--font-mono); font-size: 0.6875rem; opacity: 0.6;">{law.id}</span>
-							</div>
-						</article>
-					))}
-				</div>
-			)}
-
-			{totalPages > 1 && (
-				<nav class="pagination">
-					{page > 1 && <a href={buildPageUrl(page - 1)} class="btn" style="margin-right: 0.25rem;">&larr;</a>}
-					{pageNumbers(page, totalPages).map(p =>
-						p === "..." ? <span class="page-ellipsis">...</span>
-						: <a href={buildPageUrl(p)} class={`page-num${p === page ? " current" : ""}`}>{p}</a>
-					)}
-					{page < totalPages && <a href={buildPageUrl(page + 1)} class="btn" style="margin-left: 0.25rem;">&rarr;</a>}
-				</nav>
-			)}
-		</>
-	)}
-
-	{/* ── Landing page mode ── */}
-	{!hasSearch && jurisdictions && (
-		<>
-			{/* Jurisdictions */}
-			<div class="section">
-				<h2 class="section-title">Explora por comunidad autónoma</h2>
-				<div class="juri-grid">
-					{jurisdictions.data.map(j => (
-						<a href={`/?q=&rank=&status=&materia=&page=1`} class="juri-card">
-							{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}
-							<span class="juri-count">{j.count.toLocaleString("es")}</span>
-						</a>
-					))}
-				</div>
+		<div class="two-col section">
+			<div>
+				<h2 class="section-title">Leyes que más han cambiado</h2>
+				<div id="most-reformed"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
 			</div>
-
-			{/* Two-column: Most reformed + Recent reforms */}
-			<div class="two-col section">
-				<div>
-					<h2 class="section-title">Leyes que más han cambiado</h2>
-					<ul class="reformed-list">
-						{mostReformed!.data.map(law => (
-							<li class="reformed-item">
-								<span class="reformed-count">{law.reform_count}</span>
-								<div>
-									<a href={`/laws/${law.id}`} class="reformed-title">{law.title}</a>
-									<div class="reformed-rank">{RANK_LABELS[law.rank] ?? law.rank}</div>
-								</div>
-							</li>
-						))}
-					</ul>
-				</div>
-				<div>
-					<h2 class="section-title">Cambios recientes</h2>
-					<ul class="recent-list">
-						{recentReforms!.data.map(r => (
-							<li class="recent-item">
-								<span class="recent-date">{r.date}</span>
-								<a href={`/laws/${r.norm_id}`} class="recent-title">{r.title}</a>
-							</li>
-						))}
-					</ul>
-				</div>
+			<div>
+				<h2 class="section-title">Cambios recientes</h2>
+				<div id="recent-reforms"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
 			</div>
-		</>
-	)}
+		</div>
+	</div>
 
-	<script is:inline>
-		document.getElementById("filter-toggle")?.addEventListener("click", function () {
-			this.classList.toggle("open");
-			document.getElementById("filter-panel")?.classList.toggle("open");
-		});
+	<script is:inline define:vars={{ RANK_LABELS }}>
+		(function () {
+			var API = document.documentElement.dataset.api;
+			var searchInput = document.getElementById("search-input");
+			var searchBtn = document.getElementById("search-btn");
+			var resultsDiv = document.getElementById("search-results");
+			var landingDiv = document.getElementById("landing-content");
+			var filterRank = document.getElementById("filter-rank");
+			var filterStatus = document.getElementById("filter-status");
+			var currentPage = 1;
+			var LIMIT = 20;
+
+			// Toggle filters
+			document.getElementById("filter-toggle").addEventListener("click", function () {
+				document.getElementById("filter-panel").classList.toggle("open");
+			});
+
+			function doSearch(page) {
+				currentPage = page || 1;
+				var q = searchInput.value.trim();
+				var rank = filterRank.value;
+				var status = filterStatus.value;
+
+				if (!q && !rank && !status) {
+					resultsDiv.style.display = "none";
+					landingDiv.style.display = "block";
+					history.replaceState(null, "", "/");
+					return;
+				}
+
+				var params = new URLSearchParams();
+				if (q) params.set("q", q);
+				if (rank) params.set("rank", rank);
+				if (status) params.set("status", status);
+				params.set("limit", String(LIMIT));
+				params.set("offset", String((currentPage - 1) * LIMIT));
+
+				resultsDiv.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Buscando...</div>';
+				resultsDiv.style.display = "block";
+				landingDiv.style.display = "none";
+
+				// Update URL
+				var urlParams = new URLSearchParams();
+				if (q) urlParams.set("q", q);
+				if (rank) urlParams.set("rank", rank);
+				if (status) urlParams.set("status", status);
+				if (currentPage > 1) urlParams.set("page", String(currentPage));
+				history.replaceState(null, "", "/?" + urlParams.toString());
+
+				fetch(API + "/v1/laws?" + params.toString())
+					.then(function (r) { return r.json(); })
+					.then(function (result) {
+						if (result.data.length === 0) {
+							resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">No se encontraron resultados.</div>';
+							return;
+						}
+
+						var offset = (currentPage - 1) * LIMIT;
+						var totalPages = Math.ceil(result.total / LIMIT);
+						var html = '<div class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</div>';
+
+						for (var i = 0; i < result.data.length; i++) {
+							var law = result.data[i];
+							html += '<article class="law-card">';
+							html += '<a href="/laws/' + law.id + '" class="law-card-title">' + law.title + '</a>';
+							html += '<div class="law-card-meta">';
+							html += '<span class="badge badge-' + law.status + '">' + law.status + '</span>';
+							html += '<span>' + (RANK_LABELS[law.rank] || law.rank) + '</span>';
+							html += '<span>' + law.published_at + '</span>';
+							html += '<span style="font-family:var(--font-mono);font-size:0.6875rem;opacity:0.6">' + law.id + '</span>';
+							html += '</div></article>';
+						}
+
+						// Pagination
+						if (totalPages > 1) {
+							html += '<nav class="pagination">';
+							if (currentPage > 1) html += '<span class="page-num" data-page="' + (currentPage - 1) + '">&larr;</span>';
+							for (var p = 1; p <= totalPages && p <= 10; p++) {
+								html += '<span class="page-num' + (p === currentPage ? ' current' : '') + '" data-page="' + p + '">' + p + '</span>';
+							}
+							if (currentPage < totalPages) html += '<span class="page-num" data-page="' + (currentPage + 1) + '">&rarr;</span>';
+							html += '</nav>';
+						}
+
+						resultsDiv.innerHTML = html;
+
+						// Bind pagination
+						resultsDiv.querySelectorAll(".page-num").forEach(function (el) {
+							el.style.cursor = "pointer";
+							el.addEventListener("click", function () { doSearch(Number(this.dataset.page)); });
+						});
+					})
+					.catch(function () {
+						resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">Error al buscar. La API no está disponible.</div>';
+					});
+			}
+
+			searchBtn.addEventListener("click", function () { doSearch(1); });
+			searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") doSearch(1); });
+			filterRank.addEventListener("change", function () { doSearch(1); });
+			filterStatus.addEventListener("change", function () { doSearch(1); });
+
+			// Restore from URL params
+			var urlParams = new URLSearchParams(window.location.search);
+			if (urlParams.get("q") || urlParams.get("rank") || urlParams.get("status")) {
+				searchInput.value = urlParams.get("q") || "";
+				filterRank.value = urlParams.get("rank") || "";
+				filterStatus.value = urlParams.get("status") || "";
+				if (urlParams.get("rank") || urlParams.get("status")) {
+					document.getElementById("filter-panel").classList.add("open");
+				}
+				doSearch(Number(urlParams.get("page") || "1"));
+			}
+
+			// Load dynamic landing data from API
+			fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
+				var html = '<ul class="reformed-list">';
+				for (var i = 0; i < data.data.length; i++) {
+					var law = data.data[i];
+					html += '<li class="reformed-item"><span class="reformed-count">' + law.reform_count + '</span><div>';
+					html += '<a href="/laws/' + law.id + '" class="reformed-title">' + law.title + '</a>';
+					html += '<div class="reformed-rank">' + (RANK_LABELS[law.rank] || law.rank) + '</div></div></li>';
+				}
+				html += '</ul>';
+				document.getElementById("most-reformed").innerHTML = html;
+			}).catch(function () {
+				document.getElementById("most-reformed").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles (API offline)</div>';
+			});
+
+			fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
+				var html = '<ul class="recent-list">';
+				for (var i = 0; i < data.data.length; i++) {
+					var r = data.data[i];
+					html += '<li class="recent-item"><span class="recent-date">' + r.date + '</span>';
+					html += '<a href="/laws/' + r.norm_id + '" class="recent-title">' + r.title + '</a></li>';
+				}
+				html += '</ul>';
+				document.getElementById("recent-reforms").innerHTML = html;
+			}).catch(function () {
+				document.getElementById("recent-reforms").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles (API offline)</div>';
+			});
+		})();
 	</script>
 </Base>

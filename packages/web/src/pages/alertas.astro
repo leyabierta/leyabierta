@@ -2,7 +2,13 @@
 import Base from "../layouts/Base.astro";
 import { getProfiles } from "../lib/api";
 
-const { data: profiles } = await getProfiles();
+let profiles: Array<{ id: string; name: string; description: string; icon: string }> = [];
+try {
+	const result = await getProfiles();
+	profiles = result.data;
+} catch {
+	// API not available at build time — profiles loaded client-side
+}
 
 const JURISDICTION_OPTIONS = [
 	{ value: "es", label: "Estatal (toda Espana)" },
@@ -344,7 +350,7 @@ const JURISDICTION_OPTIONS = [
 				var profileId = profileIdInput.value;
 				var jurisdiction = document.getElementById("jurisdiction").value;
 
-				fetch("/api/subscribe", {
+				fetch(document.documentElement.dataset.api + "/v1/alerts/subscribe", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ email: email, profileId: profileId, jurisdiction: jurisdiction }),

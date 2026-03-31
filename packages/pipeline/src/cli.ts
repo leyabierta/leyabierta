@@ -8,8 +8,11 @@
  */
 
 import { getCountry } from "./country.ts";
+import type { LegislativeClient, MetadataParser, TextParser } from "./country.ts";
 import { ingestJsonDir, openDatabase } from "./db/index.ts";
-import { bootstrapFromApi } from "./pipeline.ts";
+import type { Norm } from "./models.ts";
+import { commitNorm, fetchNorm } from "./pipeline.ts";
+import { BoeClient } from "./spain/boe-client.ts";
 import { StateStore } from "./utils/state-store.ts";
 
 // Register Spain
@@ -27,9 +30,10 @@ async function bootstrap() {
 	const args = process.argv.slice(3);
 	const countryCode = getArg(args, "--country") ?? "es";
 	const limit = Number(getArg(args, "--limit") ?? "0"); // 0 = all
+	const concurrency = Number(getArg(args, "--concurrency") ?? "6");
 
 	const country = getCountry(countryCode);
-	const client = country.client();
+	const discoveryClient = country.client();
 	const textParser = country.textParser();
 	const metadataParser = country.metadataParser();
 
@@ -39,10 +43,11 @@ async function bootstrap() {
 	// Discover all norm IDs
 	console.log(`Discovering norms from ${country.name}...`);
 	const normIds: string[] = [];
-	for await (const id of country.discovery().discoverAll(client)) {
+	for await (const id of country.discovery().discoverAll(discoveryClient)) {
 		normIds.push(id);
 		if (limit > 0 && normIds.length >= limit) break;
 	}
+	await discoveryClient.close();
 	console.log(`Found ${normIds.length} norms.`);
 
 	// Filter already processed
@@ -51,64 +56,116 @@ async function bootstrap() {
 		`${pending.length} pending (${normIds.length - pending.length} already done).\n`,
 	);
 
-	let processed = 0;
-	const startTime = Date.now();
-	const saveInterval = 10; // Save state every N norms
+	if (pending.length === 0) {
+		console.log("Nothing to do.");
+		return;
+	}
 
-	for (let i = 0; i < pending.length; i++) {
-		const normId = pending[i]!;
-		const progress = `[${i + 1}/${pending.length}]`;
+	const startTime = Date.now();
+
+	// ── Phase 1: Parallel fetch ──
+	console.log(`Phase 1: Fetching ${pending.length} norms (${concurrency} workers)...\n`);
+
+	const clients = Array.from({ length: concurrency }, () => new BoeClient());
+	const fetched: Array<{ id: string; norm: Norm | null; error?: string }> = [];
+	let fetchIndex = 0;
+	let fetchDone = 0;
+
+	async function fetchWorker(workerId: number) {
+		const client = clients[workerId]!;
+		while (fetchIndex < pending.length) {
+			const i = fetchIndex++;
+			const normId = pending[i]!;
+			try {
+				const norm = await fetchNorm(normId, client, textParser, metadataParser, DATA_DIR);
+				fetched.push({ id: normId, norm });
+				fetchDone++;
+				if (fetchDone % 50 === 0 || fetchDone === pending.length) {
+					const elapsed = (Date.now() - startTime) / 1000;
+					const rate = fetchDone / elapsed;
+					const remaining = (pending.length - fetchDone) / rate;
+					console.log(
+						`  fetch [${fetchDone}/${pending.length}] ${normId} (${rate.toFixed(1)}/s, ~${formatDuration(remaining)} remaining)`,
+					);
+				}
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err);
+				fetched.push({ id: normId, norm: null, error: msg });
+				fetchDone++;
+			}
+		}
+	}
+
+	await Promise.all(
+		Array.from({ length: Math.min(concurrency, pending.length) }, (_, i) => fetchWorker(i)),
+	);
+	for (const c of clients) await c.close();
+
+	const fetchElapsed = (Date.now() - startTime) / 1000;
+	const fetchedOk = fetched.filter((f) => f.norm);
+	const fetchErrors = fetched.filter((f) => f.error);
+	const fetchSkipped = fetched.filter((f) => !f.norm && !f.error);
+	console.log(
+		`\nPhase 1 done: ${fetchedOk.length} fetched, ${fetchSkipped.length} skipped, ${fetchErrors.length} errors in ${formatDuration(fetchElapsed)}\n`,
+	);
+
+	// ── Phase 2: Sequential commit ──
+	console.log(`Phase 2: Committing ${fetchedOk.length} norms to git...\n`);
+	const commitStart = Date.now();
+
+	for (let i = 0; i < fetched.length; i++) {
+		const { id, norm, error } = fetched[i]!;
+
+		if (error) {
+			state.markError(id, error);
+			if (fetchErrors.length <= 20) {
+				console.error(`  ✗ ${id} — ERROR: ${error}`);
+			}
+			continue;
+		}
+
+		if (!norm) {
+			state.markSkipped(id);
+			continue;
+		}
 
 		try {
-			const commits = await bootstrapFromApi(
-				normId,
-				client,
-				textParser,
-				metadataParser,
-				{ repoPath: OUTPUT_DIR, dataDir: DATA_DIR },
-			);
+			const commits = await commitNorm(norm, { repoPath: OUTPUT_DIR, dataDir: DATA_DIR });
 
-			if (commits === -1) {
-				state.markSkipped(normId);
-				console.log(`${progress} ${normId} — no text available`);
-			} else if (commits === 0) {
-				state.markDone(normId, 0);
-				// Already up to date, don't log to reduce noise
+			if (commits === 0) {
+				state.markDone(id, 0);
 			} else {
-				state.markDone(normId, commits);
-				console.log(`${progress} ${normId} — ${commits} commits`);
+				state.markDone(id, commits);
 			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			state.markError(normId, msg);
-			console.error(`${progress} ${normId} — ERROR: ${msg}`);
+			state.markError(id, msg);
+			console.error(`  ✗ ${id} — COMMIT ERROR: ${msg}`);
 		}
 
-		processed++;
-
-		// Periodic save
-		if (processed % saveInterval === 0) {
+		if ((i + 1) % 50 === 0) {
 			await state.save();
-			const elapsed = (Date.now() - startTime) / 1000;
-			const rate = processed / elapsed;
-			const remaining = (pending.length - processed) / rate;
+			const elapsed = (Date.now() - commitStart) / 1000;
+			const rate = (i + 1) / elapsed;
+			const remaining = (fetched.length - i - 1) / rate;
 			console.log(
-				`  → ${processed}/${pending.length} (${rate.toFixed(1)}/s, ~${formatDuration(remaining)} remaining)`,
+				`  commit [${i + 1}/${fetched.length}] (${rate.toFixed(1)}/s, ~${formatDuration(remaining)} remaining)`,
 			);
 		}
 	}
 
 	await state.save();
-	await client.close();
 
+	const totalElapsed = (Date.now() - startTime) / 1000;
 	const stats = state.stats;
-	const elapsed = (Date.now() - startTime) / 1000;
 
 	console.log("\n─── Bootstrap Summary ───");
-	console.log(`Processed: ${processed} norms in ${formatDuration(elapsed)}`);
-	console.log(`Done:      ${stats.done}`);
-	console.log(`Errors:    ${stats.errors}`);
-	console.log(`Skipped:   ${stats.skipped}`);
+	console.log(`Fetch:   ${formatDuration(fetchElapsed)} (${concurrency} workers)`);
+	console.log(`Commit:  ${formatDuration((Date.now() - commitStart) / 1000)}`);
+	console.log(`Total:   ${formatDuration(totalElapsed)}`);
+	console.log(`Done:    ${stats.done}`);
+	console.log(`Errors:  ${stats.errors}`);
+	console.log(`Skipped: ${stats.skipped}`);
 }
 
 async function ingest() {

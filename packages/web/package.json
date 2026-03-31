@@ -8,8 +8,8 @@
 		"preview": "astro preview"
 	},
 	"dependencies": {
-		"@astrojs/node": "^10.0.4",
-		"astro": "^6.1.1",
-		"diff2html": "^3.4.56"
+		"astro": "6.1.1",
+		"diff2html": "3.4.56",
+		"js-yaml": "4.1.1"
 	}
 }
