@@ -5,6 +5,10 @@
  * NO AI involved — only DB queries and template rendering.
  * The citizen-writer AI step is separate (via /weekly-digest skill).
  *
+ * Architecture: SQL gets ALL reforms (no materia filtering). AI decides relevance
+ * per profile using persona descriptions. This script generates the raw data;
+ * the AI enriches it with relevance scoring and citizen summaries.
+ *
  * Usage:
  *   bun run packages/api/src/scripts/generate-digest.ts --week 2026-W13
  *   bun run packages/api/src/scripts/generate-digest.ts --week 2026-W13 --profile sanitario
@@ -20,6 +24,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import yaml from "js-yaml";
 import { PROFILES, type ThematicProfile } from "../data/profiles.ts";
 
 // ── CLI args ──
@@ -46,11 +51,10 @@ const dbPath = process.env.DB_PATH ?? "data/leylibre.db";
 
 function weekToDateRange(w: string): { since: string; until: string } {
 	const [yearStr, weekStr] = w.split("-W");
-	const year = Number.parseInt(yearStr);
-	const weekNum = Number.parseInt(weekStr);
-	// ISO week: Monday of week 1 is the Monday closest to Jan 4
+	const year = Number.parseInt(yearStr, 10);
+	const weekNum = Number.parseInt(weekStr, 10);
 	const jan4 = new Date(year, 0, 4);
-	const dayOfWeek = jan4.getDay() || 7; // 1=Mon..7=Sun
+	const dayOfWeek = jan4.getDay() || 7;
 	const monday = new Date(jan4);
 	monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNum - 1) * 7);
 	const sunday = new Date(monday);
@@ -60,8 +64,8 @@ function weekToDateRange(w: string): { since: string; until: string } {
 }
 
 const { since, until } = weekToDateRange(week);
-const weekNum = Number.parseInt(week.split("-W")[1]);
-const yearNum = Number.parseInt(week.split("-W")[0]);
+const weekNum = Number.parseInt(week.split("-W")[1], 10);
+const yearNum = Number.parseInt(week.split("-W")[0], 10);
 const weekLabel = `Semana ${weekNum}, ${yearNum}`;
 
 // ── Paths ──
@@ -107,35 +111,33 @@ interface BlockDiff {
 	current_text: string;
 }
 
-function queryReforms(
-	materias: string[],
-	jurisdiction: string,
-): ReformResult[] {
-	if (materias.length === 0) return [];
-	const placeholders = materias.map(() => "?").join(",");
+/**
+ * Query ALL reforms for the week, filtered only by jurisdiction.
+ * No materia filtering — the AI decides relevance per profile.
+ */
+function queryAllReforms(jurisdiction: string): ReformResult[] {
 	const jurClause =
 		jurisdiction === "es"
 			? "(n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
 			: `n.source_url LIKE '%/eli/${jurisdiction}/%'`;
 
 	return db
-		.query<ReformResult, unknown[]>(
+		.query<ReformResult, [string, string]>(
 			`SELECT DISTINCT n.id as norm_id, n.title, n.rank, n.status, r.date, r.source_id
        FROM reforms r
        JOIN norms n ON n.id = r.norm_id
-       JOIN materias m ON m.norm_id = r.norm_id
        WHERE r.date >= ? AND r.date <= ?
-         AND m.materia IN (${placeholders})
          AND ${jurClause}
        ORDER BY r.date DESC`,
 		)
-		.all(since, until, ...materias);
+		.all(since, until);
 }
 
 function queryBlockDiffs(
 	normId: string,
 	sourceId: string,
 	reformDate: string,
+	maxTextLen = 500,
 ): BlockDiff[] {
 	const blocks = db
 		.query<{ block_id: string; title: string }, [string, string]>(
@@ -160,8 +162,8 @@ function queryBlockDiffs(
 			)
 			.all(normId, block.block_id, reformDate);
 
-		const truncate = (s: string, max = 500) =>
-			s.length > max ? `${s.slice(0, max)}...` : s;
+		const truncate = (s: string) =>
+			s.length > maxTextLen ? `${s.slice(0, maxTextLen)}...` : s;
 
 		if (versions.length === 0) continue;
 		if (versions.length === 1) {
@@ -185,20 +187,7 @@ function queryBlockDiffs(
 	return diffs;
 }
 
-// ── YAML generation ──
-
-function escapeYaml(s: string): string {
-	if (!s) return '""';
-	if (
-		s.includes("\n") ||
-		s.includes('"') ||
-		s.includes(":") ||
-		s.includes("#")
-	) {
-		return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
-	}
-	return `"${s}"`;
-}
+// ── Data types ──
 
 interface DigestReform {
 	id: string;
@@ -206,158 +195,93 @@ interface DigestReform {
 	rank: string;
 	date: string;
 	source_id: string;
+	relevant: boolean | null;
+	te_afecta_porque: string;
 	headline: string;
 	summary: string;
-	relevance: string;
 	confidence: string;
 	affected_blocks: BlockDiff[];
 }
 
 interface DigestData {
 	week: string;
-	profile: ThematicProfile;
+	profile: {
+		id: string;
+		name: string;
+		icon: string;
+		description: string;
+		persona: string;
+	};
 	jurisdiction: string;
 	generated_at: string;
 	summary: string;
 	reforms: DigestReform[];
 }
 
-function generateYaml(profile: ThematicProfile): DigestData {
-	const reforms = queryReforms(profile.materias, "es");
+// ── YAML generation (using js-yaml) ──
+
+function generateDigestData(
+	profile: ThematicProfile,
+	maxTextLen = 500,
+): DigestData {
+	const reforms = queryAllReforms("es");
 
 	const digestReforms: DigestReform[] = reforms.map((r) => {
-		const blocks = queryBlockDiffs(r.norm_id, r.source_id, r.date);
+		const blocks = queryBlockDiffs(r.norm_id, r.source_id, r.date, maxTextLen);
 		return {
 			id: r.norm_id,
 			title: r.title,
 			rank: r.rank,
 			date: r.date,
 			source_id: r.source_id,
-			headline: "", // filled by AI later
-			summary: "", // filled by AI later
-			relevance: "", // filled by AI later
-			confidence: "", // filled by AI later
+			relevant: null, // decided by AI
+			te_afecta_porque: "", // decided by AI
+			headline: "", // decided by AI
+			summary: "", // decided by AI
+			confidence: "", // decided by AI
 			affected_blocks: blocks,
 		};
 	});
 
 	return {
 		week,
-		profile,
+		profile: {
+			id: profile.id,
+			name: profile.name,
+			icon: profile.icon,
+			description: profile.description,
+			persona: profile.persona,
+		},
 		jurisdiction: "es",
 		generated_at: new Date().toISOString(),
-		summary: "", // filled by AI later
+		summary: "",
 		reforms: digestReforms,
 	};
 }
 
-function writeYaml(data: DigestData): string {
-	const p = data.profile;
-	const lines: string[] = [
-		`week: ${escapeYaml(data.week)}`,
-		"profile:",
-		`  id: ${escapeYaml(p.id)}`,
-		`  name: ${escapeYaml(p.name)}`,
-		`  icon: ${escapeYaml(p.icon)}`,
-		`  description: ${escapeYaml(p.description)}`,
-		`jurisdiction: ${escapeYaml(data.jurisdiction)}`,
-		`generated_at: ${escapeYaml(data.generated_at)}`,
-		`summary: ${escapeYaml(data.summary)}`,
-		"reforms:",
-	];
-
-	for (const r of data.reforms) {
-		lines.push(`  - id: ${escapeYaml(r.id)}`);
-		lines.push(`    title: ${escapeYaml(r.title)}`);
-		lines.push(`    rank: ${escapeYaml(r.rank)}`);
-		lines.push(`    date: ${escapeYaml(r.date)}`);
-		lines.push(`    source_id: ${escapeYaml(r.source_id)}`);
-		lines.push(`    headline: ${escapeYaml(r.headline)}`);
-		lines.push(`    summary: ${escapeYaml(r.summary)}`);
-		lines.push(`    relevance: ${escapeYaml(r.relevance)}`);
-		lines.push(`    confidence: ${escapeYaml(r.confidence)}`);
-		lines.push("    affected_blocks:");
-		for (const b of r.affected_blocks) {
-			lines.push(`      - block_id: ${escapeYaml(b.block_id)}`);
-			lines.push(`        title: ${escapeYaml(b.title)}`);
-			lines.push(`        change_type: ${b.change_type}`);
-			lines.push(`        previous_text: ${escapeYaml(b.previous_text)}`);
-			lines.push(`        current_text: ${escapeYaml(b.current_text)}`);
-		}
-		if (r.affected_blocks.length === 0) {
-			lines.push("      []");
-		}
-	}
-
-	if (data.reforms.length === 0) {
-		lines[lines.length - 1] = "reforms: []";
-	}
-
-	return lines.join("\n");
+function serializeYaml(data: DigestData): string {
+	return yaml.dump(data, {
+		lineWidth: -1, // no wrapping
+		noRefs: true,
+		quotingType: '"',
+		forceQuotes: false,
+	});
 }
 
-// ── Simple YAML parser (reads our own output) ──
-
 function parseDigestYaml(content: string): DigestData {
-	// Parse enough to extract reforms with headline/summary/relevance for HTML rendering
-	const reforms: DigestReform[] = [];
-	let summary = "";
-	let profileName = "";
-	let profileIcon = "";
-	let profileId = "";
-	let profileDesc = "";
-
-	// Extract top-level summary
-	const summaryMatch = content.match(/^summary: "(.*)"$/m);
-	if (summaryMatch)
-		summary = summaryMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"');
-
-	// Extract profile
-	const nameMatch = content.match(/^\s+name: "(.*)"$/m);
-	if (nameMatch) profileName = nameMatch[1];
-	const iconMatch = content.match(/^\s+icon: "(.*)"$/m);
-	if (iconMatch) profileIcon = iconMatch[1];
-	const idMatch = content.match(/^\s+id: "(.*)"$/m);
-	if (idMatch) profileId = idMatch[1];
-	const descMatch = content.match(/^\s+description: "(.*)"$/m);
-	if (descMatch) profileDesc = descMatch[1];
-
-	// Extract reforms
-	const reformBlocks = content.split(/\n {2}- id: /);
-	for (let i = 1; i < reformBlocks.length; i++) {
-		const block = `  - id: ${reformBlocks[i]}`;
-		const get = (key: string) => {
-			const m = block.match(new RegExp(`^\\s+${key}: "(.*)"$`, "m"));
-			return m ? m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"') : "";
-		};
-		reforms.push({
-			id: get("id"),
-			title: get("title"),
-			rank: get("rank"),
-			date: get("date"),
-			source_id: get("source_id"),
-			headline: get("headline"),
-			summary: get("summary"),
-			relevance: get("relevance") || "medium",
-			confidence: get("confidence") || "low",
-			affected_blocks: [], // not needed for HTML generation
-		});
+	const parsed = yaml.load(content) as DigestData;
+	// Ensure reforms have defaults for fields that may be missing (backwards compat)
+	if (parsed.reforms) {
+		for (const r of parsed.reforms) {
+			r.relevant = r.relevant ?? null;
+			r.te_afecta_porque = r.te_afecta_porque ?? "";
+			r.headline = r.headline ?? "";
+			r.summary = r.summary ?? "";
+			r.confidence = r.confidence ?? "";
+			r.affected_blocks = r.affected_blocks ?? [];
+		}
 	}
-
-	return {
-		week,
-		profile: {
-			id: profileId,
-			name: profileName,
-			icon: profileIcon,
-			description: profileDesc,
-			materias: [],
-		},
-		jurisdiction: "es",
-		generated_at: new Date().toISOString(),
-		summary,
-		reforms,
-	};
+	return parsed;
 }
 
 // ── HTML generation ──
@@ -389,42 +313,32 @@ function formatDate(iso: string): string {
 	return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function generateWebHtml(data: DigestData): string {
-	const high = data.reforms.filter(
-		(r) => r.relevance === "high" || r.relevance === "medium",
-	);
-	const low = data.reforms.filter((r) => r.relevance === "low");
-	// If no relevance set yet (pre-AI), show all as high
-	const showAll = data.reforms.every((r) => !r.relevance);
-	const mainReforms = showAll ? data.reforms : high;
-	const lowReforms = showAll ? [] : low;
+/**
+ * Get reforms to display in HTML. Only relevant reforms (or all if AI hasn't run yet).
+ */
+function getDisplayReforms(data: DigestData): DigestReform[] {
+	const aiHasRun = data.reforms.some((r) => r.relevant !== null);
+	if (!aiHasRun) return data.reforms; // pre-AI: show all with titles as placeholders
+	return data.reforms.filter((r) => r.relevant === true);
+}
 
-	const highHtml = mainReforms
-		.map(
-			(r) => `
-    <article class="reform reform-${r.relevance || "medium"}">
+function generateWebHtml(data: DigestData): string {
+	const reforms = getDisplayReforms(data);
+
+	const reformsHtml = reforms
+		.map((r) => {
+			const teAfecta = r.te_afecta_porque
+				? `\n      <p class="te-afecta"><strong>Te afecta porque:</strong> ${escapeHtml(r.te_afecta_porque)}</p>`
+				: "";
+			return `
+    <article class="reform">
       <div class="reform-date">${escapeHtml(r.date)}</div>
       <h3>${escapeHtml(r.headline || r.title)}</h3>
-      <p>${escapeHtml(r.summary || `Cambios en: ${r.title}`)}</p>
+      <p>${escapeHtml(r.summary || `Cambios en: ${r.title}`)}</p>${teAfecta}
       <a href="${siteUrl}/laws/${encodeURIComponent(r.id)}" class="reform-link">Ver ley completa →</a>
-    </article>`,
-		)
+    </article>`;
+		})
 		.join("\n");
-
-	let lowHtml = "";
-	if (lowReforms.length > 0) {
-		const items = lowReforms
-			.map(
-				(r) =>
-					`      <div class="also-item">• ${escapeHtml(r.headline || r.title)}</div>`,
-			)
-			.join("\n");
-		lowHtml = `
-    <div class="also-section">
-      <h2>Tambien esta semana</h2>
-${items}
-    </div>`;
-	}
 
 	const now = new Date();
 	const generatedAt = formatDate(now.toISOString().slice(0, 10));
@@ -439,59 +353,38 @@ ${items}
 		.replaceAll(
 			"{{SUMMARY}}",
 			escapeHtml(
-				data.summary ||
-					`${data.reforms.length} cambios legislativos esta semana.`,
+				data.summary || `${reforms.length} cambios legislativos esta semana.`,
 			),
 		)
-		.replaceAll("{{HIGH_REFORMS}}", highHtml)
-		.replaceAll("{{LOW_REFORMS}}", lowHtml)
-		.replaceAll("{{REFORM_COUNT}}", String(data.reforms.length));
+		.replaceAll("{{HIGH_REFORMS}}", reformsHtml)
+		.replaceAll("{{LOW_REFORMS}}", "") // no more low section
+		.replaceAll("{{REFORM_COUNT}}", String(reforms.length));
 }
 
 function generateEmailHtml(data: DigestData): string {
-	const high = data.reforms.filter(
-		(r) => r.relevance === "high" || r.relevance === "medium",
-	);
-	const low = data.reforms.filter((r) => r.relevance === "low");
-	const showAll = data.reforms.every((r) => !r.relevance);
-	const mainReforms = showAll ? data.reforms : high;
-	const lowReforms = showAll ? [] : low;
+	const reforms = getDisplayReforms(data);
 
-	const highRows = mainReforms
-		.map(
-			(r) => `
+	const reformRows = reforms
+		.map((r) => {
+			const teAfecta = r.te_afecta_porque
+				? `<p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #1a7a4e; font-style: italic; line-height: 1.5; margin: 0 0 8px;"><strong>Te afecta porque:</strong> ${escapeHtml(r.te_afecta_porque)}</p>`
+				: "";
+			return `
                 <tr>
                   <td style="padding: 20px 0; border-bottom: 1px solid #e8ecf0;">
                     <table cellpadding="0" cellspacing="0" width="100%"><tr><td>
                       <p style="font-size: 12px; color: #6b8299; font-family: 'Courier New', monospace; margin: 0 0 4px;">${escapeHtml(r.date)}</p>
                       <p style="font-family: Georgia, 'Times New Roman', serif; font-size: 17px; font-weight: 700; color: #1a365d; margin: 0 0 8px; line-height: 1.3;">${escapeHtml(r.headline || r.title)}</p>
                       <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #4a6078; line-height: 1.65; margin: 0 0 8px;">${escapeHtml(r.summary || `Cambios en: ${r.title}`)}</p>
+                      ${teAfecta}
                       <a href="${siteUrl}/laws/${encodeURIComponent(r.id)}" style="font-size: 13px; color: #2b5797; text-decoration: none;">Ver ley completa &#8594;</a>
                     </td></tr></table>
                   </td>
-                </tr>`,
-		)
+                </tr>`;
+		})
 		.join("\n");
 
-	let lowSection = "";
-	if (lowReforms.length > 0) {
-		const items = lowReforms
-			.map((r) => `&#8226; ${escapeHtml(r.headline || r.title)}`)
-			.join("<br/>\n                    ");
-		lowSection = `
-              <table cellpadding="0" cellspacing="0" width="100%" style="margin-top: 24px;">
-                <tr>
-                  <td style="padding-top: 20px; border-top: 1px solid #e8ecf0;">
-                    <p style="font-family: Georgia, 'Times New Roman', serif; font-size: 14px; font-weight: 700; color: #6b8299; margin: 0 0 8px;">Tambien esta semana</p>
-                    <p style="font-size: 13px; color: #6b8299; line-height: 2; margin: 0;">
-                    ${items}
-                    </p>
-                  </td>
-                </tr>
-              </table>`;
-	}
-
-	const count = data.reforms.length;
+	const count = reforms.length;
 	const suffix = count === 1 ? "" : "s";
 	const webUrl = `${siteUrl}/resumenes/${data.profile.id}/${week}.html`;
 
@@ -504,8 +397,8 @@ function generateEmailHtml(data: DigestData): string {
 			"{{SUMMARY}}",
 			escapeHtml(data.summary || `${count} cambios legislativos esta semana.`),
 		)
-		.replaceAll("{{HIGH_REFORMS}}", highRows)
-		.replaceAll("{{LOW_REFORMS}}", lowSection)
+		.replaceAll("{{HIGH_REFORMS}}", reformRows)
+		.replaceAll("{{LOW_REFORMS}}", "") // no more low section
 		.replaceAll("{{REFORM_COUNT}}", String(count))
 		.replaceAll("{{REFORM_COUNT_SUFFIX}}", suffix)
 		.replaceAll("{{WEB_URL}}", webUrl)
@@ -535,6 +428,14 @@ console.log(
 	`Mode: ${htmlOnly ? "HTML-only (from existing YAMLs)" : "Full (YAML + HTML)"}\n`,
 );
 
+// Query ALL reforms once (shared across all profiles)
+let allReformsCount = 0;
+if (!htmlOnly) {
+	const testReforms = queryAllReforms("es");
+	allReformsCount = testReforms.length;
+	console.log(`Total reforms this week: ${allReformsCount}\n`);
+}
+
 for (const profile of profiles) {
 	const yamlPath = join(digestDir, `${profile.id}.yaml`);
 	const webPath = join(webDir, profile.id, `${week}.html`);
@@ -543,7 +444,6 @@ for (const profile of profiles) {
 	let data: DigestData;
 
 	if (htmlOnly) {
-		// Read existing YAML
 		if (!existsSync(yamlPath)) {
 			console.log(`  ${profile.icon} ${profile.name}: no YAML found, skipping`);
 			continue;
@@ -551,26 +451,26 @@ for (const profile of profiles) {
 		const content = readFileSync(yamlPath, "utf-8");
 		data = parseDigestYaml(content);
 	} else {
-		// Generate YAML from DB
-		data = generateYaml(profile);
-		const yamlContent = writeYaml(data);
-		writeFileSync(yamlPath, yamlContent);
+		data = generateDigestData(profile);
+		writeFileSync(yamlPath, serializeYaml(data));
 	}
 
-	if (data.reforms.length === 0) {
+	// For HTML: only render if there are displayable reforms
+	const displayReforms = getDisplayReforms(data);
+	if (displayReforms.length === 0 && data.reforms.length === 0) {
 		console.log(`  ${profile.icon} ${profile.name}: 0 reforms — YAML only`);
 		continue;
 	}
 
-	// Generate HTML
 	mkdirSync(dirname(webPath), { recursive: true });
 	writeFileSync(webPath, generateWebHtml(data));
 	writeFileSync(emailPath, generateEmailHtml(data));
 
-	const hasSummaries = data.reforms.some((r) => r.headline);
-	const tag = hasSummaries ? "" : " [needs AI summaries]";
+	const aiStatus = data.reforms.some((r) => r.relevant !== null)
+		? `${displayReforms.length} relevant of ${data.reforms.length}`
+		: `${data.reforms.length} total [needs AI relevance scoring]`;
 	console.log(
-		`  ${profile.icon} ${profile.name}: ${data.reforms.length} reforms → YAML + web + email${tag}`,
+		`  ${profile.icon} ${profile.name}: ${aiStatus} → YAML + web + email`,
 	);
 }
 
@@ -580,7 +480,7 @@ console.log(`  Web:   ${webDir}/`);
 console.log(`  Email: ${digestDir}/*-email.html`);
 if (!htmlOnly) {
 	console.log(
-		"\nNext step: run /weekly-digest to add AI summaries, then --html-only to regenerate HTML.",
+		"\nNext step: run /weekly-digest to add AI relevance + summaries, then --html-only to regenerate HTML.",
 	);
 }
 
