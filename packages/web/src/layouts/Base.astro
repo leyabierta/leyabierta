@@ -7,6 +7,7 @@ interface Props {
 	ogType?: string;
 	ogImage?: string;
 	canonicalUrl?: string;
+	fullWidth?: boolean;
 }
 
 const SITE_URL = "https://leyabierta.es";
@@ -21,6 +22,7 @@ const {
 	ogType = "website",
 	ogImage,
 	canonicalUrl,
+	fullWidth = false,
 } = Astro.props;
 
 const fullTitle = `${title} — Ley Abierta`;
@@ -90,6 +92,8 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			--font-serif: "Source Serif 4", Georgia, serif;
 			--font-sans: "Inter", system-ui, sans-serif;
 			--font-mono: "JetBrains Mono", monospace;
+			--ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+			--ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 		}
 
 		:root[data-theme="dark"] {
@@ -150,12 +154,14 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			transition: color 0.15s, border-color 0.15s;
+			transition: color 0.2s var(--ease-out-quart), border-color 0.2s var(--ease-out-quart), transform 0.2s var(--ease-out-quart);
 		}
 		.theme-toggle:hover {
 			color: var(--accent);
 			border-color: var(--accent);
+			transform: scale(1.05);
 		}
+		.theme-toggle:active { transform: scale(0.95); transition-duration: 0.1s; }
 		header nav {
 			max-width: var(--max-w);
 			margin: 0 auto;
@@ -185,6 +191,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			color: var(--text-muted);
 			font-weight: 500;
 			letter-spacing: 0.03em;
+			transition: color 0.2s var(--ease-out-quart);
 		}
 		header nav a:not(.logo):hover { color: var(--accent); text-decoration: none; }
 
@@ -260,15 +267,17 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			background: var(--surface);
 			color: var(--text-secondary);
 			cursor: pointer;
-			transition: all 0.15s;
+			transition: border-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart), transform 0.15s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
 		}
-		.btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+		.btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; transform: translateY(-1px); }
+		.btn:active { transform: scale(0.97) translateY(0); transition-duration: 0.1s; }
 		.btn-primary {
 			background: var(--accent);
 			color: white;
 			border-color: var(--accent);
 		}
-		.btn-primary:hover { background: var(--accent-light); border-color: var(--accent-light); color: white; }
+		.btn-primary:hover { background: var(--accent-light); border-color: var(--accent-light); color: white; box-shadow: 0 2px 8px rgba(26, 54, 93, 0.2); }
+		.btn-primary:active { box-shadow: none; }
 
 		/* ── Pagination ── */
 		.pagination {
@@ -340,6 +349,35 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 				margin-top: 0.25rem;
 			}
 		}
+
+		/* ── Scroll-triggered animations (global) ── */
+		@keyframes fadeInUp {
+			from { opacity: 0; transform: translateY(1.5rem); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		.animate-on-scroll {
+			opacity: 0;
+			transform: translateY(1.25rem);
+			transition: opacity 0.6s var(--ease-out-quart), transform 0.6s var(--ease-out-quart);
+		}
+		.animate-on-scroll.visible {
+			opacity: 1;
+			transform: translateY(0);
+		}
+
+		/* Page content entrance */
+		main > :first-child:not(.hero-section) {
+			animation: fadeInUp 0.5s var(--ease-out-quart) both;
+		}
+
+		/* ── Respect reduced motion ── */
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after {
+				animation-duration: 0.01ms !important;
+				animation-iteration-count: 1 !important;
+				transition-duration: 0.01ms !important;
+			}
+		}
 	</style>
 </head>
 <body>
@@ -354,13 +392,13 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 				<a href="/alertas">Alertas</a>
 				<a href="/resumenes">Resúmenes</a>
 				<a href="/anomalias">Anomalías</a>
-				<a href="/sobre-leyabierta">Sobre</a>
+				<a href="/sobre-leyabierta">Sobre mí</a>
 				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
 		</nav>
 	</header>
 
-	<main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+	<main class={fullWidth ? "" : "container"} style={fullWidth ? "" : "padding-top: 2rem; padding-bottom: 2rem;"}>
 		<slot />
 	</main>
 
@@ -432,6 +470,25 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
 				updateIcon(currentPref());
 			});
+		})();
+	</script>
+	<script is:inline>
+		(function () {
+			var els = document.querySelectorAll(".animate-on-scroll");
+			if (!els.length) return;
+			if (!("IntersectionObserver" in window)) {
+				els.forEach(function (el) { el.classList.add("visible"); });
+				return;
+			}
+			var observer = new IntersectionObserver(function (entries) {
+				entries.forEach(function (entry) {
+					if (entry.isIntersecting) {
+						entry.target.classList.add("visible");
+						observer.unobserve(entry.target);
+					}
+				});
+			}, { threshold: 0.1 });
+			els.forEach(function (el) { observer.observe(el); });
 		})();
 	</script>
 </body>

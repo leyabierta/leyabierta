@@ -1,7 +1,10 @@
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineCollection, z } from "astro:content";
 import { lawsLoader } from "./loaders/laws.ts";
 
-const lawsPath = process.env.LAWS_PATH ?? "../../content/laws";
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const lawsPath = resolve(rootDir, process.env.LAWS_PATH ?? "../leyes");
 
 const laws = defineCollection({
 	loader: lawsLoader({ path: lawsPath }),

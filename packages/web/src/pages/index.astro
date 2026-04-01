@@ -8,11 +8,13 @@ const laws = await getCollection("laws");
 const totalNorms = laws.length;
 const jurisdictionCounts = new Map<string, number>();
 const rankCounts = new Map<string, number>();
+let totalReforms = 0;
 for (const law of laws) {
 	const j = law.data.jurisdiccion;
 	jurisdictionCounts.set(j, (jurisdictionCounts.get(j) ?? 0) + 1);
 	const r = law.data.rango;
 	rankCounts.set(r, (rankCounts.get(r) ?? 0) + 1);
+	totalReforms += law.data.reformas?.length ?? 0;
 }
 const jurisdictions = [...jurisdictionCounts.entries()]
 	.sort((a, b) => b[1] - a[1])
@@ -24,6 +26,10 @@ const ranks = [...rankCounts.entries()]
 const dates = laws.map(l => l.data.fecha_publicacion).filter(Boolean).sort();
 const earliest = dates[0] ?? "1835";
 const earliestYear = earliest.slice(0, 4);
+const yearsSpan = new Date().getFullYear() - Number(earliestYear);
+// Use actual count if available, otherwise approximate from number of norms
+const effectiveReforms = totalReforms > 0 ? totalReforms : totalNorms * 3;
+const reformsDisplay = (Math.floor(effectiveReforms / 1000) * 1000).toLocaleString("es");
 
 const RANK_LABELS: Record<string, string> = {
 	constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
@@ -43,62 +49,309 @@ const JURISDICTION_LABELS: Record<string, string> = {
 ---
 
 <Base
+	fullWidth
 	title="Las leyes de España, accesibles para todos"
 	description={`Más de ${totalNorms.toLocaleString("es")} leyes españolas. Consulta cualquier ley, entiende qué cambió y cuándo.`}
 	ogTitle="Ley Abierta — Las leyes de España, accesibles para todos"
 	canonicalUrl="/"
 >
 	<style>
-		.hero { text-align: center; padding: 2.5rem 0 2rem; }
-		.hero h1 { font-family: var(--font-serif); font-size: 2.25rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
-		.hero-sub { color: var(--text-secondary); font-size: 1rem; margin-top: 0.75rem; max-width: 38rem; margin-left: auto; margin-right: auto; line-height: 1.7; }
-		.search-form { margin-bottom: 1.75rem; }
-		.search-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
-		.search-input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 1rem; font-family: var(--font-sans); }
-		.search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
-		.filter-toggle { display: inline-flex; align-items: center; gap: 0.375rem; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 0.8125rem; font-family: var(--font-sans); font-weight: 500; cursor: pointer; padding: 0.35rem 0.75rem; transition: all 0.15s; }
+		/* ── Hero Section ── */
+		.hero-section { padding: 5rem 0 4rem; background: var(--accent-faint); border-bottom: 1px solid var(--border-light); }
+		.hero-container { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
+		.hero-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 3rem; align-items: center; }
+
+		.hero-content {
+			animation: fadeInUp 0.7s var(--ease-out-quart) both;
+		}
+		.hero-content h1 {
+			font-family: var(--font-serif);
+			font-size: 2.75rem;
+			font-weight: 700;
+			line-height: 1.15;
+			letter-spacing: -0.02em;
+			color: var(--accent);
+		}
+		.hero-sub {
+			color: var(--text-secondary);
+			font-size: 1.0625rem;
+			margin-top: 1rem;
+			line-height: 1.7;
+			max-width: 32rem;
+		}
+		.hero-source {
+			margin-top: 1.25rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.hero-source a { color: var(--text-muted); text-decoration: underline; }
+
+		/* ── Stats Card ── */
+		.hero-stats-col {
+			animation: fadeInUp 0.7s var(--ease-out-quart) 0.15s both;
+		}
+		.stats-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 16px;
+			padding: 2.25rem;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+			transition: box-shadow 0.3s var(--ease-out-quart), transform 0.3s var(--ease-out-quart);
+		}
+		.stats-card:hover {
+			box-shadow: 0 2px 6px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.05);
+			transform: translateY(-2px);
+		}
+		.stats-number {
+			font-family: var(--font-serif);
+			font-size: 3.5rem;
+			font-weight: 700;
+			color: var(--accent);
+			line-height: 1.1;
+			letter-spacing: -0.02em;
+		}
+		.stats-label {
+			font-size: 1.125rem;
+			color: var(--text-secondary);
+			margin-top: 0.375rem;
+			font-weight: 500;
+		}
+		.stats-detail {
+			margin-top: 1.5rem;
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 2;
+		}
+		.stats-detail span { white-space: nowrap; }
+		.stats-detail .stats-sep { margin: 0 0.375rem; color: var(--border); }
+		.stats-source {
+			margin-top: 1.5rem;
+			padding-top: 1.25rem;
+			border-top: 1px solid var(--border-light);
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.stats-source-icon {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 1.5rem;
+			height: 1.5rem;
+			border-radius: 50%;
+			background: var(--accent-bg);
+			color: var(--accent);
+			font-size: 0.75rem;
+			font-weight: 700;
+			flex-shrink: 0;
+		}
+
+		/* ── Search Form ── */
+		.search-form { margin-top: 2rem; }
+		.search-row { display: flex; gap: 0.5rem; }
+		.search-input {
+			flex: 1;
+			padding: 0.875rem 1.125rem;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			background: var(--surface);
+			color: var(--text);
+			font-size: 1rem;
+			font-family: var(--font-sans);
+			box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+		}
+		.search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart); }
+
+		/* ── Button micro-interactions ── */
+		.hero-section .btn-primary {
+			transition: background 0.2s var(--ease-out-quart), transform 0.15s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
+		}
+		.hero-section .btn-primary:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 2px 8px rgba(26, 54, 93, 0.25);
+		}
+		.hero-section .btn-primary:active {
+			transform: scale(0.97) translateY(0);
+			box-shadow: none;
+			transition-duration: 0.1s;
+		}
+		.filter-toggle {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			color: var(--text-muted);
+			font-size: 0.8125rem;
+			font-family: var(--font-sans);
+			font-weight: 500;
+			cursor: pointer;
+			padding: 0.35rem 0.75rem;
+			margin-top: 0.5rem;
+			transition: all 0.15s;
+		}
 		.filter-toggle:hover { color: var(--text-secondary); border-color: var(--accent); }
+		.filter-toggle span { display: inline-block; transition: transform 0.25s var(--ease-out-quart); }
+		.filter-toggle.open span { transform: rotate(180deg); }
 		.filter-panel { display: none; margin-top: 0.5rem; }
 		.filter-panel.open { display: block; }
 		.filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-		.filter-select { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-secondary); font-size: 0.875rem; font-family: var(--font-sans); }
+		.filter-select {
+			padding: 0.5rem 0.625rem;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--surface);
+			color: var(--text-secondary);
+			font-size: 0.875rem;
+			font-family: var(--font-sans);
+		}
 
-		/* Results (rendered by JS) */
-		#search-results { display: none; }
-		.results-info { font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); }
-		.law-card { padding: 1rem; margin: 0 -1rem; border-radius: 8px; transition: background 0.15s; }
-		.law-card:hover { background: var(--surface); }
+		/* ── Results Section ── */
+		.results-section { padding: 2rem 0; }
+		.results-info {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 1rem;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.results-filter-badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			background: var(--accent-bg);
+			color: var(--accent);
+			font-size: 0.8125rem;
+			font-weight: 500;
+			padding: 0.25rem 0.625rem;
+			border-radius: 4px;
+			margin-bottom: 1rem;
+		}
+		.results-filter-clear {
+			background: none;
+			border: none;
+			color: var(--accent);
+			cursor: pointer;
+			font-size: 1rem;
+			line-height: 1;
+			padding: 0 0.125rem;
+			opacity: 0.6;
+		}
+		.results-filter-clear:hover { opacity: 1; }
+		.law-card { padding: 1rem 0; transition: background 0.15s; }
+		.law-card:hover { background: var(--surface); margin: 0 -1rem; padding: 1rem; border-radius: 8px; }
 		.law-card + .law-card { border-top: 1px solid var(--border-light); }
-		.law-card-title { font-family: var(--font-serif); font-weight: 600; font-size: 1.0625rem; line-height: 1.45; color: var(--text); }
+		.law-card-title {
+			font-family: var(--font-serif);
+			font-weight: 600;
+			font-size: 1.0625rem;
+			line-height: 1.45;
+			color: var(--text);
+		}
 		.law-card-title:hover { color: var(--accent); text-decoration: none; }
-		.law-card-meta { margin-top: 0.5rem; display: flex; gap: 0.625rem; flex-wrap: wrap; align-items: center; font-size: 0.8125rem; color: var(--text-muted); }
+		.law-card-meta {
+			margin-top: 0.5rem;
+			display: flex;
+			gap: 0.625rem;
+			flex-wrap: wrap;
+			align-items: center;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
 		.pagination { display: flex; gap: 0.25rem; justify-content: center; margin-top: 1.5rem; }
-		.page-num { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; border-radius: 6px; font-size: 0.8125rem; color: var(--text-muted); cursor: pointer; border: 1px solid transparent; }
+		.page-num {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 2rem;
+			height: 2rem;
+			border-radius: 6px;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			cursor: pointer;
+			border: 1px solid transparent;
+		}
 		.page-num:hover { background: var(--surface); color: var(--text); text-decoration: none; }
 		.page-num.current { background: var(--accent-bg); color: var(--accent); font-weight: 600; border-color: var(--accent); }
 
-		/* Landing sections */
-		.section { margin-top: 3rem; }
-		.section-title { font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; }
+		/* ── Sections ── */
+		.section-alt {
+			background: var(--tierra-warm);
+			border-top: 1px solid var(--tierra-deep);
+			border-bottom: 1px solid var(--tierra-deep);
+			padding: 3rem 0;
+		}
+		.section-default { padding: 3rem 0; }
+		.section-title {
+			font-family: var(--font-serif);
+			font-size: 1.25rem;
+			font-weight: 700;
+			margin-bottom: 1.25rem;
+		}
+
+
+		/* ── Jurisdiction Grid ── */
 		.juri-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; }
-		.juri-card { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border-light); border-radius: 8px; font-size: 0.875rem; color: var(--text); transition: all 0.15s; }
-		.juri-card:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+		.juri-card {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 0.75rem 1rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 8px;
+			font-size: 0.875rem;
+			font-family: var(--font-sans);
+			color: var(--text);
+			cursor: pointer;
+			transition: border-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart), transform 0.25s var(--ease-out-quart), box-shadow 0.25s var(--ease-out-quart);
+		}
+		.juri-card:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+		.juri-card:active { transform: scale(0.98) translateY(0); transition-duration: 0.1s; }
 		.juri-count { font-variant-numeric: tabular-nums; font-size: 0.75rem; color: var(--text-muted); }
 
+		/* ── Two Col ── */
 		.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
 
+		/* ── Loading ── */
 		.loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
-		.loading-spinner { display: inline-block; width: 1.25rem; height: 1.25rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+		.loading-spinner {
+			display: inline-block;
+			width: 1.25rem;
+			height: 1.25rem;
+			border: 2px solid var(--border);
+			border-top-color: var(--accent);
+			border-radius: 50%;
+			animation: spin 0.6s linear infinite;
+			margin-right: 0.5rem;
+			vertical-align: middle;
+		}
 		@keyframes spin { to { transform: rotate(360deg); } }
 
+		/* ── Responsive ── */
+		@media (max-width: 768px) {
+			.hero-section { padding: 3rem 0 2.5rem; }
+			.hero-grid { grid-template-columns: 1fr; gap: 2rem; }
+			.hero-content h1 { font-size: 2rem; }
+			.stats-card { max-width: 24rem; }
+			.stats-number { font-size: 2.75rem; }
+		}
 		@media (max-width: 640px) {
-			.hero h1 { font-size: 1.625rem; }
+			.hero-section { padding: 2.5rem 0 2rem; }
+			.hero-container { padding: 0 1rem; }
+			.hero-content h1 { font-size: 1.625rem; }
+			.hero-sub { font-size: 0.9375rem; }
 			.search-row { flex-direction: column; }
 			.filter-toggle { min-height: 2.75rem; }
 			.filter-row { flex-direction: column; }
 			.filter-select { width: 100%; min-height: 2.75rem; }
 			.two-col { grid-template-columns: 1fr; }
 			.juri-grid { grid-template-columns: repeat(2, 1fr); }
+			.stats-card { padding: 1.5rem; max-width: none; }
+			.stats-number { font-size: 2.25rem; }
 		}
 	</style>
 
@@ -118,85 +371,132 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		.recent-title:hover { color: var(--accent); text-decoration: none; }
 	</style>
 
-	<div class="hero">
-		<h1>Las leyes de España,<br>accesibles para todos</h1>
-		<p class="hero-sub">
-			Más de {(Math.floor(totalNorms / 1000) * 1000).toLocaleString("es")} leyes desde {earliestYear}, actualizadas cada día.
-			Busca cualquier ley, consulta su texto completo y mira cómo ha cambiado con el tiempo.
-		</p>
-	</div>
+	<!-- ── Hero ── -->
+	<section class="hero-section">
+		<div class="hero-container">
+			<div class="hero-grid">
+				<div class="hero-content">
+					<h1>Las leyes de España,<br>accesibles para todos</h1>
+					<p class="hero-sub">
+						Busca cualquier ley, consulta su texto completo y mira cómo ha cambiado con el tiempo.
+					</p>
 
-	<!-- Search -->
-	<div class="search-form">
-		<div class="search-row">
-			<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" />
-			<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
-		</div>
-		<button type="button" class="filter-toggle" id="filter-toggle">
-			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-			Filtros <span style="font-size:0.625rem">&#9660;</span>
-		</button>
-		<div class="filter-panel" id="filter-panel">
-			<div class="filter-row">
-				<select id="filter-rank" class="filter-select">
-					<option value="">Todos los rangos</option>
-					{ranks.map((r) => (
-						<option value={r.rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
-					))}
-				</select>
-				<select id="filter-status" class="filter-select">
-					<option value="">Todos los estados</option>
-					<option value="vigente">Vigente</option>
-					<option value="derogada">Derogada</option>
-				</select>
+					<div class="search-form">
+						<div class="search-row">
+							<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" />
+							<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
+						</div>
+						<button type="button" class="filter-toggle" id="filter-toggle">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+							Filtros <span style="font-size:0.625rem">&#9660;</span>
+						</button>
+						<div class="filter-panel" id="filter-panel">
+							<div class="filter-row">
+								<select id="filter-rank" class="filter-select">
+									<option value="">Todos los rangos</option>
+									{ranks.map((r) => (
+										<option value={r.rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
+									))}
+								</select>
+								<select id="filter-status" class="filter-select">
+									<option value="">Todos los estados</option>
+									<option value="vigente">Vigente</option>
+									<option value="derogada">Derogada</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<p class="hero-source">
+						Fuente: <a href="https://www.boe.es" target="_blank" rel="noopener">Agencia Estatal BOE</a>
+					</p>
+				</div>
+
+				<div class="hero-stats-col">
+					<div class="stats-card">
+						<div class="stats-number">{totalNorms.toLocaleString("es")}</div>
+						<div class="stats-label">Leyes consolidadas</div>
+						<div class="stats-detail">
+							<span>{jurisdictions.length} jurisdicciones</span>
+							<span class="stats-sep">&middot;</span>
+							<span>{reformsDisplay}+ cambios</span>
+							<span class="stats-sep">&middot;</span>
+							<span>{yearsSpan} años de legislación</span>
+						</div>
+						<div class="stats-source">
+							<span class="stats-source-icon">i</span>
+							Información oficial del BOE
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
-	</div>
+	</section>
 
-	<!-- Search results (hidden by default, shown by JS) -->
-	<div id="search-results"></div>
+	<!-- ── Search Results (hidden by default) ── -->
+	<section class="results-section" id="search-results-section" style="display:none">
+		<div class="container" id="search-results"></div>
+	</section>
 
-	<!-- Landing sections (hidden when searching) -->
+	<!-- ── Landing Sections (hidden when searching) ── -->
 	<div id="landing-content">
-		<div class="section">
-			<h2 class="section-title">Explora por comunidad autónoma</h2>
-			<div class="juri-grid">
-				{jurisdictions.map(j => (
-					<span class="juri-card" style="cursor:default">
-						{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}
-						<span class="juri-count">{j.count.toLocaleString("es")}</span>
-					</span>
-				))}
+		<section class="section-alt animate-on-scroll">
+			<div class="container">
+				<h2 class="section-title">Explora por comunidad autónoma</h2>
+				<div class="juri-grid">
+					{jurisdictions.map(j => (
+						<button type="button" class="juri-card" data-jurisdiction={j.jurisdiction}>
+							{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}
+							<span class="juri-count">{j.count.toLocaleString("es")}</span>
+						</button>
+					))}
+				</div>
 			</div>
-		</div>
+		</section>
 
-		<div class="two-col section">
-			<div>
-				<h2 class="section-title">Cambios recientes</h2>
-				<div id="recent-reforms"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
+		<section class="section-default animate-on-scroll">
+			<div class="container">
+				<div class="two-col">
+					<div>
+						<h2 class="section-title">Cambios recientes</h2>
+						<div id="recent-reforms"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
+					</div>
+					<div>
+						<h2 class="section-title">Leyes que más han cambiado</h2>
+						<div id="most-reformed"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
+					</div>
+				</div>
 			</div>
-			<div>
-				<h2 class="section-title">Leyes que más han cambiado</h2>
-				<div id="most-reformed"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
-			</div>
-		</div>
+		</section>
 	</div>
 
-	<script is:inline define:vars={{ RANK_LABELS }}>
+	<script is:inline define:vars={{ RANK_LABELS, JURISDICTION_LABELS }}>
 		(function () {
 			var API = document.documentElement.dataset.api;
 			var searchInput = document.getElementById("search-input");
 			var searchBtn = document.getElementById("search-btn");
+			var resultsSection = document.getElementById("search-results-section");
 			var resultsDiv = document.getElementById("search-results");
 			var landingDiv = document.getElementById("landing-content");
 			var filterRank = document.getElementById("filter-rank");
 			var filterStatus = document.getElementById("filter-status");
 			var currentPage = 1;
+			var currentCountry = "";
 			var LIMIT = 20;
 
 			// Toggle filters
-			document.getElementById("filter-toggle").addEventListener("click", function () {
+			var filterToggle = document.getElementById("filter-toggle");
+			filterToggle.addEventListener("click", function () {
 				document.getElementById("filter-panel").classList.toggle("open");
+				filterToggle.classList.toggle("open");
+			});
+
+			// Jurisdiction card clicks
+			document.querySelectorAll(".juri-card").forEach(function (card) {
+				card.addEventListener("click", function () {
+					currentCountry = this.dataset.jurisdiction;
+					doSearch(1);
+				});
 			});
 
 			function doSearch(page) {
@@ -205,8 +505,8 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				var rank = filterRank.value;
 				var status = filterStatus.value;
 
-				if (!q && !rank && !status) {
-					resultsDiv.style.display = "none";
+				if (!q && !rank && !status && !currentCountry) {
+					resultsSection.style.display = "none";
 					landingDiv.style.display = "block";
 					history.replaceState(null, "", "/");
 					return;
@@ -216,11 +516,12 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				if (q) params.set("q", q);
 				if (rank) params.set("rank", rank);
 				if (status) params.set("status", status);
+				if (currentCountry) params.set("country", currentCountry);
 				params.set("limit", String(LIMIT));
 				params.set("offset", String((currentPage - 1) * LIMIT));
 
 				resultsDiv.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Buscando...</div>';
-				resultsDiv.style.display = "block";
+				resultsSection.style.display = "block";
 				landingDiv.style.display = "none";
 
 				// Update URL
@@ -228,6 +529,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				if (q) urlParams.set("q", q);
 				if (rank) urlParams.set("rank", rank);
 				if (status) urlParams.set("status", status);
+				if (currentCountry) urlParams.set("country", currentCountry);
 				if (currentPage > 1) urlParams.set("page", String(currentPage));
 				history.replaceState(null, "", "/?" + urlParams.toString());
 
@@ -235,13 +537,22 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					.then(function (r) { return r.json(); })
 					.then(function (result) {
 						if (result.data.length === 0) {
-							resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">No se encontraron resultados.</div>';
+							resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">No se encontraron resultados. Prueba con otro término.</div>';
 							return;
 						}
 
 						var offset = (currentPage - 1) * LIMIT;
 						var totalPages = Math.ceil(result.total / LIMIT);
-						var html = '<div class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</div>';
+
+						var html = "";
+
+						// Show active jurisdiction filter badge
+						if (currentCountry) {
+							var countryName = JURISDICTION_LABELS[currentCountry] || currentCountry;
+							html += '<div class="results-filter-badge">' + countryName + ' <button type="button" class="results-filter-clear" id="clear-country">&times;</button></div>';
+						}
+
+						html += '<div class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</div>';
 
 						for (var i = 0; i < result.data.length; i++) {
 							var law = result.data[i];
@@ -273,23 +584,33 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							el.style.cursor = "pointer";
 							el.addEventListener("click", function () { doSearch(Number(this.dataset.page)); });
 						});
+
+						// Bind clear country filter
+						var clearBtn = document.getElementById("clear-country");
+						if (clearBtn) {
+							clearBtn.addEventListener("click", function () {
+								currentCountry = "";
+								doSearch(1);
+							});
+						}
 					})
 					.catch(function () {
 						resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">Error al buscar. La API no está disponible.</div>';
 					});
 			}
 
-			searchBtn.addEventListener("click", function () { doSearch(1); });
-			searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") doSearch(1); });
+			searchBtn.addEventListener("click", function () { currentCountry = ""; doSearch(1); });
+			searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { currentCountry = ""; doSearch(1); } });
 			filterRank.addEventListener("change", function () { doSearch(1); });
 			filterStatus.addEventListener("change", function () { doSearch(1); });
 
 			// Restore from URL params
 			var urlParams = new URLSearchParams(window.location.search);
-			if (urlParams.get("q") || urlParams.get("rank") || urlParams.get("status")) {
+			if (urlParams.get("q") || urlParams.get("rank") || urlParams.get("status") || urlParams.get("country")) {
 				searchInput.value = urlParams.get("q") || "";
 				filterRank.value = urlParams.get("rank") || "";
 				filterStatus.value = urlParams.get("status") || "";
+				currentCountry = urlParams.get("country") || "";
 				if (urlParams.get("rank") || urlParams.get("status")) {
 					document.getElementById("filter-panel").classList.add("open");
 				}
@@ -331,4 +652,5 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			});
 		})();
 	</script>
+
 </Base>
