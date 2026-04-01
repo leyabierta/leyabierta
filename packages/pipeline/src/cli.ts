@@ -358,12 +358,12 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 				normId: v.sourceId,
 				publishedAt: v.date,
 				effectiveAt: v.date,
-				paragraphs: (v.text ?? "")
-					.split("\n\n")
-					.map((text): Paragraph => ({
+				paragraphs: (v.text ?? "").split("\n\n").map(
+					(text): Paragraph => ({
 						cssClass: inferCssClass(text),
 						text,
-					})),
+					}),
+				),
 			}),
 		),
 	}));

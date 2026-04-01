@@ -111,7 +111,7 @@ describe("GitService", () => {
 
 	describe("constructor", () => {
 		test("handles non-existent repo path gracefully", async () => {
-			const badPath = join(tmpdir(), "nonexistent-repo-" + Date.now());
+			const badPath = join(tmpdir(), `nonexistent-repo-${Date.now()}`);
 			const svc = new GitService(badPath);
 			// Operations should return null / empty, not throw
 			const content = await svc.getFileAtDate("any.md", "2024-01-01");

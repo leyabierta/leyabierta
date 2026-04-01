@@ -8,9 +8,9 @@
  * on-demand per page in [id].astro instead.
  */
 
-import type { Loader } from "astro/loaders";
 import { promises as fs } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, relative } from "node:path";
+import type { Loader } from "astro/loaders";
 import matter from "gray-matter";
 
 export function lawsLoader(options: { path: string }): Loader {
@@ -44,7 +44,9 @@ export function lawsLoader(options: { path: string }): Loader {
 				} catch (err) {
 					errors++;
 					if (errors <= 3) {
-						logger.warn(`Failed to load ${filePath}: ${err instanceof Error ? err.message : err}`);
+						logger.warn(
+							`Failed to load ${filePath}: ${err instanceof Error ? err.message : err}`,
+						);
 					}
 				}
 			}
