@@ -3,7 +3,8 @@ FROM oven/bun:1-slim
 WORKDIR /app
 
 # Git is needed by GitService for diff operations
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/* \
+    && git config --global --add safe.directory /data/leyes
 
 # Copy workspace config + package files for dependency install
 COPY package.json bun.lock ./
