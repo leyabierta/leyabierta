@@ -14,8 +14,8 @@
 		"ingest-analisis": "bun run packages/pipeline/src/ingest-analisis-cli.ts",
 		"api": "bun run packages/api/src/index.ts",
 		"api:dev": "bun --watch run packages/api/src/index.ts",
-		"web": "bun run --cwd packages/web astro dev",
-		"dev": "bun run --cwd packages/web astro dev"
+		"web": "set -a && . ./.env && set +a && bun run --cwd packages/web astro dev",
+		"dev": "set -a && . ./.env && set +a && bun run --cwd packages/web astro dev"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.9",

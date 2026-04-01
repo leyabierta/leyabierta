@@ -151,6 +151,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		*, *::before, *::after { box-sizing: border-box; margin: 0; }
 
 		html {
+			height: 100%;
 			font-family: var(--font-sans);
 			background: var(--bg);
 			color: var(--text);
@@ -158,6 +159,14 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			font-size: 16px;
 			-webkit-font-smoothing: antialiased;
 		}
+
+		body {
+			display: flex;
+			flex-direction: column;
+			min-height: 100vh;
+		}
+
+		main { flex: 1; }
 
 		a { color: var(--accent-light); text-decoration: none; }
 		a:hover { text-decoration: underline; }
