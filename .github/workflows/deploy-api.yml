@@ -17,9 +17,6 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: leyabierta/api
-  TRILO_BOT_TOKEN: ${{ secrets.TRILO_BOT_TOKEN }}
-  TRILO_PROJECT_ID: "ef505489-efc2-46ce-bc70-950e5d34025d"
-  TRILO_BACKEND_URL: "https://api.trilo.chat"
 
 jobs:
   build-and-push:
@@ -47,22 +44,31 @@ jobs:
       - name: Notify — Started
         id: notify
         continue-on-error: true
-        run: |
-          COMMIT_SHA=$(git rev-parse --short HEAD)
-          COMMIT_MSG=$(git log -1 --pretty=%s)
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="🚀 **Deploy API** · \`${COMMIT_SHA}\` ${COMMIT_MSG}"
-          MSG+=$'\n\n'"⏳ **api** — Installing..."
-          MSG+=$'\n\n'"[View run](${RUN_URL})"
-          MSG_ID=$(.github/scripts/trilo-notify.sh send "$MSG")
-          echo "msg_id=${MSG_ID}" >> $GITHUB_OUTPUT
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: send
+          message: |
+            🚀 **Deploy API** · `${{ github.sha }}` ${{ github.event.head_commit.message }}
+
+            ⏳ **api** — Installing...
+
+            [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Notify — Linting
         continue-on-error: true
-        run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "api" "⏳ **api** — Linting..."
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ steps.notify.outputs.message-id }}
+          app-name: api
+          new-status: "⏳ **api** — Linting..."
 
       - name: Lint
         run: bun run check
@@ -72,7 +78,14 @@ jobs:
 
       - name: Notify — Building image
         continue-on-error: true
-        run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "api" "⏳ **api** — Building Docker image..."
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ steps.notify.outputs.message-id }}
+          app-name: api
+          new-status: "⏳ **api** — Building Docker image..."
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -92,7 +105,14 @@ jobs:
 
       - name: Notify — Pushing image
         continue-on-error: true
-        run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "api" "⏳ **api** — Pushing to GHCR..."
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ steps.notify.outputs.message-id }}
+          app-name: api
+          new-status: "⏳ **api** — Pushing to GHCR..."
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -102,22 +122,65 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Notify — Result
+      - name: Calculate duration
         if: always()
-        continue-on-error: true
+        id: duration
         run: |
           ELAPSED=$(( $(date +%s) - ${{ steps.timer.outputs.start_time }} ))
-          MINS=$((ELAPSED / 60))
-          SECS=$((ELAPSED % 60))
-          DURATION="${MINS}m ${SECS}s"
-          NOTIFY_MSG_ID="${{ steps.notify.outputs.msg_id }}"
-          if [ "${{ job.status }}" = "success" ]; then
-            .github/scripts/trilo-notify.sh set-status "$NOTIFY_MSG_ID" "api" "✅ **api** — Pushed ($DURATION)"
-            .github/scripts/trilo-notify.sh send "✅ **leyabierta api** image pushed ($DURATION)"
-          elif [ "${{ job.status }}" = "cancelled" ]; then
-            .github/scripts/trilo-notify.sh set-status "$NOTIFY_MSG_ID" "api" "⚪ **api** — Cancelled"
-          else
-            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            .github/scripts/trilo-notify.sh set-status "$NOTIFY_MSG_ID" "api" "❌ **api** — Failed ($DURATION)"
-            .github/scripts/trilo-notify.sh send "$(printf '❌ **leyabierta api** failed (%s) — [View logs](%s)' "$DURATION" "$RUN_URL")"
-          fi
+          echo "text=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> $GITHUB_OUTPUT
+
+      - name: Notify — Success status
+        if: always() && job.status == 'success'
+        continue-on-error: true
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ steps.notify.outputs.message-id }}
+          app-name: api
+          new-status: "✅ **api** — Pushed (${{ steps.duration.outputs.text }})"
+
+      - name: Notify — Success message
+        if: always() && job.status == 'success'
+        continue-on-error: true
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: send
+          message: "✅ **leyabierta api** image pushed (${{ steps.duration.outputs.text }})"
+
+      - name: Notify — Cancelled
+        if: always() && job.status == 'cancelled'
+        continue-on-error: true
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ steps.notify.outputs.message-id }}
+          app-name: api
+          new-status: "⚪ **api** — Cancelled"
+
+      - name: Notify — Failed status
+        if: always() && job.status == 'failure'
+        continue-on-error: true
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ steps.notify.outputs.message-id }}
+          app-name: api
+          new-status: "❌ **api** — Failed (${{ steps.duration.outputs.text }})"
+
+      - name: Notify — Failed message
+        if: always() && job.status == 'failure'
+        continue-on-error: true
+        uses: TriloHQ/notify-action@v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: send
+          message: "❌ **leyabierta api** failed (${{ steps.duration.outputs.text }}) — [View logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
