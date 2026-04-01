@@ -34,9 +34,8 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 <html lang="es" data-api={API_BASE}>
 <script is:inline>
 	(function () {
-		var stored = localStorage.getItem("theme");
-		if (stored === "light" || stored === "dark") {
-			document.documentElement.setAttribute("data-theme", stored);
+		if (localStorage.getItem("theme") === "dark") {
+			document.documentElement.setAttribute("data-theme", "dark");
 		}
 	})();
 </script>
@@ -93,30 +92,6 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			--font-mono: "JetBrains Mono", monospace;
 		}
 
-		@media (prefers-color-scheme: dark) {
-			:root:not([data-theme="light"]) {
-				--bg: #0f1117;
-				--surface: #1a1d27;
-				--text: #e8eaf0;
-				--text-secondary: #a0aab8;
-				--text-muted: #6b7a8d;
-				--border: #2a3040;
-				--border-light: #1f2530;
-				--accent: #6ba3d6;
-				--accent-light: #8bbce6;
-				--accent-bg: #1a2a3d;
-				--accent-faint: #141e2d;
-				--tierra-warm: #141820;
-				--tierra-deep: #1f2530;
-				--success: #3db87a;
-				--success-bg: #142a1e;
-				--warning: #d4a017;
-				--warning-bg: #2a2210;
-				--danger: #e85454;
-				--danger-bg: #2a1414;
-			}
-		}
-
 		:root[data-theme="dark"] {
 			--bg: #0f1117;
 			--surface: #1a1d27;
@@ -170,9 +145,11 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			border-radius: 4px;
 			color: var(--text-muted);
 			cursor: pointer;
-			font-size: 0.875rem;
 			line-height: 1;
-			padding: 0.25rem 0.4rem;
+			padding: 0.3rem 0.4rem;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
 			transition: color 0.15s, border-color 0.15s;
 		}
 		.theme-toggle:hover {
@@ -193,8 +170,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		}
 		.logo:hover { text-decoration: none; opacity: 0.85; }
 		.logo img { height: 24px; width: auto; }
-		:root[data-theme="dark"] .logo img,
-		@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo img { filter: brightness(0) invert(1); } }
+		:root[data-theme="dark"] .logo img { filter: brightness(0) invert(1); }
 		.nav-links {
 			display: flex;
 			gap: 1.25rem;
@@ -408,38 +384,30 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<script is:inline>
 		(function () {
 			var btn = document.getElementById("theme-toggle");
-			var order = ["system", "light", "dark"];
-			var icons = { system: "\u25D1", light: "\u2600", dark: "\u263D" };
+			var sunSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+			var moonSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
-			function currentPref() {
-				var stored = localStorage.getItem("theme");
-				if (stored === "light" || stored === "dark") return stored;
-				return "system";
+			function isDark() {
+				return localStorage.getItem("theme") === "dark";
 			}
 
-			function updateIcon(pref) {
-				btn.textContent = icons[pref];
+			function updateIcon() {
+				btn.innerHTML = isDark() ? sunSvg : moonSvg;
 			}
 
-			function apply(pref) {
-				if (pref === "light" || pref === "dark") {
-					document.documentElement.setAttribute("data-theme", pref);
-					localStorage.setItem("theme", pref);
-				} else {
+			function toggle() {
+				if (isDark()) {
 					document.documentElement.removeAttribute("data-theme");
 					localStorage.removeItem("theme");
+				} else {
+					document.documentElement.setAttribute("data-theme", "dark");
+					localStorage.setItem("theme", "dark");
 				}
-				updateIcon(pref);
+				updateIcon();
 			}
 
-			btn.addEventListener("click", function () {
-				var current = currentPref();
-				var idx = order.indexOf(current);
-				var next = order[(idx + 1) % order.length];
-				apply(next);
-			});
-
-			updateIcon(currentPref());
+			btn.addEventListener("click", toggle);
+			updateIcon();
 
 			window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
 				updateIcon(currentPref());
