@@ -4,28 +4,36 @@ import { PROFILES } from "../../../../api/src/data/profiles";
 import fs from "node:fs";
 import path from "node:path";
 
+const digestDir = path.join(process.cwd(), "..", "..", "data", "digests");
+
 export function getStaticPaths() {
-	const publicDir = path.join(process.cwd(), "public", "resumenes");
-	const profiles: string[] = [];
+	const dDir = path.join(process.cwd(), "..", "..", "data", "digests");
+	const profileIds = new Set<string>();
 	try {
-		for (const entry of fs.readdirSync(publicDir)) {
-			if (fs.statSync(path.join(publicDir, entry)).isDirectory()) {
-				profiles.push(entry);
+		for (const year of fs.readdirSync(dDir)) {
+			const yearDir = path.join(dDir, year);
+			if (!fs.statSync(yearDir).isDirectory()) continue;
+			for (const weekFolder of fs.readdirSync(yearDir)) {
+				const weekPath = path.join(yearDir, weekFolder);
+				if (!fs.statSync(weekPath).isDirectory()) continue;
+				for (const file of fs.readdirSync(weekPath)) {
+					if (file.endsWith(".yaml") && !file.includes("-email")) {
+						profileIds.add(file.replace(".yaml", ""));
+					}
+				}
 			}
 		}
 	} catch {
-		// No public resumenes directory
+		// No digests directory yet
 	}
-	return profiles.map((p) => ({ params: { perfil: p } }));
+	return [...profileIds].map((p) => ({ params: { perfil: p } }));
 }
 
 const { perfil } = Astro.params;
 
 const profile = PROFILES.find((p) => p.id === perfil) ?? { id: perfil!, name: perfil!, description: "", icon: "" };
 
-// Scan public/resumenes/{perfil}/ for available HTML digests
-const profileDir = path.join(process.cwd(), "public", "resumenes", perfil!);
-
+// Scan data/digests/ for available YAML digests for this profile
 interface DigestEntry {
 	week: string;
 	url: string;
@@ -35,22 +43,28 @@ interface DigestEntry {
 
 let digests: DigestEntry[] = [];
 try {
-	const files = fs.readdirSync(profileDir)
-		.filter((f: string) => f.endsWith(".html") && f !== "index.html");
-	for (const file of files) {
-		const weekId = file.replace(".html", ""); // e.g. "2026-W13"
-		const match = weekId.match(/^(\d{4})-W(\d+)$/);
-		if (!match) continue;
-		digests.push({
-			week: weekId,
-			url: `/resumenes/${perfil}/${weekId}`,
-			year: match[1]!,
-			weekNum: match[2]!,
-		});
+	for (const year of fs.readdirSync(digestDir)) {
+		const yearDir = path.join(digestDir, year);
+		if (!fs.statSync(yearDir).isDirectory()) continue;
+		for (const weekFolder of fs.readdirSync(yearDir)) {
+			const weekPath = path.join(yearDir, weekFolder);
+			if (!fs.statSync(weekPath).isDirectory()) continue;
+			const yamlFile = path.join(weekPath, `${perfil}.yaml`);
+			if (!fs.existsSync(yamlFile)) continue;
+			const weekId = `${year}-${weekFolder}`; // e.g. "2026-W13"
+			const match = weekId.match(/^(\d{4})-W(\d+)$/);
+			if (!match) continue;
+			digests.push({
+				week: weekId,
+				url: `/resumenes/${perfil}/${weekId}`,
+				year: match[1]!,
+				weekNum: match[2]!,
+			});
+		}
 	}
 	digests.sort((a, b) => b.week.localeCompare(a.week));
 } catch {
-	// Directory doesn't exist yet
+	// Digests directory doesn't exist yet
 }
 ---
 

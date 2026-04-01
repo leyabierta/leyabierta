@@ -6,39 +6,38 @@ import path from "node:path";
 
 const profiles = PROFILES.map(({ id, name, description, icon }) => ({ id, name, description, icon }));
 
-// Scan public/resumenes/ to find latest digest per profile
-const resumenesDir = path.join(process.cwd(), "public", "resumenes");
+// Scan data/digests/ YAML files to find digest counts and latest week per profile
+const digestDir = path.join(process.cwd(), "..", "..", "data", "digests");
 
-function getLatestWeek(profileId: string): string | null {
-	const profileDir = path.join(resumenesDir, profileId);
+function discoverDigestsForProfile(profileId: string): string[] {
+	const weeks: string[] = [];
 	try {
-		const files = fs.readdirSync(profileDir)
-			.filter((f: string) => f.endsWith(".html") && f !== "index.html")
-			.sort()
-			.reverse();
-		if (files.length === 0) return null;
-		return files[0]!.replace(".html", "");
+		for (const year of fs.readdirSync(digestDir)) {
+			const yearDir = path.join(digestDir, year);
+			if (!fs.statSync(yearDir).isDirectory()) continue;
+			for (const weekFolder of fs.readdirSync(yearDir)) {
+				const weekPath = path.join(yearDir, weekFolder);
+				if (!fs.statSync(weekPath).isDirectory()) continue;
+				const yamlFile = path.join(weekPath, `${profileId}.yaml`);
+				if (fs.existsSync(yamlFile)) {
+					weeks.push(`${year}-${weekFolder}`);
+				}
+			}
+		}
 	} catch {
-		return null;
+		// No digests directory yet
 	}
+	return weeks.sort().reverse();
 }
 
-function getDigestCount(profileId: string): number {
-	const profileDir = path.join(resumenesDir, profileId);
-	try {
-		return fs.readdirSync(profileDir)
-			.filter((f: string) => f.endsWith(".html") && f !== "index.html")
-			.length;
-	} catch {
-		return 0;
-	}
-}
-
-const profilesWithData = profiles.map((p) => ({
-	...p,
-	latestWeek: getLatestWeek(p.id),
-	digestCount: getDigestCount(p.id),
-}));
+const profilesWithData = profiles.map((p) => {
+	const weeks = discoverDigestsForProfile(p.id);
+	return {
+		...p,
+		latestWeek: weeks[0] ?? null,
+		digestCount: weeks.length,
+	};
+});
 ---
 
 <Base

@@ -1,7 +1,8 @@
 /**
  * Programmatic weekly digest generator.
  *
- * Generates YAML (source of truth), web HTML, and email HTML for each profile.
+ * Generates YAML (source of truth) and email HTML for each profile.
+ * Web pages are rendered by Astro from the YAML files (packages/web/src/pages/resumenes/).
  * NO AI involved — only DB queries and template rendering.
  * The citizen-writer AI step is separate (via /weekly-digest skill).
  *
@@ -23,7 +24,7 @@
 
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import yaml from "js-yaml";
 import { PROFILES, type ThematicProfile } from "../data/profiles.ts";
 
@@ -78,7 +79,6 @@ const digestDir = join(
 	yearNum.toString(),
 	`W${weekNum}`,
 );
-const webDir = join(ROOT, "packages", "web", "public", "resumenes");
 const templateDir = join(
 	ROOT,
 	".claude",
@@ -87,7 +87,6 @@ const templateDir = join(
 	"templates",
 );
 
-const webTemplate = readFileSync(join(templateDir, "web-page.html"), "utf-8");
 const emailTemplate = readFileSync(join(templateDir, "email.html"), "utf-8");
 
 // ── DB ──
@@ -294,25 +293,6 @@ function escapeHtml(s: string): string {
 		.replace(/"/g, "&quot;");
 }
 
-function formatDate(iso: string): string {
-	const d = new Date(iso);
-	const months = [
-		"ene",
-		"feb",
-		"mar",
-		"abr",
-		"may",
-		"jun",
-		"jul",
-		"ago",
-		"sep",
-		"oct",
-		"nov",
-		"dic",
-	];
-	return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
 /**
  * Get reforms to display in HTML. Only relevant reforms (or all if AI hasn't run yet).
  */
@@ -320,45 +300,6 @@ function getDisplayReforms(data: DigestData): DigestReform[] {
 	const aiHasRun = data.reforms.some((r) => r.relevant !== null);
 	if (!aiHasRun) return data.reforms; // pre-AI: show all with titles as placeholders
 	return data.reforms.filter((r) => r.relevant === true);
-}
-
-function generateWebHtml(data: DigestData): string {
-	const reforms = getDisplayReforms(data);
-
-	const reformsHtml = reforms
-		.map((r) => {
-			const teAfecta = r.te_afecta_porque
-				? `\n      <p class="te-afecta"><strong>Te afecta porque:</strong> ${escapeHtml(r.te_afecta_porque)}</p>`
-				: "";
-			return `
-    <article class="reform">
-      <div class="reform-date">${escapeHtml(r.date)}</div>
-      <h3>${escapeHtml(r.headline || r.title)}</h3>
-      <p>${escapeHtml(r.summary || `Cambios en: ${r.title}`)}</p>${teAfecta}
-      <a href="${siteUrl}/laws/${encodeURIComponent(r.id)}" class="reform-link">Ver ley completa →</a>
-    </article>`;
-		})
-		.join("\n");
-
-	const now = new Date();
-	const generatedAt = formatDate(now.toISOString().slice(0, 10));
-
-	return webTemplate
-		.replaceAll("{{TITLE}}", `Resumen semanal — ${data.profile.name} (${week})`)
-		.replaceAll("{{PROFILE_NAME}}", escapeHtml(data.profile.name))
-		.replaceAll("{{PROFILE_ICON}}", data.profile.icon)
-		.replaceAll("{{WEEK}}", week)
-		.replaceAll("{{WEEK_LABEL}}", weekLabel)
-		.replaceAll("{{GENERATED_AT}}", generatedAt)
-		.replaceAll(
-			"{{SUMMARY}}",
-			escapeHtml(
-				data.summary || `${reforms.length} cambios legislativos esta semana.`,
-			),
-		)
-		.replaceAll("{{HIGH_REFORMS}}", reformsHtml)
-		.replaceAll("{{LOW_REFORMS}}", "") // no more low section
-		.replaceAll("{{REFORM_COUNT}}", String(reforms.length));
 }
 
 function generateEmailHtml(data: DigestData): string {
@@ -386,7 +327,7 @@ function generateEmailHtml(data: DigestData): string {
 
 	const count = reforms.length;
 	const suffix = count === 1 ? "" : "s";
-	const webUrl = `${siteUrl}/resumenes/${data.profile.id}/${week}.html`;
+	const webUrl = `${siteUrl}/resumenes/${data.profile.id}/${week}`;
 
 	return emailTemplate
 		.replaceAll("{{SITE_URL}}", siteUrl)
@@ -425,7 +366,7 @@ mkdirSync(digestDir, { recursive: true });
 console.log(`Generating digests for ${week} (${since} → ${until})`);
 console.log(`Profiles: ${profiles.map((p) => p.id).join(", ")}`);
 console.log(
-	`Mode: ${htmlOnly ? "HTML-only (from existing YAMLs)" : "Full (YAML + HTML)"}\n`,
+	`Mode: ${htmlOnly ? "Email-only (from existing YAMLs)" : "Full (YAML + email)"}\n`,
 );
 
 // Query ALL reforms once (shared across all profiles)
@@ -438,7 +379,6 @@ if (!htmlOnly) {
 
 for (const profile of profiles) {
 	const yamlPath = join(digestDir, `${profile.id}.yaml`);
-	const webPath = join(webDir, profile.id, `${week}.html`);
 	const emailPath = join(digestDir, `${profile.id}-email.html`);
 
 	let data: DigestData;
@@ -455,28 +395,23 @@ for (const profile of profiles) {
 		writeFileSync(yamlPath, serializeYaml(data));
 	}
 
-	// For HTML: only render if there are displayable reforms
+	// For email HTML: only render if there are displayable reforms
 	const displayReforms = getDisplayReforms(data);
 	if (displayReforms.length === 0 && data.reforms.length === 0) {
 		console.log(`  ${profile.icon} ${profile.name}: 0 reforms — YAML only`);
 		continue;
 	}
 
-	mkdirSync(dirname(webPath), { recursive: true });
-	writeFileSync(webPath, generateWebHtml(data));
 	writeFileSync(emailPath, generateEmailHtml(data));
 
 	const aiStatus = data.reforms.some((r) => r.relevant !== null)
 		? `${displayReforms.length} relevant of ${data.reforms.length}`
 		: `${data.reforms.length} total [needs AI relevance scoring]`;
-	console.log(
-		`  ${profile.icon} ${profile.name}: ${aiStatus} → YAML + web + email`,
-	);
+	console.log(`  ${profile.icon} ${profile.name}: ${aiStatus} → YAML + email`);
 }
 
 console.log("\nDone.");
 console.log(`  YAML:  ${digestDir}/`);
-console.log(`  Web:   ${webDir}/`);
 console.log(`  Email: ${digestDir}/*-email.html`);
 if (!htmlOnly) {
 	console.log(
