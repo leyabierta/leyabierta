@@ -136,13 +136,34 @@ ingress:
 - Secrets configurados: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 - Actions: checkout@v6, setup-node@v6, setup-bun@v2
 
-**`.github/workflows/daily-pipeline.yml`** — cron `0 6 * * *` + dispatch manual (PENDIENTE):
-1. Checkout repos `leyabierta` y `leyes`
-2. Run pipeline: `bun run pipeline bootstrap --country es`
-3. Commit + push cambios en `leyes`
-4. Run ingest: genera `leyabierta.db`
-5. Subir DB como GitHub Release asset
-6. Trigger deploy-web
+**`.github/workflows/daily-pipeline.yml`** — dual cron + dispatch manual (IMPLEMENTADO):
+
+Dos modos de operacion:
+
+| Dia | Cron | Modo | Que hace | Tiempo |
+|-----|------|------|----------|--------|
+| Lun-Sab | 06:00 UTC | Incremental | Lista 12K norms del BOE, solo descarga las nuevas (no en StateStore) | ~3-5 min |
+| Domingo | 04:00 UTC | Full sync | Re-descarga todas las normas, commitNorm salta duplicados (idempotente) | ~20-30 min |
+| Manual | dispatch | Configurable | Con o sin `--force` | Depende |
+
+**Por que dos modos:**
+- El BOE no tiene un endpoint "que cambio desde fecha X"
+- El modo incremental (Lun-Sab) es rapido pero solo detecta normas nuevas, no actualizaciones a normas existentes
+- El full sync (Domingo) re-descarga todo y compara — `commitNorm` usa trailers (`Source-Id`, `Norm-Id`) para saber que reformas ya estan commiteadas y solo commitea las nuevas
+- Este approach es robusto: si se cae un dia, el siguiente lo recupera
+
+**Idempotencia:**
+- `commitNorm()` llama a `loadExistingCommits()` que parsea todos los trailers del repo
+- `hasCommitWithSourceId(sourceId, normId)` verifica si un commit ya existe
+- Re-procesar una norma no duplica commits — solo anade reformas que faltan
+
+**Caveats:**
+- El full sync del domingo descarga ~12K normas del BOE (~24K requests). Con 4 workers y courtesy delay de 200ms, tarda ~20-30 min
+- Si el BOE publica una reforma un lunes y la norma ya estaba en el StateStore, no la veremos hasta el domingo
+- El StateStore (`data/state.json`) y los JSON cache se persisten entre runs via `actions/cache`
+
+**Secrets necesarios:**
+- `LEYES_PUSH_TOKEN`: Fine-grained PAT con write access a `leyabierta/leyes` (Contents: Read and write)
 
 ### Fase 5: Actualizacion de DB en el servidor
 

@@ -105,20 +105,29 @@ git log --format="%s | %(trailers:key=Source-Date,valueonly)" -1 -- es/BOE-A-188
 
 | Dato | Valor |
 |------|-------|
-| Normas consolidadas | 12,231 |
-| Estatales | 8,636 |
-| Autonomicas | 3,595 |
+| Normas consolidadas | 12,235 |
+| Estatales | 8,646 |
+| Autonomicas | 3,589 |
 | Jurisdicciones | 18 (estatal + 17 CCAA) |
 | Norma mas antigua | 1835 |
 | Norma mas reformada | Ley General Seguridad Social (107 reformas) |
 | Vigentes | 9,876 |
 | Derogadas | 2,355 |
 
+## Actualizaciones automaticas
+
+Un pipeline diario (GitHub Actions) mantiene las leyes actualizadas:
+
+- **Lunes a sabado (06:00 UTC):** Busca normas nuevas en el BOE y las anade al repo
+- **Domingos (04:00 UTC):** Re-sincroniza todas las normas para detectar reformas a leyes existentes
+
+El pipeline es idempotente: re-procesar una norma no duplica commits. Cada reforma se identifica por su `Source-Id` y `Norm-Id` en los trailers del commit.
+
 ## Paises
 
 | Pais | Fuente | Normas | Estado |
 |------|--------|--------|--------|
-| Espana | [BOE](https://www.boe.es/) | 12,231 | En desarrollo |
+| Espana | [BOE](https://www.boe.es/) | 12,235 | Desplegado |
 | Francia | [Legifrance](https://www.legifrance.gouv.fr/) | — | Planeado |
 | Alemania | [BGBL](https://www.bgbl.de/) | — | Planeado |
 | Portugal | [DRE](https://dre.pt/) | — | Planeado |
