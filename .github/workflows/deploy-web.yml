@@ -65,7 +65,7 @@ jobs:
         working-directory: packages/web
         run: bun run build
         env:
-          LAWS_PATH: ../../content/laws
+          LAWS_PATH: content/laws
 
       - name: Notify — Deploying
         continue-on-error: true
