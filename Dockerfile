@@ -9,9 +9,10 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 COPY package.json bun.lock ./
 COPY packages/api/package.json packages/api/
 COPY packages/pipeline/package.json packages/pipeline/
+COPY packages/web/package.json packages/web/
 
 # Install production dependencies
-RUN bun install --production --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 # Copy source code (only api + pipeline, not web)
 COPY packages/api/ packages/api/
