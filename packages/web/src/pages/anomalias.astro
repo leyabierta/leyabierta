@@ -119,8 +119,10 @@ const totalIssues =
 		}
 
 		@media (max-width: 640px) {
-			.anomaly-table { font-size: 0.75rem; }
-			.anomaly-table th, .anomaly-table td { padding: 0.375rem 0.5rem; }
+			.anomaly-table { font-size: 0.75rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+			.anomaly-table thead, .anomaly-table tbody, .anomaly-table tr { display: table; width: 100%; table-layout: fixed; }
+			.anomaly-table th, .anomaly-table td { padding: 0.375rem 0.5rem; word-break: break-word; }
+			.anomaly-table a { word-break: break-all; }
 			.title-cell { max-width: 150px; }
 		}
 	</style>

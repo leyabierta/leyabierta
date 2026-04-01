@@ -308,11 +308,51 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		.page-num.current { background: var(--accent); color: white; font-weight: 600; }
 		.page-ellipsis { color: var(--text-muted); padding: 0 0.25rem; }
 
+		/* ── Mobile menu button ── */
+		.menu-toggle {
+			display: none;
+			background: none;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			color: var(--text-muted);
+			cursor: pointer;
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+			padding: 0;
+			font-size: 1.25rem;
+			line-height: 1;
+			margin-left: auto;
+			transition: color 0.15s, border-color 0.15s;
+		}
+		.menu-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
 		/* ── Responsive ── */
 		@media (max-width: 640px) {
 			.container { padding: 0 1rem; }
-			header nav { padding: 0.75rem 1rem; gap: 1rem; }
-			.nav-hide-mobile { display: none; }
+			header nav { padding: 0.75rem 1rem; gap: 0.75rem; flex-wrap: wrap; }
+			.menu-toggle { display: block; }
+			.nav-links {
+				display: none;
+				width: 100%;
+				flex-direction: column;
+				gap: 0;
+				margin-left: 0;
+				border-top: 1px solid var(--border);
+				padding-top: 0.5rem;
+			}
+			.nav-links.open { display: flex; }
+			.logo { min-height: 2.75rem; }
+			.nav-links a {
+				padding: 0.625rem 0;
+				font-size: 0.875rem;
+				min-height: 2.75rem;
+				display: flex;
+				align-items: center;
+			}
+			.nav-links .theme-toggle {
+				padding: 0.5rem 0;
+				margin-top: 0.25rem;
+			}
 		}
 	</style>
 </head>
@@ -322,7 +362,8 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			<a href="/" class="logo">
 				<img src="/logo-full.png" alt="Ley Abierta" height="24" />
 			</a>
-			<div class="nav-links">
+			<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Menú" aria-expanded="false">☰</button>
+			<div class="nav-links" id="nav-links">
 				<a href="/">Buscar</a>
 				<a href="/alertas">Alertas</a>
 				<a href="/resumenes">Resúmenes</a>
@@ -351,6 +392,19 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			<div class="footer-tagline">La ley pertenece al pueblo.</div>
 		</div>
 	</footer>
+	<script is:inline>
+		(function () {
+			var menuBtn = document.getElementById("menu-toggle");
+			var navLinks = document.getElementById("nav-links");
+			if (menuBtn && navLinks) {
+				menuBtn.addEventListener("click", function () {
+					var isOpen = navLinks.classList.toggle("open");
+					menuBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+					menuBtn.textContent = isOpen ? "\u2715" : "\u2630";
+				});
+			}
+		})();
+	</script>
 	<script is:inline>
 		(function () {
 			var btn = document.getElementById("theme-toggle");
