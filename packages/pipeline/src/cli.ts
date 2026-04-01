@@ -381,17 +381,23 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 	let analisis: NormAnalisis | undefined;
 	const rawAnalisis = raw.analisis as Record<string, unknown> | undefined;
 	if (rawAnalisis) {
-		const refs = rawAnalisis.referencias as Record<string, unknown[]> | undefined;
+		const refs = rawAnalisis.referencias as
+			| Record<string, unknown[]>
+			| undefined;
 		analisis = {
 			materias: (rawAnalisis.materias as string[]) ?? [],
 			notas: (rawAnalisis.notas as string[]) ?? [],
 			referencias: {
-				anteriores: ((refs?.anteriores as Array<Record<string, string>>) ?? []).map((r) => ({
+				anteriores: (
+					(refs?.anteriores as Array<Record<string, string>>) ?? []
+				).map((r) => ({
 					normId: r.normId,
 					relation: r.relation,
 					text: r.text,
 				})),
-				posteriores: ((refs?.posteriores as Array<Record<string, string>>) ?? []).map((r) => ({
+				posteriores: (
+					(refs?.posteriores as Array<Record<string, string>>) ?? []
+				).map((r) => ({
 					normId: r.normId,
 					relation: r.relation,
 					text: r.text,

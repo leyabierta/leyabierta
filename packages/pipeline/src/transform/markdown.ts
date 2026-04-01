@@ -109,7 +109,9 @@ export function renderNormAtDate(
 ): string {
 	const parts: string[] = [];
 
-	parts.push(renderFrontmatter(metadata, targetDate, reforms, blocks, analisis));
+	parts.push(
+		renderFrontmatter(metadata, targetDate, reforms, blocks, analisis),
+	);
 
 	const title = metadata.title.replace(/[\s.]+$/, "").trim();
 	parts.push(`# ${title}\n\n`);

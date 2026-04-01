@@ -30,7 +30,13 @@ function render(
 	blocks: Block[] = EMPTY_BLOCKS,
 	analisis?: AnalisisData,
 ): string {
-	return renderFrontmatter(makeMetadata(overrides), date, reforms, blocks, analisis);
+	return renderFrontmatter(
+		makeMetadata(overrides),
+		date,
+		reforms,
+		blocks,
+		analisis,
+	);
 }
 
 describe("renderFrontmatter", () => {
@@ -73,9 +79,15 @@ describe("renderFrontmatter", () => {
 	});
 
 	test("extracts jurisdiction from ELI URL", () => {
-		expect(render({ source: "https://www.boe.es/eli/es/c/1978/12/27/(1)" })).toContain("jurisdiccion: es\n");
-		expect(render({ source: "https://www.boe.es/eli/es-pv/l/2020/06/25/4" })).toContain("jurisdiccion: es-pv\n");
-		expect(render({ source: "https://www.boe.es/eli/es-ct/l/2014/12/29/16" })).toContain("jurisdiccion: es-ct\n");
+		expect(
+			render({ source: "https://www.boe.es/eli/es/c/1978/12/27/(1)" }),
+		).toContain("jurisdiccion: es\n");
+		expect(
+			render({ source: "https://www.boe.es/eli/es-pv/l/2020/06/25/4" }),
+		).toContain("jurisdiccion: es-pv\n");
+		expect(
+			render({ source: "https://www.boe.es/eli/es-ct/l/2014/12/29/16" }),
+		).toContain("jurisdiccion: es-ct\n");
 	});
 
 	test("falls back to country when no ELI URL", () => {
@@ -122,7 +134,7 @@ describe("renderFrontmatter", () => {
 		];
 		const result = render({}, "2024-02-17", reforms);
 		expect(result).toContain("reformas:");
-		expect(result).toContain("fecha: \"1978-12-29\"");
+		expect(result).toContain('fecha: "1978-12-29"');
 		expect(result).toContain("fuente: BOE-A-2024-3099");
 	});
 
@@ -159,8 +171,16 @@ describe("renderFrontmatter", () => {
 			materias: [],
 			notas: [],
 			referencias: {
-				anteriores: [{ normId: "BOE-A-1977-123", relation: "DEROGA", text: "Ley de Reforma" }],
-				posteriores: [{ normId: "BOE-A-1985-456", relation: "SE DESARROLLA", text: "LOPJ" }],
+				anteriores: [
+					{
+						normId: "BOE-A-1977-123",
+						relation: "DEROGA",
+						text: "Ley de Reforma",
+					},
+				],
+				posteriores: [
+					{ normId: "BOE-A-1985-456", relation: "SE DESARROLLA", text: "LOPJ" },
+				],
 			},
 		};
 		const result = render({}, "2024-01-01", [], [], analisis);

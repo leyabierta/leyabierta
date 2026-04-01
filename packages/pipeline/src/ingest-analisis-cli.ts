@@ -143,7 +143,9 @@ async function main() {
 	console.log("\n─── Analisis Fetch Summary ───");
 	console.log(`Done:   ${done}`);
 	console.log(`Errors: ${errors}`);
-	console.log(`Time:   ${Math.floor(fetchElapsed / 60)}m ${fetchElapsed % 60}s`);
+	console.log(
+		`Time:   ${Math.floor(fetchElapsed / 60)}m ${fetchElapsed % 60}s`,
+	);
 
 	// ── Enrich JSON cache with analisis data ──
 	const jsonDir = process.argv.includes("--json")
@@ -195,7 +197,12 @@ async function main() {
 			}));
 
 			// Only add analisis key if there's any data
-			if (materias.length > 0 || notas.length > 0 || anteriores.length > 0 || posteriores.length > 0) {
+			if (
+				materias.length > 0 ||
+				notas.length > 0 ||
+				anteriores.length > 0 ||
+				posteriores.length > 0
+			) {
 				data.analisis = {
 					materias,
 					notas,
@@ -215,7 +222,9 @@ async function main() {
 	if (enrichErrors > 0) console.log(`Enrich errors: ${enrichErrors}`);
 
 	const totalElapsed = Math.round((Date.now() - startTime) / 1000);
-	console.log(`\nTotal time: ${Math.floor(totalElapsed / 60)}m ${totalElapsed % 60}s`);
+	console.log(
+		`\nTotal time: ${Math.floor(totalElapsed / 60)}m ${totalElapsed % 60}s`,
+	);
 }
 
 main().catch((err) => {
