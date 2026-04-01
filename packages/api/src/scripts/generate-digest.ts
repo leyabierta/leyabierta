@@ -45,7 +45,7 @@ if (!week || !/^\d{4}-W\d{2}$/.test(week)) {
 const profileFilter = getArg("profile");
 const htmlOnly = hasFlag("html-only");
 const siteUrl = getArg("site-url") ?? "http://localhost:4321";
-const dbPath = process.env.DB_PATH ?? "data/leylibre.db";
+const dbPath = process.env.DB_PATH ?? "data/leyabierta.db";
 
 // ── Derived dates ──
 

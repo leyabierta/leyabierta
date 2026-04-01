@@ -1,7 +1,13 @@
 /**
  * Git service for retrieving law versions and computing diffs.
  *
- * Operates on the output/es git repo where each reform is a commit.
+ * Operates on the leyes git repo where each reform is a commit.
+ *
+ * NOTE: Git does not support dates before 1970-01-01 (Unix epoch).
+ * Commits for pre-1970 legislation have their git date clamped to
+ * 1970-01-02, but carry the real date in the Source-Date trailer.
+ * All date-based lookups use Source-Date trailers to handle this
+ * correctly.
  */
 
 import { $ } from "bun";
@@ -10,17 +16,57 @@ export class GitService {
 	constructor(private repoPath: string) {}
 
 	/**
+	 * Get all commits for a file with their real (trailer) dates.
+	 * Returns newest-first (git log default order).
+	 */
+	private async getCommitsForFile(
+		filePath: string,
+	): Promise<Array<{ sha: string; date: string; subject: string; sourceId: string }>> {
+		try {
+			const SEP = "\x1f"; // ASCII unit separator — safe delimiter
+			const format = `%H${SEP}%aI${SEP}%s${SEP}%(trailers:key=Source-Date,valueonly)${SEP}%(trailers:key=Source-Id,valueonly)`;
+			const proc = Bun.spawn(
+				["git", "-C", this.repoPath, "log", `--format=${format}`, "--", filePath],
+				{ stdout: "pipe", stderr: "pipe" },
+			);
+			const raw = await new Response(proc.stdout).text();
+			await proc.exited;
+
+			return raw
+				.trim()
+				.split("\n")
+				.filter(Boolean)
+				.map((line) => {
+					const [sha = "", authorDate = "", subject = "", sourceDate = "", sourceId = ""] =
+						line.split(SEP);
+					return {
+						sha: sha.trim(),
+						// Prefer Source-Date trailer (real date), fall back to git author date
+						date: sourceDate.trim() || authorDate.trim().slice(0, 10),
+						subject: subject.trim(),
+						sourceId: sourceId.trim(),
+					};
+				});
+		} catch {
+			return [];
+		}
+	}
+
+	/**
 	 * Get the content of a file at a specific date by finding
-	 * the last commit before that date.
+	 * the last commit on or before that date.
+	 *
+	 * Uses Source-Date trailers instead of git dates to correctly
+	 * handle pre-1970 legislation.
 	 */
 	async getFileAtDate(filePath: string, date: string): Promise<string | null> {
 		try {
-			const result =
-				await $`git -C ${this.repoPath} log --before=${date}T23:59:59 --format=%H -1 -- ${filePath}`.text();
-			const sha = result.trim();
-			if (!sha) return null;
+			const commits = await this.getCommitsForFile(filePath);
+			// Commits are newest-first; find the first one whose date <= requested date
+			const match = commits.find((c) => c.date <= date);
+			if (!match) return null;
 
-			return await $`git -C ${this.repoPath} show ${sha}:${filePath}`.text();
+			return await $`git -C ${this.repoPath} show ${match.sha}:${filePath}`.text();
 		} catch {
 			return null;
 		}
@@ -39,6 +85,9 @@ export class GitService {
 
 	/**
 	 * Compute a unified diff between two dates for a file.
+	 *
+	 * Uses Source-Date trailers instead of git dates to correctly
+	 * handle pre-1970 legislation.
 	 */
 	async diff(
 		filePath: string,
@@ -46,20 +95,17 @@ export class GitService {
 		toDate: string,
 	): Promise<string | null> {
 		try {
-			const fromSha =
-				await $`git -C ${this.repoPath} log --before=${fromDate}T23:59:59 --format=%H -1 -- ${filePath}`.text();
-			const toSha =
-				await $`git -C ${this.repoPath} log --before=${toDate}T23:59:59 --format=%H -1 -- ${filePath}`.text();
+			const commits = await this.getCommitsForFile(filePath);
 
-			const from = fromSha.trim();
-			const to = toSha.trim();
+			const fromCommit = commits.find((c) => c.date <= fromDate);
+			const toCommit = commits.find((c) => c.date <= toDate);
 
-			if (!from || !to) return null;
-			if (from === to) return "";
+			if (!fromCommit || !toCommit) return null;
+			if (fromCommit.sha === toCommit.sha) return "";
 
 			// git diff returns exit code 1 when there are differences, which is not an error
 			const result =
-				await $`git -C ${this.repoPath} diff ${from} ${to} -- ${filePath}`
+				await $`git -C ${this.repoPath} diff ${fromCommit.sha} ${toCommit.sha} -- ${filePath}`
 					.nothrow()
 					.text();
 			return result;
@@ -70,6 +116,9 @@ export class GitService {
 
 	/**
 	 * Get the commit log for a file (reform history).
+	 *
+	 * Returns real legislation dates from Source-Date trailers,
+	 * not git commit dates (which are clamped to 1970 for pre-epoch laws).
 	 */
 	async log(
 		filePath: string,
@@ -77,26 +126,7 @@ export class GitService {
 	): Promise<
 		Array<{ sha: string; date: string; subject: string; sourceId: string }>
 	> {
-		try {
-			const raw =
-				await $`git -C ${this.repoPath} log --format=%H|%aI|%s|%(trailers:key=Source-Id,valueonly) -n ${limit} -- ${filePath}`.text();
-
-			return raw
-				.trim()
-				.split("\n")
-				.filter(Boolean)
-				.map((line) => {
-					const [sha = "", date = "", subject = "", sourceId = ""] =
-						line.split("|");
-					return {
-						sha: sha.trim(),
-						date: date.trim(),
-						subject: subject.trim(),
-						sourceId: sourceId.trim(),
-					};
-				});
-		} catch {
-			return [];
-		}
+		const commits = await this.getCommitsForFile(filePath);
+		return commits.slice(0, limit);
 	}
 }

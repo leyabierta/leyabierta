@@ -16,7 +16,7 @@ import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
-const REPO_PATH = process.env.REPO_PATH ?? "../leyes-es";
+const REPO_PATH = process.env.REPO_PATH ?? "../leyes";
 const PORT = Number(process.env.PORT ?? 3000);
 
 // Initialize services
