@@ -17,7 +17,8 @@ Un motor open source en TypeScript que descarga legislacion oficial (empezando p
 | API | Elysia (Bun-native) + SQLite FTS5 |
 | Web | Astro 6 (static, custom content loader) |
 | DB | SQLite (bun:sqlite, FTS5 full-text search) |
-| Deploy | Cloudflare Pages (CDN global) |
+| Deploy (Web) | Cloudflare Pages (CDN global) |
+| Deploy (API) | Docker + Cloudflare Tunnel en KonarServer (Hetzner) |
 | CI/CD | GitHub Actions |
 
 ## Que se ha hecho
@@ -53,24 +54,32 @@ Un motor open source en TypeScript que descarga legislacion oficial (empezando p
 
 ### Infraestructura
 - Dominio: `leyabierta.es` registrado en DonDominio, NS delegados a Cloudflare
-- Cloudflare Pages: web desplegada, 12,282 paginas estaticas
+- Web: `leyabierta.es` en Cloudflare Pages, 12,282 paginas estaticas
+- API: `api.leyabierta.es` en KonarServer (Hetzner), Docker + Cloudflare Tunnel (systemd)
+- SQLite DB: 4.7GB con FTS5, 12,235 leyes
 - GitHub Actions: `deploy-web.yml` (build + deploy en ~6 min) y `daily-pipeline.yml` (incremental Lun-Sab + full sync Domingo)
 - Pipeline diario verificado con test incremental (3 normas nuevas detectadas y commiteadas correctamente)
-- Dockerfile para API listo
 
 ## Lo que falta
 
 ### Prioridad alta
-1. **API en produccion** — Cloudflare Tunnel desde servidor privado (Docker + cloudflared)
-2. **Tabs Resumen/Reformas como SSG** — actualmente dependen de la API, deberian ser estaticas (sin API esas pestanas muestran "Cargando..." infinito)
+1. ~~**API en produccion**~~ — HECHO (2026-04-01). Docker + Cloudflare Tunnel en KonarServer, `api.leyabierta.es`
+2. **SEO y optimizacion web** — Auditar meta tags, Open Graph, JSON-LD, Core Web Vitals, Lighthouse score. Optimizar para que las leyes aparezcan bien en Google y redes sociales
+3. **Tabs Resumen/Reformas como SSG** — actualmente dependen de la API, deberian ser estaticas (sin API esas pestanas muestran "Cargando..." infinito)
 
 ### Prioridad media
-3. **Mejora del markdown** — preservar CSS classes originales del BOE en los JSON cache (requiere re-fetch de las 12K normas). Actualmente se infieren por regex, lo cual cubre ~90% de los casos
-4. **DB como release asset** — el daily pipeline deberia generar `leyabierta.db` y subirlo como release para que el servidor lo descargue
-5. **Script actualizacion DB en servidor** — cron que descarga DB de GitHub Releases
+4. **Post en Hacker News** — Preparar un Show HN con el pitch del proyecto: legislation-as-code, Git history for laws, open source, 12K+ Spanish laws desde 1835. Redactar titulo y primer comentario. Timing: cuando SEO y QA esten pulidos
+5. **Newsletter / Weekly Digest** (feat branch futura) — Perfiles tematicos definidos (8), scripts parciales. Requiere trabajo serio antes de activar:
+   - **Seguridad/GDPR:** encriptacion de emails en DB, politica de retencion, consentimiento explicito, derecho al olvido, audit log
+   - **Tecnico:** templates HTML (web + email), arreglar send-digest.ts (referencia profile.materias inexistente), UI suscripcion, cron semanal
+   - **Infra:** RESEND_API_KEY, dominio verificado para envio
+   - No es critica para lanzamiento — las leyes se ven y buscan sin esto
+6. **Mejora del markdown** — preservar CSS classes originales del BOE en los JSON cache (requiere re-fetch de las 12K normas). Actualmente se infieren por regex, lo cual cubre ~90% de los casos
+7. **DB como release asset** — el daily pipeline deberia generar `leyabierta.db` y subirlo como release para que el servidor lo descargue
+8. **Script actualizacion DB en servidor** — cron que descarga DB de GitHub Releases
 
 ### Prioridad baja
-6. **Rate limiting y hardening** — Cloudflare Bot Fight Mode, CORS restrictivo en API
+9. **Rate limiting y hardening** — Cloudflare Bot Fight Mode, CORS restrictivo en API
 
 ## Limitaciones conocidas
 
