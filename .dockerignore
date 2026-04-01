@@ -1,6 +1,7 @@
 node_modules
 .git
-/data
+data/
+!packages/**/data/
 output
 packages/web/src
 packages/web/dist
