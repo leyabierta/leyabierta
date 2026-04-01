@@ -24,13 +24,13 @@ El proyecto se divide en multiples repositorios:
 | Repo | Contenido |
 |------|-----------|
 | **leyabierta** (este) | Codigo fuente: pipeline, API, web |
-| **[leyes-es](https://github.com/leyabierta/leyes-es)** | Legislacion espanola en Markdown + Git history |
+| **[leyes](https://github.com/leyabierta/leyes)** | Legislacion espanola en Markdown + Git history |
 
 El repo de leyes es generado automaticamente por el pipeline. Cada archivo es una norma, cada commit es una reforma:
 
 ```bash
 # Clonar la legislacion espanola
-git clone https://github.com/leyabierta/leyes-es.git
+git clone https://github.com/leyabierta/leyes.git
 
 # Ver la Constitucion
 cat es/BOE-A-1978-31229.md
@@ -50,7 +50,7 @@ git show <commit-sha> -- es/BOE-A-1978-31229.md
 Las carpetas siguen el estandar [ELI](https://eur-lex.europa.eu/eli-register/about.html) (European Legislation Identifier):
 
 ```
-leyes-es/
+leyes/
 ├── es/                    ← Legislacion estatal (8,636 normas)
 │   ├── BOE-A-1978-31229.md   # Constitucion Espanola
 │   ├── BOE-A-1995-25444.md   # Codigo Penal
@@ -78,6 +78,27 @@ estado: "vigente"
 departamento: "Comunidad Autonoma del Pais Vasco"
 fuente: "https://www.boe.es/eli/es-pv/l/2019/12/20/11"
 ---
+```
+
+### Fechas anteriores a 1970
+
+Git no soporta fechas anteriores al 1 de enero de 1970 (Unix epoch). Esto afecta a unas 334 leyes publicadas entre 1835 y 1969 — incluyendo el Codigo Civil (1889), la Ley Hipotecaria (1946) y otras normas historicas que siguen vigentes.
+
+Para estas normas:
+- La **fecha del commit** en git aparece como `1970-01-02` (el minimo permitido)
+- La **fecha real de publicacion** esta en el frontmatter YAML (`fecha_publicacion`) y en el trailer `Source-Date` de cada commit
+- La web y la API usan la fecha real, no la del commit
+
+Si usas `git log` directamente sobre el repo de leyes, veras las normas pre-1970 agrupadas al inicio con fecha 1970. Para ver la fecha real de publicacion, consulta el frontmatter del archivo o el trailer del commit:
+
+```bash
+# Ver la fecha real en el frontmatter
+grep fecha_publicacion es/BOE-A-1889-4763.md
+# fecha_publicacion: "1889-07-25"
+
+# Ver la fecha real en el trailer del commit
+git log --format="%s | %(trailers:key=Source-Date,valueonly)" -1 -- es/BOE-A-1889-4763.md
+# Real Decreto de 24 — publicación original (1889) | 1889-07-25
 ```
 
 ## Espana en numeros

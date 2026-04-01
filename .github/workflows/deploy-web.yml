@@ -33,6 +33,8 @@ jobs:
       - name: Build Astro
         working-directory: packages/web
         run: bun run build
+        env:
+          LAWS_PATH: ../../content/laws
 
       - name: Deploy to Cloudflare Pages
         working-directory: packages/web
