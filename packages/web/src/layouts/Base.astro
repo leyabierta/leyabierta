@@ -216,6 +216,16 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			font-size: 0.8125rem;
 			color: var(--text-muted);
 		}
+		.footer-legal {
+			margin-top: 1rem;
+			text-align: center;
+			font-size: 0.8125rem;
+		}
+		.footer-sep {
+			margin: 0 0.4rem;
+			color: var(--text-muted);
+			opacity: 0.5;
+		}
 		@media (max-width: 640px) {
 			.footer-grid { flex-direction: column; gap: 1rem; }
 			.footer-right { text-align: left; }
@@ -344,6 +354,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 				<a href="/alertas">Alertas</a>
 				<a href="/resumenes">Resúmenes</a>
 				<a href="/anomalias">Anomalías</a>
+				<a href="/sobre-leyabierta">Sobre</a>
 				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
 		</nav>
@@ -364,6 +375,15 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 					<p>Gratuito y de <a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener">código abierto</a></p>
 					<p>Ley Abierta es un proyecto sin ánimo de lucro</p>
 				</div>
+			</div>
+			<div class="footer-legal">
+				<a href="/aviso-legal">Aviso legal</a>
+				<span class="footer-sep">·</span>
+				<a href="/privacidad">Privacidad</a>
+				<span class="footer-sep">·</span>
+				<a href="/cookies">Cookies</a>
+				<span class="footer-sep">·</span>
+				<a href="mailto:contacto@leyabierta.es">Contacto</a>
 			</div>
 			<div class="footer-tagline">La ley pertenece al pueblo.</div>
 		</div>

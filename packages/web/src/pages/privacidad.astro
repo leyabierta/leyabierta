@@ -1,0 +1,176 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+	title="Política de privacidad"
+	description="Política de privacidad de Ley Abierta: qué datos recogemos, con qué finalidad y cómo ejercer tus derechos."
+	canonicalUrl="/privacidad"
+>
+	<style>
+		.legal-page h1 {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.legal-page h2 {
+			font-family: var(--font-serif);
+			font-size: 1.15rem;
+			font-weight: 600;
+			margin-top: 2rem;
+			margin-bottom: 0.5rem;
+		}
+		.legal-page h3 {
+			font-size: 1rem;
+			font-weight: 600;
+			margin-top: 1.5rem;
+			margin-bottom: 0.25rem;
+		}
+		.legal-page p,
+		.legal-page li {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.8;
+		}
+		.legal-page ul {
+			padding-left: 1.5rem;
+			margin: 0.5rem 0;
+		}
+		.legal-page a {
+			color: var(--accent);
+		}
+		.legal-updated {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 2rem;
+		}
+		.legal-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 1rem 0;
+			font-size: 0.875rem;
+		}
+		.legal-table th,
+		.legal-table td {
+			border: 1px solid var(--border);
+			padding: 0.5rem 0.75rem;
+			text-align: left;
+		}
+		.legal-table th {
+			background: var(--surface);
+			font-weight: 600;
+			color: var(--text);
+		}
+		.legal-table td {
+			color: var(--text-secondary);
+		}
+	</style>
+
+	<div class="legal-page">
+		<h1>Política de privacidad</h1>
+		<p class="legal-updated">Última actualización: 1 de abril de 2026</p>
+
+		<h2>Responsable del tratamiento</h2>
+		<p>
+			Ley Abierta es un proyecto personal de código abierto y sin ánimo de lucro.
+		</p>
+		<ul>
+			<li><strong>Responsable:</strong> Alejandro Martínez</li>
+			<li><strong>Contacto:</strong> contacto@leyabierta.es</li>
+			<li><strong>Sitio web:</strong> leyabierta.es</li>
+		</ul>
+
+		<h2>Qué datos recogemos</h2>
+		<p>
+			Ley Abierta recoge la <strong>mínima cantidad de datos posible</strong>. No utilizamos
+			cookies de seguimiento, no vendemos datos y no compartimos información con terceros.
+		</p>
+
+		<table class="legal-table">
+			<thead>
+				<tr>
+					<th>Dato</th>
+					<th>Finalidad</th>
+					<th>Base legal</th>
+					<th>Conservación</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>Dirección de email</td>
+					<td>Envío de alertas legislativas semanales</td>
+					<td>Consentimiento (art. 6.1.a RGPD)</td>
+					<td>Hasta que canceles la suscripción</td>
+				</tr>
+				<tr>
+					<td>Datos de navegación agregados</td>
+					<td>Estadísticas anónimas del sitio (Cloudflare Web Analytics)</td>
+					<td>Interés legítimo (art. 6.1.f RGPD)</td>
+					<td>Agregados, sin datos personales</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2>Alertas legislativas</h2>
+		<p>
+			Si te suscribes a las alertas, almacenamos tu dirección de email con la única
+			finalidad de enviarte un resumen semanal de cambios legislativos. Puedes cancelar
+			tu suscripción en cualquier momento desde el enlace incluido en cada email o
+			desde la página de <a href="/alertas/cancelar">cancelación</a>.
+		</p>
+
+		<h2>Analytics</h2>
+		<p>
+			Utilizamos <strong>Cloudflare Web Analytics</strong>, un servicio de analítica que:
+		</p>
+		<ul>
+			<li>No utiliza cookies.</li>
+			<li>No recoge direcciones IP ni datos personales.</li>
+			<li>No realiza seguimiento entre sitios.</li>
+			<li>Cumple con el RGPD sin necesidad de consentimiento.</li>
+		</ul>
+		<p>
+			Más información en la
+			<a href="https://www.cloudflare.com/web-analytics/" target="_blank" rel="noopener">documentación
+			de Cloudflare Web Analytics</a>.
+		</p>
+
+		<h2>Tus derechos</h2>
+		<p>
+			Conforme al Reglamento General de Protección de Datos (RGPD) y la Ley Orgánica
+			3/2018 (LOPDGDD), tienes derecho a:
+		</p>
+		<ul>
+			<li><strong>Acceso:</strong> saber qué datos tenemos sobre ti.</li>
+			<li><strong>Rectificación:</strong> corregir datos inexactos.</li>
+			<li><strong>Supresión:</strong> eliminar tus datos ("derecho al olvido").</li>
+			<li><strong>Portabilidad:</strong> recibir tus datos en formato estructurado.</li>
+			<li><strong>Oposición:</strong> oponerte al tratamiento de tus datos.</li>
+			<li><strong>Limitación:</strong> solicitar la limitación del tratamiento.</li>
+		</ul>
+		<p>
+			Para ejercer cualquiera de estos derechos, escríbenos a
+			<strong>contacto@leyabierta.es</strong>. Responderemos en un plazo máximo de 30 días.
+		</p>
+		<p>
+			Si consideras que tus derechos no han sido atendidos, puedes presentar una reclamación
+			ante la <a href="https://www.aepd.es" target="_blank" rel="noopener">Agencia Española de
+			Protección de Datos (AEPD)</a>.
+		</p>
+
+		<h2>Transferencias internacionales</h2>
+		<p>
+			El sitio web está alojado en <strong>Cloudflare</strong> (red global de distribución
+			de contenido). Cloudflare cumple con las cláusulas contractuales tipo de la Comisión
+			Europea para transferencias internacionales de datos.
+		</p>
+
+		<h2>Cambios en esta política</h2>
+		<p>
+			Nos reservamos el derecho a modificar esta política para adaptarla a cambios
+			legislativos o técnicos. Cualquier cambio se publicará en esta página con la
+			fecha de actualización.
+		</p>
+	</div>
+</Base>

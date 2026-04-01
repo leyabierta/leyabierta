@@ -1,0 +1,142 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+	title="Sobre Ley Abierta"
+	description="Qué es Ley Abierta, quién está detrás y por qué existe. Un proyecto de código abierto para acercar las leyes a la ciudadanía."
+	canonicalUrl="/sobre-leyabierta"
+>
+	<style>
+		.about-page h1 {
+			font-family: var(--font-serif);
+			font-size: 1.75rem;
+			font-weight: 700;
+			margin-bottom: 1.5rem;
+		}
+		.about-page h2 {
+			font-family: var(--font-serif);
+			font-size: 1.25rem;
+			font-weight: 600;
+			margin-top: 2.5rem;
+			margin-bottom: 0.75rem;
+		}
+		.about-page p {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.8;
+			margin-bottom: 1rem;
+		}
+		.about-page a {
+			color: var(--accent);
+		}
+		.about-page ul {
+			padding-left: 1.5rem;
+			margin: 0.5rem 0 1rem;
+		}
+		.about-page li {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.8;
+		}
+		.about-highlight {
+			background: var(--surface);
+			border-left: 3px solid var(--accent);
+			padding: 1rem 1.25rem;
+			margin: 1.5rem 0;
+			border-radius: 0 0.25rem 0.25rem 0;
+		}
+		.about-highlight p {
+			margin: 0;
+			font-style: italic;
+			font-family: var(--font-serif);
+			color: var(--text);
+		}
+		.about-contact {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			margin-top: 1rem;
+		}
+		.about-contact a {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+			padding: 0.4rem 0.85rem;
+			font-size: 0.8125rem;
+			border: 1px solid var(--border);
+			border-radius: 0.25rem;
+			color: var(--text-secondary);
+			text-decoration: none;
+			transition: border-color 0.15s, color 0.15s;
+		}
+		.about-contact a:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+	</style>
+
+	<div class="about-page">
+		<h1>Sobre Ley Abierta</h1>
+
+		<h2>Por qué Ley Abierta</h2>
+		<p>
+			Las leyes nos afectan a todos, pero acceder a ellas y entender cómo cambian es
+			sorprendentemente difícil. El <a href="https://www.boe.es" target="_blank" rel="noopener">Boletín
+			Oficial del Estado</a> publica toda la legislación, pero su interfaz está pensada
+			para juristas, no para ciudadanos.
+		</p>
+		<p>
+			Ley Abierta nace para cambiar eso. Descargamos toda la legislación consolidada
+			española — más de 12.000 leyes desde 1835 — y la convertimos en archivos Markdown
+			versionados con Git, donde cada reforma es un commit con su fecha histórica.
+			Cualquier persona puede buscar una ley, ver su texto completo, comparar versiones
+			y entender qué cambió y cuándo.
+		</p>
+
+		<div class="about-highlight">
+			<p>Las leyes pertenecen al pueblo. Su evolución debería ser visible para todos.</p>
+		</div>
+
+		<h2>Cómo funciona</h2>
+		<p>
+			Un pipeline automático consulta la API pública del BOE, descarga el texto
+			consolidado de cada norma y lo transforma en Markdown limpio. Cada reforma
+			se registra como un commit de Git con la fecha real de publicación, creando
+			un historial completo y navegable de la legislación española.
+		</p>
+		<p>
+			Todo el código es abierto y el contenido legislativo es de dominio público.
+			No hay negocio detrás, no hay paywalls, no hay trackers. Solo leyes accesibles.
+		</p>
+
+		<h2>Principios</h2>
+		<ul>
+			<li><strong>Gratuito para siempre.</strong> Sin monetización, sin muros de pago, sin publicidad.</li>
+			<li><strong>Código abierto.</strong> Todo el código bajo licencia MIT. Todo el contenido legislativo de dominio público.</li>
+			<li><strong>Ciudadano primero.</strong> Diseñado para personas, no para juristas ni desarrolladores.</li>
+			<li><strong>Transparencia.</strong> Enlazamos siempre a la fuente oficial del BOE. Documentamos anomalías públicamente.</li>
+			<li><strong>Privacidad.</strong> Sin cookies de seguimiento, sin trackers, sin venta de datos.</li>
+		</ul>
+
+		<h2>Quién soy</h2>
+		<p>
+			Me llamo <strong>Alejandro Martínez</strong> (<a href="https://github.com/LyricalString" target="_blank" rel="noopener">LyricalString</a>).
+			Soy desarrollador y creo que la tecnología debería hacer más accesible la
+			información pública, no menos. Ley Abierta es un proyecto personal que mantengo
+			en mi tiempo libre.
+		</p>
+		<p>
+			Si quieres contribuir, el código está en GitHub. Si encuentras un error o
+			tienes una idea, abre un issue. Y si simplemente quieres decir hola, escríbeme.
+		</p>
+
+		<h2>Contacto y redes</h2>
+		<div class="about-contact">
+			<a href="mailto:contacto@leyabierta.es">✉ contacto@leyabierta.es</a>
+			<a href="https://github.com/LyricalString" target="_blank" rel="noopener">GitHub</a>
+			<a href="https://www.linkedin.com/in/lyricalstring/" target="_blank" rel="noopener">LinkedIn</a>
+			<a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener">Repositorio del proyecto</a>
+		</div>
+	</div>
+</Base>

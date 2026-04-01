@@ -1,0 +1,143 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+	title="Política de cookies"
+	description="Política de cookies de Ley Abierta: qué cookies utilizamos y cómo gestionarlas."
+	canonicalUrl="/cookies"
+>
+	<style>
+		.legal-page h1 {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.legal-page h2 {
+			font-family: var(--font-serif);
+			font-size: 1.15rem;
+			font-weight: 600;
+			margin-top: 2rem;
+			margin-bottom: 0.5rem;
+		}
+		.legal-page p,
+		.legal-page li {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.8;
+		}
+		.legal-page ul {
+			padding-left: 1.5rem;
+			margin: 0.5rem 0;
+		}
+		.legal-page a {
+			color: var(--accent);
+		}
+		.legal-updated {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 2rem;
+		}
+		.legal-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 1rem 0;
+			font-size: 0.875rem;
+		}
+		.legal-table th,
+		.legal-table td {
+			border: 1px solid var(--border);
+			padding: 0.5rem 0.75rem;
+			text-align: left;
+		}
+		.legal-table th {
+			background: var(--surface);
+			font-weight: 600;
+			color: var(--text);
+		}
+		.legal-table td {
+			color: var(--text-secondary);
+		}
+	</style>
+
+	<div class="legal-page">
+		<h1>Política de cookies</h1>
+		<p class="legal-updated">Última actualización: 1 de abril de 2026</p>
+
+		<h2>¿Qué son las cookies?</h2>
+		<p>
+			Las cookies son pequeños archivos de texto que los sitios web almacenan en tu
+			navegador. Se utilizan para recordar preferencias, mejorar la experiencia de
+			navegación o recopilar información estadística.
+		</p>
+
+		<h2>Cookies que utilizamos</h2>
+		<p>
+			Ley Abierta utiliza una <strong>cantidad mínima de cookies</strong>, todas ellas
+			técnicas y necesarias para el funcionamiento del sitio. <strong>No utilizamos
+			cookies de seguimiento ni publicitarias.</strong>
+		</p>
+
+		<table class="legal-table">
+			<thead>
+				<tr>
+					<th>Cookie</th>
+					<th>Tipo</th>
+					<th>Finalidad</th>
+					<th>Duración</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td><code>theme</code></td>
+					<td>Técnica (localStorage)</td>
+					<td>Recordar tu preferencia de tema claro/oscuro</td>
+					<td>Permanente (hasta que la borres)</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<p>
+			Nota: la preferencia de tema se almacena en <code>localStorage</code>, una tecnología
+			similar a las cookies pero que no se envía al servidor. La incluimos aquí por
+			transparencia.
+		</p>
+
+		<h2>Cookies de terceros</h2>
+		<p>
+			<strong>Cloudflare Web Analytics</strong> — Utilizamos este servicio para obtener
+			estadísticas anónimas de uso del sitio. Cloudflare Web Analytics
+			<strong>no utiliza cookies</strong> ni recoge datos personales.
+		</p>
+		<p>
+			<strong>Cloudflare</strong> — Como servicio de alojamiento y CDN, Cloudflare puede
+			establecer cookies técnicas (como <code>__cf_bm</code>) para proteger el sitio contra
+			bots y ataques. Estas cookies son estrictamente necesarias y están exentas de
+			consentimiento según la normativa europea.
+		</p>
+
+		<h2>Cómo gestionar las cookies</h2>
+		<p>
+			Puedes configurar tu navegador para bloquear o eliminar cookies. Ten en cuenta
+			que bloquear las cookies técnicas puede afectar al funcionamiento del sitio
+			(por ejemplo, no se recordará tu preferencia de tema).
+		</p>
+		<ul>
+			<li><a href="https://support.google.com/chrome/answer/95647" target="_blank" rel="noopener">Google Chrome</a></li>
+			<li><a href="https://support.mozilla.org/es/kb/Borrar%20cookies" target="_blank" rel="noopener">Mozilla Firefox</a></li>
+			<li><a href="https://support.apple.com/es-es/guide/safari/sfri11471/mac" target="_blank" rel="noopener">Safari</a></li>
+			<li><a href="https://support.microsoft.com/es-es/microsoft-edge/eliminar-las-cookies-en-microsoft-edge-63947406-40ac-c3b8-57b9-2a946a29ae09" target="_blank" rel="noopener">Microsoft Edge</a></li>
+		</ul>
+
+		<h2>Más información</h2>
+		<p>
+			Si tienes dudas sobre nuestra política de cookies, puedes contactarnos en
+			<strong>contacto@leyabierta.es</strong>.
+		</p>
+		<p>
+			Para más información sobre tus derechos, consulta nuestra
+			<a href="/privacidad">política de privacidad</a>.
+		</p>
+	</div>
+</Base>
