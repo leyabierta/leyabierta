@@ -1,0 +1,47 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+	title="Ley no encontrada"
+	description="La ley que buscas no existe en nuestra base de datos."
+>
+	<style>
+		.not-found {
+			text-align: center;
+			padding: 4rem 1rem;
+		}
+		.not-found-code {
+			font-family: var(--font-mono);
+			font-size: 3.5rem;
+			font-weight: 700;
+			color: var(--border);
+			line-height: 1;
+			margin-bottom: 0.5rem;
+		}
+		.not-found-heading {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			margin-bottom: 0.75rem;
+		}
+		.not-found-text {
+			font-size: 0.9375rem;
+			color: var(--text-muted);
+			max-width: 28rem;
+			margin: 0 auto 2rem;
+			line-height: 1.7;
+		}
+	</style>
+
+	<div class="not-found">
+		<div class="not-found-code">404</div>
+		<h1 class="not-found-heading">Ley no encontrada</h1>
+		<p class="not-found-text">
+			La ley que buscas no existe en nuestra base de datos.
+			Puede que el identificador sea incorrecto o que la ley
+			no forme parte del repertorio de legislaci&oacute;n consolidada.
+		</p>
+		<a href="/" class="btn btn-primary">Buscar leyes</a>
+	</div>
+</Base>
