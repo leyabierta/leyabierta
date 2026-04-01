@@ -2,7 +2,7 @@
  * API client for fetching data from Elysia API.
  */
 
-const API_BASE = import.meta.env.API_URL ?? "http://localhost:3000";
+const API_BASE = import.meta.env.API_URL ?? "https://api.leyabierta.es";
 
 async function fetchApi<T>(path: string): Promise<T> {
 	const res = await fetch(`${API_BASE}${path}`);
