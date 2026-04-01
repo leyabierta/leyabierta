@@ -25,6 +25,12 @@ try {
 }
 
 const displayProfile = profile ?? { id: perfil!, name: perfil!, icon: "", description: "" };
+
+const WEEK_RE = /^(\d{4})-W(\d+)$/;
+const digestsForDisplay = digests.map((d) => {
+	const match = d.week.match(WEEK_RE);
+	return { ...d, year: match?.[1] ?? "", weekNum: match?.[2] ?? "" };
+});
 ---
 
 <Base
@@ -137,24 +143,19 @@ const displayProfile = profile ?? { id: perfil!, name: perfil!, icon: "", descri
 		<p class="count">{digests.length} resumen{digests.length === 1 ? "" : "es"} disponible{digests.length === 1 ? "" : "s"}</p>
 	</div>
 
-	{digests.length > 0 ? (
+	{digestsForDisplay.length > 0 ? (
 		<ul class="digest-list">
-			{digests.map((d) => {
-				const match = d.week.match(/^(\d{4})-W(\d+)$/);
-				const year = match?.[1] ?? "";
-				const weekNum = match?.[2] ?? "";
-				return (
-					<li class="digest-item">
-						<a href={`/resumenes/${perfil}/${d.week}`}>
-							<div>
-								<div class="digest-week">Semana {weekNum}, {year}</div>
-								<div class="digest-meta">{d.week}</div>
-							</div>
-							<span class="digest-arrow">&#8594;</span>
-						</a>
-					</li>
-				);
-			})}
+			{digestsForDisplay.map((d) => (
+				<li class="digest-item">
+					<a href={`/resumenes/${perfil}/${d.week}`}>
+						<div>
+							<div class="digest-week">Semana {d.weekNum}, {d.year}</div>
+							<div class="digest-meta">{d.week}</div>
+						</div>
+						<span class="digest-arrow">&#8594;</span>
+					</a>
+				</li>
+			))}
 		</ul>
 	) : (
 		<div class="empty-state">
@@ -163,7 +164,7 @@ const displayProfile = profile ?? { id: perfil!, name: perfil!, icon: "", descri
 		</div>
 	)}
 
-	{digests.length > 0 && (
+	{digestsForDisplay.length > 0 && (
 		<div class="cta-section">
 			Recibe estos resumenes en tu email cada lunes.
 			<a href="/alertas">Suscribirme →</a>
