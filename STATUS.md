@@ -51,27 +51,26 @@ Un motor open source en TypeScript que descarga legislacion oficial (empezando p
 - `leyabierta/leyabierta` — codigo (pipeline + API + web)
 - `leyabierta/leyes` — 42,851 commits, 12,235 leyes, 18 jurisdicciones, orden cronologico
 
-### Infraestructura (parcial)
-- Cloudflare Pages: web desplegada en `leyabierta.pages.dev`
-- GitHub Actions: workflow `deploy-web.yml` funcional (Node 24 + Bun + shallow clone)
+### Infraestructura
+- Dominio: `leyabierta.es` registrado en DonDominio, NS delegados a Cloudflare
+- Cloudflare Pages: web desplegada, 12,282 paginas estaticas
+- GitHub Actions: `deploy-web.yml` (build + deploy en ~6 min) y `daily-pipeline.yml` (incremental Lun-Sab + full sync Domingo)
+- Pipeline diario verificado con test incremental (3 normas nuevas detectadas y commiteadas correctamente)
 - Dockerfile para API listo
 
 ## Lo que falta
 
 ### Prioridad alta
-1. **Dominio** — registrar `leyabierta.es` en DonDominio, delegar NS a Cloudflare
-2. **DNS en Cloudflare** — apuntar `leyabierta.es` a Pages, `api.leyabierta.es` a Tunnel
-3. **API en produccion** — Cloudflare Tunnel desde servidor privado (Docker + cloudflared)
-4. **Pipeline diario** — GitHub Actions cron para descubrir nuevas reformas del BOE
+1. **API en produccion** — Cloudflare Tunnel desde servidor privado (Docker + cloudflared)
+2. **Tabs Resumen/Reformas como SSG** — actualmente dependen de la API, deberian ser estaticas (sin API esas pestanas muestran "Cargando..." infinito)
 
 ### Prioridad media
-5. **Tabs Resumen/Reformas como SSG** — actualmente dependen de la API, deberian ser estaticas
-6. **Mejora del markdown** — preservar CSS classes originales del BOE en los JSON cache (requiere re-fetch)
-7. **Daily pipeline workflow** — `daily-pipeline.yml` con cron, ingest, DB como release asset
+3. **Mejora del markdown** — preservar CSS classes originales del BOE en los JSON cache (requiere re-fetch de las 12K normas). Actualmente se infieren por regex, lo cual cubre ~90% de los casos
+4. **DB como release asset** — el daily pipeline deberia generar `leyabierta.db` y subirlo como release para que el servidor lo descargue
+5. **Script actualizacion DB en servidor** — cron que descarga DB de GitHub Releases
 
 ### Prioridad baja
-8. **Rate limiting y hardening** — Cloudflare Bot Fight Mode, CORS restrictivo en API
-9. **Script actualizacion DB en servidor** — cron que descarga DB de GitHub Releases
+6. **Rate limiting y hardening** — Cloudflare Bot Fight Mode, CORS restrictivo en API
 
 ## Limitaciones conocidas
 

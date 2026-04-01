@@ -136,34 +136,43 @@ ingress:
 - Secrets configurados: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 - Actions: checkout@v6, setup-node@v6, setup-bun@v2
 
-**`.github/workflows/daily-pipeline.yml`** — dual cron + dispatch manual (IMPLEMENTADO):
+**`.github/workflows/daily-pipeline.yml`** — dual cron + dispatch manual (COMPLETADO Y VERIFICADO):
 
 Dos modos de operacion:
 
 | Dia | Cron | Modo | Que hace | Tiempo |
 |-----|------|------|----------|--------|
-| Lun-Sab | 06:00 UTC | Incremental | Lista 12K norms del BOE, solo descarga las nuevas (no en StateStore) | ~3-5 min |
+| Lun-Sab | 06:00 UTC | Incremental | Lista 12K norms del BOE, solo descarga las nuevas (no en StateStore) | ~2 min |
 | Domingo | 04:00 UTC | Full sync | Re-descarga todas las normas, commitNorm salta duplicados (idempotente) | ~20-30 min |
 | Manual | dispatch | Configurable | Con o sin `--force` | Depende |
 
+**Verificado (2026-04-01):**
+- Primer run: state seeded desde repo de leyes (12,235 norms), 0 pending, "Nothing to do" en 1m57s
+- Test incremental: 3 normas eliminadas del state, pipeline las re-descargo y commiteo con fechas correctas en ~2 min
+
 **Por que dos modos:**
 - El BOE no tiene un endpoint "que cambio desde fecha X"
-- El modo incremental (Lun-Sab) es rapido pero solo detecta normas nuevas, no actualizaciones a normas existentes
+- El modo incremental (Lun-Sab) es rapido pero solo detecta normas **nuevas**, no actualizaciones a normas existentes
 - El full sync (Domingo) re-descarga todo y compara — `commitNorm` usa trailers (`Source-Id`, `Norm-Id`) para saber que reformas ya estan commiteadas y solo commitea las nuevas
-- Este approach es robusto: si se cae un dia, el siguiente lo recupera
+- Si se cae un dia, el siguiente lo recupera automaticamente
 
 **Idempotencia:**
 - `commitNorm()` llama a `loadExistingCommits()` que parsea todos los trailers del repo
 - `hasCommitWithSourceId(sourceId, normId)` verifica si un commit ya existe
-- Re-procesar una norma no duplica commits — solo anade reformas que faltan
+- Re-procesar una norma **nunca** duplica commits — solo anade reformas que faltan
+
+**Cold start:**
+- Si no hay `state.json` cacheado (primera ejecucion o cache expirado), un step genera un state minimo a partir de los archivos `.md` existentes en el repo de leyes
+- Esto evita que el pipeline intente re-descargar 12K normas en la primera ejecucion
 
 **Caveats:**
 - El full sync del domingo descarga ~12K normas del BOE (~24K requests). Con 4 workers y courtesy delay de 200ms, tarda ~20-30 min
-- Si el BOE publica una reforma un lunes y la norma ya estaba en el StateStore, no la veremos hasta el domingo
+- Si el BOE publica una **reforma a una norma existente** un lunes, no la veremos hasta el domingo (las normas **nuevas** si se detectan inmediatamente)
 - El StateStore (`data/state.json`) y los JSON cache se persisten entre runs via `actions/cache`
 
 **Secrets necesarios:**
 - `LEYES_PUSH_TOKEN`: Fine-grained PAT con write access a `leyabierta/leyes` (Contents: Read and write)
+- `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`: para el deploy-web que se dispara automaticamente
 
 ### Fase 5: Actualizacion de DB en el servidor
 
@@ -211,18 +220,17 @@ cd /opt/leyabierta/data/leyes && git pull
 
 ## Orden de ejecucion
 
-| # | Fase | Tipo | Dependencias |
-|---|------|------|-------------|
 | # | Fase | Estado | Siguiente paso |
 |---|------|--------|---------------|
 | 1 | Fase 0: Renombrado | HECHO | — |
 | 2 | Fase 1: Astro estatico | HECHO | — |
 | 3 | Fase 2: Dockerfile API | HECHO | — |
 | 4 | Fase 4: Deploy web (GitHub Actions) | HECHO | — |
-| 5 | Fase 6: Dominio + DNS | PENDIENTE | Registrar leyabierta.es en DonDominio |
-| 6 | Fase 3: Cloudflare Tunnel | PENDIENTE | Instalar cloudflared en servidor |
-| 7 | Fase 5: Script DB | PENDIENTE | Despues de Fase 3 |
-| 8 | Fase 7: Rate limiting | PENDIENTE | Despues de todo |
+| 5 | Fase 4b: Pipeline diario | HECHO | Verificado con test incremental |
+| 6 | Fase 6: Dominio + DNS | HECHO | leyabierta.es apunta a Cloudflare Pages |
+| 7 | Fase 3: Cloudflare Tunnel (API) | PENDIENTE | Instalar cloudflared en servidor |
+| 8 | Fase 5: Script DB servidor | PENDIENTE | Despues de Fase 3 |
+| 9 | Fase 7: Rate limiting | PENDIENTE | Despues de todo |
 
 ### Decisiones de infraestructura
 
