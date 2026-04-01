@@ -22,8 +22,8 @@ logs
 .cache
 *.tsbuildinfo
 
-# pipeline data and generated repos
-data/
+# pipeline data and generated repos (root only)
+/data
 output/
 content/
 
