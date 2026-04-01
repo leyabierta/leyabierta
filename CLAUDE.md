@@ -143,6 +143,9 @@ Endpoints:
 - `GET /v1/laws/:id/graph` — relationship graph data
 - `GET /v1/ranks` — rank types with counts
 - `GET /v1/materias` — subject categories with counts
+- `GET /v1/digests/profiles` — profiles with digest counts + latest week
+- `GET /v1/digests/:profileId` — list of weeks for a profile
+- `GET /v1/digests/:profileId/:week` — full digest data (profile + reforms)
 - `GET /v1/feed.xml` — RSS feed of recent reforms
 - `GET /health` — status + law count
 
@@ -181,6 +184,7 @@ Contains:                       Contains:
 - Full legal text (markdown)    - Article version history
                                 - FTS5 search index
                                 - Subscriber emails
+                                - Weekly digests (AI-scored)
 
 The repo is the canonical       The DB is a query index rebuilt
 source. The DB is derived       from JSON cache anytime via

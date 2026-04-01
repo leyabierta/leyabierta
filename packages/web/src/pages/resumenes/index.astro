@@ -1,43 +1,14 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { PROFILES } from "../../../../api/src/data/profiles";
-import fs from "node:fs";
-import path from "node:path";
+import { getDigestProfiles, type DigestProfileSummary } from "../../lib/api";
 
-const profiles = PROFILES.map(({ id, name, description, icon }) => ({ id, name, description, icon }));
-
-// Scan data/digests/ YAML files to find digest counts and latest week per profile
-const digestDir = path.join(process.cwd(), "..", "..", "data", "digests");
-
-function discoverDigestsForProfile(profileId: string): string[] {
-	const weeks: string[] = [];
-	try {
-		for (const year of fs.readdirSync(digestDir)) {
-			const yearDir = path.join(digestDir, year);
-			if (!fs.statSync(yearDir).isDirectory()) continue;
-			for (const weekFolder of fs.readdirSync(yearDir)) {
-				const weekPath = path.join(yearDir, weekFolder);
-				if (!fs.statSync(weekPath).isDirectory()) continue;
-				const yamlFile = path.join(weekPath, `${profileId}.yaml`);
-				if (fs.existsSync(yamlFile)) {
-					weeks.push(`${year}-${weekFolder}`);
-				}
-			}
-		}
-	} catch {
-		// No digests directory yet
-	}
-	return weeks.sort().reverse();
+let profilesWithData: DigestProfileSummary[] = [];
+try {
+	const result = await getDigestProfiles();
+	profilesWithData = result.data;
+} catch {
+	// API not available at build time
 }
-
-const profilesWithData = profiles.map((p) => {
-	const weeks = discoverDigestsForProfile(p.id);
-	return {
-		...p,
-		latestWeek: weeks[0] ?? null,
-		digestCount: weeks.length,
-	};
-});
 ---
 
 <Base
@@ -143,13 +114,13 @@ const profilesWithData = profiles.map((p) => {
 
 	<div class="profiles-grid">
 		{profilesWithData.map((p) => (
-			p.digestCount > 0 ? (
-				<a href={`/resumenes/${p.id}/`} class="profile-card">
+			p.digest_count > 0 ? (
+				<a href={`/resumenes/${p.profile_id}/`} class="profile-card">
 					<div class="profile-icon">{p.icon}</div>
 					<div class="profile-name">{p.name}</div>
 					<div class="profile-desc">{p.description}</div>
 					<div class="profile-meta">
-						<span>{p.digestCount} resumen{p.digestCount === 1 ? "" : "es"}</span> · Ultimo: {p.latestWeek}
+						<span>{p.digest_count} resumen{p.digest_count === 1 ? "" : "es"}</span> · Ultimo: {p.latest_week}
 					</div>
 				</a>
 			) : (

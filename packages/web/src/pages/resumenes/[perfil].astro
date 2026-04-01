@@ -1,77 +1,36 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { PROFILES } from "../../../../api/src/data/profiles";
-import fs from "node:fs";
-import path from "node:path";
+import { getDigestProfiles, getProfileDigests } from "../../lib/api";
 
-const digestDir = path.join(process.cwd(), "..", "..", "data", "digests");
-
-export function getStaticPaths() {
-	const dDir = path.join(process.cwd(), "..", "..", "data", "digests");
-	const profileIds = new Set<string>();
+export async function getStaticPaths() {
 	try {
-		for (const year of fs.readdirSync(dDir)) {
-			const yearDir = path.join(dDir, year);
-			if (!fs.statSync(yearDir).isDirectory()) continue;
-			for (const weekFolder of fs.readdirSync(yearDir)) {
-				const weekPath = path.join(yearDir, weekFolder);
-				if (!fs.statSync(weekPath).isDirectory()) continue;
-				for (const file of fs.readdirSync(weekPath)) {
-					if (file.endsWith(".yaml") && !file.includes("-email")) {
-						profileIds.add(file.replace(".yaml", ""));
-					}
-				}
-			}
-		}
+		const { data } = await getDigestProfiles();
+		return data.map((p) => ({ params: { perfil: p.profile_id } }));
 	} catch {
-		// No digests directory yet
+		return [];
 	}
-	return [...profileIds].map((p) => ({ params: { perfil: p } }));
 }
 
 const { perfil } = Astro.params;
 
-const profile = PROFILES.find((p) => p.id === perfil) ?? { id: perfil!, name: perfil!, description: "", icon: "" };
+let profile: { id: string; name: string; icon: string; description: string } | null = null;
+let digests: Array<{ week: string; summary: string; generated_at: string; reform_count: number }> = [];
 
-// Scan data/digests/ for available YAML digests for this profile
-interface DigestEntry {
-	week: string;
-	url: string;
-	year: string;
-	weekNum: string;
-}
-
-let digests: DigestEntry[] = [];
 try {
-	for (const year of fs.readdirSync(digestDir)) {
-		const yearDir = path.join(digestDir, year);
-		if (!fs.statSync(yearDir).isDirectory()) continue;
-		for (const weekFolder of fs.readdirSync(yearDir)) {
-			const weekPath = path.join(yearDir, weekFolder);
-			if (!fs.statSync(weekPath).isDirectory()) continue;
-			const yamlFile = path.join(weekPath, `${perfil}.yaml`);
-			if (!fs.existsSync(yamlFile)) continue;
-			const weekId = `${year}-${weekFolder}`; // e.g. "2026-W13"
-			const match = weekId.match(/^(\d{4})-W(\d+)$/);
-			if (!match) continue;
-			digests.push({
-				week: weekId,
-				url: `/resumenes/${perfil}/${weekId}`,
-				year: match[1]!,
-				weekNum: match[2]!,
-			});
-		}
-	}
-	digests.sort((a, b) => b.week.localeCompare(a.week));
+	const result = await getProfileDigests(perfil!);
+	profile = result.profile;
+	digests = result.data;
 } catch {
-	// Digests directory doesn't exist yet
+	// API not available
 }
+
+const displayProfile = profile ?? { id: perfil!, name: perfil!, icon: "", description: "" };
 ---
 
 <Base
-	title={`Resumenes — ${profile.name}`}
-	description={`Historico de resumenes semanales del perfil ${profile.name}. Cambios legislativos explicados en lenguaje ciudadano.`}
-	ogTitle={`Resumenes ${profile.name} — Ley Abierta`}
+	title={`Resumenes — ${displayProfile.name}`}
+	description={`Historico de resumenes semanales del perfil ${displayProfile.name}. Cambios legislativos explicados en lenguaje ciudadano.`}
+	ogTitle={`Resumenes ${displayProfile.name} — Ley Abierta`}
 	canonicalUrl={`/resumenes/${perfil}`}
 >
 	<style>
@@ -172,25 +131,30 @@ try {
 	<a href="/resumenes" class="back-link">&#8592; Todos los perfiles</a>
 
 	<div class="profile-header">
-		<div class="icon">{profile.icon}</div>
-		<h1>{profile.name}</h1>
-		<p class="desc">{profile.description}</p>
+		<div class="icon">{displayProfile.icon}</div>
+		<h1>{displayProfile.name}</h1>
+		<p class="desc">{displayProfile.description}</p>
 		<p class="count">{digests.length} resumen{digests.length === 1 ? "" : "es"} disponible{digests.length === 1 ? "" : "s"}</p>
 	</div>
 
 	{digests.length > 0 ? (
 		<ul class="digest-list">
-			{digests.map((d) => (
-				<li class="digest-item">
-					<a href={d.url}>
-						<div>
-							<div class="digest-week">Semana {d.weekNum}, {d.year}</div>
-							<div class="digest-meta">{d.week}</div>
-						</div>
-						<span class="digest-arrow">&#8594;</span>
-					</a>
-				</li>
-			))}
+			{digests.map((d) => {
+				const match = d.week.match(/^(\d{4})-W(\d+)$/);
+				const year = match?.[1] ?? "";
+				const weekNum = match?.[2] ?? "";
+				return (
+					<li class="digest-item">
+						<a href={`/resumenes/${perfil}/${d.week}`}>
+							<div>
+								<div class="digest-week">Semana {weekNum}, {year}</div>
+								<div class="digest-meta">{d.week}</div>
+							</div>
+							<span class="digest-arrow">&#8594;</span>
+						</a>
+					</li>
+				);
+			})}
 		</ul>
 	) : (
 		<div class="empty-state">

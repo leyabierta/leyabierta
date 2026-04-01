@@ -197,6 +197,65 @@ export function getProfiles(): Promise<{ data: Profile[] }> {
 	return fetchApi("/v1/profiles");
 }
 
+// ── Digest endpoints ──
+
+export interface DigestProfileSummary {
+	profile_id: string;
+	name: string;
+	icon: string;
+	description: string;
+	digest_count: number;
+	latest_week: string;
+}
+
+export function getDigestProfiles(): Promise<{
+	data: DigestProfileSummary[];
+}> {
+	return fetchApi("/v1/digests/profiles");
+}
+
+export interface DigestWeekSummary {
+	week: string;
+	summary: string;
+	generated_at: string;
+	reform_count: number;
+}
+
+export function getProfileDigests(profileId: string): Promise<{
+	profile: Profile | null;
+	data: DigestWeekSummary[];
+}> {
+	return fetchApi(`/v1/digests/${profileId}`);
+}
+
+export interface DigestReform {
+	id: string;
+	title: string;
+	rank: string;
+	date: string;
+	source_id: string;
+	relevant: boolean | null;
+	te_afecta_porque: string;
+	headline: string;
+	summary: string;
+}
+
+export interface DigestDetail {
+	week: string;
+	profile: { id: string; name: string; icon: string; description: string };
+	jurisdiction: string;
+	summary: string;
+	generated_at: string;
+	reforms: DigestReform[];
+}
+
+export function getDigest(
+	profileId: string,
+	week: string,
+): Promise<DigestDetail> {
+	return fetchApi(`/v1/digests/${profileId}/${week}`);
+}
+
 export async function subscribe(
 	email: string,
 	profileId: string,

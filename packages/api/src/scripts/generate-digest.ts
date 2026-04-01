@@ -1,32 +1,34 @@
 /**
- * Programmatic weekly digest generator.
+ * Weekly digest generator — writes to SQLite DB.
  *
- * Generates YAML (source of truth) and email HTML for each profile.
- * Web pages are rendered by Astro from the YAML files (packages/web/src/pages/resumenes/).
- * NO AI involved — only DB queries and template rendering.
- * The citizen-writer AI step is separate (via /weekly-digest skill).
+ * Generates digest data for each profile and stores in the digests table.
+ * Optionally generates email HTML to filesystem for send-digest.
+ * NO AI involved — only DB queries. The AI enrichment step is separate
+ * (run-weekly-digest.ts Phase 2).
  *
  * Architecture: SQL gets ALL reforms (no materia filtering). AI decides relevance
- * per profile using persona descriptions. This script generates the raw data;
- * the AI enriches it with relevance scoring and citizen summaries.
+ * per profile using persona descriptions.
  *
  * Usage:
  *   bun run packages/api/src/scripts/generate-digest.ts --week 2026-W13
  *   bun run packages/api/src/scripts/generate-digest.ts --week 2026-W13 --profile sanitario
- *   bun run packages/api/src/scripts/generate-digest.ts --week 2026-W13 --html-only
+ *   bun run packages/api/src/scripts/generate-digest.ts --week 2026-W13 --email-html
+ *   bun run packages/api/src/scripts/generate-digest.ts --week 2026-W13 --from-db
  *
  * Flags:
  *   --week YYYY-WNN    Required. ISO week to generate.
  *   --profile ID       Only generate for this profile (default: all 8).
- *   --html-only        Skip YAML generation, just regenerate HTML from existing YAMLs.
+ *   --email-html       Also write email HTML files to data/digests/ (for send-digest).
+ *   --from-db          Read existing data from DB (preserves AI scores), only generate email HTML.
  *   --site-url URL     Base URL for links (default: http://localhost:4321).
  */
 
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import yaml from "js-yaml";
+import { createSchema } from "@leyabierta/pipeline";
 import { PROFILES, type ThematicProfile } from "../data/profiles.ts";
+import { DbService } from "../services/db.ts";
 
 // ── CLI args ──
 
@@ -44,7 +46,8 @@ if (!week || !/^\d{4}-W\d{2}$/.test(week)) {
 }
 
 const profileFilter = getArg("profile");
-const htmlOnly = hasFlag("html-only");
+const emailHtml = hasFlag("email-html");
+const fromDb = hasFlag("from-db");
 const siteUrl = getArg("site-url") ?? "http://localhost:4321";
 const dbPath = process.env.DB_PATH ?? "data/leyabierta.db";
 
@@ -69,7 +72,7 @@ const weekNum = Number.parseInt(week.split("-W")[1], 10);
 const yearNum = Number.parseInt(week.split("-W")[0], 10);
 const weekLabel = `Semana ${weekNum}, ${yearNum}`;
 
-// ── Paths ──
+// ── Paths (for email HTML only) ──
 
 const ROOT = process.cwd();
 const digestDir = join(
@@ -87,11 +90,14 @@ const templateDir = join(
 	"templates",
 );
 
-const emailTemplate = readFileSync(join(templateDir, "email.html"), "utf-8");
-
 // ── DB ──
 
-const db = new Database(dbPath, { readonly: true });
+const db = new Database(dbPath);
+db.exec("PRAGMA journal_mode = WAL");
+db.exec("PRAGMA foreign_keys = ON");
+createSchema(db);
+
+const dbService = new DbService(db);
 
 interface ReformResult {
 	norm_id: string;
@@ -110,10 +116,6 @@ interface BlockDiff {
 	current_text: string;
 }
 
-/**
- * Query ALL reforms for the week, filtered only by jurisdiction.
- * No materia filtering — the AI decides relevance per profile.
- */
 function queryAllReforms(jurisdiction: string): ReformResult[] {
 	const jurClause =
 		jurisdiction === "es"
@@ -188,7 +190,7 @@ function queryBlockDiffs(
 
 // ── Data types ──
 
-interface DigestReform {
+export interface DigestReform {
 	id: string;
 	title: string;
 	rank: string;
@@ -202,7 +204,7 @@ interface DigestReform {
 	affected_blocks: BlockDiff[];
 }
 
-interface DigestData {
+export interface DigestData {
 	week: string;
 	profile: {
 		id: string;
@@ -217,7 +219,7 @@ interface DigestData {
 	reforms: DigestReform[];
 }
 
-// ── YAML generation (using js-yaml) ──
+// ── Generation ──
 
 function generateDigestData(
 	profile: ThematicProfile,
@@ -233,11 +235,11 @@ function generateDigestData(
 			rank: r.rank,
 			date: r.date,
 			source_id: r.source_id,
-			relevant: null, // decided by AI
-			te_afecta_porque: "", // decided by AI
-			headline: "", // decided by AI
-			summary: "", // decided by AI
-			confidence: "", // decided by AI
+			relevant: null,
+			te_afecta_porque: "",
+			headline: "",
+			summary: "",
+			confidence: "",
 			affected_blocks: blocks,
 		};
 	});
@@ -258,32 +260,7 @@ function generateDigestData(
 	};
 }
 
-function serializeYaml(data: DigestData): string {
-	return yaml.dump(data, {
-		lineWidth: -1, // no wrapping
-		noRefs: true,
-		quotingType: '"',
-		forceQuotes: false,
-	});
-}
-
-function parseDigestYaml(content: string): DigestData {
-	const parsed = yaml.load(content) as DigestData;
-	// Ensure reforms have defaults for fields that may be missing (backwards compat)
-	if (parsed.reforms) {
-		for (const r of parsed.reforms) {
-			r.relevant = r.relevant ?? null;
-			r.te_afecta_porque = r.te_afecta_porque ?? "";
-			r.headline = r.headline ?? "";
-			r.summary = r.summary ?? "";
-			r.confidence = r.confidence ?? "";
-			r.affected_blocks = r.affected_blocks ?? [];
-		}
-	}
-	return parsed;
-}
-
-// ── HTML generation ──
+// ── Email HTML generation ──
 
 function escapeHtml(s: string): string {
 	return s
@@ -293,16 +270,13 @@ function escapeHtml(s: string): string {
 		.replace(/"/g, "&quot;");
 }
 
-/**
- * Get reforms to display in HTML. Only relevant reforms (or all if AI hasn't run yet).
- */
 function getDisplayReforms(data: DigestData): DigestReform[] {
 	const aiHasRun = data.reforms.some((r) => r.relevant !== null);
-	if (!aiHasRun) return data.reforms; // pre-AI: show all with titles as placeholders
+	if (!aiHasRun) return data.reforms;
 	return data.reforms.filter((r) => r.relevant === true);
 }
 
-function generateEmailHtml(data: DigestData): string {
+function generateEmailHtml(data: DigestData, template: string): string {
 	const reforms = getDisplayReforms(data);
 
 	const reformRows = reforms
@@ -329,7 +303,7 @@ function generateEmailHtml(data: DigestData): string {
 	const suffix = count === 1 ? "" : "s";
 	const webUrl = `${siteUrl}/resumenes/${data.profile.id}/${week}`;
 
-	return emailTemplate
+	return template
 		.replaceAll("{{SITE_URL}}", siteUrl)
 		.replaceAll("{{PROFILE_NAME}}", escapeHtml(data.profile.name))
 		.replaceAll("{{PROFILE_ICON}}", data.profile.icon)
@@ -339,7 +313,7 @@ function generateEmailHtml(data: DigestData): string {
 			escapeHtml(data.summary || `${count} cambios legislativos esta semana.`),
 		)
 		.replaceAll("{{HIGH_REFORMS}}", reformRows)
-		.replaceAll("{{LOW_REFORMS}}", "") // no more low section
+		.replaceAll("{{LOW_REFORMS}}", "")
 		.replaceAll("{{REFORM_COUNT}}", String(count))
 		.replaceAll("{{REFORM_COUNT_SUFFIX}}", suffix)
 		.replaceAll("{{WEB_URL}}", webUrl)
@@ -361,62 +335,100 @@ if (profiles.length === 0) {
 	process.exit(1);
 }
 
-mkdirSync(digestDir, { recursive: true });
-
+const mode = fromDb
+	? "email HTML from DB"
+	: `DB write${emailHtml ? " + email HTML" : ""}`;
 console.log(`Generating digests for ${week} (${since} → ${until})`);
 console.log(`Profiles: ${profiles.map((p) => p.id).join(", ")}`);
-console.log(
-	`Mode: ${htmlOnly ? "Email-only (from existing YAMLs)" : "Full (YAML + email)"}\n`,
-);
+console.log(`Mode: ${mode}\n`);
 
-// Query ALL reforms once (shared across all profiles)
-let allReformsCount = 0;
-if (!htmlOnly) {
+if (!fromDb) {
 	const testReforms = queryAllReforms("es");
-	allReformsCount = testReforms.length;
-	console.log(`Total reforms this week: ${allReformsCount}\n`);
+	console.log(`Total reforms this week: ${testReforms.length}\n`);
 }
 
 for (const profile of profiles) {
-	const yamlPath = join(digestDir, `${profile.id}.yaml`);
-	const emailPath = join(digestDir, `${profile.id}-email.html`);
-
-	let data: DigestData;
-
-	if (htmlOnly) {
-		if (!existsSync(yamlPath)) {
-			console.log(`  ${profile.icon} ${profile.name}: no YAML found, skipping`);
+	if (fromDb) {
+		// Read existing data from DB (preserves AI scores) → generate email HTML only
+		const existing = dbService.getDigest(profile.id, week);
+		if (!existing) {
+			console.log(`  ${profile.icon} ${profile.name}: not in DB, skipping`);
 			continue;
 		}
-		const content = readFileSync(yamlPath, "utf-8");
-		data = parseDigestYaml(content);
+
+		let reforms: DigestReform[] = [];
+		try {
+			const parsed = JSON.parse(existing.data);
+			reforms = parsed.reforms ?? [];
+		} catch {
+			console.log(
+				`  ${profile.icon} ${profile.name}: malformed data, skipping`,
+			);
+			continue;
+		}
+
+		const data: DigestData = {
+			week: existing.week,
+			profile: {
+				id: profile.id,
+				name: profile.name,
+				icon: profile.icon,
+				description: profile.description,
+				persona: profile.persona,
+			},
+			jurisdiction: existing.jurisdiction,
+			generated_at: existing.generated_at,
+			summary: existing.summary,
+			reforms,
+		};
+
+		mkdirSync(digestDir, { recursive: true });
+		const emailPath = join(digestDir, `${profile.id}-email.html`);
+		const templatePath = join(templateDir, "email.html");
+		if (existsSync(templatePath)) {
+			const template = readFileSync(templatePath, "utf-8");
+			const displayReforms = getDisplayReforms(data);
+			if (displayReforms.length > 0 || reforms.length > 0) {
+				writeFileSync(emailPath, generateEmailHtml(data, template));
+			}
+		}
+
+		const relevant = reforms.filter((r) => r.relevant === true).length;
+		console.log(
+			`  ${profile.icon} ${profile.name}: ${relevant}/${reforms.length} relevant → email HTML`,
+		);
 	} else {
-		data = generateDigestData(profile);
-		writeFileSync(yamlPath, serializeYaml(data));
+		// Generate fresh data from DB queries → write to DB
+		const data = generateDigestData(profile);
+
+		dbService.upsertDigest(
+			data.profile.id,
+			data.week,
+			data.jurisdiction,
+			data.summary,
+			data.generated_at,
+			JSON.stringify({ reforms: data.reforms }),
+		);
+
+		// Optionally write email HTML
+		if (emailHtml) {
+			mkdirSync(digestDir, { recursive: true });
+			const emailPath = join(digestDir, `${profile.id}-email.html`);
+			const templatePath = join(templateDir, "email.html");
+			if (existsSync(templatePath)) {
+				const template = readFileSync(templatePath, "utf-8");
+				const displayReforms = getDisplayReforms(data);
+				if (displayReforms.length > 0 || data.reforms.length > 0) {
+					writeFileSync(emailPath, generateEmailHtml(data, template));
+				}
+			}
+		}
+
+		console.log(
+			`  ${profile.icon} ${profile.name}: ${data.reforms.length} reforms → DB`,
+		);
 	}
-
-	// For email HTML: only render if there are displayable reforms
-	const displayReforms = getDisplayReforms(data);
-	if (displayReforms.length === 0 && data.reforms.length === 0) {
-		console.log(`  ${profile.icon} ${profile.name}: 0 reforms — YAML only`);
-		continue;
-	}
-
-	writeFileSync(emailPath, generateEmailHtml(data));
-
-	const aiStatus = data.reforms.some((r) => r.relevant !== null)
-		? `${displayReforms.length} relevant of ${data.reforms.length}`
-		: `${data.reforms.length} total [needs AI relevance scoring]`;
-	console.log(`  ${profile.icon} ${profile.name}: ${aiStatus} → YAML + email`);
 }
 
-console.log("\nDone.");
-console.log(`  YAML:  ${digestDir}/`);
-console.log(`  Email: ${digestDir}/*-email.html`);
-if (!htmlOnly) {
-	console.log(
-		"\nNext step: run /weekly-digest to add AI relevance + summaries, then --html-only to regenerate HTML.",
-	);
-}
-
+console.log("\nDone. Digests written to SQLite.");
 db.close();

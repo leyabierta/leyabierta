@@ -1,69 +1,36 @@
 ---
 import Base from "../../../layouts/Base.astro";
-import fs from "node:fs";
-import path from "node:path";
-import yaml from "js-yaml";
+import { getDigestProfiles, getProfileDigests, getDigest, type DigestDetail, type DigestReform } from "../../../lib/api";
 
-export function getStaticPaths() {
-	const digestDir = path.join(process.cwd(), "..", "..", "data", "digests");
+export async function getStaticPaths() {
 	const paths: Array<{ params: { perfil: string; week: string } }> = [];
 
 	try {
-		for (const year of fs.readdirSync(digestDir)) {
-			const yearDir = path.join(digestDir, year);
-			if (!fs.statSync(yearDir).isDirectory()) continue;
-			for (const weekDir of fs.readdirSync(yearDir)) {
-				const weekPath = path.join(yearDir, weekDir);
-				if (!fs.statSync(weekPath).isDirectory()) continue;
-				const weekId = `${year}-${weekDir}`;
-				for (const file of fs.readdirSync(weekPath)) {
-					if (!file.endsWith(".yaml")) continue;
-					const perfil = file.replace(".yaml", "");
-					paths.push({ params: { perfil, week: weekId } });
-				}
+		const { data: profiles } = await getDigestProfiles();
+		for (const p of profiles) {
+			const { data: weeks } = await getProfileDigests(p.profile_id);
+			for (const w of weeks) {
+				paths.push({ params: { perfil: p.profile_id, week: w.week } });
 			}
 		}
 	} catch {
-		// No digests directory yet
+		// API not available at build time
 	}
 
 	return paths;
 }
 
-interface DigestReform {
-	id: string;
-	title: string;
-	rank: string;
-	date: string;
-	source_id: string;
-	relevant: boolean | null;
-	te_afecta_porque: string;
-	headline: string;
-	summary: string;
-}
-
-interface DigestData {
-	week: string;
-	profile: { id: string; name: string; icon: string; description: string };
-	summary: string;
-	generated_at: string;
-	reforms: DigestReform[];
-}
-
 const { perfil, week } = Astro.params;
 
-// Parse week: "2026-W13" → year "2026", weekDir "W13"
-const [yearStr, weekPart] = week!.split("-");
-const weekNum = weekPart!.replace("W", "");
+const match = week!.match(/^(\d{4})-W(\d+)$/);
+const yearStr = match?.[1] ?? "";
+const weekNum = match?.[2] ?? "";
 
-const yamlPath = path.join(process.cwd(), "..", "..", "data", "digests", yearStr!, weekPart!, `${perfil}.yaml`);
-
-let data: DigestData | null = null;
+let data: DigestDetail | null = null;
 try {
-	const content = fs.readFileSync(yamlPath, "utf-8");
-	data = yaml.load(content) as DigestData;
+	data = await getDigest(perfil!, week!);
 } catch {
-	// YAML not found
+	// Digest not found
 }
 
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -73,7 +40,6 @@ function formatDate(iso: string): string {
 	return `${d.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`;
 }
 
-// Get reforms to display: only relevant if AI has run, otherwise all
 function getDisplayReforms(reforms: DigestReform[]): DigestReform[] {
 	const aiHasRun = reforms.some((r) => r.relevant !== null);
 	if (!aiHasRun) return reforms;

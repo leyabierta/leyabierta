@@ -106,6 +106,21 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_blocks_empty_precepto
     ON blocks(norm_id) WHERE block_type = 'precepto' AND (current_text = '' OR current_text IS NULL);
 
+  -- Weekly digests (AI-scored reform summaries per profile)
+  CREATE TABLE IF NOT EXISTS digests (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id   TEXT NOT NULL,
+    week         TEXT NOT NULL,
+    jurisdiction TEXT NOT NULL DEFAULT 'es',
+    summary      TEXT NOT NULL DEFAULT '',
+    generated_at TEXT NOT NULL,
+    data         TEXT NOT NULL,
+    UNIQUE(profile_id, week, jurisdiction)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_digests_profile ON digests(profile_id);
+  CREATE INDEX IF NOT EXISTS idx_digests_week ON digests(week);
+
   -- Newsletter subscribers
   CREATE TABLE IF NOT EXISTS subscribers (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
