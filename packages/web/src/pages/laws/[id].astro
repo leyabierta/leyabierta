@@ -19,11 +19,9 @@ const { id } = Astro.params;
 const law = entry.data;
 
 // Read and render the markdown body on-demand (not during content sync)
-// entry.body stores the absolute file path (set by our custom loader)
 let htmlContent = "";
 if (entry.body) {
 	const raw = await fs.readFile(entry.body, "utf-8");
-	// Strip frontmatter
 	const bodyMatch = raw.match(/^---[\s\S]*?---\s*([\s\S]*)$/);
 	const body = bodyMatch?.[1] ?? raw;
 	htmlContent = await marked.parse(body);
@@ -41,6 +39,8 @@ const RANK_LABELS: Record<string, string> = {
 	circular: "Circular",
 	resolucion: "Resolución",
 	acuerdo_internacional: "Acuerdo Internacional",
+	instruccion: "Instrucción",
+	reglamento: "Reglamento",
 };
 
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -49,6 +49,17 @@ function formatDate(iso: string): string {
 	const [y, m, d] = iso.split('-');
 	return `${parseInt(d!, 10)} de ${MONTHS[parseInt(m!, 10) - 1]} de ${y}`;
 }
+
+function capitalize(s: string): string {
+	return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+const reforms = law.reformas ?? [];
+const materias = law.materias ?? [];
+const notas = law.notas ?? [];
+const refsAnt = law.referencias_anteriores ?? [];
+const refsPost = law.referencias_posteriores ?? [];
+const articleCount = law.articulos ?? 0;
 ---
 
 <Base
@@ -155,31 +166,18 @@ function formatDate(iso: string): string {
 		.law-content :global(p) { margin-bottom: 0.75rem; }
 		.law-content :global(hr) { border: none; border-top: 1px solid var(--border-light); margin: 1.5rem 0 0.75rem; }
 
-		/* ── Loading states ── */
-		.loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
-		.loading-spinner { display: inline-block; width: 1.25rem; height: 1.25rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
-		@keyframes spin { to { transform: rotate(360deg); } }
-
-		@media (max-width: 640px) {
-			.law-header { flex-direction: column; }
-		}
-	</style>
-
-	<!-- Styles for JS-injected tab content (must be global) -->
-	<style is:global>
+		/* ── Resumen components ── */
 		.quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
 		.stat-card { display: flex; align-items: center; gap: 0.625rem; padding: 0.875rem 1rem; background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; }
 		.stat-value { font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
 		.stat-label { font-size: 0.6875rem; color: var(--text-muted); }
-		.timeline { list-style: none; padding: 0; }
-		.timeline-item { position: relative; padding: 0 0 1rem 1.5rem; }
-		.timeline-item::before { content: ""; position: absolute; left: 0.28rem; top: 0.5rem; bottom: -0.25rem; width: 1px; background: var(--border); }
-		.timeline-item:last-child::before { display: none; }
-		.timeline-dot { position: absolute; left: 0; top: 0.35rem; width: 0.625rem; height: 0.625rem; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); }
-		.timeline-item:last-child .timeline-dot { border-color: var(--accent); background: var(--accent); }
-		.timeline-date { font-weight: 600; font-size: 0.8125rem; }
-		.timeline-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
-		.timeline-link { font-size: 0.75rem; margin-top: 0.25rem; display: inline-block; }
+
+		.card { background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+		.card-heading { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+		.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; font-size: 0.875rem; }
+		.meta-item-label { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.125rem; }
+		.meta-item-value { color: var(--text); font-weight: 500; }
+
 		.section { margin-bottom: 2rem; }
 		.section-heading { font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light); }
 		.materia-tag { display: inline-block; padding: 0.25rem 0.75rem; border: 1px solid var(--border); border-radius: 100px; font-size: 0.8125rem; color: var(--text-secondary); margin: 0.125rem 0.25rem 0.125rem 0; transition: all 0.15s; }
@@ -188,12 +186,20 @@ function formatDate(iso: string): string {
 		.ref-list li { font-size: 0.875rem; line-height: 1.65; color: var(--text-secondary); margin-bottom: 0.375rem; }
 		.ref-list a { font-family: var(--font-mono); font-size: 0.8125rem; }
 		.nota-item { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.375rem; }
-		.card { background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
-		.card-heading { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
-		.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; font-size: 0.875rem; }
-		.meta-item-label { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.125rem; }
-		.meta-item-value { color: var(--text); font-weight: 500; }
+
+		/* ── Timeline ── */
+		.timeline { list-style: none; padding: 0; }
+		.timeline-item { position: relative; padding: 0 0 1rem 1.5rem; }
+		.timeline-item::before { content: ""; position: absolute; left: 0.28rem; top: 0.5rem; bottom: -0.25rem; width: 1px; background: var(--border); }
+		.timeline-item:last-child::before { display: none; }
+		.timeline-dot { position: absolute; left: 0; top: 0.35rem; width: 0.625rem; height: 0.625rem; border-radius: 50%; border: 2px solid var(--border); background: var(--bg); }
+		.timeline-item:first-child .timeline-dot { border-color: var(--accent); background: var(--accent); }
+		.timeline-date { font-weight: 600; font-size: 0.8125rem; }
+		.timeline-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
+		.timeline-link { font-size: 0.75rem; margin-top: 0.25rem; display: inline-block; }
+
 		@media (max-width: 640px) {
+			.law-header { flex-direction: column; }
 			.meta-grid { grid-template-columns: 1fr; }
 			.quick-stats { grid-template-columns: repeat(2, 1fr); }
 		}
@@ -241,24 +247,107 @@ function formatDate(iso: string): string {
 	<!-- Tabs -->
 	<div class="tabs">
 		<button class="tab active" data-tab="resumen">Resumen</button>
-		<button class="tab" data-tab="reformas">Historial de cambios</button>
+		<button class="tab" data-tab="reformas">Historial de cambios{reforms.length > 1 && <span class="tab-badge">{reforms.length}</span>}</button>
 		<button class="tab" data-tab="texto">Texto completo</button>
 	</div>
 
-	<!-- Tab: Resumen (default, loaded client-side from API) -->
+	<!-- Tab: Resumen (static) -->
 	<div class="tab-panel active" id="tab-resumen">
-		<div class="loading" id="resumen-loading">
-			<span class="loading-spinner"></span> Cargando resumen...
+		<div class="quick-stats">
+			{articleCount > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
+			)}
+			{reforms.length > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{reforms.length}</div><div class="stat-label">Versiones</div></div></div>
+			)}
+			{materias.length > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Temas</div></div></div>
+			)}
 		</div>
-		<div id="resumen-content" style="display:none;"></div>
+
+		<div class="card">
+			<h3 class="card-heading">Información general</h3>
+			<div class="meta-grid">
+				<div><div class="meta-item-label">Rango</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
+				<div><div class="meta-item-label">Estado</div><div class="meta-item-value">{capitalize(law.estado)}</div></div>
+				<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">{formatDate(law.fecha_publicacion)}</div></div>
+				<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">{law.departamento}</div></div>
+			</div>
+		</div>
+
+		{materias.length > 0 && (
+			<div class="section">
+				<h3 class="section-heading">Temas</h3>
+				<div>
+					{materias.map((m) => (
+						<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
+					))}
+				</div>
+			</div>
+		)}
+
+		{notas.length > 0 && (
+			<div class="section">
+				<h3 class="section-heading">Notas</h3>
+				{notas.map((nota) => (
+					<p class="nota-item">{nota}</p>
+				))}
+			</div>
+		)}
+
+		{refsAnt.length > 0 && (
+			<div class="section">
+				<h3 class="section-heading">Esta ley se basa en</h3>
+				<ul class="ref-list">
+					{refsAnt.map((ref) => (
+						<li>
+							{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
+							{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
+						</li>
+					))}
+				</ul>
+			</div>
+		)}
+
+		{refsPost.length > 0 && (
+			<div class="section">
+				<h3 class="section-heading">Leyes que modifican esta</h3>
+				<ul class="ref-list">
+					{refsPost.map((ref) => (
+						<li>
+							{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
+							{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
+						</li>
+					))}
+				</ul>
+			</div>
+		)}
 	</div>
 
-	<!-- Tab: Reformas (loaded client-side from API) -->
+	<!-- Tab: Reformas (static) -->
 	<div class="tab-panel" id="tab-reformas">
-		<div class="loading" id="reformas-loading">
-			<span class="loading-spinner"></span> Cargando historial...
-		</div>
-		<div id="reformas-content" style="display:none;"></div>
+		{reforms.length <= 1 ? (
+			<p style="color: var(--text-muted); font-size: 0.9375rem;">Esta ley no tiene modificaciones registradas desde su publicación.</p>
+		) : (
+			<ul class="timeline">
+				{reforms.map((reform, i) => {
+					const isFirst = i === reforms.length - 1;
+					const prevDate = i > 0 ? reforms[i - 1]!.fecha : null;
+					const diffUrl = prevDate ? `/diff?id=${id}&from=${prevDate}&to=${reform.fecha}` : null;
+					return (
+						<li class="timeline-item">
+							<div class="timeline-dot"></div>
+							<div class="timeline-date">{formatDate(reform.fecha)}</div>
+							<div class="timeline-detail">
+								{isFirst ? 'Versión original' : `Reforma`}
+								{' '}<span style="font-family:var(--font-mono);font-size:0.6875rem">{reform.fuente}</span>
+							</div>
+							{diffUrl && <a href={diffUrl} class="timeline-link">Ver cambios &rarr;</a>}
+						</li>
+					);
+				})}
+			</ul>
+		)}
 	</div>
 
 	<!-- Tab: Texto completo (static, pre-rendered from Markdown) -->
@@ -266,152 +355,16 @@ function formatDate(iso: string): string {
 		<div class="law-content" set:html={htmlContent} />
 	</div>
 
-	<script is:inline define:vars={{ lawId: id }}>
-		const API = document.documentElement.dataset.api;
-		const loaded = { resumen: false, reformas: false };
-
-		// Tab switching
-		document.querySelectorAll('.tab').forEach(tab => {
-			tab.addEventListener('click', () => {
-				document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-				document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+	<!-- Tab switching (no API needed) -->
+	<script is:inline>
+		document.querySelectorAll('.tab').forEach(function(tab) {
+			tab.addEventListener('click', function() {
+				document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+				document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
 				tab.classList.add('active');
 				document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
-
-				// Lazy load data
-				if (tab.dataset.tab === 'resumen' && !loaded.resumen) loadResumen();
-				if (tab.dataset.tab === 'reformas' && !loaded.reformas) loadReformas();
 			});
 		});
-
-		async function loadResumen() {
-			loaded.resumen = true;
-			try {
-				const [lawRes, analisisRes] = await Promise.all([
-					fetch(`${API}/v1/laws/${lawId}`),
-					fetch(`${API}/v1/laws/${lawId}/analisis`),
-				]);
-				const law = await lawRes.json();
-				const analisis = await analisisRes.json();
-
-				var RANKS = {"constitucion":"Constitución","ley_organica":"Ley Orgánica","ley":"Ley","real_decreto_ley":"Real Decreto-ley","real_decreto_legislativo":"RD Legislativo","real_decreto":"Real Decreto","orden":"Orden","decreto":"Decreto","circular":"Circular","resolucion":"Resolución","acuerdo_internacional":"Acuerdo Internacional","instruccion":"Instrucción","reglamento":"Reglamento"};
-				function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
-				function formatDate(iso) {
-					if (!iso) return '';
-					var months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-					var parts = iso.split('-');
-					return parseInt(parts[2],10) + ' de ' + months[parseInt(parts[1],10)-1] + ' de ' + parts[0];
-				}
-
-				let html = '<div class="quick-stats">';
-				html += `<div class="stat-card"><div><div class="stat-value">${law.blocks?.length ?? 0}</div><div class="stat-label">Artículos</div></div></div>`;
-				html += `<div class="stat-card"><div><div class="stat-value">${law.reforms?.length ?? 0}</div><div class="stat-label">Versiones</div></div></div>`;
-				if (analisis.materias?.length > 0) {
-					html += `<div class="stat-card"><div><div class="stat-value">${analisis.materias.length}</div><div class="stat-label">Temas</div></div></div>`;
-				}
-				html += '</div>';
-
-				// General info card
-				html += '<div class="card"><h3 class="card-heading">Información general</h3><div class="meta-grid">';
-				html += `<div><div class="meta-item-label">Rango</div><div class="meta-item-value">${RANKS[law.rank] || capitalize(law.rank?.replace(/_/g,' ')) || ''}</div></div>`;
-				html += `<div><div class="meta-item-label">Estado</div><div class="meta-item-value">${capitalize(law.status)}</div></div>`;
-				html += `<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">${formatDate(law.published_at)}</div></div>`;
-				html += `<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">${law.department ?? ''}</div></div>`;
-				html += '</div></div>';
-
-				// Materias
-				if (analisis.materias?.length > 0) {
-					html += '<div class="section"><h3 class="section-heading">Temas</h3><div>';
-					for (const m of analisis.materias) {
-						html += `<a href="/?materia=${encodeURIComponent(m)}" class="materia-tag">${m}</a>`;
-					}
-					html += '</div></div>';
-				}
-
-				// Notas
-				if (analisis.notas?.length > 0) {
-					html += '<div class="section"><h3 class="section-heading">Notas</h3>';
-					for (const nota of analisis.notas) {
-						html += `<p class="nota-item">${nota}</p>`;
-					}
-					html += '</div>';
-				}
-
-				// Referencias
-				if (analisis.referencias?.anteriores?.length > 0) {
-					html += '<div class="section"><h3 class="section-heading">Esta ley se basa en</h3><ul class="ref-list">';
-					for (const ref of analisis.referencias.anteriores) {
-						const text = (ref.text || '').replace(/^[,\s]+/, '').replace(/[,\s]+$/, '');
-						html += `<li>${text} ${ref.normId ? `<a href="/laws/${ref.normId}">${ref.normId}</a>` : ''}</li>`;
-					}
-					html += '</ul></div>';
-				}
-				if (analisis.referencias?.posteriores?.length > 0) {
-					html += '<div class="section"><h3 class="section-heading">Leyes que modifican esta</h3><ul class="ref-list">';
-					for (const ref of analisis.referencias.posteriores) {
-						const text = (ref.text || '').replace(/^[,\s]+/, '').replace(/[,\s]+$/, '');
-						html += `<li>${text} ${ref.normId ? `<a href="/laws/${ref.normId}">${ref.normId}</a>` : ''}</li>`;
-					}
-					html += '</ul></div>';
-				}
-
-				document.getElementById('resumen-loading').style.display = 'none';
-				document.getElementById('resumen-content').innerHTML = html;
-				document.getElementById('resumen-content').style.display = 'block';
-			} catch {
-				document.getElementById('resumen-loading').innerHTML = 'No se pudo cargar el resumen. La API no está disponible.';
-			}
-		}
-
-		async function loadReformas() {
-			loaded.reformas = true;
-			try {
-				const res = await fetch(`${API}/v1/laws/${lawId}`);
-				const law = await res.json();
-
-				if (!law.reforms || law.reforms.length <= 1) {
-					document.getElementById('reformas-loading').innerHTML = 'Esta ley no tiene reformas registradas.';
-					return;
-				}
-
-				// Update tab badge
-				const reformTab = document.querySelector('[data-tab="reformas"]');
-				if (reformTab && !reformTab.querySelector('.tab-badge')) {
-					reformTab.innerHTML += ` <span class="tab-badge">${law.reforms.length}</span>`;
-				}
-
-				let html = '<ul class="timeline">';
-				for (let i = 0; i < law.reforms.length; i++) {
-					const reform = law.reforms[i];
-					const isFirst = i === 0;
-					const prevDate = i > 0 ? law.reforms[i - 1].date : null;
-					const diffUrl = prevDate ? `/diff?id=${lawId}&from=${prevDate}&to=${reform.date}` : null;
-
-					html += '<li class="timeline-item">';
-					html += '<div class="timeline-dot"></div>';
-					html += `<div class="timeline-date">${reform.date}</div>`;
-					html += `<div class="timeline-detail">${isFirst ? 'Versión original' : `${reform.affected_blocks?.length ?? 0} artículos modificados`} <span style="font-family:var(--font-mono);font-size:0.6875rem">${reform.source_id ?? ''}</span></div>`;
-					if (diffUrl) html += `<a href="${diffUrl}" class="timeline-link">Ver cambios &rarr;</a>`;
-					html += '</li>';
-				}
-				html += '</ul>';
-
-				document.getElementById('reformas-loading').style.display = 'none';
-				document.getElementById('reformas-content').innerHTML = html;
-				document.getElementById('reformas-content').style.display = 'block';
-			} catch {
-				document.getElementById('reformas-loading').innerHTML = 'No se pudo cargar el historial. La API no está disponible.';
-			}
-		}
-
-		// Auto-load resumen (default tab) + prefetch reform count for badge
-		loadResumen();
-		fetch(API + '/v1/laws/' + lawId).then(function (r) { return r.json(); }).then(function (law) {
-			if (law.reforms && law.reforms.length > 1) {
-				var reformTab = document.querySelector('[data-tab="reformas"]');
-				if (reformTab) reformTab.innerHTML = 'Historial de cambios <span class="tab-badge">' + law.reforms.length + '</span>';
-			}
-		}).catch(function () {});
 	</script>
 
 	<!-- JSON-LD -->

@@ -96,8 +96,8 @@ describe("renderNormAtDate", () => {
 	test("includes frontmatter", () => {
 		const md = renderNormAtDate(metadata, blocks, "1978-12-29");
 		expect(md).toContain("---");
-		expect(md).toContain('identificador: "BOE-A-1978-31229"');
-		expect(md).toContain('estado: "vigente"');
+		expect(md).toContain("identificador: BOE-A-1978-31229");
+		expect(md).toContain("estado: vigente");
 	});
 
 	test("includes H1 title", () => {

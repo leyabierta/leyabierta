@@ -4,41 +4,100 @@
  * User-facing content in Spanish following ELI conventions.
  */
 
-import type { NormMetadata } from "../models.ts";
+import yaml from "js-yaml";
+import type { Block, NormMetadata, Reform } from "../models.ts";
 import { extractJurisdiction } from "./slug.ts";
+
+export interface AnalisisData {
+	materias: string[];
+	notas: string[];
+	referencias: {
+		anteriores: Array<{
+			normId: string;
+			relation: string;
+			text: string;
+		}>;
+		posteriores: Array<{
+			normId: string;
+			relation: string;
+			text: string;
+		}>;
+	};
+}
 
 export function renderFrontmatter(
 	metadata: NormMetadata,
 	versionDate: string,
+	reforms: readonly Reform[],
+	blocks: readonly Block[],
+	analisis?: AnalisisData,
 ): string {
 	const title = cleanTitle(metadata.title);
 	const jurisdiction = extractJurisdiction(metadata);
 
-	const lines = [
-		"---",
-		`titulo: "${escapeYaml(title)}"`,
-		`identificador: "${metadata.id}"`,
-		`pais: "${metadata.country}"`,
-		`jurisdiccion: "${jurisdiction}"`,
-		`rango: "${metadata.rank}"`,
-		`fecha_publicacion: "${metadata.publishedAt}"`,
-		`ultima_actualizacion: "${versionDate}"`,
-		`estado: "${metadata.status}"`,
-		`departamento: "${escapeYaml(metadata.department)}"`,
-		`fuente: "${metadata.source}"`,
-	];
+	const data: Record<string, unknown> = {
+		titulo: title,
+		identificador: metadata.id,
+		pais: metadata.country,
+		jurisdiccion: jurisdiction,
+		rango: metadata.rank,
+		fecha_publicacion: metadata.publishedAt,
+		ultima_actualizacion: versionDate,
+		estado: metadata.status,
+		departamento: metadata.department,
+		fuente: metadata.source,
+	};
 
 	if (metadata.pdfUrl) {
-		lines.push(`pdf: "${metadata.pdfUrl}"`);
+		data.pdf = metadata.pdfUrl;
 	}
 
-	lines.push("---", "");
+	// Article count (blocks of type "precepto" are articles)
+	data.articulos = blocks.filter((b) => b.type === "precepto").length;
 
-	return lines.join("\n");
-}
+	// Reform timeline
+	if (reforms.length > 0) {
+		data.reformas = reforms.map((r) => ({
+			fecha: r.date,
+			fuente: r.normId,
+		}));
+	}
 
-function escapeYaml(text: string): string {
-	return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ");
+	// Analisis data (if available from enriched JSON cache)
+	if (analisis) {
+		if (analisis.materias.length > 0) {
+			data.materias = analisis.materias;
+		}
+		if (analisis.notas.length > 0) {
+			data.notas = analisis.notas;
+		}
+		if (analisis.referencias.anteriores.length > 0) {
+			data.referencias_anteriores = analisis.referencias.anteriores.map(
+				(r) => ({
+					norma: r.normId,
+					relacion: r.relation,
+					texto: r.text,
+				}),
+			);
+		}
+		if (analisis.referencias.posteriores.length > 0) {
+			data.referencias_posteriores = analisis.referencias.posteriores.map(
+				(r) => ({
+					norma: r.normId,
+					relacion: r.relation,
+					texto: r.text,
+				}),
+			);
+		}
+	}
+
+	const yamlStr = yaml.dump(data, {
+		lineWidth: -1,
+		quotingType: '"',
+		forceQuotes: false,
+	});
+
+	return `---\n${yamlStr}---\n\n`;
 }
 
 function cleanTitle(title: string): string {

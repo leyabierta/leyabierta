@@ -136,15 +136,86 @@ async function main() {
 	// Launch workers
 	await Promise.all(Array.from({ length: concurrency }, (_, i) => worker(i)));
 
-	// Cleanup
+	// Cleanup network clients
 	for (const c of clients) await c.close();
-	db.close();
 
-	const elapsed = Math.round((Date.now() - startTime) / 1000);
-	console.log("\n─── Analisis Ingest Summary ───");
+	const fetchElapsed = Math.round((Date.now() - startTime) / 1000);
+	console.log("\n─── Analisis Fetch Summary ───");
 	console.log(`Done:   ${done}`);
 	console.log(`Errors: ${errors}`);
-	console.log(`Time:   ${Math.floor(elapsed / 60)}m ${elapsed % 60}s`);
+	console.log(`Time:   ${Math.floor(fetchElapsed / 60)}m ${fetchElapsed % 60}s`);
+
+	// ── Enrich JSON cache with analisis data ──
+	const jsonDir = process.argv.includes("--json")
+		? process.argv[process.argv.indexOf("--json") + 1]!
+		: "./data/json";
+
+	console.log(`\nEnriching JSON cache in ${jsonDir}...`);
+
+	const queryMaterias = db.prepare<{ materia: string }, [string]>(
+		"SELECT materia FROM materias WHERE norm_id = ? ORDER BY materia",
+	);
+	const queryNotas = db.prepare<{ nota: string }, [string]>(
+		"SELECT nota FROM notas WHERE norm_id = ? ORDER BY position",
+	);
+	const queryRefsAnt = db.prepare<
+		{ relation: string; target_id: string; text: string },
+		[string]
+	>(
+		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'anterior'",
+	);
+	const queryRefsPost = db.prepare<
+		{ relation: string; target_id: string; text: string },
+		[string]
+	>(
+		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'posterior'",
+	);
+
+	let enriched = 0;
+	let enrichErrors = 0;
+
+	for (const { id: normId } of norms) {
+		const jsonPath = `${jsonDir}/${normId}.json`;
+		try {
+			const file = Bun.file(jsonPath);
+			if (!(await file.exists())) continue;
+
+			const data = await file.json();
+			const materias = queryMaterias.all(normId).map((r) => r.materia);
+			const notas = queryNotas.all(normId).map((r) => r.nota);
+			const anteriores = queryRefsAnt.all(normId).map((r) => ({
+				normId: r.target_id,
+				relation: r.relation,
+				text: r.text,
+			}));
+			const posteriores = queryRefsPost.all(normId).map((r) => ({
+				normId: r.target_id,
+				relation: r.relation,
+				text: r.text,
+			}));
+
+			// Only add analisis key if there's any data
+			if (materias.length > 0 || notas.length > 0 || anteriores.length > 0 || posteriores.length > 0) {
+				data.analisis = {
+					materias,
+					notas,
+					referencias: { anteriores, posteriores },
+				};
+				await Bun.write(jsonPath, JSON.stringify(data, null, 2));
+				enriched++;
+			}
+		} catch {
+			enrichErrors++;
+		}
+	}
+
+	db.close();
+
+	console.log(`Enriched: ${enriched} JSON files`);
+	if (enrichErrors > 0) console.log(`Enrich errors: ${enrichErrors}`);
+
+	const totalElapsed = Math.round((Date.now() - startTime) / 1000);
+	console.log(`\nTotal time: ${Math.floor(totalElapsed / 60)}m ${totalElapsed % 60}s`);
 }
 
 main().catch((err) => {

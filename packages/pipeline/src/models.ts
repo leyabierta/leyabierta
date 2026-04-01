@@ -80,10 +80,28 @@ export interface Reform {
 	readonly affectedBlockIds: readonly string[];
 }
 
+export interface NormAnalisis {
+	readonly materias: string[];
+	readonly notas: string[];
+	readonly referencias: {
+		readonly anteriores: ReadonlyArray<{
+			normId: string;
+			relation: string;
+			text: string;
+		}>;
+		readonly posteriores: ReadonlyArray<{
+			normId: string;
+			relation: string;
+			text: string;
+		}>;
+	};
+}
+
 export interface Norm {
 	readonly metadata: NormMetadata;
 	readonly blocks: readonly Block[];
 	readonly reforms: readonly Reform[];
+	readonly analisis?: NormAnalisis;
 }
 
 // ─── Git commit ───

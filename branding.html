@@ -1,1011 +1,401 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ley Abierta — Brand Guide</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      /* ── Ink system ── */
-      --ink-900: #0b1120;
-      --ink-800: #152038;
-      --ink-700: #1f3050;
-      --ink-500: #4a6078;
-      --ink-400: #6b8299;
-      --ink-300: #94a7b8;
-      --ink-200: #c4ced8;
-      --ink-100: #e8ecf0;
-      --ink-50:  #f4f6f8;
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ley Abierta — Brand Guidelines</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-      /* ── Brand blue — institutional, not tech ── */
-      --azul: #1a3f7a;
-      --azul-bright: #2b5ea7;
-      --azul-light: #4a80c4;
-      --azul-wash: #e6eef8;
-      --azul-faint: #f2f6fb;
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-      /* ── Warm ground — parchment feel ── */
-      --tierra: #f7f4ef;
-      --tierra-warm: #efe9de;
-      --tierra-deep: #d9cdb8;
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background: #f4f4f2;
+    color: #0b1120;
+    line-height: 1.6;
+  }
 
-      /* ── Semantic ── */
-      --vigente: #1a7a4e;
-      --vigente-wash: #e3f4ec;
-      --reforma: #b8860b;
-      --reforma-wash: #fdf5e0;
-      --derogada: #b91c1c;
-      --derogada-wash: #fde8e8;
+  .page { max-width: 1200px; margin: 0 auto; padding: 60px 40px; }
+  section { margin-bottom: 80px; }
+  h1 { font-family: "Source Serif 4", Georgia, serif; font-size: 48px; font-weight: 700; color: #1a365d; margin-bottom: 8px; }
+  .subtitle { font-size: 20px; color: #6b8299; margin-bottom: 60px; }
+  h2 { font-family: "Source Serif 4", Georgia, serif; font-size: 28px; font-weight: 700; color: #0b1120; margin-bottom: 8px; }
+  h2 .num { color: #6b8299; font-weight: 400; margin-right: 8px; }
+  .section-desc { font-size: 15px; color: #6b8299; margin-bottom: 32px; }
+  h3 { font-size: 13px; font-weight: 600; color: #6b8299; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
 
-      --white: #ffffff;
-      --border: #dfe3e8;
-      --shadow-s: 0 1px 3px rgba(11,17,32,0.06);
-      --shadow-m: 0 4px 16px rgba(11,17,32,0.08);
-    }
+  /* Logo */
+  .logo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+  .logo-card { border-radius: 16px; padding: 48px 32px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 20px; min-height: 240px; }
+  .logo-card.light { background: #fafaf8; border: 1px solid #e8ecf0; }
+  .logo-card.dark { background: #1a365d; }
+  .logo-card.navy { background: #0b1120; }
+  .logo-card img { max-height: 100px; }
+  .logo-card .favicon { max-height: 64px; }
+  .logo-label { font-size: 12px; color: #6b8299; text-transform: uppercase; letter-spacing: 0.08em; }
+  .logo-card.dark .logo-label, .logo-card.navy .logo-label { color: rgba(255,255,255,0.5); }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+  .symbol-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 32px; }
+  .symbol-card { background: #fafaf8; border: 1px solid #e8ecf0; border-radius: 12px; padding: 32px; }
+  .symbol-card h4 { font-family: "Source Serif 4", serif; font-size: 18px; margin-bottom: 8px; color: #1a365d; }
+  .symbol-card p { font-size: 14px; color: #4a6078; line-height: 1.7; }
 
-    body {
-      font-family: 'Inter', -apple-system, sans-serif;
-      color: var(--ink-900);
-      background: var(--white);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
+  /* Colors */
+  .color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .color-card { border-radius: 12px; overflow: hidden; border: 1px solid #e8ecf0; }
+  .color-swatch { height: 100px; }
+  .color-info { background: white; padding: 14px 16px; }
+  .color-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .color-hex { font-family: "JetBrains Mono", monospace; font-size: 13px; color: #6b8299; }
+  .color-role { font-size: 12px; color: #6b8299; margin-top: 4px; }
+  .color-secondary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
+  .color-small { border-radius: 10px; overflow: hidden; border: 1px solid #e8ecf0; }
+  .color-small .swatch { height: 56px; }
+  .color-small .info { background: white; padding: 10px 12px; }
+  .color-small .info .name { font-size: 13px; font-weight: 500; }
+  .color-small .info .hex { font-family: "JetBrains Mono", monospace; font-size: 12px; color: #6b8299; }
 
-    /* ── Nav ── */
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      background: rgba(255,255,255,0.88);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-inner {
-      max-width: 1120px; margin: 0 auto;
-      display: flex; align-items: center; gap: 1.75rem;
-      height: 52px; padding: 0 2rem; overflow-x: auto;
-    }
-    .nav-brand { font-family: 'Source Serif 4',serif; font-weight: 700; font-size: 1rem; color: var(--ink-900); text-decoration: none; margin-right: auto; }
-    .nav-brand span { color: var(--azul); }
-    nav a { color: var(--ink-400); text-decoration: none; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
-    nav a:hover { color: var(--azul); }
+  /* Typography */
+  .type-specimen { background: #fafaf8; border: 1px solid #e8ecf0; border-radius: 12px; padding: 40px; margin-bottom: 24px; }
+  .type-name { font-size: 12px; font-weight: 600; color: #6b8299; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+  .type-sample-serif { font-family: "Source Serif 4", Georgia, serif; }
+  .type-sample-sans { font-family: "Inter", system-ui, sans-serif; }
+  .type-sample-mono { font-family: "JetBrains Mono", monospace; }
+  .type-row { display: flex; align-items: baseline; gap: 24px; margin-bottom: 12px; flex-wrap: wrap; }
+  .type-weight { font-size: 12px; color: #6b8299; min-width: 80px; font-family: "JetBrains Mono", monospace; }
+  .type-use { font-size: 12px; color: #1a365d; background: #e6eef8; padding: 2px 8px; border-radius: 4px; margin-left: auto; white-space: nowrap; }
 
-    /* ── Section basics ── */
-    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 2rem; }
-    .label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--azul); }
-    h2 { font-family: 'Source Serif 4',serif; font-weight: 700; line-height: 1.15; color: var(--ink-900); }
-    .lead { font-size: 1.05rem; color: var(--ink-500); max-width: 580px; line-height: 1.7; }
+  /* Voice */
+  .voice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .voice-card { border-radius: 12px; padding: 28px; }
+  .voice-card.do { background: #e3f4ec; border: 1px solid #b8e0cc; }
+  .voice-card.dont { background: #fde8e8; border: 1px solid #f5c6c6; }
+  .voice-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .voice-card.do h4 { color: #1a7a4e; }
+  .voice-card.dont h4 { color: #b91c1c; }
+  .voice-card ul { list-style: none; font-size: 14px; color: #4a6078; }
+  .voice-card ul li { margin-bottom: 8px; padding-left: 20px; position: relative; }
+  .voice-card.do ul li::before { content: "✓"; position: absolute; left: 0; color: #1a7a4e; font-weight: 700; }
+  .voice-card.dont ul li::before { content: "✗"; position: absolute; left: 0; color: #b91c1c; font-weight: 700; }
 
-    /* ═══════════════════════════════════════ */
-    /* HERO — asymmetric, not centered        */
-    /* ═══════════════════════════════════════ */
-    .hero {
-      padding: 8rem 2rem 6rem;
-      background: var(--tierra);
-      border-bottom: 1px solid var(--tierra-deep);
-    }
-    .hero-inner {
-      max-width: 1120px; margin: 0 auto;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
-    }
-    .hero h1 {
-      font-family: 'Source Serif 4',serif;
-      font-size: 3.2rem; font-weight: 700; line-height: 1.08;
-      color: var(--ink-900);
-    }
-    .hero h1 em { font-style: normal; color: var(--azul); }
-    .hero .lead { margin-top: 1.25rem; }
-    .hero-emblem {
-      display: flex; justify-content: center; align-items: center;
-    }
-    @media (max-width: 768px) {
-      .hero-inner { grid-template-columns: 1fr; gap: 2rem; text-align: center; }
-      .hero h1 { font-size: 2.2rem; }
-      .hero-emblem { order: -1; }
-    }
+  /* Components */
+  .component-demo { background: #fafaf8; border: 1px solid #e8ecf0; border-radius: 12px; padding: 32px; margin-bottom: 24px; }
+  .navbar-demo { background: white; border: 1px solid #e8ecf0; border-radius: 10px; padding: 0 20px; display: flex; align-items: center; height: 56px; gap: 24px; }
+  .navbar-logo { display: flex; align-items: center; gap: 8px; font-family: "Source Serif 4", serif; font-size: 18px; font-weight: 700; color: #0b1120; text-decoration: none; }
+  .navbar-logo img { height: 28px; border-radius: 4px; }
+  .navbar-logo .a { color: #1a365d; }
+  .navbar-links { display: flex; gap: 20px; margin-left: auto; }
+  .navbar-links a { font-size: 13px; color: #6b8299; text-decoration: none; font-weight: 500; }
+  .stat-demo { display: flex; gap: 16px; }
+  .stat-pill { background: #e6eef8; border-radius: 8px; padding: 10px 22px; font-size: 16px; color: #1a365d; }
+  .change-demo { background: white; border: 1px solid #e8ecf0; border-radius: 10px; padding: 20px 24px; max-width: 500px; }
+  .change-title { font-weight: 600; font-size: 15px; margin-bottom: 10px; }
+  .change-date { font-size: 13px; color: #6b8299; margin-bottom: 8px; }
+  .change-old { color: #b91c1c; text-decoration: line-through; font-size: 14px; }
+  .change-new { color: #1a7a4e; font-weight: 500; font-size: 14px; }
+  .footer-demo { background: #1a365d; border-radius: 10px; padding: 24px 32px; color: white; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-demo a { color: rgba(255,255,255,0.7); text-decoration: none; }
 
-    /* ═══════════════════════════════════════ */
-    /* LOGO SECTION                           */
-    /* ═══════════════════════════════════════ */
-    .sec-logo { padding: 5rem 0; }
-    .logo-variants {
-      margin-top: 3rem;
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
-    }
-    @media (max-width: 768px) { .logo-variants { grid-template-columns: 1fr; } }
-    .logo-var {
-      border: 2px solid var(--border); border-radius: 12px;
-      display: flex; flex-direction: column; overflow: hidden;
-      transition: border-color 0.2s;
-    }
-    .logo-var:hover { border-color: var(--azul-light); }
-    .logo-var-display {
-      height: 240px; display: flex; align-items: center; justify-content: center;
-      padding: 2rem;
-    }
-    .logo-var-display.on-dark { background: var(--ink-900); }
-    .logo-var-display.on-warm { background: var(--tierra); }
-    .logo-var-info {
-      padding: 1.25rem 1.5rem; border-top: 1px solid var(--border);
-    }
-    .logo-var-info h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.35rem; }
-    .logo-var-info p { font-size: 0.8rem; color: var(--ink-500); line-height: 1.5; }
-    .logo-var-tag {
-      display: inline-block; margin-top: 0.5rem;
-      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.06em;
-      text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 4px;
-    }
-    .tag-minimal { background: var(--azul-wash); color: var(--azul); }
-    .tag-institutional { background: var(--tierra-warm); color: #8b6914; }
-    .tag-playful { background: var(--vigente-wash); color: var(--vigente); }
-
-    /* logo exclusion zone */
-    .exclusion-demo {
-      margin-top: 3rem; padding: 2rem;
-      background: var(--ink-50); border-radius: 8px;
-      display: flex; align-items: center; gap: 2rem;
-    }
-    .exclusion-demo p { font-size: 0.85rem; color: var(--ink-500); max-width: 400px; line-height: 1.6; }
-
-    /* ═══════════════════════════════════════ */
-    /* COLORS — alternating layout            */
-    /* ═══════════════════════════════════════ */
-    .sec-colors { padding: 5rem 0; border-top: 1px solid var(--border); }
-
-    .color-group { margin-top: 2.5rem; }
-    .color-group-title { font-size: 0.8rem; font-weight: 600; color: var(--ink-500); margin-bottom: 1rem; }
-
-    .color-row {
-      display: flex; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
-    }
-    .color-cell {
-      flex: 1; padding: 1.5rem 1.25rem; min-height: 120px;
-      display: flex; flex-direction: column; justify-content: flex-end; gap: 0.25rem;
-    }
-    .color-cell .cn { font-size: 0.8rem; font-weight: 600; }
-    .color-cell .cv { font-family: 'JetBrains Mono',monospace; font-size: 0.7rem; opacity: 0.7; }
-    .color-cell .cu { font-size: 0.7rem; opacity: 0.6; }
-
-    .semantic-row {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;
-    }
-    .semantic-card {
-      border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.25rem;
-    }
-    .semantic-card .cn { font-size: 0.8rem; font-weight: 600; }
-    .semantic-card .cv { font-family: 'JetBrains Mono',monospace; font-size: 0.7rem; }
-    .semantic-card .cu { font-size: 0.7rem; }
-
-    @media (max-width: 640px) { .semantic-row { grid-template-columns: 1fr; } }
-
-    /* ═══════════════════════════════════════ */
-    /* TYPOGRAPHY — specimen style             */
-    /* ═══════════════════════════════════════ */
-    .sec-type { padding: 5rem 0; background: var(--ink-50); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-
-    .type-pair {
-      margin-top: 3rem;
-      display: grid; grid-template-columns: 200px 1fr; gap: 2rem; align-items: start;
-    }
-    @media (max-width: 640px) { .type-pair { grid-template-columns: 1fr; } }
-    .type-meta { position: sticky; top: 80px; }
-    .type-meta h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
-    .type-meta p { font-size: 0.75rem; color: var(--ink-400); line-height: 1.5; }
-
-    .type-show { display: flex; flex-direction: column; gap: 1rem; }
-    .ts-display {
-      font-family: 'Source Serif 4',serif; font-size: 3rem; font-weight: 700;
-      line-height: 1.05; color: var(--ink-900);
-    }
-    .ts-body { font-size: 1rem; line-height: 1.8; color: var(--ink-700); max-width: 540px; }
-    .ts-mono {
-      font-family: 'JetBrains Mono',monospace; font-size: 0.85rem; line-height: 1.7;
-      color: #8ec07c; background: var(--ink-900); padding: 1.5rem; border-radius: 6px;
-    }
-    .ts-mono .kw { color: var(--azul-light); }
-    .ts-mono .str { color: #d3a04d; }
-    .ts-mono .comment { color: var(--ink-500); }
-
-    .type-scale-compact {
-      display: flex; flex-direction: column; gap: 0;
-      border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--white);
-    }
-    .tsc-row {
-      display: flex; align-items: baseline; gap: 1rem;
-      padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
-    }
-    .tsc-row:last-child { border-bottom: none; }
-    .tsc-size { font-family: 'JetBrains Mono',monospace; font-size: 0.65rem; color: var(--ink-400); min-width: 72px; }
-
-    /* ═══════════════════════════════════════ */
-    /* VOICE — editorial, not cards            */
-    /* ═══════════════════════════════════════ */
-    .sec-voice { padding: 5rem 0; }
-
-    .voice-manifesto {
-      margin-top: 2.5rem; max-width: 640px;
-    }
-    .voice-manifesto p {
-      font-family: 'Source Serif 4',serif;
-      font-size: 1.35rem; line-height: 1.65; color: var(--ink-700);
-      margin-bottom: 1.5rem;
-    }
-    .voice-manifesto strong { color: var(--ink-900); font-weight: 600; }
-
-    .voice-examples {
-      margin-top: 3rem;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 0;
-      border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
-    }
-    @media (max-width: 640px) { .voice-examples { grid-template-columns: 1fr; } }
-    .ve-col { padding: 2rem; }
-    .ve-col:first-child { border-right: 1px solid var(--border); background: var(--white); }
-    .ve-col:last-child { background: var(--ink-50); }
-    @media (max-width: 640px) { .ve-col:first-child { border-right: none; border-bottom: 1px solid var(--border); } }
-    .ve-col h4 {
-      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
-      text-transform: uppercase; margin-bottom: 1.25rem;
-    }
-    .ve-col:first-child h4 { color: var(--vigente); }
-    .ve-col:last-child h4 { color: var(--derogada); }
-    .ve-col blockquote {
-      font-size: 0.875rem; color: var(--ink-700); line-height: 1.6;
-      padding: 0.75rem 0; border-bottom: 1px solid var(--border);
-    }
-    .ve-col blockquote:last-child { border-bottom: none; }
-
-    /* ═══════════════════════════════════════ */
-    /* ICONS                                   */
-    /* ═══════════════════════════════════════ */
-    .sec-icons { padding: 5rem 0; border-top: 1px solid var(--border); background: var(--tierra); }
-    .icon-strip {
-      margin-top: 2.5rem;
-      display: flex; gap: 2.5rem; flex-wrap: wrap;
-    }
-    .icon-item {
-      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
-      width: 72px;
-    }
-    .icon-item svg { width: 28px; height: 28px; }
-    .icon-item span { font-size: 0.65rem; font-weight: 500; color: var(--ink-400); text-transform: uppercase; letter-spacing: 0.04em; }
-
-    /* ═══════════════════════════════════════ */
-    /* COMPONENTS                               */
-    /* ═══════════════════════════════════════ */
-    .sec-components { padding: 5rem 0; border-top: 1px solid var(--border); }
-
-    .comp-group { margin-top: 2.5rem; }
-    .comp-group-title { font-size: 0.75rem; font-weight: 600; color: var(--ink-400); margin-bottom: 1rem; letter-spacing: 0.03em; }
-    .comp-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
-
-    .btn {
-      display: inline-flex; align-items: center; gap: 0.4rem;
-      padding: 0.6rem 1.25rem; border-radius: 6px;
-      font-family: 'Inter',sans-serif; font-size: 0.8rem; font-weight: 600;
-      text-decoration: none; border: none; cursor: pointer; transition: all 0.15s;
-    }
-    .btn-primary { background: var(--azul); color: white; }
-    .btn-primary:hover { background: var(--azul-bright); }
-    .btn-outline { background: transparent; color: var(--ink-900); border: 1.5px solid var(--ink-200); }
-    .btn-outline:hover { border-color: var(--ink-500); }
-    .btn-text { background: transparent; color: var(--azul); padding: 0.6rem 0.5rem; }
-    .btn-text:hover { text-decoration: underline; }
-
-    .badge {
-      display: inline-flex; align-items: center; gap: 0.3rem;
-      padding: 0.2rem 0.55rem; border-radius: 4px;
-      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
-    }
-    .badge-vigente { background: var(--vigente-wash); color: var(--vigente); }
-    .badge-derogada { background: var(--derogada-wash); color: var(--derogada); }
-    .badge-reforma { background: var(--reforma-wash); color: var(--reforma); }
-
-    .tag {
-      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px;
-      font-size: 0.7rem; font-weight: 500;
-      background: var(--azul-wash); color: var(--azul);
-    }
-
-    /* Law card */
-    .law-card {
-      max-width: 520px; margin-top: 2rem;
-      border: 1px solid var(--border); border-radius: 10px;
-      overflow: hidden; transition: box-shadow 0.2s;
-    }
-    .law-card:hover { box-shadow: var(--shadow-m); }
-    .law-card-top {
-      padding: 1.5rem 1.5rem 0;
-      display: flex; justify-content: space-between; align-items: start; gap: 1rem;
-    }
-    .law-card-title {
-      font-family: 'Source Serif 4',serif;
-      font-size: 1.1rem; font-weight: 600; line-height: 1.3; color: var(--ink-900);
-    }
-    .law-card-meta {
-      padding: 0.5rem 1.5rem;
-      font-size: 0.75rem; color: var(--ink-400);
-      display: flex; gap: 1rem;
-    }
-    .law-card-tags { padding: 0 1.5rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
-    .law-card-id {
-      font-family: 'JetBrains Mono',monospace; font-size: 0.65rem;
-      color: var(--ink-400); background: var(--ink-50); padding: 0.15rem 0.4rem; border-radius: 3px;
-    }
-    .law-card-excerpt {
-      padding: 1rem 1.5rem 1.5rem;
-      font-size: 0.85rem; color: var(--ink-500); line-height: 1.6;
-      border-top: 1px solid var(--border); margin-top: 0.75rem;
-    }
-
-    /* Diff */
-    .diff-box {
-      max-width: 560px; margin-top: 2rem;
-      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
-    }
-    .diff-head {
-      background: var(--ink-50); padding: 0.6rem 1rem;
-      font-size: 0.75rem; font-weight: 600; color: var(--ink-500);
-      border-bottom: 1px solid var(--border);
-    }
-    .diff-body {
-      font-family: 'JetBrains Mono',monospace; font-size: 0.75rem; line-height: 1.85; padding: 0.75rem 0;
-    }
-    .dl { padding: 0.05rem 1rem; }
-    .dl-ctx { color: var(--ink-400); }
-    .dl-del { background: #fce8e8; color: #8b2020; }
-    .dl-add { background: #e8f5ec; color: #1a5c36; }
-
-    /* ═══════════════════════════════════════ */
-    /* TAGLINES                                */
-    /* ═══════════════════════════════════════ */
-    .sec-taglines { padding: 5rem 0; border-top: 1px solid var(--border); background: var(--ink-900); color: var(--white); }
-    .sec-taglines .label { color: var(--azul-light); }
-    .sec-taglines h2 { color: var(--white); }
-
-    .tagline-list {
-      margin-top: 3rem;
-      display: flex; flex-direction: column; gap: 0;
-    }
-    .tagline-item {
-      padding: 2rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: grid; grid-template-columns: 1fr 200px; gap: 2rem; align-items: baseline;
-    }
-    @media (max-width: 640px) { .tagline-item { grid-template-columns: 1fr; gap: 0.5rem; } }
-    .tagline-item:last-child { border-bottom: none; }
-    .tagline-text {
-      font-family: 'Source Serif 4',serif;
-      font-size: 1.75rem; font-weight: 600; line-height: 1.25;
-    }
-    .tagline-use { font-size: 0.75rem; color: var(--ink-300); text-align: right; }
-    @media (max-width: 640px) { .tagline-use { text-align: left; } }
-
-    /* ═══════════════════════════════════════ */
-    /* SPACING & RADIUS                        */
-    /* ═══════════════════════════════════════ */
-    .sec-spacing { padding: 5rem 0; border-top: 1px solid var(--border); }
-    .spacing-strip {
-      display: flex; gap: 1.25rem; align-items: flex-end; flex-wrap: wrap; margin-top: 2rem;
-    }
-    .sp-unit {
-      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
-    }
-    .sp-box {
-      background: var(--azul-wash); border: 1.5px solid var(--azul-light);
-    }
-    .sp-unit span { font-family: 'JetBrains Mono',monospace; font-size: 0.65rem; color: var(--ink-400); }
-
-    .radius-strip {
-      display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 2.5rem;
-    }
-    .rad-unit {
-      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
-    }
-    .rad-box {
-      width: 64px; height: 64px;
-      background: var(--azul-wash); border: 1.5px solid var(--azul-light);
-    }
-    .rad-unit span { font-family: 'JetBrains Mono',monospace; font-size: 0.65rem; color: var(--ink-400); }
-
-    /* ═══════════════════════════════════════ */
-    /* FOOTER                                  */
-    /* ═══════════════════════════════════════ */
-    footer {
-      padding: 3rem 2rem; text-align: center;
-      background: var(--tierra);
-      font-size: 0.8rem; color: var(--ink-400);
-      border-top: 1px solid var(--tierra-deep);
-    }
-    footer strong { color: var(--ink-900); }
-  </style>
+  .spacer { height: 24px; }
+  .preview-frame { border-radius: 12px; overflow: hidden; border: 1px solid #e8ecf0; max-width: 640px; }
+  .preview-frame img { width: 100%; display: block; }
+  hr { border: none; border-top: 1px solid #e8ecf0; margin: 80px 0; }
+</style>
 </head>
 <body>
+<div class="page">
 
-<!-- ── Nav ── -->
-<nav>
-  <div class="nav-inner">
-    <a href="#" class="nav-brand">Ley <span>Libre</span></a>
-    <a href="#logo">Logo</a>
-    <a href="#colors">Color</a>
-    <a href="#type">Tipo</a>
-    <a href="#voice">Voz</a>
-    <a href="#icons">Iconos</a>
-    <a href="#components">UI</a>
-    <a href="#taglines">Taglines</a>
-  </div>
-</nav>
+  <h1>Ley Abierta</h1>
+  <p class="subtitle">Brand Guidelines — Abril 2026</p>
 
-<!-- ═══════════════════════════════════════════════ -->
-<!-- HERO — asymmetric, left-aligned text           -->
-<!-- ═══════════════════════════════════════════════ -->
-<div class="hero">
-  <div class="hero-inner">
-    <div>
-      <p class="label" style="margin-bottom:1rem;">Brand Guide 2026</p>
-      <h1>La ley pertenece<br>al <em>pueblo</em>.</h1>
-      <p class="lead" style="margin-top:1.25rem;">
-        Identidad visual y verbal de Ley Abierta, motor open source que convierte
-        legislacion oficial en Markdown versionado con Git.
-      </p>
+  <!-- 01. Logo -->
+  <section>
+    <h2><span class="num">01</span> Logo</h2>
+    <p class="section-desc">El logo combina tipografía institucional con una puerta abierta integrada en la letra A, simbolizando el acceso abierto a la legislación. Siempre se usa el logo completo; el favicon es la única excepción.</p>
+
+    <h3>Variantes</h3>
+    <div class="logo-grid">
+      <div class="logo-card light">
+        <img src="/Users/alex/Downloads/CleanShot_2026-04-01_at_16.42.57-removebg-preview.png" />
+        <span class="logo-label">Principal — fondo claro</span>
+      </div>
+      <div class="logo-card dark">
+        <img src="/Users/alex/Downloads/CleanShot_2026-04-01_at_16.42.57-removebg-preview.png" style="filter: brightness(0) invert(1);" />
+        <span class="logo-label">Invertido — fondo azul</span>
+      </div>
+      <div class="logo-card navy">
+        <img src="/Users/alex/Downloads/CleanShot_2026-04-01_at_16.42.57-removebg-preview.png" style="filter: brightness(0) invert(1);" />
+        <span class="logo-label">Invertido — fondo oscuro</span>
+      </div>
     </div>
-    <div class="hero-emblem">
-      <img src="branding/logo-book-scales.jpg" alt="Ley Abierta — logomark: balanza de justicia sobre libro abierto" width="200" height="200" style="border-radius: 12px; object-fit: contain;">
+
+    <div class="spacer"></div>
+
+    <h3>Favicon / App Icon</h3>
+    <div class="logo-grid">
+      <div class="logo-card light">
+        <img class="favicon" src="/Users/alex/Desktop/CleanShot 2026-04-01 at 16.42.59.png" />
+        <span class="logo-label">48px — favicon</span>
+      </div>
+      <div class="logo-card light" style="background: #e8ecf0;">
+        <img class="favicon" src="/Users/alex/Desktop/CleanShot 2026-04-01 at 16.42.59.png" />
+        <span class="logo-label">48px — fondo gris</span>
+      </div>
+      <div class="logo-card navy">
+        <div style="background: white; border-radius: 12px; padding: 8px; display: inline-flex;">
+          <img src="/Users/alex/Desktop/CleanShot 2026-04-01 at 16.42.59.png" style="height: 48px;" />
+        </div>
+        <span class="logo-label">Con contenedor blanco</span>
+      </div>
     </div>
-  </div>
+
+    <div class="symbol-grid">
+      <div class="symbol-card">
+        <h4>La puerta abierta</h4>
+        <p>La A del logo es una puerta entreabierta. Representa el acceso abierto: las leyes pertenecen a todos, y Ley Abierta es la puerta de entrada para consultarlas. No es un símbolo técnico — es una invitación.</p>
+      </div>
+      <div class="symbol-card">
+        <h4>Tipografía serif</h4>
+        <p>Las letras en serif evocan autoridad institucional y tradición legal, igual que los boletines oficiales. Transmite confianza: esto es una fuente seria, no un experimento.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 02. Colors -->
+  <section>
+    <h2><span class="num">02</span> Colores</h2>
+    <p class="section-desc">Paleta institucional. El azul transmite confianza y autoridad. Los acentos semánticos comunican estado sin necesidad de texto.</p>
+
+    <h3>Colores principales</h3>
+    <div class="color-grid">
+      <div class="color-card">
+        <div class="color-swatch" style="background: #1a365d;"></div>
+        <div class="color-info">
+          <div class="color-name">Azul institucional</div>
+          <div class="color-hex">#1a365d</div>
+          <div class="color-role">Accent, enlaces, barra nav</div>
+        </div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background: #0b1120;"></div>
+        <div class="color-info">
+          <div class="color-name">Texto principal</div>
+          <div class="color-hex">#0b1120</div>
+          <div class="color-role">Títulos, cuerpo de texto</div>
+        </div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background: #fafaf8;"></div>
+        <div class="color-info">
+          <div class="color-name">Fondo</div>
+          <div class="color-hex">#fafaf8</div>
+          <div class="color-role">Background principal</div>
+        </div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background: #4a6078;"></div>
+        <div class="color-info">
+          <div class="color-name">Texto secundario</div>
+          <div class="color-hex">#4a6078</div>
+          <div class="color-role">Descripciones, metadata</div>
+        </div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background: #6b8299;"></div>
+        <div class="color-info">
+          <div class="color-name">Texto muted</div>
+          <div class="color-hex">#6b8299</div>
+          <div class="color-role">Etiquetas, fechas</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <h3>Colores semánticos</h3>
+    <div class="color-secondary">
+      <div class="color-small">
+        <div class="swatch" style="background: #e6eef8;"></div>
+        <div class="info"><div class="name">Accent background</div><div class="hex">#e6eef8</div></div>
+      </div>
+      <div class="color-small">
+        <div class="swatch" style="background: #1a7a4e;"></div>
+        <div class="info"><div class="name">Añadido / Vigente</div><div class="hex">#1a7a4e</div></div>
+      </div>
+      <div class="color-small">
+        <div class="swatch" style="background: #b91c1c;"></div>
+        <div class="info"><div class="name">Eliminado / Derogado</div><div class="hex">#b91c1c</div></div>
+      </div>
+      <div class="color-small">
+        <div class="swatch" style="background: #b8860b;"></div>
+        <div class="info"><div class="name">Advertencia</div><div class="hex">#b8860b</div></div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 03. Typography -->
+  <section>
+    <h2><span class="num">03</span> Tipografía</h2>
+    <p class="section-desc">Tres familias con roles claros. Serif para autoridad, sans para legibilidad, mono para datos técnicos.</p>
+
+    <div class="type-specimen">
+      <div class="type-name">Source Serif 4 — Títulos y encabezados</div>
+      <div class="type-row">
+        <span class="type-weight">700</span>
+        <span class="type-sample-serif" style="font-size: 36px; font-weight: 700;">Constitución Española</span>
+        <span class="type-use">h1, títulos de ley</span>
+      </div>
+      <div class="type-row">
+        <span class="type-weight">600</span>
+        <span class="type-sample-serif" style="font-size: 24px; font-weight: 600;">Artículo 49. Personas con discapacidad</span>
+        <span class="type-use">h2, secciones</span>
+      </div>
+      <div class="type-row">
+        <span class="type-weight">400</span>
+        <span class="type-sample-serif" style="font-size: 18px; font-weight: 400;">Los poderes públicos realizarán una política de previsión</span>
+        <span class="type-use">texto legal</span>
+      </div>
+    </div>
+
+    <div class="type-specimen">
+      <div class="type-name">Inter — Cuerpo y UI</div>
+      <div class="type-row">
+        <span class="type-weight">600</span>
+        <span class="type-sample-sans" style="font-size: 16px; font-weight: 600;">Más de 12.000 leyes desde 1835</span>
+        <span class="type-use">stats, labels</span>
+      </div>
+      <div class="type-row">
+        <span class="type-weight">500</span>
+        <span class="type-sample-sans" style="font-size: 14px; font-weight: 500;">Buscar leyes · Alertas · Resúmenes</span>
+        <span class="type-use">navegación</span>
+      </div>
+      <div class="type-row">
+        <span class="type-weight">400</span>
+        <span class="type-sample-sans" style="font-size: 14px; font-weight: 400;">Publicada el 29 de diciembre de 1978 · Última modificación: febrero 2024</span>
+        <span class="type-use">metadata, descripciones</span>
+      </div>
+    </div>
+
+    <div class="type-specimen">
+      <div class="type-name">JetBrains Mono — Datos técnicos</div>
+      <div class="type-row">
+        <span class="type-weight">500</span>
+        <span class="type-sample-mono" style="font-size: 16px; font-weight: 500;">BOE-A-1978-31229</span>
+        <span class="type-use">IDs de norma</span>
+      </div>
+      <div class="type-row">
+        <span class="type-weight">400</span>
+        <span class="type-sample-mono" style="font-size: 14px;">GET /v1/laws/:id</span>
+        <span class="type-use">API, código</span>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 04. Voice -->
+  <section>
+    <h2><span class="num">04</span> Voz y tono</h2>
+    <p class="section-desc">Ley Abierta habla para ciudadanos, no para abogados ni desarrolladores. Claro, directo, sin jerga.</p>
+
+    <div class="voice-grid">
+      <div class="voice-card do">
+        <h4>Así sí</h4>
+        <ul>
+          <li>"Las leyes de España, accesibles para todos"</li>
+          <li>"Más de 12.000 leyes"</li>
+          <li>"Cada cambio, documentado"</li>
+          <li>"Antes decía X, ahora dice Y"</li>
+          <li>"Buscar leyes"</li>
+          <li>"Cambios recientes"</li>
+          <li>"Gratuito y de código abierto"</li>
+          <li>"Actualizado cada día"</li>
+        </ul>
+      </div>
+      <div class="voice-card dont">
+        <h4>Así no</h4>
+        <ul>
+          <li>"Legislación versionada con Git"</li>
+          <li>"+42.000 commits"</li>
+          <li>"Diff unificado entre versiones"</li>
+          <li>"− texto eliminado / + texto añadido"</li>
+          <li>"Buscar normas consolidadas"</li>
+          <li>"Reformas legislativas recientes"</li>
+          <li>"Open Source · MIT License"</li>
+          <li>"Pipeline incremental diario"</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 05. Components -->
+  <section>
+    <h2><span class="num">05</span> Componentes</h2>
+    <p class="section-desc">Patrones reutilizables para la web. Todos usan los tokens de diseño definidos arriba.</p>
+
+    <h3>Barra de navegación</h3>
+    <div class="component-demo">
+      <div class="navbar-demo">
+        <a class="navbar-logo" href="#">
+          <img src="/Users/alex/Desktop/CleanShot 2026-04-01 at 16.42.59.png" />
+          Ley <span class="a">Abierta</span>
+        </a>
+        <div class="navbar-links">
+          <a href="#">Buscar leyes</a>
+          <a href="#">Alertas</a>
+          <a href="#">Resúmenes</a>
+          <a href="#">Anomalías</a>
+        </div>
+      </div>
+    </div>
+
+    <h3>Stats (lenguaje natural)</h3>
+    <div class="component-demo">
+      <div class="stat-demo">
+        <span class="stat-pill">Más de 12.000 leyes</span>
+        <span class="stat-pill">190 años de legislación</span>
+        <span class="stat-pill">Actualizado cada día</span>
+      </div>
+    </div>
+
+    <h3>Tarjeta de cambio</h3>
+    <div class="component-demo">
+      <div class="change-demo">
+        <div class="change-title">Constitución Española — Artículo 49</div>
+        <div class="change-date">Modificado el 17 de febrero de 2024</div>
+        <p>Antes: <span class="change-old">"disminuidos físicos, sensoriales y psíquicos"</span></p>
+        <p>Ahora: <span class="change-new">"personas con discapacidad"</span></p>
+      </div>
+    </div>
+
+    <h3>Pie de página</h3>
+    <div class="component-demo">
+      <div class="footer-demo">
+        <span>Ley Abierta es un proyecto de código abierto.</span>
+        <span><a href="#">leyabierta.es</a></span>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 06. Social Preview -->
+  <section>
+    <h2><span class="num">06</span> Social preview</h2>
+    <p class="section-desc">Imagen para GitHub, Twitter, LinkedIn y cualquier lugar donde se comparta un enlace. 1280×640px.</p>
+
+    <div class="preview-frame">
+      <img src="social-preview-variant-1-typographic.png" />
+    </div>
+  </section>
+
 </div>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- LOGO — 3 variant directions                    -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="logo" class="sec-logo wrap">
-  <p class="label">01 — Logotipo</p>
-  <h2 style="font-size:2rem; margin-top:0.5rem;">Logo aprobado</h2>
-  <p class="lead" style="margin-top:0.75rem;">
-    Balanza de justicia sobre libro abierto. Minimalista, line-art, transmite accesibilidad y conocimiento publico.
-    Debajo se muestran las variantes exploradas como referencia.
-  </p>
-
-  <!-- Approved logo -->
-  <div style="margin-top: 2rem; display: flex; justify-content: center;">
-    <div class="logo-var" style="max-width: 400px; border-color: var(--azul-light);">
-      <div class="logo-var-display" style="height: 280px; background: var(--ink-50);">
-        <img src="branding/logo-book-scales.jpg" alt="Logo aprobado: balanza sobre libro" style="max-width: 200px; object-fit: contain;">
-      </div>
-      <div class="logo-var-info">
-        <h3>Direccion aprobada: Libro + Balanza</h3>
-        <p>Balanza de justicia emergiendo de un libro abierto. Line-art monocromatico en azul oscuro. Funciona como logomark aislado y con wordmark debajo.</p>
-        <span class="logo-var-tag tag-institutional">Aprobado</span>
-      </div>
-    </div>
-  </div>
-
-  <h3 style="margin-top: 3rem; font-size: 1.1rem; color: var(--ink-500);">Variantes exploradas (referencia)</h3>
-
-  <div class="logo-variants" style="margin-top: 1rem;">
-    <!-- Variant A: Ultra-minimal single-line -->
-    <div class="logo-var">
-      <div class="logo-var-display">
-        <svg width="220" height="100" viewBox="0 0 220 100" fill="none">
-          <!-- Minimal: just the beam, two pans, and a fulcrum dot -->
-          <circle cx="110" cy="24" r="4" fill="#1a3f7a"/>
-          <line x1="110" y1="28" x2="110" y2="38" stroke="#1a3f7a" stroke-width="2"/>
-          <line x1="40" y1="38" x2="180" y2="38" stroke="#1a3f7a" stroke-width="2" stroke-linecap="round"/>
-          <!-- left: arc pan -->
-          <path d="M50 38 L46 52" stroke="#1a3f7a" stroke-width="1.5"/>
-          <path d="M80 38 L84 52" stroke="#1a3f7a" stroke-width="1.5"/>
-          <path d="M42 52 Q65 66 88 52" stroke="#1a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          <!-- right: arc pan -->
-          <path d="M140 38 L136 52" stroke="#1a3f7a" stroke-width="1.5"/>
-          <path d="M170 38 L174 52" stroke="#1a3f7a" stroke-width="1.5"/>
-          <path d="M132 52 Q155 66 178 52" stroke="#1a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          <!-- pillar + base -->
-          <line x1="110" y1="38" x2="110" y2="68" stroke="#1a3f7a" stroke-width="2"/>
-          <line x1="90" y1="68" x2="130" y2="68" stroke="#1a3f7a" stroke-width="2" stroke-linecap="round"/>
-          <!-- wordmark -->
-          <text x="110" y="90" text-anchor="middle" font-family="'Source Serif 4',Georgia,serif" font-size="15" font-weight="700">
-            <tspan fill="#0b1120">Ley </tspan><tspan fill="#1a3f7a">Libre</tspan>
-          </text>
-        </svg>
-      </div>
-      <div class="logo-var-info">
-        <h3>A. Geometrica pura</h3>
-        <p>Solo estructura. Sin adornos. Funciona a 16px como favicon reduciendo a punto + linea + dos arcos.</p>
-        <span class="logo-var-tag tag-minimal">Minimal</span>
-      </div>
-    </div>
-
-    <!-- Variant B: Balance + § integrated -->
-    <div class="logo-var">
-      <div class="logo-var-display on-warm">
-        <svg width="220" height="100" viewBox="0 0 220 100" fill="none">
-          <!-- The § symbol forms the central pillar -->
-          <text x="110" y="52" text-anchor="middle" font-family="'Source Serif 4',Georgia,serif" font-size="42" font-weight="700" fill="#1a3f7a" opacity="0.15">&#167;</text>
-          <!-- Balance overlay on the § -->
-          <circle cx="110" cy="20" r="3.5" fill="#1a3f7a"/>
-          <line x1="110" y1="23" x2="110" y2="32" stroke="#1a3f7a" stroke-width="2"/>
-          <line x1="50" y1="32" x2="170" y2="32" stroke="#1a3f7a" stroke-width="2" stroke-linecap="round"/>
-          <!-- left pan: three text lines -->
-          <path d="M60 32 L57 44" stroke="#1a3f7a" stroke-width="1.2"/>
-          <path d="M82 32 L85 44" stroke="#1a3f7a" stroke-width="1.2"/>
-          <path d="M54 44 Q71 54 88 44" stroke="#1a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          <line x1="62" y1="42" x2="80" y2="42" stroke="#1a3f7a" stroke-width="0.8" opacity="0.4"/>
-          <line x1="64" y1="45" x2="78" y2="45" stroke="#1a3f7a" stroke-width="0.8" opacity="0.3"/>
-          <!-- right pan: > prompt -->
-          <path d="M138 32 L135 44" stroke="#1a3f7a" stroke-width="1.2"/>
-          <path d="M160 32 L163 44" stroke="#1a3f7a" stroke-width="1.2"/>
-          <path d="M132 44 Q149 54 166 44" stroke="#1a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          <text x="145" y="46" font-family="'JetBrains Mono',monospace" font-size="8" fill="#1a3f7a" opacity="0.5">&gt;_</text>
-          <!-- pillar -->
-          <line x1="110" y1="32" x2="110" y2="60" stroke="#1a3f7a" stroke-width="2"/>
-          <line x1="92" y1="60" x2="128" y2="60" stroke="#1a3f7a" stroke-width="2" stroke-linecap="round"/>
-          <!-- wordmark -->
-          <text x="110" y="82" text-anchor="middle" font-family="'Source Serif 4',Georgia,serif" font-size="15" font-weight="700">
-            <tspan fill="#0b1120">Ley </tspan><tspan fill="#1a3f7a">Libre</tspan>
-          </text>
-        </svg>
-      </div>
-      <div class="logo-var-info">
-        <h3>B. Paragrafo velado</h3>
-        <p>El simbolo § aparece como sombra detras de la balanza. Doble lectura: legal + justicia. Mas institucional.</p>
-        <span class="logo-var-tag tag-institutional">Institucional</span>
-      </div>
-    </div>
-
-    <!-- Variant C: Balance with code beam -->
-    <div class="logo-var">
-      <div class="logo-var-display on-dark">
-        <svg width="220" height="100" viewBox="0 0 220 100" fill="none">
-          <!-- The beam IS a line of code / horizontal rule -->
-          <circle cx="110" cy="22" r="4" fill="#4a80c4"/>
-          <line x1="110" y1="26" x2="110" y2="35" stroke="#4a80c4" stroke-width="2"/>
-          <!-- beam as dashed "code" line -->
-          <line x1="38" y1="35" x2="182" y2="35" stroke="#4a80c4" stroke-width="2" stroke-linecap="round" stroke-dasharray="8 4"/>
-          <!-- left pan: solid, more weight = law -->
-          <path d="M55 35 L50 50" stroke="#4a80c4" stroke-width="1.5"/>
-          <path d="M85 35 L90 50" stroke="#4a80c4" stroke-width="1.5"/>
-          <path d="M46 50 Q70 62 94 50" stroke="#4a80c4" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <!-- right pan -->
-          <path d="M135 35 L130 50" stroke="#4a80c4" stroke-width="1.5"/>
-          <path d="M165 35 L170 50" stroke="#4a80c4" stroke-width="1.5"/>
-          <path d="M126 50 Q150 62 174 50" stroke="#4a80c4" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <!-- git diff symbols in pans -->
-          <text x="66" y="52" font-family="'JetBrains Mono',monospace" font-size="9" fill="#4a80c4" opacity="0.6">&#167;</text>
-          <text x="146" y="52" font-family="'JetBrains Mono',monospace" font-size="9" fill="#4a80c4" opacity="0.6">+/-</text>
-          <!-- pillar -->
-          <line x1="110" y1="35" x2="110" y2="66" stroke="#4a80c4" stroke-width="2"/>
-          <line x1="92" y1="66" x2="128" y2="66" stroke="#4a80c4" stroke-width="2" stroke-linecap="round"/>
-          <!-- wordmark -->
-          <text x="110" y="88" text-anchor="middle" font-family="'Source Serif 4',Georgia,serif" font-size="15" font-weight="700" fill="#ffffff">
-            <tspan>Ley </tspan><tspan fill="#4a80c4">Libre</tspan>
-          </text>
-        </svg>
-      </div>
-      <div class="logo-var-info">
-        <h3>C. Viga de codigo</h3>
-        <p>La viga de la balanza es una linea discontinua (como codigo). En un plato el §, en otro +/- (diff). Mas tech, mas dev.</p>
-        <span class="logo-var-tag tag-playful">Tech</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Exclusion zone -->
-  <div class="exclusion-demo">
-    <svg width="120" height="80" viewBox="0 0 120 80" fill="none" style="flex-shrink:0;">
-      <rect x="10" y="5" width="100" height="70" rx="4" fill="none" stroke="var(--azul-light)" stroke-width="1" stroke-dasharray="4 2"/>
-      <rect x="25" y="15" width="70" height="50" rx="2" fill="var(--azul-faint)"/>
-      <text x="60" y="44" text-anchor="middle" font-family="'Source Serif 4',serif" font-size="10" font-weight="700" fill="var(--azul)">Logo</text>
-    </svg>
-    <p>
-      <strong style="color:var(--ink-900);">Zona de exclusion.</strong>
-      Manten como minimo la mitad de la altura del simbolo como espacio libre en los cuatro lados.
-      Sin sombras, sin efectos, sin distorsion.
-    </p>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- COLORS                                         -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="colors" class="sec-colors wrap">
-  <p class="label">02 — Color</p>
-  <h2 style="font-size:2rem; margin-top:0.5rem;">Paleta propia</h2>
-  <p class="lead" style="margin-top:0.75rem;">
-    Azul institucional, no tech-startup. Pergamino calido, no gris frio.
-    Cada color tiene una razon.
-  </p>
-
-  <!-- Main row -->
-  <div class="color-group">
-    <p class="color-group-title">Marca + neutros</p>
-    <div class="color-row">
-      <div class="color-cell" style="background:#1a3f7a; color:#fff;">
-        <span class="cn">Azul</span>
-        <span class="cv">#1a3f7a</span>
-        <span class="cu">Acciones, enlaces, marca</span>
-      </div>
-      <div class="color-cell" style="background:#2b5ea7; color:#fff;">
-        <span class="cn">Azul Bright</span>
-        <span class="cv">#2b5ea7</span>
-        <span class="cu">Hover, acentos</span>
-      </div>
-      <div class="color-cell" style="background:#0b1120; color:#fff;">
-        <span class="cn">Ink 900</span>
-        <span class="cv">#0b1120</span>
-        <span class="cu">Texto principal</span>
-      </div>
-      <div class="color-cell" style="background:#4a6078; color:#fff;">
-        <span class="cn">Ink 500</span>
-        <span class="cv">#4a6078</span>
-        <span class="cu">Texto secundario</span>
-      </div>
-      <div class="color-cell" style="background:#f7f4ef; color:#0b1120;">
-        <span class="cn">Tierra</span>
-        <span class="cv">#f7f4ef</span>
-        <span class="cu">Fondo calido</span>
-      </div>
-      <div class="color-cell" style="background:#f4f6f8; color:#0b1120;">
-        <span class="cn">Ink 50</span>
-        <span class="cv">#f4f6f8</span>
-        <span class="cu">Fondo frio</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Semantic -->
-  <div class="color-group">
-    <p class="color-group-title">Semanticos (estado de la ley)</p>
-    <div class="semantic-row">
-      <div class="semantic-card" style="background:#e3f4ec; color:#1a7a4e;">
-        <span class="cn">Vigente</span>
-        <span class="cv">#1a7a4e sobre #e3f4ec</span>
-        <span class="cu">Ley en vigor, exito, activo</span>
-      </div>
-      <div class="semantic-card" style="background:#fdf5e0; color:#8b6914;">
-        <span class="cn">Reforma</span>
-        <span class="cv">#b8860b sobre #fdf5e0</span>
-        <span class="cu">Modificacion, cambio, atencion</span>
-      </div>
-      <div class="semantic-card" style="background:#fde8e8; color:#b91c1c;">
-        <span class="cn">Derogada</span>
-        <span class="cv">#b91c1c sobre #fde8e8</span>
-        <span class="cu">Ley sin efecto, error, borrado</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- TYPOGRAPHY                                     -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="type" class="sec-type">
-  <div class="wrap">
-    <p class="label">03 — Tipografia</p>
-    <h2 style="font-size:2rem; margin-top:0.5rem;">Tres familias, tres trabajos</h2>
-
-    <!-- Source Serif -->
-    <div class="type-pair">
-      <div class="type-meta">
-        <h3>Source Serif 4</h3>
-        <p>Titulares, nombres de leyes, texto legislativo. Autoridad sin rigidez.</p>
-      </div>
-      <div class="type-show">
-        <div class="ts-display">Los espanoles son iguales ante la ley.</div>
-        <div class="type-scale-compact">
-          <div class="tsc-row">
-            <span class="tsc-size">48 / 700</span>
-            <span style="font-family:'Source Serif 4',serif; font-size:2rem; font-weight:700;">Constitucion Espanola</span>
-          </div>
-          <div class="tsc-row">
-            <span class="tsc-size">32 / 600</span>
-            <span style="font-family:'Source Serif 4',serif; font-size:1.5rem; font-weight:600;">Titulo Preliminar</span>
-          </div>
-          <div class="tsc-row">
-            <span class="tsc-size">24 / 600</span>
-            <span style="font-family:'Source Serif 4',serif; font-size:1.15rem; font-weight:600;">Art. 14 — Igualdad ante la ley</span>
-          </div>
-          <div class="tsc-row">
-            <span class="tsc-size">18 / 400</span>
-            <span style="font-family:'Source Serif 4',serif; font-size:1rem;">sin que pueda prevalecer discriminacion alguna</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Inter -->
-    <div class="type-pair" style="margin-top:2.5rem;">
-      <div class="type-meta">
-        <h3>Inter</h3>
-        <p>Interfaz, navegacion, cuerpo. Claridad y legibilidad en pantalla.</p>
-      </div>
-      <div class="type-show">
-        <p class="ts-body">
-          Ley Abierta convierte legislacion oficial en archivos Markdown versionados con Git.
-          Cada reforma es un commit con su fecha historica. Busca, compara versiones y
-          entiende como cambian las leyes que te afectan.
-        </p>
-        <div class="type-scale-compact">
-          <div class="tsc-row">
-            <span class="tsc-size">16 / 400</span>
-            <span style="font-size:1rem;">Texto de cuerpo regular</span>
-          </div>
-          <div class="tsc-row">
-            <span class="tsc-size">14 / 500</span>
-            <span style="font-size:0.875rem; font-weight:500;">Labels, botones, navegacion</span>
-          </div>
-          <div class="tsc-row">
-            <span class="tsc-size">12 / 600</span>
-            <span style="font-size:0.75rem; font-weight:600; letter-spacing:0.04em;">BADGES &middot; METADATA &middot; TAGS</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- JetBrains Mono -->
-    <div class="type-pair" style="margin-top:2.5rem;">
-      <div class="type-meta">
-        <h3>JetBrains Mono</h3>
-        <p>Identificadores, frontmatter, datos tecnicos. Lo que un programador lee.</p>
-      </div>
-      <div class="type-show">
-        <div class="ts-mono">
-<span class="comment">---</span>
-<span class="kw">title</span>: <span class="str">"Constitucion Espanola"</span>
-<span class="kw">id</span>: <span class="str">"BOE-A-1978-31229"</span>
-<span class="kw">status</span>: <span class="str">"vigente"</span>
-<span class="kw">published</span>: <span class="str">"1978-12-29"</span>
-<span class="comment">---</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- VOICE — manifesto, not cards                   -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="voice" class="sec-voice wrap">
-  <p class="label">04 — Voz</p>
-  <h2 style="font-size:2rem; margin-top:0.5rem;">Como habla Ley Abierta</h2>
-
-  <div class="voice-manifesto">
-    <p>
-      Hablamos como un <strong>ciudadano informado</strong>, no como un abogado
-      ni como un ingeniero. Si una ley dice algo, lo mostramos tal cual.
-      Si es complejo, lo ponemos en contexto.
-    </p>
-    <p>
-      <strong>Siempre mostramos la fuente.</strong> Nunca interpretamos.
-      El dato oficial esta a un click de distancia. Un estudiante
-      de 16 anos deberia poder navegar la web sin perderse.
-    </p>
-    <p>
-      Nada de jerga legal innecesaria. Nada de jerga tech.
-      <strong>Claridad es respeto.</strong>
-    </p>
-  </div>
-
-  <div class="voice-examples">
-    <div class="ve-col">
-      <h4>Asi si</h4>
-      <blockquote>"Esta ley fue reformada 3 veces desde 2020"</blockquote>
-      <blockquote>"Ver cambios entre la version original y la actual"</blockquote>
-      <blockquote>"Fuente: BOE, publicado el 15 de marzo de 2024"</blockquote>
-      <blockquote>"No encontramos resultados. Prueba con otros terminos."</blockquote>
-    </div>
-    <div class="ve-col">
-      <h4>Asi no</h4>
-      <blockquote>"La presente disposicion normativa ha sufrido modificaciones..."</blockquote>
-      <blockquote>"Ejecutar diff entre commits del repositorio"</blockquote>
-      <blockquote>"Error 404: Resource not found"</blockquote>
-      <blockquote>"Segun nuestra interpretacion de la ley..."</blockquote>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- ICONS — horizontal strip, not grid             -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="icons" class="sec-icons">
-  <div class="wrap">
-    <p class="label">05 — Iconos</p>
-    <h2 style="font-size:2rem; margin-top:0.5rem;">Trazo fino, estilo Lucide</h2>
-    <p class="lead" style="margin-top:0.5rem;">1.5px stroke, round caps, esquinas redondeadas. Sin relleno.</p>
-
-    <div class="icon-strip">
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a3f7a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        </svg>
-        <span>Ley</span>
-      </div>
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a3f7a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
-        <span>Buscar</span>
-      </div>
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a3f7a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>
-        </svg>
-        <span>Historial</span>
-      </div>
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a3f7a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-        </svg>
-        <span>Reforma</span>
-      </div>
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a3f7a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>
-        </svg>
-        <span>Articulo</span>
-      </div>
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a7a4e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        <span>Vigente</span>
-      </div>
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-        <span>Derogada</span>
-      </div>
-      <div class="icon-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a3f7a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/>
-        </svg>
-        <span>Comparar</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- COMPONENTS                                     -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="components" class="sec-components wrap">
-  <p class="label">06 — Componentes</p>
-  <h2 style="font-size:2rem; margin-top:0.5rem;">Vocabulario de interfaz</h2>
-
-  <div class="comp-group">
-    <p class="comp-group-title">Botones</p>
-    <div class="comp-row">
-      <button class="btn btn-primary">Ver ley completa</button>
-      <button class="btn btn-outline">Comparar versiones</button>
-      <button class="btn btn-text">Ver fuente oficial &rarr;</button>
-    </div>
-  </div>
-
-  <div class="comp-group">
-    <p class="comp-group-title">Badges de estado</p>
-    <div class="comp-row">
-      <span class="badge badge-vigente">Vigente</span>
-      <span class="badge badge-reforma">3 reformas</span>
-      <span class="badge badge-derogada">Derogada</span>
-    </div>
-  </div>
-
-  <div class="comp-group">
-    <p class="comp-group-title">Tags</p>
-    <div class="comp-row">
-      <span class="tag">Constitucion</span>
-      <span class="tag">Ley Organica</span>
-      <span class="tag">Real Decreto</span>
-      <span class="tag">Espana</span>
-    </div>
-  </div>
-
-  <div class="comp-group">
-    <p class="comp-group-title">Tarjeta de ley</p>
-    <div class="law-card">
-      <div class="law-card-top">
-        <div class="law-card-title">Constitucion Espanola</div>
-        <span class="badge badge-vigente">Vigente</span>
-      </div>
-      <div class="law-card-meta">
-        <span>Publicada: 1978-12-29</span>
-        <span>Ultima reforma: 2024-02-17</span>
-      </div>
-      <div class="law-card-tags">
-        <span class="law-card-id">BOE-A-1978-31229</span>
-        <span class="tag">Constitucion</span>
-      </div>
-      <div class="law-card-excerpt">
-        La Nacion espanola, deseando establecer la justicia, la libertad y la seguridad
-        y promover el bien de cuantos la integran...
-      </div>
-    </div>
-  </div>
-
-  <div class="comp-group">
-    <p class="comp-group-title">Vista de diff</p>
-    <div class="diff-box">
-      <div class="diff-head">Art. 49 — Reforma del 17 feb 2024</div>
-      <div class="diff-body">
-        <div class="dl dl-ctx">&nbsp;&nbsp;Los poderes publicos realizaran una politica de</div>
-        <div class="dl dl-del">- prevencion, tratamiento, rehabilitacion e integracion de los</div>
-        <div class="dl dl-del">- disminuidos fisicos, sensoriales y psiquicos...</div>
-        <div class="dl dl-add">+ prevencion, tratamiento, rehabilitacion e inclusion de las</div>
-        <div class="dl dl-add">+ personas con discapacidad...</div>
-        <div class="dl dl-ctx">&nbsp;&nbsp;a los que prestaran la atencion especializada que requieran.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- TAGLINES — dark section, list not cards        -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="taglines" class="sec-taglines">
-  <div class="wrap">
-    <p class="label">07 — Taglines</p>
-    <h2 style="font-size:2rem; margin-top:0.5rem;">Mensajes clave</h2>
-
-    <div class="tagline-list">
-      <div class="tagline-item">
-        <div class="tagline-text">La ley pertenece al pueblo.</div>
-        <div class="tagline-use">Hero, redes, README</div>
-      </div>
-      <div class="tagline-item">
-        <div class="tagline-text">Cada reforma, un commit.</div>
-        <div class="tagline-use">Dev community, GitHub</div>
-      </div>
-      <div class="tagline-item">
-        <div class="tagline-text">Busca, compara, entiende.</div>
-        <div class="tagline-use">Landing, onboarding</div>
-      </div>
-      <div class="tagline-item">
-        <div class="tagline-text">Legislacion abierta, version a version.</div>
-        <div class="tagline-use">Articulos, charlas</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════════════════ -->
-<!-- SPACING                                        -->
-<!-- ═══════════════════════════════════════════════ -->
-<section id="spacing" class="sec-spacing wrap">
-  <p class="label">08 — Espaciado y radios</p>
-  <h2 style="font-size:2rem; margin-top:0.5rem;">Base 4px</h2>
-
-  <p class="lead" style="margin-top:0.5rem;">Multiplos: 4, 8, 12, 16, 24, 32, 48, 64.</p>
-
-  <div class="spacing-strip">
-    <div class="sp-unit"><div class="sp-box" style="width:16px;height:16px;"></div><span>4</span></div>
-    <div class="sp-unit"><div class="sp-box" style="width:20px;height:20px;"></div><span>8</span></div>
-    <div class="sp-unit"><div class="sp-box" style="width:24px;height:24px;"></div><span>12</span></div>
-    <div class="sp-unit"><div class="sp-box" style="width:28px;height:28px;"></div><span>16</span></div>
-    <div class="sp-unit"><div class="sp-box" style="width:36px;height:36px;"></div><span>24</span></div>
-    <div class="sp-unit"><div class="sp-box" style="width:44px;height:44px;"></div><span>32</span></div>
-    <div class="sp-unit"><div class="sp-box" style="width:60px;height:60px;"></div><span>48</span></div>
-    <div class="sp-unit"><div class="sp-box" style="width:76px;height:76px;"></div><span>64</span></div>
-  </div>
-
-  <p class="color-group-title" style="margin-top:2.5rem;">Radios de borde</p>
-  <div class="radius-strip">
-    <div class="rad-unit"><div class="rad-box" style="border-radius:3px;"></div><span>3px</span></div>
-    <div class="rad-unit"><div class="rad-box" style="border-radius:6px;"></div><span>6px</span></div>
-    <div class="rad-unit"><div class="rad-box" style="border-radius:10px;"></div><span>10px</span></div>
-    <div class="rad-unit"><div class="rad-box" style="border-radius:100px;"></div><span>pill</span></div>
-  </div>
-  <p style="font-size:0.8rem; color:var(--ink-400); margin-top:1rem; max-width:400px;">
-    3px para tags y elementos pequenos. 6px para botones e inputs. 10px para tarjetas. Pill solo para badges.
-  </p>
-</section>
-
-<!-- ── Footer ── -->
-<footer>
-  <p><strong>Ley Abierta</strong> &mdash; Brand Guide 2026</p>
-  <p style="margin-top:0.35rem;">Open source forever. MIT + dominio publico.</p>
-</footer>
-
 </body>
 </html>

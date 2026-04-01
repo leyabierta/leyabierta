@@ -85,7 +85,7 @@ export async function commitNorm(
 		const isFirst = i === 0;
 		const commitType = isFirst ? "bootstrap" : "reforma";
 
-		const markdown = renderNormAtDate(metadata, blocks, reform.date);
+		const markdown = renderNormAtDate(metadata, blocks, reform.date, norm.reforms, norm.analisis);
 		const changed = repo.writeAndAdd(filePath, markdown);
 
 		if (!changed && !isFirst) continue;
@@ -183,7 +183,7 @@ export async function commitNormsChronologically(
 		const commitType = isFirst ? "bootstrap" : "reforma";
 
 		const filePath = normToFilepath(metadata);
-		const markdown = renderNormAtDate(metadata, blocks, reform.date);
+		const markdown = renderNormAtDate(metadata, blocks, reform.date, norm.reforms, norm.analisis);
 		const changed = repo.writeAndAdd(filePath, markdown);
 
 		if (!changed && !isFirst) continue;
@@ -321,5 +321,14 @@ function normToJson(norm: Norm): object {
 			sourceId: r.normId,
 			affectedBlocks: r.affectedBlockIds,
 		})),
+		...(norm.analisis
+			? {
+					analisis: {
+						materias: norm.analisis.materias,
+						notas: norm.analisis.notas,
+						referencias: norm.analisis.referencias,
+					},
+				}
+			: {}),
 	};
 }

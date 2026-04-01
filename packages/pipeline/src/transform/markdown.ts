@@ -5,8 +5,8 @@
  * with headings reflecting the legal hierarchy.
  */
 
-import type { Block, NormMetadata, Paragraph } from "../models.ts";
-import { renderFrontmatter } from "./frontmatter.ts";
+import type { Block, NormMetadata, Paragraph, Reform } from "../models.ts";
+import { type AnalisisData, renderFrontmatter } from "./frontmatter.ts";
 import { getBlockAtDate } from "./xml-parser.ts";
 
 // ─── CSS class -> Markdown mapping ───
@@ -104,10 +104,12 @@ export function renderNormAtDate(
 	metadata: NormMetadata,
 	blocks: readonly Block[],
 	targetDate: string,
+	reforms: readonly Reform[] = [],
+	analisis?: AnalisisData,
 ): string {
 	const parts: string[] = [];
 
-	parts.push(renderFrontmatter(metadata, targetDate));
+	parts.push(renderFrontmatter(metadata, targetDate, reforms, blocks, analisis));
 
 	const title = metadata.title.replace(/[\s.]+$/, "").trim();
 	parts.push(`# ${title}\n\n`);

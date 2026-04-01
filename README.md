@@ -77,8 +77,19 @@ ultima_actualizacion: "2025-01-14"
 estado: "vigente"
 departamento: "Comunidad Autonoma del Pais Vasco"
 fuente: "https://www.boe.es/eli/es-pv/l/2019/12/20/11"
+articulos: 164
+reformas:
+  - fecha: "2020-01-16"
+    fuente: "BOE-A-2020-615"
+  - fecha: "2025-01-14"
+    fuente: "BOE-A-2024-26853"
+materias:
+  - "Cooperativas"
+  - "Comunidad Autonoma del Pais Vasco"
 ---
 ```
+
+Cada archivo es auto-contenido: el frontmatter incluye metadatos, historial de reformas, materias y referencias a otras leyes. El cuerpo del archivo es el texto completo de la ley en Markdown.
 
 ### Fechas anteriores a 1970
 
@@ -138,7 +149,7 @@ TypeScript + Bun. Monorepo con tres paquetes:
 
 - **pipeline** — descarga, parsea, transforma y genera commits
 - **api** — API REST (Elysia) con SQLite + FTS5 para busqueda full-text
-- **web** — interfaz publica (Astro) con dark mode, SEO, diff viewer
+- **web** — interfaz publica (Astro, 100% estatica) con dark mode, SEO, diff viewer
 
 ## Desarrollo
 

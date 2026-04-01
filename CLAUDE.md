@@ -21,7 +21,7 @@
 - **Language:** TypeScript (everything — pipeline, API, web)
 - **Runtime:** Bun
 - **Linter/Formatter:** Biome
-- **Tests:** Vitest
+- **Tests:** bun:test (Vitest-compatible API)
 - **Monorepo structure** (single repo, multiple packages)
 
 ## Repository Structure
@@ -83,8 +83,9 @@ The pipeline converts official legislation into Markdown + Git history.
 - `MetadataParser` — parse metadata into normalized format
 
 **Domain model:**
-- `Norm` — complete parsed law (metadata + blocks + reforms)
+- `Norm` — complete parsed law (metadata + blocks + reforms + optional analisis)
 - `NormMetadata` — title, id, country, rank, dates, status, source URL
+- `NormAnalisis` — materias, notas, referencias (from BOE /analisis + ELI meta tags)
 - `Block` — structural unit (article, chapter, title, section)
 - `Version` — temporal snapshot of a block (date + paragraphs)
 - `Reform` — a point in time when the law changed
@@ -103,6 +104,19 @@ ultima_actualizacion: "2024-02-17"
 estado: "vigente"
 departamento: "Cortes Generales"
 fuente: "https://www.boe.es/eli/es/c/1978/12/27/(1)"
+articulos: 169
+reformas:
+  - fecha: "1978-12-29"
+    fuente: "BOE-A-1978-31229"
+  - fecha: "2024-02-17"
+    fuente: "BOE-A-2024-3099"
+materias:
+  - "Derecho constitucional"
+  - "Derechos fundamentales"
+referencias_posteriores:
+  - norma: "BOE-A-1985-12666"
+    relacion: "SE DESARROLLA"
+    texto: "Ley Organica del Poder Judicial"
 ---
 
 # Constitucion Espanola
@@ -110,7 +124,9 @@ fuente: "https://www.boe.es/eli/es/c/1978/12/27/(1)"
 [Full legislative text as Markdown]
 ```
 
-Each reform = a Git commit with `GIT_AUTHOR_DATE` set to the official publication date.
+Each file is self-contained: frontmatter has all metadata, reform history, subject categories, and cross-references. The body is the full legal text. Each reform = a Git commit with `GIT_AUTHOR_DATE` set to the official publication date.
+
+**Frontmatter generation uses `js-yaml`** (not manual string building) for safe escaping of special characters in titles, notes, and reference texts.
 
 ### API (`packages/api/`)
 
@@ -132,21 +148,46 @@ Endpoints:
 
 ### Web (`packages/web/`)
 
-Citizen-facing website built with Astro (`output: "server"`, Node adapter).
+Citizen-facing website built with Astro (`output: "static"`, deployed to Cloudflare Pages).
 
-**Architecture: static-first, no islands yet.**
-The site is fully server-rendered. Interactive behavior (tabs, search form, diff viewer) uses inline `<script>` with vanilla JS — no UI framework (React, Svelte, etc.) is installed. This is intentional: the content is mostly static legislative text, so shipping zero JS by default keeps pages fast and accessible.
+**Architecture: 100% static, no islands.**
+All pages are pre-rendered at build time. Law detail pages (Resumen, Reformas, Texto) render entirely from frontmatter and markdown — no API calls needed. Interactive behavior (tab switching, search form, theme toggle) uses inline `<script>` with vanilla JS. No UI framework (React, Svelte, etc.) is installed.
 
 **When to introduce islands:**
-When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components. The rest of the page stays as static HTML.
+When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components.
 
 **Current pages:**
-- `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results when query active
-- `/laws/[id]` — law detail with tabs (summary, full text, reforms timeline)
+- `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results via API
+- `/laws/[id]` — law detail with static tabs (summary, reforms timeline, full text)
 - `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
 - `/anomalias` — detected data quality issues in BOE source data
-- `/feed.xml` — RSS feed proxy
+- `/alertas` — newsletter subscription form
+- `/resumenes` — weekly AI-generated digest pages per thematic profile
 - `/sitemap.xml` — dynamic sitemap for all laws
+
+### Data Architecture
+
+Two representations of the same data, optimized for different uses:
+
+```
+leyes repo (.md files)          SQLite DB (leyabierta.db)
+─────────────────────           ─────────────────────────
+For humans: read, clone,        For machines: search, query,
+git diff, browse on GitHub      join, aggregate, full-text
+
+Contains:                       Contains:
+- Frontmatter (all metadata,   - Same metadata (norms table)
+  reforms, materias, refs)      - Same text (blocks table)
+- Full legal text (markdown)    - Article version history
+                                - FTS5 search index
+                                - Subscriber emails
+
+The repo is the canonical       The DB is a query index rebuilt
+source. The DB is derived       from JSON cache anytime via
+from the same data.             `bun run ingest`.
+```
+
+The JSON cache (`data/json/*.json`) is the bridge: the pipeline writes to it, `ingest` reads it into the DB, and `ingest-analisis` enriches it with materias/notas/refs from BOE.
 
 ## Design Principles
 
@@ -241,14 +282,32 @@ bun test
 bun run check
 bun run format
 
-# Run pipeline (Spain bootstrap)
-bun run pipeline bootstrap --country es
+# Pipeline: fetch norms from BOE + generate git commits
+bun run pipeline bootstrap --country es [--limit N] [--force]
+
+# Pipeline: rebuild leyes repo from JSON cache (no network)
+bun run pipeline rebuild [--repo PATH] [--json PATH] [--limit N]
+
+# Ingest: populate SQLite DB from JSON cache
+bun run ingest
+
+# Ingest analisis: fetch materias/notas/refs from BOE + enrich JSON cache
+bun run ingest-analisis
 
 # Run API server
 bun run api
 
 # Run web dev server
 bun run web
+```
+
+### Full rebuild sequence (regenerate everything from scratch)
+
+```bash
+bun run ingest-analisis        # 1. Fill DB analisis + enrich JSON cache (~20 min)
+rm -rf ../leyes && mkdir ../leyes && cd ../leyes && git init && cd -
+bun run pipeline rebuild       # 2. Regenerate 42K commits from JSON cache (~30 min)
+bun run ingest                 # 3. Rebuild DB from enriched JSON cache (~2 min)
 ```
 
 ## Key Conventions

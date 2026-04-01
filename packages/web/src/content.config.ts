@@ -17,6 +17,33 @@ const laws = defineCollection({
 		departamento: z.string(),
 		fuente: z.string(),
 		pdf: z.string().optional(),
+		articulos: z.number().optional().default(0),
+		reformas: z
+			.array(z.object({ fecha: z.string(), fuente: z.string() }))
+			.optional()
+			.default([]),
+		materias: z.array(z.string()).optional().default([]),
+		notas: z.array(z.string()).optional().default([]),
+		referencias_anteriores: z
+			.array(
+				z.object({
+					norma: z.string(),
+					relacion: z.string(),
+					texto: z.string(),
+				}),
+			)
+			.optional()
+			.default([]),
+		referencias_posteriores: z
+			.array(
+				z.object({
+					norma: z.string(),
+					relacion: z.string(),
+					texto: z.string(),
+				}),
+			)
+			.optional()
+			.default([]),
 	}),
 });
 
