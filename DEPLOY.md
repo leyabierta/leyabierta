@@ -85,45 +85,27 @@ Organizacion: `leyabierta`
 
 ## Fases de implementacion
 
-### Fase 0: Renombrado y organizacion de repos
+### Fase 0: Renombrado y organizacion de repos (COMPLETADO)
 
-**Archivos a modificar:**
-- `package.json` (root) — name: "leyabierta"
-- `packages/web/` — referencias a "Ley Libre" en templates
-- `packages/api/src/index.ts` — nombre en swagger/health
-- `packages/pipeline/` — author en commits ("Ley Abierta <bot@leyabierta.es>")
+- Org `leyabierta` creada en GitHub
+- Repos `leyabierta` y `leyes` creados y pusheados
+- Todas las referencias actualizadas: leyes-es → leyes, leylibre → leyabierta
+- Estructura local: `~/leyabierta/leyabierta/` (codigo) + `~/leyabierta/leyes/` (legislacion)
 
-**Acciones manuales:**
-- Crear org `leyabierta` en GitHub
-- Crear repos `leyabierta` y `leyes`
-- Push inicial
+### Fase 1: Astro estatico (COMPLETADO)
 
-### Fase 1: Astro estatico con Content Collections (COMPLETADO)
-
-**Arquitectura:** `output: "static"`, sin adapter. Content Collections lee los Markdown del repo de leyes directamente desde disco. Cloudflare Pages puro (HTML en CDN, sin compute).
-
-**Archivos modificados:**
-- `packages/web/astro.config.mjs` — `output: "static"`, sin adapter
-- `packages/web/package.json` — eliminada dependencia de `@astrojs/cloudflare`
-- `packages/web/src/content.config.ts` — collection `laws` con glob loader
-- `packages/web/src/pages/laws/[id].astro` — getStaticPaths() desde Content Collections
-- `packages/web/src/pages/diff.astro` — pagina unica, diff 100% client-side
-- `packages/web/src/pages/index.astro` — landing desde collection, busqueda client-side
-- `packages/web/src/pages/alertas/confirmar.astro` — client-side token handling
-- `packages/web/src/pages/alertas/cancelar.astro` — client-side token handling
-- Feed RSS y sitemap generados desde Content Collections (sin API)
-- Eliminado: `pages/api/subscribe.ts` (frontend llama API directamente)
-
-**Paginas estaticas (build):** leyes, landing, anomalias, alertas, resumenes, feed, sitemap
-**Client-side JS (runtime):** busqueda, diffs, resumen/historial tabs, suscripciones
+- `output: "static"`, sin adapter, Cloudflare Pages puro (HTML en CDN)
+- Custom `lawsLoader` que lee solo frontmatter YAML (3s para 12K leyes)
+- Markdown body renderizado on-demand por pagina con `marked`
+- Build completo: 12,282 paginas en 31 segundos
+- Astro glob loader descartado (crasheaba tras 90+ min con 12K archivos / 370MB)
 
 ### Fase 2: Dockerfile para la API (COMPLETADO)
 
-**Archivos creados:** `Dockerfile`, `docker-compose.yml`, `.dockerignore`
+- `Dockerfile`, `docker-compose.yml`, `.dockerignore`
 - Base: `oven/bun:1-slim` + git (para GitService diffs)
 - HEALTHCHECK contra `/health`
 - Puerto `127.0.0.1:3000:3000` (solo localhost)
-- Volume `./data:/data` para DB + repo leyes
 
 ### Fase 3: Cloudflare Tunnel
 
@@ -143,19 +125,18 @@ ingress:
   - service: http_status:404
 ```
 
-### Fase 4: GitHub Actions — CI/CD
+### Fase 4: GitHub Actions — CI/CD (PARCIAL)
 
-**`.github/workflows/ci.yml`** — push a main y PRs (COMPLETADO):
-- Install (`bun install --frozen-lockfile`), lint (`bun run check`), test (`bun test`)
+**`.github/workflows/deploy-web.yml`** — push a main o dispatch manual (COMPLETADO):
+1. Checkout codigo + shallow clone de `leyabierta/leyes` (fetch-depth: 1)
+2. Setup Node 24 + Bun (Astro 6 requiere Node >= 22.12.0)
+3. Build Astro estatico (31s para 12,282 paginas)
+4. Deploy a Cloudflare Pages via wrangler (12K archivos, ~4 min upload)
+- Tiempo total: ~6 min
+- Secrets configurados: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+- Actions: checkout@v6, setup-node@v6, setup-bun@v2
 
-**`.github/workflows/deploy-web.yml`** — push a main o dispatch manual (PENDIENTE):
-1. Install deps (`bun install --frozen-lockfile`)
-2. Build Astro estatico (`bun run build` en `packages/web`)
-3. Deploy a Cloudflare Pages via `bunx wrangler pages deploy dist --project-name=leyabierta`
-- Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-- El proyecto Cloudflare Pages se crea una vez desde el dashboard o con `wrangler pages project create leyabierta`
-
-**`.github/workflows/daily-pipeline.yml`** — cron `0 6 * * *` + dispatch manual:
+**`.github/workflows/daily-pipeline.yml`** — cron `0 6 * * *` + dispatch manual (PENDIENTE):
 1. Checkout repos `leyabierta` y `leyes`
 2. Run pipeline: `bun run pipeline bootstrap --country es`
 3. Commit + push cambios en `leyes`
@@ -211,16 +192,16 @@ cd /opt/leyabierta/data/leyes && git pull
 
 | # | Fase | Tipo | Dependencias |
 |---|------|------|-------------|
-| 1 | Fase 0: Renombrado | Codigo + manual | Ninguna |
-| 2 | Fase 1: Astro estatico | Codigo | Fase 0 |
-| 3 | Fase 2: Dockerfile API | Codigo | Fase 0 |
-| 4 | Fase 6: Dominio (DonDominio) + NS a Cloudflare | Manual | Registrar dominio |
-| 5 | Fase 3: Cloudflare Tunnel | Manual (servidor) | Fase 6 |
-| 6 | Fase 4: GitHub Actions (CI + deploy a Cloudflare Pages) | Codigo | Fases 0-2, 6 |
-| 7 | Fase 5: Script DB | Manual (servidor) | Fases 4, 6 |
-| 8 | Fase 7: Rate limiting | Codigo + Cloudflare | Fases 3, 4 |
-
-Fases 0-2 son codigo. Fases 3-6 requieren acciones manuales. Fase 7 es mixta.
+| # | Fase | Estado | Siguiente paso |
+|---|------|--------|---------------|
+| 1 | Fase 0: Renombrado | HECHO | — |
+| 2 | Fase 1: Astro estatico | HECHO | — |
+| 3 | Fase 2: Dockerfile API | HECHO | — |
+| 4 | Fase 4: Deploy web (GitHub Actions) | HECHO | — |
+| 5 | Fase 6: Dominio + DNS | PENDIENTE | Registrar leyabierta.es en DonDominio |
+| 6 | Fase 3: Cloudflare Tunnel | PENDIENTE | Instalar cloudflared en servidor |
+| 7 | Fase 5: Script DB | PENDIENTE | Despues de Fase 3 |
+| 8 | Fase 7: Rate limiting | PENDIENTE | Despues de todo |
 
 ### Decisiones de infraestructura
 
@@ -243,4 +224,4 @@ Fases 0-2 son codigo. Fases 3-6 requieren acciones manuales. Fase 7 es mixta.
 | DB completa con FTS index | ~2.5-3 GB |
 | DB sin historial de versiones | ~0.5 GB |
 
-12,232 leyes consolidadas (1835-presente).
+12,235 leyes consolidadas (1835-presente).

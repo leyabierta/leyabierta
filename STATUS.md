@@ -8,100 +8,112 @@ Un motor open source en TypeScript que descarga legislacion oficial (empezando p
 
 **Principios:** Open source para siempre. Sin monetizacion. Ciudadano primero. Transparencia total.
 
-## Stack aprobado (2026-03-30)
+## Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Runtime | Bun |
-| Pipeline | TypeScript (existente, 2,200 LOC, 51 tests) |
-| API | Elysia (Bun-native) |
-| Web | Astro (content-first, islands para diffs) |
+| Pipeline | TypeScript (monorepo, ~3,000 LOC) |
+| API | Elysia (Bun-native) + SQLite FTS5 |
+| Web | Astro 6 (static, custom content loader) |
 | DB | SQLite (bun:sqlite, FTS5 full-text search) |
-| Cache | LRU in-memory (Redis upgrade futuro) |
-| Diff rendering | diff2html |
-| Deploy (futuro) | KonarServer + Cloudflare proxy |
+| Deploy | Cloudflare Pages (CDN global) |
+| CI/CD | GitHub Actions |
 
 ## Que se ha hecho
 
-### Pipeline (funcional)
+### Pipeline (funcional, 2026-03-30 → 2026-04-01)
 - BOE Client con rate limiting (~5 req/s)
-- XML Parser (fast-xml-parser, 414 LOC)
-- Markdown generation con frontmatter YAML
-- Git integration con fechas historicas e idempotencia
-- ~100 leyes procesadas, ~1,600 commits en output/es
-- 51 tests passing
+- XML Parser (fast-xml-parser)
+- Markdown generation con frontmatter YAML y estructura semantica (headings para titulos/capitulos/articulos, separadores entre articulos)
+- Git integration con fechas historicas, idempotencia y orden cronologico global
+- 12,235 leyes procesadas, 42,851 commits en repo `leyes`
+- Comando `rebuild` para regenerar desde JSON cache sin re-descargar del BOE
+- Commit messages en espanol: "Constitucion Espanola — publicacion original (1978)"
 - Country registry pattern (multi-pais pluggable)
 
-### Phase 0: Bug fixes (completado 2026-03-30)
-- Fixed pipeline.ts change detection bug (writeAndAdd → add logic)
-- Fixed frontmatter.ts YAML escaping (backslashes, quotes, newlines)
-- Extracted shared `parseBoeDate()` to `src/utils/date.ts` (DRY)
+### API (funcional)
+- Elysia REST API con 12 endpoints
+- SQLite + FTS5 para busqueda full-text
+- GitService con soporte para fechas pre-1970 (usa trailers Source-Date)
+- Dockerfile listo
 
-## Siguiente paso: Phase 1a — SQLite schema + ingest
+### Web (desplegada, 2026-04-01)
+- Astro 6 estatico con custom content loader (12,235 leyes en 3s de content sync)
+- Build completo: 12,282 paginas en 31 segundos
+- Custom `lawsLoader` que lee solo frontmatter YAML (vs glob loader que crasheaba tras 90 min)
+- Markdown renderizado on-demand por pagina con `marked`
+- Tabs: Resumen (API), Historial de cambios (API), Texto completo (SSG)
+- Dark mode, SEO, JSON-LD, sitemap, RSS feed
+- Deploy a Cloudflare Pages via GitHub Actions (6 min)
 
-Crear el modulo de base de datos que ingesta los JSON cache files existentes (~102) en SQLite con FTS5 para busqueda full-text.
+### Repos en GitHub (org: leyabierta)
+- `leyabierta/leyabierta` — codigo (pipeline + API + web)
+- `leyabierta/leyes` — 42,851 commits, 12,235 leyes, 18 jurisdicciones, orden cronologico
 
-**Archivos a crear:**
-- `packages/pipeline/src/db/schema.ts` — definicion del schema
-- `packages/pipeline/src/db/ingest.ts` — JSON cache → SQLite
-- `packages/pipeline/src/db/index.ts` — conexion y queries
+### Infraestructura (parcial)
+- Cloudflare Pages: web desplegada en `leyabierta.pages.dev`
+- GitHub Actions: workflow `deploy-web.yml` funcional (Node 24 + Bun + shallow clone)
+- Dockerfile para API listo
 
-**Schema planeado:**
-- Tabla `laws` con FTS5 en title + full text content
-- Tabla `reforms` con fechas, source IDs, commit hashes
-- Tabla `references` con relaciones entre leyes (anteriores/posteriores)
-- Tabla `materias` con vocabulario controlado del BOE (3,000+ temas)
+## Lo que falta
 
-## Plan completo
+### Prioridad alta
+1. **Dominio** — registrar `leyabierta.es` en DonDominio, delegar NS a Cloudflare
+2. **DNS en Cloudflare** — apuntar `leyabierta.es` a Pages, `api.leyabierta.es` a Tunnel
+3. **API en produccion** — Cloudflare Tunnel desde servidor privado (Docker + cloudflared)
+4. **Pipeline diario** — GitHub Actions cron para descubrir nuevas reformas del BOE
 
-Ver `~/.claude-profiles/konar/plans/eventual-nibbling-waterfall.md` para el plan detallado con:
-- Phase 0: Bug fixes (DONE)
-- Phase 1a: SQLite + ingest (NEXT)
-- Phase 1b: Elysia API (8 endpoints)
-- Phase 1c: Astro web (search, diff, graph, dark mode)
-- Phase 2: Bootstrap 12,231 leyes (puede correr en paralelo)
-- Phase 3: Re-ingest + validar + compartir
+### Prioridad media
+5. **Tabs Resumen/Reformas como SSG** — actualmente dependen de la API, deberian ser estaticas
+6. **Mejora del markdown** — preservar CSS classes originales del BOE en los JSON cache (requiere re-fetch)
+7. **Daily pipeline workflow** — `daily-pipeline.yml` con cron, ingest, DB como release asset
+
+### Prioridad baja
+8. **Rate limiting y hardening** — Cloudflare Bot Fight Mode, CORS restrictivo en API
+9. **Script actualizacion DB en servidor** — cron que descarga DB de GitHub Releases
+
+## Limitaciones conocidas
+
+### Fechas pre-1970
+Git no soporta fechas antes de Unix epoch (1970-01-01). 334 leyes (1835-1969) tienen su commit date clamped a 1970-01-02. La fecha real esta en:
+- Frontmatter YAML (`fecha_publicacion`)
+- Trailer del commit (`Source-Date`)
+- La web y API usan la fecha real, no la del commit
+
+### Build de Astro con 12K leyes
+El glob loader nativo de Astro crashea con 12K archivos markdown (370MB). Solucionado con custom `lawsLoader` que solo lee frontmatter. El body se renderiza on-demand por pagina con `marked` en vez del pipeline remark/rehype de Astro.
+
+### Cloudflare Pages free tier
+- Max 20,000 archivos por deploy (usamos ~12,300 — margen OK)
+- Max 500 builds/mes (usamos ~30 — margen OK)
+- Bandwidth ilimitado
 
 ## Informacion clave del BOE
 
 - **API base:** `https://www.boe.es/datosabiertos/api/`
 - **Sin rate limits** documentados, sin API key, CORS abierto
-- **12,231 leyes consolidadas** (1887-presente)
+- **12,235 leyes consolidadas** (1835-presente, 8,636 estatales + 3,599 autonomicas)
 - **Atribucion requerida:** "Fuente: Agencia Estatal BOE" + link a boe.es
-- **Gotchas:** Accept header obligatorio, limit=-1 capped a 10K, query param requiere JSON estructurado, varios endpoints XML-only, fecha_caducidad en bloques
-- **Docs oficiales:** APIconsolidada.pdf (2025-09-02), APIsumarioBOE.pdf (2024-06-28)
-
-## Despliegue (pendiente)
-
-Arquitectura decidida, documentada en `DEPLOY.md`. Resumen:
-
-- **Web:** Astro estatico → Cloudflare Pages (CDN + proteccion bots)
-- **API:** Elysia + SQLite → servidor privado detras de Cloudflare Tunnel (sin puertos abiertos)
-- **Pipeline:** GitHub Actions (cron diario, descarga reformas del BOE)
-- **DB:** ~2.5-3 GB con FTS5. Generada en GitHub Actions, descargada por el servidor
-- **Coste:** ~8 EUR/ano (dominio)
-
-**Fases pendientes:**
-1. Renombrado a LeyAbierta (codigo + crear org GitHub)
-2. Astro a modo estatico (eliminar SSR, client-side search)
-3. Dockerfile para la API
-4. Comprar dominio + configurar Cloudflare
-5. Cloudflare Tunnel en servidor
-6. GitHub Actions (CI + deploy web + pipeline diario)
-7. Script de actualizacion de DB en servidor
-8. Rate limiting y hardening
-
-Fases 1-3 son codigo. Fases 4-7 requieren acciones manuales. Ver `DEPLOY.md` para detalles.
 
 ## Como continuar
 
 ```bash
-cd /Users/alex/00_Programacion/01_Alex/leylibre
+cd ~/00_Programacion/01_Alex/leyabierta/leyabierta
 
 # Ver que todo funciona
-bun test          # 51 tests, todos pasan
-bun run check     # Biome lint
+bun test
+bun run check
 
-# Siguiente paso de codigo: "Renombrar a LeyAbierta y preparar para despliegue"
-# Ver DEPLOY.md para el plan completo
+# Build web local
+LAWS_PATH=../leyes bun run --cwd packages/web build
+
+# Dev server
+LAWS_PATH=../leyes bun run web
+
+# Rebuild leyes desde cache (~56 min)
+bun run pipeline rebuild --repo ../leyes
+
+# API local
+bun run api
 ```
