@@ -17,6 +17,11 @@ concurrency:
   group: daily-pipeline
   cancel-in-progress: false
 
+env:
+  TRILO_BOT_TOKEN: ${{ secrets.TRILO_BOT_TOKEN }}
+  TRILO_PROJECT_ID: "ef505489-efc2-46ce-bc70-950e5d34025d"
+  TRILO_BACKEND_URL: "https://api.trilo.chat"
+
 jobs:
   pipeline:
     name: Fetch & Commit
@@ -40,6 +45,34 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Record start time
+        id: timer
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Determine mode
+        id: mode
+        run: |
+          # Sunday cron or manual --force → re-process all
+          if [[ "${{ github.event.schedule }}" == "0 4 * * 0" ]] || [[ "${{ inputs.force }}" == "true" ]]; then
+            echo "force=--force" >> "$GITHUB_OUTPUT"
+            echo "label=FULL" >> "$GITHUB_OUTPUT"
+            echo "Mode: FULL (re-checking all norms for updates)"
+          else
+            echo "force=" >> "$GITHUB_OUTPUT"
+            echo "label=INCREMENTAL" >> "$GITHUB_OUTPUT"
+            echo "Mode: INCREMENTAL (new norms only)"
+          fi
+
+      - name: Notify — Started
+        id: notify
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MSG="⚙️ **Pipeline** · ${{ steps.mode.outputs.label }}"
+          MSG+=$'\n\n'"⏳ **pipeline** — Installing..."
+          MSG+=$'\n\n'"[View run](${RUN_URL})"
+          MSG_ID=$(.github/scripts/trilo-notify.sh send "$MSG")
+          echo "msg_id=${MSG_ID}" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -86,17 +119,8 @@ jobs:
             echo "Using cached state.json"
           fi
 
-      - name: Determine mode
-        id: mode
-        run: |
-          # Sunday cron or manual --force → re-process all
-          if [[ "${{ github.event.schedule }}" == "0 4 * * 0" ]] || [[ "${{ inputs.force }}" == "true" ]]; then
-            echo "force=--force" >> "$GITHUB_OUTPUT"
-            echo "Mode: FULL (re-checking all norms for updates)"
-          else
-            echo "force=" >> "$GITHUB_OUTPUT"
-            echo "Mode: INCREMENTAL (new norms only)"
-          fi
+      - name: Notify — Running pipeline
+        run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "pipeline" "⏳ **pipeline** — Fetching norms from BOE..."
 
       - name: Run pipeline
         run: bun run pipeline bootstrap --country es --concurrency 4 ${{ steps.mode.outputs.force }}
@@ -109,12 +133,18 @@ jobs:
         run: |
           if git diff --quiet HEAD; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
             echo "No new reforms found"
           else
             COUNT=$(git log --oneline HEAD --not $(git rev-parse HEAD~1 2>/dev/null || echo HEAD) 2>/dev/null | wc -l || echo 0)
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
             echo "New commits: $COUNT"
           fi
+
+      - name: Notify — Pushing
+        if: steps.changes.outputs.has_changes == 'true'
+        run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "pipeline" "⏳ **pipeline** — Pushing ${{ steps.changes.outputs.count }} commits..."
 
       - name: Push changes to leyes
         if: steps.changes.outputs.has_changes == 'true'
@@ -126,3 +156,29 @@ jobs:
         run: gh workflow run deploy-web.yml
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Notify — Result
+        if: always()
+        run: |
+          ELAPSED=$(( $(date +%s) - ${{ steps.timer.outputs.start_time }} ))
+          MINS=$((ELAPSED / 60))
+          SECS=$((ELAPSED % 60))
+          DURATION="${MINS}m ${SECS}s"
+          NOTIFY_MSG_ID="${{ steps.notify.outputs.msg_id }}"
+          CHANGES="${{ steps.changes.outputs.has_changes }}"
+          COUNT="${{ steps.changes.outputs.count }}"
+          if [ "${{ job.status }}" = "success" ]; then
+            if [ "$CHANGES" = "true" ]; then
+              .github/scripts/trilo-notify.sh set-status "$NOTIFY_MSG_ID" "pipeline" "✅ **pipeline** — Done, ${COUNT} new commits ($DURATION)"
+              .github/scripts/trilo-notify.sh send "✅ **leyabierta pipeline** — ${COUNT} new commits pushed ($DURATION)"
+            else
+              .github/scripts/trilo-notify.sh set-status "$NOTIFY_MSG_ID" "pipeline" "✅ **pipeline** — No changes ($DURATION)"
+              .github/scripts/trilo-notify.sh send "✅ **leyabierta pipeline** — no new reforms ($DURATION)"
+            fi
+          elif [ "${{ job.status }}" = "cancelled" ]; then
+            .github/scripts/trilo-notify.sh set-status "$NOTIFY_MSG_ID" "pipeline" "⚪ **pipeline** — Cancelled"
+          else
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            .github/scripts/trilo-notify.sh set-status "$NOTIFY_MSG_ID" "pipeline" "❌ **pipeline** — Failed ($DURATION)"
+            .github/scripts/trilo-notify.sh send "$(printf '❌ **leyabierta pipeline** failed (%s) — [View logs](%s)' "$DURATION" "$RUN_URL")"
+          fi
