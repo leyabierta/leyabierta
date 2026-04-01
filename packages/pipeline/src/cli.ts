@@ -57,10 +57,16 @@ async function bootstrap() {
 	await discoveryClient.close();
 	console.log(`Found ${normIds.length} norms.`);
 
-	// Filter already processed
-	const pending = normIds.filter((id) => !state.isProcessed(id));
+	// Filter: skip only norms marked done (errors are retried)
+	// With --force flag, re-process all norms (useful for catching updates)
+	const force = args.includes("--force");
+	const pending = force
+		? normIds
+		: normIds.filter((id) => !state.isProcessed(id));
 	console.log(
-		`${pending.length} pending (${normIds.length - pending.length} already done).\n`,
+		force
+			? `Force mode: re-processing all ${normIds.length} norms.\n`
+			: `${pending.length} pending (${normIds.length - pending.length} already done).\n`,
 	);
 
 	if (pending.length === 0) {
