@@ -346,9 +346,9 @@ export function lawRoutes(
 				return { data: dbService.getJurisdictions() };
 			})
 
-			// 15. GET /v1/recent-reforms — latest reforms
+			// 15. GET /v1/recent-reforms — recently updated laws
 			.get("/recent-reforms", () => {
-				return { data: dbService.getRecentReforms(10) };
+				return { data: dbService.getRecentlyUpdated(10) };
 			})
 
 			// 16. GET /v1/anomalias — detected data quality issues

@@ -10,7 +10,8 @@ interface Props {
 }
 
 const SITE_URL = "https://leyabierta.es";
-const API_BASE = import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es";
+const API_BASE = import.meta.env.PUBLIC_API_URL
+	?? (import.meta.env.DEV ? "http://localhost:3000" : "https://api.leyabierta.es");
 
 const {
 	title,
@@ -25,7 +26,7 @@ const {
 const fullTitle = `${title} — Ley Abierta`;
 const resolvedOgTitle = ogTitle ?? fullTitle;
 const resolvedOgDescription = ogDescription ?? description;
-const resolvedOgImage = ogImage ?? `${SITE_URL}/logo.png`;
+const resolvedOgImage = ogImage ?? `${SITE_URL}/og-image.png`;
 const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undefined;
 ---
 
@@ -45,6 +46,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<meta name="description" content={description} />
 	{resolvedCanonicalUrl && <link rel="canonical" href={resolvedCanonicalUrl} />}
 	<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 	<link rel="alternate" type="application/rss+xml" title="Ley Abierta — RSS" href="/feed.xml" />
 	<title>{fullTitle}</title>
 
@@ -57,7 +59,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	{resolvedCanonicalUrl && <meta property="og:url" content={resolvedCanonicalUrl} />}
 
 	<!-- Twitter Card -->
-	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content={resolvedOgTitle} />
 	<meta name="twitter:description" content={resolvedOgDescription} />
 	<meta name="twitter:image" content={resolvedOgImage} />
@@ -188,16 +190,11 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		.logo {
 			display: flex;
 			align-items: center;
-			gap: 0.5rem;
-			font-family: var(--font-serif);
-			font-size: 1.125rem;
-			font-weight: 700;
-			color: var(--text);
-			letter-spacing: -0.01em;
 		}
-		.logo:hover { text-decoration: none; color: var(--text); }
-		.logo img { width: 28px; height: 28px; border-radius: 4px; }
-		.logo span { color: var(--accent); }
+		.logo:hover { text-decoration: none; opacity: 0.85; }
+		.logo img { height: 24px; width: auto; }
+		:root[data-theme="dark"] .logo img,
+		@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo img { filter: brightness(0) invert(1); } }
 		.nav-links {
 			display: flex;
 			gap: 1.25rem;
@@ -214,7 +211,6 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			letter-spacing: 0.03em;
 		}
 		header nav a:not(.logo):hover { color: var(--accent); text-decoration: none; }
-		header nav a:not(.logo) svg { flex-shrink: 0; }
 
 		/* ── Footer ── */
 		footer {
@@ -324,15 +320,13 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<header>
 		<nav>
 			<a href="/" class="logo">
-				<img src="/logo.png" alt="" width="28" height="28" />
-				Ley <span>Abierta</span>
+				<img src="/logo-full.png" alt="Ley Abierta" height="24" />
 			</a>
 			<div class="nav-links">
-				<a href="/"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> Buscar</a>
-				<a href="/alertas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> Alertas</a>
-				<a href="/resumenes"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg> Resumenes</a>
+				<a href="/">Buscar</a>
+				<a href="/alertas">Alertas</a>
+				<a href="/resumenes">Resúmenes</a>
 				<a href="/anomalias">Anomalías</a>
-				<a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener" class="nav-hide-mobile"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg> GitHub</a>
 				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
 		</nav>
@@ -350,8 +344,8 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 					<p>Los textos legislativos son de dominio público.</p>
 				</div>
 				<div class="footer-right">
-					<p>Código fuente bajo <a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener">licencia MIT</a></p>
-					<p>Ley Abierta es un proyecto de código abierto.</p>
+					<p>Gratuito y de <a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener">código abierto</a></p>
+					<p>Ley Abierta es un proyecto sin ánimo de lucro</p>
 				</div>
 			</div>
 			<div class="footer-tagline">La ley pertenece al pueblo.</div>

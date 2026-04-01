@@ -236,14 +236,37 @@ export class DbService {
 			.all();
 	}
 
-	getRecentReforms(limit: number): Array<ReformRow & { title: string }> {
+	/** Recently changed laws (by latest reform date, excluding future anomalies). */
+	getRecentlyUpdated(
+		limit: number,
+	): Array<{ id: string; title: string; last_reform: string }> {
+		const today = new Date().toISOString().slice(0, 10);
 		return this.db
-			.query<ReformRow & { title: string }, [number]>(
+			.query<
+				{ id: string; title: string; last_reform: string },
+				[string, number]
+			>(
+				`SELECT n.id, n.title, MAX(r.date) AS last_reform
+				 FROM norms n
+				 JOIN reforms r ON r.norm_id = n.id
+				 WHERE r.date <= ?
+				 GROUP BY n.id
+				 ORDER BY last_reform DESC LIMIT ?`,
+			)
+			.all(today, limit);
+	}
+
+	/** Recent individual reforms for RSS feed (excluding future anomalies). */
+	getRecentReforms(limit: number): Array<ReformRow & { title: string }> {
+		const today = new Date().toISOString().slice(0, 10);
+		return this.db
+			.query<ReformRow & { title: string }, [string, number]>(
 				`SELECT r.*, n.title FROM reforms r
 				 JOIN norms n ON n.id = r.norm_id
+				 WHERE r.date <= ?
 				 ORDER BY r.date DESC LIMIT ?`,
 			)
-			.all(limit);
+			.all(today, limit);
 	}
 
 	/** Global stats for the home page. */

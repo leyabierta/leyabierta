@@ -43,9 +43,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 ---
 
 <Base
-	title="Legislación Española Consolidada"
-	description={`Más de ${totalNorms.toLocaleString("es")} leyes españolas con historial completo de cambios.`}
-	ogTitle="Ley Abierta — Todas las leyes de España, actualizadas y accesibles"
+	title="Las leyes de España, accesibles para todos"
+	description={`Más de ${totalNorms.toLocaleString("es")} leyes españolas. Consulta cualquier ley, entiende qué cambió y cuándo.`}
+	ogTitle="Ley Abierta — Las leyes de España, accesibles para todos"
 	canonicalUrl="/"
 >
 	<style>
@@ -118,11 +118,10 @@ const JURISDICTION_LABELS: Record<string, string> = {
 	</style>
 
 	<div class="hero">
-		<h1>Todas las leyes de España,<br>actualizadas y accesibles</h1>
+		<h1>Las leyes de España,<br>accesibles para todos</h1>
 		<p class="hero-sub">
-			Más de {totalNorms.toLocaleString("es")} leyes
-			desde {earliestYear}.
-			Consulta el texto completo, compara versiones y sigue los cambios de cualquier ley.
+			Más de {(Math.floor(totalNorms / 1000) * 1000).toLocaleString("es")} leyes desde {earliestYear}, actualizadas cada día.
+			Busca cualquier ley, consulta su texto completo y mira cómo ha cambiado con el tiempo.
 		</p>
 	</div>
 
@@ -172,12 +171,12 @@ const JURISDICTION_LABELS: Record<string, string> = {
 
 		<div class="two-col section">
 			<div>
-				<h2 class="section-title">Leyes que más han cambiado</h2>
-				<div id="most-reformed"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
-			</div>
-			<div>
 				<h2 class="section-title">Cambios recientes</h2>
 				<div id="recent-reforms"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
+			</div>
+			<div>
+				<h2 class="section-title">Leyes que más han cambiado</h2>
+				<div id="most-reformed"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
 			</div>
 		</div>
 	</div>
@@ -312,11 +311,17 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			});
 
 			fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
+				function formatDate(iso) {
+					if (!iso) return "";
+					var d = new Date(iso + "T00:00:00");
+					var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+					return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+				}
 				var html = '<ul class="recent-list">';
 				for (var i = 0; i < data.data.length; i++) {
 					var r = data.data[i];
-					html += '<li class="recent-item"><span class="recent-date">' + r.date + '</span>';
-					html += '<a href="/laws/' + r.norm_id + '" class="recent-title">' + r.title + '</a></li>';
+					html += '<li class="recent-item"><span class="recent-date">' + formatDate(r.last_reform) + '</span>';
+					html += '<a href="/laws/' + r.id + '" class="recent-title">' + r.title + '</a></li>';
 				}
 				html += '</ul>';
 				document.getElementById("recent-reforms").innerHTML = html;
