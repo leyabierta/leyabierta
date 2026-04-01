@@ -22,9 +22,13 @@ export const GET: APIRoute = async () => {
 
 	for (const law of laws) {
 		const d = law.data;
+		// Only include lastmod if it's a valid YYYY-MM-DD date
+		const lastmod =
+			d.ultima_actualizacion && /^\d{4}-\d{2}-\d{2}$/.test(d.ultima_actualizacion)
+				? `\n    <lastmod>${d.ultima_actualizacion}</lastmod>`
+				: "";
 		urls.push(`  <url>
-    <loc>${SITE_URL}/laws/${d.identificador}</loc>
-    <lastmod>${d.ultima_actualizacion}</lastmod>
+    <loc>${SITE_URL}/laws/${d.identificador}</loc>${lastmod}
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`);
