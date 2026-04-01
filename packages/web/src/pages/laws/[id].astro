@@ -1,6 +1,10 @@
 ---
-import { getCollection, render } from "astro:content";
+import { getCollection } from "astro:content";
+import { promises as fs } from "node:fs";
+import { Marked } from "marked";
 import Base from "../../layouts/Base.astro";
+
+const marked = new Marked();
 
 export async function getStaticPaths() {
 	const laws = await getCollection("laws");
@@ -13,7 +17,17 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
-const { Content } = await render(entry);
+
+// Read and render the markdown body on-demand (not during content sync)
+// entry.body stores the absolute file path (set by our custom loader)
+let htmlContent = "";
+if (entry.body) {
+	const raw = await fs.readFile(entry.body, "utf-8");
+	// Strip frontmatter
+	const bodyMatch = raw.match(/^---[\s\S]*?---\s*([\s\S]*)$/);
+	const body = bodyMatch?.[1] ?? raw;
+	htmlContent = await marked.parse(body);
+}
 
 const RANK_LABELS: Record<string, string> = {
 	constitucion: "Constitución",
@@ -134,10 +148,12 @@ function formatDate(iso: string): string {
 			line-height: 1.8;
 			font-size: 0.9375rem;
 		}
-		.law-content :global(h1) { font-size: 1.25rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
-		.law-content :global(h2) { font-size: 1rem; font-weight: 600; color: var(--accent); margin: 1.25rem 0 0.5rem; font-family: var(--font-sans); }
-		.law-content :global(h3) { font-size: 0.9375rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+		.law-content :global(h1) { font-size: 1.25rem; font-weight: 700; margin: 2rem 0 0.75rem; text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
+		.law-content :global(h2) { font-size: 1.0625rem; font-weight: 700; color: var(--accent); margin: 2rem 0 0.5rem; font-family: var(--font-sans); text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
+		.law-content :global(h3) { font-size: 0.9375rem; font-weight: 600; margin: 1.5rem 0 0.5rem; text-align: center; color: var(--text-secondary); }
+		.law-content :global(h5) { font-size: 0.9375rem; font-weight: 700; margin: 0.75rem 0 0.5rem; color: var(--text); }
 		.law-content :global(p) { margin-bottom: 0.75rem; }
+		.law-content :global(hr) { border: none; border-top: 1px solid var(--border-light); margin: 1.5rem 0 0.75rem; }
 
 		/* ── Loading states ── */
 		.loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
@@ -247,9 +263,7 @@ function formatDate(iso: string): string {
 
 	<!-- Tab: Texto completo (static, pre-rendered from Markdown) -->
 	<div class="tab-panel" id="tab-texto">
-		<div class="law-content">
-			<Content />
-		</div>
+		<div class="law-content" set:html={htmlContent} />
 	</div>
 
 	<script is:inline define:vars={{ lawId: id }}>

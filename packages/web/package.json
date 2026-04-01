@@ -11,5 +11,9 @@
 		"astro": "6.1.1",
 		"diff2html": "3.4.56",
 		"js-yaml": "4.1.1"
+	},
+	"devDependencies": {
+		"gray-matter": "^4.0.3",
+		"marked": "^17.0.5"
 	}
 }

@@ -1,12 +1,10 @@
 import { defineCollection, z } from "astro:content";
-import { glob } from "astro/loaders";
+import { lawsLoader } from "./loaders/laws.ts";
+
+const lawsPath = process.env.LAWS_PATH ?? "../../content/laws";
 
 const laws = defineCollection({
-	loader: glob({
-		pattern: "**/*.md",
-		base: "../../content/laws",
-		retainBody: false,
-	}),
+	loader: lawsLoader({ path: lawsPath }),
 	schema: z.object({
 		titulo: z.string(),
 		identificador: z.string(),
