@@ -64,6 +64,36 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<meta name="twitter:title" content={resolvedOgTitle} />
 	<meta name="twitter:description" content={resolvedOgDescription} />
 	<meta name="twitter:image" content={resolvedOgImage} />
+	<!-- JSON-LD: Organization + WebSite -->
+	<script type="application/ld+json" set:html={JSON.stringify({
+		"@context": "https://schema.org",
+		"@graph": [
+			{
+				"@type": "Organization",
+				"@id": `${SITE_URL}/#org`,
+				"name": "Ley Abierta",
+				"url": SITE_URL,
+				"logo": `${SITE_URL}/logo-icon.png`,
+				"description": "Legislación española consolidada, accesible para todos.",
+				"sameAs": [
+					"https://github.com/leyabierta/leyabierta"
+				]
+			},
+			{
+				"@type": "WebSite",
+				"@id": `${SITE_URL}/#website`,
+				"url": SITE_URL,
+				"name": "Ley Abierta",
+				"publisher": { "@id": `${SITE_URL}/#org` },
+				"potentialAction": {
+					"@type": "SearchAction",
+					"target": `${SITE_URL}/?q={search_term_string}`,
+					"query-input": "required name=search_term_string"
+				}
+			}
+		]
+	})} />
+
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />

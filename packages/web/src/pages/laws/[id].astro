@@ -69,6 +69,28 @@ const articleCount = law.articulos ?? 0;
 	ogType="article"
 	canonicalUrl={`/laws/${id}`}
 >
+	<!-- JSON-LD: Legislation -->
+	<script type="application/ld+json" set:html={JSON.stringify({
+		"@context": "https://schema.org",
+		"@type": "Legislation",
+		"name": law.titulo,
+		"identifier": law.identificador,
+		"legislationDate": law.fecha_publicacion,
+		"dateModified": law.ultima_actualizacion,
+		"legislationJurisdiction": law.jurisdiccion === "es" ? "ES" : law.jurisdiccion.toUpperCase(),
+		"inLanguage": "es",
+		"url": `https://leyabierta.es/laws/${id}`,
+		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
+		...(law.fuente ? { "legislationLegalForce": law.estado === "vigente" ? "InForce" : "NotInForce", "sameAs": law.fuente } : {})
+	})} />
+	<script type="application/ld+json" set:html={JSON.stringify({
+		"@context": "https://schema.org",
+		"@type": "BreadcrumbList",
+		"itemListElement": [
+			{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
+			{ "@type": "ListItem", "position": 2, "name": law.titulo, "item": `https://leyabierta.es/laws/${id}` }
+		]
+	})} />
 	<style>
 		.back-link { font-size: 0.8125rem; color: var(--text-muted); }
 		.back-link:hover { color: var(--text-secondary); }
