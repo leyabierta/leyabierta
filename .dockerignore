@@ -2,7 +2,9 @@ node_modules
 .git
 data
 output
-packages/web
+packages/web/src
+packages/web/dist
+packages/web/public
 branding
 *.md
 .claude
