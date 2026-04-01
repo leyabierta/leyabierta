@@ -1,0 +1,81 @@
+name: Daily Pipeline
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily (08:00 Madrid)
+  workflow_dispatch: # Manual trigger
+
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false # Don't cancel — let the pipeline finish
+
+jobs:
+  pipeline:
+    name: Fetch & Commit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Push to leyes repo
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/checkout@v6
+        with:
+          repository: leyabierta/leyes
+          path: leyes
+          token: ${{ secrets.LEYES_PUSH_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Cache pipeline state (tracks which norms are already processed)
+      - uses: actions/cache@v4
+        with:
+          path: data/state.json
+          key: pipeline-state-${{ github.run_number }}
+          restore-keys: pipeline-state-
+
+      # Cache JSON files from previous runs
+      - uses: actions/cache@v4
+        with:
+          path: data/json
+          key: pipeline-json-${{ github.run_number }}
+          restore-keys: pipeline-json-
+
+      - name: Run pipeline
+        run: bun run pipeline bootstrap --country es --concurrency 4
+        env:
+          REPO_PATH: ./leyes
+
+      - name: Check for changes
+        id: changes
+        working-directory: leyes
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No new reforms found"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            CHANGES=$(git diff --stat | tail -1)
+            echo "changes=$CHANGES" >> "$GITHUB_OUTPUT"
+            echo "Changes found: $CHANGES"
+          fi
+
+      - name: Push changes to leyes
+        if: steps.changes.outputs.has_changes == 'true'
+        working-directory: leyes
+        run: git push
+
+      - name: Trigger deploy
+        if: steps.changes.outputs.has_changes == 'true'
+        run: gh workflow run deploy-web.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
