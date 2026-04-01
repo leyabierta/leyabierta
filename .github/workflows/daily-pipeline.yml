@@ -66,6 +66,7 @@ jobs:
 
       - name: Notify — Started
         id: notify
+        continue-on-error: true
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           MSG="⚙️ **Pipeline** · ${{ steps.mode.outputs.label }}"
@@ -120,6 +121,7 @@ jobs:
           fi
 
       - name: Notify — Running pipeline
+        continue-on-error: true
         run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "pipeline" "⏳ **pipeline** — Fetching norms from BOE..."
 
       - name: Run pipeline
@@ -144,6 +146,7 @@ jobs:
 
       - name: Notify — Pushing
         if: steps.changes.outputs.has_changes == 'true'
+        continue-on-error: true
         run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "pipeline" "⏳ **pipeline** — Pushing ${{ steps.changes.outputs.count }} commits..."
 
       - name: Push changes to leyes
@@ -159,6 +162,7 @@ jobs:
 
       - name: Notify — Result
         if: always()
+        continue-on-error: true
         run: |
           ELAPSED=$(( $(date +%s) - ${{ steps.timer.outputs.start_time }} ))
           MINS=$((ELAPSED / 60))

@@ -43,6 +43,7 @@ jobs:
 
       - name: Notify — Started
         id: notify
+        continue-on-error: true
         run: |
           COMMIT_SHA=$(git rev-parse --short HEAD)
           COMMIT_MSG=$(git log -1 --pretty=%s)
@@ -57,6 +58,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Notify — Building
+        continue-on-error: true
         run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "web" "⏳ **web** — Building..."
 
       - name: Build Astro
@@ -66,6 +68,7 @@ jobs:
           LAWS_PATH: ../../content/laws
 
       - name: Notify — Deploying
+        continue-on-error: true
         run: .github/scripts/trilo-notify.sh set-status "${{ steps.notify.outputs.msg_id }}" "web" "⏳ **web** — Deploying to Cloudflare..."
 
       - name: Deploy to Cloudflare Pages
@@ -77,6 +80,7 @@ jobs:
 
       - name: Notify — Result
         if: always()
+        continue-on-error: true
         run: |
           ELAPSED=$(( $(date +%s) - ${{ steps.timer.outputs.start_time }} ))
           MINS=$((ELAPSED / 60))
