@@ -58,6 +58,34 @@ jobs:
           key: pipeline-json-${{ github.run_number }}
           restore-keys: pipeline-json-
 
+      # If no cached state.json, seed it from existing leyes files
+      # This prevents re-downloading all 12K norms on first run
+      - name: Seed state from existing leyes
+        run: |
+          if [ ! -f data/state.json ]; then
+            echo "No cached state — seeding from leyes repo..."
+            mkdir -p data
+            node -e "
+              const fs = require('fs');
+              const path = require('path');
+              const state = { version: 1, country: 'es', norms: {} };
+              function walk(dir) {
+                for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
+                  if (f.isDirectory()) walk(path.join(dir, f.name));
+                  else if (f.name.endsWith('.md')) {
+                    const id = f.name.replace('.md', '');
+                    state.norms[id] = { id, status: 'done', commits: 0, processedAt: new Date().toISOString() };
+                  }
+                }
+              }
+              walk('leyes');
+              fs.writeFileSync('data/state.json', JSON.stringify(state, null, 2));
+              console.log('Seeded ' + Object.keys(state.norms).length + ' norms');
+            "
+          else
+            echo "Using cached state.json"
+          fi
+
       - name: Determine mode
         id: mode
         run: |
