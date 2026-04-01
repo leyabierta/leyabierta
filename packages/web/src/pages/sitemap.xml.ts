@@ -22,9 +22,11 @@ export const GET: APIRoute = async () => {
 
 	for (const law of laws) {
 		const d = law.data;
-		// Only include lastmod if it's a valid YYYY-MM-DD date
+		// Only include lastmod for dates from 1970 onward (Google rejects earlier dates)
 		const lastmod =
-			d.ultima_actualizacion && /^\d{4}-\d{2}-\d{2}$/.test(d.ultima_actualizacion)
+			d.ultima_actualizacion &&
+			/^\d{4}-\d{2}-\d{2}$/.test(d.ultima_actualizacion) &&
+			d.ultima_actualizacion >= "1970-01-01"
 				? `\n    <lastmod>${d.ultima_actualizacion}</lastmod>`
 				: "";
 		urls.push(`  <url>
