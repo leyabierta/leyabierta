@@ -16,13 +16,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: leyabierta/leyes
           path: content/laws
           fetch-depth: 1
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
       - uses: oven-sh/setup-bun@v2
         with:
