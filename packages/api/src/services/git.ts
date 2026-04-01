@@ -21,24 +21,43 @@ export class GitService {
 	 */
 	private async getCommitsForFile(
 		filePath: string,
-	): Promise<Array<{ sha: string; date: string; subject: string; sourceId: string }>> {
+	): Promise<
+		Array<{ sha: string; date: string; subject: string; sourceId: string }>
+	> {
 		try {
-			const SEP = "\x1f"; // ASCII unit separator — safe delimiter
-			const format = `%H${SEP}%aI${SEP}%s${SEP}%(trailers:key=Source-Date,valueonly)${SEP}%(trailers:key=Source-Id,valueonly)`;
+			const SEP = "\x1f"; // ASCII unit separator — field delimiter
+			// Use %x1e (record separator) + literal marker as record boundary.
+			// %(trailers) appends trailing newlines that break naive \n splitting,
+			// so we delimit records with a marker and strip embedded newlines.
+			const REC_MARKER = "\x1e\x1e\x1e";
+			const format = `%H${SEP}%aI${SEP}%s${SEP}%(trailers:key=Source-Date,valueonly)${SEP}%(trailers:key=Source-Id,valueonly)%x1e%x1e%x1e`;
 			const proc = Bun.spawn(
-				["git", "-C", this.repoPath, "log", `--format=${format}`, "--", filePath],
+				[
+					"git",
+					"-C",
+					this.repoPath,
+					"log",
+					`--format=${format}`,
+					"--",
+					filePath,
+				],
 				{ stdout: "pipe", stderr: "pipe" },
 			);
 			const raw = await new Response(proc.stdout).text();
 			await proc.exited;
 
 			return raw
-				.trim()
-				.split("\n")
+				.split(REC_MARKER)
+				.map((record) => record.replace(/\n/g, "").trim())
 				.filter(Boolean)
-				.map((line) => {
-					const [sha = "", authorDate = "", subject = "", sourceDate = "", sourceId = ""] =
-						line.split(SEP);
+				.map((record) => {
+					const [
+						sha = "",
+						authorDate = "",
+						subject = "",
+						sourceDate = "",
+						sourceId = "",
+					] = record.split(SEP);
 					return {
 						sha: sha.trim(),
 						// Prefer Source-Date trailer (real date), fall back to git author date
