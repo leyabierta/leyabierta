@@ -17,11 +17,14 @@ Todos los assets oficiales del proyecto. Usar siempre estos archivos como fuente
 | `favicon.ico` | Favicon del navegador (16+32px) |
 | `apple-touch-icon.png` | iOS home screen (180px) |
 
-## Social
+## Banners
 
-| Archivo | Uso |
-|---------|-----|
-| `social-preview.png` | GitHub social preview, og:image (1280x640) |
+| Archivo | Tamaño | Uso |
+|---------|--------|-----|
+| `banner-1200x300.png` | 1200x300 | GitHub org header, X/Twitter |
+| `banner-wide.png` | 1280x640 | LinkedIn, headers anchos |
+| `banner-1920x1080.png` | 1920x1080 | Presentaciones, fondos |
+| `social-preview.png` | 1280x640 | GitHub social preview, og:image |
 
 ## Colores
 
