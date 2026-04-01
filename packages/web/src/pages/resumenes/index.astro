@@ -1,16 +1,10 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { getProfiles } from "../../lib/api";
+import { PROFILES } from "../../../../api/src/data/profiles";
 import fs from "node:fs";
 import path from "node:path";
 
-let profiles: Array<{ id: string; name: string; description: string; icon: string }> = [];
-try {
-	const result = await getProfiles();
-	profiles = result.data;
-} catch {
-	// API not available at build time
-}
+const profiles = PROFILES.map(({ id, name, description, icon }) => ({ id, name, description, icon }));
 
 // Scan public/resumenes/ to find latest digest per profile
 const resumenesDir = path.join(process.cwd(), "public", "resumenes");
