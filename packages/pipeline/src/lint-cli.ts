@@ -2,8 +2,8 @@
  * CLI for the Markdown linter.
  *
  * Usage:
- *   bun run packages/pipeline/src/lint-cli.ts output/es/*.md
- *   bun run packages/pipeline/src/lint-cli.ts output/es/**\/*.md
+ *   bun run packages/pipeline/src/lint-cli.ts ../leyes/es/*.md
+ *   bun run packages/pipeline/src/lint-cli.ts ../leyes/**\/*.md
  */
 
 import { lintMarkdown } from "./transform/markdown-linter.ts";

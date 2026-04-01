@@ -11,7 +11,7 @@ import { bootstrapFromApi } from "./pipeline.ts";
 import "./spain/index.ts";
 
 const limit = Number(process.argv[2]) || 100;
-const OUTPUT_DIR = "./output/es";
+const OUTPUT_DIR = process.env.REPO_PATH ?? "../leyes";
 const DATA_DIR = "./data";
 
 async function main() {

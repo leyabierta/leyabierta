@@ -74,24 +74,34 @@ function buildSubject(
 	reform: Reform,
 	articles: string[],
 ): string {
-	const prefix = `[${commitType}]`;
 	const title = metadata.shortTitle;
 
 	if (commitType === "bootstrap") {
 		const year = reform.date.slice(0, 4);
-		return `${prefix} ${title} — original version ${year}`;
+		return `${title} — publicación original (${year})`;
 	}
 
 	if (commitType === "fix-pipeline") {
-		return `${prefix} Regenerate ${title}`;
+		return `${title} — regeneración`;
 	}
 
+	if (commitType === "derogacion") {
+		return `${title} — derogación`;
+	}
+
+	if (commitType === "correccion") {
+		const brief = abbreviateArticles(articles);
+		if (brief) return `${title} — corrección ${brief}`;
+		return `${title} — corrección de errores`;
+	}
+
+	// reforma / nueva
 	if (articles.length > 0) {
 		const brief = abbreviateArticles(articles);
-		if (brief) return `${prefix} ${title} — ${brief}`;
+		if (brief) return `${title} — reforma ${brief}`;
 	}
 
-	return `${prefix} ${title}`;
+	return `${title} — reforma`;
 }
 
 function buildBody(
@@ -102,21 +112,21 @@ function buildBody(
 ): string {
 	if (commitType === "bootstrap") {
 		return [
-			`Original publication of ${metadata.shortTitle}.`,
+			`Publicación original de ${metadata.shortTitle}.`,
 			"",
-			`Norm: ${metadata.id}`,
-			`Date: ${reform.date}`,
-			`Source: ${metadata.source}`,
+			`Norma: ${metadata.id}`,
+			`Fecha: ${reform.date}`,
+			`Fuente: ${metadata.source}`,
 		].join("\n");
 	}
 
 	return [
-		`Norm: ${metadata.id}`,
-		`Disposition: ${reform.normId}`,
-		`Date: ${reform.date}`,
-		`Source: ${metadata.source}`,
+		`Norma: ${metadata.id}`,
+		`Disposición: ${reform.normId}`,
+		`Fecha: ${reform.date}`,
+		`Fuente: ${metadata.source}`,
 		"",
-		`Affected articles: ${articlesStr}`,
+		`Artículos afectados: ${articlesStr}`,
 	].join("\n");
 }
 
@@ -131,7 +141,7 @@ function abbreviateArticles(articles: string[]): string {
 	if (nums.length === 1) return `art. ${nums[0]}`;
 	if (nums.length <= 4) return `arts. ${nums.join(", ")}`;
 
-	return `arts. ${nums.slice(0, 3).join(", ")} and ${nums.length - 3} more`;
+	return `arts. ${nums.slice(0, 3).join(", ")} y ${nums.length - 3} más`;
 }
 
 function getAffectedArticles(

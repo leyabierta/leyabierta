@@ -26,7 +26,7 @@ export interface PipelineConfig {
 }
 
 const DEFAULT_CONFIG: PipelineConfig = {
-	repoPath: "./output/es",
+	repoPath: "../leyes",
 	dataDir: "./data",
 	committerName: "Ley Abierta",
 	committerEmail: "bot@leyabierta.es",
@@ -107,6 +107,106 @@ export async function commitNorm(
 		if (sha) {
 			commitsCreated++;
 			console.log(`  ✓ ${reform.date} — ${info.subject}`);
+		}
+	}
+
+	return commitsCreated;
+}
+
+/** A single reform entry with its parent norm context, for chronological sorting. */
+export interface ReformEntry {
+	readonly norm: Norm;
+	readonly reformIndex: number;
+	readonly reform: Reform;
+}
+
+/**
+ * Collect all reform entries from multiple norms, sorted chronologically.
+ * Within the same date, bootstrap commits (reformIndex === 0) come first,
+ * then ordered by norm publication date as tiebreaker.
+ */
+export function collectReformEntries(norms: Norm[]): ReformEntry[] {
+	const entries: ReformEntry[] = [];
+
+	for (const norm of norms) {
+		for (let i = 0; i < norm.reforms.length; i++) {
+			entries.push({
+				norm,
+				reformIndex: i,
+				reform: norm.reforms[i]!,
+			});
+		}
+	}
+
+	entries.sort((a, b) => {
+		const dateCmp = a.reform.date.localeCompare(b.reform.date);
+		if (dateCmp !== 0) return dateCmp;
+		// Same date: bootstraps first
+		if (a.reformIndex === 0 && b.reformIndex !== 0) return -1;
+		if (a.reformIndex !== 0 && b.reformIndex === 0) return 1;
+		// Same date, same type: order by norm publication date
+		return a.norm.metadata.publishedAt.localeCompare(
+			b.norm.metadata.publishedAt,
+		);
+	});
+
+	return entries;
+}
+
+/**
+ * Commit multiple norms in global chronological order.
+ * All reforms across all norms are sorted by date before committing.
+ */
+export async function commitNormsChronologically(
+	norms: Norm[],
+	config: Partial<PipelineConfig> = {},
+	onProgress?: (done: number, total: number, subject: string) => void,
+): Promise<number> {
+	const cfg = { ...DEFAULT_CONFIG, ...config };
+
+	const repo = new GitRepo(cfg.repoPath, cfg.committerName, cfg.committerEmail);
+	await repo.init();
+	await repo.loadExistingCommits();
+
+	const entries = collectReformEntries(norms);
+	let commitsCreated = 0;
+
+	for (let i = 0; i < entries.length; i++) {
+		const { norm, reformIndex, reform } = entries[i]!;
+		const { metadata, blocks } = norm;
+
+		if (repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
+			continue;
+		}
+
+		const isFirst = reformIndex === 0;
+		const commitType = isFirst ? "bootstrap" : "reforma";
+
+		const filePath = normToFilepath(metadata);
+		const markdown = renderNormAtDate(metadata, blocks, reform.date);
+		const changed = repo.writeAndAdd(filePath, markdown);
+
+		if (!changed && !isFirst) continue;
+
+		await repo.add(filePath);
+
+		const info = buildCommitInfo(
+			commitType,
+			metadata,
+			reform,
+			blocks,
+			filePath,
+			markdown,
+		);
+		const sha = await repo.commit(info, isFirst);
+
+		if (sha) {
+			commitsCreated++;
+			if (onProgress) {
+				onProgress(commitsCreated, entries.length, info.subject);
+			} else {
+				console.log(`  ✓ ${reform.date} — ${info.subject}`);
+			}
 		}
 	}
 

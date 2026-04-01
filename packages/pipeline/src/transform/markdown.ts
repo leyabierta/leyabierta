@@ -19,7 +19,7 @@ const SIMPLE_CSS_MAP: Record<string, (text: string) => string> = {
 	capitulo: (t) => `### ${t}\n`,
 	seccion: (t) => `#### ${t}\n`,
 	subseccion: (t) => `#### ${t}\n`,
-	articulo: (t) => `##### ${t}\n`,
+	articulo: (t) => `---\n\n##### ${t}\n`,
 	libro: (t) => `## ${t}\n`,
 	anexo: (t) => `## ${t}\n`,
 

@@ -7,22 +7,25 @@
  *   bun run pipeline status [--state PATH]
  */
 
-import type {
-	LegislativeClient,
-	MetadataParser,
-	TextParser,
-} from "./country.ts";
 import { getCountry } from "./country.ts";
 import { ingestJsonDir, openDatabase } from "./db/index.ts";
-import type { Norm } from "./models.ts";
-import { commitNorm, fetchNorm } from "./pipeline.ts";
+import type {
+	Block,
+	Norm,
+	NormMetadata,
+	Paragraph,
+	Rank,
+	Reform,
+	Version,
+} from "./models.ts";
+import { commitNormsChronologically, fetchNorm } from "./pipeline.ts";
 import { BoeClient } from "./spain/boe-client.ts";
 import { StateStore } from "./utils/state-store.ts";
 
 // Register Spain
 import "./spain/index.ts";
 
-const OUTPUT_DIR = process.env.REPO_PATH ?? "../leyes-es";
+const OUTPUT_DIR = process.env.REPO_PATH ?? "../leyes";
 const DATA_DIR = "./data";
 const STATE_PATH = `${DATA_DIR}/state.json`;
 const DB_PATH = `${DATA_DIR}/leyabierta.db`;
@@ -123,52 +126,46 @@ async function bootstrap() {
 		`\nPhase 1 done: ${fetchedOk.length} fetched, ${fetchSkipped.length} skipped, ${fetchErrors.length} errors in ${formatDuration(fetchElapsed)}\n`,
 	);
 
-	// ── Phase 2: Sequential commit ──
-	console.log(`Phase 2: Committing ${fetchedOk.length} norms to git...\n`);
-	const commitStart = Date.now();
-
-	for (let i = 0; i < fetched.length; i++) {
-		const { id, norm, error } = fetched[i]!;
-
+	// ── Phase 2: Chronological commit ──
+	// Mark fetch errors/skips in state first
+	for (const { id, error, norm } of fetched) {
 		if (error) {
 			state.markError(id, error);
 			if (fetchErrors.length <= 20) {
 				console.error(`  ✗ ${id} — ERROR: ${error}`);
 			}
-			continue;
-		}
-
-		if (!norm) {
+		} else if (!norm) {
 			state.markSkipped(id);
-			continue;
 		}
+	}
 
-		try {
-			const commits = await commitNorm(norm, {
-				repoPath: OUTPUT_DIR,
-				dataDir: DATA_DIR,
-			});
+	const norms = fetchedOk.map((f) => f.norm!);
+	console.log(
+		`Phase 2: Committing ${norms.length} norms in chronological order...\n`,
+	);
+	const commitStart = Date.now();
+	let lastProgressLog = 0;
 
-			if (commits === 0) {
-				state.markDone(id, 0);
-			} else {
-				state.markDone(id, commits);
+	const totalCommits = await commitNormsChronologically(
+		norms,
+		{ repoPath: OUTPUT_DIR, dataDir: DATA_DIR },
+		(done, total, subject) => {
+			const now = Date.now();
+			if (done === 1 || done === total || now - lastProgressLog > 2000) {
+				const elapsed = (now - commitStart) / 1000;
+				const rate = done / elapsed;
+				const remaining = (total - done) / rate;
+				console.log(
+					`  [${done}/${total}] ${subject} (${rate.toFixed(1)}/s, ~${formatDuration(remaining)} remaining)`,
+				);
+				lastProgressLog = now;
 			}
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			state.markError(id, msg);
-			console.error(`  ✗ ${id} — COMMIT ERROR: ${msg}`);
-		}
+		},
+	);
 
-		if ((i + 1) % 50 === 0) {
-			await state.save();
-			const elapsed = (Date.now() - commitStart) / 1000;
-			const rate = (i + 1) / elapsed;
-			const remaining = (fetched.length - i - 1) / rate;
-			console.log(
-				`  commit [${i + 1}/${fetched.length}] (${rate.toFixed(1)}/s, ~${formatDuration(remaining)} remaining)`,
-			);
-		}
+	// Mark all successfully fetched norms as done
+	for (const { id, norm } of fetchedOk) {
+		state.markDone(id, norm!.reforms.length);
 	}
 
 	await state.save();
@@ -181,6 +178,7 @@ async function bootstrap() {
 		`Fetch:   ${formatDuration(fetchElapsed)} (${concurrency} workers)`,
 	);
 	console.log(`Commit:  ${formatDuration((Date.now() - commitStart) / 1000)}`);
+	console.log(`Commits: ${totalCommits} (chronological order)`);
 	console.log(`Total:   ${formatDuration(totalElapsed)}`);
 	console.log(`Done:    ${stats.done}`);
 	console.log(`Errors:  ${stats.errors}`);
@@ -225,6 +223,156 @@ async function status() {
 	console.log(`Skipped: ${stats.skipped}`);
 }
 
+async function rebuild() {
+	const args = process.argv.slice(3);
+	const jsonDir = getArg(args, "--json") ?? JSON_DIR;
+	const repoPath = getArg(args, "--repo") ?? OUTPUT_DIR;
+	const limit = Number(getArg(args, "--limit") ?? "0");
+
+	console.log(`Rebuilding git repo from cached JSONs in ${jsonDir}...`);
+	console.log(`Output: ${repoPath}\n`);
+
+	const files = (
+		await Array.fromAsync(new Bun.Glob("*.json").scan(jsonDir))
+	).sort();
+	const total = limit > 0 ? Math.min(files.length, limit) : files.length;
+	console.log(
+		`Found ${files.length} JSON files${limit > 0 ? `, using first ${total}` : ""}.\n`,
+	);
+
+	console.log("Phase 1: Loading norms from JSON cache...");
+	const norms: Norm[] = [];
+	let errors = 0;
+
+	for (let i = 0; i < total; i++) {
+		const file = files[i]!;
+		try {
+			const raw = await Bun.file(`${jsonDir}/${file}`).json();
+			const norm = jsonToNorm(raw);
+			if (norm.reforms.length > 0) {
+				norms.push(norm);
+			}
+		} catch (err) {
+			errors++;
+			if (errors <= 10) {
+				console.error(
+					`  ✗ ${file}: ${err instanceof Error ? err.message : err}`,
+				);
+			}
+		}
+	}
+	console.log(`Loaded ${norms.length} norms (${errors} errors).\n`);
+
+	console.log("Phase 2: Committing in chronological order...\n");
+	const startTime = Date.now();
+	let lastLog = 0;
+
+	const commits = await commitNormsChronologically(
+		norms,
+		{ repoPath, dataDir: DATA_DIR },
+		(done, totalEntries, subject) => {
+			const now = Date.now();
+			if (done === 1 || done === totalEntries || now - lastLog > 2000) {
+				const elapsed = (now - startTime) / 1000;
+				const rate = done / elapsed;
+				const remaining = (totalEntries - done) / rate;
+				console.log(
+					`  [${done}/${totalEntries}] ${subject} (${rate.toFixed(1)}/s, ~${formatDuration(remaining)} remaining)`,
+				);
+				lastLog = now;
+			}
+		},
+	);
+
+	const elapsed = (Date.now() - startTime) / 1000;
+	console.log(`\n─── Rebuild Summary ───`);
+	console.log(`Norms:   ${norms.length}`);
+	console.log(`Commits: ${commits} (chronological order)`);
+	console.log(`Errors:  ${errors}`);
+	console.log(`Time:    ${formatDuration(elapsed)}`);
+}
+
+/**
+ * Infer CSS class from paragraph text when the original class was lost
+ * during JSON serialization. Detects common legislative structure patterns.
+ */
+function inferCssClass(text: string): string {
+	const trimmed = text.trim();
+
+	// Structural headings (Spanish legislative conventions)
+	if (/^TÍTULO\s/i.test(trimmed) || /^TITULO\s/i.test(trimmed)) return "titulo";
+	if (/^CAPÍTULO\s/i.test(trimmed) || /^CAPITULO\s/i.test(trimmed))
+		return "capitulo";
+	if (/^SECCIÓN\s/i.test(trimmed) || /^SECCION\s/i.test(trimmed))
+		return "seccion";
+	if (/^SUBSECCIÓN\s/i.test(trimmed) || /^SUBSECCION\s/i.test(trimmed))
+		return "subseccion";
+	if (/^LIBRO\s/i.test(trimmed)) return "libro";
+	if (/^ANEXO/i.test(trimmed)) return "anexo";
+
+	// Article headings
+	if (/^Artículo\s+\d/i.test(trimmed) || /^Articulo\s+\d/i.test(trimmed))
+		return "articulo";
+
+	// Disposiciones
+	if (/^Disposición\s/i.test(trimmed) || /^Disposicion\s/i.test(trimmed))
+		return "capitulo";
+
+	// Preámbulo / exposición de motivos
+	if (/^PREÁMBULO$/i.test(trimmed) || /^PREAMBULO$/i.test(trimmed))
+		return "centro_negrita";
+	if (/^EXPOSICIÓN DE MOTIVOS$/i.test(trimmed)) return "centro_negrita";
+
+	return "parrafo";
+}
+
+/** Reconstruct a Norm from its cached JSON representation. */
+function jsonToNorm(raw: Record<string, unknown>): Norm {
+	const m = raw.metadata as Record<string, string>;
+	const metadata: NormMetadata = {
+		title: m.title,
+		shortTitle: m.shortTitle,
+		id: m.id,
+		country: m.country,
+		rank: m.rank as Rank,
+		publishedAt: m.published,
+		updatedAt: m.updated,
+		status: m.status as NormMetadata["status"],
+		department: m.department,
+		source: m.source,
+	};
+
+	const articles = raw.articles as Array<Record<string, unknown>>;
+	const blocks: Block[] = articles.map((a) => ({
+		id: a.blockId as string,
+		type: a.blockType as string,
+		title: a.title as string,
+		versions: (a.versions as Array<Record<string, string>>).map(
+			(v): Version => ({
+				normId: v.sourceId,
+				publishedAt: v.date,
+				effectiveAt: v.date,
+				paragraphs: (v.text ?? "")
+					.split("\n\n")
+					.map((text): Paragraph => ({
+						cssClass: inferCssClass(text),
+						text,
+					})),
+			}),
+		),
+	}));
+
+	const reforms: Reform[] = (raw.reforms as Array<Record<string, unknown>>).map(
+		(r) => ({
+			date: r.date as string,
+			normId: r.sourceId as string,
+			affectedBlockIds: (r.affectedBlocks as string[]) ?? [],
+		}),
+	);
+
+	return { metadata, blocks, reforms };
+}
+
 // ─── Helpers ───
 
 function getArg(args: string[], flag: string): string | undefined {
@@ -261,9 +409,16 @@ switch (command) {
 			process.exit(1);
 		});
 		break;
+	case "rebuild":
+		rebuild().catch((err) => {
+			console.error("Fatal:", err);
+			process.exit(1);
+		});
+		break;
 	default:
 		console.log(`Usage:
   bun run pipeline bootstrap --country es [--limit N]
+  bun run pipeline rebuild [--json PATH] [--repo PATH] [--limit N]
   bun run pipeline ingest [--db PATH] [--json PATH]
   bun run pipeline status [--state PATH]`);
 		process.exit(command ? 1 : 0);
