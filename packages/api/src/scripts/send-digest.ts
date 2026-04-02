@@ -18,8 +18,8 @@
  */
 
 import { Database } from "bun:sqlite";
-import { Resend } from "resend";
 import { createSchema } from "@leyabierta/pipeline";
+import { Resend } from "resend";
 import { PROFILES } from "../data/profiles.ts";
 import { DbService } from "../services/db.ts";
 import { buildUnsubscribeUrl, sendDigestEmail } from "../services/email.ts";
@@ -191,7 +191,9 @@ interface ResendContact {
 
 let contacts: ResendContact[] = [];
 try {
-	const response = await resend.contacts.list({ audienceId: RESEND_AUDIENCE_ID });
+	const response = await resend.contacts.list({
+		audienceId: RESEND_AUDIENCE_ID,
+	});
 	contacts = (response.data?.data ?? []).filter(
 		(c: ResendContact) => !c.unsubscribed,
 	);

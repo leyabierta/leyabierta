@@ -47,4 +47,3 @@ ${items.join("\n")}
 		headers: { "Content-Type": "application/rss+xml; charset=utf-8" },
 	});
 };
-
