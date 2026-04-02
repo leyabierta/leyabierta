@@ -1,18 +1,24 @@
 ---
 import { getCollection } from "astro:content";
 import { promises as fs } from "node:fs";
-import { Marked } from "marked";
+import MarkdownIt from "markdown-it";
 import Base from "../../layouts/Base.astro";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
-const marked = new Marked({
-	walkTokens(token) {
-		if (token.type === "heading") {
-			(token as { depth: number }).depth = Math.min(token.depth + 1, 6);
-		}
-	},
-});
+const md = new MarkdownIt();
+md.renderer.rules.heading_open = (tokens, idx, options, _env, self) => {
+	const token = tokens[idx];
+	const level = Math.min(Number(token.tag.slice(1)) + 1, 6);
+	token.tag = `h${level}`;
+	return self.renderToken(tokens, idx, options);
+};
+md.renderer.rules.heading_close = (tokens, idx, options, _env, self) => {
+	const token = tokens[idx];
+	const level = Math.min(Number(token.tag.slice(1)) + 1, 6);
+	token.tag = `h${level}`;
+	return self.renderToken(tokens, idx, options);
+};
 
 export async function getStaticPaths() {
 	const laws = await getCollection("laws");
@@ -32,7 +38,7 @@ if (entry.body) {
 	const raw = await fs.readFile(entry.body, "utf-8");
 	const bodyMatch = raw.match(/^---[\s\S]*?---\s*([\s\S]*)$/);
 	const body = bodyMatch?.[1] ?? raw;
-	htmlContent = await marked.parse(body);
+	htmlContent = md.render(body);
 }
 
 const RANK_LABELS: Record<string, string> = {
