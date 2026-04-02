@@ -112,9 +112,7 @@ export class DbService {
 				.get(...params)!.c;
 
 			// Preserve FTS5 relevance order using CASE on the id position
-			const orderByRelevance = ids
-				.map((_, i) => `WHEN ? THEN ${i}`)
-				.join(" ");
+			const orderByRelevance = ids.map((_, i) => `WHEN ? THEN ${i}`).join(" ");
 			const orderClause = `ORDER BY CASE id ${orderByRelevance} END`;
 
 			const laws = this.db
