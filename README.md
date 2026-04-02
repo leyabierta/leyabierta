@@ -182,43 +182,43 @@ Code and tooling: [MIT](LICENSE).
 
 # Ley Abierta 🇪🇸
 
-**Legislacion abierta para todos.** Cada ley es un archivo Markdown. Cada reforma es un commit de Git.
+**Legislación abierta para todos.** Cada ley es un archivo Markdown. Cada reforma es un commit de Git.
 
-Ley Abierta descarga legislacion oficial, la convierte en datos versionados y legibles por maquina, y los pone a disposicion de cualquier ciudadano a traves de una web y una API abierta.
+Ley Abierta descarga legislación oficial, la convierte en datos versionados y legibles por máquina, y los pone a disposición de cualquier ciudadano a través de una web y una API abierta.
 
-## Por que
+## Por qué
 
 Las leyes cambian constantemente, pero seguir esos cambios es casi imposible. Las fuentes oficiales publican textos consolidados sin forma de comparar versiones. Los servicios comerciales cobran cientos de euros al mes por historial de versiones.
 
-Las leyes son de todos. Su evolucion deberia ser visible, accesible y gratuita.
+Las leyes son de todos. Su evolución debería ser visible, accesible y gratuita.
 
-## Como funciona
+## Cómo funciona
 
-1. **Descarga** legislacion desde fuentes oficiales (BOE para Espana)
+1. **Descarga** legislación desde fuentes oficiales (BOE para España)
 2. **Transforma** el XML oficial en Markdown estructurado con metadatos YAML
-3. **Versiona** cada reforma como un commit de Git con la fecha oficial de publicacion
-4. **Expone** los datos a traves de una API REST y una web publica
+3. **Versiona** cada reforma como un commit de Git con la fecha oficial de publicación
+4. **Expone** los datos a través de una API REST y una web pública
 
 ## Repos
 
 | Repo | Contenido |
 |------|-----------|
-| **leyabierta** (este) | Codigo fuente: pipeline, API, web |
-| **[leyes](https://github.com/leyabierta/leyes)** | Legislacion espanola en Markdown + Git history |
+| **leyabierta** (este) | Código fuente: pipeline, API, web |
+| **[leyes](https://github.com/leyabierta/leyes)** | Legislación española en Markdown + Git history |
 
-El repo de leyes es generado automaticamente por el pipeline. Cada archivo es una norma, cada commit es una reforma:
+El repo de leyes es generado automáticamente por el pipeline. Cada archivo es una norma, cada commit es una reforma:
 
 ```bash
-# Clonar la legislacion espanola
+# Clonar la legislación española
 git clone https://github.com/leyabierta/leyes.git
 
-# Ver la Constitucion
+# Ver la Constitución
 cat es/BOE-A-1978-31229.md
 
 # Ver la Ley de Cooperativas de Euskadi
 cat es-pv/BOE-A-2020-615.md
 
-# Cuando cambio una ley?
+# ¿Cuándo cambió una ley?
 git log --oneline -- es/BOE-A-1978-31229.md
 
 # Ver el diff exacto de una reforma
@@ -227,60 +227,60 @@ git show <commit-sha> -- es/BOE-A-1978-31229.md
 
 ### Estructura ELI
 
-Las carpetas siguen el estandar [ELI](https://eur-lex.europa.eu/eli-register/about.html) (European Legislation Identifier):
+Las carpetas siguen el estándar [ELI](https://eur-lex.europa.eu/eli-register/about.html) (European Legislation Identifier):
 
 ```
 leyes/
-├── es/                    ← Legislacion estatal (8,636 normas)
-│   ├── BOE-A-1978-31229.md   # Constitucion Espanola
-│   ├── BOE-A-1995-25444.md   # Codigo Penal
+├── es/                    ← Legislación estatal (8,636 normas)
+│   ├── BOE-A-1978-31229.md   # Constitución Española
+│   ├── BOE-A-1995-25444.md   # Código Penal
 │   └── ...
-├── es-pv/                 ← Pais Vasco (209 normas)
+├── es-pv/                 ← País Vasco (209 normas)
 │   ├── BOE-A-2020-615.md     # Ley de Cooperativas de Euskadi
 │   └── ...
-├── es-ct/                 ← Cataluna (356 normas)
-├── es-an/                 ← Andalucia (181 normas)
-└── ...                    ← 17 comunidades autonomas
+├── es-ct/                 ← Cataluña (356 normas)
+├── es-an/                 ← Andalucía (181 normas)
+└── ...                    ← 17 comunidades autónomas
 ```
 
-Una carpeta = una jurisdiccion. Un archivo = una norma. El rango y los metadatos van en el frontmatter YAML.
+Una carpeta = una jurisdicción. Un archivo = una norma. El rango y los metadatos van en el frontmatter YAML.
 
 ### Fechas anteriores a 1970
 
-Git no soporta fechas anteriores al 1 de enero de 1970 (Unix epoch). Esto afecta a unas 334 leyes publicadas entre 1835 y 1969 — incluyendo el Codigo Civil (1889), la Ley Hipotecaria (1946) y otras normas historicas que siguen vigentes.
+Git no soporta fechas anteriores al 1 de enero de 1970 (Unix epoch). Esto afecta a unas 334 leyes publicadas entre 1835 y 1969, incluyendo el Código Civil (1889), la Ley Hipotecaria (1946) y otras normas históricas que siguen vigentes.
 
 Para estas normas:
-- La **fecha del commit** en git aparece como `1970-01-02` (el minimo permitido)
-- La **fecha real de publicacion** esta en el frontmatter YAML (`fecha_publicacion`) y en el trailer `Source-Date` de cada commit
+- La **fecha del commit** en git aparece como `1970-01-02` (el mínimo permitido)
+- La **fecha real de publicación** está en el frontmatter YAML (`fecha_publicacion`) y en el trailer `Source-Date` de cada commit
 - La web y la API usan la fecha real, no la del commit
 
-## Espana en numeros
+## España en números
 
 | Dato | Valor |
 |------|-------|
 | Normas consolidadas | 12,235 |
 | Estatales | 8,646 |
-| Autonomicas | 3,589 |
+| Autonómicas | 3,589 |
 | Jurisdicciones | 18 (estatal + 17 CCAA) |
-| Norma mas antigua | 1835 |
-| Norma mas reformada | Ley General Seguridad Social (107 reformas) |
+| Norma más antigua | 1835 |
+| Norma más reformada | Ley General Seguridad Social (107 reformas) |
 | Vigentes | 9,876 |
 | Derogadas | 2,355 |
 
-## Actualizaciones automaticas
+## Actualizaciones automáticas
 
 Un pipeline diario (GitHub Actions) mantiene las leyes actualizadas:
 
-- **Lunes a sabado (06:00 UTC):** Busca normas nuevas en el BOE y las anade al repo
+- **Lunes a sábado (06:00 UTC):** Busca normas nuevas en el BOE y las añade al repo
 - **Domingos (04:00 UTC):** Re-sincroniza todas las normas para detectar reformas a leyes existentes
 
 El pipeline es idempotente: re-procesar una norma no duplica commits.
 
-## Paises
+## Países
 
-| Pais | Fuente | Normas | Estado |
+| País | Fuente | Normas | Estado |
 |------|--------|--------|--------|
-| Espana | [BOE](https://www.boe.es/) | 12,235 | Desplegado |
+| España | [BOE](https://www.boe.es/) | 12,235 | Desplegado |
 | Francia | [Legifrance](https://www.legifrance.gouv.fr/) | — | Planeado |
 | Alemania | [BGBL](https://www.bgbl.de/) | — | Planeado |
 | Portugal | [DRE](https://dre.pt/) | — | Planeado |
@@ -290,8 +290,8 @@ El pipeline es idempotente: re-procesar una norma no duplica commits.
 TypeScript + Bun. Monorepo con tres paquetes:
 
 - **pipeline** — descarga, parsea, transforma y genera commits
-- **api** — API REST (Elysia) con SQLite + FTS5 para busqueda full-text
-- **web** — interfaz publica (Astro, 100% estatica) con dark mode, SEO, diff viewer
+- **api** — API REST (Elysia) con SQLite + FTS5 para búsqueda full-text
+- **web** — interfaz pública (Astro, 100% estática) con dark mode, SEO, diff viewer
 
 ## Desarrollo
 
@@ -314,8 +314,8 @@ bun run web   # http://localhost:4321
 
 Ley Abierta es un proyecto abierto. Si quieres ayudar:
 
-- Reporta errores en el texto de una ley (incluye la ley, articulo y fuente oficial)
-- Anade soporte para un nuevo pais
+- Reporta errores en el texto de una ley (incluye la ley, artículo y fuente oficial)
+- Añade soporte para un nuevo país
 - Mejora la web o la API
 - Sugiere funcionalidades
 
@@ -323,9 +323,9 @@ Ley Abierta es un proyecto abierto. Si quieres ayudar:
 
 Inspirado por:
 - [ALEF](https://www.lavozdegalicia.es/noticia/reto-digital/ocio/2024/01/30/leyexe/00031706632270589450575.htm) — Agile Law Execution Factory, lenguaje formal de la Autoridad Fiscal holandesa para ley ejecutable
-- [Legalize](https://github.com/legalize-dev) — proyecto pionero de legislacion como codigo
+- [Legalize](https://github.com/legalize-dev) — proyecto pionero de legislación como código
 
 ## Licencia
 
-Contenido legislativo: dominio publico (procedente de publicaciones oficiales).
-Codigo y herramientas: [MIT](LICENSE).
+Contenido legislativo: dominio público (procedente de publicaciones oficiales).
+Código y herramientas: [MIT](LICENSE).
