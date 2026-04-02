@@ -430,6 +430,59 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			}
 		}
 
+		/* ── Prose: sensible typography defaults for long-form content ── */
+		.prose {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.8;
+		}
+		.prose p { margin: 1.25em 0; }
+		.prose h2 {
+			font-family: var(--font-serif);
+			font-size: 1.2rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 3rem 0 1rem;
+			padding-bottom: 0.5rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.prose h3 {
+			font-size: 1rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 2.5rem 0 0.75rem;
+		}
+		.prose ul, .prose ol {
+			padding-left: 1.5rem;
+			margin: 1em 0;
+		}
+		.prose li + li { margin-top: 0.5em; }
+		.prose a { color: var(--accent); }
+		.prose table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 1.5em 0;
+			font-size: 0.8125rem;
+			line-height: 1.6;
+		}
+		.prose th, .prose td {
+			border: 1px solid var(--border-light);
+			padding: 1rem 1.25rem;
+			text-align: left;
+			vertical-align: top;
+		}
+		.prose th {
+			background: var(--surface);
+			font-weight: 600;
+			color: var(--text);
+			font-size: 0.8125rem;
+			text-transform: uppercase;
+			letter-spacing: 0.03em;
+		}
+		.prose td { color: var(--text-secondary); }
+		.prose tr:nth-child(even) td { background: var(--bg); }
+		.prose > :first-child { margin-top: 0; }
+
 		/* ── Screen reader only (a11y) ── */
 		.sr-only {
 			position: absolute;

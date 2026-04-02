@@ -13,27 +13,14 @@ import Base from "../layouts/Base.astro";
 			font-family: var(--font-serif);
 			font-size: 1.75rem;
 			font-weight: 700;
-			margin-bottom: 0.25rem;
+			color: var(--text);
+			margin: 0 0 0.25rem;
 		}
 		.about-subtitle {
 			font-size: 1rem;
 			color: var(--text-muted);
 			margin-bottom: 2.5rem;
 		}
-		.about-page h2 {
-			font-family: var(--font-serif);
-			font-size: 1.25rem;
-			font-weight: 600;
-			margin-top: 2.5rem;
-			margin-bottom: 0.75rem;
-		}
-		.about-page p {
-			font-size: 0.9375rem;
-			color: var(--text-secondary);
-			line-height: 1.8;
-			margin-bottom: 1rem;
-		}
-		.about-page a { color: var(--accent); }
 		.about-highlight {
 			background: var(--accent-faint);
 			border-left: 3px solid var(--accent);
@@ -101,7 +88,7 @@ import Base from "../layouts/Base.astro";
 		}
 	</style>
 
-	<div class="about-page">
+	<div class="about-page prose">
 		<h1>Sobre mí</h1>
 		<p class="about-subtitle">Quién está detrás de Ley Abierta, por qué existe y dónde encontrarme.</p>
 
