@@ -71,6 +71,7 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_blocks_norm ON blocks(norm_id);
   CREATE INDEX IF NOT EXISTS idx_versions_norm_block ON versions(norm_id, block_id);
   CREATE INDEX IF NOT EXISTS idx_reforms_norm ON reforms(norm_id);
+  CREATE INDEX IF NOT EXISTS idx_reform_blocks_lookup ON reform_blocks(norm_id, reform_date, reform_source_id);
 
   -- Materias (subject categories from BOE análisis)
   CREATE TABLE IF NOT EXISTS materias (

@@ -62,79 +62,172 @@ export class DbService {
 		if (query) {
 			// If the query looks like a norm ID (e.g. BOE-A-2018-6405), search by ID directly
 			const isNormId = /^[A-Z]+-[A-Z]+-\d{4}-\d+$/i.test(query.trim());
-			let ids: string[];
 
 			if (isNormId) {
-				const direct = this.db
-					.query<{ id: string }, [string]>("SELECT id FROM norms WHERE id = ?")
-					.all(query.trim().toUpperCase());
-				ids = direct.map((r) => r.id);
-			} else {
-				// Escape FTS5 query: wrap each token in double quotes to avoid
-				// hyphens and special chars being treated as operators
-				const safeQuery = query
-					.replace(/"/g, "")
-					.split(/\s+/)
-					.filter(Boolean)
-					.map((token) => `"${token}"`)
-					.join(" ");
+				const law = this.db
+					.query<LawRow, [string]>("SELECT * FROM norms WHERE id = ?")
+					.get(query.trim().toUpperCase());
+				return law ? { laws: [law], total: 1 } : { laws: [], total: 0 };
+			}
 
+			// Escape FTS5 query: wrap each token in double quotes to avoid
+			// hyphens and special chars being treated as operators
+			const safeQuery = query
+				.replace(/"/g, "")
+				.split(/\s+/)
+				.filter(Boolean)
+				.map((token) => `"${token}"`)
+				.join(" ");
+
+			// Build filter conditions for the JOIN
+			const conditions: string[] = [];
+			const filterParams: unknown[] = [];
+			this.applyFilters(conditions, filterParams, filters);
+			// For non-relevance sorts: use a single efficient JOIN query
+			if (sort === "recent" || sort === "oldest" || sort === "title") {
+				const orderMap = {
+					recent: "ORDER BY published_at DESC",
+					oldest: "ORDER BY published_at ASC",
+					title: "ORDER BY title ASC",
+				};
 				try {
-					const matchIds = this.db
+					// Two-pass FTS: title matches (fast) + content matches
+					const titleMatchIds = this.db
 						.query<{ norm_id: string }, [string]>(
-							"SELECT norm_id FROM norms_fts WHERE norms_fts MATCH ? ORDER BY bm25(norms_fts, 0, 10.0, 1.0)",
+							"SELECT norm_id FROM norms_fts WHERE title MATCH ? LIMIT 10000",
 						)
-						.all(safeQuery);
-					ids = matchIds.map((r) => r.norm_id);
-				} catch {
-					// If FTS still fails, fallback to LIKE on title
-					const likeIds = this.db
-						.query<{ id: string }, [string]>(
-							"SELECT id FROM norms WHERE title LIKE ?",
+						.all(safeQuery)
+						.map((r) => r.norm_id);
+
+					let ftsIds = titleMatchIds;
+					if (titleMatchIds.length < 10000) {
+						const seen = new Set(titleMatchIds);
+						const contentIds = this.db
+							.query<{ norm_id: string }, [string]>(
+								"SELECT DISTINCT norm_id FROM norms_fts WHERE norms_fts MATCH ? LIMIT 10000",
+							)
+							.all(safeQuery)
+							.map((r) => r.norm_id)
+							.filter((id) => !seen.has(id));
+						ftsIds = [...titleMatchIds, ...contentIds];
+					}
+					if (ftsIds.length === 0) return { laws: [], total: 0 };
+
+					// For sorted search, use the relevance path to get filtered IDs,
+					// then fetch sorted page from norms table
+					const hasFilters2 =
+						filters.country ||
+						filters.rank ||
+						filters.status ||
+						filters.materia;
+
+					let sortedIds = ftsIds;
+					if (hasFilters2) {
+						// Chunk large ID sets to avoid SQLite variable limit
+						sortedIds = this.filterIdsByChunks(ftsIds, filters);
+					}
+
+					const total = sortedIds.length;
+					if (total === 0) return { laws: [], total: 0 };
+
+					// For the final page, use a reasonable chunk
+					const pageIds = sortedIds.slice(0, Math.min(sortedIds.length, 5000));
+					const placeholders = pageIds.map(() => "?").join(",");
+					const laws = this.db
+						.query<LawRow, unknown[]>(
+							`SELECT * FROM norms WHERE id IN (${placeholders})
+							 ${orderMap[sort]} LIMIT ? OFFSET ?`,
 						)
-						.all(`%${query}%`);
-					ids = likeIds.map((r) => r.id);
+						.all(...pageIds, limit, offset);
+					return { laws, total };
+				} catch (e) {
+					console.error("[search sorted]", e);
+					throw e;
 				}
 			}
 
-			if (ids.length === 0) return { laws: [], total: 0 };
+			// Default: FTS relevance order — two-pass: title matches first (fast),
+			// then content matches for additional results. Cap at 2000.
+			const FTS_CAP = 2000;
+			try {
+				// Pass 1: title matches (very fast, most relevant)
+				const titleIds = this.db
+					.query<{ norm_id: string }, [string]>(
+						`SELECT norm_id FROM norms_fts
+						 WHERE title MATCH ?
+						 ORDER BY bm25(norms_fts, 0, 10.0, 1.0)
+						 LIMIT ${FTS_CAP}`,
+					)
+					.all(safeQuery)
+					.map((r) => r.norm_id);
 
-			const conditions: string[] = [`id IN (${ids.map(() => "?").join(",")})`];
-			const params: unknown[] = [...ids];
+				let allIds = titleIds;
 
-			this.applyFilters(conditions, params, filters);
+				// Pass 2: content matches if we need more results
+				if (titleIds.length < FTS_CAP) {
+					const titleSet = new Set(titleIds);
+					const contentIds = this.db
+						.query<{ norm_id: string }, [string]>(
+							`SELECT DISTINCT norm_id FROM norms_fts
+							 WHERE norms_fts MATCH ? LIMIT ${FTS_CAP * 3}`,
+						)
+						.all(safeQuery)
+						.map((r) => r.norm_id)
+						.filter((id) => !titleSet.has(id));
+					allIds = [...titleIds, ...contentIds].slice(0, FTS_CAP);
+				}
 
-			const where = conditions.join(" AND ");
+				// Apply filters in the norms table
+				const hasFilters =
+					filters.country || filters.rank || filters.status || filters.materia;
+				let filteredIds = allIds;
+				if (hasFilters && allIds.length > 0) {
+					const filteredSet = new Set(this.filterIdsByChunks(allIds, filters));
+					filteredIds = allIds.filter((id) => filteredSet.has(id));
+				}
 
-			const total = this.db
-				.query<{ c: number }, unknown[]>(
-					`SELECT count(*) as c FROM norms WHERE ${where}`,
-				)
-				.get(...params)!.c;
+				const matchIds = filteredIds.map((id) => ({ norm_id: id }));
 
-			let orderClause: string;
-			let orderParams: unknown[] = [];
+				const ids = matchIds.map((r) => r.norm_id);
+				const total = ids.length;
+				const pageIds = ids.slice(offset, offset + limit);
+				if (pageIds.length === 0) return { laws: [], total };
 
-			if (sort === "recent") {
-				orderClause = "ORDER BY published_at DESC";
-			} else if (sort === "oldest") {
-				orderClause = "ORDER BY published_at ASC";
-			} else if (sort === "title") {
-				orderClause = "ORDER BY title ASC";
-			} else {
-				// Default: preserve FTS5 relevance order using CASE on the id position
-				const orderByRelevance = ids.map((_, i) => `WHEN ? THEN ${i}`).join(" ");
-				orderClause = `ORDER BY CASE id ${orderByRelevance} END`;
-				orderParams = ids;
+				// Fetch only the page-worth of rows
+				const placeholders = pageIds.map(() => "?").join(",");
+				const rows = this.db
+					.query<LawRow, unknown[]>(
+						`SELECT * FROM norms WHERE id IN (${placeholders})`,
+					)
+					.all(...pageIds);
+
+				// Re-sort in JS to match FTS relevance order
+				const rowMap = new Map(rows.map((r) => [r.id, r]));
+				const laws = pageIds
+					.map((id) => rowMap.get(id))
+					.filter((r): r is LawRow => r != null);
+
+				return { laws, total };
+			} catch {
+				// FTS failed, fallback to LIKE on title
+				const conditions2: string[] = ["title LIKE ?"];
+				const params2: unknown[] = [`%${query}%`];
+				this.applyFilters(conditions2, params2, filters);
+				const where = conditions2.join(" AND ");
+
+				const total = this.db
+					.query<{ c: number }, unknown[]>(
+						`SELECT count(*) as c FROM norms WHERE ${where}`,
+					)
+					.get(...params2)!.c;
+
+				const laws = this.db
+					.query<LawRow, unknown[]>(
+						`SELECT * FROM norms WHERE ${where} ORDER BY published_at DESC LIMIT ? OFFSET ?`,
+					)
+					.all(...params2, limit, offset);
+				return { laws, total };
 			}
-
-			const laws = this.db
-				.query<LawRow, unknown[]>(
-					`SELECT * FROM norms WHERE ${where} ${orderClause} LIMIT ? OFFSET ?`,
-				)
-				.all(...params, ...orderParams, limit, offset);
-
-			return { laws, total };
 		}
 
 		// No query — filter + paginate
@@ -178,6 +271,33 @@ export class DbService {
 				"SELECT materia, count(*) as count FROM materias GROUP BY materia ORDER BY count DESC",
 			)
 			.all();
+	}
+
+	/** Filter a large ID array through norms table in chunks to avoid SQLite variable limits. */
+	private filterIdsByChunks(
+		ids: string[],
+		filters: {
+			country?: string;
+			rank?: string;
+			status?: string;
+			materia?: string;
+		},
+	): string[] {
+		const CHUNK = 500;
+		const result: string[] = [];
+		for (let i = 0; i < ids.length; i += CHUNK) {
+			const chunk = ids.slice(i, i + CHUNK);
+			const conds: string[] = [`id IN (${chunk.map(() => "?").join(",")})`];
+			const params: unknown[] = [...chunk];
+			this.applyFilters(conds, params, filters);
+			const filtered = this.db
+				.query<{ id: string }, unknown[]>(
+					`SELECT id FROM norms WHERE ${conds.join(" AND ")}`,
+				)
+				.all(...params);
+			result.push(...filtered.map((r) => r.id));
+		}
+		return result;
 	}
 
 	private applyFilters(
@@ -239,6 +359,29 @@ export class DbService {
 			)
 			.all(normId, date, sourceId)
 			.map((r) => r.block_id);
+	}
+
+	/** Single query: get all reforms with their affected blocks via JOIN + GROUP_CONCAT. */
+	getReformsWithBlocks(
+		normId: string,
+	): Array<ReformRow & { affected_blocks: string[] }> {
+		return this.db
+			.query<ReformRow & { block_list: string | null }, [string]>(
+				`SELECT r.norm_id, r.date, r.source_id, GROUP_CONCAT(rb.block_id) as block_list
+				 FROM reforms r
+				 LEFT JOIN reform_blocks rb
+				   ON rb.norm_id = r.norm_id AND rb.reform_date = r.date AND rb.reform_source_id = r.source_id
+				 WHERE r.norm_id = ?
+				 GROUP BY r.norm_id, r.date, r.source_id
+				 ORDER BY r.date`,
+			)
+			.all(normId)
+			.map((r) => ({
+				norm_id: r.norm_id,
+				date: r.date,
+				source_id: r.source_id,
+				affected_blocks: r.block_list ? r.block_list.split(",") : [],
+			}));
 	}
 
 	getVersions(normId: string, blockId: string): VersionRow[] {

@@ -74,18 +74,11 @@ export function lawRoutes(
 						set.status = 404;
 						return { error: "Law not found" };
 					}
-					const reforms = dbService.getReforms(params.id);
+					const reforms = dbService.getReformsWithBlocks(params.id);
 					const blocks = dbService.getBlocks(params.id);
 					return {
 						...law,
-						reforms: reforms.map((r) => ({
-							...r,
-							affected_blocks: dbService.getReformBlocks(
-								params.id,
-								r.date,
-								r.source_id,
-							),
-						})),
+						reforms,
 						blocks: blocks.map((b) => ({
 							block_id: b.block_id,
 							block_type: b.block_type,
@@ -143,7 +136,7 @@ export function lawRoutes(
 						set.status = 404;
 						return { error: "Law not found" };
 					}
-					const reforms = dbService.getReforms(params.id);
+					const reforms = dbService.getReformsWithBlocks(params.id);
 					const allBlocks = dbService.getBlocks(params.id);
 					const blockTitleMap = new Map(
 						allBlocks.map((b) => [b.block_id, b.title]),
@@ -153,21 +146,14 @@ export function lawRoutes(
 						id: params.id,
 						title: law.title,
 						total_reforms: reforms.length,
-						reforms: reforms.map((r) => {
-							const affectedBlockIds = dbService.getReformBlocks(
-								params.id,
-								r.date,
-								r.source_id,
-							);
-							return {
-								date: r.date,
-								source_id: r.source_id,
-								affected_blocks: affectedBlockIds.map((blockId) => ({
-									block_id: blockId,
-									title: blockTitleMap.get(blockId) ?? blockId,
-								})),
-							};
-						}),
+						reforms: reforms.map((r) => ({
+							date: r.date,
+							source_id: r.source_id,
+							affected_blocks: r.affected_blocks.map((blockId) => ({
+								block_id: blockId,
+								title: blockTitleMap.get(blockId) ?? blockId,
+							})),
+						})),
 					};
 				},
 				{

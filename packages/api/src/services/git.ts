@@ -10,20 +10,124 @@
  * correctly.
  */
 
-import { $ } from "bun";
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+/** Monotonic counter for temp file names. */
+let tmpSeq = 0;
+
+type CommitInfo = {
+	sha: string;
+	date: string;
+	subject: string;
+	sourceId: string;
+};
 
 export class GitService {
+	/** Cache of commit lists per file path. Commits are immutable (historical reforms). */
+	private commitCache = new Map<
+		string,
+		{ commits: CommitInfo[]; ts: number }
+	>();
+	private static CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
 	constructor(private repoPath: string) {}
+
+	/**
+	 * Run a git command and capture stdout reliably.
+	 * Tries Bun.spawn first, falls back to shell redirect.
+	 */
+	private async git(args: string[]): Promise<string> {
+		// Try Bun.spawn first
+		try {
+			const proc = Bun.spawn(["git", ...args], {
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			const [stdout, _, exitCode] = await Promise.all([
+				new Response(proc.stdout).text(),
+				new Response(proc.stderr).text(),
+				proc.exited,
+			]);
+			if (exitCode === 0 && stdout) return stdout;
+		} catch {
+			// Fall through
+		}
+
+		// Fallback: shell with file redirect
+		return this.gitShell(args);
+	}
+
+	/**
+	 * Run a git command via shell with file-redirect output capture.
+	 * Reliable in all environments including bun test runner.
+	 */
+	private gitShell(args: string[]): string {
+		const quoted = args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+		const id = ++tmpSeq;
+		const outFile = join(tmpdir(), `.git-svc-out-${process.pid}-${id}`);
+		const errFile = join(tmpdir(), `.git-svc-err-${process.pid}-${id}`);
+
+		try {
+			execSync(`git ${quoted} > '${outFile}' 2> '${errFile}'`, {
+				shell: "/bin/bash",
+			});
+			return existsSync(outFile) ? readFileSync(outFile, "utf-8") : "";
+		} catch {
+			return "";
+		} finally {
+			try {
+				unlinkSync(outFile);
+			} catch {}
+			try {
+				unlinkSync(errFile);
+			} catch {}
+		}
+	}
+
+	/**
+	 * Run a git command that may return non-zero exit code (like git diff).
+	 */
+	private async gitNothrow(args: string[]): Promise<string> {
+		// Try Bun.spawn first
+		try {
+			const proc = Bun.spawn(["git", ...args], {
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			const [stdout] = await Promise.all([
+				new Response(proc.stdout).text(),
+				new Response(proc.stderr).text(),
+				proc.exited,
+			]);
+			if (stdout) return stdout;
+		} catch {
+			// Fall through
+		}
+
+		// Fallback: shell with file redirect (nothrow)
+		return this.gitShell(args);
+	}
 
 	/**
 	 * Get all commits for a file with their real (trailer) dates.
 	 * Returns newest-first (git log default order).
+	 * Results are cached for 1 hour since reform history is immutable.
 	 */
-	private async getCommitsForFile(
-		filePath: string,
-	): Promise<
-		Array<{ sha: string; date: string; subject: string; sourceId: string }>
-	> {
+	private async getCommitsForFile(filePath: string): Promise<CommitInfo[]> {
+		const cached = this.commitCache.get(filePath);
+		if (cached && Date.now() - cached.ts < GitService.CACHE_TTL) {
+			return cached.commits;
+		}
+
+		const commits = await this.fetchCommitsForFile(filePath);
+		this.commitCache.set(filePath, { commits, ts: Date.now() });
+		return commits;
+	}
+
+	private async fetchCommitsForFile(filePath: string): Promise<CommitInfo[]> {
 		try {
 			const SEP = "\x1f"; // ASCII unit separator — field delimiter
 			// Use %x1e (record separator) + literal marker as record boundary.
@@ -31,20 +135,15 @@ export class GitService {
 			// so we delimit records with a marker and strip embedded newlines.
 			const REC_MARKER = "\x1e\x1e\x1e";
 			const format = `%H${SEP}%aI${SEP}%s${SEP}%(trailers:key=Source-Date,valueonly)${SEP}%(trailers:key=Source-Id,valueonly)%x1e%x1e%x1e`;
-			const proc = Bun.spawn(
-				[
-					"git",
-					"-C",
-					this.repoPath,
-					"log",
-					`--format=${format}`,
-					"--",
-					filePath,
-				],
-				{ stdout: "pipe", stderr: "pipe" },
-			);
-			const raw = await new Response(proc.stdout).text();
-			await proc.exited;
+
+			const raw = await this.git([
+				"-C",
+				this.repoPath,
+				"log",
+				`--format=${format}`,
+				"--",
+				filePath,
+			]);
 
 			return raw
 				.split(REC_MARKER)
@@ -85,7 +184,13 @@ export class GitService {
 			const match = commits.find((c) => c.date <= date);
 			if (!match) return null;
 
-			return await $`git -C ${this.repoPath} show ${match.sha}:${filePath}`.text();
+			const content = await this.git([
+				"-C",
+				this.repoPath,
+				"show",
+				`${match.sha}:${filePath}`,
+			]);
+			return content || null;
 		} catch {
 			return null;
 		}
@@ -96,7 +201,13 @@ export class GitService {
 	 */
 	async getFileLatest(filePath: string): Promise<string | null> {
 		try {
-			return await $`git -C ${this.repoPath} show HEAD:${filePath}`.text();
+			const content = await this.git([
+				"-C",
+				this.repoPath,
+				"show",
+				`HEAD:${filePath}`,
+			]);
+			return content || null;
 		} catch {
 			return null;
 		}
@@ -123,10 +234,15 @@ export class GitService {
 			if (fromCommit.sha === toCommit.sha) return "";
 
 			// git diff returns exit code 1 when there are differences, which is not an error
-			const result =
-				await $`git -C ${this.repoPath} diff ${fromCommit.sha} ${toCommit.sha} -- ${filePath}`
-					.nothrow()
-					.text();
+			const result = await this.gitNothrow([
+				"-C",
+				this.repoPath,
+				"diff",
+				fromCommit.sha,
+				toCommit.sha,
+				"--",
+				filePath,
+			]);
 			return result;
 		} catch {
 			return null;

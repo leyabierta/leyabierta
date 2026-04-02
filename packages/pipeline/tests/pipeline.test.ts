@@ -1,7 +1,34 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+let gitSeq = 0;
+
+/**
+ * Helper to run git commands and capture output reliably.
+ * Bun.spawn pipe capture returns empty in bun test runner,
+ * so we use execSync with shell-level file redirection.
+ */
+function gitOutput(args: string[], cwd: string): string {
+	const quoted = args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+	const outFile = join(tmpdir(), `.git-test-out-${process.pid}-${++gitSeq}`);
+	try {
+		execSync(`git ${quoted} > '${outFile}' 2>/dev/null`, {
+			cwd,
+			shell: "/bin/bash",
+		});
+		return existsSync(outFile) ? readFileSync(outFile, "utf-8") : "";
+	} catch {
+		return existsSync(outFile) ? readFileSync(outFile, "utf-8") : "";
+	} finally {
+		try {
+			unlinkSync(outFile);
+		} catch {}
+	}
+}
+
 import type { NormMetadata } from "../src/models.ts";
 import { bootstrapFromLocalXml } from "../src/pipeline.ts";
 
@@ -60,11 +87,7 @@ describe("bootstrapFromLocalXml", () => {
 			{ repoPath, dataDir: join(tmpDir, "data") },
 		);
 
-		const proc = Bun.spawn(["git", "log", "--format=%ai", "--reverse"], {
-			cwd: repoPath,
-			stdout: "pipe",
-		});
-		const output = await new Response(proc.stdout).text();
+		const output = gitOutput(["log", "--format=%ai", "--reverse"], repoPath);
 		const dates = output
 			.trim()
 			.split("\n")
@@ -86,11 +109,7 @@ describe("bootstrapFromLocalXml", () => {
 			{ repoPath, dataDir: join(tmpDir, "data") },
 		);
 
-		const proc = Bun.spawn(["git", "log", "--format=%B", "-1"], {
-			cwd: repoPath,
-			stdout: "pipe",
-		});
-		const body = await new Response(proc.stdout).text();
+		const body = gitOutput(["log", "--format=%B", "-1"], repoPath);
 		expect(body).toContain("Source-Id:");
 		expect(body).toContain("Source-Date:");
 		expect(body).toContain("Norm-Id: BOE-A-1978-31229");

@@ -46,7 +46,10 @@ export class BoeClient implements LegislativeClient {
 			};
 		}
 		return {
-			materias: toArray(data.materias).map((m: any) => m.materia?.texto ?? ""),
+			materias: toArray(data.materias).map((m: Record<string, unknown>) => {
+				const materia = m.materia as Record<string, unknown> | undefined;
+				return (materia?.texto as string) ?? "";
+			}),
 			notas: extractNotas(data.notas),
 			referencias: {
 				anteriores: flattenRefs(
@@ -151,10 +154,10 @@ export class BoeClient implements LegislativeClient {
 }
 
 /** Normalize BOE API values that can be object, array, or empty. */
-function toArray(val: unknown): any[] {
-	if (Array.isArray(val)) return val;
+function toArray(val: unknown): Record<string, unknown>[] {
+	if (Array.isArray(val)) return val as Record<string, unknown>[];
 	if (val && typeof val === "object" && Object.keys(val).length > 0)
-		return [val];
+		return [val as Record<string, unknown>];
 	return [];
 }
 
@@ -176,15 +179,19 @@ function extractNotas(raw: unknown): string[] {
 	return result;
 }
 
-function flattenRefs(groups: any[], key: string): BoeReference[] {
+function flattenRefs(
+	groups: Record<string, unknown>[],
+	key: string,
+): BoeReference[] {
 	const refs: BoeReference[] = [];
 	for (const group of groups) {
 		const items = toArray(group[key]);
 		for (const ref of items) {
+			const relacion = ref.relacion as Record<string, unknown> | undefined;
 			refs.push({
-				relation: ref.relacion?.texto ?? "",
-				normId: ref.id_norma ?? "",
-				text: ref.texto ?? "",
+				relation: (relacion?.texto as string) ?? "",
+				normId: (ref.id_norma as string) ?? "",
+				text: (ref.texto as string) ?? "",
 			});
 		}
 	}
