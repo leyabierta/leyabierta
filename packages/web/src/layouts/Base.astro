@@ -46,6 +46,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta name="description" content={description} />
 	{resolvedCanonicalUrl && <link rel="canonical" href={resolvedCanonicalUrl} />}
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 	<link rel="icon" type="image/x-icon" href="/favicon.ico" />
 	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 	<link rel="alternate" type="application/rss+xml" title="Ley Abierta — RSS" href="/feed.xml" />
@@ -428,7 +429,6 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Menú" aria-expanded="false">☰</button>
 			<div class="nav-links" id="nav-links">
 				<a href="/">Buscar</a>
-				<a href="/alertas">Alertas</a>
 				<a href="/resumenes">Resúmenes</a>
 				<a href="/anomalias">Anomalías</a>
 				<a href="/sobre-leyabierta">Sobre mí</a>

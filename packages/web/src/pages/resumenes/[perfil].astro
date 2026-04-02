@@ -160,14 +160,7 @@ const digestsForDisplay = digests.map((d) => {
 	) : (
 		<div class="empty-state">
 			<p>Aun no hay resumenes para este perfil. Se generan cada semana.</p>
-			<a href="/alertas" class="btn btn-primary">Recibir por email cuando esten listos</a>
 		</div>
 	)}
 
-	{digestsForDisplay.length > 0 && (
-		<div class="cta-section">
-			Recibe estos resumenes en tu email cada lunes.
-			<a href="/alertas">Suscribirme →</a>
-		</div>
-	)}
 </Base>
