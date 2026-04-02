@@ -629,7 +629,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				html += '</ul>';
 				document.getElementById("most-reformed").innerHTML = html;
 			}).catch(function () {
-				document.getElementById("most-reformed").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles (API offline)</div>';
+				document.getElementById("most-reformed").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles</div>';
 			});
 
 			fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
@@ -648,7 +648,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				html += '</ul>';
 				document.getElementById("recent-reforms").innerHTML = html;
 			}).catch(function () {
-				document.getElementById("recent-reforms").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles (API offline)</div>';
+				document.getElementById("recent-reforms").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles</div>';
 			});
 		})();
 	</script>
