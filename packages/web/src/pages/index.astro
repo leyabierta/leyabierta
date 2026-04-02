@@ -209,58 +209,33 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			font-family: var(--font-sans);
 		}
 
+		/* ── Search Suggestions ── */
+		.search-suggestions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.375rem;
+			margin-top: 0.75rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			align-items: center;
+		}
+		.search-suggestions span { margin-right: 0.125rem; }
+		.search-chip {
+			display: inline-block;
+			padding: 0.25rem 0.625rem;
+			border: 1px solid var(--border);
+			border-radius: 100px;
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			background: var(--surface);
+			cursor: pointer;
+			transition: all 0.15s;
+			font-family: var(--font-sans);
+		}
+		.search-chip:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
 		/* ── Results Section ── */
 		.results-section { padding: 2rem 0; }
-		.results-info {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			margin-bottom: 1rem;
-			padding-bottom: 0.75rem;
-			border-bottom: 1px solid var(--border-light);
-		}
-		.results-filter-badge {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.375rem;
-			background: var(--accent-bg);
-			color: var(--accent);
-			font-size: 0.8125rem;
-			font-weight: 500;
-			padding: 0.25rem 0.625rem;
-			border-radius: 4px;
-			margin-bottom: 1rem;
-		}
-		.results-filter-clear {
-			background: none;
-			border: none;
-			color: var(--accent);
-			cursor: pointer;
-			font-size: 1rem;
-			line-height: 1;
-			padding: 0 0.125rem;
-			opacity: 0.6;
-		}
-		.results-filter-clear:hover { opacity: 1; }
-		.law-card { padding: 1rem 0; transition: background 0.15s; }
-		.law-card:hover { background: var(--surface); margin: 0 -1rem; padding: 1rem; border-radius: 8px; }
-		.law-card + .law-card { border-top: 1px solid var(--border-light); }
-		.law-card-title {
-			font-family: var(--font-serif);
-			font-weight: 600;
-			font-size: 1.0625rem;
-			line-height: 1.45;
-			color: var(--text);
-		}
-		.law-card-title:hover { color: var(--accent); text-decoration: none; }
-		.law-card-meta {
-			margin-top: 0.5rem;
-			display: flex;
-			gap: 0.625rem;
-			flex-wrap: wrap;
-			align-items: center;
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-		}
 		.pagination { display: flex; gap: 0.25rem; justify-content: center; margin-top: 1.5rem; }
 		.page-num {
 			display: inline-flex;
@@ -338,6 +313,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			.hero-content h1 { font-size: 2rem; }
 			.stats-card { max-width: 24rem; }
 			.stats-number { font-size: 2.75rem; }
+			/* Hide stats when searching on mobile */
+			.hero-section.has-results .hero-stats-col { display: none; }
+			.hero-section.has-results { padding-bottom: 1.5rem; }
 		}
 		@media (max-width: 640px) {
 			.hero-section { padding: 2.5rem 0 2rem; }
@@ -352,11 +330,82 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			.juri-grid { grid-template-columns: repeat(2, 1fr); }
 			.stats-card { padding: 1.5rem; max-width: none; }
 			.stats-number { font-size: 2.25rem; }
+			/* Tighter hero when searching */
+			.hero-section.has-results .hero-sub { display: none; }
+			.hero-section.has-results .hero-source { display: none; }
+			.hero-section.has-results .hero-content h1 { font-size: 1.375rem; margin-bottom: 0.5rem; }
+			.hero-section.has-results { padding: 1.5rem 0 1rem; }
 		}
 	</style>
 
 	<!-- Styles for JS-injected content (must be global since Astro scopes don't apply to innerHTML) -->
 	<style is:global>
+		/* ── Search result cards (injected via JS) ── */
+		.law-card { padding: 1rem 0; transition: background 0.15s; }
+		.law-card:hover { background: var(--surface); margin: 0 -1rem; padding: 1rem; border-radius: 8px; }
+		.law-card + .law-card { border-top: 1px solid var(--border-light); }
+		.law-card-title {
+			font-family: var(--font-serif);
+			font-weight: 600;
+			font-size: 1.0625rem;
+			line-height: 1.45;
+			color: var(--text);
+			display: -webkit-box;
+			-webkit-line-clamp: 3;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+		.law-card-title:hover { color: var(--accent); text-decoration: none; }
+		.law-card-meta {
+			margin-top: 0.5rem;
+			display: flex;
+			gap: 0.5rem 0.75rem;
+			flex-wrap: wrap;
+			align-items: center;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.law-card-meta .meta-sep { color: var(--border); font-size: 0.5rem; }
+		.law-card-id {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			color: var(--text-muted);
+			opacity: 0.7;
+		}
+		.results-info {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 1rem;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.results-filter-badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			background: var(--accent-bg);
+			color: var(--accent);
+			font-size: 0.8125rem;
+			font-weight: 500;
+			padding: 0.25rem 0.625rem;
+			border-radius: 4px;
+			margin-bottom: 1rem;
+		}
+		.results-filter-clear {
+			background: none;
+			border: none;
+			color: var(--accent);
+			cursor: pointer;
+			font-size: 1rem;
+			line-height: 1;
+			padding: 0 0.125rem;
+			opacity: 0.6;
+		}
+		.results-filter-clear:hover { opacity: 1; }
+		@media (max-width: 768px) {
+			.law-card-title { -webkit-line-clamp: 2; font-size: 1rem; }
+		}
+
 		.reformed-list, .recent-list { list-style: none; padding: 0; }
 		.reformed-item { display: flex; gap: 1rem; align-items: baseline; padding: 0.75rem 0; border-bottom: 1px solid var(--border-light); }
 		.reformed-item:last-child { border-bottom: none; }
@@ -406,6 +455,14 @@ const JURISDICTION_LABELS: Record<string, string> = {
 								</select>
 							</div>
 						</div>
+					</div>
+
+					<div class="search-suggestions" id="search-suggestions">
+						<span>Prueba:</span>
+						<button type="button" class="search-chip" data-query="Constitución">Constitución</button>
+						<button type="button" class="search-chip" data-query="Código Penal">Código Penal</button>
+						<button type="button" class="search-chip" data-query="alquileres">Alquileres</button>
+						<button type="button" class="search-chip" data-query="tráfico">Tráfico</button>
 					</div>
 
 					<p class="hero-source">
@@ -486,11 +543,23 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			var currentCountry = "";
 			var LIMIT = 20;
 
+			var heroSection = document.querySelector(".hero-section");
+			var suggestions = document.getElementById("search-suggestions");
+
 			// Toggle filters
 			var filterToggle = document.getElementById("filter-toggle");
 			filterToggle.addEventListener("click", function () {
 				document.getElementById("filter-panel").classList.toggle("open");
 				filterToggle.classList.toggle("open");
+			});
+
+			// Search suggestion chips
+			document.querySelectorAll(".search-chip").forEach(function (chip) {
+				chip.addEventListener("click", function () {
+					searchInput.value = this.dataset.query;
+					currentCountry = "";
+					doSearch(1);
+				});
 			});
 
 			// Jurisdiction card clicks
@@ -510,9 +579,15 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				if (!q && !rank && !status && !currentCountry) {
 					resultsSection.style.display = "none";
 					landingDiv.style.display = "block";
+					heroSection.classList.remove("has-results");
+					if (suggestions) suggestions.style.display = "";
 					history.replaceState(null, "", "/");
 					return;
 				}
+
+				// Compact hero on search
+				heroSection.classList.add("has-results");
+				if (suggestions) suggestions.style.display = "none";
 
 				var params = new URLSearchParams();
 				if (q) params.set("q", q);
@@ -562,19 +637,30 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.title) + '</a>';
 							html += '<div class="law-card-meta">';
 							html += '<span class="badge badge-' + esc(law.status) + '">' + esc(law.status) + '</span>';
+							html += '<span class="meta-sep">&middot;</span>';
 							html += '<span>' + esc(RANK_LABELS[law.rank] || law.rank) + '</span>';
+							html += '<span class="meta-sep">&middot;</span>';
 							html += '<span>' + law.published_at + '</span>';
-							html += '<span style="font-family:var(--font-mono);font-size:0.6875rem;color:var(--text-muted)">' + esc(law.id) + '</span>';
+							html += '<span class="law-card-id">' + esc(law.id) + '</span>';
 							html += '</div></article>';
+						}
+
+						// Auto-scroll to results on mobile
+						if (window.innerWidth <= 768) {
+							resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 						}
 
 						// Pagination
 						if (totalPages > 1) {
 							html += '<nav class="pagination">';
 							if (currentPage > 1) html += '<span class="page-num" data-page="' + (currentPage - 1) + '">&larr;</span>';
-							for (var p = 1; p <= totalPages && p <= 10; p++) {
+							var startPage = Math.max(1, currentPage - 4);
+							var endPage = Math.min(totalPages, startPage + 9);
+							if (startPage > 1) html += '<span class="page-num" data-page="1">1</span><span class="page-ellipsis">&hellip;</span>';
+							for (var p = startPage; p <= endPage; p++) {
 								html += '<span class="page-num' + (p === currentPage ? ' current' : '') + '" data-page="' + p + '">' + p + '</span>';
 							}
+							if (endPage < totalPages) html += '<span class="page-ellipsis">&hellip;</span><span class="page-num" data-page="' + totalPages + '">' + totalPages + '</span>';
 							if (currentPage < totalPages) html += '<span class="page-num" data-page="' + (currentPage + 1) + '">&rarr;</span>';
 							html += '</nav>';
 						}
@@ -620,7 +706,17 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			}
 
 			// Load dynamic landing data from API
+			var dynamicSection = document.querySelector(".section-default.animate-on-scroll");
+			var loadResults = { reformed: false, recent: false };
+
+			function checkHideDynamic() {
+				if (loadResults.reformed === "fail" && loadResults.recent === "fail" && dynamicSection) {
+					dynamicSection.style.display = "none";
+				}
+			}
+
 			fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
+				loadResults.reformed = "ok";
 				var html = '<ul class="reformed-list">';
 				for (var i = 0; i < data.data.length; i++) {
 					var law = data.data[i];
@@ -631,10 +727,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				html += '</ul>';
 				document.getElementById("most-reformed").innerHTML = html;
 			}).catch(function () {
-				document.getElementById("most-reformed").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles</div>';
+				loadResults.reformed = "fail";
+				document.getElementById("most-reformed").parentElement.style.display = "none";
+				checkHideDynamic();
 			});
 
 			fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
+				loadResults.recent = "ok";
 				function formatDate(iso) {
 					if (!iso) return "";
 					var d = new Date(iso + "T00:00:00");
@@ -650,7 +749,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				html += '</ul>';
 				document.getElementById("recent-reforms").innerHTML = html;
 			}).catch(function () {
-				document.getElementById("recent-reforms").innerHTML = '<div style="color:var(--text-muted);font-size:0.8125rem">Datos no disponibles</div>';
+				loadResults.recent = "fail";
+				document.getElementById("recent-reforms").parentElement.style.display = "none";
+				checkHideDynamic();
 			});
 		})();
 	</script>

@@ -188,6 +188,8 @@ const articleCount = law.articulos ?? 0;
 			font-family: var(--font-serif);
 			line-height: 1.8;
 			font-size: 0.9375rem;
+			overflow-wrap: break-word;
+			word-break: break-word;
 		}
 		.law-content :global(h2) { font-size: 1.25rem; font-weight: 700; margin: 2rem 0 0.75rem; text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
 		.law-content :global(h3) { font-size: 1.0625rem; font-weight: 700; color: var(--accent); margin: 2rem 0 0.5rem; font-family: var(--font-sans); text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
@@ -232,8 +234,10 @@ const articleCount = law.articulos ?? 0;
 			.law-header { flex-direction: column; }
 			.meta-grid { grid-template-columns: 1fr; }
 			.quick-stats { grid-template-columns: repeat(2, 1fr); }
-			.tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-			.tab { white-space: nowrap; flex-shrink: 0; }
+			.tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+			.tabs::-webkit-scrollbar { display: none; }
+			.tab { white-space: nowrap; flex-shrink: 0; font-size: 0.75rem; padding: 0.5rem 0.75rem; }
+			.law-content { font-size: 0.875rem; }
 		}
 	</style>
 

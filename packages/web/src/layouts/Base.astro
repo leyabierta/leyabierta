@@ -160,6 +160,14 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			--danger: #e85454;
 			--danger-bg: #2a1414;
 		}
+		/* Fix dark mode inputs inheriting light backgrounds */
+		:root[data-theme="dark"] input,
+		:root[data-theme="dark"] select,
+		:root[data-theme="dark"] textarea {
+			background: var(--surface);
+			color: var(--text);
+			border-color: var(--border);
+		}
 
 		*, *::before, *::after { box-sizing: border-box; margin: 0; }
 
