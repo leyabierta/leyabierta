@@ -140,9 +140,8 @@ export class DbService {
 						)
 						.all(...pageIds, limit, offset);
 					return { laws, total };
-				} catch (e) {
-					console.error("[search sorted]", e);
-					throw e;
+				} catch {
+					return { laws: [], total: 0 };
 				}
 			}
 
