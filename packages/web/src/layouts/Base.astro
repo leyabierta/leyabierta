@@ -425,7 +425,10 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<header>
 		<nav>
 			<a href="/" class="logo">
-				<img src="/logo-full.png" alt="Ley Abierta" height="24" />
+				<picture>
+						<source srcset="/logo-full.webp" type="image/webp" />
+						<img src="/logo-full.png" alt="Ley Abierta" width="155" height="24" />
+					</picture>
 			</a>
 			<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Menú" aria-expanded="false">☰</button>
 			<div class="nav-links" id="nav-links">
