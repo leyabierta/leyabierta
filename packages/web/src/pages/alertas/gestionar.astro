@@ -1,0 +1,417 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Gestionar suscripcion"
+	description="Gestiona tus preferencias de alertas legislativas en Ley Abierta."
+	canonicalUrl="/alertas/gestionar"
+>
+	<style>
+		.manage-page { max-width: 40rem; margin: 4rem auto; }
+		.manage-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 2.5rem 2rem;
+		}
+		.manage-card.center { text-align: center; }
+		.manage-icon {
+			font-size: 3rem;
+			margin-bottom: 1rem;
+			line-height: 1;
+			text-align: center;
+		}
+		.manage-icon.error { color: var(--danger); }
+		.manage-page h1 {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.manage-page .subtitle {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			margin-bottom: 2rem;
+		}
+		.error-msg {
+			color: var(--danger);
+			background: var(--danger-bg);
+			padding: 1rem;
+			border-radius: 8px;
+			margin-bottom: 1.5rem;
+			font-size: 0.875rem;
+			line-height: 1.5;
+		}
+		.loading { color: var(--text-muted); text-align: center; padding: 2rem 0; }
+
+		/* ── Form ── */
+		.section-label {
+			font-weight: 600;
+			font-size: 0.9375rem;
+			margin-bottom: 0.75rem;
+			color: var(--text);
+		}
+		.situations-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 0.5rem;
+			margin-bottom: 2rem;
+		}
+		.situation-item {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			padding: 0.625rem 0.75rem;
+			border: 1.5px solid var(--border-light);
+			border-radius: 8px;
+			cursor: pointer;
+			transition: all 0.15s;
+			background: var(--bg);
+		}
+		.situation-item:hover {
+			border-color: var(--accent);
+			background: var(--accent-faint);
+		}
+		.situation-item.selected {
+			border-color: var(--accent);
+			background: var(--accent-bg);
+		}
+		.situation-item input[type="checkbox"] {
+			accent-color: var(--accent);
+			width: 1rem;
+			height: 1rem;
+			flex-shrink: 0;
+		}
+		.situation-icon { font-size: 1.125rem; flex-shrink: 0; }
+		.situation-name { font-size: 0.8125rem; font-weight: 500; }
+
+		.form-group {
+			margin-bottom: 1.5rem;
+		}
+		.form-group label {
+			display: block;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--text-secondary);
+			margin-bottom: 0.375rem;
+		}
+		.form-group select {
+			width: 100%;
+			padding: 0.625rem 0.75rem;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--bg);
+			color: var(--text);
+			font-size: 0.875rem;
+			font-family: var(--font-sans);
+		}
+		.form-group select:focus {
+			outline: none;
+			border-color: var(--accent);
+			box-shadow: 0 0 0 2px var(--accent-bg);
+		}
+
+		.save-btn {
+			width: 100%;
+			padding: 0.75rem;
+			font-size: 0.9375rem;
+			font-weight: 600;
+			border-radius: 8px;
+			border: none;
+			background: var(--accent);
+			color: white;
+			cursor: pointer;
+			font-family: var(--font-sans);
+			transition: background 0.15s;
+		}
+		.save-btn:hover { background: var(--accent-light); }
+		.save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+		.divider {
+			border: none;
+			border-top: 1px solid var(--border-light);
+			margin: 1.5rem 0;
+		}
+
+		.danger-zone h2 {
+			font-size: 0.9375rem;
+			font-weight: 600;
+			color: var(--danger);
+			margin-bottom: 0.5rem;
+		}
+		.danger-zone p {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			line-height: 1.5;
+			margin-bottom: 1rem;
+		}
+		.unsub-btn {
+			width: 100%;
+			padding: 0.625rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			border-radius: 8px;
+			border: 1.5px solid var(--danger);
+			background: transparent;
+			color: var(--danger);
+			cursor: pointer;
+			font-family: var(--font-sans);
+			transition: background 0.15s, color 0.15s;
+		}
+		.unsub-btn:hover { background: var(--danger); color: white; }
+		.unsub-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+		/* ── Messages ── */
+		.message {
+			padding: 1rem;
+			border-radius: 8px;
+			font-size: 0.875rem;
+			line-height: 1.5;
+			margin-bottom: 1rem;
+			display: none;
+		}
+		.message.visible { display: block; }
+		.message-success { background: var(--success-bg); color: var(--success); }
+		.message-error { background: var(--danger-bg); color: var(--danger); }
+
+		@media (max-width: 640px) {
+			.situations-grid { grid-template-columns: 1fr; }
+		}
+	</style>
+
+	<div class="manage-page">
+		<div class="manage-card" id="manage-content">
+			<div class="loading">Cargando tus preferencias...</div>
+		</div>
+	</div>
+
+	<script is:inline>
+		(function () {
+			function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+			var API = document.documentElement.dataset.api;
+			var params = new URLSearchParams(window.location.search);
+			var userEmail = params.get("email");
+			var userCode = params.get("code");
+			var el = document.getElementById("manage-content");
+
+			var JURISDICTIONS = [
+				{ value: "es", label: "Estatal (toda Espana)" },
+				{ value: "es-an", label: "Andalucia" },
+				{ value: "es-ar", label: "Aragon" },
+				{ value: "es-as", label: "Asturias" },
+				{ value: "es-cb", label: "Cantabria" },
+				{ value: "es-cl", label: "Castilla y Leon" },
+				{ value: "es-cm", label: "Castilla-La Mancha" },
+				{ value: "es-cn", label: "Canarias" },
+				{ value: "es-ct", label: "Cataluna" },
+				{ value: "es-ex", label: "Extremadura" },
+				{ value: "es-ga", label: "Galicia" },
+				{ value: "es-ib", label: "Illes Balears" },
+				{ value: "es-mc", label: "Murcia" },
+				{ value: "es-md", label: "Madrid" },
+				{ value: "es-nc", label: "Navarra" },
+				{ value: "es-pv", label: "Pais Vasco" },
+				{ value: "es-ri", label: "La Rioja" },
+				{ value: "es-vc", label: "C. Valenciana" }
+			];
+
+			function showError(msg) {
+				el.classList.add("center");
+				el.innerHTML =
+					'<div class="manage-icon error">&#10007;</div>' +
+					'<h1>Enlace no válido o expirado</h1>' +
+					'<div class="error-msg">' + esc(msg) + '</div>' +
+					'<a href="/alertas" class="btn">Volver a suscribirme</a>';
+			}
+
+			if (!userEmail || !userCode) {
+				showError("Faltan parametros de autenticacion.");
+				return;
+			}
+
+			// Fetch current data: subscriber preferences + available profiles
+			Promise.all([
+				fetch(API + "/v1/alerts/manage?email=" + encodeURIComponent(userEmail) + "&code=" + encodeURIComponent(userCode)).then(function (r) { return r.json(); }),
+				fetch(API + "/v1/profiles").then(function (r) { return r.json(); })
+			])
+			.then(function (results) {
+				var subData = results[0];
+				var profileData = results[1];
+
+				if (!subData.ok) {
+					showError(subData.error || "No se pudo cargar tu suscripcion.");
+					return;
+				}
+
+				var situationIds = subData.situationIds || [];
+				var jurisdiction = subData.jurisdiction || "es";
+				var profiles = (profileData.data || []);
+
+				renderForm(profiles, situationIds, jurisdiction);
+			})
+			.catch(function () {
+				showError("Error de conexion. Intentalo mas tarde.");
+			});
+
+			function renderForm(profiles, situationIds, jurisdiction) {
+				var html = '';
+				html += '<h1>Gestionar tu suscripcion</h1>';
+				html += '<p class="subtitle">Actualiza tus preferencias o date de baja.</p>';
+				html += '<div class="message message-success" id="msg-success"></div>';
+				html += '<div class="message message-error" id="msg-error"></div>';
+
+				// Situations grid
+				html += '<div class="section-label">Tus temas de interes</div>';
+				html += '<div class="situations-grid" id="situations-grid">';
+				for (var i = 0; i < profiles.length; i++) {
+					var p = profiles[i];
+					var checked = situationIds.indexOf(p.id) !== -1;
+					html += '<label class="situation-item' + (checked ? ' selected' : '') + '">';
+					html += '<input type="checkbox" name="situation" value="' + p.id + '"' + (checked ? ' checked' : '') + '>';
+					html += '<span class="situation-icon">' + esc(p.icon) + '</span>';
+					html += '<span class="situation-name">' + esc(p.name) + '</span>';
+					html += '</label>';
+				}
+				html += '</div>';
+
+				// Jurisdiction
+				html += '<div class="form-group">';
+				html += '<label for="jurisdiction">Tu comunidad autonoma</label>';
+				html += '<select id="jurisdiction" name="jurisdiction">';
+				for (var j = 0; j < JURISDICTIONS.length; j++) {
+					var opt = JURISDICTIONS[j];
+					html += '<option value="' + opt.value + '"' + (opt.value === jurisdiction ? ' selected' : '') + '>' + opt.label + '</option>';
+				}
+				html += '</select>';
+				html += '</div>';
+
+				// Save button
+				html += '<button type="button" class="save-btn" id="save-btn">Guardar cambios</button>';
+
+				// Danger zone
+				html += '<hr class="divider">';
+				html += '<div class="danger-zone">';
+				html += '<h2>Darme de baja</h2>';
+				html += '<p>Dejaras de recibir todos los emails de alertas legislativas. Puedes volver a suscribirte en cualquier momento.</p>';
+				html += '<button type="button" class="unsub-btn" id="unsub-btn">Darme de baja</button>';
+				html += '</div>';
+
+				el.classList.remove("center");
+				el.innerHTML = html;
+
+				bindEvents();
+			}
+
+			function bindEvents() {
+				var grid = document.getElementById("situations-grid");
+				var saveBtn = document.getElementById("save-btn");
+				var unsubBtn = document.getElementById("unsub-btn");
+				var msgSuccess = document.getElementById("msg-success");
+				var msgError = document.getElementById("msg-error");
+
+				// Toggle selected class on checkbox change
+				grid.addEventListener("change", function (e) {
+					if (e.target.type === "checkbox") {
+						var item = e.target.closest(".situation-item");
+						if (e.target.checked) {
+							item.classList.add("selected");
+						} else {
+							item.classList.remove("selected");
+						}
+					}
+				});
+
+				function hideMessages() {
+					msgSuccess.classList.remove("visible");
+					msgError.classList.remove("visible");
+				}
+
+				function showSuccessMsg(text) {
+					msgSuccess.textContent = text;
+					msgSuccess.classList.add("visible");
+					msgError.classList.remove("visible");
+					msgSuccess.scrollIntoView({ behavior: "smooth", block: "nearest" });
+				}
+
+				function showErrorMsg(text) {
+					msgError.textContent = text;
+					msgError.classList.add("visible");
+					msgSuccess.classList.remove("visible");
+				}
+
+				function getSelectedSituations() {
+					var checkboxes = grid.querySelectorAll('input[type="checkbox"]:checked');
+					return Array.prototype.map.call(checkboxes, function (cb) { return cb.value; });
+				}
+
+				// Save changes
+				saveBtn.addEventListener("click", function () {
+					hideMessages();
+					saveBtn.disabled = true;
+					saveBtn.textContent = "Guardando...";
+
+					var situationIds = getSelectedSituations();
+					var jurisdiction = document.getElementById("jurisdiction").value;
+
+					fetch(API + "/v1/alerts/manage", {
+						method: "PUT",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							email: userEmail,
+							code: userCode,
+							situationIds: situationIds,
+							jurisdiction: jurisdiction
+						})
+					})
+					.then(function (res) { return res.json(); })
+					.then(function (data) {
+						saveBtn.disabled = false;
+						saveBtn.textContent = "Guardar cambios";
+						if (data.ok) {
+							showSuccessMsg("Preferencias actualizadas correctamente.");
+						} else {
+							showErrorMsg(data.error || "No se pudieron guardar los cambios.");
+						}
+					})
+					.catch(function () {
+						saveBtn.disabled = false;
+						saveBtn.textContent = "Guardar cambios";
+						showErrorMsg("Error de conexion. Intentalo de nuevo.");
+					});
+				});
+
+				// Unsubscribe
+				unsubBtn.addEventListener("click", function () {
+					if (!confirm("Seguro que quieres darte de baja? Dejaras de recibir todos los emails.")) return;
+
+					hideMessages();
+					unsubBtn.disabled = true;
+					unsubBtn.textContent = "Procesando...";
+
+					fetch(API + "/v1/alerts/unsubscribe?email=" + encodeURIComponent(userEmail) + "&code=" + encodeURIComponent(userCode))
+						.then(function (res) { return res.json(); })
+						.then(function (data) {
+							if (data.ok) {
+								el.classList.add("center");
+								el.innerHTML =
+									'<div style="font-size:3rem;margin-bottom:1rem;line-height:1;">&#128075;</div>' +
+									'<h1>Te has dado de baja correctamente</h1>' +
+									'<p style="color:var(--text-secondary);line-height:1.7;margin-bottom:1.5rem;font-size:0.9375rem;">No recibiras mas emails de alertas legislativas.</p>' +
+									'<a href="/alertas" class="btn btn-primary">Volver a suscribirme</a>';
+							} else {
+								unsubBtn.disabled = false;
+								unsubBtn.textContent = "Darme de baja";
+								showErrorMsg(data.error || "No se pudo cancelar la suscripcion.");
+							}
+						})
+						.catch(function () {
+							unsubBtn.disabled = false;
+							unsubBtn.textContent = "Darme de baja";
+							showErrorMsg("Error de conexion. Intentalo de nuevo.");
+						});
+				});
+			}
+		})();
+	</script>
+</Base>

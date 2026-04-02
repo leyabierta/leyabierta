@@ -4,6 +4,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { escapeHtml } from "../lib/escape.ts";
 
 export const prerender = true;
 
@@ -22,11 +23,11 @@ export const GET: APIRoute = async () => {
 	const items = sorted.map((law) => {
 		const d = law.data;
 		return `    <item>
-      <title>${escapeXml(d.titulo)}</title>
+      <title>${escapeHtml(d.titulo)}</title>
       <link>${SITE_URL}/laws/${d.identificador}</link>
       <guid>${SITE_URL}/laws/${d.identificador}</guid>
       <pubDate>${new Date(d.ultima_actualizacion).toUTCString()}</pubDate>
-      <description>${escapeXml(d.rango)} · ${d.estado} · ${d.departamento}</description>
+      <description>${escapeHtml(d.rango)} · ${d.estado} · ${d.departamento}</description>
     </item>`;
 	});
 
@@ -47,10 +48,3 @@ ${items.join("\n")}
 	});
 };
 
-function escapeXml(s: string): string {
-	return s
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;");
-}

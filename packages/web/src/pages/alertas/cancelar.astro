@@ -8,40 +8,91 @@ import Base from "../../layouts/Base.astro";
 	canonicalUrl="/alertas/cancelar"
 >
 	<style>
-		.cancel-page { max-width: 28rem; margin: 4rem auto; text-align: center; }
-		.cancel-icon { font-size: 3rem; margin-bottom: 1rem; }
-		.cancel-page h1 { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
-		.cancel-page p { color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem; }
-		.error-msg { color: var(--danger); background: var(--danger-bg); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; }
+		.cancel-page { max-width: 40rem; margin: 4rem auto; text-align: center; }
+		.cancel-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 2.5rem 2rem;
+		}
+		.cancel-icon {
+			font-size: 3rem;
+			margin-bottom: 1rem;
+			line-height: 1;
+		}
+		.cancel-icon.success { color: var(--text-muted); }
+		.cancel-icon.error { color: var(--danger); }
+		.cancel-page h1 {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			margin-bottom: 0.75rem;
+		}
+		.cancel-page p {
+			color: var(--text-secondary);
+			line-height: 1.7;
+			margin-bottom: 1.5rem;
+			font-size: 0.9375rem;
+		}
+		.error-msg {
+			color: var(--danger);
+			background: var(--danger-bg);
+			padding: 1rem;
+			border-radius: 8px;
+			margin-bottom: 1.5rem;
+			font-size: 0.875rem;
+			line-height: 1.5;
+		}
 		.loading { color: var(--text-muted); }
 	</style>
 
-	<div class="cancel-page" id="cancel-content">
-		<div class="loading">Procesando cancelacion...</div>
+	<div class="cancel-page">
+		<div class="cancel-card" id="cancel-content">
+			<div class="loading">Procesando cancelacion...</div>
+		</div>
 	</div>
 
 	<script is:inline>
 		(function () {
+			function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 			var API = document.documentElement.dataset.api;
-			var token = new URLSearchParams(window.location.search).get("token");
+			var params = new URLSearchParams(window.location.search);
+			var email = params.get("email");
+			var code = params.get("code");
 			var el = document.getElementById("cancel-content");
 
-			if (!token) {
-				el.innerHTML = '<div class="cancel-icon">&#10007;</div><h1>Enlace no valido</h1><div class="error-msg">Falta el token.</div><a href="/alertas" class="btn">Volver a alertas</a>';
+			if (!email || !code) {
+				el.innerHTML =
+					'<div class="cancel-icon error">&#10007;</div>' +
+					'<h1>Enlace no valido</h1>' +
+					'<div class="error-msg">Faltan parametros.</div>' +
+					'<a href="/alertas" class="btn">Volver a alertas</a>';
 				return;
 			}
 
-			fetch(API + "/v1/alerts/unsubscribe/" + token)
+			fetch(API + "/v1/alerts/unsubscribe?email=" + encodeURIComponent(email) + "&code=" + encodeURIComponent(code))
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
 					if (data.ok) {
-						el.innerHTML = '<div class="cancel-icon">&#128075;</div><h1>Suscripcion cancelada</h1><p>Ya no recibiras mas emails. Si cambias de opinion, siempre puedes volver a suscribirte.</p><a href="/alertas" class="btn btn-primary">Volver a alertas</a>';
+						el.innerHTML =
+							'<div class="cancel-icon success">&#128075;</div>' +
+							'<h1>Te has dado de baja correctamente</h1>' +
+							'<p>No recibiras mas emails de alertas legislativas. Esperamos haberte sido util.</p>' +
+							'<a href="/alertas" class="btn btn-primary">Volver a suscribirme</a>';
 					} else {
-						el.innerHTML = '<div class="cancel-icon">&#10007;</div><h1>No se pudo cancelar</h1><div class="error-msg">' + (data.error || "Enlace no valido.") + '</div><a href="/alertas" class="btn">Volver a alertas</a>';
+						el.innerHTML =
+							'<div class="cancel-icon error">&#10007;</div>' +
+							'<h1>No se pudo cancelar la suscripcion</h1>' +
+							'<div class="error-msg">' + esc(data.error || "Enlace no válido o expirado.") + '</div>' +
+							'<a href="/alertas" class="btn">Volver a alertas</a>';
 					}
 				})
 				.catch(function () {
-					el.innerHTML = '<div class="cancel-icon">&#10007;</div><h1>Error</h1><div class="error-msg">Error al cancelar. Intentalo de nuevo.</div><a href="/alertas" class="btn">Volver a alertas</a>';
+					el.innerHTML =
+						'<div class="cancel-icon error">&#10007;</div>' +
+						'<h1>Error de conexion</h1>' +
+						'<div class="error-msg">No se pudo conectar con el servidor. Intentalo mas tarde.</div>' +
+						'<a href="/alertas" class="btn">Volver a alertas</a>';
 				});
 		})();
 	</script>

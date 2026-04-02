@@ -30,8 +30,23 @@ const dbService = new DbService(db);
 const gitService = new GitService(REPO_PATH);
 const diffCache = new LruCache<string>(500);
 
+const CORS_ORIGINS = process.env.CORS_ORIGINS
+	? process.env.CORS_ORIGINS.split(",")
+	: [
+			"https://leyabierta.es",
+			"https://www.leyabierta.es",
+			"http://localhost:4321",
+			"http://localhost:3000",
+		];
+
 const app = new Elysia()
-	.use(cors())
+	.use(cors({ origin: CORS_ORIGINS }))
+	.onAfterHandle(({ set }) => {
+		set.headers["X-Content-Type-Options"] = "nosniff";
+		set.headers["X-Frame-Options"] = "DENY";
+		set.headers["X-Robots-Tag"] = "noindex";
+		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+	})
 	.use(
 		swagger({
 			documentation: {

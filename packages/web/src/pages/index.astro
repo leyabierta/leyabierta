@@ -473,6 +473,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 
 	<script is:inline define:vars={{ RANK_LABELS, JURISDICTION_LABELS }}>
 		(function () {
+			function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 			var API = document.documentElement.dataset.api;
 			var searchInput = document.getElementById("search-input");
 			var searchBtn = document.getElementById("search-btn");
@@ -550,7 +551,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 						// Show active jurisdiction filter badge
 						if (currentCountry) {
 							var countryName = JURISDICTION_LABELS[currentCountry] || currentCountry;
-							html += '<div class="results-filter-badge">' + countryName + ' <button type="button" class="results-filter-clear" id="clear-country" aria-label="Quitar filtro de ' + countryName + '">&times;</button></div>';
+							html += '<div class="results-filter-badge">' + esc(countryName) + ' <button type="button" class="results-filter-clear" id="clear-country" aria-label="Quitar filtro de ' + esc(countryName) + '">&times;</button></div>';
 						}
 
 						html += '<div class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</div>';
@@ -558,12 +559,12 @@ const JURISDICTION_LABELS: Record<string, string> = {
 						for (var i = 0; i < result.data.length; i++) {
 							var law = result.data[i];
 							html += '<article class="law-card">';
-							html += '<a href="/laws/' + law.id + '" class="law-card-title">' + law.title + '</a>';
+							html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.title) + '</a>';
 							html += '<div class="law-card-meta">';
-							html += '<span class="badge badge-' + law.status + '">' + law.status + '</span>';
-							html += '<span>' + (RANK_LABELS[law.rank] || law.rank) + '</span>';
+							html += '<span class="badge badge-' + esc(law.status) + '">' + esc(law.status) + '</span>';
+							html += '<span>' + esc(RANK_LABELS[law.rank] || law.rank) + '</span>';
 							html += '<span>' + law.published_at + '</span>';
-							html += '<span style="font-family:var(--font-mono);font-size:0.6875rem;color:var(--text-muted)">' + law.id + '</span>';
+							html += '<span style="font-family:var(--font-mono);font-size:0.6875rem;color:var(--text-muted)">' + esc(law.id) + '</span>';
 							html += '</div></article>';
 						}
 
@@ -624,8 +625,8 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				for (var i = 0; i < data.data.length; i++) {
 					var law = data.data[i];
 					html += '<li class="reformed-item"><span class="reformed-count">' + law.reform_count + '</span><div>';
-					html += '<a href="/laws/' + law.id + '" class="reformed-title">' + law.title + '</a>';
-					html += '<div class="reformed-rank">' + (RANK_LABELS[law.rank] || law.rank) + '</div></div></li>';
+					html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="reformed-title">' + esc(law.title) + '</a>';
+					html += '<div class="reformed-rank">' + esc(RANK_LABELS[law.rank] || law.rank) + '</div></div></li>';
 				}
 				html += '</ul>';
 				document.getElementById("most-reformed").innerHTML = html;
@@ -644,7 +645,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				for (var i = 0; i < data.data.length; i++) {
 					var r = data.data[i];
 					html += '<li class="recent-item"><span class="recent-date">' + formatDate(r.last_reform) + '</span>';
-					html += '<a href="/laws/' + r.id + '" class="recent-title">' + r.title + '</a></li>';
+					html += '<a href="/laws/' + encodeURIComponent(r.id) + '" class="recent-title">' + esc(r.title) + '</a></li>';
 				}
 				html += '</ul>';
 				document.getElementById("recent-reforms").innerHTML = html;

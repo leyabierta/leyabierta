@@ -1,67 +1,12 @@
 ---
-import Base from "../layouts/Base.astro";
+import Legal from "../layouts/Legal.astro";
 ---
 
-<Base
+<Legal
 	title="Política de cookies"
 	description="Política de cookies de Ley Abierta: qué cookies utilizamos y cómo gestionarlas."
 	canonicalUrl="/cookies"
 >
-	<style>
-		.legal-page h1 {
-			font-family: var(--font-serif);
-			font-size: 1.5rem;
-			font-weight: 700;
-			margin-bottom: 0.5rem;
-		}
-		.legal-page h2 {
-			font-family: var(--font-serif);
-			font-size: 1.15rem;
-			font-weight: 600;
-			margin-top: 2rem;
-			margin-bottom: 0.5rem;
-		}
-		.legal-page p,
-		.legal-page li {
-			font-size: 0.9375rem;
-			color: var(--text-secondary);
-			line-height: 1.8;
-		}
-		.legal-page ul {
-			padding-left: 1.5rem;
-			margin: 0.5rem 0;
-		}
-		.legal-page a {
-			color: var(--accent);
-		}
-		.legal-updated {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			margin-bottom: 2rem;
-		}
-		.legal-table {
-			width: 100%;
-			border-collapse: collapse;
-			margin: 1rem 0;
-			font-size: 0.875rem;
-		}
-		.legal-table th,
-		.legal-table td {
-			border: 1px solid var(--border);
-			padding: 0.5rem 0.75rem;
-			text-align: left;
-		}
-		.legal-table th {
-			background: var(--surface);
-			font-weight: 600;
-			color: var(--text);
-		}
-		.legal-table td {
-			color: var(--text-secondary);
-		}
-	</style>
-
-	<div class="legal-page">
 		<h1>Política de cookies</h1>
 		<p class="legal-updated">Última actualización: 1 de abril de 2026</p>
 
@@ -139,5 +84,4 @@ import Base from "../layouts/Base.astro";
 			Para más información sobre tus derechos, consulta nuestra
 			<a href="/privacidad">política de privacidad</a>.
 		</p>
-	</div>
-</Base>
+</Legal>

@@ -1,75 +1,14 @@
 ---
-import Base from "../layouts/Base.astro";
+import Legal from "../layouts/Legal.astro";
 ---
 
-<Base
+<Legal
 	title="Política de privacidad"
 	description="Política de privacidad de Ley Abierta: qué datos recogemos, con qué finalidad y cómo ejercer tus derechos."
 	canonicalUrl="/privacidad"
 >
-	<style>
-		.legal-page h1 {
-			font-family: var(--font-serif);
-			font-size: 1.5rem;
-			font-weight: 700;
-			margin-bottom: 0.5rem;
-		}
-		.legal-page h2 {
-			font-family: var(--font-serif);
-			font-size: 1.15rem;
-			font-weight: 600;
-			margin-top: 2rem;
-			margin-bottom: 0.5rem;
-		}
-		.legal-page h3 {
-			font-size: 1rem;
-			font-weight: 600;
-			margin-top: 1.5rem;
-			margin-bottom: 0.25rem;
-		}
-		.legal-page p,
-		.legal-page li {
-			font-size: 0.9375rem;
-			color: var(--text-secondary);
-			line-height: 1.8;
-		}
-		.legal-page ul {
-			padding-left: 1.5rem;
-			margin: 0.5rem 0;
-		}
-		.legal-page a {
-			color: var(--accent);
-		}
-		.legal-updated {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			margin-bottom: 2rem;
-		}
-		.legal-table {
-			width: 100%;
-			border-collapse: collapse;
-			margin: 1rem 0;
-			font-size: 0.875rem;
-		}
-		.legal-table th,
-		.legal-table td {
-			border: 1px solid var(--border);
-			padding: 0.5rem 0.75rem;
-			text-align: left;
-		}
-		.legal-table th {
-			background: var(--surface);
-			font-weight: 600;
-			color: var(--text);
-		}
-		.legal-table td {
-			color: var(--text-secondary);
-		}
-	</style>
-
-	<div class="legal-page">
 		<h1>Política de privacidad</h1>
-		<p class="legal-updated">Última actualización: 1 de abril de 2026</p>
+		<p class="legal-updated">Última actualización: 2 de abril de 2026</p>
 
 		<h2>Responsable del tratamiento</h2>
 		<p>
@@ -84,7 +23,8 @@ import Base from "../layouts/Base.astro";
 		<h2>Qué datos recogemos</h2>
 		<p>
 			Ley Abierta recoge la <strong>mínima cantidad de datos posible</strong>. No utilizamos
-			cookies de seguimiento, no vendemos datos y no compartimos información con terceros.
+			cookies de seguimiento, no vendemos datos y no compartimos información con terceros
+			salvo lo indicado en esta política.
 		</p>
 
 		<table class="legal-table">
@@ -104,6 +44,24 @@ import Base from "../layouts/Base.astro";
 					<td>Hasta que canceles la suscripción</td>
 				</tr>
 				<tr>
+					<td>Comunidad autónoma</td>
+					<td>Personalización de las alertas según tu territorio</td>
+					<td>Consentimiento (art. 6.1.a RGPD)</td>
+					<td>Hasta que canceles la suscripción</td>
+				</tr>
+				<tr>
+					<td>Situaciones vitales seleccionadas</td>
+					<td>Personalización de las alertas según tu perfil (ej: "trabajo por cuenta ajena", "alquilo vivienda")</td>
+					<td>Consentimiento (art. 6.1.a RGPD)</td>
+					<td>Hasta que canceles la suscripción</td>
+				</tr>
+				<tr>
+					<td>IP y user-agent</td>
+					<td>Evidencia del consentimiento (doble opt-in)</td>
+					<td>Obligación legal (art. 7.1 RGPD)</td>
+					<td>Mientras la suscripción esté activa</td>
+				</tr>
+				<tr>
 					<td>Datos de navegación agregados</td>
 					<td>Estadísticas anónimas del sitio (Cloudflare Web Analytics)</td>
 					<td>Interés legítimo (art. 6.1.f RGPD)</td>
@@ -114,10 +72,34 @@ import Base from "../layouts/Base.astro";
 
 		<h2>Alertas legislativas</h2>
 		<p>
-			Si te suscribes a las alertas, almacenamos tu dirección de email con la única
-			finalidad de enviarte un resumen semanal de cambios legislativos. Puedes cancelar
-			tu suscripción en cualquier momento desde el enlace incluido en cada email o
-			desde la página de <a href="/alertas/cancelar">cancelación</a>.
+			Si te suscribes a las alertas, almacenamos tu dirección de email, tu comunidad
+			autónoma y las situaciones vitales que selecciones, con la única finalidad de
+			enviarte un resumen semanal personalizado de cambios legislativos que te afectan.
+		</p>
+
+		<h3>Consentimiento y doble opt-in</h3>
+		<p>
+			Utilizamos un proceso de <strong>doble opt-in</strong> para verificar tu consentimiento:
+			al suscribirte, recibirás un email de confirmación que debes aceptar antes de que
+			se active tu suscripción. Este mecanismo garantiza que eres el titular del email
+			y que consientes expresamente el tratamiento de tus datos.
+		</p>
+
+		<h3>Conservación de datos</h3>
+		<p>
+			Tus datos se conservan mientras mantengas tu suscripción activa. Puedes darte de
+			baja en cualquier momento desde el enlace incluido en cada email o desde la página
+			de <a href="/alertas/cancelar">cancelación</a>. Al cancelar, tus datos se eliminan
+			de forma inmediata.
+		</p>
+
+		<h3>Encargado de tratamiento: Resend</h3>
+		<p>
+			Para el envío de emails utilizamos <strong><a href="https://resend.com" target="_blank" rel="noopener">Resend</a></strong>
+			como encargado de tratamiento. Resend, Inc. es una empresa con sede en Estados Unidos
+			que procesa los emails en nuestro nombre. La transferencia de datos se realiza bajo
+			cláusulas contractuales tipo aprobadas por la Comisión Europea. No compartimos tus
+			datos con ningún otro tercero.
 		</p>
 
 		<h2>Analytics</h2>
@@ -165,6 +147,11 @@ import Base from "../layouts/Base.astro";
 			de contenido). Cloudflare cumple con las cláusulas contractuales tipo de la Comisión
 			Europea para transferencias internacionales de datos.
 		</p>
+		<p>
+			El servicio de envío de emails (<strong>Resend, Inc.</strong>) tiene sede en Estados
+			Unidos. La transferencia de datos se ampara en las cláusulas contractuales tipo
+			aprobadas por la Comisión Europea (art. 46.2.c RGPD).
+		</p>
 
 		<h2>Cambios en esta política</h2>
 		<p>
@@ -172,5 +159,4 @@ import Base from "../layouts/Base.astro";
 			legislativos o técnicos. Cualquier cambio se publicará en esta página con la
 			fecha de actualización.
 		</p>
-	</div>
-</Base>
+</Legal>

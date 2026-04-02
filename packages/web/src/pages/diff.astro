@@ -123,6 +123,7 @@ import Base from "../layouts/Base.astro";
 
 	<script is:inline>
 		(function () {
+			function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 			var API = document.documentElement.dataset.api;
 			var params = new URLSearchParams(window.location.search);
 			var id = params.get("id");
@@ -135,8 +136,8 @@ import Base from "../layouts/Base.astro";
 				return;
 			}
 
-			document.getElementById("back-link").innerHTML = '<a href="/laws/' + id + '" style="font-size:0.8125rem;color:var(--text-muted)">&larr; Volver a la ley</a>';
-			document.getElementById("diff-dates").innerHTML = '<span>' + from + '</span><span class="arrow">&rarr;</span><span>' + to + '</span>';
+			document.getElementById("back-link").innerHTML = '<a href="/laws/' + encodeURIComponent(id) + '" style="font-size:0.8125rem;color:var(--text-muted)">&larr; Volver a la ley</a>';
+			document.getElementById("diff-dates").innerHTML = '<span>' + esc(from) + '</span><span class="arrow">&rarr;</span><span>' + esc(to) + '</span>';
 
 			function stripFrontmatterDiff(raw) {
 				var lines = raw.split("\n");
