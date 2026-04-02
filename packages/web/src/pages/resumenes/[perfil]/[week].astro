@@ -5,18 +5,15 @@ import { getDigestProfiles, getProfileDigests, getDigest, type DigestDetail, typ
 export async function getStaticPaths() {
 	const paths: Array<{ params: { perfil: string; week: string } }> = [];
 
-	try {
-		const { data: profiles } = await getDigestProfiles();
-		for (const p of profiles) {
-			const { data: weeks } = await getProfileDigests(p.profile_id);
-			for (const w of weeks) {
-				paths.push({ params: { perfil: p.profile_id, week: w.week } });
-			}
+	const { data: profiles } = await getDigestProfiles();
+	for (const p of profiles) {
+		const { data: weeks } = await getProfileDigests(p.profile_id);
+		for (const w of weeks) {
+			paths.push({ params: { perfil: p.profile_id, week: w.week } });
 		}
-	} catch {
-		// API not available at build time
 	}
 
+	console.log(`[resumenes] Generated ${paths.length} digest week pages`);
 	return paths;
 }
 

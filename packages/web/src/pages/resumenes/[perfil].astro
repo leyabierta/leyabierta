@@ -3,12 +3,9 @@ import Base from "../../layouts/Base.astro";
 import { getDigestProfiles, getProfileDigests } from "../../lib/api";
 
 export async function getStaticPaths() {
-	try {
-		const { data } = await getDigestProfiles();
-		return data.map((p) => ({ params: { perfil: p.profile_id } }));
-	} catch {
-		return [];
-	}
+	const { data } = await getDigestProfiles();
+	console.log(`[resumenes] Generated ${data.length} digest profile pages`);
+	return data.map((p) => ({ params: { perfil: p.profile_id } }));
 }
 
 const { perfil } = Astro.params;

@@ -4,10 +4,22 @@
 
 const API_BASE = import.meta.env.API_URL ?? "https://api.leyabierta.es";
 
-async function fetchApi<T>(path: string): Promise<T> {
-	const res = await fetch(`${API_BASE}${path}`);
-	if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
-	return res.json();
+async function fetchApi<T>(path: string, retries = 3): Promise<T> {
+	for (let attempt = 1; attempt <= retries; attempt++) {
+		try {
+			const res = await fetch(`${API_BASE}${path}`);
+			if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+			return res.json();
+		} catch (err) {
+			if (attempt === retries) throw err;
+			const delay = attempt * 2000;
+			console.warn(
+				`[api] ${path} failed (attempt ${attempt}/${retries}), retrying in ${delay}ms...`,
+			);
+			await new Promise((r) => setTimeout(r, delay));
+		}
+	}
+	throw new Error(`unreachable`);
 }
 
 export interface Law {

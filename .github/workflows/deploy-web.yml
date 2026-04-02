@@ -3,6 +3,12 @@ name: Deploy Web
 on:
   push:
     branches: [main]
+    paths:
+      - "packages/web/**"
+      - "packages/pipeline/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/deploy-web.yml"
   workflow_dispatch:
 
 # Cancel in-progress runs for the same branch
@@ -64,6 +70,18 @@ jobs:
           message-id: ${{ steps.notify.outputs.message-id }}
           app-name: web
           new-status: "⏳ **web** — Building..."
+
+      - name: Wait for API readiness
+        run: |
+          for i in $(seq 1 10); do
+            if curl -sf https://api.leyabierta.es/health > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/10)"
+            sleep 5
+          done
+          echo "::warning::API not reachable after 50s — build may miss digest pages"
 
       - name: Build Astro
         working-directory: packages/web
