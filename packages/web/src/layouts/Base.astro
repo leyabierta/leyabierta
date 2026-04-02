@@ -97,9 +97,19 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" />
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" media="print" onload="this.media='all'" />
-	<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" /></noscript>
+	<!-- Critical font (body text): preload for fast swap -->
+	<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+
+	<!-- Secondary fonts (headings + monospace): lazy-loaded, non-blocking -->
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" media="print" onload="this.media='all'" />
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" media="print" onload="this.media='all'" />
+
+	<noscript>
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" />
+	</noscript>
 	<style is:global>
 		:root {
 			--bg: #fafaf8;
@@ -217,7 +227,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			align-items: center;
 		}
 		.logo:hover { text-decoration: none; opacity: 0.85; }
-		.logo img { height: 24px; width: auto; }
+		.logo img { height: 40px; width: auto; }
 		:root[data-theme="dark"] .logo img { filter: brightness(0) invert(1); }
 		.nav-links {
 			display: flex;
@@ -419,15 +429,49 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 				transition-duration: 0.01ms !important;
 			}
 		}
+
+		/* ── Screen reader only (a11y) ── */
+		.sr-only {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		/* ── Skip to content (a11y) ── */
+		.skip-to-content {
+			position: absolute;
+			left: -9999px;
+			top: 0;
+			z-index: 200;
+			padding: 0.75rem 1.25rem;
+			background: var(--accent);
+			color: #fff;
+			font-size: 0.875rem;
+			font-weight: 600;
+			text-decoration: none;
+			border-radius: 0 0 6px 0;
+		}
+		.skip-to-content:focus {
+			left: 0;
+			outline: 2px solid var(--accent-light);
+			outline-offset: 2px;
+		}
 	</style>
 </head>
 <body>
+	<a href="#main" class="skip-to-content">Saltar al contenido</a>
 	<header>
-		<nav>
+		<nav aria-label="Principal">
 			<a href="/" class="logo">
 				<picture>
 						<source srcset="/logo-full.webp" type="image/webp" />
-						<img src="/logo-full.png" alt="Ley Abierta" width="155" height="24" />
+						<img src="/logo-full.png" alt="Ley Abierta" />
 					</picture>
 			</a>
 			<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Menú" aria-expanded="false">☰</button>
@@ -441,7 +485,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		</nav>
 	</header>
 
-	<main class={fullWidth ? "" : "container"} style={fullWidth ? "" : "padding-top: 2rem; padding-bottom: 2rem;"}>
+	<main id="main" class={fullWidth ? "" : "container"} style={fullWidth ? "" : "padding-top: 2rem; padding-bottom: 2rem;"}>
 		<slot />
 	</main>
 
