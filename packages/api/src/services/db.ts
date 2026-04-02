@@ -94,7 +94,7 @@ export class DbService {
 					// Two-pass FTS: title matches (fast) + content matches
 					const titleMatchIds = this.db
 						.query<{ norm_id: string }, [string]>(
-							"SELECT norm_id FROM norms_fts WHERE title MATCH ? LIMIT 10000",
+							"SELECT DISTINCT norm_id FROM norms_fts WHERE title MATCH ? LIMIT 10000",
 						)
 						.all(safeQuery)
 						.map((r) => r.norm_id);
@@ -152,7 +152,7 @@ export class DbService {
 				// Pass 1: title matches (very fast, most relevant)
 				const titleIds = this.db
 					.query<{ norm_id: string }, [string]>(
-						`SELECT norm_id FROM norms_fts
+						`SELECT DISTINCT norm_id FROM norms_fts
 						 WHERE title MATCH ?
 						 ORDER BY bm25(norms_fts, 0, 10.0, 1.0)
 						 LIMIT ${FTS_CAP}`,
