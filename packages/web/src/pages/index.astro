@@ -549,7 +549,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 						// Show active jurisdiction filter badge
 						if (currentCountry) {
 							var countryName = JURISDICTION_LABELS[currentCountry] || currentCountry;
-							html += '<div class="results-filter-badge">' + countryName + ' <button type="button" class="results-filter-clear" id="clear-country">&times;</button></div>';
+							html += '<div class="results-filter-badge">' + countryName + ' <button type="button" class="results-filter-clear" id="clear-country" aria-label="Quitar filtro de ' + countryName + '">&times;</button></div>';
 						}
 
 						html += '<div class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</div>';
@@ -562,7 +562,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							html += '<span class="badge badge-' + law.status + '">' + law.status + '</span>';
 							html += '<span>' + (RANK_LABELS[law.rank] || law.rank) + '</span>';
 							html += '<span>' + law.published_at + '</span>';
-							html += '<span style="font-family:var(--font-mono);font-size:0.6875rem;opacity:0.6">' + law.id + '</span>';
+							html += '<span style="font-family:var(--font-mono);font-size:0.6875rem;color:var(--text-muted)">' + law.id + '</span>';
 							html += '</div></article>';
 						}
 

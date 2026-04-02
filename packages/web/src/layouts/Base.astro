@@ -97,14 +97,16 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+	<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" />
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" media="print" onload="this.media='all'" />
+	<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" /></noscript>
 	<style is:global>
 		:root {
 			--bg: #fafaf8;
 			--surface: #ffffff;
 			--text: #0b1120;
 			--text-secondary: #4a6078;
-			--text-muted: #6b8299;
+			--text-muted: #576b80;
 			--border: #c4ced8;
 			--border-light: #e8ecf0;
 			--accent: #1a365d;
@@ -132,7 +134,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			--surface: #1a1d27;
 			--text: #e8eaf0;
 			--text-secondary: #a0aab8;
-			--text-muted: #6b7a8d;
+			--text-muted: #8494a7;
 			--border: #2a3040;
 			--border-light: #1f2530;
 			--accent: #6ba3d6;
@@ -270,8 +272,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		}
 		.footer-sep {
 			margin: 0 0.4rem;
-			color: var(--text-muted);
-			opacity: 0.5;
+			color: var(--border);
 		}
 		@media (max-width: 640px) {
 			.footer-grid { flex-direction: column; gap: 1rem; }
@@ -481,6 +482,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<script is:inline>
 		(function () {
 			var btn = document.getElementById("theme-toggle");
+			if (!btn) return;
 			var sunSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
 			var moonSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
@@ -507,7 +509,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			updateIcon();
 
 			window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
-				updateIcon(currentPref());
+				updateIcon();
 			});
 		})();
 	</script>
