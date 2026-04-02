@@ -4,7 +4,7 @@
 
 Ley Abierta downloads official legislation, turns it into version-controlled, machine-readable data, and makes it available through a website and open API so anyone can search, compare versions, and understand how laws change over time.
 
-> 🇪🇸 [Version en espanol mas abajo](#ley-abierta-es)
+> 🇪🇸 [Versión en español más abajo](#ley-abierta-es)
 
 ## Why
 
