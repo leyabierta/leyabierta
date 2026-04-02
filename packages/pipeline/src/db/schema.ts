@@ -121,21 +121,6 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_digests_profile ON digests(profile_id);
   CREATE INDEX IF NOT EXISTS idx_digests_week ON digests(week);
 
-  -- Newsletter subscribers
-  CREATE TABLE IF NOT EXISTS subscribers (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    email        TEXT NOT NULL,
-    profile_id   TEXT NOT NULL,
-    jurisdiction TEXT NOT NULL DEFAULT 'es',
-    token        TEXT NOT NULL UNIQUE,
-    confirmed    INTEGER NOT NULL DEFAULT 0,
-    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(email, profile_id)
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_subscribers_confirmed ON subscribers(confirmed);
-  CREATE INDEX IF NOT EXISTS idx_subscribers_token ON subscribers(token);
-
   -- FTS5 virtual table for full-text search (title + content)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,

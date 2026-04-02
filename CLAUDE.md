@@ -213,12 +213,14 @@ We are NOT a developer tool, a SaaS dashboard, or a startup landing page. We are
 - Reference sites: GOV.UK (clarity), BOE (institutional trust), La Moncloa (Spanish gov aesthetics)
 
 **Language rules:**
-- All user-facing text in Spanish
+- All user-facing text in Spanish with **correct orthography**: accents (á, é, í, ó, ú), ñ, ü, and inverted punctuation (¿, ¡) are mandatory. This is an institutional-quality website — missing accents are unacceptable. Examples: "España" not "Espana", "autónoma" not "autonoma", "¿Dónde vives?" not "Donde vives?", "política" not "politica".
+- This applies to: page content, headings, meta descriptions, aria-labels, form labels, error messages, email templates, and any text visible to citizens.
 - Use "leyes" not "normas" in citizen-facing copy (normas is the technical term)
-- Use "articulos" not "bloques" or "preceptos"
+- Use "artículos" not "bloques" or "preceptos"
 - Use "cambios" or "modificaciones" not "diffs" or "reformas" in headings
-- Use "temas" or "categorias" not "materias" in citizen-facing copy
+- Use "temas" or "categorías" not "materias" in citizen-facing copy
 - Technical terms (norm IDs, API references) are fine in developer-facing contexts
+- Code, comments, and variable names remain in English (no accents needed)
 
 ## Data Sources
 

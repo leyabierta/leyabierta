@@ -1,120 +1,352 @@
 ---
 import Base from "../layouts/Base.astro";
-import { getProfiles } from "../lib/api";
-
-let profiles: Array<{ id: string; name: string; description: string; icon: string }> = [];
-try {
-	const result = await getProfiles();
-	profiles = result.data;
-} catch {
-	// API not available at build time — profiles loaded client-side
-}
 
 const JURISDICTION_OPTIONS = [
-	{ value: "es", label: "Estatal (toda Espana)" },
-	{ value: "es-an", label: "Andalucia" },
-	{ value: "es-ar", label: "Aragon" },
+	{ value: "es", label: "Estatal (toda España)" },
+	{ value: "es-an", label: "Andalucía" },
+	{ value: "es-ar", label: "Aragón" },
 	{ value: "es-as", label: "Asturias" },
 	{ value: "es-cb", label: "Cantabria" },
-	{ value: "es-cl", label: "Castilla y Leon" },
+	{ value: "es-cl", label: "Castilla y León" },
 	{ value: "es-cm", label: "Castilla-La Mancha" },
 	{ value: "es-cn", label: "Canarias" },
-	{ value: "es-ct", label: "Cataluna" },
+	{ value: "es-ct", label: "Cataluña" },
 	{ value: "es-ex", label: "Extremadura" },
 	{ value: "es-ga", label: "Galicia" },
 	{ value: "es-ib", label: "Illes Balears" },
 	{ value: "es-mc", label: "Murcia" },
 	{ value: "es-md", label: "Madrid" },
 	{ value: "es-nc", label: "Navarra" },
-	{ value: "es-pv", label: "Pais Vasco" },
+	{ value: "es-pv", label: "País Vasco" },
 	{ value: "es-ri", label: "La Rioja" },
 	{ value: "es-vc", label: "C. Valenciana" },
+];
+
+const SITUATIONS = [
+	{
+		category: "Trabajo",
+		items: [
+			{ id: "trabajo_cuenta_ajena", label: "Trabajo por cuenta ajena" },
+			{ id: "autonomo", label: "Soy autónomo/a" },
+			{ id: "busco_empleo", label: "Busco empleo" },
+			{ id: "empresa_pyme", label: "Dirijo una empresa / PYME" },
+		],
+	},
+	{
+		category: "Familia",
+		items: [
+			{ id: "hijos_menores", label: "Tengo hijos menores" },
+			{ id: "embarazo_baja", label: "Embarazo / baja parental" },
+			{ id: "cuido_dependiente", label: "Cuido a un familiar dependiente" },
+			{ id: "divorcio", label: "Divorcio / separación" },
+		],
+	},
+	{
+		category: "Vivienda y patrimonio",
+		items: [
+			{ id: "alquilo", label: "Alquilo vivienda" },
+			{ id: "hipoteca", label: "Tengo una hipoteca" },
+			{ id: "propietario", label: "Soy propietario/a" },
+			{ id: "compraventa", label: "Compraventa de inmueble" },
+		],
+	},
+	{
+		category: "Salud y situación social",
+		items: [
+			{ id: "sanitario", label: "Profesional sanitario/a" },
+			{ id: "discapacidad", label: "Discapacidad reconocida" },
+			{ id: "jubilacion", label: "Próximo/a a jubilarme" },
+			{ id: "inmigrante", label: "Inmigrante / extranjería" },
+			{ id: "estudiante", label: "Estudiante" },
+		],
+	},
 ];
 ---
 
 <Base
 	title="Alertas legislativas"
-	description="Recibe por email un resumen semanal de las leyes que te afectan. Elige tu perfil profesional y tu comunidad autonoma."
+	description="Recibe por email un resumen semanal de las leyes que te afectan. Elige tu comunidad autónoma y tu situación."
 	ogTitle="Alertas — Ley Abierta"
 	canonicalUrl="/alertas"
 >
 	<style>
-		.hero { text-align: center; padding: 2.5rem 0 2rem; }
-		.hero h1 {
+		/* ── Hero ── */
+		.wizard-hero {
+			text-align: center;
+			padding: 1.5rem 1rem 1.75rem;
+		}
+		.wizard-hero h1 {
 			font-family: var(--font-serif);
-			font-size: 2rem;
+			font-size: 2.25rem;
 			font-weight: 700;
 			line-height: 1.15;
 			letter-spacing: -0.02em;
+			color: var(--text);
 		}
-		.hero-sub {
+		.wizard-hero p {
 			color: var(--text-secondary);
-			font-size: 1rem;
-			margin-top: 0.75rem;
-			max-width: 34rem;
-			margin-left: auto;
-			margin-right: auto;
+			font-size: 1.05rem;
 			line-height: 1.7;
+			max-width: 32rem;
+			margin: 0.75rem auto 0;
 		}
 
-		/* ── Profiles grid ── */
-		.profiles-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-			gap: 1rem;
+		/* ── Wizard container ── */
+		.wizard-wrap {
+			max-width: 680px;
+			margin: 0 auto 2rem;
+			padding: 0 1rem;
+		}
+
+		/* ── Progress bar ── */
+		.progress {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
 			margin-bottom: 2rem;
+			padding: 0 0.25rem;
 		}
-		.profile-card {
-			border: 1.5px solid var(--border-light);
-			border-radius: 10px;
-			padding: 1.25rem;
-			cursor: pointer;
-			transition: all 0.15s;
-			background: var(--surface);
-		}
-		.profile-card:hover {
-			border-color: var(--accent);
-			background: var(--accent-faint);
-		}
-		.profile-card.selected {
-			border-color: var(--accent);
-			background: var(--accent-bg);
-			box-shadow: 0 0 0 1px var(--accent);
-		}
-		.profile-icon {
-			font-size: 1.75rem;
-			margin-bottom: 0.5rem;
-		}
-		.profile-name {
-			font-family: var(--font-serif);
-			font-weight: 600;
-			font-size: 1rem;
-			margin-bottom: 0.25rem;
-		}
-		.profile-desc {
+		.progress-text {
 			font-size: 0.8125rem;
 			color: var(--text-muted);
+			white-space: nowrap;
+			font-weight: 500;
+		}
+		.progress-bar-track {
+			flex: 1;
+			height: 6px;
+			background: var(--border-light);
+			border-radius: 3px;
+			overflow: hidden;
+		}
+		.progress-bar-fill {
+			height: 100%;
+			background: var(--accent);
+			border-radius: 3px;
+			transition: width 0.4s ease;
+		}
+		.progress-pct {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			font-weight: 500;
+			min-width: 2.5rem;
+			text-align: right;
+		}
+		.progress-dots {
+			display: flex;
+			gap: 0.375rem;
+			align-items: center;
+		}
+		.progress-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+			background: var(--border-light);
+			border: 2px solid var(--border-light);
+			padding: 0;
+			cursor: default;
+			transition: all 0.2s;
+		}
+		.progress-dot.filled {
+			background: var(--accent);
+			border-color: var(--accent);
+		}
+		.progress-dot.active {
+			background: white;
+			border-color: var(--accent);
+			box-shadow: 0 0 0 2px var(--accent-faint);
+		}
+		.progress-dot.clickable {
+			cursor: pointer;
+		}
+		.progress-dot.clickable:hover {
+			border-color: var(--accent-light);
+		}
+
+		/* ── Steps viewport ── */
+		.steps-viewport {
+			position: relative;
+		}
+		.steps-track {
+			position: relative;
+		}
+		.wizard-step {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 16px;
+			padding: 1.75rem 1.75rem;
+			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+			transition: opacity 0.3s ease, transform 0.3s ease;
+		}
+		.wizard-step[hidden] {
+			display: none;
+		}
+
+		/* ── Step headings ── */
+		.step-heading {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			line-height: 1.2;
+			margin-bottom: 0.375rem;
+		}
+		.step-subtitle {
+			color: var(--text-secondary);
+			font-size: 0.9rem;
+			margin-bottom: 1.25rem;
 			line-height: 1.5;
 		}
 
-		/* ── Subscribe form ── */
-		.subscribe-form {
-			max-width: 28rem;
-			margin: 0 auto;
-			background: var(--surface);
-			border: 1px solid var(--border-light);
-			border-radius: 12px;
-			padding: 1.5rem;
-			display: none;
+		/* ── Jurisdiction pills (Step 1) ── */
+		.jurisdiction-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 0.625rem;
 		}
-		.subscribe-form.visible { display: block; }
-		.subscribe-form h3 {
-			font-family: var(--font-serif);
-			font-size: 1.125rem;
+		.jurisdiction-pill {
+			border: none;
+			border-radius: 10px;
+			padding: 0.875rem 1rem;
+			background: var(--bg-muted, #edf2f7);
+			font-size: 0.9rem;
+			font-family: var(--font-sans);
+			cursor: pointer;
+			transition: all 0.15s;
+			text-align: center;
+			color: var(--text);
+		}
+		.jurisdiction-pill:hover {
+			background: #dde5ee;
+		}
+		.jurisdiction-pill.selected {
+			background: #1a365d;
+			color: white;
+			box-shadow: 0 2px 8px rgba(26, 54, 93, 0.25);
+		}
+		.jurisdiction-pill.highlight {
 			font-weight: 600;
-			margin-bottom: 1rem;
 		}
 
+		/* ── Situation pills (Step 2) ── */
+		.category-heading {
+			font-size: 0.7rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+			color: var(--text-muted);
+			margin: 0 0 0.625rem;
+			padding-top: 1.5rem;
+		}
+		.category-heading:first-child {
+			padding-top: 0;
+		}
+		.situation-group {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			gap: 0.5rem;
+			margin-bottom: 0.25rem;
+		}
+		.situation-pill {
+			border: none;
+			border-radius: 10px;
+			padding: 0.65rem 0.875rem 0.65rem 2.25rem;
+			background: var(--bg-muted, #edf2f7);
+			font-size: 0.85rem;
+			font-family: var(--font-sans);
+			cursor: pointer;
+			transition: all 0.15s;
+			text-align: left;
+			color: var(--text);
+			position: relative;
+		}
+		.situation-pill::before {
+			content: "";
+			position: absolute;
+			left: 0.75rem;
+			top: 50%;
+			transform: translateY(-50%);
+			width: 16px;
+			height: 16px;
+			border-radius: 50%;
+			border: 2px solid var(--border, #cbd5e0);
+			background: white;
+			transition: all 0.15s;
+		}
+		.situation-pill:hover {
+			background: #dde5ee;
+		}
+		.situation-pill.selected {
+			background: var(--accent-faint, #e8eef6);
+			color: var(--accent-dark, #1a365d);
+			font-weight: 500;
+		}
+		.situation-pill.selected::before {
+			background: #1a365d;
+			border-color: #1a365d;
+			box-shadow: inset 0 0 0 2.5px white;
+		}
+
+		/* ── Preview card (Step 3) ── */
+		.preview-card {
+			background: var(--bg);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1.25rem;
+			margin-bottom: 1.5rem;
+		}
+		.preview-header {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			margin-bottom: 1rem;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.preview-logo {
+			font-family: var(--font-serif);
+			font-weight: 700;
+			font-size: 1rem;
+			color: var(--accent);
+		}
+		.preview-date {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			margin-left: auto;
+		}
+		.preview-item {
+			padding: 0.75rem 0;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.preview-item:last-child {
+			border-bottom: none;
+			padding-bottom: 0;
+		}
+		.preview-tag {
+			display: inline-block;
+			font-size: 0.6875rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.03em;
+			padding: 0.15rem 0.5rem;
+			border-radius: 4px;
+			background: var(--accent-faint);
+			color: var(--accent);
+			margin-bottom: 0.375rem;
+		}
+		.preview-title {
+			font-family: var(--font-serif);
+			font-weight: 600;
+			font-size: 0.9375rem;
+			line-height: 1.4;
+			margin-bottom: 0.25rem;
+		}
+		.preview-desc {
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			line-height: 1.5;
+		}
+
+		/* ── Form (Step 4) ── */
 		.form-group {
 			margin-bottom: 1rem;
 		}
@@ -125,254 +357,551 @@ const JURISDICTION_OPTIONS = [
 			color: var(--text-secondary);
 			margin-bottom: 0.375rem;
 		}
-		.form-group select,
 		.form-group input[type="email"] {
 			width: 100%;
-			padding: 0.625rem 0.75rem;
+			padding: 0.75rem;
 			border: 1px solid var(--border);
-			border-radius: 6px;
+			border-radius: 8px;
 			background: var(--bg);
 			color: var(--text);
-			font-size: 0.875rem;
+			font-size: 0.9375rem;
 			font-family: var(--font-sans);
 		}
-		.form-group select:focus,
-		.form-group input:focus {
+		.form-group input[type="email"]:focus {
 			outline: none;
 			border-color: var(--accent);
 			box-shadow: 0 0 0 2px var(--accent-bg);
 		}
+		.consent-row {
+			display: flex;
+			align-items: flex-start;
+			gap: 0.5rem;
+			margin-bottom: 1rem;
+		}
+		.consent-row input[type="checkbox"] {
+			margin-top: 0.2rem;
+			flex-shrink: 0;
+			accent-color: var(--accent);
+		}
+		.consent-row label {
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			line-height: 1.5;
+		}
+		.consent-row a {
+			color: var(--accent);
+			text-decoration: underline;
+		}
+		.rgpd-inline {
+			font-size: 0.7rem;
+			color: var(--text-muted);
+			line-height: 1.6;
+			margin-bottom: 0.25rem;
+		}
+		.rgpd-inline a {
+			color: var(--text-muted);
+			text-decoration: underline;
+		}
 
-		.submit-btn {
-			width: 100%;
-			padding: 0.75rem;
+		/* ── Navigation buttons ── */
+		.wizard-nav {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-top: 1.5rem;
+			gap: 0.75rem;
+		}
+		.btn-back {
+			background: none;
+			border: 1.5px solid var(--border-light);
+			border-radius: 8px;
+			padding: 0.75rem 1.25rem;
+			font-size: 0.9375rem;
+			font-family: var(--font-sans);
+			color: var(--text-secondary);
+			cursor: pointer;
+			transition: all 0.15s;
+			min-height: 48px;
+		}
+		.btn-back:hover {
+			border-color: var(--border);
+			color: var(--text);
+		}
+		.btn-next {
+			flex: 1;
+			max-width: 280px;
+			margin-left: auto;
+			padding: 0.75rem 1.5rem;
 			font-size: 0.9375rem;
 			font-weight: 600;
+			font-family: var(--font-sans);
 			border-radius: 8px;
 			border: none;
 			background: var(--accent);
 			color: white;
 			cursor: pointer;
-			font-family: var(--font-sans);
-			transition: background 0.15s;
+			transition: all 0.15s;
+			min-height: 48px;
 		}
-		.submit-btn:hover { background: var(--accent-light); }
-		.submit-btn:disabled {
-			opacity: 0.6;
+		.btn-next:hover:not(:disabled) {
+			background: var(--accent-light);
+			box-shadow: 0 2px 8px rgba(26, 54, 93, 0.2);
+		}
+		.btn-next:disabled {
+			opacity: 0.5;
 			cursor: not-allowed;
 		}
 
-		/* ── Messages ── */
-		.message {
-			max-width: 28rem;
-			margin: 1rem auto 0;
-			padding: 1rem;
-			border-radius: 8px;
-			font-size: 0.875rem;
-			line-height: 1.5;
+		/* ── Success state ── */
+		.success-state {
 			display: none;
-		}
-		.message.visible { display: block; }
-		.message-success {
-			background: var(--success-bg);
-			color: var(--success);
-		}
-		.message-error {
-			background: var(--danger-bg);
-			color: var(--danger);
-		}
-
-		/* ── How it works ── */
-		.how-it-works {
-			margin-top: 3rem;
-			padding-top: 2rem;
-			border-top: 1px solid var(--border-light);
-		}
-		.how-it-works h2 {
-			font-family: var(--font-serif);
-			font-size: 1.375rem;
-			font-weight: 600;
 			text-align: center;
-			margin-bottom: 1.5rem;
+			padding: 2.5rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
 		}
-		.steps {
-			display: grid;
-			grid-template-columns: repeat(3, 1fr);
-			gap: 1.5rem;
-			text-align: center;
+		.success-state.visible {
+			display: block;
 		}
-		.step-num {
+		.success-check {
+			width: 56px;
+			height: 56px;
+			border-radius: 50%;
+			background: var(--success-bg, #ecfdf5);
+			color: var(--success, #059669);
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			width: 2rem;
-			height: 2rem;
-			border-radius: 50%;
-			background: var(--accent-bg);
-			color: var(--accent);
+			font-size: 1.5rem;
+			margin-bottom: 1rem;
+		}
+		.success-state h2 {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
 			font-weight: 700;
-			font-size: 0.875rem;
 			margin-bottom: 0.5rem;
 		}
-		.step h3 {
-			font-size: 0.9375rem;
-			font-weight: 600;
-			margin-bottom: 0.25rem;
+		.success-state p {
+			color: var(--text-secondary);
+			font-size: 0.95rem;
+			line-height: 1.6;
+			max-width: 380px;
+			margin: 0 auto 1rem;
 		}
-		.step p {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			line-height: 1.5;
+		.success-summary {
+			display: inline-flex;
+			flex-wrap: wrap;
+			gap: 0.375rem;
+			justify-content: center;
+			margin-top: 0.5rem;
+		}
+		.success-tag {
+			font-size: 0.75rem;
+			padding: 0.25rem 0.625rem;
+			border-radius: 6px;
+			background: var(--accent-faint);
+			color: var(--accent);
 		}
 
+		/* ── Error message ── */
+		.error-msg {
+			display: none;
+			padding: 0.75rem 1rem;
+			border-radius: 8px;
+			background: var(--danger-bg);
+			color: var(--danger);
+			font-size: 0.875rem;
+			margin-top: 0.75rem;
+		}
+		.error-msg.visible {
+			display: block;
+		}
+
+		/* ── Responsive ── */
 		@media (max-width: 640px) {
-			.profiles-grid { grid-template-columns: 1fr 1fr; }
-			.steps { grid-template-columns: 1fr; gap: 1rem; }
+			.wizard-wrap {
+				margin: 1rem auto;
+			}
+			.wizard-step {
+				padding: 1.5rem 1rem;
+			}
+			.progress-text {
+				display: none;
+			}
+			.jurisdiction-grid {
+				grid-template-columns: 1fr;
+			}
+			.situation-group {
+				grid-template-columns: 1fr;
+			}
+			.btn-next {
+				max-width: none;
+				flex: 1;
+			}
+			.btn-back {
+				flex-shrink: 0;
+			}
+			.wizard-nav {
+				flex-wrap: nowrap;
+			}
 		}
 	</style>
 
-	<section class="hero">
-		<h1>Recibe las leyes que te afectan</h1>
-		<p class="hero-sub">
-			Cada lunes, un email con los cambios legislativos de la semana
-			que son relevantes para ti. Gratis, sin spam, te puedes dar de baja en un clic.
-		</p>
-	</section>
+	<div class="wizard-wrap" id="wizard">
+		<div class="wizard-hero">
+			<h1>Recibe las leyes que te afectan</h1>
+			<p>Cada lunes, un resumen personalizado de los cambios legislativos que afectan a tu situación. Gratis, sin spam, te puedes dar de baja en cualquier momento.</p>
+		</div>
 
-	<!-- Profile cards -->
-	<div class="profiles-grid" id="profiles-grid">
-		{profiles.map((p) => (
-			<div class="profile-card" data-profile-id={p.id} data-profile-name={p.name}>
-				<div class="profile-icon">{p.icon}</div>
-				<div class="profile-name">{p.name}</div>
-				<div class="profile-desc">{p.description}</div>
+		<!-- Progress -->
+		<div class="progress" aria-live="polite">
+			<span class="progress-text" id="progress-text">Paso 1 de 4</span>
+			<div class="progress-dots" id="progress-dots">
+				<button type="button" class="progress-dot active" data-step="0" aria-label="Paso 1"></button>
+				<button type="button" class="progress-dot" data-step="1" aria-label="Paso 2"></button>
+				<button type="button" class="progress-dot" data-step="2" aria-label="Paso 3"></button>
+				<button type="button" class="progress-dot" data-step="3" aria-label="Paso 4"></button>
 			</div>
-		))}
+			<div class="progress-bar-track">
+				<div class="progress-bar-fill" id="progress-fill" style="width: 25%"></div>
+			</div>
+			<span class="progress-pct" id="progress-pct">25%</span>
+		</div>
+
+		<!-- Steps viewport -->
+		<div class="steps-viewport">
+			<div class="steps-track" id="steps-track">
+
+				<!-- Step 1: Jurisdiction -->
+				<section class="wizard-step" aria-label="Elige tu comunidad autónoma" id="step-0">
+					<h2 class="step-heading" tabindex="-1">¿Dónde vives?</h2>
+					<p class="step-subtitle">Las leyes que te afectan dependen de tu comunidad autónoma</p>
+					<div class="jurisdiction-grid" role="radiogroup" aria-label="Comunidad autónoma">
+						{JURISDICTION_OPTIONS.map((j, i) => (
+							<button
+								type="button"
+								class={`jurisdiction-pill${i === 0 ? " highlight" : ""}`}
+								data-value={j.value}
+								role="radio"
+								aria-checked="false"
+							>
+								{j.label}
+							</button>
+						))}
+					</div>
+					<div class="wizard-nav">
+						<button type="button" class="btn-next" id="btn-next-0" disabled>Siguiente &rarr;</button>
+					</div>
+				</section>
+
+				<!-- Step 2: Situations -->
+				<section class="wizard-step" aria-label="Elige tus situaciones" id="step-1" hidden>
+					<h2 class="step-heading" tabindex="-1">¿Qué situaciones te describen?</h2>
+					<p class="step-subtitle">Marca todas las que apliquen</p>
+					{SITUATIONS.map((cat, catIdx) => (
+						<div role="group" aria-label={cat.category}>
+							<div class={`category-heading${catIdx === 0 ? " first-category" : ""}`}>{cat.category}</div>
+							<div class="situation-group">
+								{cat.items.map((item) => (
+									<button
+										type="button"
+										class="situation-pill"
+										data-situation-id={item.id}
+										aria-pressed="false"
+									>
+										{item.label}
+									</button>
+								))}
+							</div>
+						</div>
+					))}
+					<div class="wizard-nav">
+						<button type="button" class="btn-back" id="btn-back-1">&larr; Atrás</button>
+						<button type="button" class="btn-next" id="btn-next-1" disabled>Siguiente &rarr;</button>
+					</div>
+				</section>
+
+				<!-- Step 3: Preview -->
+				<section class="wizard-step" aria-label="Vista previa del resumen" id="step-2" hidden>
+					<h2 class="step-heading" tabindex="-1">Así será tu resumen semanal</h2>
+					<p class="step-subtitle" id="preview-subtitle">Basado en tu situación</p>
+					<div class="preview-card">
+						<div class="preview-header">
+							<span class="preview-logo">Ley Abierta</span>
+							<span class="preview-date">Lunes, 31 de marzo de 2025</span>
+						</div>
+						<div class="preview-item">
+							<div class="preview-tag">Trabajo</div>
+							<div class="preview-title">Nuevo complemento salarial para contratos a tiempo parcial</div>
+							<div class="preview-desc">El Real Decreto 245/2025 establece un complemento para trabajadores con jornada reducida involuntaria. Afecta a contratos firmados desde enero de 2024.</div>
+						</div>
+						<div class="preview-item">
+							<div class="preview-tag">Vivienda</div>
+							<div class="preview-title">Ampliacion del plazo para deduccion por alquiler</div>
+							<div class="preview-desc">Se modifica la Ley del IRPF para extender la deduccion por alquiler de vivienda habitual a contratos firmados antes de 2026.</div>
+						</div>
+						<div class="preview-item">
+							<div class="preview-tag">Familia</div>
+							<div class="preview-title">Actualizacion de las cuantias por hijo a cargo</div>
+							<div class="preview-desc">La prestacion por hijo a cargo se incrementa un 4,2% para el ejercicio 2025, segun la Orden ministerial publicada esta semana.</div>
+						</div>
+					</div>
+					<div class="wizard-nav">
+						<button type="button" class="btn-back" id="btn-back-2">&larr; Atrás</button>
+						<button type="button" class="btn-next" id="btn-next-2">Quiero recibirlo &rarr;</button>
+					</div>
+				</section>
+
+				<!-- Step 4: Email -->
+				<section class="wizard-step" aria-label="Introduce tu email" id="step-3" hidden>
+					<h2 class="step-heading" tabindex="-1">Recíbelo cada lunes</h2>
+					<p class="step-subtitle">Un email a la semana. Sin spam. Te puedes dar de baja en un clic.</p>
+
+					<form id="subscribe-form" novalidate>
+						<div class="form-group">
+							<label for="email">Tu email</label>
+							<input type="email" id="email" name="email" placeholder="tu@email.com" required autocomplete="email" />
+						</div>
+
+						<div class="consent-row">
+							<input type="checkbox" id="consent" name="consent" />
+							<label for="consent">He leído y acepto la <a href="/privacidad" target="_blank">política de privacidad</a></label>
+						</div>
+
+						<p class="rgpd-inline">Responsable: Ley Abierta. Tratamos tu email para enviarte un resumen semanal. Puedes ejercer tus derechos o darte de baja en cualquier momento. <a href="/privacidad">Más información</a>.</p>
+
+						<div class="wizard-nav">
+							<button type="button" class="btn-back" id="btn-back-3">&larr; Atrás</button>
+							<button type="submit" class="btn-next" id="btn-submit" disabled>Suscribirme</button>
+						</div>
+						<div class="error-msg" id="error-msg"></div>
+					</form>
+				</section>
+
+			</div>
+		</div>
+
+		<!-- Success state (replaces wizard) -->
+		<div class="success-state" id="success-state">
+			<div class="success-check">&#10003;</div>
+			<h2>Revisa tu email</h2>
+			<p>Te hemos enviado un enlace de confirmacion. Si no lo ves, revisa la carpeta de spam.</p>
+			<div class="success-summary" id="success-summary"></div>
+		</div>
 	</div>
-
-	<!-- Subscribe form (hidden until profile selected) -->
-	<form class="subscribe-form" id="subscribe-form" method="post">
-		<h3 id="form-title">Suscribirme</h3>
-
-		<div class="form-group">
-			<label for="jurisdiction">Tu comunidad autonoma</label>
-			<select id="jurisdiction" name="jurisdiction">
-				{JURISDICTION_OPTIONS.map((j) => (
-					<option value={j.value}>{j.label}</option>
-				))}
-			</select>
-		</div>
-
-		<div class="form-group">
-			<label for="email">Tu email</label>
-			<input type="email" id="email" name="email" placeholder="tu@email.com" required />
-		</div>
-
-		<input type="hidden" id="profile-id" name="profileId" value="" />
-
-		<button type="submit" class="submit-btn" id="submit-btn">Suscribirme</button>
-	</form>
-
-	<!-- Status messages -->
-	<div class="message message-success" id="msg-success">
-		<strong>Revisa tu email.</strong> Te hemos enviado un enlace de confirmacion.
-		Si no lo ves, revisa la carpeta de spam.
-	</div>
-	<div class="message message-error" id="msg-error"></div>
-
-	<!-- How it works -->
-	<section class="how-it-works">
-		<h2>Como funciona</h2>
-		<div class="steps">
-			<div class="step">
-				<div class="step-num">1</div>
-				<h3>Elige tu perfil</h3>
-				<p>Selecciona el ambito profesional o personal que te interese.</p>
-			</div>
-			<div class="step">
-				<div class="step-num">2</div>
-				<h3>Confirma tu email</h3>
-				<p>Te enviamos un enlace para verificar tu direccion.</p>
-			</div>
-			<div class="step">
-				<div class="step-num">3</div>
-				<h3>Recibe tu resumen</h3>
-				<p>Cada lunes, un email con los cambios que te afectan.</p>
-			</div>
-		</div>
-	</section>
 
 	<script is:inline>
 		(function () {
-			var grid = document.getElementById("profiles-grid");
+			var currentStep = 0;
+			var totalSteps = 4;
+			var selectedJurisdiction = null;
+			var selectedSituations = new Set();
+
+			// DOM refs
+			var track = document.getElementById("steps-track");
+			var progressText = document.getElementById("progress-text");
+			var progressFill = document.getElementById("progress-fill");
+			var progressPct = document.getElementById("progress-pct");
+			var dots = document.querySelectorAll(".progress-dot");
+			var wizard = document.getElementById("wizard");
+			var successState = document.getElementById("success-state");
+			var successSummary = document.getElementById("success-summary");
+			var errorMsg = document.getElementById("error-msg");
+			var previewSubtitle = document.getElementById("preview-subtitle");
 			var form = document.getElementById("subscribe-form");
-			var formTitle = document.getElementById("form-title");
-			var profileIdInput = document.getElementById("profile-id");
-			var submitBtn = document.getElementById("submit-btn");
-			var msgSuccess = document.getElementById("msg-success");
-			var msgError = document.getElementById("msg-error");
-			var selected = null;
+			var emailInput = document.getElementById("email");
+			var consentInput = document.getElementById("consent");
+			var submitBtn = document.getElementById("btn-submit");
 
-			// Profile selection
-			grid.addEventListener("click", function (e) {
-				var card = e.target.closest(".profile-card");
-				if (!card) return;
+			var allSteps = document.querySelectorAll(".wizard-step");
 
-				// Deselect previous
-				if (selected) selected.classList.remove("selected");
+			// Navigation
+			function goToStep(step) {
+				if (step < 0 || step >= totalSteps) return;
+				currentStep = step;
 
-				// Select new
-				card.classList.add("selected");
-				selected = card;
+				// Show only the current step
+				for (var s = 0; s < allSteps.length; s++) {
+					allSteps[s].hidden = s !== currentStep;
+				}
 
-				var profileId = card.dataset.profileId;
-				var profileName = card.dataset.profileName;
+				// Update progress
+				var pct = Math.round((currentStep + 1) / totalSteps * 100);
+				progressText.textContent = "Paso " + (currentStep + 1) + " de " + totalSteps;
+				progressFill.style.width = pct + "%";
+				progressPct.textContent = pct + "%";
 
-				profileIdInput.value = profileId;
-				formTitle.textContent = "Suscribirme a " + profileName;
-				form.classList.add("visible");
-				msgSuccess.classList.remove("visible");
-				msgError.classList.remove("visible");
+				// Update dots
+				for (var i = 0; i < dots.length; i++) {
+					dots[i].classList.toggle("filled", i < currentStep);
+					dots[i].classList.toggle("active", i === currentStep);
+					dots[i].classList.toggle("clickable", i < currentStep);
+				}
 
-				// Scroll to form
-				form.scrollIntoView({ behavior: "smooth", block: "center" });
+				// Focus heading of new step
+				var heading = document.getElementById("step-" + currentStep).querySelector(".step-heading");
+				if (heading) heading.focus();
+
+				// Update preview subtitle
+				if (currentStep === 2 && selectedJurisdiction) {
+					var pills = document.querySelectorAll(".jurisdiction-pill");
+					for (var j = 0; j < pills.length; j++) {
+						if (pills[j].dataset.value === selectedJurisdiction) {
+							previewSubtitle.textContent = "Basado en tu situación en " + pills[j].textContent.trim();
+							break;
+						}
+					}
+				}
+			}
+
+			function nextStep() {
+				if (currentStep < totalSteps - 1) {
+					goToStep(currentStep + 1);
+				}
+			}
+
+			function prevStep() {
+				if (currentStep > 0) {
+					goToStep(currentStep - 1);
+				}
+			}
+
+			// Dot clicks (back only)
+			for (var d = 0; d < dots.length; d++) {
+				dots[d].addEventListener("click", (function (idx) {
+					return function () {
+						if (idx < currentStep) goToStep(idx);
+					};
+				})(d));
+			}
+
+			// Step 1: Jurisdiction selection
+			var jurisdictionGrid = document.querySelector(".jurisdiction-grid");
+			jurisdictionGrid.addEventListener("click", function (e) {
+				var pill = e.target.closest(".jurisdiction-pill");
+				if (!pill) return;
+
+				// Deselect all
+				var pills = jurisdictionGrid.querySelectorAll(".jurisdiction-pill");
+				for (var i = 0; i < pills.length; i++) {
+					pills[i].classList.remove("selected");
+					pills[i].setAttribute("aria-checked", "false");
+				}
+
+				// Select this one
+				pill.classList.add("selected");
+				pill.setAttribute("aria-checked", "true");
+				selectedJurisdiction = pill.dataset.value;
+				document.getElementById("btn-next-0").disabled = false;
 			});
+
+			// Step 1: keyboard support
+			jurisdictionGrid.addEventListener("keydown", function (e) {
+				if (e.key === " " || e.key === "Enter") {
+					e.preventDefault();
+					e.target.click();
+				}
+			});
+
+			document.getElementById("btn-next-0").addEventListener("click", nextStep);
+
+			// Step 2: Situation selection
+			var situationPills = document.querySelectorAll(".situation-pill");
+			for (var s = 0; s < situationPills.length; s++) {
+				situationPills[s].addEventListener("click", function () {
+					var id = this.dataset.situationId;
+					if (selectedSituations.has(id)) {
+						selectedSituations.delete(id);
+						this.classList.remove("selected");
+						this.setAttribute("aria-pressed", "false");
+					} else {
+						selectedSituations.add(id);
+						this.classList.add("selected");
+						this.setAttribute("aria-pressed", "true");
+					}
+					document.getElementById("btn-next-1").disabled = selectedSituations.size === 0;
+				});
+
+				situationPills[s].addEventListener("keydown", function (e) {
+					if (e.key === " " || e.key === "Enter") {
+						e.preventDefault();
+						this.click();
+					}
+				});
+			}
+
+			document.getElementById("btn-back-1").addEventListener("click", prevStep);
+			document.getElementById("btn-next-1").addEventListener("click", nextStep);
+
+			// Step 3
+			document.getElementById("btn-back-2").addEventListener("click", prevStep);
+			document.getElementById("btn-next-2").addEventListener("click", nextStep);
+
+			// Step 4: form validation
+			function validateForm() {
+				var emailValid = emailInput.value && emailInput.validity.valid;
+				var consentValid = consentInput.checked;
+				submitBtn.disabled = !(emailValid && consentValid);
+			}
+
+			emailInput.addEventListener("input", validateForm);
+			consentInput.addEventListener("change", validateForm);
+
+			document.getElementById("btn-back-3").addEventListener("click", prevStep);
 
 			// Form submission
 			form.addEventListener("submit", function (e) {
 				e.preventDefault();
+				errorMsg.classList.remove("visible");
 				submitBtn.disabled = true;
 				submitBtn.textContent = "Enviando...";
-				msgSuccess.classList.remove("visible");
-				msgError.classList.remove("visible");
 
-				var email = document.getElementById("email").value;
-				var profileId = profileIdInput.value;
-				var jurisdiction = document.getElementById("jurisdiction").value;
+				var payload = {
+					email: emailInput.value,
+					jurisdiction: selectedJurisdiction,
+					situationIds: Array.from(selectedSituations),
+				};
 
 				fetch(document.documentElement.dataset.api + "/v1/alerts/subscribe", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email: email, profileId: profileId, jurisdiction: jurisdiction }),
+					body: JSON.stringify(payload),
 				})
 				.then(function (res) { return res.json(); })
 				.then(function (data) {
-					submitBtn.disabled = false;
-					submitBtn.textContent = "Suscribirme";
 					if (data.ok) {
-						form.classList.remove("visible");
-						msgSuccess.classList.add("visible");
-						msgSuccess.scrollIntoView({ behavior: "smooth", block: "center" });
+						// Show success
+						document.querySelector(".steps-viewport").style.display = "none";
+						document.querySelector(".progress").style.display = "none";
+						successState.classList.add("visible");
+
+						// Build summary tags
+						var html = "";
+						var pills = document.querySelectorAll(".jurisdiction-pill");
+						for (var i = 0; i < pills.length; i++) {
+							if (pills[i].dataset.value === selectedJurisdiction) {
+								html += '<span class="success-tag">' + pills[i].textContent.trim() + "</span>";
+								break;
+							}
+						}
+						var sitPills = document.querySelectorAll(".situation-pill.selected");
+						for (var j = 0; j < sitPills.length; j++) {
+							html += '<span class="success-tag">' + sitPills[j].textContent.trim() + "</span>";
+						}
+						successSummary.innerHTML = html;
 					} else {
-						msgError.textContent = data.error || "Ha ocurrido un error. Intentalo de nuevo.";
-						msgError.classList.add("visible");
+						submitBtn.disabled = false;
+						submitBtn.textContent = "Suscribirme";
+						errorMsg.textContent = data.error || "Ha ocurrido un error. Intentalo de nuevo.";
+						errorMsg.classList.add("visible");
 					}
 				})
 				.catch(function () {
 					submitBtn.disabled = false;
 					submitBtn.textContent = "Suscribirme";
-					msgError.textContent = "Error de conexion. Intentalo de nuevo.";
-					msgError.classList.add("visible");
+					errorMsg.textContent = "Error de conexion. Intentalo de nuevo.";
+					errorMsg.classList.add("visible");
 				});
 			});
 		})();

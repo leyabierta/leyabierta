@@ -1,9 +1,9 @@
 /**
- * Weekly digest email sender — sends AI-scored digests to confirmed subscribers.
+ * Weekly digest email sender — sends AI-scored digests to Resend Audience contacts.
  *
- * Reads the latest digest from the DB for each subscriber's profile,
- * uses the AI-scored reforms (relevant=true) to build personalized emails.
- * Subscribers get the same content as the web pages.
+ * Reads the latest digest from the DB for each profile,
+ * fetches subscribed contacts from Resend, and sends personalized emails.
+ * Contacts get the same content as the web pages.
  *
  * Usage:
  *   bun run packages/api/src/scripts/send-digest.ts
@@ -18,13 +18,16 @@
  */
 
 import { Database } from "bun:sqlite";
+import { Resend } from "resend";
 import { createSchema } from "@leyabierta/pipeline";
-import { getProfileById, PROFILES } from "../data/profiles.ts";
+import { PROFILES } from "../data/profiles.ts";
 import { DbService } from "../services/db.ts";
-import { sendDigestEmail } from "../services/email.ts";
+import { buildUnsubscribeUrl, sendDigestEmail } from "../services/email.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const SITE_URL = process.env.SITE_URL ?? "https://leyabierta.es";
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
+const RESEND_AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID ?? "";
 
 const args = process.argv.slice(2);
 const preview = args.includes("--preview");
@@ -67,7 +70,7 @@ function buildEmailFromDigest(
 	week: string,
 	digestSummary: string,
 	reforms: DigestReform[],
-	unsubToken: string,
+	unsubUrl: string,
 ): string {
 	const relevant = reforms.filter((r) => r.relevant === true);
 	if (relevant.length === 0) return "";
@@ -91,7 +94,7 @@ function buildEmailFromDigest(
 		)
 		.join("\n");
 
-	const cancelUrl = `${SITE_URL}/alertas/cancelar?token=${unsubToken}`;
+	const cancelUrl = unsubUrl;
 	const prefsUrl = `${SITE_URL}/alertas`;
 	const webUrl = `${SITE_URL}/resumenes/${encodeURIComponent(profileName.toLowerCase())}/${week}`;
 
@@ -158,7 +161,7 @@ if (preview) {
 			targetWeek,
 			digest.summary,
 			reforms,
-			"preview-token",
+			`${SITE_URL}/alertas/cancelar?email=preview&code=preview`,
 		);
 		console.log(html);
 	}
@@ -168,90 +171,139 @@ if (preview) {
 
 // ── Send mode ──
 
-const subscribers = dbService.getConfirmedSubscribers();
-console.log(`Found ${subscribers.length} confirmed subscribers.`);
-
-// Group by profile + jurisdiction
-const groups = new Map<string, typeof subscribers>();
-for (const sub of subscribers) {
-	const key = `${sub.profile_id}:${sub.jurisdiction}`;
-	const group = groups.get(key);
-	if (group) {
-		group.push(sub);
-	} else {
-		groups.set(key, [sub]);
-	}
+if (!RESEND_API_KEY || !RESEND_AUDIENCE_ID) {
+	console.error(
+		"RESEND_API_KEY and RESEND_AUDIENCE_ID must be set to send digests.",
+	);
+	db.close();
+	process.exit(1);
 }
+
+const resend = new Resend(RESEND_API_KEY);
+
+// Fetch subscribed contacts from Resend Audience
+interface ResendContact {
+	id: string;
+	email: string;
+	unsubscribed: boolean;
+	properties?: Record<string, string>;
+}
+
+let contacts: ResendContact[] = [];
+try {
+	const response = await resend.contacts.list({ audienceId: RESEND_AUDIENCE_ID });
+	contacts = (response.data?.data ?? []).filter(
+		(c: ResendContact) => !c.unsubscribed,
+	);
+} catch (err) {
+	console.error("Failed to fetch contacts from Resend:", err);
+	db.close();
+	process.exit(1);
+}
+
+console.log(`Found ${contacts.length} subscribed contacts in Resend.`);
+
+// Group contacts by situation_ids + jurisdiction
+interface ContactInfo {
+	email: string;
+	situationIds: string[];
+	jurisdiction: string;
+}
+
+const contactInfos: ContactInfo[] = contacts.map((c) => ({
+	email: c.email,
+	situationIds: (() => {
+		try {
+			return JSON.parse(c.properties?.situation_ids ?? "[]");
+		} catch {
+			return [];
+		}
+	})(),
+	jurisdiction: c.properties?.jurisdiction ?? "es",
+}));
 
 let sent = 0;
 let skipped = 0;
 
-for (const [key, subs] of groups) {
-	const [profileId, jurisdiction] = key.split(":");
-	const profile = getProfileById(profileId!);
-	if (!profile) continue;
+// For each profile, find contacts subscribed to it and send the digest
+for (const profile of PROFILES) {
+	const profileContacts = contactInfos.filter((c) =>
+		c.situationIds.includes(profile.id),
+	);
+	if (profileContacts.length === 0) continue;
 
-	// Find the target week's digest
-	const weeks = dbService.listDigestsForProfile(profileId!);
-	const targetWeek = weekOverride ?? weeks[0]?.week;
-	if (!targetWeek) {
-		skipped += subs.length;
-		continue;
+	// Group by jurisdiction
+	const byJurisdiction = new Map<string, ContactInfo[]>();
+	for (const c of profileContacts) {
+		const group = byJurisdiction.get(c.jurisdiction);
+		if (group) group.push(c);
+		else byJurisdiction.set(c.jurisdiction, [c]);
 	}
 
-	const digest = dbService.getDigest(profileId!, targetWeek, jurisdiction);
-	if (!digest) {
-		skipped += subs.length;
-		continue;
-	}
-
-	let reforms: DigestReform[] = [];
-	try {
-		const parsed = JSON.parse(digest.data);
-		reforms = parsed.reforms ?? [];
-	} catch {
-		skipped += subs.length;
-		continue;
-	}
-
-	const relevant = reforms.filter((r) => r.relevant === true);
-	if (relevant.length === 0) {
-		skipped += subs.length;
-		continue;
-	}
-
-	for (const sub of subs) {
-		const html = buildEmailFromDigest(
-			profile.name,
-			profile.icon,
-			targetWeek,
-			digest.summary,
-			reforms,
-			sub.token,
-		);
-
-		if (!html) {
-			skipped++;
+	for (const [jurisdiction, jContacts] of byJurisdiction) {
+		const weeks = dbService.listDigestsForProfile(profile.id);
+		const targetWeek = weekOverride ?? weeks[0]?.week;
+		if (!targetWeek) {
+			skipped += jContacts.length;
 			continue;
 		}
 
-		if (dryRun) {
-			console.log(
-				`[dry-run] Would send to ${sub.email}: ${profile.name} (${targetWeek}), ${relevant.length} relevant reforms`,
+		const digest = dbService.getDigest(profile.id, targetWeek, jurisdiction);
+		if (!digest) {
+			skipped += jContacts.length;
+			continue;
+		}
+
+		let reforms: DigestReform[] = [];
+		try {
+			const parsed = JSON.parse(digest.data);
+			reforms = parsed.reforms ?? [];
+		} catch {
+			skipped += jContacts.length;
+			continue;
+		}
+
+		const relevant = reforms.filter((r) => r.relevant === true);
+		if (relevant.length === 0) {
+			skipped += jContacts.length;
+			continue;
+		}
+
+		for (const contact of jContacts) {
+			const unsubUrl = await buildUnsubscribeUrl(contact.email);
+			const html = buildEmailFromDigest(
+				profile.name,
+				profile.icon,
+				targetWeek,
+				digest.summary,
+				reforms,
+				unsubUrl,
 			);
-			sent++;
-			continue;
-		}
 
-		const jurisdictionLabel = jurisdiction === "es" ? "Estatal" : jurisdiction!;
-		const ok = await sendDigestEmail(
-			sub.email,
-			profile.name,
-			jurisdictionLabel,
-			html,
-		);
-		if (ok) sent++;
-		else console.error(`Failed: ${sub.email}`);
+			if (!html) {
+				skipped++;
+				continue;
+			}
+
+			if (dryRun) {
+				console.log(
+					`[dry-run] Would send to ${contact.email}: ${profile.name} (${targetWeek}), ${relevant.length} relevant reforms`,
+				);
+				sent++;
+				continue;
+			}
+
+			const jurisdictionLabel =
+				jurisdiction === "es" ? "Estatal" : jurisdiction;
+			const ok = await sendDigestEmail(
+				contact.email,
+				profile.name,
+				jurisdictionLabel,
+				html,
+			);
+			if (ok) sent++;
+			else console.error(`Failed: ${contact.email}`);
+		}
 	}
 }
 
