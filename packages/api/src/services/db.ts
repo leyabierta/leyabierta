@@ -57,6 +57,7 @@ export class DbService {
 		},
 		limit: number,
 		offset: number,
+		sort?: string,
 	): { laws: LawRow[]; total: number } {
 		if (query) {
 			// If the query looks like a norm ID (e.g. BOE-A-2018-6405), search by ID directly
@@ -111,15 +112,27 @@ export class DbService {
 				)
 				.get(...params)!.c;
 
-			// Preserve FTS5 relevance order using CASE on the id position
-			const orderByRelevance = ids.map((_, i) => `WHEN ? THEN ${i}`).join(" ");
-			const orderClause = `ORDER BY CASE id ${orderByRelevance} END`;
+			let orderClause: string;
+			let orderParams: unknown[] = [];
+
+			if (sort === "recent") {
+				orderClause = "ORDER BY published_at DESC";
+			} else if (sort === "oldest") {
+				orderClause = "ORDER BY published_at ASC";
+			} else if (sort === "title") {
+				orderClause = "ORDER BY title ASC";
+			} else {
+				// Default: preserve FTS5 relevance order using CASE on the id position
+				const orderByRelevance = ids.map((_, i) => `WHEN ? THEN ${i}`).join(" ");
+				orderClause = `ORDER BY CASE id ${orderByRelevance} END`;
+				orderParams = ids;
+			}
 
 			const laws = this.db
 				.query<LawRow, unknown[]>(
 					`SELECT * FROM norms WHERE ${where} ${orderClause} LIMIT ? OFFSET ?`,
 				)
-				.all(...params, ...ids, limit, offset);
+				.all(...params, ...orderParams, limit, offset);
 
 			return { laws, total };
 		}
@@ -139,9 +152,13 @@ export class DbService {
 			)
 			.get(...params)!.c;
 
+		let noQueryOrder = "ORDER BY published_at DESC";
+		if (sort === "oldest") noQueryOrder = "ORDER BY published_at ASC";
+		else if (sort === "title") noQueryOrder = "ORDER BY title ASC";
+
 		const laws = this.db
 			.query<LawRow, unknown[]>(
-				`SELECT * FROM norms ${where} ORDER BY published_at DESC LIMIT ? OFFSET ?`,
+				`SELECT * FROM norms ${where} ${noQueryOrder} LIMIT ? OFFSET ?`,
 			)
 			.all(...params, limit, offset);
 

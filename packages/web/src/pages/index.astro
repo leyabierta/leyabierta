@@ -372,12 +372,27 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			color: var(--text-muted);
 			opacity: 0.7;
 		}
-		.results-info {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
+		.results-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
 			margin-bottom: 1rem;
 			padding-bottom: 0.75rem;
 			border-bottom: 1px solid var(--border-light);
+		}
+		.results-info {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.sort-select {
+			padding: 0.3rem 0.5rem;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--surface);
+			color: var(--text-secondary);
+			font-size: 0.8125rem;
+			font-family: var(--font-sans);
+			cursor: pointer;
 		}
 		.results-filter-badge {
 			display: inline-flex;
@@ -541,6 +556,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			var filterStatus = document.getElementById("filter-status");
 			var currentPage = 1;
 			var currentCountry = "";
+			var currentSort = "";
 			var LIMIT = 20;
 
 			var heroSection = document.querySelector(".hero-section");
@@ -594,6 +610,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				if (rank) params.set("rank", rank);
 				if (status) params.set("status", status);
 				if (currentCountry) params.set("country", currentCountry);
+				if (currentSort) params.set("sort", currentSort);
 				params.set("limit", String(LIMIT));
 				params.set("offset", String((currentPage - 1) * LIMIT));
 
@@ -607,6 +624,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				if (rank) urlParams.set("rank", rank);
 				if (status) urlParams.set("status", status);
 				if (currentCountry) urlParams.set("country", currentCountry);
+				if (currentSort) urlParams.set("sort", currentSort);
 				if (currentPage > 1) urlParams.set("page", String(currentPage));
 				history.replaceState(null, "", "/?" + urlParams.toString());
 
@@ -629,7 +647,16 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							html += '<div class="results-filter-badge">' + esc(countryName) + ' <button type="button" class="results-filter-clear" id="clear-country" aria-label="Quitar filtro de ' + esc(countryName) + '">&times;</button></div>';
 						}
 
-						html += '<div class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</div>';
+						var hasQuery = searchInput.value.trim();
+						html += '<div class="results-header">';
+						html += '<span class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</span>';
+						html += '<select class="sort-select" id="sort-select">';
+						html += '<option value=""' + (currentSort === "" ? ' selected' : '') + '>' + (hasQuery ? 'Más relevantes' : 'Más recientes') + '</option>';
+						if (hasQuery) html += '<option value="recent"' + (currentSort === "recent" ? ' selected' : '') + '>Más recientes</option>';
+						html += '<option value="oldest"' + (currentSort === "oldest" ? ' selected' : '') + '>Más antiguas</option>';
+						html += '<option value="title"' + (currentSort === "title" ? ' selected' : '') + '>Alfabético</option>';
+						html += '</select>';
+						html += '</div>';
 
 						for (var i = 0; i < result.data.length; i++) {
 							var law = result.data[i];
@@ -673,6 +700,15 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							el.addEventListener("click", function () { doSearch(Number(this.dataset.page)); });
 						});
 
+						// Bind sort dropdown
+						var sortSelect = document.getElementById("sort-select");
+						if (sortSelect) {
+							sortSelect.addEventListener("change", function () {
+								currentSort = this.value;
+								doSearch(1);
+							});
+						}
+
 						// Bind clear country filter
 						var clearBtn = document.getElementById("clear-country");
 						if (clearBtn) {
@@ -699,6 +735,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				filterRank.value = urlParams.get("rank") || "";
 				filterStatus.value = urlParams.get("status") || "";
 				currentCountry = urlParams.get("country") || "";
+				currentSort = urlParams.get("sort") || "";
 				if (urlParams.get("rank") || urlParams.get("status")) {
 					document.getElementById("filter-panel").classList.add("open");
 				}

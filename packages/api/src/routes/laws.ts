@@ -42,6 +42,7 @@ export function lawRoutes(
 						},
 						limit,
 						offset,
+						query.sort,
 					);
 					return {
 						data: laws,
@@ -59,6 +60,7 @@ export function lawRoutes(
 						materia: t.Optional(t.String()),
 						limit: t.Optional(t.Numeric()),
 						offset: t.Optional(t.Numeric()),
+						sort: t.Optional(t.String()),
 					}),
 				},
 			)
