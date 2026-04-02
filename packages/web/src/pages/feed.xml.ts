@@ -36,7 +36,7 @@ export const GET: APIRoute = async () => {
   <channel>
     <title>Ley Abierta — Cambios legislativos</title>
     <link>${SITE_URL}</link>
-    <description>Ultimas actualizaciones en la legislacion espanola consolidada.</description>
+    <description>Últimas actualizaciones en la legislación española consolidada.</description>
     <language>es</language>
     <atom:link href="${SITE_URL}/feed.xml" rel="self" type="application/rss+xml"/>
 ${items.join("\n")}
