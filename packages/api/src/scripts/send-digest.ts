@@ -117,7 +117,7 @@ function buildEmailFromDigest(
   <p style="color: #6b8299; font-size: 12px; line-height: 1.5;">
     Recibes esto porque sigues el perfil "${escapeHtml(profileName)}".
     <a href="${prefsUrl}" style="color: #2b5797;">Cambiar preferencias</a> ·
-    <a href="${cancelUrl}" style="color: #2b5797;">Cancelar suscripcion</a>
+    <a href="${cancelUrl}" style="color: #2b5797;">Cancelar suscripción</a>
   </p>
 </body>
 </html>`;

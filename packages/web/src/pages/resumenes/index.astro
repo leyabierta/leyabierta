@@ -12,9 +12,9 @@ try {
 ---
 
 <Base
-	title="Resumenes semanales"
-	description="Resumenes semanales de cambios legislativos por perfil profesional. Escritos en lenguaje ciudadano."
-	ogTitle="Resumenes — Ley Abierta"
+	title="Resúmenes semanales"
+	description="Resúmenes semanales de cambios legislativos por perfil profesional. Escritos en lenguaje ciudadano."
+	ogTitle="Resúmenes — Ley Abierta"
 	canonicalUrl="/resumenes"
 >
 	<style>
@@ -105,10 +105,10 @@ try {
 	</style>
 
 	<section class="hero">
-		<h1>Resumenes semanales</h1>
+		<h1>Resúmenes semanales</h1>
 		<p class="hero-sub">
 			Cada semana, un resumen de los cambios legislativos que importan,
-			escrito en lenguaje ciudadano. Elige tu perfil y consulta el historico.
+			escrito en lenguaje ciudadano. Elige tu perfil y consulta el histórico.
 		</p>
 	</section>
 
@@ -120,7 +120,7 @@ try {
 					<div class="profile-name">{p.name}</div>
 					<div class="profile-desc">{p.description}</div>
 					<div class="profile-meta">
-						<span>{p.digest_count} resumen{p.digest_count === 1 ? "" : "es"}</span> · Ultimo: {p.latest_week}
+						<span>{p.digest_count} resumen{p.digest_count === 1 ? "" : "es"}</span> · Último: {p.latest_week}
 					</div>
 				</a>
 			) : (
@@ -128,7 +128,7 @@ try {
 					<div class="profile-icon">{p.icon}</div>
 					<div class="profile-name">{p.name}</div>
 					<div class="profile-desc">{p.description}</div>
-					<div class="profile-meta no-digests">Sin resumenes aun</div>
+					<div class="profile-meta no-digests">Sin resúmenes aún</div>
 				</div>
 			)
 		))}

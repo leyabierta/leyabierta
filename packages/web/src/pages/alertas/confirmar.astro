@@ -3,8 +3,8 @@ import Base from "../../layouts/Base.astro";
 ---
 
 <Base
-	title="Confirmar suscripcion"
-	description="Confirma tu suscripcion a las alertas legislativas de Ley Abierta."
+	title="Confirmar suscripción"
+	description="Confirma tu suscripción a las alertas legislativas de Ley Abierta."
 	canonicalUrl="/alertas/confirmar"
 >
 	<style>
@@ -48,7 +48,7 @@ import Base from "../../layouts/Base.astro";
 
 	<div class="confirm-page">
 		<div class="confirm-card" id="confirm-content">
-			<div class="loading">Confirmando suscripcion...</div>
+			<div class="loading">Confirmando suscripción...</div>
 		</div>
 	</div>
 
@@ -64,8 +64,8 @@ import Base from "../../layouts/Base.astro";
 			if (!email || !code) {
 				el.innerHTML =
 					'<div class="confirm-icon error">&#10007;</div>' +
-					'<h1>Enlace no valido</h1>' +
-					'<div class="error-msg">Faltan parametros de confirmacion.</div>' +
+					'<h1>Enlace no válido</h1>' +
+					'<div class="error-msg">Faltan parámetros de confirmación.</div>' +
 					'<a href="/alertas" class="btn">Volver a suscribirme</a>';
 				return;
 			}
@@ -76,13 +76,13 @@ import Base from "../../layouts/Base.astro";
 					if (data.ok) {
 						el.innerHTML =
 							'<div class="confirm-icon success">&#10003;</div>' +
-							'<h1>Suscripcion confirmada</h1>' +
-							'<p>Tu alerta legislativa esta activa. Recibiras tu primer resumen el proximo lunes con los cambios de la semana.</p>' +
+							'<h1>Suscripción confirmada</h1>' +
+							'<p>Tu alerta legislativa está activa. Recibirás tu primer resumen el próximo lunes con los cambios de la semana.</p>' +
 							'<a href="/alertas" class="btn btn-primary">Volver a alertas</a>';
 					} else {
 						el.innerHTML =
 							'<div class="confirm-icon error">&#10007;</div>' +
-							'<h1>Enlace no valido o expirado</h1>' +
+							'<h1>Enlace no válido o expirado</h1>' +
 							'<div class="error-msg">' + esc(data.error || "No se pudo confirmar la suscripción.") + '</div>' +
 							'<a href="/alertas" class="btn">Volver a suscribirme</a>';
 					}
@@ -90,8 +90,8 @@ import Base from "../../layouts/Base.astro";
 				.catch(function () {
 					el.innerHTML =
 						'<div class="confirm-icon error">&#10007;</div>' +
-						'<h1>Error de conexion</h1>' +
-						'<div class="error-msg">No se pudo conectar con el servidor. Intentalo mas tarde.</div>' +
+						'<h1>Error de conexión</h1>' +
+						'<div class="error-msg">No se pudo conectar con el servidor. Inténtalo más tarde.</div>' +
 						'<a href="/alertas" class="btn">Volver a alertas</a>';
 				});
 		})();

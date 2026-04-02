@@ -3,7 +3,7 @@ import Base from "../../layouts/Base.astro";
 ---
 
 <Base
-	title="Gestionar suscripcion"
+	title="Gestionar suscripción"
 	description="Gestiona tus preferencias de alertas legislativas en Ley Abierta."
 	canonicalUrl="/alertas/gestionar"
 >
@@ -196,22 +196,22 @@ import Base from "../../layouts/Base.astro";
 			var el = document.getElementById("manage-content");
 
 			var JURISDICTIONS = [
-				{ value: "es", label: "Estatal (toda Espana)" },
-				{ value: "es-an", label: "Andalucia" },
-				{ value: "es-ar", label: "Aragon" },
+				{ value: "es", label: "Estatal (toda España)" },
+				{ value: "es-an", label: "Andalucía" },
+				{ value: "es-ar", label: "Aragón" },
 				{ value: "es-as", label: "Asturias" },
 				{ value: "es-cb", label: "Cantabria" },
-				{ value: "es-cl", label: "Castilla y Leon" },
+				{ value: "es-cl", label: "Castilla y León" },
 				{ value: "es-cm", label: "Castilla-La Mancha" },
 				{ value: "es-cn", label: "Canarias" },
-				{ value: "es-ct", label: "Cataluna" },
+				{ value: "es-ct", label: "Cataluña" },
 				{ value: "es-ex", label: "Extremadura" },
 				{ value: "es-ga", label: "Galicia" },
 				{ value: "es-ib", label: "Illes Balears" },
 				{ value: "es-mc", label: "Murcia" },
 				{ value: "es-md", label: "Madrid" },
 				{ value: "es-nc", label: "Navarra" },
-				{ value: "es-pv", label: "Pais Vasco" },
+				{ value: "es-pv", label: "País Vasco" },
 				{ value: "es-ri", label: "La Rioja" },
 				{ value: "es-vc", label: "C. Valenciana" }
 			];
@@ -226,7 +226,7 @@ import Base from "../../layouts/Base.astro";
 			}
 
 			if (!userEmail || !userCode) {
-				showError("Faltan parametros de autenticacion.");
+				showError("Faltan parámetros de autenticación.");
 				return;
 			}
 
@@ -240,7 +240,7 @@ import Base from "../../layouts/Base.astro";
 				var profileData = results[1];
 
 				if (!subData.ok) {
-					showError(subData.error || "No se pudo cargar tu suscripcion.");
+					showError(subData.error || "No se pudo cargar tu suscripción.");
 					return;
 				}
 
@@ -251,18 +251,18 @@ import Base from "../../layouts/Base.astro";
 				renderForm(profiles, situationIds, jurisdiction);
 			})
 			.catch(function () {
-				showError("Error de conexion. Intentalo mas tarde.");
+				showError("Error de conexión. Inténtalo más tarde.");
 			});
 
 			function renderForm(profiles, situationIds, jurisdiction) {
 				var html = '';
-				html += '<h1>Gestionar tu suscripcion</h1>';
+				html += '<h1>Gestionar tu suscripción</h1>';
 				html += '<p class="subtitle">Actualiza tus preferencias o date de baja.</p>';
 				html += '<div class="message message-success" id="msg-success"></div>';
 				html += '<div class="message message-error" id="msg-error"></div>';
 
 				// Situations grid
-				html += '<div class="section-label">Tus temas de interes</div>';
+				html += '<div class="section-label">Tus temas de interés</div>';
 				html += '<div class="situations-grid" id="situations-grid">';
 				for (var i = 0; i < profiles.length; i++) {
 					var p = profiles[i];
@@ -277,7 +277,7 @@ import Base from "../../layouts/Base.astro";
 
 				// Jurisdiction
 				html += '<div class="form-group">';
-				html += '<label for="jurisdiction">Tu comunidad autonoma</label>';
+				html += '<label for="jurisdiction">Tu comunidad autónoma</label>';
 				html += '<select id="jurisdiction" name="jurisdiction">';
 				for (var j = 0; j < JURISDICTIONS.length; j++) {
 					var opt = JURISDICTIONS[j];
@@ -293,7 +293,7 @@ import Base from "../../layouts/Base.astro";
 				html += '<hr class="divider">';
 				html += '<div class="danger-zone">';
 				html += '<h2>Darme de baja</h2>';
-				html += '<p>Dejaras de recibir todos los emails de alertas legislativas. Puedes volver a suscribirte en cualquier momento.</p>';
+				html += '<p>Dejarás de recibir todos los emails de alertas legislativas. Puedes volver a suscribirte en cualquier momento.</p>';
 				html += '<button type="button" class="unsub-btn" id="unsub-btn">Darme de baja</button>';
 				html += '</div>';
 
@@ -377,13 +377,13 @@ import Base from "../../layouts/Base.astro";
 					.catch(function () {
 						saveBtn.disabled = false;
 						saveBtn.textContent = "Guardar cambios";
-						showErrorMsg("Error de conexion. Intentalo de nuevo.");
+						showErrorMsg("Error de conexión. Inténtalo de nuevo.");
 					});
 				});
 
 				// Unsubscribe
 				unsubBtn.addEventListener("click", function () {
-					if (!confirm("Seguro que quieres darte de baja? Dejaras de recibir todos los emails.")) return;
+					if (!confirm("¿Seguro que quieres darte de baja? Dejarás de recibir todos los emails.")) return;
 
 					hideMessages();
 					unsubBtn.disabled = true;
@@ -397,18 +397,18 @@ import Base from "../../layouts/Base.astro";
 								el.innerHTML =
 									'<div style="font-size:3rem;margin-bottom:1rem;line-height:1;">&#128075;</div>' +
 									'<h1>Te has dado de baja correctamente</h1>' +
-									'<p style="color:var(--text-secondary);line-height:1.7;margin-bottom:1.5rem;font-size:0.9375rem;">No recibiras mas emails de alertas legislativas.</p>' +
+									'<p style="color:var(--text-secondary);line-height:1.7;margin-bottom:1.5rem;font-size:0.9375rem;">No recibirás más emails de alertas legislativas.</p>' +
 									'<a href="/alertas" class="btn btn-primary">Volver a suscribirme</a>';
 							} else {
 								unsubBtn.disabled = false;
 								unsubBtn.textContent = "Darme de baja";
-								showErrorMsg(data.error || "No se pudo cancelar la suscripcion.");
+								showErrorMsg(data.error || "No se pudo cancelar la suscripción.");
 							}
 						})
 						.catch(function () {
 							unsubBtn.disabled = false;
 							unsubBtn.textContent = "Darme de baja";
-							showErrorMsg("Error de conexion. Intentalo de nuevo.");
+							showErrorMsg("Error de conexión. Inténtalo de nuevo.");
 						});
 				});
 			}

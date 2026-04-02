@@ -3,8 +3,8 @@ import Base from "../../layouts/Base.astro";
 ---
 
 <Base
-	title="Cancelar suscripcion"
-	description="Cancela tu suscripcion a las alertas legislativas de Ley Abierta."
+	title="Cancelar suscripción"
+	description="Cancela tu suscripción a las alertas legislativas de Ley Abierta."
 	canonicalUrl="/alertas/cancelar"
 >
 	<style>
@@ -48,7 +48,7 @@ import Base from "../../layouts/Base.astro";
 
 	<div class="cancel-page">
 		<div class="cancel-card" id="cancel-content">
-			<div class="loading">Procesando cancelacion...</div>
+			<div class="loading">Procesando cancelación...</div>
 		</div>
 	</div>
 
@@ -64,8 +64,8 @@ import Base from "../../layouts/Base.astro";
 			if (!email || !code) {
 				el.innerHTML =
 					'<div class="cancel-icon error">&#10007;</div>' +
-					'<h1>Enlace no valido</h1>' +
-					'<div class="error-msg">Faltan parametros.</div>' +
+					'<h1>Enlace no válido</h1>' +
+					'<div class="error-msg">Faltan parámetros.</div>' +
 					'<a href="/alertas" class="btn">Volver a alertas</a>';
 				return;
 			}
@@ -77,12 +77,12 @@ import Base from "../../layouts/Base.astro";
 						el.innerHTML =
 							'<div class="cancel-icon success">&#128075;</div>' +
 							'<h1>Te has dado de baja correctamente</h1>' +
-							'<p>No recibiras mas emails de alertas legislativas. Esperamos haberte sido util.</p>' +
+							'<p>No recibirás más emails de alertas legislativas. Esperamos haberte sido útil.</p>' +
 							'<a href="/alertas" class="btn btn-primary">Volver a suscribirme</a>';
 					} else {
 						el.innerHTML =
 							'<div class="cancel-icon error">&#10007;</div>' +
-							'<h1>No se pudo cancelar la suscripcion</h1>' +
+							'<h1>No se pudo cancelar la suscripción</h1>' +
 							'<div class="error-msg">' + esc(data.error || "Enlace no válido o expirado.") + '</div>' +
 							'<a href="/alertas" class="btn">Volver a alertas</a>';
 					}
@@ -90,8 +90,8 @@ import Base from "../../layouts/Base.astro";
 				.catch(function () {
 					el.innerHTML =
 						'<div class="cancel-icon error">&#10007;</div>' +
-						'<h1>Error de conexion</h1>' +
-						'<div class="error-msg">No se pudo conectar con el servidor. Intentalo mas tarde.</div>' +
+						'<h1>Error de conexión</h1>' +
+						'<div class="error-msg">No se pudo conectar con el servidor. Inténtalo más tarde.</div>' +
 						'<a href="/alertas" class="btn">Volver a alertas</a>';
 				});
 		})();
