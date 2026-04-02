@@ -381,9 +381,10 @@ const JURISDICTION_LABELS: Record<string, string> = {
 						Busca cualquier ley, consulta su texto completo y mira cómo ha cambiado con el tiempo.
 					</p>
 
-					<div class="search-form">
+					<div class="search-form" role="search" aria-label="Buscar leyes">
 						<div class="search-row">
-							<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" />
+							<label for="search-input" class="sr-only">Buscar leyes</label>
+							<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" aria-label="Buscar leyes" />
 							<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
 						</div>
 						<button type="button" class="filter-toggle" id="filter-toggle">

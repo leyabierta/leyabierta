@@ -81,7 +81,7 @@ export class DbService {
 				try {
 					const matchIds = this.db
 						.query<{ norm_id: string }, [string]>(
-							"SELECT norm_id FROM norms_fts WHERE norms_fts MATCH ? ORDER BY rank",
+							"SELECT norm_id FROM norms_fts WHERE norms_fts MATCH ? ORDER BY bm25(norms_fts, 0, 10.0, 1.0)",
 						)
 						.all(safeQuery);
 					ids = matchIds.map((r) => r.norm_id);
@@ -111,11 +111,17 @@ export class DbService {
 				)
 				.get(...params)!.c;
 
+			// Preserve FTS5 relevance order using CASE on the id position
+			const orderByRelevance = ids
+				.map((_, i) => `WHEN ? THEN ${i}`)
+				.join(" ");
+			const orderClause = `ORDER BY CASE id ${orderByRelevance} END`;
+
 			const laws = this.db
 				.query<LawRow, unknown[]>(
-					`SELECT * FROM norms WHERE ${where} ORDER BY published_at DESC LIMIT ? OFFSET ?`,
+					`SELECT * FROM norms WHERE ${where} ${orderClause} LIMIT ? OFFSET ?`,
 				)
-				.all(...params, limit, offset);
+				.all(...params, ...ids, limit, offset);
 
 			return { laws, total };
 		}

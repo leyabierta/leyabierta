@@ -220,6 +220,32 @@ describe("searchLaws", () => {
 		expect(laws[0].id).toBe("N1");
 	});
 
+	it("ranks title matches higher than content-only matches", () => {
+		// The actual "Codigo Penal" law has the term in its title
+		insertNorm({ id: "CP", title: "Codigo Penal" });
+		insertFts("CP", "Codigo Penal", "delitos y penas");
+
+		// A law that *modifies* the Codigo Penal mentions it many times in content
+		insertNorm({ id: "MOD1", title: "Ley Organica de reforma" });
+		insertFts(
+			"MOD1",
+			"Ley Organica de reforma",
+			"modifica el codigo penal. codigo penal articulo 1. codigo penal articulo 2. codigo penal articulo 3.",
+		);
+
+		insertNorm({ id: "MOD2", title: "Ley de modificacion" });
+		insertFts(
+			"MOD2",
+			"Ley de modificacion",
+			"se reforma el codigo penal. codigo penal disposicion. codigo penal titulo.",
+		);
+
+		const { laws } = svc.searchLaws("codigo penal", {}, 20, 0);
+		expect(laws).toHaveLength(3);
+		// The law with "codigo penal" in the title should come first
+		expect(laws[0].id).toBe("CP");
+	});
+
 	it("returns empty when FTS query has no matches", () => {
 		insertNorm({ id: "N1" });
 		insertFts("N1", "Constitucion", "text");

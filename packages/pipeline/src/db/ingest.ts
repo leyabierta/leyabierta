@@ -97,8 +97,12 @@ export async function ingestJsonDir(
 		VALUES ($normId, $reformDate, $reformSourceId, $blockId)
 	`);
 
+	const deleteFts = db.prepare(/* sql */ `
+		DELETE FROM norms_fts WHERE norm_id = $normId
+	`);
+
 	const insertFts = db.prepare(/* sql */ `
-		INSERT OR REPLACE INTO norms_fts (norm_id, title, content)
+		INSERT INTO norms_fts (norm_id, title, content)
 		VALUES ($normId, $title, $content)
 	`);
 
@@ -180,7 +184,8 @@ export async function ingestJsonDir(
 					}
 				}
 
-				// FTS entry: title + all article content concatenated
+				// FTS entry: delete old row first (FTS5 does not deduplicate on INSERT OR REPLACE)
+				deleteFts.run({ $normId: metadata.id });
 				insertFts.run({
 					$normId: metadata.id,
 					$title: metadata.title,
