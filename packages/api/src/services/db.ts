@@ -772,6 +772,7 @@ export class DbService {
 		reform_type: string | null;
 		importance: string | null;
 		materia_count: number;
+		omnibus_topic_count: number;
 	}> {
 		if (materias.length === 0) return [];
 
@@ -784,23 +785,11 @@ export class DbService {
 				? "(n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
 				: `(n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`;
 
-		// Filter out reforms that only match on generic base materias.
-		// If the user has non-base materias, require at least one non-base match.
-		const nonBaseMaterias = materias.filter(
-			(m) => !BASE_MATERIAS.includes(m),
-		);
-		let nonBaseClause = "";
-		const nonBasePlaceholders: string[] = [];
-		if (nonBaseMaterias.length > 0) {
-			const ph = nonBaseMaterias.map(() => "?").join(",");
-			nonBaseClause = `AND EXISTS (SELECT 1 FROM materias m2 WHERE m2.norm_id = r.norm_id AND m2.materia IN (${ph}))`;
-			nonBasePlaceholders.push(...nonBaseMaterias);
-		}
-
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
 				rs.headline, rs.summary, rs.reform_type, rs.importance,
-				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count
+				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count,
+				(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = r.norm_id) as omnibus_topic_count
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
 			JOIN materias m ON m.norm_id = r.norm_id
@@ -810,7 +799,6 @@ export class DbService {
 			  AND m.materia IN (${placeholders})
 			  AND ${jurisdictionClause}
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
-			  ${nonBaseClause}
 			ORDER BY r.date DESC
 		`;
 
@@ -828,10 +816,11 @@ export class DbService {
 					reform_type: string | null;
 					importance: string | null;
 					materia_count: number;
+					omnibus_topic_count: number;
 				},
 				unknown[]
 			>(sql)
-			.all(since, ...materias, ...nonBasePlaceholders);
+			.all(since, ...materias);
 	}
 
 	getChangelog(
@@ -850,6 +839,7 @@ export class DbService {
 		reform_type: string | null;
 		importance: string | null;
 		materia_count: number;
+		omnibus_topic_count: number;
 	}> {
 		const jurisdictionClause = jurisdiction
 			? jurisdiction === "es"
@@ -860,7 +850,8 @@ export class DbService {
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
 				rs.headline, rs.summary, rs.reform_type, rs.importance,
-				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count
+				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count,
+				(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = r.norm_id) as omnibus_topic_count
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
 			LEFT JOIN reform_summaries rs
@@ -886,6 +877,7 @@ export class DbService {
 					reform_type: string | null;
 					importance: string | null;
 					materia_count: number;
+					omnibus_topic_count: number;
 				},
 				[string, number]
 			>(sql)
