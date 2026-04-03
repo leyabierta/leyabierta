@@ -107,7 +107,7 @@ Organización: `leyabierta`
 - HEALTHCHECK contra `/health`
 - Puerto `127.0.0.1:3000:3000` (solo localhost)
 
-### Fase 3: Cloudflare Tunnel
+### Fase 3: Cloudflare Tunnel (COMPLETADO)
 
 **En el servidor:**
 1. Instalar `cloudflared`
@@ -125,7 +125,7 @@ ingress:
   - service: http_status:404
 ```
 
-### Fase 4: GitHub Actions — CI/CD (PARCIAL)
+### Fase 4: GitHub Actions — CI/CD (COMPLETADO)
 
 **`.github/workflows/deploy-web.yml`** — push a main o dispatch manual (COMPLETADO):
 1. Checkout código + shallow clone de `leyabierta/leyes` (fetch-depth: 1)
@@ -174,7 +174,47 @@ Dos modos de operación:
 - `LEYES_PUSH_TOKEN`: Fine-grained PAT con write access a `leyabierta/leyes` (Contents: Read and write)
 - `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`: para el deploy-web que se dispara automáticamente
 
-### Fase 5: Actualización de DB en el servidor
+### Fase 4c: Deploy API (COMPLETADO)
+
+**`.github/workflows/deploy-api.yml`** — push a main (paths: `packages/api/**`, `packages/pipeline/**`, `Dockerfile`, `docker-compose.yml`) o dispatch manual:
+
+1. Lint + test
+2. Build Docker image
+3. Push a `ghcr.io/leyabierta/api:latest` (+ tag `sha-XXXXXX`)
+
+**Auto-update via Watchtower:**
+
+El servidor no necesita ser notificado. Watchtower corre como sidecar en `docker-compose.yml` (profile `production`) y:
+
+1. Cada 300 segundos (5 min) consulta GHCR por nuevas imágenes
+2. Detecta que `ghcr.io/leyabierta/api:latest` tiene un digest nuevo
+3. Descarga la imagen nueva
+4. Rolling restart del contenedor API (sin downtime perceptible)
+5. Limpia la imagen vieja (`WATCHTOWER_CLEANUP=true`)
+
+**docker-compose.yml en producción:**
+```bash
+# En KonarServer: /opt/leyabierta/
+docker compose --profile production up -d
+```
+
+Esto levanta dos contenedores:
+- `api` — Elysia en `127.0.0.1:3000` (solo localhost, detrás de Cloudflare Tunnel via Traefik)
+- `watchtower` — polling GHCR cada 5 min, solo actualiza contenedores con label `com.centurylinklabs.watchtower.enable=true`
+
+**Flujo completo de deploy API:**
+```
+Push a main → GitHub Actions → build image → push GHCR
+                                                   ↓
+KonarServer ← Watchtower detecta nueva imagen (≤5 min)
+           → pull image → rolling restart → API actualizada
+```
+
+**Dependencia del web build:**
+
+`deploy-web.yml` comprueba que la API está activa antes de hacer build (`curl -sf https://api.leyabierta.es/health`). Si la API está caída, el build falla tras 10 reintentos. Esto es una limitación conocida: el build de Astro necesita la API para páginas que hacen fetch en build time (changelog, etc.).
+
+### Fase 5: Actualización de DB en el servidor (COMPLETADO)
 
 Script cron (`30 6 * * *`, 30 min después del pipeline):
 ```bash
@@ -227,10 +267,11 @@ cd /opt/leyabierta/data/leyes && git pull
 | 3 | Fase 2: Dockerfile API | HECHO | — |
 | 4 | Fase 4: Deploy web (GitHub Actions) | HECHO | — |
 | 5 | Fase 4b: Pipeline diario | HECHO | Verificado con test incremental |
-| 6 | Fase 6: Dominio + DNS | HECHO | leyabierta.es apunta a Cloudflare Pages |
-| 7 | Fase 3: Cloudflare Tunnel (API) | PENDIENTE | Instalar cloudflared en servidor |
-| 8 | Fase 5: Script DB servidor | PENDIENTE | Después de Fase 3 |
-| 9 | Fase 7: Rate limiting | PENDIENTE | Después de todo |
+| 6 | Fase 4c: Deploy API (GHCR + Watchtower) | HECHO | Auto-update cada 5 min |
+| 7 | Fase 6: Dominio + DNS | HECHO | leyabierta.es apunta a Cloudflare Pages |
+| 8 | Fase 3: Cloudflare Tunnel (API) | HECHO | api.leyabierta.es → localhost:3000 |
+| 9 | Fase 5: Script DB servidor | HECHO | Cron diario + git pull |
+| 10 | Fase 7: Rate limiting | PENDIENTE | Después de todo |
 
 ### Decisiones de infraestructura
 
@@ -254,3 +295,48 @@ cd /opt/leyabierta/data/leyes && git pull
 | DB sin historial de versiones | ~0.5 GB |
 
 12,235 leyes consolidadas (1835-presente).
+
+---
+
+## Cron jobs en KonarServer
+
+### Notificaciones diarias
+
+```
+0 9 * * * /opt/leyabierta/scripts/send-notifications.sh >> /opt/leyabierta/logs/send-notifications.log 2>&1
+```
+
+El script ejecuta `send-notifications.ts` dentro del contenedor Docker:
+
+```bash
+#!/bin/bash
+docker exec leyabierta-api-1 bun run packages/api/src/scripts/send-notifications.ts
+```
+
+- **Hora:** 9:00 UTC diario
+- **Qué hace:** Busca reformas con AI summary que no se han notificado aún, cruza con suscriptores por materias/jurisdicción, envía emails via Resend
+- **Logs:** `/opt/leyabierta/logs/send-notifications.log`
+- **Dependencia:** La API debe estar corriendo (ejecuta dentro del contenedor)
+
+### Actualización de DB (Fase 5)
+
+```
+30 6 * * * /opt/leyabierta/scripts/update-db.sh
+```
+
+Descarga la última DB de GitHub Releases y hace `git pull` del repo de leyes.
+
+---
+
+## Variables de entorno en producción
+
+**Archivo:** `/opt/leyabierta/.env.prod` (permisos `600`)
+
+| Variable | Descripción |
+|----------|-------------|
+| `RESEND_API_KEY` | API key de Resend para envío de emails |
+| `RESEND_AUDIENCE_ID` | ID de la audiencia en Resend (contactos suscritos) |
+| `DB_PATH` | Ruta a la SQLite DB dentro del contenedor (e.g. `/data/leyabierta.db`) |
+| `SITE_URL` | URL base del sitio (e.g. `https://leyabierta.es`) |
+
+**IMPORTANTE:** No commitear valores reales de estas variables. Solo se documentan aquí los nombres y su propósito.

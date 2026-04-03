@@ -59,7 +59,7 @@ bun run format   # Auto-format with Biome
 
 # Contribuir a Ley Abierta
 
-Ley Abierta es un proyecto civico de codigo abierto que convierte la legislacion oficial en archivos Markdown con control de versiones, para que cualquier persona pueda buscar, comparar y entender como cambian las leyes.
+Ley Abierta es un proyecto cívico de código abierto que convierte la legislación oficial en archivos Markdown con control de versiones, para que cualquier persona pueda buscar, comparar y entender cómo cambian las leyes.
 
 ## Formas de contribuir
 
@@ -68,12 +68,12 @@ Ley Abierta es un proyecto civico de codigo abierto que convierte la legislacion
 Si encuentras texto incorrecto en una ley, abre un issue con:
 
 - El identificador de la ley (ej. `BOE-A-1978-31229`)
-- El articulo o seccion afectada
+- El artículo o sección afectada
 - Un enlace a la fuente oficial del BOE con el texto correcto
 
-### Anadir soporte para un nuevo pais
+### Añadir soporte para un nuevo país
 
-La arquitectura del pipeline es independiente del pais. Consulta `packages/pipeline/` para ver la implementacion de Espana como referencia.
+La arquitectura del pipeline es independiente del país. Consulta `packages/pipeline/` para ver la implementación de España como referencia.
 
 ### Mejorar la web o la API
 
@@ -83,7 +83,7 @@ La web usa Astro (renderizado en servidor). La API usa Elysia con SQLite + FTS5.
 
 Usa [GitHub Issues](../../issues) con la plantilla adecuada.
 
-## Configuracion de desarrollo
+## Configuración de desarrollo
 
 ```bash
 bun install
@@ -94,6 +94,6 @@ bun run format
 
 ## Convenciones
 
-- **Codigo y comentarios** en ingles
+- **Código y comentarios** en inglés
 - **Contenido para el usuario** (web, API) en castellano
 - Usar `bun` en lugar de `npm`, `bunx` en lugar de `npx`

@@ -178,11 +178,14 @@ When a feature genuinely needs client-side state or rich interactivity (e.g., li
 - `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results via API
 - `/laws/[id]` — law detail with static tabs (summary, reforms timeline, full text)
 - `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
-- `/anomalias` — detected data quality issues in BOE source data
+- `/mis-cambios` — personal legislative changelog (client-side, filtered by user's materias)
+- `/cambios` — public changelog of all recent reforms (client-side)
+- `/reforma` — single reform detail page
 - `/alertas` — newsletter subscription form
+- `/mi-situacion` — subscription preference wizard
 - `/resumenes` — AI-generated digest pages per thematic profile
-- `/mis-cambios` — personal legislative changelog (filtered by user's materias + jurisdiction)
-- `/cambios` — public changelog of all recent reforms
+- `/anomalias` — detected data quality issues in BOE source data
+- `/feed.xml` — RSS feed
 - `/sitemap.xml` — dynamic sitemap for all laws
 
 ### Data Architecture

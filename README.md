@@ -104,7 +104,7 @@ For these laws, the commit date shows as `1970-01-02` (the minimum allowed), but
 
 | | |
 |------|-------|
-| Consolidated laws | 12,235 |
+| Consolidated laws | 12,231 |
 | State-level | 8,646 |
 | Autonomous communities | 3,589 |
 | Jurisdictions | 18 (state + 17 regions) |
@@ -126,7 +126,7 @@ The pipeline is idempotent: reprocessing a law never creates duplicate commits.
 
 | Country | Source | Laws | Status |
 |---------|--------|------|--------|
-| Spain | [BOE](https://www.boe.es/) | 12,235 | Deployed |
+| Spain | [BOE](https://www.boe.es/) | 12,231 | Deployed |
 | France | [Legifrance](https://www.legifrance.gouv.fr/) | — | Planned |
 | Germany | [BGBL](https://www.bgbl.de/) | — | Planned |
 | Portugal | [DRE](https://dre.pt/) | — | Planned |
@@ -137,7 +137,7 @@ TypeScript + Bun monorepo:
 
 - **pipeline** — download, parse, transform, and generate commits
 - **api** — REST API (Elysia) with SQLite + FTS5 for full-text search
-- **web** — public website (Astro, 100% static) with dark mode, SEO, diff viewer
+- **web** — public website (Astro, 100% static) with dark mode, SEO, diff viewer, personal changelog (/mis-cambios), and email notifications for law changes
 
 ## Development
 
@@ -258,7 +258,7 @@ Para estas normas:
 
 | Dato | Valor |
 |------|-------|
-| Normas consolidadas | 12,235 |
+| Normas consolidadas | 12,231 |
 | Estatales | 8,646 |
 | Autonómicas | 3,589 |
 | Jurisdicciones | 18 (estatal + 17 CCAA) |
@@ -280,7 +280,7 @@ El pipeline es idempotente: re-procesar una norma no duplica commits.
 
 | País | Fuente | Normas | Estado |
 |------|--------|--------|--------|
-| España | [BOE](https://www.boe.es/) | 12,235 | Desplegado |
+| España | [BOE](https://www.boe.es/) | 12,231 | Desplegado |
 | Francia | [Legifrance](https://www.legifrance.gouv.fr/) | — | Planeado |
 | Alemania | [BGBL](https://www.bgbl.de/) | — | Planeado |
 | Portugal | [DRE](https://dre.pt/) | — | Planeado |
@@ -291,7 +291,7 @@ TypeScript + Bun. Monorepo con tres paquetes:
 
 - **pipeline** — descarga, parsea, transforma y genera commits
 - **api** — API REST (Elysia) con SQLite + FTS5 para búsqueda full-text
-- **web** — interfaz pública (Astro, 100% estática) con dark mode, SEO, diff viewer
+- **web** — interfaz pública (Astro, 100% estática) con dark mode, SEO, diff viewer, changelog personal (/mis-cambios) y notificaciones por email de cambios legislativos
 
 ## Desarrollo
 
