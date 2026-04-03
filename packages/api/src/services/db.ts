@@ -776,7 +776,15 @@ export class DbService {
 	}> {
 		if (materias.length === 0) return [];
 
-		const placeholders = materias.map(() => "?").join(",");
+		// Match on non-base materias only (specific to user's situation).
+		// Base materias (IRPF, SS, Consumidores, Derechos) are too generic and match
+		// almost every law. If user has NO non-base materias, fall back to all.
+		const matchMaterias = materias.filter(
+			(m) => !BASE_MATERIAS.includes(m),
+		);
+		const effectiveMaterias =
+			matchMaterias.length > 0 ? matchMaterias : materias;
+		const placeholders = effectiveMaterias.map(() => "?").join(",");
 
 		// If jurisdiction is 'es' (national), include only national laws.
 		// Otherwise include BOTH regional AND national laws (national laws apply everywhere).
@@ -820,7 +828,7 @@ export class DbService {
 				},
 				unknown[]
 			>(sql)
-			.all(since, ...materias);
+			.all(since, ...effectiveMaterias);
 	}
 
 	getChangelog(

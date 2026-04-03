@@ -584,7 +584,7 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 		expect(results[0].id).toBe("N1");
 	});
 
-	it("includes reform matching only base materias (no over-filtering)", () => {
+	it("excludes reform matching only base materias when user has non-base", () => {
 		seedNormWithMaterias("N2", [
 			"Impuesto sobre la Renta de las Personas Físicas",
 			"Consumidores y usuarios",
@@ -594,7 +594,19 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 			"es",
 			"2026-01-01",
 		);
-		// N2 matches on base materias — still included (badge provides context)
+		// User has "Trabajadores" (non-base), so only match on non-base.
+		// N2 has no "Trabajadores" → excluded.
+		expect(results.length).toBe(0);
+	});
+
+	it("includes reform matching base materias when user has ONLY base materias", () => {
+		seedNormWithMaterias("N3", ["Seguridad Social"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Seguridad Social", "Consumidores y usuarios"],
+			"es",
+			"2026-01-01",
+		);
+		// All user materias are base → fallback to matching all → reform shown
 		expect(results.length).toBe(1);
 	});
 
