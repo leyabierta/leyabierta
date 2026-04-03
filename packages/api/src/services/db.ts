@@ -15,6 +15,7 @@ export interface LawRow {
 	status: string;
 	department: string;
 	source_url: string;
+	citizen_summary: string;
 }
 
 export interface BlockRow {
@@ -54,6 +55,7 @@ export class DbService {
 			rank?: string;
 			status?: string;
 			materia?: string;
+			citizen_tag?: string;
 		},
 		limit: number,
 		offset: number,
@@ -119,7 +121,8 @@ export class DbService {
 						filters.country ||
 						filters.rank ||
 						filters.status ||
-						filters.materia;
+						filters.materia ||
+						filters.citizen_tag;
 
 					let sortedIds = ftsIds;
 					if (hasFilters2) {
@@ -154,7 +157,7 @@ export class DbService {
 					.query<{ norm_id: string }, [string]>(
 						`SELECT DISTINCT norm_id FROM norms_fts
 						 WHERE title MATCH ?
-						 ORDER BY bm25(norms_fts, 0, 10.0, 1.0)
+						 ORDER BY bm25(norms_fts, 0, 10.0, 1.0, 15.0, 12.0)
 						 LIMIT ${FTS_CAP}`,
 					)
 					.all(safeQuery)
@@ -178,7 +181,11 @@ export class DbService {
 
 				// Apply filters in the norms table
 				const hasFilters =
-					filters.country || filters.rank || filters.status || filters.materia;
+					filters.country ||
+					filters.rank ||
+					filters.status ||
+					filters.materia ||
+					filters.citizen_tag;
 				let filteredIds = allIds;
 				if (hasFilters && allIds.length > 0) {
 					const filteredSet = new Set(this.filterIdsByChunks(allIds, filters));
@@ -280,6 +287,7 @@ export class DbService {
 			rank?: string;
 			status?: string;
 			materia?: string;
+			citizen_tag?: string;
 		},
 	): string[] {
 		const CHUNK = 500;
@@ -307,6 +315,7 @@ export class DbService {
 			rank?: string;
 			status?: string;
 			materia?: string;
+			citizen_tag?: string;
 		},
 	): void {
 		if (filters.country) {
@@ -324,6 +333,10 @@ export class DbService {
 		if (filters.materia) {
 			conditions.push("id IN (SELECT norm_id FROM materias WHERE materia = ?)");
 			params.push(filters.materia);
+		}
+		if (filters.citizen_tag) {
+			conditions.push("id IN (SELECT norm_id FROM citizen_tags WHERE tag = ?)");
+			params.push(filters.citizen_tag);
 		}
 	}
 
@@ -420,12 +433,33 @@ export class DbService {
 	}
 
 	/** Recent individual reforms for RSS feed (excluding future anomalies). */
-	getRecentReforms(limit: number): Array<ReformRow & { title: string }> {
+	getRecentReforms(limit: number): Array<
+		ReformRow & {
+			title: string;
+			headline: string | null;
+			summary: string | null;
+			reform_type: string | null;
+			importance: string | null;
+		}
+	> {
 		const today = new Date().toISOString().slice(0, 10);
 		return this.db
-			.query<ReformRow & { title: string }, [string, number]>(
-				`SELECT r.*, n.title FROM reforms r
+			.query<
+				ReformRow & {
+					title: string;
+					headline: string | null;
+					summary: string | null;
+					reform_type: string | null;
+					importance: string | null;
+				},
+				[string, number]
+			>(
+				`SELECT r.*, n.title,
+					rs.headline, rs.summary, rs.reform_type, rs.importance
+				 FROM reforms r
 				 JOIN norms n ON n.id = r.norm_id
+				 LEFT JOIN reform_summaries rs
+					ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
 				 WHERE r.date <= ?
 				 ORDER BY r.date DESC LIMIT ?`,
 			)
@@ -527,6 +561,23 @@ export class DbService {
 			)
 			.all(normId)
 			.map((r) => r.materia);
+	}
+
+	getCitizenTags(normId: string): string[] {
+		return this.db
+			.query<{ tag: string }, [string]>(
+				"SELECT DISTINCT tag FROM citizen_tags WHERE norm_id = ? AND block_id = '' ORDER BY tag",
+			)
+			.all(normId)
+			.map((r) => r.tag);
+	}
+
+	listCitizenTags(limit = 100): Array<{ tag: string; count: number }> {
+		return this.db
+			.query<{ tag: string; count: number }, [number]>(
+				"SELECT tag, COUNT(DISTINCT norm_id) as count FROM citizen_tags GROUP BY tag ORDER BY count DESC LIMIT ?",
+			)
+			.all(limit);
 	}
 
 	getNotas(normId: string): string[] {
@@ -775,6 +826,39 @@ export class DbService {
 			.all();
 	}
 
+	getRecentDigests(
+		profileId: string,
+		limit: number,
+	): Array<{ week: string; data: string }> {
+		return this.db
+			.query<{ week: string; data: string }, [string, number]>(
+				"SELECT week, data FROM digests WHERE profile_id = ? ORDER BY week DESC LIMIT ?",
+			)
+			.all(profileId, limit);
+	}
+
+	// ── Norm follows ──
+
+	upsertNormFollow(email: string, normId: string, token: string): void {
+		this.db
+			.query(
+				`INSERT INTO norm_follows (email, norm_id, confirmed, token)
+				 VALUES (?, ?, 0, ?)
+				 ON CONFLICT(email, norm_id)
+				 DO UPDATE SET token = excluded.token, confirmed = 0, created_at = datetime('now')`,
+			)
+			.run(email, normId, token);
+	}
+
+	confirmNormFollow(token: string): boolean {
+		const result = this.db
+			.query(
+				"UPDATE norm_follows SET confirmed = 1 WHERE token = ? AND confirmed = 0",
+			)
+			.run(token);
+		return result.changes > 0;
+	}
+
 	getRecentReformsByMaterias(
 		materias: string[],
 		jurisdiction: string,
@@ -786,6 +870,10 @@ export class DbService {
 		status: string;
 		date: string;
 		source_id: string;
+		headline: string | null;
+		summary: string | null;
+		reform_type: string | null;
+		importance: string | null;
 	}> {
 		if (materias.length === 0) return [];
 
@@ -799,13 +887,17 @@ export class DbService {
 				: `n.source_url LIKE '%/eli/${jurisdiction}/%'`;
 
 		const sql = `
-			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id
+			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
+				rs.headline, rs.summary, rs.reform_type, rs.importance
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
 			JOIN materias m ON m.norm_id = r.norm_id
+			LEFT JOIN reform_summaries rs
+				ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
 			WHERE r.date >= ?
 			  AND m.materia IN (${placeholders})
 			  AND ${jurisdictionClause}
+			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
 			ORDER BY r.date DESC
 		`;
 
@@ -818,9 +910,247 @@ export class DbService {
 					status: string;
 					date: string;
 					source_id: string;
+					headline: string | null;
+					summary: string | null;
+					reform_type: string | null;
+					importance: string | null;
 				},
 				unknown[]
 			>(sql)
 			.all(since, ...materias);
+	}
+
+	getChangelog(
+		since: string,
+		jurisdiction?: string,
+		limit = 50,
+	): Array<{
+		id: string;
+		title: string;
+		rank: string;
+		status: string;
+		date: string;
+		source_id: string;
+		headline: string | null;
+		summary: string | null;
+		reform_type: string | null;
+		importance: string | null;
+	}> {
+		const jurisdictionClause = jurisdiction
+			? jurisdiction === "es"
+				? "AND (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
+				: `AND n.source_url LIKE '%/eli/${jurisdiction}/%'`
+			: "";
+
+		const sql = `
+			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
+				rs.headline, rs.summary, rs.reform_type, rs.importance
+			FROM reforms r
+			JOIN norms n ON n.id = r.norm_id
+			LEFT JOIN reform_summaries rs
+				ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
+			WHERE r.date >= ?
+			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
+			  ${jurisdictionClause}
+			ORDER BY r.date DESC
+			LIMIT ?
+		`;
+
+		return this.db
+			.query<
+				{
+					id: string;
+					title: string;
+					rank: string;
+					status: string;
+					date: string;
+					source_id: string;
+					headline: string | null;
+					summary: string | null;
+					reform_type: string | null;
+					importance: string | null;
+				},
+				[string, number]
+			>(sql)
+			.all(since, limit);
+	}
+
+	upsertReformSummary(
+		normId: string,
+		sourceId: string,
+		reformDate: string,
+		data: {
+			reformType: string;
+			headline: string;
+			summary: string;
+			importance: string;
+			model: string;
+		},
+	): void {
+		this.db
+			.query(
+				`INSERT INTO reform_summaries (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+			 ON CONFLICT (norm_id, source_id, reform_date)
+			 DO UPDATE SET reform_type = excluded.reform_type, headline = excluded.headline,
+				summary = excluded.summary, importance = excluded.importance,
+				generated_at = excluded.generated_at, model = excluded.model`,
+			)
+			.run(
+				normId,
+				sourceId,
+				reformDate,
+				data.reformType,
+				data.headline,
+				data.summary,
+				data.importance,
+				data.model,
+			);
+	}
+
+	getReformsWithoutSummary(
+		since?: string,
+		limit = 100,
+	): Array<{
+		norm_id: string;
+		title: string;
+		rank: string;
+		date: string;
+		source_id: string;
+	}> {
+		const whereClause = since ? "AND r.date >= ?" : "";
+		const params: unknown[] = since ? [since, limit] : [limit];
+
+		const sql = `
+			SELECT r.norm_id, n.title, n.rank, r.date, r.source_id
+			FROM reforms r
+			JOIN norms n ON n.id = r.norm_id
+			LEFT JOIN reform_summaries rs
+				ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
+			WHERE rs.norm_id IS NULL
+			  ${whereClause}
+			ORDER BY r.date DESC
+			LIMIT ?
+		`;
+
+		return this.db
+			.query<
+				{
+					norm_id: string;
+					title: string;
+					rank: string;
+					date: string;
+					source_id: string;
+				},
+				unknown[]
+			>(sql)
+			.all(...params);
+	}
+
+	getReformDetail(
+		normId: string,
+		date: string,
+	): {
+		law: LawRow;
+		reform: ReformRow & {
+			headline: string | null;
+			summary: string | null;
+			reform_type: string | null;
+			importance: string | null;
+		};
+		affected_blocks: Array<{
+			block_id: string;
+			title: string;
+			before_text: string;
+			after_text: string;
+		}>;
+		prev_reform_date: string | null;
+		next_reform_date: string | null;
+	} | null {
+		const law = this.getLaw(normId);
+		if (!law) return null;
+
+		// Find the reform at this date
+		const reform = this.db
+			.query<ReformRow, [string, string]>(
+				"SELECT * FROM reforms WHERE norm_id = ? AND date = ? LIMIT 1",
+			)
+			.get(normId, date);
+		if (!reform) return null;
+
+		// Get reform summary
+		const summary = this.db
+			.query<
+				{
+					headline: string;
+					summary: string;
+					reform_type: string;
+					importance: string;
+				},
+				[string, string, string]
+			>(
+				"SELECT headline, summary, reform_type, importance FROM reform_summaries WHERE norm_id = ? AND source_id = ? AND reform_date = ?",
+			)
+			.get(normId, reform.source_id, date);
+
+		// Get affected blocks with before/after text
+		const blocks = this.db
+			.query<
+				{
+					block_id: string;
+					title: string;
+					after_text: string | null;
+					before_text: string | null;
+				},
+				[string, string, string, string, string]
+			>(
+				`SELECT
+					rb.block_id,
+					b.title,
+					v_after.text AS after_text,
+					(SELECT v2.text FROM versions v2
+					 WHERE v2.norm_id = rb.norm_id AND v2.block_id = rb.block_id
+					   AND v2.date < ?
+					 ORDER BY v2.date DESC LIMIT 1) AS before_text
+				FROM reform_blocks rb
+				JOIN blocks b ON b.norm_id = rb.norm_id AND b.block_id = rb.block_id
+				LEFT JOIN versions v_after
+					ON v_after.norm_id = rb.norm_id AND v_after.block_id = rb.block_id AND v_after.date = ?
+				WHERE rb.norm_id = ? AND rb.reform_date = ? AND rb.reform_source_id = ?
+				ORDER BY b.position`,
+			)
+			.all(date, date, normId, date, reform.source_id);
+
+		// Get prev/next reform dates
+		const allReforms = this.db
+			.query<{ date: string }, [string]>(
+				"SELECT DISTINCT date FROM reforms WHERE norm_id = ? ORDER BY date",
+			)
+			.all(normId);
+		const idx = allReforms.findIndex((r) => r.date === date);
+		const prevDate = idx > 0 ? allReforms[idx - 1]!.date : null;
+		const nextDate =
+			idx >= 0 && idx < allReforms.length - 1
+				? allReforms[idx + 1]!.date
+				: null;
+
+		return {
+			law,
+			reform: {
+				...reform,
+				headline: summary?.headline ?? null,
+				summary: summary?.summary ?? null,
+				reform_type: summary?.reform_type ?? null,
+				importance: summary?.importance ?? null,
+			},
+			affected_blocks: blocks.map((b) => ({
+				block_id: b.block_id,
+				title: b.title,
+				before_text: b.before_text ?? "",
+				after_text: b.after_text ?? "",
+			})),
+			prev_reform_date: prevDate,
+			next_reform_date: nextDate,
+		};
 	}
 }

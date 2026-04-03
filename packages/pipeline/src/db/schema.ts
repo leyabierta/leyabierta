@@ -19,7 +19,8 @@ const SCHEMA_SQL = /* sql */ `
     updated_at  TEXT,              -- ISO date
     status      TEXT NOT NULL,     -- vigente | derogada | parcialmente_derogada
     department  TEXT NOT NULL DEFAULT '',
-    source_url  TEXT NOT NULL DEFAULT ''
+    source_url  TEXT NOT NULL DEFAULT '',
+    citizen_summary TEXT NOT NULL DEFAULT ''
   );
 
   -- Structural blocks (articles, chapters, etc.)
@@ -122,11 +123,62 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_digests_profile ON digests(profile_id);
   CREATE INDEX IF NOT EXISTS idx_digests_week ON digests(week);
 
-  -- FTS5 virtual table for full-text search (title + content)
+  -- Citizen-friendly tags (LLM-generated, law-level and article-level)
+  CREATE TABLE IF NOT EXISTS citizen_tags (
+    norm_id     TEXT NOT NULL REFERENCES norms(id),
+    block_id    TEXT NOT NULL DEFAULT '',  -- '' = law-level, non-empty = article-level
+    tag         TEXT NOT NULL,
+    PRIMARY KEY (norm_id, block_id, tag)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_citizen_tags_norm ON citizen_tags(norm_id);
+  CREATE INDEX IF NOT EXISTS idx_citizen_tags_tag ON citizen_tags(tag);
+
+  -- Citizen-friendly article summaries (LLM-generated)
+  CREATE TABLE IF NOT EXISTS citizen_article_summaries (
+    norm_id     TEXT NOT NULL,
+    block_id    TEXT NOT NULL,
+    summary     TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (norm_id, block_id),
+    FOREIGN KEY (norm_id, block_id) REFERENCES blocks(norm_id, block_id)
+  );
+
+  -- Norm follows (users following specific laws for change notifications)
+  CREATE TABLE IF NOT EXISTS norm_follows (
+    email       TEXT NOT NULL,
+    norm_id     TEXT NOT NULL REFERENCES norms(id),
+    confirmed   INTEGER NOT NULL DEFAULT 0,
+    token       TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (email, norm_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_norm_follows_norm ON norm_follows(norm_id);
+  CREATE INDEX IF NOT EXISTS idx_norm_follows_token ON norm_follows(token);
+
+  -- AI-generated reform summaries (separate from factual reforms table)
+  CREATE TABLE IF NOT EXISTS reform_summaries (
+    norm_id      TEXT NOT NULL,
+    source_id    TEXT NOT NULL,
+    reform_date  TEXT NOT NULL,
+    reform_type  TEXT NOT NULL DEFAULT '',
+    headline     TEXT NOT NULL DEFAULT '',
+    summary      TEXT NOT NULL DEFAULT '',
+    importance   TEXT NOT NULL DEFAULT '',
+    generated_at TEXT NOT NULL DEFAULT '',
+    model        TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (norm_id, source_id, reform_date),
+    FOREIGN KEY (norm_id, reform_date, source_id)
+      REFERENCES reforms(norm_id, date, source_id)
+  );
+
+  -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,
     title,
     content,
+    citizen_tags,
+    citizen_summary,
     tokenize='unicode61 remove_diacritics 2'
   );
 `;
@@ -135,4 +187,13 @@ export function createSchema(db: Database): void {
 	db.exec("PRAGMA journal_mode = WAL");
 	db.exec("PRAGMA foreign_keys = ON");
 	db.exec(SCHEMA_SQL);
+
+	// Migrations: add columns that may be missing on existing databases
+	try {
+		db.exec(
+			"ALTER TABLE norms ADD COLUMN citizen_summary TEXT NOT NULL DEFAULT ''",
+		);
+	} catch {
+		// Column already exists
+	}
 }

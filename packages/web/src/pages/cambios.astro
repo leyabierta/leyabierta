@@ -1,0 +1,404 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+	title="Últimos cambios legislativos"
+	description="Novedades legislativas recientes en España, explicadas en lenguaje ciudadano."
+	ogTitle="Cambios legislativos — Ley Abierta"
+	canonicalUrl="/cambios"
+>
+	<style is:global>
+		.cambios-wrap {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 0 1rem 3rem;
+		}
+		.cambios-header {
+			margin-bottom: 2rem;
+		}
+		.cambios-header h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin-bottom: 0.5rem;
+		}
+		.cambios-header p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			line-height: 1.5;
+			margin-bottom: 1rem;
+		}
+		.cambios-filters {
+			display: flex;
+			gap: 0.75rem;
+			align-items: center;
+			flex-wrap: wrap;
+			margin-bottom: 0.5rem;
+		}
+		.cambios-filters select {
+			padding: 0.5rem 0.75rem;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			background: var(--surface);
+			color: var(--text);
+			font-size: 0.875rem;
+			font-family: var(--font-sans);
+		}
+		.cambios-info {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+
+		.skeleton-cards {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.skeleton-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+		}
+		.skeleton-line {
+			height: 0.875rem;
+			background: var(--border-light);
+			border-radius: 4px;
+			margin-bottom: 0.625rem;
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+		.skeleton-line:nth-child(2) { width: 75%; }
+		.skeleton-line:nth-child(3) { width: 60%; }
+		@keyframes pulse {
+			0%, 100% { opacity: 0.4; }
+			50% { opacity: 1; }
+		}
+
+		.empty-state {
+			text-align: center;
+			padding: 3rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+		}
+		.empty-state h2 {
+			font-family: var(--font-serif);
+			font-size: 1.375rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.empty-state p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+		}
+
+		.error-state {
+			text-align: center;
+			padding: 2rem 1.5rem;
+			background: var(--danger-bg);
+			border: 1px solid var(--danger);
+			border-radius: 12px;
+		}
+		.error-state p {
+			color: var(--danger);
+			font-size: 0.9375rem;
+			margin-bottom: 1rem;
+		}
+		.btn-retry {
+			background: var(--danger);
+			color: white;
+			border: none;
+			border-radius: 8px;
+			padding: 0.625rem 1.25rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			font-family: var(--font-sans);
+			cursor: pointer;
+			min-height: 48px;
+		}
+
+		.reform-timeline {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.reform-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+			transition: box-shadow 0.2s;
+		}
+		.reform-card:hover {
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+		}
+		.reform-card-high {
+			border-left: 3px solid var(--accent);
+		}
+		.reform-card-compact {
+			padding: 0.75rem 1.25rem;
+		}
+		.reform-date-row {
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+			margin-bottom: 0.25rem;
+		}
+		.reform-date {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+		}
+		.reform-type-badge {
+			font-size: 0.6875rem;
+			font-weight: 500;
+			color: var(--text-muted);
+		}
+		.reform-importance-badge {
+			font-size: 0.6875rem;
+			font-weight: 600;
+			color: var(--accent);
+			background: var(--accent-faint);
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+		}
+		.reform-headline {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 600;
+			line-height: 1.4;
+			margin: 0.375rem 0 0.25rem;
+			color: var(--text);
+		}
+		.reform-summary {
+			font-size: 0.9rem;
+			color: var(--text-secondary);
+			line-height: 1.6;
+			margin-bottom: 0.5rem;
+		}
+		.reform-title-fallback {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 600;
+			line-height: 1.4;
+			margin: 0.375rem 0 0.5rem;
+			color: var(--text);
+		}
+		.reform-meta {
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+			flex-wrap: wrap;
+			margin-bottom: 0.5rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.reform-link {
+			font-size: 0.8125rem;
+			color: var(--accent-light);
+			font-weight: 500;
+		}
+		.reform-link:hover {
+			text-decoration: underline;
+		}
+
+		.cambios-cta {
+			margin-top: 2.5rem;
+			padding: 1.5rem 2rem;
+			background: var(--accent-faint);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			text-align: center;
+		}
+		.cambios-cta h2 {
+			font-family: var(--font-serif);
+			font-size: 1.125rem;
+			font-weight: 700;
+			margin-bottom: 0.375rem;
+		}
+		.cambios-cta p {
+			color: var(--text-secondary);
+			font-size: 0.875rem;
+			margin-bottom: 1rem;
+		}
+		.cambios-cta a {
+			display: inline-block;
+			background: var(--accent);
+			color: white;
+			border-radius: 8px;
+			padding: 0.625rem 1.5rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			text-decoration: none;
+			min-height: 48px;
+			line-height: 48px;
+		}
+
+		@media (max-width: 640px) {
+			.cambios-header h1 { font-size: 1.625rem; }
+			.cambios-wrap { padding-bottom: 2rem; }
+		}
+	</style>
+
+	<div class="cambios-wrap">
+		<div class="cambios-header">
+			<h1>Últimos cambios legislativos</h1>
+			<p>Las novedades legislativas más recientes, explicadas en lenguaje ciudadano.</p>
+			<div class="cambios-filters">
+				<select id="jur-filter">
+					<option value="">Todas las jurisdicciones</option>
+					<option value="es">Estatal</option>
+					<option value="es-an">Andalucía</option>
+					<option value="es-ar">Aragón</option>
+					<option value="es-as">Asturias</option>
+					<option value="es-cb">Cantabria</option>
+					<option value="es-cl">Castilla y León</option>
+					<option value="es-cm">Castilla-La Mancha</option>
+					<option value="es-cn">Canarias</option>
+					<option value="es-ct">Cataluña</option>
+					<option value="es-ex">Extremadura</option>
+					<option value="es-ga">Galicia</option>
+					<option value="es-ib">Illes Balears</option>
+					<option value="es-mc">Murcia</option>
+					<option value="es-md">Madrid</option>
+					<option value="es-nc">Navarra</option>
+					<option value="es-pv">País Vasco</option>
+					<option value="es-ri">La Rioja</option>
+					<option value="es-vc">C. Valenciana</option>
+				</select>
+				<select id="weeks-filter">
+					<option value="2">Últimas 2 semanas</option>
+					<option value="4" selected>Últimas 4 semanas</option>
+					<option value="8">Últimas 8 semanas</option>
+					<option value="12">Últimas 12 semanas</option>
+				</select>
+			</div>
+			<div class="cambios-info" id="cambios-info"></div>
+		</div>
+
+		<div id="cambios-content">
+			<div class="skeleton-cards">
+				<div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:55%"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:45%"></div><div class="skeleton-line" style="width:80%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div></div>
+			</div>
+		</div>
+
+		<section class="cambios-cta">
+			<h2>¿Quieres saber qué cambios te afectan?</h2>
+			<p>Configura tu situación y te mostramos solo lo que importa para ti.</p>
+			<a href="/mi-situacion">Descúbrelo en 1 minuto</a>
+		</section>
+	</div>
+
+	<script is:inline>
+		(function () {
+			var RANK_LABELS = {
+				constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
+				real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+				real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
+				acuerdo_internacional: "Acuerdo Int.", circular: "Circular",
+				instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento"
+			};
+
+			var TYPE_LABELS = {
+				new_law: "Ley nueva",
+				modification: "Modificación",
+				correction: "Corrección",
+				derogation: "Derogación"
+			};
+
+			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+			var API = document.documentElement.dataset.api;
+			var contentDiv = document.getElementById("cambios-content");
+			var infoDiv = document.getElementById("cambios-info");
+			var jurFilter = document.getElementById("jur-filter");
+			var weeksFilter = document.getElementById("weeks-filter");
+
+			function loadData() {
+				contentDiv.innerHTML = '<div class="skeleton-cards"><div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div></div><div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:55%"></div></div></div>';
+
+				var jur = jurFilter.value;
+				var weeks = weeksFilter.value;
+				var url = API + "/v1/changelog?weeks=" + weeks + "&limit=50";
+				if (jur) url += "&jurisdiccion=" + jur;
+
+				fetch(url)
+					.then(function (r) { return r.json(); })
+					.then(function (data) {
+						if (!data.reforms || data.reforms.length === 0) {
+							contentDiv.innerHTML = '<div class="empty-state"><h2>No hay cambios recientes</h2><p>No se han encontrado modificaciones legislativas en este período.</p></div>';
+							infoDiv.textContent = data.date_range || "";
+							return;
+						}
+
+						infoDiv.textContent = data.reforms.length + " cambios · " + (data.date_range || "");
+
+						var html = '<div class="reform-timeline">';
+						for (var i = 0; i < data.reforms.length; i++) {
+							var r = data.reforms[i];
+							var dateStr = r.date || "";
+							if (dateStr) {
+								var d = new Date(dateStr + "T00:00:00");
+								var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+								dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+							}
+							var statusLabel = r.status || "";
+							var statusClass = "badge badge-" + (r.status || "vigente");
+							var rankLabel = RANK_LABELS[r.rank] || r.rank || "";
+							var hasHeadline = r.headline && r.headline.length > 0;
+							var importance = r.importance || "";
+							var reformType = r.reform_type || "";
+							var typeLabel = TYPE_LABELS[reformType] || "";
+
+							if (importance === "low" && hasHeadline) {
+								html += '<div class="reform-card reform-card-compact">';
+								html += '<span class="reform-date">' + esc(dateStr) + '</span>';
+								html += ' · <span class="reform-type-badge">' + esc(r.headline) + '</span>';
+								html += '</div>';
+								continue;
+							}
+
+							var cardClass = "reform-card";
+							if (importance === "high") cardClass += " reform-card-high";
+
+							html += '<div class="' + cardClass + '">';
+							html += '<div class="reform-date-row">';
+							html += '<span class="reform-date">' + esc(dateStr) + '</span>';
+							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
+							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
+							html += '</div>';
+
+							if (hasHeadline) {
+								html += '<h3 class="reform-headline">' + esc(r.headline) + '</h3>';
+								if (r.summary) html += '<p class="reform-summary">' + esc(r.summary) + '</p>';
+							} else {
+								html += '<h3 class="reform-title-fallback">' + esc(r.title) + '</h3>';
+							}
+
+							html += '<div class="reform-meta">';
+							if (rankLabel) html += '<span>' + esc(rankLabel) + '</span>';
+							if (statusLabel) html += '<span class="' + statusClass + '">' + esc(statusLabel) + '</span>';
+							html += '</div>';
+							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '" class="reform-link">Ver qué cambió →</a>';
+							html += '</div>';
+						}
+						html += '</div>';
+						contentDiv.innerHTML = html;
+					})
+					.catch(function () {
+						contentDiv.innerHTML = '<div class="error-state" role="alert"><p>Error al cargar. Inténtalo de nuevo.</p><button type="button" class="btn-retry" id="btn-retry">Reintentar</button></div>';
+						document.getElementById("btn-retry").addEventListener("click", loadData);
+					});
+			}
+
+			jurFilter.addEventListener("change", loadData);
+			weeksFilter.addEventListener("change", loadData);
+			loadData();
+		})();
+	</script>
+</Base>

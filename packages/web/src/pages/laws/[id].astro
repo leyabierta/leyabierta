@@ -3,6 +3,7 @@ import { getCollection } from "astro:content";
 import { promises as fs } from "node:fs";
 import MarkdownIt from "markdown-it";
 import Base from "../../layouts/Base.astro";
+import { getLaw } from "../../lib/api.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
@@ -31,6 +32,17 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
+
+// Fetch citizen data (summary + tags) from the API at build time
+let citizenSummary = "";
+let citizenTags: string[] = [];
+try {
+	const detail = await getLaw(id!);
+	citizenSummary = detail.citizen_summary ?? "";
+	citizenTags = detail.citizen_tags ?? [];
+} catch {
+	// API may not be available during build — gracefully degrade
+}
 
 // Read and render the markdown body on-demand (not during content sync)
 let htmlContent = "";
@@ -68,7 +80,7 @@ function capitalize(s: string): string {
 	return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
 
-const reforms = law.reformas ?? [];
+const reforms = (law.reformas ?? []).slice().reverse();
 const materias = law.materias ?? [];
 const notas = law.notas ?? [];
 const refsAnt = law.referencias_anteriores ?? [];
@@ -216,6 +228,30 @@ const articleCount = law.articulos ?? 0;
 		.meta-item-label { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.125rem; }
 		.meta-item-value { color: var(--text); font-weight: 500; }
 
+		.citizen-summary {
+			font-size: 1.0625rem;
+			color: var(--text-secondary);
+			line-height: 1.7;
+			margin-bottom: 1.25rem;
+			font-style: italic;
+		}
+		.citizen-tags {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.375rem;
+			margin-bottom: 1.5rem;
+		}
+		.citizen-tag {
+			display: inline-block;
+			padding: 0.25rem 0.75rem;
+			font-size: 0.8125rem;
+			background: var(--accent-bg);
+			color: var(--accent);
+			border-radius: 100px;
+			transition: all 0.15s;
+		}
+		.citizen-tag:hover { background: var(--accent); color: #fff; text-decoration: none; }
+
 		.section { margin-bottom: 2rem; }
 		.section-heading { font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light); }
 		.materia-tag { display: inline-block; padding: 0.25rem 0.75rem; border: 1px solid var(--border); border-radius: 100px; font-size: 0.8125rem; color: var(--text-secondary); margin: 0.125rem 0.25rem 0.125rem 0; transition: all 0.15s; }
@@ -236,6 +272,78 @@ const articleCount = law.articulos ?? 0;
 		.timeline-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
 		.timeline-link { font-size: 0.75rem; margin-top: 0.25rem; display: inline-block; }
 
+		/* ── Follow card ── */
+		.follow-card {
+			display: flex;
+			gap: 1rem;
+			align-items: flex-start;
+			padding: 1.25rem 1.5rem;
+			background: var(--accent-bg);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			margin-top: 2rem;
+		}
+		.follow-icon {
+			flex-shrink: 0;
+			color: var(--accent);
+			margin-top: 0.125rem;
+		}
+		.follow-content { flex: 1; min-width: 0; }
+		.follow-heading {
+			font-size: 0.9375rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 0 0 0.25rem;
+		}
+		.follow-desc {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin: 0 0 0.75rem;
+			line-height: 1.5;
+		}
+		.follow-input-row {
+			display: flex;
+			gap: 0.5rem;
+		}
+		.follow-input {
+			flex: 1;
+			min-width: 0;
+			padding: 0.5rem 0.75rem;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			font-size: 0.875rem;
+			font-family: var(--font-sans);
+			background: var(--bg);
+			color: var(--text);
+		}
+		.follow-input:focus {
+			outline: none;
+			border-color: var(--accent);
+			box-shadow: 0 0 0 2px rgba(26, 54, 93, 0.1);
+		}
+		.follow-btn {
+			padding: 0.5rem 1rem;
+			background: var(--accent);
+			color: #fff;
+			border: none;
+			border-radius: 6px;
+			font-size: 0.8125rem;
+			font-weight: 600;
+			font-family: var(--font-sans);
+			cursor: pointer;
+			white-space: nowrap;
+			transition: background 0.15s;
+		}
+		.follow-btn:hover { background: #15294a; }
+		.follow-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+		.follow-msg {
+			font-size: 0.8125rem;
+			line-height: 1.5;
+			margin-top: 0.5rem;
+		}
+		.follow-msg.success { color: #16a34a; }
+		.follow-msg.error { color: #dc2626; }
+
 		@media (max-width: 640px) {
 			.law-header { flex-direction: column; }
 			.meta-grid { grid-template-columns: 1fr; }
@@ -244,6 +352,9 @@ const articleCount = law.articulos ?? 0;
 			.tabs::-webkit-scrollbar { display: none; }
 			.tab { white-space: nowrap; flex-shrink: 0; font-size: 0.75rem; padding: 0.5rem 0.75rem; }
 			.law-content { font-size: 0.875rem; }
+			.follow-card { flex-direction: column; gap: 0.5rem; }
+			.follow-icon { display: none; }
+			.follow-input-row { flex-direction: column; }
 		}
 	</style>
 
@@ -307,6 +418,18 @@ const articleCount = law.articulos ?? 0;
 			)}
 		</div>
 
+		{citizenSummary && (
+			<p class="citizen-summary">{citizenSummary}</p>
+		)}
+
+		{citizenTags.length > 0 && (
+			<div class="citizen-tags">
+				{citizenTags.map((tag) => (
+					<a href={`/?citizen_tag=${encodeURIComponent(tag)}`} class="citizen-tag">{tag}</a>
+				))}
+			</div>
+		)}
+
 		<div class="card">
 			<h3 class="card-heading">Información general</h3>
 			<div class="meta-grid">
@@ -364,6 +487,31 @@ const articleCount = law.articulos ?? 0;
 				</ul>
 			</div>
 		)}
+
+		<!-- Follow this law -->
+		<div class="follow-card" id="follow-card">
+			<div class="follow-icon">
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+			</div>
+			<div class="follow-content">
+				<h3 class="follow-heading">¿Quieres saber cuándo cambia esta ley?</h3>
+				<p class="follow-desc">Recibe un aviso por email cada vez que se publique una modificación.</p>
+				<form class="follow-form" id="follow-form" data-norm-id={id}>
+					<div class="follow-input-row">
+						<input
+							type="email"
+							name="email"
+							placeholder="Tu email"
+							required
+							class="follow-input"
+							autocomplete="email"
+						/>
+						<button type="submit" class="follow-btn">Seguir esta ley</button>
+					</div>
+				</form>
+				<p class="follow-msg" id="follow-msg" style="display: none;"></p>
+			</div>
+		</div>
 	</div>
 
 	<!-- Tab: Reformas (static) -->
@@ -373,18 +521,17 @@ const articleCount = law.articulos ?? 0;
 		) : (
 			<ul class="timeline">
 				{reforms.map((reform, i) => {
-					const isFirst = i === reforms.length - 1;
-					const prevDate = i > 0 ? reforms[i - 1]!.fecha : null;
-					const diffUrl = prevDate ? `/diff?id=${id}&from=${prevDate}&to=${reform.fecha}` : null;
+					const isOriginal = i === reforms.length - 1;
+					const reformaUrl = !isOriginal ? `/reforma?id=${id}&date=${reform.fecha}` : null;
 					return (
 						<li class="timeline-item">
 							<div class="timeline-dot"></div>
 							<div class="timeline-date">{formatDate(reform.fecha)}</div>
 							<div class="timeline-detail">
-								{isFirst ? 'Versión original' : `Reforma`}
+								{isOriginal ? 'Versión original' : `Reforma`}
 								{' '}<span style="font-family:var(--font-mono);font-size:0.6875rem">{reform.fuente}</span>
 							</div>
-							{diffUrl && <a href={diffUrl} class="timeline-link">Ver cambios &rarr;</a>}
+							{reformaUrl && <a href={reformaUrl} class="timeline-link">Ver qué cambió &rarr;</a>}
 						</li>
 					);
 				})}
@@ -407,6 +554,56 @@ const articleCount = law.articulos ?? 0;
 				document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
 			});
 		});
+	</script>
+
+	<!-- Follow form handler -->
+	<script is:inline define:vars={{ apiBase: import.meta.env.API_URL ?? "https://api.leyabierta.es" }}>
+		(function() {
+			var form = document.getElementById('follow-form');
+			if (!form) return;
+
+			form.addEventListener('submit', function(e) {
+				e.preventDefault();
+				var emailInput = form.querySelector('input[name="email"]');
+				var btn = form.querySelector('button[type="submit"]');
+				var msg = document.getElementById('follow-msg');
+				var normId = form.dataset.normId;
+				var email = emailInput.value.trim();
+
+				if (!email || !normId) return;
+
+				btn.disabled = true;
+				btn.textContent = 'Enviando...';
+				msg.style.display = 'none';
+
+				fetch(apiBase + '/v1/alerts/follow', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ email: email, normId: normId })
+				})
+				.then(function(res) { return res.json(); })
+				.then(function(data) {
+					if (data.ok) {
+						msg.textContent = 'Te hemos enviado un email de confirmación. Revisa tu bandeja de entrada.';
+						msg.className = 'follow-msg success';
+						form.style.display = 'none';
+					} else {
+						msg.textContent = data.error || 'Ocurrió un error. Inténtalo de nuevo.';
+						msg.className = 'follow-msg error';
+						btn.disabled = false;
+						btn.textContent = 'Seguir esta ley';
+					}
+					msg.style.display = 'block';
+				})
+				.catch(function() {
+					msg.textContent = 'Error de conexión. Inténtalo de nuevo.';
+					msg.className = 'follow-msg error';
+					msg.style.display = 'block';
+					btn.disabled = false;
+					btn.textContent = 'Seguir esta ley';
+				});
+			});
+		})();
 	</script>
 
 	<!-- JSON-LD -->

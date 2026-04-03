@@ -39,6 +39,7 @@ export function lawRoutes(
 							rank: query.rank,
 							status: query.status,
 							materia: query.materia,
+							citizen_tag: query.citizen_tag,
 						},
 						limit,
 						offset,
@@ -58,6 +59,7 @@ export function lawRoutes(
 						rank: t.Optional(t.String()),
 						status: t.Optional(t.String()),
 						materia: t.Optional(t.String()),
+						citizen_tag: t.Optional(t.String()),
 						limit: t.Optional(t.Numeric()),
 						offset: t.Optional(t.Numeric()),
 						sort: t.Optional(t.String()),
@@ -76,8 +78,10 @@ export function lawRoutes(
 					}
 					const reforms = dbService.getReformsWithBlocks(params.id);
 					const blocks = dbService.getBlocks(params.id);
+					const citizenTags = dbService.getCitizenTags(params.id);
 					return {
 						...law,
+						citizen_tags: citizenTags,
 						reforms,
 						blocks: blocks.map((b) => ({
 							block_id: b.block_id,
@@ -318,6 +322,20 @@ export function lawRoutes(
 				return { data: dbService.listMaterias() };
 			})
 
+			// 11. GET /v1/citizen-tags — citizen tag categories with counts
+			.get(
+				"/citizen-tags",
+				({ query }) => {
+					const limit = Math.min(query.limit ?? 100, 500);
+					return { data: dbService.listCitizenTags(limit) };
+				},
+				{
+					query: t.Object({
+						limit: t.Optional(t.Numeric()),
+					}),
+				},
+			)
+
 			// 10. GET /v1/feed.xml — RSS feed of recent reforms
 			// 12. GET /v1/stats — global statistics
 			.get("/stats", () => {
@@ -348,15 +366,18 @@ export function lawRoutes(
 			.get("/feed.xml", ({ set }) => {
 				const reforms = dbService.getRecentReforms(50);
 				const items = reforms
-					.map(
-						(r) => `  <item>
-    <title>${escapeXml(r.title)} — ${r.date}</title>
+					.map((r) => {
+						const rawTitle = r.headline || `${r.title} — ${r.date}`;
+						const rawDesc =
+							r.summary || `Reforma de ${r.title} (${r.source_id})`;
+						return `  <item>
+    <title>${escapeXml(rawTitle)}</title>
     <link>https://leyabierta.es/laws/${r.norm_id}</link>
     <guid>${r.norm_id}:${r.date}:${r.source_id}</guid>
     <pubDate>${new Date(r.date).toUTCString()}</pubDate>
-    <description>Reforma de ${escapeXml(r.title)} (${r.source_id})</description>
-  </item>`,
-					)
+    <description>${escapeXml(rawDesc)}</description>
+  </item>`;
+					})
 					.join("\n");
 
 				set.headers["content-type"] = "application/rss+xml; charset=utf-8";
