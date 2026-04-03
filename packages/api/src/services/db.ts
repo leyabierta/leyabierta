@@ -879,12 +879,12 @@ export class DbService {
 
 		const placeholders = materias.map(() => "?").join(",");
 
-		// If jurisdiction is 'es' (national), include all national laws.
-		// Otherwise filter by jurisdiction in the ELI source URL.
+		// If jurisdiction is 'es' (national), include only national laws.
+		// Otherwise include BOTH regional AND national laws (national laws apply everywhere).
 		const jurisdictionClause =
 			jurisdiction === "es"
 				? "(n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
-				: `n.source_url LIKE '%/eli/${jurisdiction}/%'`;
+				: `(n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`;
 
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
@@ -939,7 +939,7 @@ export class DbService {
 		const jurisdictionClause = jurisdiction
 			? jurisdiction === "es"
 				? "AND (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
-				: `AND n.source_url LIKE '%/eli/${jurisdiction}/%'`
+				: `AND (n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`
 			: "";
 
 		const sql = `
