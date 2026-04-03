@@ -39,6 +39,13 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		if (localStorage.getItem("theme") === "dark") {
 			document.documentElement.setAttribute("data-theme", "dark");
 		}
+		// Migrate old localStorage key → redirect to re-onboard
+		if (localStorage.getItem("leyabierta_situaciones") && !localStorage.getItem("leyabierta_perfil")) {
+			localStorage.removeItem("leyabierta_situaciones");
+			if (window.location.pathname !== "/mi-situacion") {
+				window.location.href = "/mi-situacion";
+			}
+		}
 	})();
 </script>
 <head>
@@ -538,9 +545,9 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Menú" aria-expanded="false">☰</button>
 			<div class="nav-links" id="nav-links">
 				<a href="/">Buscar</a>
+				<a href="/mi-situacion" id="nav-mis-cambios">Mis cambios</a>
 				<a href="/resumenes">Resúmenes</a>
-				<a href="/anomalias">Anomalías</a>
-				<a href="/sobre-leyabierta">Sobre mí</a>
+				<a href="/sobre-leyabierta">Sobre nosotros</a>
 				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
 		</nav>
@@ -584,6 +591,16 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 					menuBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
 					menuBtn.textContent = isOpen ? "\u2715" : "\u2630";
 				});
+			}
+			// Dynamic "Mis cambios" nav link
+			var navLink = document.getElementById("nav-mis-cambios");
+			if (navLink) {
+				try {
+					var saved = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
+					if (saved && saved.materias && saved.materias.length > 0) {
+						navLink.href = "/mis-cambios";
+					}
+				} catch (e) {}
 			}
 		})();
 	</script>

@@ -14,12 +14,16 @@ import {
 } from "../data/situations.ts";
 import type { DbService } from "../services/db.ts";
 import {
+	generateHmac,
 	getAudienceId,
 	getResend,
 	sendConfirmationEmail,
+	sendFollowConfirmationEmail,
 	sendWelcomeEmail,
 	verifyHmac,
 } from "../services/email.ts";
+
+const MAX_MATERIAS = 60;
 
 // ── Rate limiter (in-memory, per IP, max 3/hour) ───────────────────────
 
@@ -125,11 +129,24 @@ export function alertRoutes(_dbService?: DbService) {
 					};
 				}
 
-				// Validate situationIds
-				const validSituations = getSituationsByIds(body.situationIds);
-				if (validSituations.length === 0) {
+				// Accept materias (new) or situationIds (legacy)
+				const materias = body.materias ?? [];
+				const legacySituations = body.situationIds
+					? getSituationsByIds(body.situationIds)
+					: [];
+
+				if (materias.length === 0 && legacySituations.length === 0) {
 					set.status = 400;
-					return { error: "Debes seleccionar al menos una situación válida" };
+					return {
+						error: "Debes seleccionar al menos un tema o situación válida",
+					};
+				}
+
+				if (materias.length > MAX_MATERIAS) {
+					set.status = 400;
+					return {
+						error: `Máximo ${MAX_MATERIAS} temas permitidos`,
+					};
 				}
 
 				const email = body.email;
@@ -141,7 +158,11 @@ export function alertRoutes(_dbService?: DbService) {
 						email,
 						unsubscribed: true,
 						properties: {
-							situation_ids: JSON.stringify(body.situationIds),
+							...(materias.length > 0
+								? { materias: JSON.stringify(materias) }
+								: {
+										situation_ids: JSON.stringify(body.situationIds),
+									}),
 							jurisdiction,
 							consent_ts: new Date().toISOString(),
 							consent_ip: ip,
@@ -161,8 +182,9 @@ export function alertRoutes(_dbService?: DbService) {
 				}
 
 				// Send confirmation email (best effort — always return generic 200)
-				const situationNames = validSituations.map((s) => s.name);
-				await sendConfirmationEmail(email, situationNames).catch((err) => {
+				const topicCount =
+					materias.length > 0 ? materias.length : legacySituations.length;
+				await sendConfirmationEmail(email, topicCount).catch((err) => {
 					console.error("[alerts] Failed to send confirmation email:", err);
 				});
 
@@ -174,7 +196,8 @@ export function alertRoutes(_dbService?: DbService) {
 			{
 				body: t.Object({
 					email: t.String({ format: "email" }),
-					situationIds: t.Array(t.String(), { minItems: 1 }),
+					situationIds: t.Optional(t.Array(t.String())),
+					materias: t.Optional(t.Array(t.String())),
 					jurisdiction: t.Optional(t.String()),
 				}),
 			},
@@ -234,6 +257,112 @@ export function alertRoutes(_dbService?: DbService) {
 				query: t.Object({
 					email: t.String(),
 					code: t.String(),
+				}),
+			},
+		)
+
+		.post(
+			"/alerts/follow",
+			async ({ body, request, set }) => {
+				const dbService = _dbService;
+				if (!dbService) {
+					set.status = 503;
+					return {
+						error:
+							"No pudimos procesar tu solicitud. Inténtalo de nuevo en unos minutos.",
+					};
+				}
+
+				// Rate limit by IP
+				const ip = getClientIp(request);
+				if (isRateLimited(ip)) {
+					return {
+						ok: true,
+						message:
+							"Si tu email es válido, recibirás un enlace de confirmación",
+					};
+				}
+
+				const { email, normId } = body;
+
+				// Validate norm exists
+				const norm = dbService.getLaw(normId);
+				if (!norm) {
+					set.status = 400;
+					return { error: "No se encontró la ley indicada" };
+				}
+
+				// Generate a unique token for confirmation
+				const token = await generateHmac(`${email}:follow:${normId}`);
+
+				// Insert or update (upsert) — if already exists and confirmed, skip
+				try {
+					dbService.upsertNormFollow(email, normId, token);
+				} catch (err) {
+					console.error("[alerts] Failed to insert norm follow:", err);
+					set.status = 500;
+					return {
+						error:
+							"No pudimos procesar tu solicitud. Inténtalo de nuevo en unos minutos.",
+					};
+				}
+
+				// Send confirmation email (best effort)
+				await sendFollowConfirmationEmail(
+					email,
+					norm.title,
+					normId,
+					token,
+				).catch((err) => {
+					console.error(
+						"[alerts] Failed to send follow confirmation email:",
+						err,
+					);
+				});
+
+				return {
+					ok: true,
+					message: "Si tu email es válido, recibirás un enlace de confirmación",
+				};
+			},
+			{
+				body: t.Object({
+					email: t.String({ format: "email" }),
+					normId: t.String({ minLength: 1 }),
+				}),
+			},
+		)
+
+		.get(
+			"/alerts/follow/confirm",
+			async ({ query, set }) => {
+				const { token } = query;
+
+				if (!token) {
+					set.status = 400;
+					return { error: "Enlace no válido o expirado" };
+				}
+
+				const dbService = _dbService;
+				if (!dbService) {
+					set.status = 503;
+					return {
+						error:
+							"No pudimos procesar tu solicitud. Inténtalo de nuevo en unos minutos.",
+					};
+				}
+
+				const confirmed = dbService.confirmNormFollow(token);
+				if (!confirmed) {
+					set.status = 400;
+					return { error: "Enlace no válido o expirado" };
+				}
+
+				return { success: true, message: "Suscripción confirmada" };
+			},
+			{
+				query: t.Object({
+					token: t.String(),
 				}),
 			},
 		)

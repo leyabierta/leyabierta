@@ -545,3 +545,77 @@ describe("hasAnalisis", () => {
 		expect(svc.hasAnalisis("N1")).toBe(true);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// getRecentDigests
+// ---------------------------------------------------------------------------
+
+describe("getRecentDigests", () => {
+	it("returns correct number of recent digests", () => {
+		svc.upsertDigest(
+			"autonomos",
+			"2026-W10",
+			"es",
+			"Summary W10",
+			"2026-03-09T00:00:00Z",
+			'{"reforms":[]}',
+		);
+		svc.upsertDigest(
+			"autonomos",
+			"2026-W11",
+			"es",
+			"Summary W11",
+			"2026-03-16T00:00:00Z",
+			'{"reforms":[]}',
+		);
+		svc.upsertDigest(
+			"autonomos",
+			"2026-W12",
+			"es",
+			"Summary W12",
+			"2026-03-23T00:00:00Z",
+			'{"reforms":[]}',
+		);
+
+		const results = svc.getRecentDigests("autonomos", 2);
+		expect(results).toHaveLength(2);
+	});
+
+	it("handles missing profile gracefully", () => {
+		const results = svc.getRecentDigests("nonexistent", 5);
+		expect(results).toEqual([]);
+	});
+
+	it("returns results ordered by week DESC", () => {
+		svc.upsertDigest(
+			"fiscal",
+			"2026-W08",
+			"es",
+			"S1",
+			"2026-02-23T00:00:00Z",
+			'{"reforms":[]}',
+		);
+		svc.upsertDigest(
+			"fiscal",
+			"2026-W10",
+			"es",
+			"S2",
+			"2026-03-09T00:00:00Z",
+			'{"reforms":[]}',
+		);
+		svc.upsertDigest(
+			"fiscal",
+			"2026-W09",
+			"es",
+			"S3",
+			"2026-03-02T00:00:00Z",
+			'{"reforms":[]}',
+		);
+
+		const results = svc.getRecentDigests("fiscal", 10);
+		expect(results).toHaveLength(3);
+		expect(results[0].week).toBe("2026-W10");
+		expect(results[1].week).toBe("2026-W09");
+		expect(results[2].week).toBe("2026-W08");
+	});
+});

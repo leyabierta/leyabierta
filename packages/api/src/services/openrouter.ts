@@ -1,7 +1,7 @@
 /**
  * Shared OpenRouter API client with retry, rate limit handling, and JSON parsing.
  *
- * Used by: generate-reform-summaries.ts, run-weekly-digest.ts
+ * Used by: generate-reform-summaries.ts
  */
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";

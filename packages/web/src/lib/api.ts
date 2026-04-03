@@ -33,6 +33,7 @@ export interface Law {
 	status: string;
 	department: string;
 	source_url: string;
+	citizen_summary: string;
 }
 
 export interface Reform {
@@ -53,6 +54,7 @@ export interface BlockSummary {
 export interface LawDetail extends Law {
 	reforms: Reform[];
 	blocks: BlockSummary[];
+	citizen_tags: string[];
 }
 
 export interface SearchResult {
@@ -111,6 +113,13 @@ export function getMaterias(): Promise<{
 	data: Array<{ materia: string; count: number }>;
 }> {
 	return fetchApi("/v1/materias");
+}
+
+export function getCitizenTags(
+	limit?: number,
+): Promise<{ data: Array<{ tag: string; count: number }> }> {
+	const qs = limit ? `?limit=${limit}` : "";
+	return fetchApi(`/v1/citizen-tags${qs}`);
 }
 
 export interface AnalisisResult {
@@ -266,6 +275,45 @@ export function getDigest(
 	week: string,
 ): Promise<DigestDetail> {
 	return fetchApi(`/v1/digests/${profileId}/${week}`);
+}
+
+export interface PersonalDigestResult {
+	reforms: DigestReform[];
+	profiles: string[];
+	week_range: string;
+}
+
+export function getPersonalDigest(
+	profiles: string[],
+	jurisdiccion = "es",
+	weeks = 4,
+): Promise<PersonalDigestResult> {
+	return fetchApi(
+		`/v1/digests/personal?profiles=${profiles.join(",")}&jurisdiccion=${jurisdiccion}&weeks=${weeks}`,
+	);
+}
+
+export interface PersonalReformsResult {
+	reforms: Array<{
+		id: string;
+		title: string;
+		rank: string;
+		status: string;
+		date: string;
+		source_id: string;
+	}>;
+	materias: string[];
+	date_range: string;
+}
+
+export function getPersonalReforms(
+	materias: string[],
+	jurisdiccion = "es",
+	weeks = 4,
+): Promise<PersonalReformsResult> {
+	return fetchApi(
+		`/v1/reforms/personal?materias=${encodeURIComponent(materias.join(","))}&jurisdiccion=${jurisdiccion}&weeks=${weeks}`,
+	);
 }
 
 export async function subscribe(

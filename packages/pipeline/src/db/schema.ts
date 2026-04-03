@@ -172,6 +172,17 @@ const SCHEMA_SQL = /* sql */ `
       REFERENCES reforms(norm_id, date, source_id)
   );
 
+  -- Notified reforms tracking (prevents duplicate email sends)
+  CREATE TABLE IF NOT EXISTS notified_reforms (
+    norm_id      TEXT NOT NULL,
+    source_id    TEXT NOT NULL,
+    reform_date  TEXT NOT NULL,
+    notified_at  TEXT NOT NULL,
+    PRIMARY KEY (norm_id, source_id, reform_date),
+    FOREIGN KEY (norm_id, reform_date, source_id)
+      REFERENCES reforms(norm_id, date, source_id)
+  );
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,

@@ -9,6 +9,7 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
+import { digestRoutes } from "../routes/digests.ts";
 import { lawRoutes } from "../routes/laws.ts";
 import { LruCache } from "../services/cache.ts";
 import { DbService } from "../services/db.ts";
@@ -36,6 +37,7 @@ beforeEach(() => {
 
 	app = new Elysia()
 		.use(lawRoutes(dbService, gitStub, diffCache))
+		.use(digestRoutes(dbService))
 		.get("/health", () => ({
 			status: "ok",
 			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
@@ -473,3 +475,147 @@ function insertReformBlock(
 		[normId, date, sourceId, blockId],
 	);
 }
+
+// ---------------------------------------------------------------------------
+// GET /v1/digests/personal
+// ---------------------------------------------------------------------------
+
+describe("GET /v1/digests/personal", () => {
+	function seedDigest(profileId: string, week: string, reforms: unknown[]) {
+		dbService.upsertDigest(
+			profileId,
+			week,
+			"es",
+			`Summary for ${profileId} ${week}`,
+			"2026-03-09T00:00:00Z",
+			JSON.stringify({ reforms }),
+		);
+	}
+
+	it("returns merged reforms from multiple profiles", async () => {
+		seedDigest("autonomos", "2026-W10", [
+			{
+				id: "BOE-A-2026-1",
+				title: "Ley A",
+				rank: "ley",
+				date: "2026-03-05",
+				source_id: "S1",
+				relevant: true,
+				te_afecta_porque: "Afecta autonomos",
+				headline: "H1",
+				summary: "Sum1",
+			},
+		]);
+		seedDigest("fiscal", "2026-W10", [
+			{
+				id: "BOE-A-2026-2",
+				title: "Ley B",
+				rank: "ley",
+				date: "2026-03-06",
+				source_id: "S2",
+				relevant: true,
+				te_afecta_porque: "Afecta fiscal",
+				headline: "H2",
+				summary: "Sum2",
+			},
+		]);
+
+		const { status, body } = await json(
+			"/v1/digests/personal?profiles=autonomos,fiscal",
+		);
+		expect(status).toBe(200);
+		expect(body.reforms).toHaveLength(2);
+		expect(body.profiles).toEqual(["autonomos", "fiscal"]);
+		expect(body.week_range).toBe("2026-W10 to 2026-W10");
+		// Sorted by date DESC
+		expect(body.reforms[0].id).toBe("BOE-A-2026-2");
+		expect(body.reforms[1].id).toBe("BOE-A-2026-1");
+	});
+
+	it("deduplicates reforms - first profile wins", async () => {
+		seedDigest("autonomos", "2026-W10", [
+			{
+				id: "BOE-A-2026-1",
+				title: "Ley A",
+				rank: "ley",
+				date: "2026-03-05",
+				source_id: "S1",
+				relevant: true,
+				te_afecta_porque: "From autonomos",
+				headline: "H1",
+				summary: "Sum1",
+			},
+		]);
+		seedDigest("fiscal", "2026-W10", [
+			{
+				id: "BOE-A-2026-1",
+				title: "Ley A",
+				rank: "ley",
+				date: "2026-03-05",
+				source_id: "S1",
+				relevant: true,
+				te_afecta_porque: "From fiscal",
+				headline: "H2",
+				summary: "Sum2",
+			},
+		]);
+
+		const { body } = await json(
+			"/v1/digests/personal?profiles=autonomos,fiscal",
+		);
+		expect(body.reforms).toHaveLength(1);
+		expect(body.reforms[0].te_afecta_porque).toBe("From autonomos");
+	});
+
+	it("returns 400 when profiles param is missing", async () => {
+		const { status, body } = await json("/v1/digests/personal");
+		expect(status).toBe(400);
+		expect(body.error).toContain("profiles");
+	});
+
+	it("returns 400 when profiles param is empty", async () => {
+		const { status, body } = await json("/v1/digests/personal?profiles=");
+		expect(status).toBe(400);
+		expect(body.error).toContain("profiles");
+	});
+
+	it("handles malformed JSON in digest data without crashing", async () => {
+		dbService.upsertDigest(
+			"autonomos",
+			"2026-W10",
+			"es",
+			"Summary",
+			"2026-03-09T00:00:00Z",
+			"NOT VALID JSON {{{",
+		);
+		seedDigest("fiscal", "2026-W10", [
+			{
+				id: "BOE-A-2026-1",
+				title: "Ley A",
+				rank: "ley",
+				date: "2026-03-05",
+				source_id: "S1",
+				relevant: true,
+				te_afecta_porque: "OK",
+				headline: "H",
+				summary: "S",
+			},
+		]);
+
+		const { status, body } = await json(
+			"/v1/digests/personal?profiles=autonomos,fiscal",
+		);
+		expect(status).toBe(200);
+		// Only the valid reform from fiscal profile
+		expect(body.reforms).toHaveLength(1);
+		expect(body.reforms[0].id).toBe("BOE-A-2026-1");
+	});
+
+	it("returns 400 when weeks=0", async () => {
+		const { status, body } = await json(
+			"/v1/digests/personal?profiles=autonomos&weeks=0",
+		);
+		expect(status).toBe(400);
+		expect(body.error).toContain("weeks");
+	});
+});

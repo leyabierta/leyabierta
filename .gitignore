@@ -38,3 +38,6 @@ content/
 .gstack/
 .claude/
 packages/web/.astro/
+
+# research / experiments
+packages/search-lab/

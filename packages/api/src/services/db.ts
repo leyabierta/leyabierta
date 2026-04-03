@@ -1047,6 +1047,86 @@ export class DbService {
 			.all(...params);
 	}
 
+	// ── Notifications ──
+
+	getUnnotifiedReforms(): Array<{
+		norm_id: string;
+		source_id: string;
+		reform_date: string;
+		headline: string;
+		summary: string;
+		reform_type: string;
+		importance: string;
+	}> {
+		return this.db
+			.query<
+				{
+					norm_id: string;
+					source_id: string;
+					reform_date: string;
+					headline: string;
+					summary: string;
+					reform_type: string;
+					importance: string;
+				},
+				[]
+			>(
+				`SELECT rs.norm_id, rs.source_id, rs.reform_date,
+						rs.headline, rs.summary, rs.reform_type, rs.importance
+				 FROM reform_summaries rs
+				 LEFT JOIN notified_reforms nr
+					ON nr.norm_id = rs.norm_id
+					AND nr.source_id = rs.source_id
+					AND nr.reform_date = rs.reform_date
+				 WHERE nr.norm_id IS NULL
+				   AND rs.headline != ''
+				   AND rs.importance NOT IN ('skip', '')
+				 ORDER BY rs.reform_date DESC`,
+			)
+			.all();
+	}
+
+	markReformsNotified(
+		reforms: Array<{ norm_id: string; source_id: string; reform_date: string }>,
+	): void {
+		const stmt = this.db.query(
+			`INSERT OR IGNORE INTO notified_reforms (norm_id, source_id, reform_date, notified_at)
+			 VALUES (?, ?, ?, datetime('now'))`,
+		);
+		for (const r of reforms) {
+			stmt.run(r.norm_id, r.source_id, r.reform_date);
+		}
+	}
+
+	markAllReformSummariesNotified(): number {
+		const result = this.db.run(
+			`INSERT OR IGNORE INTO notified_reforms (norm_id, source_id, reform_date, notified_at)
+			 SELECT norm_id, source_id, reform_date, datetime('now')
+			 FROM reform_summaries
+			 WHERE headline != '' AND importance NOT IN ('skip', '')`,
+		);
+		return result.changes;
+	}
+
+	getMateriasByNormIds(normIds: string[]): Map<string, string[]> {
+		if (normIds.length === 0) return new Map();
+
+		const placeholders = normIds.map(() => "?").join(",");
+		const rows = this.db
+			.query<{ norm_id: string; materia: string }, string[]>(
+				`SELECT norm_id, materia FROM materias WHERE norm_id IN (${placeholders})`,
+			)
+			.all(...normIds);
+
+		const map = new Map<string, string[]>();
+		for (const row of rows) {
+			const existing = map.get(row.norm_id);
+			if (existing) existing.push(row.materia);
+			else map.set(row.norm_id, [row.materia]);
+		}
+		return map;
+	}
+
 	getReformDetail(
 		normId: string,
 		date: string,

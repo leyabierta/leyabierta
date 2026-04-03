@@ -26,6 +26,103 @@ export function digestRoutes(dbService: DbService) {
 		})
 
 		.get(
+			"/personal",
+			({ query, set }) => {
+				const profilesCsv = query.profiles;
+				if (!profilesCsv || profilesCsv.trim() === "") {
+					set.status = 400;
+					return { error: "profiles query parameter is required" };
+				}
+
+				const weeks = query.weeks ? Math.min(Number(query.weeks), 12) : 4;
+				if (weeks <= 0 || Number.isNaN(weeks)) {
+					set.status = 400;
+					return { error: "weeks must be a positive number (max 12)" };
+				}
+
+				const profileIds = profilesCsv
+					.split(",")
+					.map((p) => p.trim())
+					.filter((p) => p.length > 0);
+				if (profileIds.length === 0) {
+					set.status = 400;
+					return { error: "profiles query parameter is required" };
+				}
+
+				const seenIds = new Set<string>();
+				const merged: Array<{
+					id: string;
+					title: string;
+					rank: string;
+					date: string;
+					source_id: string;
+					relevant: boolean;
+					te_afecta_porque: string;
+					headline: string;
+					summary: string;
+				}> = [];
+				const allWeeks: string[] = [];
+
+				for (const pid of profileIds) {
+					const rows = dbService.getRecentDigests(pid, weeks);
+					for (const row of rows) {
+						if (!allWeeks.includes(row.week)) {
+							allWeeks.push(row.week);
+						}
+						try {
+							const parsed = JSON.parse(row.data);
+							const reforms = Array.isArray(parsed.reforms)
+								? parsed.reforms
+								: [];
+							for (const r of reforms) {
+								const rid = r.id ?? r.norm_id;
+								if (rid && !seenIds.has(rid)) {
+									seenIds.add(rid);
+									merged.push({
+										id: rid,
+										title: r.title ?? "",
+										rank: r.rank ?? "",
+										date: r.date ?? "",
+										source_id: r.source_id ?? "",
+										relevant: r.relevant ?? true,
+										te_afecta_porque: r.te_afecta_porque ?? "",
+										headline: r.headline ?? "",
+										summary: r.summary ?? "",
+									});
+								}
+							}
+						} catch {
+							// Skip malformed JSON
+						}
+					}
+				}
+
+				// Sort by date descending
+				merged.sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
+
+				// Compute week range
+				allWeeks.sort();
+				const weekRange =
+					allWeeks.length > 0
+						? `${allWeeks[0]} to ${allWeeks[allWeeks.length - 1]}`
+						: "";
+
+				return {
+					reforms: merged,
+					profiles: profileIds,
+					week_range: weekRange,
+				};
+			},
+			{
+				query: t.Object({
+					profiles: t.Optional(t.String()),
+					jurisdiccion: t.Optional(t.String()),
+					weeks: t.Optional(t.String()),
+				}),
+			},
+		)
+
+		.get(
 			"/:profileId",
 			({ params }) => {
 				const weeks = dbService.listDigestsForProfile(params.profileId);

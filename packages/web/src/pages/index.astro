@@ -59,10 +59,12 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		/* ── Hero Section ── */
 		.hero-section { padding: 5rem 0 4rem; background: var(--accent-faint); border-bottom: 1px solid var(--border-light); }
 		.hero-container { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
-		.hero-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 3rem; align-items: center; }
 
 		.hero-content {
 			animation: fadeInUp 0.7s var(--ease-out-quart) both;
+			text-align: center;
+			max-width: 48rem;
+			margin: 0 auto;
 		}
 		.hero-content h1 {
 			font-family: var(--font-serif);
@@ -77,7 +79,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			font-size: 1.0625rem;
 			margin-top: 1rem;
 			line-height: 1.7;
-			max-width: 32rem;
+			max-width: 36rem;
+			margin-left: auto;
+			margin-right: auto;
 		}
 		.hero-source {
 			margin-top: 1.25rem;
@@ -86,66 +90,98 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		}
 		.hero-source a { color: var(--text-muted); text-decoration: underline; }
 
-		/* ── Stats Card ── */
-		.hero-stats-col {
-			animation: fadeInUp 0.7s var(--ease-out-quart) 0.15s both;
+		/* ── Category Cards ── */
+		.category-grid {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 1rem;
+			margin-top: 2.25rem;
 		}
-		.stats-card {
+		.cat-card {
 			background: var(--surface);
 			border: 1px solid var(--border-light);
 			border-radius: 16px;
-			padding: 2.25rem;
-			box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
-			transition: box-shadow 0.3s var(--ease-out-quart), transform 0.3s var(--ease-out-quart);
+			padding: 1.5rem;
+			text-align: left;
+			cursor: pointer;
+			transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.25s var(--ease-out-quart), transform 0.25s var(--ease-out-quart);
+			text-decoration: none;
+			color: inherit;
+			display: block;
 		}
-		.stats-card:hover {
-			box-shadow: 0 2px 6px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.05);
+		.cat-card:hover {
+			border-color: var(--accent);
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 			transform: translateY(-2px);
+			text-decoration: none;
 		}
-		.stats-number {
+		.cat-card:active { transform: scale(0.98) translateY(0); transition-duration: 0.1s; }
+		.cat-emoji { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+		.cat-name {
 			font-family: var(--font-serif);
-			font-size: 3.5rem;
 			font-weight: 700;
-			color: var(--accent);
-			line-height: 1.1;
-			letter-spacing: -0.02em;
+			font-size: 1rem;
+			color: var(--text);
+			margin-bottom: 0.25rem;
 		}
-		.stats-label {
-			font-size: 1.125rem;
-			color: var(--text-secondary);
-			margin-top: 0.375rem;
-			font-weight: 500;
-		}
-		.stats-detail {
-			margin-top: 1.5rem;
-			font-size: 0.9375rem;
-			color: var(--text-secondary);
-			line-height: 2;
-		}
-		.stats-detail span { white-space: nowrap; }
-		.stats-detail .stats-sep { margin: 0 0.375rem; color: var(--border); }
-		.stats-source {
-			margin-top: 1.5rem;
-			padding-top: 1.25rem;
-			border-top: 1px solid var(--border-light);
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
+		.cat-examples {
 			font-size: 0.8125rem;
 			color: var(--text-muted);
+			line-height: 1.5;
 		}
-		.stats-source-icon {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			width: 1.5rem;
-			height: 1.5rem;
-			border-radius: 50%;
-			background: var(--accent-bg);
-			color: var(--accent);
-			font-size: 0.75rem;
+		.hero-cta {
+			margin-top: 2rem;
+			text-align: center;
+		}
+		.hero-stat-line {
+			margin-top: 1rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			text-align: center;
+		}
+
+		/* ── Welcome back banner ── */
+		.welcome-back {
+			text-align: center;
+			max-width: 48rem;
+			margin: 0 auto;
+			animation: fadeInUp 0.7s var(--ease-out-quart) both;
+		}
+		.welcome-back h1 {
+			font-family: var(--font-serif);
+			font-size: 2.25rem;
 			font-weight: 700;
-			flex-shrink: 0;
+			line-height: 1.2;
+			color: var(--accent);
+			margin-bottom: 0.75rem;
+		}
+		.wb-situations {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			margin-bottom: 1.5rem;
+		}
+		.wb-actions {
+			display: flex;
+			gap: 0.75rem;
+			justify-content: center;
+			flex-wrap: wrap;
+		}
+
+		/* ── Search Section ── */
+		.search-section {
+			padding: 2.5rem 0 2rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.search-section h2 {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			text-align: center;
+			margin-bottom: 1.25rem;
+		}
+		.search-section-inner {
+			max-width: 40rem;
+			margin: 0 auto;
 		}
 
 		/* ── Search Form ── */
@@ -233,6 +269,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			font-family: var(--font-sans);
 		}
 		.search-chip:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+		.search-sep { color: var(--border); margin: 0 0.125rem; }
+		.search-browse-link {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			white-space: nowrap;
+		}
+		.search-browse-link:hover { color: var(--accent); }
 
 		/* ── Results Section ── */
 		.results-section { padding: 2rem 0; }
@@ -307,14 +350,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		@keyframes spin { to { transform: rotate(360deg); } }
 
 		/* ── Responsive ── */
+		@media (max-width: 1280px) {
+			.category-grid { grid-template-columns: repeat(4, 1fr); }
+		}
 		@media (max-width: 768px) {
 			.hero-section { padding: 3rem 0 2.5rem; }
-			.hero-grid { grid-template-columns: 1fr; gap: 2rem; }
 			.hero-content h1 { font-size: 2rem; }
-			.stats-card { max-width: 24rem; }
-			.stats-number { font-size: 2.75rem; }
-			/* Hide stats when searching on mobile */
-			.hero-section.has-results .hero-stats-col { display: none; }
+			.category-grid { grid-template-columns: repeat(2, 1fr); }
 			.hero-section.has-results { padding-bottom: 1.5rem; }
 		}
 		@media (max-width: 640px) {
@@ -322,14 +364,18 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			.hero-container { padding: 0 1rem; }
 			.hero-content h1 { font-size: 1.625rem; }
 			.hero-sub { font-size: 0.9375rem; }
+			.category-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+			.cat-card { padding: 1.125rem; }
+			.cat-emoji { font-size: 1.5rem; margin-bottom: 0.5rem; }
+			.cat-name { font-size: 0.9rem; }
+			.cat-examples { font-size: 0.75rem; }
 			.search-row { flex-direction: column; }
 			.filter-toggle { min-height: 2.75rem; }
 			.filter-row { flex-direction: column; }
 			.filter-select { width: 100%; min-height: 2.75rem; }
 			.two-col { grid-template-columns: 1fr; }
 			.juri-grid { grid-template-columns: repeat(2, 1fr); }
-			.stats-card { padding: 1.5rem; max-width: none; }
-			.stats-number { font-size: 2.25rem; }
+			.welcome-back h1 { font-size: 1.625rem; }
 			/* Tighter hero when searching */
 			.hero-section.has-results .hero-sub { display: none; }
 			.hero-section.has-results .hero-source { display: none; }
@@ -356,6 +402,16 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			overflow: hidden;
 		}
 		.law-card-title:hover { color: var(--accent); text-decoration: none; }
+		.law-card-summary {
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+			margin-top: 0.25rem;
+			line-height: 1.55;
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
 		.law-card-meta {
 			margin-top: 0.5rem;
 			display: flex;
@@ -438,69 +494,94 @@ const JURISDICTION_LABELS: Record<string, string> = {
 	<!-- ── Hero ── -->
 	<section class="hero-section">
 		<div class="hero-container">
-			<div class="hero-grid">
+			<!-- Welcome back (hidden by default, shown via JS for returning users) -->
+			<div id="welcome-back" style="display:none" class="welcome-back">
+				<h1>Bienvenido/a de vuelta</h1>
+				<p class="wb-situations" id="wb-situations"></p>
+				<div class="wb-actions">
+					<a href="/mis-cambios" class="btn btn-primary" id="wb-link">Ver mis cambios &rarr;</a>
+					<a href="/mi-situacion" class="btn">Cambiar situación</a>
+				</div>
+			</div>
+
+			<!-- Default hero for new visitors -->
+			<div id="default-hero">
 				<div class="hero-content">
-					<h1>Las leyes de España,<br>accesibles para todos</h1>
+					<h1>¿Quieres saber qué leyes te afectan?</h1>
 					<p class="hero-sub">
-						Busca cualquier ley, consulta su texto completo y mira cómo ha cambiado con el tiempo.
+						Cuéntanos tu situación y te mostramos los cambios legislativos que te importan.
 					</p>
 
-					<div class="search-form" role="search" aria-label="Buscar leyes">
-						<div class="search-row">
-							<label for="search-input" class="sr-only">Buscar leyes</label>
-							<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" aria-label="Buscar leyes" />
-							<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
-						</div>
-						<button type="button" class="filter-toggle" id="filter-toggle">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-							Filtros <span style="font-size:0.625rem">&#9660;</span>
-						</button>
-						<div class="filter-panel" id="filter-panel">
-							<div class="filter-row">
-								<select id="filter-rank" class="filter-select">
-									<option value="">Todos los rangos</option>
-									{ranks.map((r) => (
-										<option value={r.rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
-									))}
-								</select>
-								<select id="filter-status" class="filter-select">
-									<option value="">Todos los estados</option>
-									<option value="vigente">Vigente</option>
-									<option value="derogada">Derogada</option>
-								</select>
-							</div>
-						</div>
+					<div class="category-grid">
+						<a href="/mi-situacion" class="cat-card">
+							<span class="cat-emoji">💼</span>
+							<div class="cat-name">Trabajo</div>
+							<div class="cat-examples">Autónomo · Empleo · Empresa</div>
+						</a>
+						<a href="/mi-situacion" class="cat-card">
+							<span class="cat-emoji">👨‍👩‍👧</span>
+							<div class="cat-name">Familia</div>
+							<div class="cat-examples">Hijos · Embarazo · Divorcio</div>
+						</a>
+						<a href="/mi-situacion" class="cat-card">
+							<span class="cat-emoji">🏠</span>
+							<div class="cat-name">Vivienda</div>
+							<div class="cat-examples">Alquiler · Hipoteca · Compra</div>
+						</a>
+						<a href="/mi-situacion" class="cat-card">
+							<span class="cat-emoji">🏥</span>
+							<div class="cat-name">Salud</div>
+							<div class="cat-examples">Jubilación · Discapacidad · Inmigración</div>
+						</a>
 					</div>
 
-					<div class="search-suggestions" id="search-suggestions">
-						<span>Prueba:</span>
-						<button type="button" class="search-chip" data-query="Constitución">Constitución</button>
-						<button type="button" class="search-chip" data-query="Código Penal">Código Penal</button>
-						<button type="button" class="search-chip" data-query="alquileres">Alquileres</button>
-						<button type="button" class="search-chip" data-query="tráfico">Tráfico</button>
+					<div class="hero-cta">
+						<a href="/mi-situacion" class="btn btn-primary">Descubre tus cambios &rarr;</a>
 					</div>
+					<p class="hero-stat-line">Más de {totalNorms.toLocaleString("es")} leyes desde {earliestYear} · Fuente: BOE</p>
+				</div>
+			</div>
+		</div>
+	</section>
 
-					<p class="hero-source">
-						Fuente: <a href="https://www.boe.es" target="_blank" rel="noopener">Agencia Estatal BOE</a>
-					</p>
+	<!-- ── Search Section ── -->
+	<section class="search-section" id="search-section">
+		<div class="container">
+			<h2>O busca cualquier ley</h2>
+			<div class="search-section-inner">
+				<div class="search-form" role="search" aria-label="Buscar leyes">
+					<div class="search-row">
+						<label for="search-input" class="sr-only">Buscar leyes</label>
+						<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" aria-label="Buscar leyes" />
+						<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
+					</div>
+					<button type="button" class="filter-toggle" id="filter-toggle">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+						Filtros <span style="font-size:0.625rem">&#9660;</span>
+					</button>
+					<div class="filter-panel" id="filter-panel">
+						<div class="filter-row">
+							<select id="filter-rank" class="filter-select">
+								<option value="">Todos los rangos</option>
+								{ranks.map((r) => (
+									<option value={r.rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
+								))}
+							</select>
+							<select id="filter-status" class="filter-select">
+								<option value="">Todos los estados</option>
+								<option value="vigente">Vigente</option>
+								<option value="derogada">Derogada</option>
+							</select>
+						</div>
+					</div>
 				</div>
 
-				<div class="hero-stats-col">
-					<div class="stats-card">
-						<div class="stats-number">{totalNorms.toLocaleString("es")}</div>
-						<div class="stats-label">Leyes consolidadas</div>
-						<div class="stats-detail">
-							<span>{jurisdictions.length} jurisdicciones</span>
-							<span class="stats-sep">&middot;</span>
-							<span>{reformsDisplay}+ cambios</span>
-							<span class="stats-sep">&middot;</span>
-							<span>{yearsSpan} años de legislación</span>
-						</div>
-						<div class="stats-source">
-							<span class="stats-source-icon">i</span>
-							Información oficial del BOE
-						</div>
-					</div>
+				<div class="search-suggestions" id="search-suggestions">
+					<span>Prueba:</span>
+					<button type="button" class="search-chip" data-query="Constitución">Constitución</button>
+					<button type="button" class="search-chip" data-query="Código Penal">Código Penal</button>
+					<button type="button" class="search-chip" data-query="alquileres">Alquileres</button>
+					<button type="button" class="search-chip" data-query="tráfico">Tráfico</button>
 				</div>
 			</div>
 		</div>
@@ -545,6 +626,63 @@ const JURISDICTION_LABELS: Record<string, string> = {
 
 	<script is:inline define:vars={{ RANK_LABELS, JURISDICTION_LABELS }}>
 		(function () {
+			// Check for returning user
+			try {
+				var saved = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
+				if (saved && saved.materias && saved.materias.length > 0) {
+					var wb = document.getElementById("welcome-back");
+					var defaultHero = document.getElementById("default-hero");
+					if (wb && defaultHero) {
+						var ANSWER_LABELS = {
+							cuenta_ajena: "Empleado/a",
+							autonomo: "Autónomo/a",
+							empresa: "Empresario/a",
+							jubilado: "Jubilado/a",
+							busco_empleo: "Busco empleo",
+							estudiante: "Estudiante",
+							no_trabajo: "No trabajo",
+							sanidad: "Sanidad",
+							educacion: "Educación",
+							admin_publica: "Admin. pública",
+							campo: "Campo/pesca/ganadería",
+							construccion: "Construcción",
+							hosteleria: "Hostelería",
+							transporte: "Transporte",
+							tecnologia: "Tecnología",
+							otro: "Otro sector",
+							alquilo: "Alquiler",
+							hipoteca: "Hipoteca",
+							propietario: "Propietario/a",
+							familiares: "Vivo con familiares",
+							hijos_menores: "Hijos menores",
+							dependiente: "Familiar dependiente",
+							embarazo_baja: "Embarazo/baja"
+						};
+						var JNAMES = {
+							es: "Estatal", "es-an": "Andalucía", "es-ar": "Aragón", "es-as": "Asturias",
+							"es-cb": "Cantabria", "es-cl": "Castilla y León", "es-cm": "Castilla-La Mancha",
+							"es-cn": "Canarias", "es-ct": "Cataluña", "es-ex": "Extremadura", "es-ga": "Galicia",
+							"es-ib": "Illes Balears", "es-mc": "Murcia", "es-md": "Madrid", "es-nc": "Navarra",
+							"es-pv": "País Vasco", "es-ri": "La Rioja", "es-vc": "C. Valenciana"
+						};
+						var a = saved.answers || {};
+						var tagKeys = [];
+						if (a.workStatus) tagKeys.push(a.workStatus);
+						if (a.sector) tagKeys.push(a.sector);
+						if (a.housing) tagKeys.push(a.housing);
+						var pills = tagKeys.map(function(id) { return ANSWER_LABELS[id] || id; }).join(" · ");
+						var jur = JNAMES[saved.jurisdiccion] || saved.jurisdiccion || "";
+						document.getElementById("wb-situations").textContent = pills + (jur ? " · " + jur : "");
+						var wbLink = document.getElementById("wb-link");
+						if (wbLink) {
+							wbLink.href = "/mis-cambios";
+						}
+						wb.style.display = "block";
+						defaultHero.style.display = "none";
+					}
+				}
+			} catch(e) {}
+
 			function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 			var API = document.documentElement.dataset.api;
 			var searchInput = document.getElementById("search-input");
@@ -560,6 +698,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			var LIMIT = 20;
 
 			var heroSection = document.querySelector(".hero-section");
+			var searchSection = document.getElementById("search-section");
 			var suggestions = document.getElementById("search-suggestions");
 
 			// Toggle filters
@@ -662,6 +801,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							var law = result.data[i];
 							html += '<article class="law-card">';
 							html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.title) + '</a>';
+							if (law.citizen_summary) {
+								html += '<p class="law-card-summary">' + esc(law.citizen_summary) + '</p>';
+							}
 							html += '<div class="law-card-meta">';
 							html += '<span class="badge badge-' + esc(law.status) + '">' + esc(law.status) + '</span>';
 							html += '<span class="meta-sep">&middot;</span>';
