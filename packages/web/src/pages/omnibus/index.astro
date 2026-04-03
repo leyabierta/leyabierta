@@ -1,0 +1,222 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Leyes ómnibus"
+	description="Leyes que agrupan múltiples temas no relacionados en una sola norma, obligando a aprobarlos o rechazarlos en bloque."
+	ogTitle="Leyes ómnibus — Ley Abierta"
+	canonicalUrl="/omnibus"
+>
+	<style is:global>
+		.omnibus-wrap {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 0 1rem 3rem;
+		}
+		.omnibus-header {
+			margin-bottom: 2rem;
+		}
+		.omnibus-header h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin-bottom: 0.75rem;
+		}
+		.omnibus-header p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			line-height: 1.6;
+		}
+		.omnibus-rss {
+			margin-top: 0.75rem;
+			font-size: 0.8125rem;
+		}
+		.omnibus-rss a {
+			color: var(--accent);
+		}
+
+		.skeleton-cards {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.skeleton-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+		}
+		.skeleton-line {
+			height: 0.875rem;
+			background: var(--border-light);
+			border-radius: 4px;
+			margin-bottom: 0.625rem;
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+		.skeleton-line:nth-child(2) { width: 75%; }
+		.skeleton-line:nth-child(3) { width: 60%; }
+		@keyframes pulse {
+			0%, 100% { opacity: 0.4; }
+			50% { opacity: 1; }
+		}
+
+		.empty-state {
+			text-align: center;
+			padding: 3rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+		}
+		.empty-state h2 {
+			font-family: var(--font-serif);
+			font-size: 1.375rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.empty-state p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+		}
+
+		.omnibus-list {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.omnibus-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+			transition: box-shadow 0.2s;
+		}
+		.omnibus-card:hover {
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+		}
+		.omnibus-card-date {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+			margin-bottom: 0.25rem;
+		}
+		.omnibus-card h3 {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 600;
+			line-height: 1.4;
+			color: var(--text);
+			margin-bottom: 0.5rem;
+		}
+		.omnibus-card-stats {
+			display: flex;
+			gap: 0.75rem;
+			align-items: center;
+			flex-wrap: wrap;
+			margin-bottom: 0.5rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.omnibus-topic-count {
+			font-weight: 600;
+			color: var(--accent);
+			background: var(--accent-faint);
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+			font-size: 0.75rem;
+		}
+		.omnibus-sneaked-count {
+			font-weight: 600;
+			color: var(--danger);
+			background: var(--danger-bg);
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+			font-size: 0.75rem;
+		}
+		.omnibus-card-link {
+			font-size: 0.8125rem;
+			color: var(--accent-light);
+			font-weight: 500;
+		}
+		.omnibus-card-link:hover {
+			text-decoration: underline;
+		}
+
+		@media (max-width: 640px) {
+			.omnibus-header h1 { font-size: 1.625rem; }
+		}
+	</style>
+
+	<div class="omnibus-wrap">
+		<div class="omnibus-header">
+			<h1>Leyes ómnibus</h1>
+			<p>Estas leyes agrupan múltiples temas no relacionados en una sola norma, obligando a aprobarlos o rechazarlos en bloque. Aquí desglosamos qué contiene cada una.</p>
+			<div class="omnibus-rss">
+				<a href="/v1/feed-omnibus.xml">Suscríbete por RSS</a>
+			</div>
+		</div>
+
+		<div id="omnibus-content">
+			<div class="skeleton-cards">
+				<div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div></div>
+			</div>
+		</div>
+	</div>
+
+	<script is:inline>
+		(function () {
+			var RANK_LABELS = {
+				constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
+				real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+				real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución"
+			};
+
+			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+			var API = document.documentElement.dataset.api;
+			var contentDiv = document.getElementById("omnibus-content");
+
+			fetch(API + "/v1/omnibus?limit=30")
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (!data.data || data.data.length === 0) {
+						contentDiv.innerHTML = '<div class="empty-state"><h2>No hay leyes ómnibus con desglose</h2><p>Aún no se han generado desgloses temáticos. Vuelve pronto.</p></div>';
+						return;
+					}
+
+					var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+					var html = '<div class="omnibus-list">';
+					for (var i = 0; i < data.data.length; i++) {
+						var o = data.data[i];
+						var dateStr = o.latest_reform_date || "";
+						if (dateStr) {
+							var d = new Date(dateStr + "T00:00:00");
+							dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+						}
+						var rankLabel = RANK_LABELS[o.rank] || o.rank || "";
+
+						html += '<div class="omnibus-card">';
+						html += '<div class="omnibus-card-date">' + esc(dateStr) + ' · ' + esc(rankLabel) + '</div>';
+						html += '<h3>' + esc(o.title) + '</h3>';
+						html += '<div class="omnibus-card-stats">';
+						html += '<span class="omnibus-topic-count">' + o.topic_count + ' temas</span>';
+						html += '<span>' + o.materia_count + ' materias</span>';
+						if (o.sneaked_count > 0) {
+							html += '<span class="omnibus-sneaked-count">' + o.sneaked_count + ' medida' + (o.sneaked_count > 1 ? 's' : '') + ' encubierta' + (o.sneaked_count > 1 ? 's' : '') + '</span>';
+						}
+						html += '</div>';
+						html += '<a href="/omnibus/' + encodeURIComponent(o.id) + '" class="omnibus-card-link">Ver desglose →</a>';
+						html += '</div>';
+					}
+					html += '</div>';
+					contentDiv.innerHTML = html;
+				})
+				.catch(function () {
+					contentDiv.innerHTML = '<div class="empty-state"><h2>Error al cargar</h2><p>No se pudieron cargar las leyes ómnibus. Inténtalo de nuevo.</p></div>';
+				});
+		})();
+	</script>
+</Base>

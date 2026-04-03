@@ -168,6 +168,21 @@ const SCHEMA_SQL = /* sql */ `
       REFERENCES reforms(norm_id, date, source_id)
   );
 
+  -- Omnibus law topic breakdowns (AI-generated, per-norm)
+  CREATE TABLE IF NOT EXISTS omnibus_topics (
+    norm_id       TEXT NOT NULL,
+    topic_index   INTEGER NOT NULL,
+    topic_label   TEXT NOT NULL DEFAULT '',
+    headline      TEXT NOT NULL DEFAULT '',
+    summary       TEXT NOT NULL DEFAULT '',
+    article_count INTEGER NOT NULL DEFAULT 0,
+    is_sneaked    INTEGER NOT NULL DEFAULT 0,
+    generated_at  TEXT NOT NULL DEFAULT '',
+    model         TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (norm_id, topic_index),
+    FOREIGN KEY (norm_id) REFERENCES norms(id)
+  );
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,

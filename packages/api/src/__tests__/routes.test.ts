@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
 import { lawRoutes } from "../routes/laws.ts";
+import { omnibusRoutes } from "../routes/omnibus.ts";
 import { LruCache } from "../services/cache.ts";
 import { DbService } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
@@ -36,6 +37,7 @@ beforeEach(() => {
 
 	app = new Elysia()
 		.use(lawRoutes(dbService, gitStub, diffCache))
+		.use(omnibusRoutes(dbService))
 		.get("/health", () => ({
 			status: "ok",
 			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
@@ -473,4 +475,82 @@ function insertReformBlock(
 		[normId, date, sourceId, blockId],
 	);
 }
+
+// ---------------------------------------------------------------------------
+// Omnibus endpoints
+// ---------------------------------------------------------------------------
+
+describe("GET /v1/omnibus", () => {
+	it("returns empty list when no omnibus topics exist", async () => {
+		const { status, body } = await json("/v1/omnibus");
+		expect(status).toBe(200);
+		expect(body.data).toEqual([]);
+	});
+
+	it("returns omnibus norms with topics", async () => {
+		insertNorm({ id: "OT1", title: "Ley Omnibus Test" });
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", ["OT1", "2026-03-20", "OT1"]);
+		for (let i = 0; i < 16; i++) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["OT1", "Materia" + i]);
+		}
+		dbService.upsertOmnibusTopic("OT1", 0, {
+			topicLabel: "Fiscal", headline: "H", summary: "S", articleCount: 5, isSneaked: false, model: "t",
+		});
+		dbService.upsertOmnibusTopic("OT1", 1, {
+			topicLabel: "Penal", headline: "H2", summary: "S2", articleCount: 1, isSneaked: true, model: "t",
+		});
+
+		const { status, body } = await json("/v1/omnibus");
+		expect(status).toBe(200);
+		expect(body.data).toHaveLength(1);
+		expect(body.data[0].id).toBe("OT1");
+		expect(body.data[0].topic_count).toBe(2);
+		expect(body.data[0].sneaked_count).toBe(1);
+	});
+});
+
+describe("GET /v1/omnibus/:normId", () => {
+	it("returns 404 for unknown norm", async () => {
+		const { status, body } = await json("/v1/omnibus/NONEXISTENT");
+		expect(status).toBe(404);
+		expect(body.error).toBeDefined();
+	});
+
+	it("returns detail with topics", async () => {
+		insertNorm({ id: "OT2", title: "Detail Test" });
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["OT2", "Energia"]);
+		dbService.upsertOmnibusTopic("OT2", 0, {
+			topicLabel: "Energía", headline: "Cambios energéticos", summary: "Se modifica la ley eléctrica", articleCount: 8, isSneaked: false, model: "t",
+		});
+
+		const { status, body } = await json("/v1/omnibus/OT2");
+		expect(status).toBe(200);
+		expect(body.title).toBe("Detail Test");
+		expect(body.topics).toHaveLength(1);
+		expect(body.topics[0].topic_label).toBe("Energía");
+		expect(body.sneaked_count).toBe(0);
+	});
+});
+
+describe("GET /v1/feed-omnibus.xml", () => {
+	it("returns valid RSS XML", async () => {
+		insertNorm({ id: "OT3", title: "RSS & Test <Law>" });
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", ["OT3", "2026-03-25", "OT3"]);
+		for (let i = 0; i < 16; i++) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["OT3", "M" + i]);
+		}
+		dbService.upsertOmnibusTopic("OT3", 0, {
+			topicLabel: "Fiscal", headline: "H", summary: "S", articleCount: 3, isSneaked: false, model: "t",
+		});
+
+		const res = await app.handle(new Request("http://localhost/v1/feed-omnibus.xml"));
+		expect(res.status).toBe(200);
+		const text = await res.text();
+		expect(text).toContain("<?xml");
+		expect(text).toContain("<rss");
+		// Verify XML escaping
+		expect(text).toContain("RSS &amp; Test &lt;Law&gt;");
+		expect(text).toContain("Fiscal");
+	});
+});
 

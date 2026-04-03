@@ -4,6 +4,15 @@
 
 import type { Database } from "bun:sqlite";
 
+// Generic materias that apply to almost every citizen — filtering only on these
+// produces too much noise. Reforms must also match a situation-specific materia.
+const BASE_MATERIAS = [
+	"Impuesto sobre la Renta de las Personas Físicas",
+	"Seguridad Social",
+	"Consumidores y usuarios",
+	"Derechos de los ciudadanos",
+];
+
 export interface LawRow {
 	id: string;
 	title: string;
@@ -762,6 +771,7 @@ export class DbService {
 		summary: string | null;
 		reform_type: string | null;
 		importance: string | null;
+		materia_count: number;
 	}> {
 		if (materias.length === 0) return [];
 
@@ -774,9 +784,23 @@ export class DbService {
 				? "(n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
 				: `(n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`;
 
+		// Filter out reforms that only match on generic base materias.
+		// If the user has non-base materias, require at least one non-base match.
+		const nonBaseMaterias = materias.filter(
+			(m) => !BASE_MATERIAS.includes(m),
+		);
+		let nonBaseClause = "";
+		const nonBasePlaceholders: string[] = [];
+		if (nonBaseMaterias.length > 0) {
+			const ph = nonBaseMaterias.map(() => "?").join(",");
+			nonBaseClause = `AND EXISTS (SELECT 1 FROM materias m2 WHERE m2.norm_id = r.norm_id AND m2.materia IN (${ph}))`;
+			nonBasePlaceholders.push(...nonBaseMaterias);
+		}
+
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
-				rs.headline, rs.summary, rs.reform_type, rs.importance
+				rs.headline, rs.summary, rs.reform_type, rs.importance,
+				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
 			JOIN materias m ON m.norm_id = r.norm_id
@@ -786,6 +810,7 @@ export class DbService {
 			  AND m.materia IN (${placeholders})
 			  AND ${jurisdictionClause}
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
+			  ${nonBaseClause}
 			ORDER BY r.date DESC
 		`;
 
@@ -802,10 +827,11 @@ export class DbService {
 					summary: string | null;
 					reform_type: string | null;
 					importance: string | null;
+					materia_count: number;
 				},
 				unknown[]
 			>(sql)
-			.all(since, ...materias);
+			.all(since, ...materias, ...nonBasePlaceholders);
 	}
 
 	getChangelog(
@@ -823,6 +849,7 @@ export class DbService {
 		summary: string | null;
 		reform_type: string | null;
 		importance: string | null;
+		materia_count: number;
 	}> {
 		const jurisdictionClause = jurisdiction
 			? jurisdiction === "es"
@@ -832,7 +859,8 @@ export class DbService {
 
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
-				rs.headline, rs.summary, rs.reform_type, rs.importance
+				rs.headline, rs.summary, rs.reform_type, rs.importance,
+				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
 			LEFT JOIN reform_summaries rs
@@ -857,6 +885,7 @@ export class DbService {
 					summary: string | null;
 					reform_type: string | null;
 					importance: string | null;
+					materia_count: number;
 				},
 				[string, number]
 			>(sql)
@@ -1120,5 +1149,149 @@ export class DbService {
 			prev_reform_date: prevDate,
 			next_reform_date: nextDate,
 		};
+	}
+
+	// ── Omnibus ──
+
+	upsertOmnibusTopic(
+		normId: string,
+		topicIndex: number,
+		data: {
+			topicLabel: string;
+			headline: string;
+			summary: string;
+			articleCount: number;
+			isSneaked: boolean;
+			model: string;
+		},
+	): void {
+		this.db
+			.query(
+				`INSERT OR REPLACE INTO omnibus_topics
+				 (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, generated_at, model)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+			)
+			.run(
+				normId,
+				topicIndex,
+				data.topicLabel,
+				data.headline,
+				data.summary,
+				data.articleCount,
+				data.isSneaked ? 1 : 0,
+				data.model,
+			);
+	}
+
+	getOmnibusTopics(
+		normId: string,
+	): Array<{
+		topic_index: number;
+		topic_label: string;
+		headline: string;
+		summary: string;
+		article_count: number;
+		is_sneaked: number;
+	}> {
+		return this.db
+			.query<
+				{
+					topic_index: number;
+					topic_label: string;
+					headline: string;
+					summary: string;
+					article_count: number;
+					is_sneaked: number;
+				},
+				[string]
+			>(
+				`SELECT topic_index, topic_label, headline, summary, article_count, is_sneaked
+				 FROM omnibus_topics WHERE norm_id = ? ORDER BY topic_index`,
+			)
+			.all(normId);
+	}
+
+	listRecentOmnibus(
+		limit = 20,
+		since?: string,
+	): Array<{
+		id: string;
+		title: string;
+		rank: string;
+		materia_count: number;
+		topic_count: number;
+		sneaked_count: number;
+		latest_reform_date: string;
+	}> {
+		const sinceClause = since ? "AND r.date >= ?" : "";
+		const params: unknown[] = since ? [since, limit] : [limit];
+
+		return this.db
+			.query<
+				{
+					id: string;
+					title: string;
+					rank: string;
+					materia_count: number;
+					topic_count: number;
+					sneaked_count: number;
+					latest_reform_date: string;
+				},
+				unknown[]
+			>(
+				`SELECT n.id, n.title, n.rank,
+					(SELECT COUNT(*) FROM materias WHERE norm_id = n.id) as materia_count,
+					(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = n.id) as topic_count,
+					(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = n.id AND is_sneaked = 1) as sneaked_count,
+					MAX(r.date) as latest_reform_date
+				FROM norms n
+				JOIN reforms r ON r.norm_id = n.id
+				WHERE n.id IN (SELECT DISTINCT norm_id FROM omnibus_topics)
+				  ${sinceClause}
+				GROUP BY n.id
+				HAVING (SELECT COUNT(*) FROM materias WHERE norm_id = n.id) >= 15
+				ORDER BY latest_reform_date DESC
+				LIMIT ?`,
+			)
+			.all(...params);
+	}
+
+	getOmnibusDetail(normId: string): {
+		id: string;
+		title: string;
+		rank: string;
+		status: string;
+		materia_count: number;
+		topics: Array<{
+			topic_index: number;
+			topic_label: string;
+			headline: string;
+			summary: string;
+			article_count: number;
+			is_sneaked: number;
+		}>;
+	} | null {
+		const norm = this.db
+			.query<
+				{
+					id: string;
+					title: string;
+					rank: string;
+					status: string;
+					materia_count: number;
+				},
+				[string]
+			>(
+				`SELECT n.id, n.title, n.rank, n.status,
+					(SELECT COUNT(*) FROM materias WHERE norm_id = n.id) as materia_count
+				FROM norms n WHERE n.id = ?`,
+			)
+			.get(normId);
+
+		if (!norm) return null;
+
+		const topics = this.getOmnibusTopics(normId);
+
+		return { ...norm, topics };
 	}
 }

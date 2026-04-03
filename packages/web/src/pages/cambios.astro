@@ -247,6 +247,7 @@ import Base from "../layouts/Base.astro";
 		<div class="cambios-header">
 			<h1>Últimos cambios legislativos</h1>
 			<p>Las novedades legislativas más recientes, explicadas en lenguaje ciudadano.</p>
+			<p style="margin-top: 0.5rem;"><a href="/omnibus" style="color: var(--accent); font-size: 0.875rem; font-weight: 500;">Ver leyes ómnibus recientes →</a></p>
 			<div class="cambios-filters">
 				<select id="jur-filter">
 					<option value="">Todas las jurisdicciones</option>
@@ -371,6 +372,8 @@ import Base from "../layouts/Base.astro";
 							html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
+							var mc = r.materia_count || 0;
+							if (mc >= 15) html += '<a href="/omnibus/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + mc + ' temas)</a>';
 							html += '</div>';
 
 							if (hasHeadline) {
