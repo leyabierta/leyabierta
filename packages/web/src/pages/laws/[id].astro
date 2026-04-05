@@ -217,6 +217,37 @@ const articleCount = law.articulos ?? 0;
 		.law-content :global(hr) { border: none; border-top: 1px solid var(--border-light); margin: 1.5rem 0 0.75rem; }
 
 		/* ── Resumen components ── */
+		/* ── Omnibus banner ── */
+		.omnibus-banner {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+			padding: 0.875rem 1rem;
+			background: var(--warning-bg, #fff3cd);
+			border: 1px solid var(--warning-border, #ffc107);
+			border-radius: 10px;
+			margin-bottom: 1.25rem;
+			text-decoration: none;
+			transition: box-shadow 0.15s;
+		}
+		.omnibus-banner:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-decoration: none; }
+		.omnibus-banner-badge {
+			font-size: 0.75rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: var(--warning, #856404);
+			background: rgba(255,193,7,0.2);
+			padding: 0.25rem 0.625rem;
+			border-radius: 5px;
+			white-space: nowrap;
+		}
+		.omnibus-banner-text {
+			font-size: 0.875rem;
+			color: var(--warning, #856404);
+			line-height: 1.4;
+		}
+
 		.quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
 		.stat-card { display: flex; align-items: center; gap: 0.625rem; padding: 0.875rem 1rem; background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; }
 		.stat-value { font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
@@ -406,6 +437,13 @@ const articleCount = law.articulos ?? 0;
 
 	<!-- Tab: Resumen (static) -->
 	<div class="tab-panel active" id="tab-resumen">
+		{materias.length >= 15 && (
+			<a href={`/omnibus/detalle?id=${id}`} class="omnibus-banner">
+				<span class="omnibus-banner-badge">Ley ómnibus</span>
+				<span class="omnibus-banner-text">Esta ley agrupa {materias.length} temas distintos en una sola norma. Ver desglose por temas →</span>
+			</a>
+		)}
+
 		<div class="quick-stats">
 			{articleCount > 0 && (
 				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
