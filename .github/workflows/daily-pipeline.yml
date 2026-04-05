@@ -130,6 +130,12 @@ jobs:
           app-name: pipeline
           new-status: "⏳ **pipeline** — Fetching norms from BOE..."
 
+      - name: Configure git identity
+        working-directory: leyes
+        run: |
+          git config user.name "Ley Abierta"
+          git config user.email "bot@leyabierta.es"
+
       - name: Run pipeline
         run: bun run pipeline bootstrap --country es --concurrency 4 ${{ steps.mode.outputs.force }}
         env:
