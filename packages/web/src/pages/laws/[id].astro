@@ -248,6 +248,28 @@ const articleCount = law.articulos ?? 0;
 			line-height: 1.4;
 		}
 
+		/* ── View toggle ── */
+		.view-toggle {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			padding: 0.5rem 0;
+			border: none;
+			background: none;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--accent);
+			cursor: pointer;
+			font-family: var(--font-sans);
+			margin-bottom: 1rem;
+		}
+		.view-toggle:hover { text-decoration: underline; }
+		.technical-details {
+			border-top: 1px solid var(--border-light);
+			padding-top: 1.25rem;
+			margin-top: 0.5rem;
+		}
+
 		.quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
 		.stat-card { display: flex; align-items: center; gap: 0.625rem; padding: 0.875rem 1rem; background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; }
 		.stat-value { font-variant-numeric: tabular-nums; font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
@@ -444,18 +466,7 @@ const articleCount = law.articulos ?? 0;
 			</a>
 		)}
 
-		<div class="quick-stats">
-			{articleCount > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
-			)}
-			{reforms.length > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{reforms.length}</div><div class="stat-label">Versiones</div></div></div>
-			)}
-			{materias.length > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Temas</div></div></div>
-			)}
-		</div>
-
+		<!-- Citizen view (default) -->
 		{citizenSummary && (
 			<p class="citizen-summary">{citizenSummary}</p>
 		)}
@@ -468,63 +479,83 @@ const articleCount = law.articulos ?? 0;
 			</div>
 		)}
 
-		<div class="card">
-			<h3 class="card-heading">Información general</h3>
-			<div class="meta-grid">
-				<div><div class="meta-item-label">Rango</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
-				<div><div class="meta-item-label">Estado</div><div class="meta-item-value">{capitalize(law.estado)}</div></div>
-				<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">{formatDate(law.fecha_publicacion)}</div></div>
-				<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">{law.departamento}</div></div>
-			</div>
+		<div class="quick-stats">
+			{articleCount > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
+			)}
+			{reforms.length > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{reforms.length}</div><div class="stat-label">Versiones</div></div></div>
+			)}
+			{materias.length > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Temas</div></div></div>
+			)}
 		</div>
 
-		{materias.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Temas</h3>
-				<div>
-					{materias.map((m) => (
-						<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
-					))}
+		<!-- Toggle for technical details -->
+		<button type="button" class="view-toggle" id="view-toggle" aria-expanded="false">
+			Ver información completa ▸
+		</button>
+
+		<!-- Technical view (hidden by default) -->
+		<div class="technical-details" id="technical-details" style="display:none;">
+			<div class="card">
+				<h3 class="card-heading">Información general</h3>
+				<div class="meta-grid">
+					<div><div class="meta-item-label">Rango</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
+					<div><div class="meta-item-label">Estado</div><div class="meta-item-value">{capitalize(law.estado.replace(/_/g, ' '))}</div></div>
+					<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">{formatDate(law.fecha_publicacion)}</div></div>
+					<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">{law.departamento}</div></div>
 				</div>
 			</div>
-		)}
 
-		{notas.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Notas</h3>
-				{notas.map((nota) => (
-					<p class="nota-item">{nota}</p>
-				))}
-			</div>
-		)}
+			{materias.length > 0 && (
+				<div class="section">
+					<h3 class="section-heading">Categorías del BOE</h3>
+					<div>
+						{materias.map((m) => (
+							<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
+						))}
+					</div>
+				</div>
+			)}
 
-		{refsAnt.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Esta ley se basa en</h3>
-				<ul class="ref-list">
-					{refsAnt.map((ref) => (
-						<li>
-							{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-							{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
-						</li>
+			{notas.length > 0 && (
+				<div class="section">
+					<h3 class="section-heading">Notas del BOE</h3>
+					{notas.map((nota) => (
+						<p class="nota-item">{nota}</p>
 					))}
-				</ul>
-			</div>
-		)}
+				</div>
+			)}
 
-		{refsPost.length > 0 && (
-			<div class="section">
-				<h3 class="section-heading">Leyes que modifican esta</h3>
-				<ul class="ref-list">
-					{refsPost.map((ref) => (
-						<li>
-							{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-							{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
-						</li>
-					))}
-				</ul>
-			</div>
-		)}
+			{refsAnt.length > 0 && (
+				<div class="section">
+					<h3 class="section-heading">Leyes en las que se basa</h3>
+					<ul class="ref-list">
+						{refsAnt.map((ref) => (
+							<li>
+								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
+								{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+
+			{refsPost.length > 0 && (
+				<div class="section">
+					<h3 class="section-heading">Leyes que la modifican</h3>
+					<ul class="ref-list">
+						{refsPost.map((ref) => (
+							<li>
+								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
+								{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+		</div>
 
 		<!-- Follow this law -->
 		<div class="follow-card" id="follow-card">
@@ -592,6 +623,17 @@ const articleCount = law.articulos ?? 0;
 				document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
 			});
 		});
+		// View toggle: citizen (default) vs technical details
+		var toggleBtn = document.getElementById('view-toggle');
+		var techDetails = document.getElementById('technical-details');
+		if (toggleBtn && techDetails) {
+			toggleBtn.addEventListener('click', function() {
+				var isOpen = techDetails.style.display !== 'none';
+				techDetails.style.display = isOpen ? 'none' : 'block';
+				toggleBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+				toggleBtn.textContent = isOpen ? 'Ver información completa \u25B8' : 'Ocultar información completa \u25BE';
+			});
+		}
 	</script>
 
 	<!-- Follow form handler -->
