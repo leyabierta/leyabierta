@@ -25,6 +25,7 @@ const hasFlag = (name: string) => args.includes(`--${name}`);
 const limitArg = getArg("limit");
 const normIdArg = getArg("norm-id");
 const force = hasFlag("force");
+const skipArticles = hasFlag("skip-articles");
 
 // ── Load .env manually ──
 
@@ -161,6 +162,7 @@ console.log(`\n═══ Citizen Tag Generation ═══`);
 console.log(`Model: ${MODEL}`);
 console.log(`Norms: ${norms.length}`);
 console.log(`Force: ${force}`);
+console.log(`Skip articles: ${skipArticles}`);
 console.log("");
 
 // ── Cost tracking ──
@@ -372,7 +374,13 @@ ${articleText.slice(0, 2000)}`;
 		`[${i + 1}/${norms.length}] ${norm.id} — ${tagPreview}... ($${lawResult.cost.toFixed(4)})`,
 	);
 
-	// ── Article-level tagging ──
+	// ── Article-level tagging (skip with --skip-articles) ──
+
+	if (skipArticles) {
+		processedCount++;
+		await Bun.sleep(DELAY_MS);
+		continue;
+	}
 
 	const preceptoBlocks = selectPreceptoBlocks.all(
 		norm.id,
