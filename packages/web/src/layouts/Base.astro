@@ -545,8 +545,9 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Menú" aria-expanded="false">☰</button>
 			<div class="nav-links" id="nav-links">
 				<a href="/">Buscar</a>
-				<a href="/mi-situacion">Mi situación</a>
+				<a href="/mi-situacion" id="nav-mis-cambios">Mi situación</a>
 				<a href="/cambios">Cambios recientes</a>
+				<a href="/omnibus">Ómnibus</a>
 				<a href="/sobre-leyabierta">Sobre nosotros</a>
 				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
@@ -592,13 +593,14 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 					menuBtn.textContent = isOpen ? "\u2715" : "\u2630";
 				});
 			}
-			// Dynamic "Mis cambios" nav link
+			// Dynamic "Mis cambios" nav link — show personalized link when profile exists
 			var navLink = document.getElementById("nav-mis-cambios");
 			if (navLink) {
 				try {
 					var saved = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
 					if (saved && saved.materias && saved.materias.length > 0) {
 						navLink.href = "/mis-cambios";
+						navLink.textContent = "Mis cambios";
 					}
 				} catch (e) {}
 			}

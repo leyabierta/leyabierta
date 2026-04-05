@@ -40,9 +40,26 @@ import Base from "../../layouts/Base.astro";
 			margin-bottom: 0.5rem;
 		}
 		.omnibus-detail-links {
-			font-size: 0.8125rem;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			margin-top: 0.25rem;
 		}
 		.omnibus-detail-links a {
+			display: inline-flex;
+			align-items: center;
+			padding: 0.4rem 0.875rem;
+			border: 1.5px solid var(--border);
+			border-radius: 8px;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--text-secondary);
+			background: var(--surface);
+			text-decoration: none;
+			transition: all 0.15s;
+		}
+		.omnibus-detail-links a:hover {
+			border-color: var(--accent);
 			color: var(--accent);
 		}
 
@@ -216,11 +233,11 @@ import Base from "../../layouts/Base.astro";
 					subtitleEl.textContent = data.title || "";
 					document.title = shortTitle + " — Ley ómnibus — Ley Abierta";
 					metaEl.innerHTML = esc(rankLabel) + ' · ' + data.materia_count + ' materias · ' + data.topics.length + ' temas' + (data.sneaked_count > 0 ? ' · <span style="color:var(--danger);font-weight:600;">' + data.sneaked_count + ' tema' + (data.sneaked_count > 1 ? 's' : '') + ' no relacionado' + (data.sneaked_count > 1 ? 's' : '') + ' con el título</span>' : '');
-					var links = '<a href="/laws/' + encodeURIComponent(data.id) + '">Ver ley completa →</a>';
+					var links = '<a href="/laws/' + encodeURIComponent(data.id) + '">Ver ley completa</a>';
 					if (data.latest_reform_date) {
-						links += ' · <a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '">Ver qué cambió →</a>';
+						links += '<a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '">Ver qué cambió</a>';
 					}
-					links += ' · <a href="/omnibus">Todas las leyes ómnibus</a>';
+					links += '<a href="/omnibus">Todas las leyes ómnibus</a>';
 					linksEl.innerHTML = links;
 
 					if (!data.topics || data.topics.length === 0) {

@@ -162,7 +162,7 @@ import Base from "../layouts/Base.astro";
 	</style>
 
 	<div class="reforma-wrap">
-		<a href="/mis-cambios" class="reforma-back">&larr; Volver a mis cambios</a>
+		<a href="/mis-cambios" class="reforma-back" id="reforma-back">&larr; Volver a mis cambios</a>
 		<div id="reforma-content">
 			<div class="reforma-header">
 				<div class="skeleton-line" style="width:30%"></div>
@@ -178,6 +178,17 @@ import Base from "../layouts/Base.astro";
 
 	<script is:inline>
 		(function () {
+			// Context-aware back link
+			var backLink = document.getElementById("reforma-back");
+			if (backLink) {
+				var params = new URLSearchParams(window.location.search);
+				var from = params.get("from");
+				if (from === "cambios") {
+					backLink.href = "/cambios";
+					backLink.innerHTML = "&larr; Volver a cambios recientes";
+				}
+			}
+
 			var RANK_LABELS = {
 				constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
 				real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
@@ -384,7 +395,9 @@ import Base from "../layouts/Base.astro";
 					document.head.appendChild(script);
 				})
 				.catch(function () {
-					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="/mis-cambios" style="color:var(--accent)">Volver a mis cambios</a></div>';
+					var errorBackHref = from === "cambios" ? "/cambios" : "/mis-cambios";
+					var errorBackLabel = from === "cambios" ? "Volver a cambios recientes" : "Volver a mis cambios";
+					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="' + errorBackHref + '" style="color:var(--accent)">' + errorBackLabel + '</a></div>';
 				});
 		})();
 	</script>

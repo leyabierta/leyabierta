@@ -337,8 +337,8 @@ import Base from "../layouts/Base.astro";
 		</div>
 
 		<section class="email-cta" id="email-cta" style="display:none">
-			<h2>¿Quieres recibir esto cada lunes?</h2>
-			<p>Un email a la semana. Sin spam.</p>
+			<h2>¿Quieres recibir avisos por email?</h2>
+			<p>Te avisamos cuando cambien leyes que te afectan. Sin spam, solo lo relevante.</p>
 			<form id="email-form">
 				<input type="email" placeholder="tu@email.com" required autocomplete="email" id="email-input" />
 				<div class="consent-row">
@@ -495,6 +495,7 @@ import Base from "../layouts/Base.astro";
 								html += '<div class="reform-card reform-card-compact">';
 								html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 								html += ' · <span class="reform-type-badge">' + esc(r.headline) + '</span>';
+								html += ' · <a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver →</a>';
 								html += '</div>';
 								continue;
 							}
@@ -541,7 +542,7 @@ import Base from "../layouts/Base.astro";
 							if (rankLabel) html += '<span>' + esc(rankLabel) + '</span>';
 							if (statusLabel) html += '<span class="' + statusClass + '">' + esc(statusLabel) + '</span>';
 							html += '</div>';
-							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '" class="reform-link">Ver qué cambió →</a>';
+							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
 							html += '</div>';
 						}
 						html += '</div>';
