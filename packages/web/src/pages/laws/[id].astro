@@ -288,6 +288,16 @@ const articleCount = law.articulos ?? 0;
 			margin-bottom: 1.25rem;
 			font-style: italic;
 		}
+		.citizen-summary-empty {
+			font-size: 0.9375rem;
+			color: var(--text-tertiary, var(--text-secondary));
+			line-height: 1.6;
+			margin-bottom: 1.25rem;
+			padding: 1rem 1.25rem;
+			background: var(--surface-alt, var(--surface));
+			border-radius: 8px;
+			border-left: 3px solid var(--border);
+		}
 		.citizen-tags {
 			display: flex;
 			flex-wrap: wrap;
@@ -411,7 +421,26 @@ const articleCount = law.articulos ?? 0;
 		}
 	</style>
 
-	<a href="/" class="back-link">&larr; Volver</a>
+	<a href="/" class="back-link" id="back-link">&larr; Volver</a>
+	<script is:inline>
+		(function() {
+			var link = document.getElementById("back-link");
+			if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
+				link.addEventListener("click", function(e) {
+					e.preventDefault();
+					history.back();
+				});
+				var refPath = new URL(document.referrer).pathname;
+				if (refPath === "/" || refPath.indexOf("/?") === 0) {
+					link.textContent = "\u2190 Volver a resultados";
+				} else if (refPath === "/cambios") {
+					link.textContent = "\u2190 Volver a cambios recientes";
+				} else if (refPath === "/mis-cambios") {
+					link.textContent = "\u2190 Volver a mis cambios";
+				}
+			}
+		})();
+	</script>
 
 	<div class="law-header">
 		<div>
@@ -467,8 +496,10 @@ const articleCount = law.articulos ?? 0;
 		)}
 
 		<!-- Citizen view (default) -->
-		{citizenSummary && (
+		{citizenSummary ? (
 			<p class="citizen-summary">{citizenSummary}</p>
+		) : (
+			<p class="citizen-summary-empty">Todavía no hemos generado un resumen simplificado para esta ley. Mientras tanto, puedes consultar el texto completo en la pestaña correspondiente.</p>
 		)}
 
 		{citizenTags.length > 0 && (
