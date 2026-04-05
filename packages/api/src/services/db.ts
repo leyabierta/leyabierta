@@ -3,15 +3,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-
-// Generic materias that apply to almost every citizen — filtering only on these
-// produces too much noise. Reforms must also match a situation-specific materia.
-const BASE_MATERIAS = [
-	"Impuesto sobre la Renta de las Personas Físicas",
-	"Seguridad Social",
-	"Consumidores y usuarios",
-	"Derechos de los ciudadanos",
-];
+import { BASE_MATERIAS } from "../data/materia-mappings.ts";
 
 export interface LawRow {
 	id: string;

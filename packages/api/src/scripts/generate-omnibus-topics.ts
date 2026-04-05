@@ -342,27 +342,30 @@ async function main() {
 				continue;
 			}
 
-			// Delete existing topics if regenerating
-			if (force) {
-				db.query("DELETE FROM omnibus_topics WHERE norm_id = ?").run(norm.id);
-			}
+			// Wrap delete + upserts in a transaction so --force doesn't lose
+			// data if the upsert loop fails partway through.
+			db.transaction(() => {
+				if (force) {
+					db.query("DELETE FROM omnibus_topics WHERE norm_id = ?").run(norm.id);
+				}
 
-			for (let i = 0; i < topics.length; i++) {
-				const t = topics[i];
-				// Filter out BASE_MATERIAS and validate against actual norm materias
-				const filteredRelatedMaterias = t.related_materias.filter(
-					(m) => !BASE_MATERIAS.includes(m) && materias.includes(m),
-				);
-				dbService.upsertOmnibusTopic(norm.id, i, {
-					topicLabel: t.topic_label,
-					headline: t.headline,
-					summary: t.summary,
-					articleCount: t.article_count,
-					isSneaked: t.sneaked_in,
-					relatedMaterias: JSON.stringify(filteredRelatedMaterias),
-					model: modelId,
-				});
-			}
+				for (let i = 0; i < topics.length; i++) {
+					const t = topics[i];
+					// Filter out BASE_MATERIAS and validate against actual norm materias
+					const filteredRelatedMaterias = t.related_materias.filter(
+						(m) => !BASE_MATERIAS.includes(m) && materias.includes(m),
+					);
+					dbService.upsertOmnibusTopic(norm.id, i, {
+						topicLabel: t.topic_label,
+						headline: t.headline,
+						summary: t.summary,
+						articleCount: t.article_count,
+						isSneaked: t.sneaked_in,
+						relatedMaterias: JSON.stringify(filteredRelatedMaterias),
+						model: modelId,
+					});
+				}
+			})();
 
 			totalCost += result.cost;
 			processed++;
@@ -372,9 +375,18 @@ async function main() {
 				`  ✅ ${norm.materia_count} materias | ${topics.length} topics | ${sneakedCount} sneaked | $${result.cost.toFixed(6)} | ${norm.title.slice(0, 50)}`,
 			);
 		} catch (err) {
-			if (err instanceof OpenRouterError && err.code.startsWith("http_40")) {
-				console.error(`  ❌ Auth error: ${err.message}`);
-				process.exit(1);
+			if (err instanceof OpenRouterError) {
+				if (err.code === "http_401" || err.code === "http_403") {
+					console.error(`  ❌ Auth error: ${err.message}`);
+					process.exit(1);
+				}
+				if (err.code === "http_429") {
+					console.warn(
+						`  ⏳ Rate limited on ${norm.id} — waiting 30s before retry...`,
+					);
+					await Bun.sleep(30_000);
+					// Skip error count, norm will be retried on next --force run
+				}
 			}
 			console.error(
 				`  ❌ ${norm.id}: ${err instanceof Error ? err.message : err}`,

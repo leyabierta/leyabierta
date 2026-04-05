@@ -17,8 +17,15 @@ export function omnibusRoutes(dbService: DbService) {
 		.get(
 			"/omnibus",
 			({ query }) => {
-				const limit = query.limit ? Math.min(Number(query.limit), 50) : 20;
-				const since = query.since || undefined;
+				const rawLimit = Number(query.limit);
+				const limit =
+					Number.isFinite(rawLimit) && rawLimit > 0
+						? Math.min(rawLimit, 50)
+						: 20;
+				const since =
+					query.since && /^\d{4}-\d{2}-\d{2}$/.test(query.since)
+						? query.since
+						: undefined;
 
 				const omnibus = dbService.listRecentOmnibus(limit, since);
 
