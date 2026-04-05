@@ -144,6 +144,35 @@ import Base from "../../layouts/Base.astro";
 			text-decoration: underline;
 		}
 
+		.omnibus-filters {
+			display: flex;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+			margin-bottom: 1.5rem;
+		}
+		.omnibus-filter-chip {
+			display: inline-block;
+			padding: 0.25rem 0.75rem;
+			border-radius: 20px;
+			font-size: 0.8125rem;
+			border: 1px solid var(--border-light);
+			background: var(--surface);
+			color: var(--text-secondary);
+			cursor: pointer;
+			transition: all 0.15s;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+		.omnibus-filter-chip:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+		.omnibus-filter-chip.active {
+			background: var(--accent);
+			color: white;
+			border-color: var(--accent);
+		}
+
 		@media (max-width: 640px) {
 			.omnibus-header h1 { font-size: 1.625rem; }
 		}
@@ -156,6 +185,13 @@ import Base from "../../layouts/Base.astro";
 			<div class="omnibus-rss">
 				<a href="/v1/feed-omnibus.xml">Suscríbete por RSS</a>
 			</div>
+		</div>
+
+		<div class="omnibus-filters" id="omnibus-filters" style="display:none;">
+			<span class="omnibus-filter-chip active" data-filter="all">Todas</span>
+			<span class="omnibus-filter-chip" data-filter="sneaked">Solo con temas no relacionados</span>
+			<span class="omnibus-filter-chip" data-filter="rdl">Real Decreto-ley</span>
+			<span class="omnibus-filter-chip" data-filter="ley">Ley / Ley Orgánica</span>
 		</div>
 
 		<div id="omnibus-content">
@@ -178,41 +214,76 @@ import Base from "../../layouts/Base.astro";
 
 			var API = document.documentElement.dataset.api;
 			var contentDiv = document.getElementById("omnibus-content");
+			var filtersDiv = document.getElementById("omnibus-filters");
+			var allData = [];
+			var activeFilter = "all";
 
-			fetch(API + "/v1/omnibus?limit=30")
+			function renderCards(items) {
+				if (items.length === 0) {
+					contentDiv.innerHTML = '<div class="empty-state"><h2>No hay resultados</h2><p>No hay leyes ómnibus que coincidan con este filtro. Prueba a ampliar la búsqueda.</p></div>';
+					return;
+				}
+				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+				var html = '<div class="omnibus-list">';
+				for (var i = 0; i < items.length; i++) {
+					var o = items[i];
+					var dateStr = o.latest_reform_date || "";
+					if (dateStr) {
+						var d = new Date(dateStr + "T00:00:00");
+						dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+					}
+					var rankLabel = RANK_LABELS[o.rank] || o.rank || "";
+
+					html += '<div class="omnibus-card">';
+					html += '<div class="omnibus-card-date">' + esc(dateStr) + ' · ' + esc(rankLabel) + '</div>';
+					html += '<h3>' + esc(o.title) + '</h3>';
+					html += '<div class="omnibus-card-stats">';
+					html += '<span class="omnibus-topic-count">' + o.topic_count + ' temas</span>';
+					html += '<span>' + o.materia_count + ' materias</span>';
+					if (o.sneaked_count > 0) {
+						html += '<span class="omnibus-sneaked-count">' + o.sneaked_count + ' tema' + (o.sneaked_count > 1 ? 's' : '') + ' no relacionado' + (o.sneaked_count > 1 ? 's' : '') + ' con el título</span>';
+					}
+					html += '</div>';
+					html += '<a href="/omnibus/detalle?id=' + encodeURIComponent(o.id) + '" class="omnibus-card-link">Ver desglose →</a>';
+					html += '</div>';
+				}
+				html += '</div>';
+				contentDiv.innerHTML = html;
+			}
+
+			function applyFilter() {
+				var filtered = allData;
+				if (activeFilter === "sneaked") {
+					filtered = allData.filter(function (o) { return o.sneaked_count > 0; });
+				} else if (activeFilter === "rdl") {
+					filtered = allData.filter(function (o) { return o.rank === "real_decreto_ley"; });
+				} else if (activeFilter === "ley") {
+					filtered = allData.filter(function (o) { return o.rank === "ley" || o.rank === "ley_organica"; });
+				}
+				renderCards(filtered);
+			}
+
+			// Filter chip click handlers
+			var chips = filtersDiv.querySelectorAll(".omnibus-filter-chip");
+			for (var c = 0; c < chips.length; c++) {
+				chips[c].addEventListener("click", function () {
+					activeFilter = this.getAttribute("data-filter");
+					for (var j = 0; j < chips.length; j++) chips[j].classList.remove("active");
+					this.classList.add("active");
+					applyFilter();
+				});
+			}
+
+			fetch(API + "/v1/omnibus?limit=50")
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
 					if (!data.data || data.data.length === 0) {
 						contentDiv.innerHTML = '<div class="empty-state"><h2>No hay leyes ómnibus con desglose</h2><p>Aún no se han generado desgloses temáticos. Vuelve pronto.</p></div>';
 						return;
 					}
-
-					var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-					var html = '<div class="omnibus-list">';
-					for (var i = 0; i < data.data.length; i++) {
-						var o = data.data[i];
-						var dateStr = o.latest_reform_date || "";
-						if (dateStr) {
-							var d = new Date(dateStr + "T00:00:00");
-							dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
-						}
-						var rankLabel = RANK_LABELS[o.rank] || o.rank || "";
-
-						html += '<div class="omnibus-card">';
-						html += '<div class="omnibus-card-date">' + esc(dateStr) + ' · ' + esc(rankLabel) + '</div>';
-						html += '<h3>' + esc(o.title) + '</h3>';
-						html += '<div class="omnibus-card-stats">';
-						html += '<span class="omnibus-topic-count">' + o.topic_count + ' temas</span>';
-						html += '<span>' + o.materia_count + ' materias</span>';
-						if (o.sneaked_count > 0) {
-							html += '<span class="omnibus-sneaked-count">' + o.sneaked_count + ' medida' + (o.sneaked_count > 1 ? 's' : '') + ' encubierta' + (o.sneaked_count > 1 ? 's' : '') + '</span>';
-						}
-						html += '</div>';
-						html += '<a href="/omnibus/' + encodeURIComponent(o.id) + '" class="omnibus-card-link">Ver desglose →</a>';
-						html += '</div>';
-					}
-					html += '</div>';
-					contentDiv.innerHTML = html;
+					allData = data.data;
+					filtersDiv.style.display = "";
+					renderCards(allData);
 				})
 				.catch(function () {
 					contentDiv.innerHTML = '<div class="empty-state"><h2>Error al cargar</h2><p>No se pudieron cargar las leyes ómnibus. Inténtalo de nuevo.</p></div>';

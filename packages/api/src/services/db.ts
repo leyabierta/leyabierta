@@ -772,16 +772,20 @@ export class DbService {
 		reform_type: string | null;
 		importance: string | null;
 		materia_count: number;
+		match_ratio: number;
 		omnibus_topic_count: number;
 	}> {
 		if (materias.length === 0) return [];
 
+		// Validate jurisdiction to prevent SQL injection
+		if (!/^es(-[a-z]{2})?$/.test(jurisdiction)) {
+			return [];
+		}
+
 		// Match on non-base materias only (specific to user's situation).
 		// Base materias (IRPF, SS, Consumidores, Derechos) are too generic and match
 		// almost every law. If user has NO non-base materias, fall back to all.
-		const matchMaterias = materias.filter(
-			(m) => !BASE_MATERIAS.includes(m),
-		);
+		const matchMaterias = materias.filter((m) => !BASE_MATERIAS.includes(m));
 		const effectiveMaterias =
 			matchMaterias.length > 0 ? matchMaterias : materias;
 		const placeholders = effectiveMaterias.map(() => "?").join(",");
@@ -794,20 +798,27 @@ export class DbService {
 				: `(n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`;
 
 		const sql = `
+			WITH materia_weights AS (
+				SELECT m.norm_id,
+					COUNT(CASE WHEN m.materia IN (${placeholders}) THEN 1 END) as matched,
+					COUNT(*) as total
+				FROM materias m
+				GROUP BY m.norm_id
+			)
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
 				rs.headline, rs.summary, rs.reform_type, rs.importance,
-				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count,
+				mw.total as materia_count,
+				CAST(mw.matched AS REAL) / NULLIF(mw.total, 0) as match_ratio,
 				(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = r.norm_id) as omnibus_topic_count
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
-			JOIN materias m ON m.norm_id = r.norm_id
+			JOIN materia_weights mw ON mw.norm_id = r.norm_id AND mw.matched > 0
 			LEFT JOIN reform_summaries rs
 				ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
 			WHERE r.date >= ?
-			  AND m.materia IN (${placeholders})
 			  AND ${jurisdictionClause}
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
-			ORDER BY r.date DESC
+			ORDER BY match_ratio DESC, r.date DESC
 		`;
 
 		return this.db
@@ -824,11 +835,12 @@ export class DbService {
 					reform_type: string | null;
 					importance: string | null;
 					materia_count: number;
+					match_ratio: number;
 					omnibus_topic_count: number;
 				},
 				unknown[]
 			>(sql)
-			.all(since, ...effectiveMaterias);
+			.all(...effectiveMaterias, since);
 	}
 
 	getChangelog(
@@ -849,6 +861,10 @@ export class DbService {
 		materia_count: number;
 		omnibus_topic_count: number;
 	}> {
+		if (jurisdiction && !/^es(-[a-z]{2})?$/.test(jurisdiction)) {
+			return [];
+		}
+
 		const jurisdictionClause = jurisdiction
 			? jurisdiction === "es"
 				? "AND (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
@@ -1162,14 +1178,15 @@ export class DbService {
 			summary: string;
 			articleCount: number;
 			isSneaked: boolean;
+			relatedMaterias: string;
 			model: string;
 		},
 	): void {
 		this.db
 			.query(
 				`INSERT OR REPLACE INTO omnibus_topics
-				 (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, generated_at, model)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+				 (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias, generated_at, model)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
 			)
 			.run(
 				normId,
@@ -1179,19 +1196,19 @@ export class DbService {
 				data.summary,
 				data.articleCount,
 				data.isSneaked ? 1 : 0,
+				data.relatedMaterias,
 				data.model,
 			);
 	}
 
-	getOmnibusTopics(
-		normId: string,
-	): Array<{
+	getOmnibusTopics(normId: string): Array<{
 		topic_index: number;
 		topic_label: string;
 		headline: string;
 		summary: string;
 		article_count: number;
 		is_sneaked: number;
+		related_materias: string;
 	}> {
 		return this.db
 			.query<
@@ -1202,10 +1219,11 @@ export class DbService {
 					summary: string;
 					article_count: number;
 					is_sneaked: number;
+					related_materias: string;
 				},
 				[string]
 			>(
-				`SELECT topic_index, topic_label, headline, summary, article_count, is_sneaked
+				`SELECT topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias
 				 FROM omnibus_topics WHERE norm_id = ? ORDER BY topic_index`,
 			)
 			.all(normId);
@@ -1262,6 +1280,7 @@ export class DbService {
 		rank: string;
 		status: string;
 		materia_count: number;
+		latest_reform_date: string | null;
 		topics: Array<{
 			topic_index: number;
 			topic_label: string;
@@ -1269,6 +1288,7 @@ export class DbService {
 			summary: string;
 			article_count: number;
 			is_sneaked: number;
+			related_materias: string;
 		}>;
 	} | null {
 		const norm = this.db
@@ -1279,11 +1299,13 @@ export class DbService {
 					rank: string;
 					status: string;
 					materia_count: number;
+					latest_reform_date: string | null;
 				},
 				[string]
 			>(
 				`SELECT n.id, n.title, n.rank, n.status,
-					(SELECT COUNT(*) FROM materias WHERE norm_id = n.id) as materia_count
+					(SELECT COUNT(*) FROM materias WHERE norm_id = n.id) as materia_count,
+					(SELECT MAX(r.date) FROM reforms r WHERE r.norm_id = n.id) as latest_reform_date
 				FROM norms n WHERE n.id = ?`,
 			)
 			.get(normId);
@@ -1293,5 +1315,41 @@ export class DbService {
 		const topics = this.getOmnibusTopics(normId);
 
 		return { ...norm, topics };
+	}
+
+	/**
+	 * Batch query: for a set of omnibus norm IDs, find which topic labels
+	 * match the user's materias via the related_materias JSON field.
+	 */
+	getMatchedTopics(
+		normIds: string[],
+		userMaterias: string[],
+	): Map<string, string[]> {
+		if (normIds.length === 0 || userMaterias.length === 0) return new Map();
+
+		const normPlaceholders = normIds.map(() => "?").join(",");
+		const materiaPlaceholders = userMaterias.map(() => "?").join(",");
+
+		const rows = this.db
+			.query<{ norm_id: string; topic_label: string }, unknown[]>(
+				`SELECT ot.norm_id, ot.topic_label
+				 FROM omnibus_topics ot
+				 WHERE ot.norm_id IN (${normPlaceholders})
+				   AND json_valid(ot.related_materias)
+				   AND EXISTS (
+				       SELECT 1 FROM json_each(ot.related_materias) je
+				       WHERE je.value IN (${materiaPlaceholders})
+				   )
+				 ORDER BY ot.topic_index`,
+			)
+			.all(...normIds, ...userMaterias);
+
+		const result = new Map<string, string[]>();
+		for (const row of rows) {
+			const existing = result.get(row.norm_id) || [];
+			existing.push(row.topic_label);
+			result.set(row.norm_id, existing);
+		}
+		return result;
 	}
 }

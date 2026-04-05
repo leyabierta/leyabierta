@@ -24,6 +24,12 @@ import Base from "../../layouts/Base.astro";
 			color: var(--text);
 			margin-bottom: 0.75rem;
 		}
+		.omnibus-subtitle {
+			color: var(--text-secondary);
+			font-size: 0.875rem;
+			line-height: 1.5;
+			margin-bottom: 0.75rem;
+		}
 		.omnibus-detail-meta {
 			display: flex;
 			gap: 0.75rem;
@@ -156,6 +162,7 @@ import Base from "../../layouts/Base.astro";
 	<div class="omnibus-detail-wrap">
 		<div class="omnibus-detail-header" id="omnibus-header">
 			<h1 id="omnibus-title">Cargando...</h1>
+			<p id="omnibus-subtitle" class="omnibus-subtitle"></p>
 			<div class="omnibus-detail-meta" id="omnibus-meta"></div>
 			<div class="omnibus-detail-links" id="omnibus-links"></div>
 		</div>
@@ -181,13 +188,14 @@ import Base from "../../layouts/Base.astro";
 
 			var API = document.documentElement.dataset.api;
 			var titleEl = document.getElementById("omnibus-title");
+			var subtitleEl = document.getElementById("omnibus-subtitle");
 			var metaEl = document.getElementById("omnibus-meta");
 			var linksEl = document.getElementById("omnibus-links");
 			var topicsDiv = document.getElementById("omnibus-topics");
 
-			// Extract norm ID from URL path: /omnibus/BOE-A-xxxx
-			var pathParts = window.location.pathname.split("/");
-			var normId = decodeURIComponent(pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2] || "");
+			// Read norm ID from query param: /omnibus/detalle?id=BOE-A-xxxx
+			var params = new URLSearchParams(window.location.search);
+			var normId = params.get("id") || "";
 
 			if (!normId) {
 				topicsDiv.innerHTML = '<div class="error-state"><p>No se especificó una ley.</p></div>';
@@ -200,12 +208,20 @@ import Base from "../../layouts/Base.astro";
 					return r.json();
 				})
 				.then(function (data) {
-					titleEl.textContent = data.title || normId;
-					document.title = (data.title || normId) + " — Ley ómnibus — Ley Abierta";
-
 					var rankLabel = RANK_LABELS[data.rank] || data.rank || "";
-					metaEl.innerHTML = esc(rankLabel) + ' · ' + data.materia_count + ' materias · ' + data.topics.length + ' temas' + (data.sneaked_count > 0 ? ' · <span style="color:var(--danger);font-weight:600;">' + data.sneaked_count + ' medida' + (data.sneaked_count > 1 ? 's' : '') + ' encubierta' + (data.sneaked_count > 1 ? 's' : '') + '</span>' : '');
-					linksEl.innerHTML = '<a href="/laws/' + encodeURIComponent(data.id) + '">Ver ley completa →</a> · <a href="/omnibus">Todas las leyes ómnibus</a>';
+					// Short title: "Ley ómnibus — Real Decreto-ley 5/2026"
+					var shortNum = (data.title || "").match(/\d+\/\d{4}/);
+					var shortTitle = rankLabel + (shortNum ? " " + shortNum[0] : "");
+					titleEl.textContent = "Ley ómnibus — " + shortTitle;
+					subtitleEl.textContent = data.title || "";
+					document.title = shortTitle + " — Ley ómnibus — Ley Abierta";
+					metaEl.innerHTML = esc(rankLabel) + ' · ' + data.materia_count + ' materias · ' + data.topics.length + ' temas' + (data.sneaked_count > 0 ? ' · <span style="color:var(--danger);font-weight:600;">' + data.sneaked_count + ' tema' + (data.sneaked_count > 1 ? 's' : '') + ' no relacionado' + (data.sneaked_count > 1 ? 's' : '') + ' con el título</span>' : '');
+					var links = '<a href="/laws/' + encodeURIComponent(data.id) + '">Ver ley completa →</a>';
+					if (data.latest_reform_date) {
+						links += ' · <a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '">Ver qué cambió →</a>';
+					}
+					links += ' · <a href="/omnibus">Todas las leyes ómnibus</a>';
+					linksEl.innerHTML = links;
 
 					if (!data.topics || data.topics.length === 0) {
 						topicsDiv.innerHTML = '<div class="empty-topics"><p>Desglose temático pendiente de generación.</p></div>';
@@ -222,7 +238,7 @@ import Base from "../../layouts/Base.astro";
 						html += '<div class="topic-label">';
 						html += '<h3>' + esc(t.topic_label) + '</h3>';
 						html += '<span class="topic-articles">(' + t.article_count + ' artículo' + (t.article_count !== 1 ? 's' : '') + ')</span>';
-						if (isSneaked) html += '<span class="topic-sneaked-badge">Medida encubierta</span>';
+						if (isSneaked) html += '<span class="topic-sneaked-badge">Tema no relacionado con el título</span>';
 						html += '</div>';
 						if (t.headline) html += '<p class="topic-headline">' + esc(t.headline) + '</p>';
 						if (t.summary) html += '<p class="topic-summary">' + esc(t.summary) + '</p>';

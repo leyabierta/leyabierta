@@ -43,12 +43,7 @@ export const WORK_STATUS_MATERIAS: Record<string, string[]> = {
 		"Clases Pasivas",
 		"Regímenes especiales de la Seguridad Social",
 	],
-	busco_empleo: [
-		"Desempleo",
-		"Empleo",
-		"Subsidio de desempleo",
-		"Formación profesional",
-	],
+	busco_empleo: ["Desempleo", "Subsidio de desempleo", "Formación profesional"],
 	estudiante: [
 		"Educación",
 		"Becas",
@@ -109,8 +104,7 @@ export const SECTOR_MATERIAS: Record<string, string[]> = {
 	transporte: [
 		"Transportes terrestres",
 		"Transportes por carretera",
-		"Circulación vial",
-		"Vehículos de motor",
+		"Transportes de mercancías",
 		"Transporte de viajeros",
 	],
 	tecnologia: [
@@ -141,13 +135,7 @@ export const HOUSING_MATERIAS: Record<string, string[]> = {
 
 /** Step 5: family (multi-select) */
 export const FAMILY_MATERIAS: Record<string, string[]> = {
-	hijos_menores: [
-		"Menores",
-		"Familia",
-		"Educación",
-		"Becas",
-		"Centros de enseñanza",
-	],
+	hijos_menores: ["Menores", "Familia", "Becas", "Centros de enseñanza"],
 	dependiente: [
 		"Discapacidad",
 		"Asistencia social",

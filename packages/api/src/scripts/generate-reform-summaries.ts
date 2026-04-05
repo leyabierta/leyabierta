@@ -33,6 +33,7 @@ const limitArg = Number(getArg("limit") ?? 200);
 const modelId = getArg("model") ?? "google/gemini-3.1-flash-lite-preview";
 const dryRun = hasFlag("dry-run");
 const force = hasFlag("force");
+const omnibusOnly = hasFlag("omnibus-only");
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 if (!apiKey && !dryRun) {
@@ -236,6 +237,8 @@ function buildPrompt(
 	diffs: BlockDiff[],
 	materias: string[],
 	isNewLaw: boolean,
+	isOmnibus: boolean,
+	materiaCount: number,
 ): { system: string; user: string } {
 	const system = `Eres un periodista legislativo español. Generas resúmenes claros y precisos de cambios legislativos para ciudadanos.
 
@@ -293,6 +296,10 @@ Cambios:
 ${diffsText || "(sin bloques afectados disponibles)"}`;
 	}
 
+	if (isOmnibus) {
+		user += `\n\nNOTA: Esta norma es una ley ómnibus que abarca ${materiaCount} temas distintos. Contextualiza el titular y resumen mencionando que esta reforma forma parte de una ley más amplia que agrupa múltiples temas no relacionados.`;
+	}
+
 	return { system, user };
 }
 
@@ -337,12 +344,21 @@ async function main() {
 		reforms = dbService.getReformsWithoutSummary(sinceStr, limitArg);
 	}
 
+	if (omnibusOnly) {
+		const beforeCount = reforms.length;
+		reforms = reforms.filter((r) => getMaterias(r.norm_id).length >= 15);
+		console.log(
+			`   Omnibus filter: ${reforms.length}/${beforeCount} reforms from omnibus norms (15+ materias)`,
+		);
+	}
+
 	console.log(`\n📋 Reform summaries generation`);
 	console.log(`   Since: ${sinceStr} (${weeks} weeks)`);
 	console.log(`   Model: ${modelId}`);
 	console.log(`   Reforms to process: ${reforms.length}`);
 	if (dryRun) console.log(`   Mode: DRY RUN (no LLM calls)`);
 	if (force) console.log(`   Mode: FORCE (regenerate existing)`);
+	if (omnibusOnly) console.log(`   Mode: OMNIBUS ONLY (15+ materias)`);
 	console.log();
 
 	if (reforms.length === 0) {
@@ -362,6 +378,7 @@ async function main() {
 			reform.date,
 		);
 		const materias = getMaterias(reform.norm_id);
+		const isOmnibus = materias.length >= 15;
 		const isNewLaw = isOriginalPublication(
 			reform.norm_id,
 			reform.source_id,
@@ -379,7 +396,14 @@ async function main() {
 			continue;
 		}
 
-		const { system, user } = buildPrompt(reform, diffs, materias, isNewLaw);
+		const { system, user } = buildPrompt(
+			reform,
+			diffs,
+			materias,
+			isNewLaw,
+			isOmnibus,
+			materias.length,
+		);
 
 		try {
 			const result = await callOpenRouter<SummaryResponse>(apiKey!, {

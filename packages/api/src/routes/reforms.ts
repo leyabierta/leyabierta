@@ -44,12 +44,27 @@ export function reformRoutes(dbService: DbService) {
 					sinceStr,
 				);
 
+				// Batch query: find which omnibus topics match the user's materias
+				const omnibusNormIds = reforms
+					.filter((r) => r.omnibus_topic_count > 0)
+					.map((r) => r.id);
+				const matchedTopicsMap = dbService.getMatchedTopics(
+					omnibusNormIds,
+					materias,
+				);
+
+				// Enrich reforms with matched_topics
+				const enrichedReforms = reforms.map((r) => ({
+					...r,
+					matched_topics: matchedTopicsMap.get(r.id) || [],
+				}));
+
 				// Compute date range
 				const today = new Date().toISOString().slice(0, 10);
 				const dateRange = `${sinceStr} to ${today}`;
 
 				return {
-					reforms,
+					reforms: enrichedReforms,
 					materias,
 					date_range: dateRange,
 				};

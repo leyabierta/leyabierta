@@ -373,7 +373,7 @@ import Base from "../layouts/Base.astro";
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
 							var otc = r.omnibus_topic_count || 0;
-							if (otc > 0) html += '<a href="/omnibus/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
+							if (otc > 0) html += '<a href="/omnibus/detalle?id=' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
 							html += '</div>';
 
 							if (hasHeadline) {

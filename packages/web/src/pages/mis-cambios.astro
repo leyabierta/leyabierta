@@ -507,8 +507,17 @@ import Base from "../layouts/Base.astro";
 							html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
-							var otc = r.omnibus_topic_count || 0;
-							if (otc > 0) html += '<a href="/omnibus/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
+							// Omnibus badge only for new laws, not modifications to existing omnibus laws
+							var isNewLaw = reformType === "new_law";
+							if (isNewLaw) {
+								var otc = r.omnibus_topic_count || 0;
+								var mc = r.materia_count || 0;
+								if (otc > 0) {
+									html += '<a href="/omnibus/detalle?id=' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
+								} else if (mc >= 15) {
+									html += '<span class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);">LEY ÓMNIBUS (' + mc + ' materias)</span>';
+								}
+							}
 							html += '</div>';
 
 							if (hasHeadline) {
@@ -516,6 +525,16 @@ import Base from "../layouts/Base.astro";
 								if (r.summary) html += '<p class="reform-summary">' + esc(r.summary) + '</p>';
 							} else {
 								html += '<h3 class="reform-title-fallback">' + esc(r.title) + '</h3>';
+							}
+
+							// "Te afecta por" — show matched omnibus topics (only for new omnibus laws)
+							if (isNewLaw) {
+								var mt = r.matched_topics || [];
+								if (mt.length > 0) {
+									var topicText = esc(mt[0]);
+									if (mt.length > 1) topicText += ' (+' + (mt.length - 1) + ' más)';
+									html += '<div class="reform-affects" style="font-size:0.8125rem;color:var(--accent);margin:0.375rem 0;">Te afecta por: ' + topicText + '</div>';
+								}
 							}
 
 							html += '<div class="reform-meta">';

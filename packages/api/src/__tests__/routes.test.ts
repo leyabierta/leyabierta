@@ -489,15 +489,34 @@ describe("GET /v1/omnibus", () => {
 
 	it("returns omnibus norms with topics", async () => {
 		insertNorm({ id: "OT1", title: "Ley Omnibus Test" });
-		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", ["OT1", "2026-03-20", "OT1"]);
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"OT1",
+			"2026-03-20",
+			"OT1",
+		]);
 		for (let i = 0; i < 16; i++) {
-			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["OT1", "Materia" + i]);
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"OT1",
+				`Materia${i}`,
+			]);
 		}
 		dbService.upsertOmnibusTopic("OT1", 0, {
-			topicLabel: "Fiscal", headline: "H", summary: "S", articleCount: 5, isSneaked: false, model: "t",
+			topicLabel: "Fiscal",
+			headline: "H",
+			summary: "S",
+			articleCount: 5,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 		dbService.upsertOmnibusTopic("OT1", 1, {
-			topicLabel: "Penal", headline: "H2", summary: "S2", articleCount: 1, isSneaked: true, model: "t",
+			topicLabel: "Penal",
+			headline: "H2",
+			summary: "S2",
+			articleCount: 1,
+			isSneaked: true,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 
 		const { status, body } = await json("/v1/omnibus");
@@ -518,9 +537,18 @@ describe("GET /v1/omnibus/:normId", () => {
 
 	it("returns detail with topics", async () => {
 		insertNorm({ id: "OT2", title: "Detail Test" });
-		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["OT2", "Energia"]);
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+			"OT2",
+			"Energia",
+		]);
 		dbService.upsertOmnibusTopic("OT2", 0, {
-			topicLabel: "Energía", headline: "Cambios energéticos", summary: "Se modifica la ley eléctrica", articleCount: 8, isSneaked: false, model: "t",
+			topicLabel: "Energía",
+			headline: "Cambios energéticos",
+			summary: "Se modifica la ley eléctrica",
+			articleCount: 8,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 
 		const { status, body } = await json("/v1/omnibus/OT2");
@@ -535,15 +563,30 @@ describe("GET /v1/omnibus/:normId", () => {
 describe("GET /v1/feed-omnibus.xml", () => {
 	it("returns valid RSS XML", async () => {
 		insertNorm({ id: "OT3", title: "RSS & Test <Law>" });
-		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", ["OT3", "2026-03-25", "OT3"]);
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"OT3",
+			"2026-03-25",
+			"OT3",
+		]);
 		for (let i = 0; i < 16; i++) {
-			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["OT3", "M" + i]);
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"OT3",
+				`M${i}`,
+			]);
 		}
 		dbService.upsertOmnibusTopic("OT3", 0, {
-			topicLabel: "Fiscal", headline: "H", summary: "S", articleCount: 3, isSneaked: false, model: "t",
+			topicLabel: "Fiscal",
+			headline: "H",
+			summary: "S",
+			articleCount: 3,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 
-		const res = await app.handle(new Request("http://localhost/v1/feed-omnibus.xml"));
+		const res = await app.handle(
+			new Request("http://localhost/v1/feed-omnibus.xml"),
+		);
 		expect(res.status).toBe(200);
 		const text = await res.text();
 		expect(text).toContain("<?xml");
@@ -553,4 +596,3 @@ describe("GET /v1/feed-omnibus.xml", () => {
 		expect(text).toContain("Fiscal");
 	});
 });
-

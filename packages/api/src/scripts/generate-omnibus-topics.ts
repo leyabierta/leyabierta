@@ -12,8 +12,9 @@
  *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --force
  */
 
-import { getArg, getMaterias, hasFlag, setupDb } from "./shared.ts";
+import { BASE_MATERIAS } from "../data/materia-mappings.ts";
 import { callOpenRouter, OpenRouterError } from "../services/openrouter.ts";
+import { getArg, getMaterias, hasFlag, setupDb } from "./shared.ts";
 
 const OMNIBUS_THRESHOLD = 15;
 
@@ -45,6 +46,7 @@ interface TopicResponse {
 	summary: string;
 	article_count: number;
 	sneaked_in: boolean;
+	related_materias: string[];
 }
 
 const TOPIC_SCHEMA = {
@@ -57,15 +59,18 @@ const TOPIC_SCHEMA = {
 				properties: {
 					topic_label: {
 						type: "string",
-						description: "Tema en 2-4 palabras. Ej: 'Fiscalidad', 'Energía eléctrica'",
+						description:
+							"Tema en 2-4 palabras. Ej: 'Fiscalidad', 'Energía eléctrica'",
 					},
 					headline: {
 						type: "string",
-						description: "Titular de máximo 15 palabras sobre este eje temático",
+						description:
+							"Titular de máximo 15 palabras sobre este eje temático",
 					},
 					summary: {
 						type: "string",
-						description: "Resumen de 1-3 frases sobre qué regula este eje temático",
+						description:
+							"Resumen de 1-3 frases sobre qué regula este eje temático",
 					},
 					article_count: {
 						type: "number",
@@ -76,6 +81,12 @@ const TOPIC_SCHEMA = {
 						description:
 							"true si este tema no tiene relación con el título oficial de la ley",
 					},
+					related_materias: {
+						type: "array",
+						items: { type: "string" },
+						description:
+							"Materias exactas del BOE que corresponden a este eje temático. Usa solo nombres de la lista proporcionada.",
+					},
 				},
 				required: [
 					"topic_label",
@@ -83,6 +94,7 @@ const TOPIC_SCHEMA = {
 					"summary",
 					"article_count",
 					"sneaked_in",
+					"related_materias",
 				],
 				additionalProperties: false,
 			},
@@ -145,7 +157,8 @@ Reglas:
 - Español correcto con acentos (á, é, í, ó, ú, ñ, ¿, ¡)
 - Lenguaje ciudadano, no jurídico
 - Agrupa artículos por tema, no repitas temas
-- Máximo 20 temas por ley`;
+- Máximo 20 temas por ley
+- Para cada tema, incluye un array "related_materias" con las materias EXACTAS del BOE que corresponden. Usa SOLO nombres de la siguiente lista.`;
 
 	const blocksWithText = blocks.filter((b) => b.heading_text);
 
@@ -174,6 +187,9 @@ Reglas:
 
 Título: ${norm.title}
 
+Materias asignadas a esta norma:
+${materias.join(", ")}
+
 Estructura:
 ${structureText}`;
 
@@ -182,9 +198,10 @@ ${structureText}`;
 
 // ── Validation ──
 
-function validateTopics(
-	data: unknown,
-): { result: TopicResponse[] | null; reason: string } {
+function validateTopics(data: unknown): {
+	result: TopicResponse[] | null;
+	reason: string;
+} {
 	if (!data || typeof data !== "object")
 		return { result: null, reason: "not an object" };
 	const d = data as Record<string, unknown>;
@@ -197,13 +214,19 @@ function validateTopics(
 		if (!t || typeof t !== "object") continue;
 		const topic = t as Record<string, unknown>;
 
-		const topicLabel = typeof topic.topic_label === "string" ? topic.topic_label : "";
+		const topicLabel =
+			typeof topic.topic_label === "string" ? topic.topic_label : "";
 		let headline = typeof topic.headline === "string" ? topic.headline : "";
 		let summary = typeof topic.summary === "string" ? topic.summary : "";
 		const articleCount =
 			typeof topic.article_count === "number" ? topic.article_count : 0;
 		const sneakedIn =
 			typeof topic.sneaked_in === "boolean" ? topic.sneaked_in : false;
+		const relatedMaterias = Array.isArray(topic.related_materias)
+			? (topic.related_materias as unknown[]).filter(
+					(m): m is string => typeof m === "string",
+				)
+			: [];
 
 		if (!topicLabel) continue;
 
@@ -216,6 +239,7 @@ function validateTopics(
 			summary,
 			article_count: articleCount,
 			sneaked_in: sneakedIn,
+			related_materias: relatedMaterias,
 		});
 	}
 
@@ -256,15 +280,15 @@ async function main() {
 	// Filter out norms that already have topics (unless --force)
 	const toProcess = force
 		? norms
-		: norms.filter(
-				(n) => dbService.getOmnibusTopics(n.id).length === 0,
-			);
+		: norms.filter((n) => dbService.getOmnibusTopics(n.id).length === 0);
 
 	console.log(`\n📋 Omnibus topic generation`);
 	console.log(`   Threshold: ${OMNIBUS_THRESHOLD}+ materias`);
 	console.log(`   Model: ${modelId}`);
 	console.log(`   Omnibus norms found: ${norms.length}`);
-	console.log(`   To process: ${toProcess.length} (${norms.length - toProcess.length} already have topics)`);
+	console.log(
+		`   To process: ${toProcess.length} (${norms.length - toProcess.length} already have topics)`,
+	);
 	if (sinceArg) console.log(`   Since: ${sinceArg}`);
 	if (dryRun) console.log(`   Mode: DRY RUN`);
 	if (force) console.log(`   Mode: FORCE (regenerate existing)`);
@@ -325,12 +349,17 @@ async function main() {
 
 			for (let i = 0; i < topics.length; i++) {
 				const t = topics[i];
+				// Filter out BASE_MATERIAS and validate against actual norm materias
+				const filteredRelatedMaterias = t.related_materias.filter(
+					(m) => !BASE_MATERIAS.includes(m) && materias.includes(m),
+				);
 				dbService.upsertOmnibusTopic(norm.id, i, {
 					topicLabel: t.topic_label,
 					headline: t.headline,
 					summary: t.summary,
 					articleCount: t.article_count,
 					isSneaked: t.sneaked_in,
+					relatedMaterias: JSON.stringify(filteredRelatedMaterias),
 					model: modelId,
 				});
 			}

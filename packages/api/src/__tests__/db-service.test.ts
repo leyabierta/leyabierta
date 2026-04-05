@@ -561,15 +561,16 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 			title: `Norm ${normId}`,
 			source_url: `https://www.boe.es/eli/es/l/2026/01/01/(1)`,
 		});
-		db.run(
-			"INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)",
-			[normId, reformDate, normId],
-		);
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			normId,
+			reformDate,
+			normId,
+		]);
 		for (const m of materias) {
-			db.run(
-				"INSERT INTO materias (norm_id, materia) VALUES (?, ?)",
-				[normId, m],
-			);
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				normId,
+				m,
+			]);
 		}
 	}
 
@@ -590,7 +591,11 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 			"Consumidores y usuarios",
 		]);
 		const results = svc.getRecentReformsByMaterias(
-			["Impuesto sobre la Renta de las Personas Físicas", "Consumidores y usuarios", "Trabajadores"],
+			[
+				"Impuesto sobre la Renta de las Personas Físicas",
+				"Consumidores y usuarios",
+				"Trabajadores",
+			],
 			"es",
 			"2026-01-01",
 		);
@@ -620,6 +625,87 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 		expect(results.length).toBe(1);
 		expect(results[0].materia_count).toBe(3);
 	});
+
+	it("orders results by match_ratio DESC (high density first)", () => {
+		// Norm N-SPECIFIC: 5 materias, 3 match user → ratio 0.6
+		const specificId = "N-SPECIFIC";
+		insertNorm({
+			id: specificId,
+			title: "Specific Law",
+			source_url: "https://www.boe.es/eli/es/l/2026/01/01/(1)",
+		});
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			specificId,
+			"2026-01-15",
+			specificId,
+		]);
+		for (const m of [
+			"Trabajadores",
+			"Empleo",
+			"Desempleo",
+			"Sanidad",
+			"Turismo",
+		]) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				specificId,
+				m,
+			]);
+		}
+
+		// Norm N-OMNIBUS: 20 materias, 3 match user → ratio 0.15
+		const omnibusId = "N-OMNIBUS";
+		insertNorm({
+			id: omnibusId,
+			title: "Omnibus Law",
+			source_url: "https://www.boe.es/eli/es/l/2026/01/20/(1)",
+		});
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			omnibusId,
+			"2026-01-20",
+			omnibusId,
+		]);
+		const omnibusMatList = ["Trabajadores", "Empleo", "Desempleo"];
+		for (let i = 0; i < 17; i++) omnibusMatList.push(`Filler${i}`);
+		for (const m of omnibusMatList) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				omnibusId,
+				m,
+			]);
+		}
+
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores", "Empleo", "Desempleo"],
+			"es",
+			"2026-01-01",
+		);
+
+		expect(results.length).toBe(2);
+		// Specific law (ratio 0.6) should come before omnibus (ratio 0.15), even though omnibus is more recent
+		expect(results[0].id).toBe(specificId);
+		expect(results[1].id).toBe(omnibusId);
+		expect(results[0].match_ratio).toBeGreaterThan(results[1].match_ratio);
+	});
+
+	it("returns match_ratio in results", () => {
+		seedNormWithMaterias("NR1", ["Trabajadores", "Empleo"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores"],
+			"es",
+			"2026-01-01",
+		);
+		expect(results.length).toBe(1);
+		expect(results[0].match_ratio).toBe(0.5); // 1 match out of 2 total
+	});
+
+	it("returns empty for invalid jurisdiction", () => {
+		seedNormWithMaterias("NJ1", ["Trabajadores"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores"],
+			"es' OR 1=1--",
+			"2026-01-01",
+		);
+		expect(results).toEqual([]);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -635,6 +721,7 @@ describe("omnibus DB functions", () => {
 			summary: "Se modifican impuestos",
 			articleCount: 5,
 			isSneaked: false,
+			relatedMaterias: "[]",
 			model: "test",
 		});
 
@@ -649,6 +736,7 @@ describe("omnibus DB functions", () => {
 			summary: "Se modifican más impuestos",
 			articleCount: 8,
 			isSneaked: true,
+			relatedMaterias: '["IRPF"]',
 			model: "test2",
 		});
 
@@ -666,22 +754,48 @@ describe("omnibus DB functions", () => {
 	it("listRecentOmnibus filters and sorts correctly", () => {
 		// Norm with 16 materias + topics
 		insertNorm({ id: "O3", title: "Omnibus Law" });
-		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", ["O3", "2026-03-15", "O3"]);
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"O3",
+			"2026-03-15",
+			"O3",
+		]);
 		for (let i = 0; i < 16; i++) {
-			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["O3", `Materia${i}`]);
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"O3",
+				`Materia${i}`,
+			]);
 		}
 		svc.upsertOmnibusTopic("O3", 0, {
-			topicLabel: "Tema1", headline: "H", summary: "S", articleCount: 3, isSneaked: false, model: "t",
+			topicLabel: "Tema1",
+			headline: "H",
+			summary: "S",
+			articleCount: 3,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 
 		// Norm with only 5 materias (not omnibus)
 		insertNorm({ id: "O4", title: "Normal Law" });
-		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", ["O4", "2026-03-20", "O4"]);
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"O4",
+			"2026-03-20",
+			"O4",
+		]);
 		for (let i = 0; i < 5; i++) {
-			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["O4", `Mat${i}`]);
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"O4",
+				`Mat${i}`,
+			]);
 		}
 		svc.upsertOmnibusTopic("O4", 0, {
-			topicLabel: "Tema", headline: "H", summary: "S", articleCount: 1, isSneaked: false, model: "t",
+			topicLabel: "Tema",
+			headline: "H",
+			summary: "S",
+			articleCount: 1,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 
 		const results = svc.listRecentOmnibus(10);
@@ -697,12 +811,27 @@ describe("omnibus DB functions", () => {
 
 	it("getOmnibusDetail returns norm with topics", () => {
 		insertNorm({ id: "O5", title: "Detail Test" });
-		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", ["O5", "Tema1"]);
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+			"O5",
+			"Tema1",
+		]);
 		svc.upsertOmnibusTopic("O5", 0, {
-			topicLabel: "Energía", headline: "H", summary: "S", articleCount: 10, isSneaked: false, model: "t",
+			topicLabel: "Energía",
+			headline: "H",
+			summary: "S",
+			articleCount: 10,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 		svc.upsertOmnibusTopic("O5", 1, {
-			topicLabel: "Penal", headline: "H2", summary: "S2", articleCount: 1, isSneaked: true, model: "t",
+			topicLabel: "Penal",
+			headline: "H2",
+			summary: "S2",
+			articleCount: 1,
+			isSneaked: true,
+			relatedMaterias: "[]",
+			model: "t",
 		});
 
 		const detail = svc.getOmnibusDetail("O5");
@@ -714,3 +843,71 @@ describe("omnibus DB functions", () => {
 	});
 });
 
+// ---------------------------------------------------------------------------
+// getMatchedTopics
+// ---------------------------------------------------------------------------
+
+describe("getMatchedTopics", () => {
+	it("returns matched topic labels for omnibus norms", () => {
+		insertNorm({ id: "MT1" });
+		svc.upsertOmnibusTopic("MT1", 0, {
+			topicLabel: "Fiscalidad",
+			headline: "H",
+			summary: "S",
+			articleCount: 5,
+			isSneaked: false,
+			model: "test",
+			relatedMaterias: JSON.stringify(["Trabajadores", "IRPF"]),
+		});
+		svc.upsertOmnibusTopic("MT1", 1, {
+			topicLabel: "Energía",
+			headline: "H2",
+			summary: "S2",
+			articleCount: 3,
+			isSneaked: true,
+			model: "test",
+			relatedMaterias: JSON.stringify(["Energía eléctrica"]),
+		});
+
+		const result = svc.getMatchedTopics(["MT1"], ["Trabajadores", "IRPF"]);
+		expect(result.get("MT1")).toEqual(["Fiscalidad"]);
+	});
+
+	it("returns empty map for no matches", () => {
+		insertNorm({ id: "MT2" });
+		svc.upsertOmnibusTopic("MT2", 0, {
+			topicLabel: "Fiscalidad",
+			headline: "H",
+			summary: "S",
+			articleCount: 5,
+			isSneaked: false,
+			model: "test",
+			relatedMaterias: JSON.stringify(["IRPF"]),
+		});
+
+		const result = svc.getMatchedTopics(["MT2"], ["Sanidad"]);
+		expect(result.get("MT2")).toBeUndefined();
+	});
+
+	it("returns empty map for empty inputs", () => {
+		expect(svc.getMatchedTopics([], ["Trabajadores"])).toEqual(new Map());
+		expect(svc.getMatchedTopics(["MT1"], [])).toEqual(new Map());
+	});
+
+	it("handles invalid JSON in related_materias gracefully", () => {
+		insertNorm({ id: "MT3" });
+		svc.upsertOmnibusTopic("MT3", 0, {
+			topicLabel: "Broken",
+			headline: "H",
+			summary: "S",
+			articleCount: 1,
+			isSneaked: false,
+			model: "test",
+			relatedMaterias: "not-json",
+		});
+
+		// Should not crash, just skip the invalid row
+		const result = svc.getMatchedTopics(["MT3"], ["Trabajadores"]);
+		expect(result.get("MT3")).toBeUndefined();
+	});
+});
