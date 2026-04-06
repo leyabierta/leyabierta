@@ -694,7 +694,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			// Check for returning user
 			try {
 				var saved = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
-				if (saved && saved.materias && saved.materias.length > 0) {
+				if (saved && saved.answers && saved.answers.workStatus) {
 					var wb = document.getElementById("welcome-back");
 					var defaultHero = document.getElementById("default-hero");
 					if (wb && defaultHero) {
@@ -706,14 +706,20 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							busco_empleo: "Busco empleo",
 							estudiante: "Estudiante",
 							no_trabajo: "No trabajo",
-							sanidad: "Sanidad",
-							educacion: "Educación",
-							admin_publica: "Admin. pública",
-							campo: "Campo/pesca/ganadería",
+							campo: "Agricultura",
+							industria: "Industria",
+							energia: "Energía",
 							construccion: "Construcción",
-							hosteleria: "Hostelería",
+							comercio: "Comercio",
 							transporte: "Transporte",
+							hosteleria: "Hostelería",
 							tecnologia: "Tecnología",
+							finanzas: "Finanzas",
+							servicios_profesionales: "Serv. profesionales",
+							admin_publica: "Admin. pública",
+							educacion: "Educación",
+							sanidad: "Sanidad",
+							cultura_deporte: "Cultura y deporte",
 							otro: "Otro sector",
 							alquilo: "Alquiler",
 							hipoteca: "Hipoteca",
