@@ -41,11 +41,16 @@ const CORS_ORIGINS = process.env.CORS_ORIGINS
 
 const app = new Elysia()
 	.use(cors({ origin: CORS_ORIGINS }))
-	.onAfterHandle(({ set }) => {
+	.onAfterHandle(({ set, path }) => {
 		set.headers["X-Content-Type-Options"] = "nosniff";
 		set.headers["X-Frame-Options"] = "DENY";
 		set.headers["X-Robots-Tag"] = "noindex";
 		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+		// Cache read-only endpoints at Cloudflare edge; skip for health/alerts
+		if (!set.headers["Cache-Control"] && !path.startsWith("/v1/alerts")) {
+			set.headers["Cache-Control"] =
+				"public, max-age=0, s-maxage=3600, must-revalidate";
+		}
 	});
 
 if (process.env.NODE_ENV !== "production") {
