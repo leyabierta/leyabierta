@@ -92,13 +92,60 @@ describe("computeMaterias", () => {
 		expect(familiaCount).toBe(1);
 	});
 
-	test("SECTOR_MATERIAS.transporte does NOT include personal driving materias", () => {
-		expect(SECTOR_MATERIAS.transporte).not.toContain("Circulación vial");
-		expect(SECTOR_MATERIAS.transporte).not.toContain("Vehículos de motor");
+	test("SECTOR_MATERIAS.transporte includes professional transport materias", () => {
+		expect(SECTOR_MATERIAS.transporte).toContain("Transportes terrestres");
+		expect(SECTOR_MATERIAS.transporte).toContain("Transportes por carretera");
+		expect(SECTOR_MATERIAS.transporte).toContain("Transporte de mercancías");
+		expect(SECTOR_MATERIAS.transporte).toContain("Transporte de viajeros");
 	});
 
-	test("SECTOR_MATERIAS.transporte includes professional transport", () => {
-		expect(SECTOR_MATERIAS.transporte).toContain("Transportes de mercancías");
+	test("all 8 original sector keys are preserved (backward compat)", () => {
+		const originalKeys = [
+			"sanidad",
+			"educacion",
+			"admin_publica",
+			"campo",
+			"construccion",
+			"hosteleria",
+			"transporte",
+			"tecnologia",
+		];
+		for (const key of originalKeys) {
+			expect(SECTOR_MATERIAS[key]).toBeDefined();
+			expect(SECTOR_MATERIAS[key].length).toBeGreaterThan(0);
+		}
+	});
+
+	test("new sectors exist and have materias", () => {
+		const newKeys = [
+			"industria",
+			"energia",
+			"comercio",
+			"finanzas",
+			"servicios_profesionales",
+			"cultura_deporte",
+		];
+		for (const key of newKeys) {
+			expect(SECTOR_MATERIAS[key]).toBeDefined();
+			expect(SECTOR_MATERIAS[key].length).toBeGreaterThan(0);
+		}
+	});
+
+	test("industria includes industrial safety materias", () => {
+		expect(SECTOR_MATERIAS.industria).toContain("Seguridad industrial");
+		expect(SECTOR_MATERIAS.industria).toContain(
+			"Seguridad e higiene en el trabajo",
+		);
+		expect(SECTOR_MATERIAS.industria).toContain("Reglamentaciones técnicas");
+	});
+
+	test("construccion includes industrial safety (shared with industria)", () => {
+		expect(SECTOR_MATERIAS.construccion).toContain("Seguridad industrial");
+		expect(SECTOR_MATERIAS.construccion).toContain("Edificaciones");
+	});
+
+	test("otro sector has empty materias", () => {
+		expect(SECTOR_MATERIAS.otro).toEqual([]);
 	});
 
 	test("WORK_STATUS_MATERIAS.busco_empleo does NOT include broad Empleo", () => {

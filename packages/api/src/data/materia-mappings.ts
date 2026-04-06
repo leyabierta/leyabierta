@@ -1,7 +1,13 @@
 /**
  * Materia mappings for the life questionnaire onboarding.
  * Each answer maps to exact BOE materia strings from the materias table.
+ *
+ * SECTOR_MATERIAS is imported from the shared JSON (single source of truth).
+ * Other mappings (work status, housing, family, extras) stay here because
+ * they're small, logic-coupled, and don't need the exhaustive categorization.
  */
+
+import sectorData from "../../../../packages/shared/data/sector-materias.json";
 
 /** Universal materias assigned to every user */
 export const BASE_MATERIAS: string[] = [
@@ -55,67 +61,10 @@ export const WORK_STATUS_MATERIAS: Record<string, string[]> = {
 	no_trabajo: [],
 };
 
-/** Step 2: sector (single select, conditional) */
-export const SECTOR_MATERIAS: Record<string, string[]> = {
-	sanidad: [
-		"Sanidad",
-		"Asistencia sanitaria",
-		"Medicamentos",
-		"Colegios Profesionales",
-		"Servicios Públicos de Salud",
-		"Reglamentaciones técnico sanitarias",
-	],
-	educacion: [
-		"Centros de enseñanza",
-		"Profesorado",
-		"Currículo",
-		"Enseñanza Universitaria",
-		"Educación",
-	],
-	admin_publica: [
-		"Funcionarios públicos",
-		"Oposiciones y concursos",
-		"Función Pública",
-		"Empleados públicos",
-		"Retribuciones",
-	],
-	campo: [
-		"Agricultura",
-		"Ganadería",
-		"Pesca marítima",
-		"Explotaciones agrarias",
-		"Seguros agrarios combinados",
-		"Sanidad veterinaria",
-	],
-	construccion: [
-		"Edificaciones",
-		"Obras",
-		"Seguridad industrial",
-		"Urbanismo",
-		"Suelo",
-	],
-	hosteleria: [
-		"Hostelería",
-		"Turismo",
-		"Alimentación",
-		"Establecimientos comerciales",
-		"Espectáculos",
-	],
-	transporte: [
-		"Transportes terrestres",
-		"Transportes por carretera",
-		"Transportes de mercancías",
-		"Transporte de viajeros",
-	],
-	tecnologia: [
-		"Internet",
-		"Comercio electrónico",
-		"Telecomunicaciones",
-		"Firma electrónica",
-		"Comunicaciones electrónicas",
-	],
-	otro: [],
-};
+/** Step 2: sector (single select, conditional) — imported from shared JSON */
+export const SECTOR_MATERIAS: Record<string, string[]> = Object.fromEntries(
+	Object.entries(sectorData.sectors).map(([key, val]) => [key, val.materias]),
+);
 
 /** Work statuses that skip the sector question */
 export const SKIP_SECTOR_STATUSES = ["jubilado", "estudiante", "no_trabajo"];

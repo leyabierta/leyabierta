@@ -1,5 +1,12 @@
 ---
 import Base from "../layouts/Base.astro";
+import sectorData from "../../../shared/data/sector-materias.json";
+
+const SECTOR_OPTIONS = Object.entries(sectorData.sectors).map(([key, val]) => ({
+	value: key,
+	shortLabel: (val as any).shortLabel,
+	label: (val as any).label,
+}));
 
 const JURISDICTION_OPTIONS = [
 	{ value: "es", label: "Estatal (toda España)" },
@@ -232,6 +239,13 @@ const JURISDICTION_OPTIONS = [
 			font-size: 1rem;
 		}
 
+		/* ── Sector grid (Step 2) ── */
+		.sector-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 0.5rem;
+		}
+
 		/* ── Jurisdiction pills (Step 4) ── */
 		.jurisdiction-grid {
 			display: grid;
@@ -342,6 +356,9 @@ const JURISDICTION_OPTIONS = [
 			.progress-text {
 				display: none;
 			}
+			.sector-grid {
+				grid-template-columns: 1fr;
+			}
 			.jurisdiction-grid {
 				grid-template-columns: 1fr;
 			}
@@ -401,16 +418,20 @@ const JURISDICTION_OPTIONS = [
 				<section class="wizard-step" aria-label="Sector laboral" id="step-sector" hidden>
 					<h2 class="step-heading" tabindex="-1">¿En qué sector trabajas?</h2>
 					<p class="step-subtitle">Nos ayuda a filtrar los cambios que te importan</p>
-					<div class="radio-group" role="radiogroup" aria-label="Sector laboral" data-step-key="sector">
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="sanidad">Sanidad</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="educacion">Educación</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="admin_publica">Administración pública</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="campo">Campo, pesca o ganadería</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="construccion">Construcción</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="hosteleria">Hostelería y turismo</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="transporte">Transporte</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="tecnologia">Tecnología</button>
-						<button type="button" class="radio-pill" role="radio" aria-checked="false" tabindex="0" data-value="otro">Otro / prefiero no decir</button>
+					<div class="sector-grid" role="radiogroup" aria-label="Sector laboral" data-step-key="sector">
+						{SECTOR_OPTIONS.map((s) => (
+							<button
+								type="button"
+								class="radio-pill"
+								role="radio"
+								aria-checked="false"
+								aria-label={s.label}
+								tabindex="0"
+								data-value={s.value}
+							>
+								{s.shortLabel}
+							</button>
+						))}
 					</div>
 					<div class="wizard-nav">
 						<button type="button" class="btn-back" id="btn-back-sector">&larr; Atrás</button>
@@ -504,57 +525,8 @@ const JURISDICTION_OPTIONS = [
 
 	<script is:inline>
 		(function () {
-			// ── Materia mappings (hardcoded from server-side materia-mappings.ts) ──
-			var BASE_MATERIAS = [
-				"Impuesto sobre la Renta de las Personas Físicas",
-				"Seguridad Social",
-				"Consumidores y usuarios",
-				"Derechos de los ciudadanos"
-			];
-			var WORK_STATUS_MATERIAS = {
-				cuenta_ajena: ["Trabajadores", "Contratos de trabajo", "Empleo", "Estatuto de los Trabajadores", "Jornada laboral", "Desempleo", "Cotización a la Seguridad Social"],
-				autonomo: ["Trabajadores autónomos", "Impuesto sobre el Valor Añadido", "Cotización a la Seguridad Social", "Empresas"],
-				empresa: ["Empresas", "Impuesto sobre Sociedades", "Impuesto sobre el Valor Añadido", "Contratación administrativa", "Seguridad e higiene en el trabajo", "Cotización a la Seguridad Social"],
-				jubilado: ["Pensiones", "Jubilación", "Tercera Edad", "Clases Pasivas", "Regímenes especiales de la Seguridad Social"],
-				busco_empleo: ["Desempleo", "Empleo", "Subsidio de desempleo", "Formación profesional"],
-				estudiante: ["Educación", "Becas", "Universidades", "Enseñanza", "Formación profesional", "Enseñanza de Formación Profesional"],
-				no_trabajo: []
-			};
-			var SECTOR_MATERIAS = {
-				sanidad: ["Sanidad", "Asistencia sanitaria", "Medicamentos", "Colegios Profesionales", "Servicios Públicos de Salud", "Reglamentaciones técnico sanitarias"],
-				educacion: ["Centros de enseñanza", "Profesorado", "Currículo", "Enseñanza Universitaria", "Educación"],
-				admin_publica: ["Funcionarios públicos", "Oposiciones y concursos", "Función Pública", "Empleados públicos", "Retribuciones"],
-				campo: ["Agricultura", "Ganadería", "Pesca marítima", "Explotaciones agrarias", "Seguros agrarios combinados", "Sanidad veterinaria"],
-				construccion: ["Edificaciones", "Obras", "Seguridad industrial", "Urbanismo", "Suelo"],
-				hosteleria: ["Hostelería", "Turismo", "Alimentación", "Establecimientos comerciales", "Espectáculos"],
-				transporte: ["Transportes terrestres", "Transportes por carretera", "Circulación vial", "Vehículos de motor", "Transporte de viajeros"],
-				tecnologia: ["Internet", "Comercio electrónico", "Telecomunicaciones", "Firma electrónica", "Comunicaciones electrónicas"],
-				otro: []
-			};
-			var HOUSING_MATERIAS = {
-				alquilo: ["Arrendamientos urbanos", "Viviendas"],
-				hipoteca: ["Hipoteca", "Viviendas", "Entidades de crédito", "Préstamos"],
-				propietario: ["Viviendas", "Propiedad Horizontal", "Impuesto sobre Bienes Inmuebles", "Bienes inmuebles"],
-				familiares: []
-			};
-			var FAMILY_MATERIAS = {
-				hijos_menores: ["Menores", "Familia", "Educación", "Becas", "Centros de enseñanza"],
-				dependiente: ["Discapacidad", "Asistencia social", "Tercera Edad", "Familia", "Invalidez"],
-				embarazo_baja: ["Familia", "Incapacidades laborales"]
-			};
-			var EXTRAS_MATERIAS = {
-				coche: ["Vehículos de motor", "Circulación vial", "Seguridad vial", "Seguros de vehículos de motor", "Permisos de conducción"],
-				inversiones: ["Mercado de Valores", "Impuesto sobre el Patrimonio", "Instituciones de Inversión Colectiva", "Fondos de inversión"],
-				mascotas: ["Animales de compañía", "Sanidad veterinaria"],
-				casero: ["Arrendamientos urbanos", "Impuesto sobre Bienes Inmuebles"],
-				divorcio: ["Familia", "Enjuiciamiento Civil", "Registro Civil", "Matrimonio"],
-				discapacidad: ["Discapacidad", "Barreras arquitectónicas", "Asistencia social", "Invalidez"],
-				extranjeria: ["Extranjeros", "Libre circulación de personas", "Nacionalidad", "Inmigración"],
-				ecommerce: ["Comercio electrónico", "Comercialización", "Internet", "Impuesto sobre el Valor Añadido", "Facturas"],
-				herencia: ["Impuesto sobre Sucesiones y Donaciones", "Herencias"],
-				medioambiente: ["Políticas de medio ambiente", "Medio ambiente", "Contaminación atmosférica", "Cambio climático", "Energía eléctrica"],
-				deporte: ["Deporte", "Asociaciones deportivas", "Dopaje"]
-			};
+			// Materia resolution happens server-side now. Client only needs to know
+			// which work statuses skip the sector step.
 			var SKIP_SECTOR_STATUSES = ["jubilado", "estudiante", "no_trabajo"];
 
 			// ── Step definitions ──
@@ -741,39 +713,7 @@ const JURISDICTION_OPTIONS = [
 			document.getElementById("btn-next-family").addEventListener("click", nextStep);
 			document.getElementById("btn-back-extras").addEventListener("click", prevStep);
 
-			function computeMaterias() {
-				var set = {};
-				var i;
-				for (i = 0; i < BASE_MATERIAS.length; i++) set[BASE_MATERIAS[i]] = true;
-
-				var wm = WORK_STATUS_MATERIAS[answers.workStatus] || [];
-				for (i = 0; i < wm.length; i++) set[wm[i]] = true;
-
-				if (answers.sector) {
-					var sm = SECTOR_MATERIAS[answers.sector] || [];
-					for (i = 0; i < sm.length; i++) set[sm[i]] = true;
-				}
-
-				var hm = HOUSING_MATERIAS[answers.housing] || [];
-				for (i = 0; i < hm.length; i++) set[hm[i]] = true;
-
-				var fam = answers.family || [];
-				for (var f = 0; f < fam.length; f++) {
-					var fm = FAMILY_MATERIAS[fam[f]] || [];
-					for (i = 0; i < fm.length; i++) set[fm[i]] = true;
-				}
-
-				var ext = answers.extras || [];
-				for (var e = 0; e < ext.length; e++) {
-					var em = EXTRAS_MATERIAS[ext[e]] || [];
-					for (i = 0; i < em.length; i++) set[em[i]] = true;
-				}
-
-				return Object.keys(set);
-			}
-
 			function finishWizard() {
-				var materias = computeMaterias();
 				var data = {
 					answers: {
 						workStatus: answers.workStatus,
@@ -782,7 +722,6 @@ const JURISDICTION_OPTIONS = [
 						family: answers.family.slice(),
 						extras: answers.extras.slice()
 					},
-					materias: materias,
 					jurisdiccion: answers.jurisdiccion || "es"
 				};
 				try {

@@ -3,34 +3,53 @@
  */
 import { Elysia, t } from "elysia";
 import type { DbService } from "../services/db.ts";
+import { computeMaterias } from "../data/materia-mappings.ts";
+
+const JURISDICTION_RE = /^es(-[a-z]{2})?$/;
 
 export function reformRoutes(dbService: DbService) {
 	return new Elysia({ prefix: "/v1" })
 		.get(
 			"/reforms/personal",
 			({ query, set }) => {
-				const materiasCsv = query.materias;
-				if (!materiasCsv || materiasCsv.trim() === "") {
-					set.status = 400;
-					return { error: "materias query parameter is required" };
-				}
-
 				const weeks = query.weeks ? Math.min(Number(query.weeks), 12) : 4;
 				if (weeks <= 0 || Number.isNaN(weeks)) {
 					set.status = 400;
 					return { error: "weeks must be between 1 and 12" };
 				}
 
-				const jurisdiction = query.jurisdiccion || "es";
+				const jurisdiction = query.j || query.jurisdiccion || "es";
+				if (!JURISDICTION_RE.test(jurisdiction)) {
+					set.status = 400;
+					return { error: "invalid jurisdiction format" };
+				}
 
-				const materias = materiasCsv
-					.split(",")
-					.map((m) => decodeURIComponent(m.trim()))
-					.filter((m) => m.length > 0);
+				// Resolve materias: prefer answer params (compact), fall back to raw materias (legacy)
+				let materias: string[];
+
+				if (query.w) {
+					// New: server-side materia resolution from wizard answers
+					materias = computeMaterias({
+						workStatus: query.w,
+						sector: query.s || null,
+						housing: query.h || "familiares",
+						family: query.f ? query.f.split(",").filter(Boolean) : [],
+						extras: query.x ? query.x.split(",").filter(Boolean) : [],
+					});
+				} else if (query.materias && query.materias.trim() !== "") {
+					// Legacy: raw materias CSV (backward compat)
+					materias = query.materias
+						.split(",")
+						.map((m) => decodeURIComponent(m.trim()))
+						.filter((m) => m.length > 0);
+				} else {
+					set.status = 400;
+					return { error: "w (work status) or materias parameter is required" };
+				}
 
 				if (materias.length === 0) {
 					set.status = 400;
-					return { error: "materias query parameter is required" };
+					return { error: "no materias resolved from the provided answers" };
 				}
 
 				// Compute since date
@@ -71,6 +90,14 @@ export function reformRoutes(dbService: DbService) {
 			},
 			{
 				query: t.Object({
+					// New: wizard answer params (compact, server resolves materias)
+					w: t.Optional(t.String()), // workStatus
+					s: t.Optional(t.String()), // sector
+					h: t.Optional(t.String()), // housing
+					j: t.Optional(t.String()), // jurisdiction (short)
+					f: t.Optional(t.String()), // family (comma-separated)
+					x: t.Optional(t.String()), // extras (comma-separated)
+					// Legacy: raw materias CSV (backward compat)
 					materias: t.Optional(t.String()),
 					jurisdiccion: t.Optional(t.String()),
 					weeks: t.Optional(t.String()),
