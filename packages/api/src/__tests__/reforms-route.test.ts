@@ -117,49 +117,45 @@ describe("GET /v1/reforms/personal", () => {
 
 	test("valid materias returns 200 with correct shape", async () => {
 		const res = await request(
-			"/v1/reforms/personal?materias=Seguridad%20Social&weeks=12",
+			"/v1/reforms/personal?materias=Seguridad%20Social",
 		);
 		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body).toHaveProperty("reforms");
 		expect(body).toHaveProperty("materias");
-		expect(body).toHaveProperty("date_range");
+		expect(body).toHaveProperty("limit");
+		expect(body).toHaveProperty("offset");
 		expect(Array.isArray(body.reforms)).toBe(true);
 		expect(body.materias).toEqual(["Seguridad Social"]);
+		expect(body.limit).toBe(20);
+		expect(body.offset).toBe(0);
 	});
 
-	test("weeks=0 returns 400", async () => {
+	test("limit and offset params work", async () => {
 		const res = await request(
-			"/v1/reforms/personal?materias=Seguridad%20Social&weeks=0",
-		);
-		expect(res.status).toBe(400);
-		const body = await res.json();
-		expect(body.error).toContain("weeks");
-	});
-
-	test("weeks param limits results to recent", async () => {
-		// weeks=2 should only return recent reform, not old one
-		const res = await request(
-			"/v1/reforms/personal?materias=Seguridad%20Social&weeks=2",
+			"/v1/reforms/personal?materias=Seguridad%20Social&limit=1&offset=0",
 		);
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		// Recent reform should be included
-		expect(body.reforms.length).toBeGreaterThanOrEqual(1);
+		expect(body.reforms.length).toBeLessThanOrEqual(1);
+		expect(body.limit).toBe(1);
+		expect(body.offset).toBe(0);
+	});
 
-		// All returned reforms should be within 2 weeks
-		const twoWeeksAgo = new Date();
-		twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-		const sinceStr = twoWeeksAgo.toISOString().slice(0, 10);
-		for (const r of body.reforms) {
-			expect(r.date >= sinceStr).toBe(true);
-		}
+	test("returns all reforms (recent and old) without time limit", async () => {
+		const res = await request(
+			"/v1/reforms/personal?materias=Seguridad%20Social&limit=100",
+		);
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		// Should include both the recent (7 days ago) and old (90 days ago) reforms
+		expect(body.reforms.length).toBe(2);
 	});
 
 	test("jurisdiction filtering works", async () => {
 		// Query for es-pv jurisdiction with Educacion materia
 		const res = await request(
-			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiccion=es-pv&weeks=12",
+			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiccion=es-pv&limit=100",
 		);
 		expect(res.status).toBe(200);
 		const body = await res.json();
@@ -181,7 +177,7 @@ describe("GET /v1/reforms/personal", () => {
 		// Educacion materia is only on the Basque norm (es-pv)
 		// With jurisdiction=es it should not appear
 		const res = await request(
-			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiccion=es&weeks=12",
+			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiccion=es&limit=100",
 		);
 		expect(res.status).toBe(200);
 		const body = await res.json();

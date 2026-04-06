@@ -432,84 +432,143 @@ import Base from "../layouts/Base.astro";
 				pillsHtml += '<span class="situation-tag">' + esc(label) + '</span>';
 			}
 			metaDiv.innerHTML = pillsHtml;
-			infoDiv.innerHTML = esc(JURISDICTION_NAMES[jurisdiccion] || jurisdiccion) + ' · Últimas 4 semanas · <a href="/mi-situacion">Cambiar situación</a>';
+			infoDiv.innerHTML = esc(JURISDICTION_NAMES[jurisdiccion] || jurisdiccion) + ' · Últimos cambios · <a href="/mi-situacion">Cambiar situación</a>';
 
-			// Fetch data
-			function loadData() {
-				contentDiv.innerHTML = '<div class="skeleton-cards"><div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div></div><div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:55%"></div></div><div class="skeleton-card"><div class="skeleton-line" style="width:45%"></div><div class="skeleton-line" style="width:80%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div></div></div>';
+			var PAGE_SIZE = 20;
+			var currentOffset = 0;
+			var timelineEl = null;
+			var loadMoreBtn = null;
 
-				var controller = new AbortController();
-				var timeout = setTimeout(function () { controller.abort(); }, 10000);
+			var TYPE_LABELS = {
+				new_law: "Ley nueva",
+				modification: "Modificación",
+				correction: "Corrección",
+				derogation: "Derogación"
+			};
 
+			function buildBaseParams() {
 				var params = "w=" + encodeURIComponent(answersObj.workStatus);
 				if (answersObj.sector) params += "&s=" + encodeURIComponent(answersObj.sector);
 				if (answersObj.housing) params += "&h=" + encodeURIComponent(answersObj.housing);
 				params += "&j=" + encodeURIComponent(jurisdiccion);
 				if (answersObj.family && answersObj.family.length) params += "&f=" + encodeURIComponent(answersObj.family.join(","));
 				if (answersObj.extras && answersObj.extras.length) params += "&x=" + encodeURIComponent(answersObj.extras.join(","));
-				params += "&weeks=4";
+				return params;
+			}
+
+			function renderCards(reforms) {
+				var html = "";
+				for (var i = 0; i < reforms.length; i++) {
+					var r = reforms[i];
+					var dateStr = r.date || "";
+					if (dateStr) {
+						var d = new Date(dateStr + "T00:00:00");
+						var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+						dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+					}
+					var hasHeadline = r.headline && r.headline.length > 0;
+					var reformType = r.reform_type || "";
+					var typeLabel = TYPE_LABELS[reformType] || "";
+
+					html += '<div class="reform-card">';
+					html += '<div class="reform-date-row">';
+					html += '<span class="reform-date">' + esc(dateStr) + '</span>';
+					if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
+					html += '</div>';
+
+					if (hasHeadline) {
+						html += '<h3 class="reform-headline">' + esc(r.headline) + '</h3>';
+						if (r.summary) html += '<p class="reform-summary">' + esc(r.summary) + '</p>';
+					} else {
+						html += '<h3 class="reform-title-fallback">' + esc(r.title) + '</h3>';
+					}
+
+					html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
+					html += '</div>';
+				}
+				return html;
+			}
+
+			function updateInfoDate() {
+				if (!timelineEl) return;
+				var cards = timelineEl.querySelectorAll(".reform-card .reform-date");
+				if (cards.length === 0) return;
+				var oldest = cards[cards.length - 1].textContent;
+				infoDiv.innerHTML = esc(JURISDICTION_NAMES[jurisdiccion] || jurisdiccion) + ' · Desde ' + esc(oldest) + ' · <a href="/mi-situacion">Cambiar situación</a>';
+			}
+
+			function fetchPage(offset, isInitial) {
+				var params = buildBaseParams() + "&limit=" + PAGE_SIZE + "&offset=" + offset;
+
+				var controller = new AbortController();
+				var timeout = setTimeout(function () { controller.abort(); }, 10000);
+
+				if (loadMoreBtn) {
+					loadMoreBtn.disabled = true;
+					loadMoreBtn.textContent = "Cargando...";
+				}
 
 				fetch(API + "/v1/reforms/personal?" + params, { signal: controller.signal })
 					.then(function (r) { return r.json(); })
 					.then(function (data) {
 						clearTimeout(timeout);
-						if (!data.reforms || data.reforms.length === 0) {
+						if (!data.reforms) data.reforms = [];
+
+						if (isInitial && data.reforms.length === 0) {
 							contentDiv.innerHTML = '<div class="empty-state"><div class="empty-check">&#10003;</div><h2>No hay cambios recientes que te afecten</h2><p>¡Buenas noticias! Te avisaremos cuando algo cambie.</p></div>';
 							emailCta.style.display = "";
 							return;
 						}
 
-						var TYPE_LABELS = {
-							new_law: "Ley nueva",
-							modification: "Modificación",
-							correction: "Corrección",
-							derogation: "Derogación"
-						};
-
-						var html = '<div class="reform-timeline">';
-						for (var i = 0; i < data.reforms.length; i++) {
-							var r = data.reforms[i];
-							var dateStr = r.date || "";
-							if (dateStr) {
-								var d = new Date(dateStr + "T00:00:00");
-								var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-								dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
-							}
-							var hasHeadline = r.headline && r.headline.length > 0;
-							var reformType = r.reform_type || "";
-							var typeLabel = TYPE_LABELS[reformType] || "";
-
-							html += '<div class="reform-card">';
-							html += '<div class="reform-date-row">';
-							html += '<span class="reform-date">' + esc(dateStr) + '</span>';
-							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
-							html += '</div>';
-
-							if (hasHeadline) {
-								html += '<h3 class="reform-headline">' + esc(r.headline) + '</h3>';
-								if (r.summary) html += '<p class="reform-summary">' + esc(r.summary) + '</p>';
-							} else {
-								html += '<h3 class="reform-title-fallback">' + esc(r.title) + '</h3>';
-							}
-
-							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
-							html += '</div>';
+						if (isInitial) {
+							contentDiv.innerHTML = '<div class="reform-timeline" id="reform-timeline"></div>';
+							timelineEl = document.getElementById("reform-timeline");
 						}
-						html += '</div>';
-						contentDiv.innerHTML = html;
+
+						timelineEl.insertAdjacentHTML("beforeend", renderCards(data.reforms));
+						currentOffset = offset + data.reforms.length;
+						updateInfoDate();
+
+						// Show/hide "Ver más" button
+						if (data.reforms.length >= PAGE_SIZE) {
+							if (!loadMoreBtn) {
+								loadMoreBtn = document.createElement("button");
+								loadMoreBtn.type = "button";
+								loadMoreBtn.className = "btn btn-back";
+								loadMoreBtn.textContent = "Ver más";
+								loadMoreBtn.style.display = "block";
+								loadMoreBtn.style.margin = "1.5rem auto 0";
+								loadMoreBtn.addEventListener("click", function () {
+									fetchPage(currentOffset, false);
+								});
+								contentDiv.appendChild(loadMoreBtn);
+							} else {
+								loadMoreBtn.disabled = false;
+								loadMoreBtn.textContent = "Ver más";
+							}
+						} else if (loadMoreBtn) {
+							loadMoreBtn.remove();
+							loadMoreBtn = null;
+						}
+
 						emailCta.style.display = "";
 					})
 					.catch(function () {
 						clearTimeout(timeout);
-						contentDiv.innerHTML = '<div class="error-state" role="alert"><p>Error al cargar. Inténtalo de nuevo.</p><button type="button" class="btn-retry" id="btn-retry">Reintentar</button></div>';
-						var retryBtn = document.getElementById("btn-retry");
-						if (retryBtn) {
-							retryBtn.addEventListener("click", loadData);
+						if (isInitial) {
+							contentDiv.innerHTML = '<div class="error-state" role="alert"><p>Error al cargar. Inténtalo de nuevo.</p><button type="button" class="btn-retry" id="btn-retry">Reintentar</button></div>';
+							var retryBtn = document.getElementById("btn-retry");
+							if (retryBtn) {
+								retryBtn.addEventListener("click", function () { fetchPage(0, true); });
+							}
+						} else if (loadMoreBtn) {
+							loadMoreBtn.disabled = false;
+							loadMoreBtn.textContent = "Ver más";
 						}
 					});
 			}
 
-			loadData();
+			fetchPage(0, true);
 
 			// Email CTA form
 			var emailInput = document.getElementById("email-input");

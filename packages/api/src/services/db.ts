@@ -756,6 +756,8 @@ export class DbService {
 		materias: string[],
 		jurisdiction: string,
 		since: string,
+		limit = 20,
+		offset = 0,
 	): Array<{
 		id: string;
 		title: string;
@@ -826,6 +828,7 @@ export class DbService {
 			  AND ${jurisdictionClause}
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
 			ORDER BY match_ratio DESC, r.date DESC
+			LIMIT ? OFFSET ?
 		`;
 
 		return this.db
@@ -847,7 +850,7 @@ export class DbService {
 				},
 				unknown[]
 			>(sql)
-			.all(...effectiveMaterias, since, ...jurisdictionParams);
+			.all(...effectiveMaterias, since, ...jurisdictionParams, limit, offset);
 	}
 
 	getChangelog(
