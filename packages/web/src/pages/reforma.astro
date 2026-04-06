@@ -390,6 +390,7 @@ import Base from "../layouts/Base.astro";
 					html += '<span class="reforma-date">' + esc(formatDate(reform.date)) + '</span>';
 					if (typeLabel) html += '<span class="reforma-type-badge"> · ' + esc(typeLabel) + '</span>';
 					if (importance === "high") html += '<span class="reforma-importance-badge">Cambio importante</span>';
+					if (topicInfo) html += '<span style="font-size:0.6875rem;font-weight:600;color:var(--accent);background:var(--accent-faint);padding:0.125rem 0.5rem;border-radius:4px">' + esc(topicInfo.topic_label) + '</span>';
 					html += '</div>';
 					html += '<h1 class="reforma-headline">' + esc(hasHeadline ? reform.headline : law.title) + '</h1>';
 					html += '<div class="reforma-law-info">';
@@ -397,13 +398,7 @@ import Base from "../layouts/Base.astro";
 					html += ' · <a href="/laws/' + encodeURIComponent(law.id) + '">' + esc(law.title) + '</a>';
 					html += '</div></div>';
 
-					// ── Topic context header (when filtering by omnibus topic) ──
-					if (topicInfo) {
-						html += '<div style="margin-bottom:1.5rem;padding:0.875rem 1.125rem;background:var(--accent-faint);border-radius:8px;border-left:3px solid var(--accent);font-size:0.875rem">';
-						html += '<strong style="color:var(--text)">Dentro del desglose:</strong> <span style="color:var(--text-secondary)">' + esc(topicInfo.topic_label) + '</span>';
-						if (topicInfo.is_sneaked) html += ' <span style="font-size:0.75rem;color:var(--danger);font-weight:600">(Tema no relacionado con el título)</span>';
-						html += '</div>';
-					}
+					// ── Topic tag in date row (when filtering by omnibus topic) ──
 
 					// ── Summary ──
 					if (reform.summary) {
@@ -412,13 +407,8 @@ import Base from "../layouts/Base.astro";
 
 					// ── Empty topic intersection ──
 					if (topicBlockIds && blocks.length === 0) {
-						html += '<section class="reforma-changes">';
-						html += '<div style="text-align:center;padding:2rem 1.5rem;background:var(--surface);border:1px solid var(--border-light);border-radius:12px">';
-						html += '<p style="color:var(--text-secondary);font-size:0.9375rem;margin-bottom:1rem">Este tema no se modificó en la última reforma. Contiene ' + topicBlockIds.length + ' artículo' + (topicBlockIds.length !== 1 ? 's' : '') + ' que no fueron afectados.</p>';
-						html += '<div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap">';
-						html += '<a href="/laws/' + encodeURIComponent(law.id) + '" style="color:var(--accent-light);font-size:0.875rem;font-weight:500">Ver ley completa &rarr;</a>';
-						html += '<a href="/reforma?id=' + encodeURIComponent(law.id) + '&date=' + encodeURIComponent(reform.date) + '&from=omnibus" style="color:var(--accent-light);font-size:0.875rem;font-weight:500">Ver todos los cambios &rarr;</a>';
-						html += '</div></div></section>';
+						html += '<p style="color:var(--text-muted);font-size:0.9375rem;margin-bottom:0.5rem">Los ' + topicBlockIds.length + ' artículo' + (topicBlockIds.length !== 1 ? 's' : '') + ' de este tema no se modificaron en esta reforma.</p>';
+						html += '<p style="font-size:0.875rem"><a href="/reforma?id=' + encodeURIComponent(law.id) + '&date=' + encodeURIComponent(reform.date) + '&from=omnibus" style="color:var(--accent-light)">Ver todos los cambios de esta reforma &rarr;</a></p>';
 					}
 
 					// ── Affected blocks ──
