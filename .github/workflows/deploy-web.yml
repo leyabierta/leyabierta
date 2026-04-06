@@ -57,8 +57,25 @@ jobs:
 
             [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            packages/*/node_modules
+          key: bun-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Cache Astro content store
+        uses: actions/cache@v4
+        with:
+          path: packages/web/.astro
+          key: astro-data-${{ hashFiles('content/laws/**/*.md') }}
+          restore-keys: astro-data-
 
       - name: Notify — Building
         continue-on-error: true
