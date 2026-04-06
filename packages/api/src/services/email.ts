@@ -258,7 +258,9 @@ export async function sendNotificationEmail(
 	html: string,
 ): Promise<boolean> {
 	if (!resend) {
-		console.log(`[email-dry-run] Notification to ${maskEmail(email)}: ${subject}`);
+		console.log(
+			`[email-dry-run] Notification to ${maskEmail(email)}: ${subject}`,
+		);
 		return true;
 	}
 
@@ -276,7 +278,10 @@ export async function sendNotificationEmail(
 		});
 		return true;
 	} catch (err) {
-		console.error(`[email] Failed to send notification to ${maskEmail(email)}:`, err);
+		console.error(
+			`[email] Failed to send notification to ${maskEmail(email)}:`,
+			err,
+		);
 		return false;
 	}
 }

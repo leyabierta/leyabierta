@@ -740,9 +740,7 @@ export class DbService {
 	}
 
 	deleteNormFollowsByEmail(email: string): void {
-		this.db
-			.query("DELETE FROM norm_follows WHERE email = ?")
-			.run(email);
+		this.db.query("DELETE FROM norm_follows WHERE email = ?").run(email);
 	}
 
 	confirmNormFollow(token: string): boolean {
@@ -794,8 +792,7 @@ export class DbService {
 		const jurisdictionParams: string[] = [];
 
 		if (jurisdiction === "es") {
-			jurisdictionClause =
-				"(n.source_url LIKE ? AND n.source_url NOT LIKE ?)";
+			jurisdictionClause = "(n.source_url LIKE ? AND n.source_url NOT LIKE ?)";
 			jurisdictionParams.push("%/eli/es/%", "%/eli/es-__/%");
 		} else {
 			jurisdictionClause =

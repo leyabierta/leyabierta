@@ -38,12 +38,15 @@ function createRateLimiter(maxRequests: number) {
 	const map = new Map<string, RateEntry>();
 
 	// Periodically clean expired entries (every 10 minutes)
-	setInterval(() => {
-		const now = Date.now();
-		for (const [ip, entry] of map) {
-			if (now >= entry.resetAt) map.delete(ip);
-		}
-	}, 10 * 60 * 1000);
+	setInterval(
+		() => {
+			const now = Date.now();
+			for (const [ip, entry] of map) {
+				if (now >= entry.resetAt) map.delete(ip);
+			}
+		},
+		10 * 60 * 1000,
+	);
 
 	return {
 		isLimited(ip: string): boolean {
