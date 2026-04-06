@@ -14,6 +14,9 @@ import Base from "../layouts/Base.astro";
 			margin: 0 auto;
 			padding: 0 1rem 3rem;
 		}
+		#reforma-content {
+			min-height: 28rem;
+		}
 
 		.reforma-back {
 			font-size: 0.8125rem;
@@ -195,7 +198,7 @@ import Base from "../layouts/Base.astro";
 	</style>
 
 	<div class="reforma-wrap">
-		<a href="/mis-cambios" class="reforma-back" id="reforma-back">&larr; Volver a mis cambios</a>
+		<a href="/mis-cambios" class="reforma-back" id="reforma-back">&larr; Volver</a>
 		<div id="reforma-content">
 			<div class="reforma-header">
 				<div class="skeleton-line" style="width:30%"></div>
@@ -211,33 +214,37 @@ import Base from "../layouts/Base.astro";
 
 	<script is:inline>
 		(function () {
-			// Context-aware back link
+			// Context-aware back link: use history.back() when possible
 			var backLink = document.getElementById("reforma-back");
 			if (backLink) {
 				var params = new URLSearchParams(window.location.search);
 				var from = params.get("from");
 				var normId = params.get("id") || "";
+
+				// Set label based on context
 				if (from === "cambios") {
-					backLink.href = "/cambios";
 					backLink.innerHTML = "&larr; Volver a cambios recientes";
-				} else if (from === "omnibus") {
-					backLink.href = "/omnibus/detalle?id=" + encodeURIComponent(normId);
-					backLink.innerHTML = "&larr; Volver al desglose";
-				} else if (from === "law") {
-					backLink.href = "/laws/" + encodeURIComponent(normId);
+				} else if (from === "omnibus" || from === "law") {
 					backLink.innerHTML = "&larr; Volver a la ley";
 				} else if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
 					var refPath = new URL(document.referrer).pathname;
 					if (refPath === "/cambios") {
-						backLink.href = "/cambios";
 						backLink.innerHTML = "&larr; Volver a cambios recientes";
-					} else if (refPath.indexOf("/omnibus/detalle") === 0) {
-						backLink.href = document.referrer;
-						backLink.innerHTML = "&larr; Volver al desglose";
 					} else if (refPath.indexOf("/laws/") === 0) {
-						backLink.href = document.referrer;
 						backLink.innerHTML = "&larr; Volver a la ley";
 					}
+				}
+
+				// Always use history.back() if we have a same-origin referrer
+				if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
+					backLink.addEventListener("click", function(e) {
+						e.preventDefault();
+						history.back();
+					});
+				} else if (from === "cambios") {
+					backLink.href = "/cambios";
+				} else if ((from === "omnibus" || from === "law") && normId) {
+					backLink.href = "/laws/" + encodeURIComponent(normId);
 				}
 			}
 
@@ -536,7 +543,7 @@ import Base from "../layouts/Base.astro";
 					var errorBackHref = "/mis-cambios";
 					var errorBackLabel = "Volver a mis cambios";
 					if (from2 === "cambios") { errorBackHref = "/cambios"; errorBackLabel = "Volver a cambios recientes"; }
-					else if (from2 === "omnibus") { errorBackHref = "/omnibus/detalle?id=" + encodeURIComponent(params2.get("id") || ""); errorBackLabel = "Volver al desglose"; }
+					else if (from2 === "omnibus") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || ""); errorBackLabel = "Volver a la ley"; }
 					else if (from2 === "law") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || ""); errorBackLabel = "Volver a la ley"; }
 					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="' + errorBackHref + '" style="color:var(--accent)">' + errorBackLabel + '</a></div>';
 				});

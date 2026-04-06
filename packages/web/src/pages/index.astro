@@ -838,7 +838,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				if (currentPage > 1) urlParams.set("page", String(currentPage));
 				history.replaceState(null, "", "/?" + urlParams.toString());
 
-				fetch(API + "/v1/laws?" + params.toString())
+				// Yield to the browser so it can paint the skeleton before fetch starts.
+				// This prevents the interaction (Enter key) from being blocked until
+				// the fetch completes, which was causing 800ms+ INP scores.
+				var fetchUrl = API + "/v1/laws?" + params.toString();
+				requestAnimationFrame(function () { setTimeout(doFetch, 0); });
+				function doFetch() {
+				fetch(fetchUrl)
 					.then(function (r) { return r.json(); })
 					.then(function (result) {
 						if (result.data.length === 0) {
@@ -939,6 +945,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					.catch(function () {
 						resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">Error al buscar. La API no está disponible.</div>';
 					});
+				} // end doFetch
 			}
 
 			searchBtn.addEventListener("click", function () { currentCountry = filterJurisdiction.value; doSearch(1); });

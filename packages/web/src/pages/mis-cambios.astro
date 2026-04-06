@@ -14,6 +14,9 @@ import Base from "../layouts/Base.astro";
 			margin: 0 auto;
 			padding: 0 1rem 3rem;
 		}
+		#cambios-content {
+			min-height: 24rem;
+		}
 
 		/* ── Header ── */
 		.cambios-header {
@@ -516,16 +519,9 @@ import Base from "../layouts/Base.astro";
 							html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
-							// Omnibus badge only for new laws, not modifications to existing omnibus laws
-							var isNewLaw = reformType === "new_law";
-							if (isNewLaw) {
-								var otc = r.omnibus_topic_count || 0;
-								var mc = r.materia_count || 0;
-								if (otc > 0) {
-									html += '<a href="/omnibus/detalle?id=' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
-								} else if (mc >= 15) {
-									html += '<span class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);">LEY ÓMNIBUS (' + mc + ' materias)</span>';
-								}
+							var otc = r.omnibus_topic_count || 0;
+							if (otc > 0) {
+								html += '<a href="/laws/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
 							}
 							html += '</div>';
 
