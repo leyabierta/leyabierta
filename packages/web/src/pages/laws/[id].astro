@@ -4,8 +4,7 @@ import { promises as fs } from "node:fs";
 import MarkdownIt from "markdown-it";
 import sanitizeHtml from "sanitize-html";
 import Base from "../../layouts/Base.astro";
-import { getLaw, getOmnibusDetail } from "../../lib/api.ts";
-import type { OmnibusTopic } from "../../lib/api.ts";
+import { getLaw, getOmnibusDetail, type OmnibusTopic } from "../../lib/api.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
@@ -35,21 +34,15 @@ const { entry } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
 
-// Fetch citizen data (summary + tags) and block mapping from the API at build time
+// Fetch citizen data (summary + tags) from the API at build time
 let citizenSummary = "";
 let citizenTags: string[] = [];
-let blockIdMap: Map<string, string> = new Map();
 let omnibusTopics: OmnibusTopic[] = [];
 let omnibusTopicCount = 0;
 try {
 	const detail = await getLaw(id!);
 	citizenSummary = detail.citizen_summary ?? "";
 	citizenTags = detail.citizen_tags ?? [];
-	if (detail.blocks) {
-		for (const b of detail.blocks) {
-			if (b.title) blockIdMap.set(b.title.toLowerCase().trim().replace(/\u00a0/g, " "), b.block_id);
-		}
-	}
 } catch {
 	// API may not be available during build — gracefully degrade
 }
@@ -83,32 +76,9 @@ if (entry.body) {
 			td: ["colspan", "rowspan"],
 			span: ["class"],
 			div: ["class"],
-			h2: ["id"], h3: ["id"], h4: ["id"], h5: ["id"], h6: ["id"],
 		},
 		allowedSchemes: ["https", "http"],
 	});
-
-	// Inject block IDs as anchor IDs on headings for omnibus topic linking
-	if (blockIdMap.size > 0) {
-		const entries = Array.from(blockIdMap.entries());
-		htmlContent = htmlContent.replace(/<(h[2-6])>([^<]+)<\/h[2-6]>/g, (full, tag, text) => {
-			const normalized = text.toLowerCase().trim();
-			// Exact match first
-			let blockId = blockIdMap.get(normalized);
-			if (!blockId) {
-				// Prefix match: "Artículo 1. Objeto..." matches block title "artículo 1"
-				for (let i = 0; i < entries.length; i++) {
-					const title = entries[i][0];
-					if (normalized.startsWith(title + ".") || normalized.startsWith(title + " ")) {
-						blockId = entries[i][1];
-						break;
-					}
-				}
-			}
-			if (blockId) return `<${tag} id="block-${blockId}">${text}</${tag}>`;
-			return full;
-		});
-	}
 }
 
 const RANK_LABELS: Record<string, string> = {
@@ -273,7 +243,6 @@ const articleCount = law.articulos ?? 0;
 		.law-content :global(h6) { font-size: 0.9375rem; font-weight: 700; margin: 0.75rem 0 0.5rem; color: var(--text); }
 		.law-content :global(p) { margin-bottom: 0.75rem; }
 		.law-content :global(hr) { border: none; border-top: 1px solid var(--border-light); margin: 1.5rem 0 0.75rem; }
-		.law-content :global(.omnibus-highlight) { background: var(--warning-bg, #fff3cd); padding: 0.25rem 0.5rem; border-radius: 4px; }
 
 		/* ── Resumen components ── */
 		/* ── Omnibus notice ── */
@@ -362,21 +331,6 @@ const articleCount = law.articulos ?? 0;
 			line-height: 1.6;
 			margin: 0.25rem 0;
 		}
-		.omnibus-topic-link {
-			display: inline-block;
-			margin-top: 0.5rem;
-			font-size: 0.8125rem;
-			font-weight: 500;
-			color: var(--accent-light);
-			background: none;
-			border: none;
-			padding: 0;
-			cursor: pointer;
-			font-family: var(--font-sans);
-		}
-		.omnibus-topic-link:hover {
-			text-decoration: underline;
-		}
 
 		/* ── View toggle ── */
 		.view-toggle {
@@ -411,15 +365,24 @@ const articleCount = law.articulos ?? 0;
 		.meta-item-label { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.125rem; }
 		.meta-item-value { color: var(--text); font-weight: 500; }
 
+		.citizen-summary-card {
+			padding: 0.25rem 0 0.25rem 1rem;
+			border-left: 3px solid var(--accent);
+			margin-bottom: 1.5rem;
+		}
+		.citizen-summary-label {
+			font-size: 0.6875rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: var(--accent);
+			margin-bottom: 0.375rem;
+		}
 		.citizen-summary {
 			font-size: 1rem;
 			color: var(--text-secondary);
 			line-height: 1.7;
-			margin-bottom: 1.25rem;
-			padding: 0.75rem 1rem;
-			border-left: 3px solid var(--accent);
-			background: var(--surface);
-			border-radius: 0 8px 8px 0;
+			margin: 0;
 		}
 		.citizen-tags {
 			display: flex;
@@ -610,7 +573,10 @@ const articleCount = law.articulos ?? 0;
 	<!-- Tab: Resumen (static) -->
 	<div class="tab-panel active" id="tab-resumen">
 		{citizenSummary && (
-			<p class="citizen-summary">{citizenSummary}</p>
+			<div class="citizen-summary-card">
+				<div class="citizen-summary-label">Resumen ciudadano</div>
+				<p class="citizen-summary">{citizenSummary}</p>
+			</div>
 		)}
 
 		{omnibusTopicCount > 0 && (
