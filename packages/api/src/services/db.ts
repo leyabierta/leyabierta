@@ -1171,14 +1171,15 @@ export class DbService {
 			articleCount: number;
 			isSneaked: boolean;
 			relatedMaterias: string;
+			blockIds: string;
 			model: string;
 		},
 	): void {
 		this.db
 			.query(
 				`INSERT OR REPLACE INTO omnibus_topics
-				 (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias, generated_at, model)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+				 (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias, block_ids, generated_at, model)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
 			)
 			.run(
 				normId,
@@ -1189,6 +1190,7 @@ export class DbService {
 				data.articleCount,
 				data.isSneaked ? 1 : 0,
 				data.relatedMaterias,
+				data.blockIds,
 				data.model,
 			);
 	}
@@ -1201,6 +1203,7 @@ export class DbService {
 		article_count: number;
 		is_sneaked: number;
 		related_materias: string;
+		block_ids: string;
 	}> {
 		return this.db
 			.query<
@@ -1212,10 +1215,11 @@ export class DbService {
 					article_count: number;
 					is_sneaked: number;
 					related_materias: string;
+					block_ids: string;
 				},
 				[string]
 			>(
-				`SELECT topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias
+				`SELECT topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias, block_ids
 				 FROM omnibus_topics WHERE norm_id = ? ORDER BY topic_index`,
 			)
 			.all(normId);
@@ -1281,6 +1285,7 @@ export class DbService {
 			article_count: number;
 			is_sneaked: number;
 			related_materias: string;
+			block_ids: string;
 		}>;
 	} | null {
 		const norm = this.db

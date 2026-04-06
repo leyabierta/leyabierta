@@ -338,21 +338,47 @@ import Base from "../layouts/Base.astro";
 			var params = new URLSearchParams(window.location.search);
 			var normId = params.get("id");
 			var date = params.get("date");
+			var topicParam = params.get("topic");
+			var topicIndex = topicParam !== null ? parseInt(topicParam, 10) : NaN;
+			var fromOmnibus = params.get("from") === "omnibus";
 
 			if (!normId || !date) {
 				contentDiv.innerHTML = '<div class="error-state"><p>Faltan parámetros.</p></div>';
 				return;
 			}
 
-			fetch(API + "/v1/reforms/" + encodeURIComponent(normId) + "/" + encodeURIComponent(date))
-				.then(function (r) {
-					if (!r.ok) throw new Error(r.status);
-					return r.json();
-				})
-				.then(function (data) {
+			// Fetch reform data, and optionally omnibus topic data for filtering
+			var reformUrl = API + "/v1/reforms/" + encodeURIComponent(normId) + "/" + encodeURIComponent(date);
+			var promises = [fetch(reformUrl).then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })];
+			if (fromOmnibus && !isNaN(topicIndex)) {
+				promises.push(
+					fetch(API + "/v1/omnibus/" + encodeURIComponent(normId))
+						.then(function(r) { return r.ok ? r.json() : null; })
+						.catch(function() { return null; })
+				);
+			}
+
+			Promise.all(promises)
+				.then(function (results) {
+					var data = results[0];
+					var omnibusData = results[1] || null;
+					var topicInfo = null;
+					var topicBlockIds = null;
+
+					if (omnibusData && omnibusData.topics && !isNaN(topicIndex)) {
+						topicInfo = omnibusData.topics[topicIndex] || null;
+						if (topicInfo && Array.isArray(topicInfo.block_ids) && topicInfo.block_ids.length > 0) {
+							topicBlockIds = topicInfo.block_ids;
+						}
+					}
+
 					var reform = data.reform;
 					var law = data.law;
-					var blocks = data.affected_blocks || [];
+					var allBlocks = data.affected_blocks || [];
+					// Filter blocks by topic if available
+					var blocks = topicBlockIds
+						? allBlocks.filter(function(b) { return topicBlockIds.indexOf(b.block_id) !== -1; })
+						: allBlocks;
 					var hasHeadline = reform.headline && reform.headline.length > 0;
 					var typeLabel = TYPE_LABELS[reform.reform_type] || "";
 					var importance = reform.importance || "";
@@ -371,9 +397,28 @@ import Base from "../layouts/Base.astro";
 					html += ' · <a href="/laws/' + encodeURIComponent(law.id) + '">' + esc(law.title) + '</a>';
 					html += '</div></div>';
 
+					// ── Topic context header (when filtering by omnibus topic) ──
+					if (topicInfo) {
+						html += '<div style="margin-bottom:1.5rem;padding:0.875rem 1.125rem;background:var(--accent-faint);border-radius:8px;border-left:3px solid var(--accent);font-size:0.875rem">';
+						html += '<strong style="color:var(--text)">Dentro del desglose:</strong> <span style="color:var(--text-secondary)">' + esc(topicInfo.topic_label) + '</span>';
+						if (topicInfo.is_sneaked) html += ' <span style="font-size:0.75rem;color:var(--danger);font-weight:600">(Tema no relacionado con el título)</span>';
+						html += '</div>';
+					}
+
 					// ── Summary ──
 					if (reform.summary) {
 						html += '<div class="reforma-summary">' + esc(reform.summary) + '</div>';
+					}
+
+					// ── Empty topic intersection ──
+					if (topicBlockIds && blocks.length === 0) {
+						html += '<section class="reforma-changes">';
+						html += '<div style="text-align:center;padding:2rem 1.5rem;background:var(--surface);border:1px solid var(--border-light);border-radius:12px">';
+						html += '<p style="color:var(--text-secondary);font-size:0.9375rem;margin-bottom:1rem">Este tema no se modificó en la última reforma. Contiene ' + topicBlockIds.length + ' artículo' + (topicBlockIds.length !== 1 ? 's' : '') + ' que no fueron afectados.</p>';
+						html += '<div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap">';
+						html += '<a href="/laws/' + encodeURIComponent(law.id) + '" style="color:var(--accent-light);font-size:0.875rem;font-weight:500">Ver ley completa &rarr;</a>';
+						html += '<a href="/reforma?id=' + encodeURIComponent(law.id) + '&date=' + encodeURIComponent(reform.date) + '&from=omnibus" style="color:var(--accent-light);font-size:0.875rem;font-weight:500">Ver todos los cambios &rarr;</a>';
+						html += '</div></div></section>';
 					}
 
 					// ── Affected blocks ──
@@ -404,8 +449,8 @@ import Base from "../layouts/Base.astro";
 							html += '</div></div>';
 						}
 						html += '</section>';
-					} else if (data.prev_reform_date) {
-						// No block-level data — placeholder for unified diff fallback
+					} else if (data.prev_reform_date && !topicBlockIds) {
+						// No block-level data and NOT filtered by topic — show unified diff fallback
 						html += '<section class="reforma-changes">';
 						html += '<h2>Qué ha cambiado</h2>';
 						html += '<div id="unified-diff-container"><div class="diff-content" style="color:var(--text-muted);font-size:0.8125rem;padding:1rem">Cargando diferencias...</div></div>';
@@ -432,8 +477,8 @@ import Base from "../layouts/Base.astro";
 						});
 					});
 
-					// ── Unified diff fallback (when no block-level data) ──
-					if (blocks.length === 0 && data.prev_reform_date) {
+					// ── Unified diff fallback (when no block-level data and NOT topic-filtered) ──
+					if (blocks.length === 0 && data.prev_reform_date && !topicBlockIds) {
 						var diffUrl = API + "/v1/laws/" + encodeURIComponent(normId) + "/diff?from=" + encodeURIComponent(data.prev_reform_date) + "&to=" + encodeURIComponent(date);
 						fetch(diffUrl)
 							.then(function (r) { return r.ok ? r.json() : null; })

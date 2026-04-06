@@ -265,7 +265,7 @@ import Base from "../../layouts/Base.astro";
 						if (t.headline) html += '<p class="topic-headline">' + esc(t.headline) + '</p>';
 						if (t.summary) html += '<p class="topic-summary">' + esc(t.summary) + '</p>';
 						if (data.latest_reform_date) {
-							html += '<a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '&from=omnibus" class="topic-link">Ver qué cambió &rarr;</a>';
+							html += '<a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '&topic=' + i + '&from=omnibus" class="topic-link">Ver qué cambió &rarr;</a>';
 						}
 						html += '</div>';
 					}

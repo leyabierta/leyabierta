@@ -47,9 +47,18 @@ export function omnibusRoutes(dbService: DbService) {
 					return { error: "Norm not found" };
 				}
 
+				const topics = detail.topics.map((t) => {
+					let blockIds: string[] = [];
+					try {
+						if (t.block_ids) blockIds = JSON.parse(t.block_ids);
+					} catch {}
+					return { ...t, block_ids: blockIds };
+				});
+
 				return {
 					...detail,
-					sneaked_count: detail.topics.filter((t) => t.is_sneaked).length,
+					topics,
+					sneaked_count: topics.filter((t) => t.is_sneaked).length,
 				};
 			},
 			{

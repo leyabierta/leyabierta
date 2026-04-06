@@ -47,6 +47,7 @@ interface TopicResponse {
 	article_count: number;
 	sneaked_in: boolean;
 	related_materias: string[];
+	block_ids: string[];
 }
 
 const TOPIC_SCHEMA = {
@@ -87,6 +88,12 @@ const TOPIC_SCHEMA = {
 						description:
 							"Materias exactas del BOE que corresponden a este eje temático. Usa solo nombres de la lista proporcionada.",
 					},
+					block_ids: {
+						type: "array",
+						items: { type: "string" },
+						description:
+							"Identificadores exactos de los bloques (artículos, disposiciones) que pertenecen a este eje temático. Cada block_id debe aparecer en exactamente un tema. Usa los identificadores de la estructura proporcionada.",
+					},
 				},
 				required: [
 					"topic_label",
@@ -95,6 +102,7 @@ const TOPIC_SCHEMA = {
 					"article_count",
 					"sneaked_in",
 					"related_materias",
+					"block_ids",
 				],
 				additionalProperties: false,
 			},
@@ -158,7 +166,8 @@ Reglas:
 - Lenguaje ciudadano, no jurídico
 - Agrupa artículos por tema, no repitas temas
 - Máximo 20 temas por ley
-- Para cada tema, incluye un array "related_materias" con las materias EXACTAS del BOE que corresponden. Usa SOLO nombres de la siguiente lista.`;
+- Para cada tema, incluye un array "related_materias" con las materias EXACTAS del BOE que corresponden. Usa SOLO nombres de la siguiente lista.
+- Para cada tema, incluye un array "block_ids" con los identificadores exactos de los bloques que pertenecen a ese tema. Cada block_id debe aparecer en exactamente un tema. Usa los identificadores de la estructura proporcionada (ej: "a1", "a2", "da1", "df3").`;
 
 	const blocksWithText = blocks.filter((b) => b.heading_text);
 
@@ -175,7 +184,7 @@ Reglas:
 							: b.block_id.startsWith("df")
 								? "  Disp. final"
 								: "    Art.";
-				return `${prefix}: ${b.heading_text?.trim() || b.title}`;
+				return `[${b.block_id}] ${prefix}: ${b.heading_text?.trim() || b.title}`;
 			})
 			.join("\n");
 	} else {
@@ -227,6 +236,11 @@ function validateTopics(data: unknown): {
 					(m): m is string => typeof m === "string",
 				)
 			: [];
+		const blockIds = Array.isArray(topic.block_ids)
+			? (topic.block_ids as unknown[]).filter(
+					(id): id is string => typeof id === "string",
+				)
+			: [];
 
 		if (!topicLabel) continue;
 
@@ -240,6 +254,7 @@ function validateTopics(data: unknown): {
 			article_count: articleCount,
 			sneaked_in: sneakedIn,
 			related_materias: relatedMaterias,
+			block_ids: blockIds,
 		});
 	}
 
@@ -342,6 +357,9 @@ async function main() {
 				continue;
 			}
 
+			// Validate block_ids against actual blocks in DB
+			const validBlockIds = new Set(blocks.map((b) => b.block_id));
+
 			// Wrap delete + upserts in a transaction so --force doesn't lose
 			// data if the upsert loop fails partway through.
 			db.transaction(() => {
@@ -355,13 +373,26 @@ async function main() {
 					const filteredRelatedMaterias = t.related_materias.filter(
 						(m) => !BASE_MATERIAS.includes(m) && materias.includes(m),
 					);
+					// Validate block_ids against actual blocks
+					const filteredBlockIds = t.block_ids.filter((id) =>
+						validBlockIds.has(id),
+					);
+					if (
+						t.block_ids.length > 0 &&
+						filteredBlockIds.length < t.block_ids.length
+					) {
+						console.warn(
+							`    ⚠ ${norm.id} topic ${i} "${t.topic_label}": ${t.block_ids.length - filteredBlockIds.length} invalid block_ids filtered out`,
+						);
+					}
 					dbService.upsertOmnibusTopic(norm.id, i, {
 						topicLabel: t.topic_label,
 						headline: t.headline,
 						summary: t.summary,
-						articleCount: t.article_count,
+						articleCount: filteredBlockIds.length || t.article_count,
 						isSneaked: t.sneaked_in,
 						relatedMaterias: JSON.stringify(filteredRelatedMaterias),
+						blockIds: JSON.stringify(filteredBlockIds),
 						model: modelId,
 					});
 				}
