@@ -267,3 +267,35 @@ export async function cancelSubscription(
 	const res = await fetch(`${API_BASE}/v1/alerts/unsubscribe/${token}`);
 	return res.json();
 }
+
+// ── Omnibus endpoints ──
+
+export interface OmnibusTopic {
+	topic_label: string;
+	article_count: number;
+	headline: string;
+	summary: string;
+	is_sneaked: number;
+	block_ids: string[];
+}
+
+export interface OmnibusDetail {
+	id: string;
+	title: string;
+	rank: string;
+	materia_count: number;
+	topic_count: number;
+	sneaked_count: number;
+	latest_reform_date: string | null;
+	topics: OmnibusTopic[];
+}
+
+export async function getOmnibusDetail(
+	normId: string,
+): Promise<OmnibusDetail | null> {
+	try {
+		return await fetchApi(`/v1/omnibus/${normId}`);
+	} catch {
+		return null;
+	}
+}

@@ -35,15 +35,21 @@ const { entry } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
 
-// Fetch citizen data (summary + tags) and omnibus topics from the API at build time
+// Fetch citizen data (summary + tags) and block mapping from the API at build time
 let citizenSummary = "";
 let citizenTags: string[] = [];
+let blockIdMap: Map<string, string> = new Map();
 let omnibusTopics: OmnibusTopic[] = [];
 let omnibusTopicCount = 0;
 try {
 	const detail = await getLaw(id!);
 	citizenSummary = detail.citizen_summary ?? "";
 	citizenTags = detail.citizen_tags ?? [];
+	if (detail.blocks) {
+		for (const b of detail.blocks) {
+			if (b.title) blockIdMap.set(b.title.toLowerCase().trim().replace(/\u00a0/g, " "), b.block_id);
+		}
+	}
 } catch {
 	// API may not be available during build — gracefully degrade
 }
@@ -77,9 +83,32 @@ if (entry.body) {
 			td: ["colspan", "rowspan"],
 			span: ["class"],
 			div: ["class"],
+			h2: ["id"], h3: ["id"], h4: ["id"], h5: ["id"], h6: ["id"],
 		},
 		allowedSchemes: ["https", "http"],
 	});
+
+	// Inject block IDs as anchor IDs on headings for omnibus topic linking
+	if (blockIdMap.size > 0) {
+		const entries = Array.from(blockIdMap.entries());
+		htmlContent = htmlContent.replace(/<(h[2-6])>([^<]+)<\/h[2-6]>/g, (full, tag, text) => {
+			const normalized = text.toLowerCase().trim();
+			// Exact match first
+			let blockId = blockIdMap.get(normalized);
+			if (!blockId) {
+				// Prefix match: "Artículo 1. Objeto..." matches block title "artículo 1"
+				for (let i = 0; i < entries.length; i++) {
+					const title = entries[i][0];
+					if (normalized.startsWith(title + ".") || normalized.startsWith(title + " ")) {
+						blockId = entries[i][1];
+						break;
+					}
+				}
+			}
+			if (blockId) return `<${tag} id="block-${blockId}">${text}</${tag}>`;
+			return full;
+		});
+	}
 }
 
 const RANK_LABELS: Record<string, string> = {
@@ -247,33 +276,29 @@ const articleCount = law.articulos ?? 0;
 		.law-content :global(.omnibus-highlight) { background: var(--warning-bg, #fff3cd); padding: 0.25rem 0.5rem; border-radius: 4px; }
 
 		/* ── Resumen components ── */
-		/* ── Omnibus banner ── */
-		.omnibus-banner {
+		/* ── Omnibus notice ── */
+		.omnibus-notice {
 			display: flex;
 			align-items: center;
-			gap: 0.75rem;
-			padding: 0.875rem 1rem;
+			gap: 0.5rem;
+			padding: 0.625rem 0.875rem;
 			background: var(--warning-bg, #fff3cd);
-			border: 1px solid var(--warning-border, #ffc107);
-			border-radius: 10px;
+			border-radius: 8px;
 			margin-bottom: 1.25rem;
-			text-decoration: none;
-			transition: box-shadow 0.15s;
 		}
-		.omnibus-banner:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-decoration: none; }
-		.omnibus-banner-badge {
-			font-size: 0.75rem;
+		.omnibus-notice-badge {
+			font-size: 0.6875rem;
 			font-weight: 700;
 			text-transform: uppercase;
 			letter-spacing: 0.04em;
 			color: var(--warning, #856404);
 			background: rgba(255,193,7,0.2);
-			padding: 0.25rem 0.625rem;
-			border-radius: 5px;
+			padding: 0.2rem 0.5rem;
+			border-radius: 4px;
 			white-space: nowrap;
 		}
-		.omnibus-banner-text {
-			font-size: 0.875rem;
+		.omnibus-notice-text {
+			font-size: 0.8125rem;
 			color: var(--warning, #856404);
 			line-height: 1.4;
 		}
@@ -387,32 +412,25 @@ const articleCount = law.articulos ?? 0;
 		.meta-item-value { color: var(--text); font-weight: 500; }
 
 		.citizen-summary {
-			font-size: 1.0625rem;
+			font-size: 1rem;
 			color: var(--text-secondary);
 			line-height: 1.7;
 			margin-bottom: 1.25rem;
-			font-style: italic;
-		}
-		.citizen-summary-empty {
-			font-size: 0.9375rem;
-			color: var(--text-tertiary, var(--text-secondary));
-			line-height: 1.6;
-			margin-bottom: 1.25rem;
-			padding: 1rem 1.25rem;
-			background: var(--surface-alt, var(--surface));
-			border-radius: 8px;
-			border-left: 3px solid var(--border);
+			padding: 0.75rem 1rem;
+			border-left: 3px solid var(--accent);
+			background: var(--surface);
+			border-radius: 0 8px 8px 0;
 		}
 		.citizen-tags {
 			display: flex;
 			flex-wrap: wrap;
 			gap: 0.375rem;
-			margin-bottom: 1.5rem;
+			margin-bottom: 0.5rem;
 		}
 		.citizen-tag {
 			display: inline-block;
-			padding: 0.25rem 0.75rem;
-			font-size: 0.8125rem;
+			padding: 0.2rem 0.625rem;
+			font-size: 0.75rem;
 			background: var(--accent-bg);
 			color: var(--accent);
 			border-radius: 100px;
@@ -591,25 +609,28 @@ const articleCount = law.articulos ?? 0;
 
 	<!-- Tab: Resumen (static) -->
 	<div class="tab-panel active" id="tab-resumen">
-		{omnibusTopicCount > 0 && (
-			<a href="#omnibus-breakdown" class="omnibus-banner" id="omnibus-banner-link">
-				<span class="omnibus-banner-badge">Ley ómnibus</span>
-				<span class="omnibus-banner-text">Esta ley agrupa {omnibusTopicCount} temas distintos en una sola norma. Ver desglose por temas →</span>
-			</a>
+		{citizenSummary && (
+			<p class="citizen-summary">{citizenSummary}</p>
 		)}
 
-		<!-- Citizen view (default) -->
-		{citizenSummary ? (
-			<p class="citizen-summary">{citizenSummary}</p>
-		) : null}
-
-		{citizenTags.length > 0 && (
-			<div class="citizen-tags">
-				{citizenTags.map((tag) => (
-					<span class="citizen-tag">{tag}</span>
-				))}
+		{omnibusTopicCount > 0 && (
+			<div class="omnibus-notice">
+				<span class="omnibus-notice-badge">Ley ómnibus</span>
+				<span class="omnibus-notice-text">Esta ley agrupa {omnibusTopicCount} temas distintos en una sola norma.</span>
 			</div>
 		)}
+
+		<div class="quick-stats">
+			{articleCount > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
+			)}
+			{reforms.length > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{reforms.length}</div><div class="stat-label">Versiones</div></div></div>
+			)}
+			{materias.length > 0 && (
+				<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Categorías</div></div></div>
+			)}
+		</div>
 
 		{omnibusTopicCount > 0 && (
 			<div class="omnibus-breakdown" id="omnibus-breakdown">
@@ -626,28 +647,19 @@ const articleCount = law.articulos ?? 0;
 							</div>
 							{topic.headline && <p class="omnibus-topic-headline">{topic.headline}</p>}
 							{topic.summary && <p class="omnibus-topic-summary">{topic.summary}</p>}
-							{topic.block_ids?.length > 0 && (
-								<button type="button" class="omnibus-topic-link" data-block-ids={JSON.stringify(topic.block_ids)}>
-									Ver artículos →
-								</button>
-							)}
 						</div>
 					))}
 				</div>
 			</div>
 		)}
 
-		<div class="quick-stats">
-			{articleCount > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
-			)}
-			{reforms.length > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{reforms.length}</div><div class="stat-label">Versiones</div></div></div>
-			)}
-			{materias.length > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Temas</div></div></div>
-			)}
-		</div>
+		{citizenTags.length > 0 && (
+			<div class="citizen-tags">
+				{citizenTags.map((tag) => (
+					<span class="citizen-tag">{tag}</span>
+				))}
+			</div>
+		)}
 
 		<!-- Toggle for technical details -->
 		<button type="button" class="view-toggle" id="view-toggle" aria-expanded={citizenSummary ? "false" : "true"}>
@@ -793,76 +805,6 @@ const articleCount = law.articulos ?? 0;
 			});
 		}
 
-		// Omnibus banner: smooth scroll to breakdown
-		var bannerLink = document.getElementById('omnibus-banner-link');
-		if (bannerLink) {
-			bannerLink.addEventListener('click', function(e) {
-				e.preventDefault();
-				var target = document.getElementById('omnibus-breakdown');
-				if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-			});
-		}
-
-		// Omnibus "Ver artículos →": switch to Texto tab and highlight matching blocks
-		document.querySelectorAll('.omnibus-topic-link').forEach(function(btn) {
-			btn.addEventListener('click', function() {
-				var blockIds = [];
-				try { blockIds = JSON.parse(btn.getAttribute('data-block-ids') || '[]'); } catch(e) {}
-				if (!blockIds.length) return;
-
-				// Switch to "Texto completo" tab
-				document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-				document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-				var textoTab = document.querySelector('[data-tab="texto"]');
-				var textoPanel = document.getElementById('tab-texto');
-				if (textoTab) textoTab.classList.add('active');
-				if (textoPanel) textoPanel.classList.add('active');
-
-				// Find and highlight matching headings in the law content
-				var content = textoPanel ? textoPanel.querySelector('.law-content') : null;
-				if (!content) return;
-
-				// Remove previous highlights
-				content.querySelectorAll('.omnibus-highlight').forEach(function(el) {
-					el.classList.remove('omnibus-highlight');
-				});
-
-				// block_ids look like "art_1", "art_2" — match against heading text
-				var headings = content.querySelectorAll('h2, h3, h4, h5, h6');
-				var firstMatch = null;
-				var blockIdSet = {};
-				for (var i = 0; i < blockIds.length; i++) {
-					// Normalize: "art_1" → "artículo 1", "cap_ii" → "capítulo ii", etc.
-					var bid = blockIds[i].replace(/_/g, ' ').toLowerCase();
-					blockIdSet[bid] = true;
-				}
-
-				headings.forEach(function(h) {
-					var text = h.textContent.toLowerCase().trim();
-					for (var bid in blockIdSet) {
-						// Match if heading contains the block id pattern
-						var parts = bid.split(' ');
-						var prefix = parts[0];
-						var num = parts.slice(1).join(' ');
-						// "art 1" matches "Artículo 1.", "artículo 1 bis", etc.
-						if (prefix === 'art' && text.match(new RegExp('art[ií]culo\\s+' + num.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i'))) {
-							h.classList.add('omnibus-highlight');
-							if (!firstMatch) firstMatch = h;
-						} else if (text.indexOf(bid) !== -1) {
-							h.classList.add('omnibus-highlight');
-							if (!firstMatch) firstMatch = h;
-						}
-					}
-				});
-
-				if (firstMatch) {
-					firstMatch.scrollIntoView({ behavior: 'smooth', block: 'start' });
-				} else {
-					// Fallback: just scroll to the top of the text panel
-					if (textoPanel) textoPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-				}
-			});
-		});
 	</script>
 
 	<!-- Follow form handler -->

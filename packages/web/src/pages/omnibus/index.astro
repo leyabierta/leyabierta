@@ -244,7 +244,7 @@ import Base from "../../layouts/Base.astro";
 						html += '<span class="omnibus-sneaked-count">' + o.sneaked_count + ' tema' + (o.sneaked_count > 1 ? 's' : '') + ' no relacionado' + (o.sneaked_count > 1 ? 's' : '') + ' con el título</span>';
 					}
 					html += '</div>';
-					html += '<a href="/omnibus/detalle?id=' + encodeURIComponent(o.id) + '" class="omnibus-card-link">Ver desglose →</a>';
+					html += '<a href="/laws/' + encodeURIComponent(o.id) + '" class="omnibus-card-link">Ver ley y desglose →</a>';
 					html += '</div>';
 				}
 				html += '</div>';

@@ -79,10 +79,10 @@ export function omnibusRoutes(dbService: DbService) {
 
 					return `    <item>
       <title>${escapeXml(title)}</title>
-      <link>https://leyabierta.es/omnibus/detalle?id=${escapeXml(o.id)}</link>
+      <link>https://leyabierta.es/laws/${escapeXml(o.id)}</link>
       <description>${escapeXml(description)}</description>
       <pubDate>${new Date(o.latest_reform_date).toUTCString()}</pubDate>
-      <guid>https://leyabierta.es/omnibus/detalle?id=${escapeXml(o.id)}</guid>
+      <guid>https://leyabierta.es/laws/${escapeXml(o.id)}</guid>
     </item>`;
 				})
 				.join("\n");
