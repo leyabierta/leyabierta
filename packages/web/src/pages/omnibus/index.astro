@@ -4,7 +4,7 @@ import Base from "../../layouts/Base.astro";
 
 <Base
 	title="Leyes ómnibus"
-	description="Leyes que agrupan múltiples temas no relacionados en una sola norma, obligando a aprobarlos o rechazarlos en bloque."
+	description="Leyes que agrupan múltiples temas en una sola norma. Aquí desglosamos qué contiene cada una."
 	ogTitle="Leyes ómnibus — Ley Abierta"
 	canonicalUrl="/omnibus"
 >
@@ -127,14 +127,6 @@ import Base from "../../layouts/Base.astro";
 			border-radius: 4px;
 			font-size: 0.75rem;
 		}
-		.omnibus-sneaked-count {
-			font-weight: 600;
-			color: var(--danger);
-			background: var(--danger-bg);
-			padding: 0.125rem 0.5rem;
-			border-radius: 4px;
-			font-size: 0.75rem;
-		}
 		.omnibus-card-link {
 			font-size: 0.8125rem;
 			color: var(--accent-light);
@@ -181,7 +173,7 @@ import Base from "../../layouts/Base.astro";
 	<div class="omnibus-wrap">
 		<div class="omnibus-header">
 			<h1>Leyes ómnibus</h1>
-			<p>Estas leyes agrupan múltiples temas no relacionados en una sola norma, obligando a aprobarlos o rechazarlos en bloque. Aquí desglosamos qué contiene cada una.</p>
+			<p>Estas leyes agrupan múltiples temas en una sola norma. Aquí desglosamos qué contiene cada una.</p>
 			<div class="omnibus-rss">
 				<a href="/v1/feed-omnibus.xml">Suscríbete por RSS</a>
 			</div>
@@ -189,7 +181,6 @@ import Base from "../../layouts/Base.astro";
 
 		<div class="omnibus-filters" id="omnibus-filters" style="display:none;">
 			<span class="omnibus-filter-chip active" data-filter="all">Todas</span>
-			<span class="omnibus-filter-chip" data-filter="sneaked">Solo con temas no relacionados</span>
 			<span class="omnibus-filter-chip" data-filter="rdl">Real Decreto-ley</span>
 			<span class="omnibus-filter-chip" data-filter="ley">Ley / Ley Orgánica</span>
 		</div>
@@ -239,10 +230,7 @@ import Base from "../../layouts/Base.astro";
 					html += '<h3>' + esc(o.title) + '</h3>';
 					html += '<div class="omnibus-card-stats">';
 					html += '<span class="omnibus-topic-count">' + o.topic_count + ' temas</span>';
-					html += '<span>' + o.materia_count + ' materias</span>';
-					if (o.sneaked_count > 0) {
-						html += '<span class="omnibus-sneaked-count">' + o.sneaked_count + ' tema' + (o.sneaked_count > 1 ? 's' : '') + ' no relacionado' + (o.sneaked_count > 1 ? 's' : '') + ' con el título</span>';
-					}
+					html += '<span>' + o.materia_count + ' categorías</span>';
 					html += '</div>';
 					html += '<a href="/laws/' + encodeURIComponent(o.id) + '" class="omnibus-card-link">Ver ley y desglose →</a>';
 					html += '</div>';
@@ -253,9 +241,7 @@ import Base from "../../layouts/Base.astro";
 
 			function applyFilter() {
 				var filtered = allData;
-				if (activeFilter === "sneaked") {
-					filtered = allData.filter(function (o) { return o.sneaked_count > 0; });
-				} else if (activeFilter === "rdl") {
+				if (activeFilter === "rdl") {
 					filtered = allData.filter(function (o) { return o.rank === "real_decreto_ley"; });
 				} else if (activeFilter === "ley") {
 					filtered = allData.filter(function (o) { return o.rank === "ley" || o.rank === "ley_organica"; });

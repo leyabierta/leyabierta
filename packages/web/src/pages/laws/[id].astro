@@ -287,10 +287,6 @@ const articleCount = law.articulos ?? 0;
 			border-radius: 10px;
 			padding: 1rem 1.25rem;
 		}
-		.omnibus-topic-sneaked {
-			border-left: 3px solid var(--danger);
-			background: color-mix(in srgb, var(--danger) 3%, var(--surface));
-		}
 		.omnibus-topic-label {
 			display: flex;
 			gap: 0.5rem;
@@ -308,14 +304,6 @@ const articleCount = law.articulos ?? 0;
 		.omnibus-topic-articles {
 			font-size: 0.75rem;
 			color: var(--text-muted);
-		}
-		.omnibus-topic-sneaked-badge {
-			font-size: 0.6875rem;
-			font-weight: 600;
-			color: var(--danger);
-			background: var(--danger-bg);
-			padding: 0.125rem 0.5rem;
-			border-radius: 4px;
 		}
 		.omnibus-topic-headline {
 			font-family: var(--font-serif);
@@ -603,13 +591,10 @@ const articleCount = law.articulos ?? 0;
 				<h3 class="section-heading">Desglose por temas</h3>
 				<div class="omnibus-topics-list">
 					{omnibusTopics.map((topic, i) => (
-						<div class={`omnibus-topic-card${topic.is_sneaked === 1 ? ' omnibus-topic-sneaked' : ''}`}>
+						<div class="omnibus-topic-card">
 							<div class="omnibus-topic-label">
 								<h4>{topic.topic_label}</h4>
 								<span class="omnibus-topic-articles">({topic.article_count} artículo{topic.article_count !== 1 ? 's' : ''})</span>
-								{topic.is_sneaked === 1 && (
-									<span class="omnibus-topic-sneaked-badge">Tema no relacionado con el título</span>
-								)}
 							</div>
 							{topic.headline && <p class="omnibus-topic-headline">{topic.headline}</p>}
 							{topic.summary && <p class="omnibus-topic-summary">{topic.summary}</p>}
