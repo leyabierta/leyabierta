@@ -44,13 +44,13 @@ jobs:
       - name: Notify — Started
         id: notify
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
           action: send
           message: |
-            🚀 **Deploy API** · `${{ github.sha }}` ${{ github.event.head_commit.message }}
+            🚀 **Deploy API** · `${{ github.sha }}`
 
             ⏳ **api** — Installing...
 
@@ -61,7 +61,7 @@ jobs:
 
       - name: Notify — Linting
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
@@ -78,7 +78,7 @@ jobs:
 
       - name: Notify — Building image
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
@@ -105,7 +105,7 @@ jobs:
 
       - name: Notify — Pushing image
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
@@ -132,7 +132,7 @@ jobs:
       - name: Notify — Success status
         if: always() && job.status == 'success'
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
@@ -144,7 +144,7 @@ jobs:
       - name: Notify — Success message
         if: always() && job.status == 'success'
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
@@ -154,7 +154,7 @@ jobs:
       - name: Notify — Cancelled
         if: always() && job.status == 'cancelled'
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
@@ -166,7 +166,7 @@ jobs:
       - name: Notify — Failed status
         if: always() && job.status == 'failure'
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}
@@ -178,7 +178,7 @@ jobs:
       - name: Notify — Failed message
         if: always() && job.status == 'failure'
         continue-on-error: true
-        uses: TriloHQ/notify-action@v1
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
         with:
           token: ${{ secrets.TRILO_BOT_TOKEN }}
           project-id: ${{ secrets.TRILO_PROJECT_ID }}

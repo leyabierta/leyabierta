@@ -2,8 +2,10 @@
 import { getCollection } from "astro:content";
 import { promises as fs } from "node:fs";
 import MarkdownIt from "markdown-it";
+import sanitizeHtml from "sanitize-html";
 import Base from "../../layouts/Base.astro";
-import { getLaw } from "../../lib/api.ts";
+import { getLaw, getOmnibusDetail } from "../../lib/api.ts";
+import type { OmnibusTopic } from "../../lib/api.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
@@ -33,15 +35,26 @@ const { entry } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
 
-// Fetch citizen data (summary + tags) from the API at build time
+// Fetch citizen data (summary + tags) and omnibus topics from the API at build time
 let citizenSummary = "";
 let citizenTags: string[] = [];
+let omnibusTopics: OmnibusTopic[] = [];
+let omnibusTopicCount = 0;
 try {
 	const detail = await getLaw(id!);
 	citizenSummary = detail.citizen_summary ?? "";
 	citizenTags = detail.citizen_tags ?? [];
 } catch {
 	// API may not be available during build — gracefully degrade
+}
+try {
+	const omnibus = await getOmnibusDetail(id!);
+	if (omnibus?.topics?.length) {
+		omnibusTopics = omnibus.topics;
+		omnibusTopicCount = omnibus.topics.length;
+	}
+} catch {
+	// Omnibus data not available — skip
 }
 
 // Read and render the markdown body on-demand (not during content sync)
@@ -50,7 +63,23 @@ if (entry.body) {
 	const raw = await fs.readFile(entry.body, "utf-8");
 	const bodyMatch = raw.match(/^---[\s\S]*?---\s*([\s\S]*)$/);
 	const body = bodyMatch?.[1] ?? raw;
-	htmlContent = md.render(body);
+	htmlContent = sanitizeHtml(md.render(body), {
+		allowedTags: [
+			"h1", "h2", "h3", "h4", "h5", "h6",
+			"p", "ul", "ol", "li", "em", "strong", "a",
+			"table", "thead", "tbody", "tr", "th", "td",
+			"blockquote", "br", "span", "div", "sup", "sub",
+			"hr", "code", "pre", "dl", "dt", "dd",
+		],
+		allowedAttributes: {
+			a: ["href", "title"],
+			th: ["colspan", "rowspan"],
+			td: ["colspan", "rowspan"],
+			span: ["class"],
+			div: ["class"],
+		},
+		allowedSchemes: ["https", "http"],
+	});
 }
 
 const RANK_LABELS: Record<string, string> = {
@@ -215,6 +244,7 @@ const articleCount = law.articulos ?? 0;
 		.law-content :global(h6) { font-size: 0.9375rem; font-weight: 700; margin: 0.75rem 0 0.5rem; color: var(--text); }
 		.law-content :global(p) { margin-bottom: 0.75rem; }
 		.law-content :global(hr) { border: none; border-top: 1px solid var(--border-light); margin: 1.5rem 0 0.75rem; }
+		.law-content :global(.omnibus-highlight) { background: var(--warning-bg, #fff3cd); padding: 0.25rem 0.5rem; border-radius: 4px; }
 
 		/* ── Resumen components ── */
 		/* ── Omnibus banner ── */
@@ -246,6 +276,81 @@ const articleCount = law.articulos ?? 0;
 			font-size: 0.875rem;
 			color: var(--warning, #856404);
 			line-height: 1.4;
+		}
+
+		/* ── Omnibus breakdown ── */
+		.omnibus-breakdown {
+			margin-bottom: 1.5rem;
+		}
+		.omnibus-topics-list {
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+		.omnibus-topic-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1rem 1.25rem;
+		}
+		.omnibus-topic-sneaked {
+			border-left: 3px solid var(--danger);
+			background: color-mix(in srgb, var(--danger) 3%, var(--surface));
+		}
+		.omnibus-topic-label {
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+			flex-wrap: wrap;
+			margin-bottom: 0.25rem;
+		}
+		.omnibus-topic-label h4 {
+			font-family: var(--font-serif);
+			font-size: 1rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 0;
+		}
+		.omnibus-topic-articles {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+		}
+		.omnibus-topic-sneaked-badge {
+			font-size: 0.6875rem;
+			font-weight: 600;
+			color: var(--danger);
+			background: var(--danger-bg);
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+		}
+		.omnibus-topic-headline {
+			font-family: var(--font-serif);
+			font-size: 0.9375rem;
+			font-weight: 600;
+			line-height: 1.4;
+			margin: 0.25rem 0;
+			color: var(--text);
+		}
+		.omnibus-topic-summary {
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+			line-height: 1.6;
+			margin: 0.25rem 0;
+		}
+		.omnibus-topic-link {
+			display: inline-block;
+			margin-top: 0.5rem;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--accent-light);
+			background: none;
+			border: none;
+			padding: 0;
+			cursor: pointer;
+			font-family: var(--font-sans);
+		}
+		.omnibus-topic-link:hover {
+			text-decoration: underline;
 		}
 
 		/* ── View toggle ── */
@@ -311,9 +416,7 @@ const articleCount = law.articulos ?? 0;
 			background: var(--accent-bg);
 			color: var(--accent);
 			border-radius: 100px;
-			transition: all 0.15s;
 		}
-		.citizen-tag:hover { background: var(--accent); color: #fff; text-decoration: none; }
 
 		.section { margin-bottom: 2rem; }
 		.section-heading { font-size: 1.0625rem; font-weight: 600; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light); }
@@ -488,25 +591,49 @@ const articleCount = law.articulos ?? 0;
 
 	<!-- Tab: Resumen (static) -->
 	<div class="tab-panel active" id="tab-resumen">
-		{materias.length >= 15 && (
-			<a href={`/omnibus/detalle?id=${id}`} class="omnibus-banner">
+		{omnibusTopicCount > 0 && (
+			<a href="#omnibus-breakdown" class="omnibus-banner" id="omnibus-banner-link">
 				<span class="omnibus-banner-badge">Ley ómnibus</span>
-				<span class="omnibus-banner-text">Esta ley agrupa {materias.length} temas distintos en una sola norma. Ver desglose por temas →</span>
+				<span class="omnibus-banner-text">Esta ley agrupa {omnibusTopicCount} temas distintos en una sola norma. Ver desglose por temas →</span>
 			</a>
 		)}
 
 		<!-- Citizen view (default) -->
 		{citizenSummary ? (
 			<p class="citizen-summary">{citizenSummary}</p>
-		) : (
-			<p class="citizen-summary-empty">Todavía no hemos generado un resumen simplificado para esta ley. Mientras tanto, puedes consultar el texto completo en la pestaña correspondiente.</p>
-		)}
+		) : null}
 
 		{citizenTags.length > 0 && (
 			<div class="citizen-tags">
 				{citizenTags.map((tag) => (
-					<a href={`/?citizen_tag=${encodeURIComponent(tag)}`} class="citizen-tag">{tag}</a>
+					<span class="citizen-tag">{tag}</span>
 				))}
+			</div>
+		)}
+
+		{omnibusTopicCount > 0 && (
+			<div class="omnibus-breakdown" id="omnibus-breakdown">
+				<h3 class="section-heading">Desglose por temas</h3>
+				<div class="omnibus-topics-list">
+					{omnibusTopics.map((topic, i) => (
+						<div class={`omnibus-topic-card${topic.is_sneaked === 1 ? ' omnibus-topic-sneaked' : ''}`}>
+							<div class="omnibus-topic-label">
+								<h4>{topic.topic_label}</h4>
+								<span class="omnibus-topic-articles">({topic.article_count} artículo{topic.article_count !== 1 ? 's' : ''})</span>
+								{topic.is_sneaked === 1 && (
+									<span class="omnibus-topic-sneaked-badge">Tema no relacionado con el título</span>
+								)}
+							</div>
+							{topic.headline && <p class="omnibus-topic-headline">{topic.headline}</p>}
+							{topic.summary && <p class="omnibus-topic-summary">{topic.summary}</p>}
+							{topic.block_ids?.length > 0 && (
+								<button type="button" class="omnibus-topic-link" data-block-ids={JSON.stringify(topic.block_ids)}>
+									Ver artículos →
+								</button>
+							)}
+						</div>
+					))}
+				</div>
 			</div>
 		)}
 
@@ -523,12 +650,12 @@ const articleCount = law.articulos ?? 0;
 		</div>
 
 		<!-- Toggle for technical details -->
-		<button type="button" class="view-toggle" id="view-toggle" aria-expanded="false">
-			Ver información completa ▸
+		<button type="button" class="view-toggle" id="view-toggle" aria-expanded={citizenSummary ? "false" : "true"}>
+			{citizenSummary ? 'Ver información completa ▸' : 'Ocultar información completa ▾'}
 		</button>
 
-		<!-- Technical view (hidden by default) -->
-		<div class="technical-details" id="technical-details" style="display:none;">
+		<!-- Technical view (shown by default when no citizen summary) -->
+		<div class="technical-details" id="technical-details" style={citizenSummary ? "display:none;" : ""}>
 			<div class="card">
 				<h3 class="card-heading">Información general</h3>
 				<div class="meta-grid">
@@ -665,6 +792,77 @@ const articleCount = law.articulos ?? 0;
 				toggleBtn.textContent = isOpen ? 'Ver información completa \u25B8' : 'Ocultar información completa \u25BE';
 			});
 		}
+
+		// Omnibus banner: smooth scroll to breakdown
+		var bannerLink = document.getElementById('omnibus-banner-link');
+		if (bannerLink) {
+			bannerLink.addEventListener('click', function(e) {
+				e.preventDefault();
+				var target = document.getElementById('omnibus-breakdown');
+				if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			});
+		}
+
+		// Omnibus "Ver artículos →": switch to Texto tab and highlight matching blocks
+		document.querySelectorAll('.omnibus-topic-link').forEach(function(btn) {
+			btn.addEventListener('click', function() {
+				var blockIds = [];
+				try { blockIds = JSON.parse(btn.getAttribute('data-block-ids') || '[]'); } catch(e) {}
+				if (!blockIds.length) return;
+
+				// Switch to "Texto completo" tab
+				document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+				document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+				var textoTab = document.querySelector('[data-tab="texto"]');
+				var textoPanel = document.getElementById('tab-texto');
+				if (textoTab) textoTab.classList.add('active');
+				if (textoPanel) textoPanel.classList.add('active');
+
+				// Find and highlight matching headings in the law content
+				var content = textoPanel ? textoPanel.querySelector('.law-content') : null;
+				if (!content) return;
+
+				// Remove previous highlights
+				content.querySelectorAll('.omnibus-highlight').forEach(function(el) {
+					el.classList.remove('omnibus-highlight');
+				});
+
+				// block_ids look like "art_1", "art_2" — match against heading text
+				var headings = content.querySelectorAll('h2, h3, h4, h5, h6');
+				var firstMatch = null;
+				var blockIdSet = {};
+				for (var i = 0; i < blockIds.length; i++) {
+					// Normalize: "art_1" → "artículo 1", "cap_ii" → "capítulo ii", etc.
+					var bid = blockIds[i].replace(/_/g, ' ').toLowerCase();
+					blockIdSet[bid] = true;
+				}
+
+				headings.forEach(function(h) {
+					var text = h.textContent.toLowerCase().trim();
+					for (var bid in blockIdSet) {
+						// Match if heading contains the block id pattern
+						var parts = bid.split(' ');
+						var prefix = parts[0];
+						var num = parts.slice(1).join(' ');
+						// "art 1" matches "Artículo 1.", "artículo 1 bis", etc.
+						if (prefix === 'art' && text.match(new RegExp('art[ií]culo\\s+' + num.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i'))) {
+							h.classList.add('omnibus-highlight');
+							if (!firstMatch) firstMatch = h;
+						} else if (text.indexOf(bid) !== -1) {
+							h.classList.add('omnibus-highlight');
+							if (!firstMatch) firstMatch = h;
+						}
+					}
+				});
+
+				if (firstMatch) {
+					firstMatch.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				} else {
+					// Fallback: just scroll to the top of the text panel
+					if (textoPanel) textoPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			});
+		});
 	</script>
 
 	<!-- Follow form handler -->

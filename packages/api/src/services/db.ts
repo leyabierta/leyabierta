@@ -739,6 +739,12 @@ export class DbService {
 			.run(email, normId, token);
 	}
 
+	deleteNormFollowsByEmail(email: string): void {
+		this.db
+			.query("DELETE FROM norm_follows WHERE email = ?")
+			.run(email);
+	}
+
 	confirmNormFollow(token: string): boolean {
 		const result = this.db
 			.query(
@@ -784,10 +790,22 @@ export class DbService {
 
 		// If jurisdiction is 'es' (national), include only national laws.
 		// Otherwise include BOTH regional AND national laws (national laws apply everywhere).
-		const jurisdictionClause =
-			jurisdiction === "es"
-				? "(n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
-				: `(n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`;
+		let jurisdictionClause: string;
+		const jurisdictionParams: string[] = [];
+
+		if (jurisdiction === "es") {
+			jurisdictionClause =
+				"(n.source_url LIKE ? AND n.source_url NOT LIKE ?)";
+			jurisdictionParams.push("%/eli/es/%", "%/eli/es-__/%");
+		} else {
+			jurisdictionClause =
+				"(n.source_url LIKE ? OR (n.source_url LIKE ? AND n.source_url NOT LIKE ?))";
+			jurisdictionParams.push(
+				`%/eli/${jurisdiction}/%`,
+				"%/eli/es/%",
+				"%/eli/es-__/%",
+			);
+		}
 
 		const sql = `
 			WITH materia_weights AS (
@@ -832,7 +850,7 @@ export class DbService {
 				},
 				unknown[]
 			>(sql)
-			.all(...effectiveMaterias, since);
+			.all(...effectiveMaterias, since, ...jurisdictionParams);
 	}
 
 	getChangelog(
@@ -857,11 +875,24 @@ export class DbService {
 			return [];
 		}
 
-		const jurisdictionClause = jurisdiction
-			? jurisdiction === "es"
-				? "AND (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
-				: `AND (n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`
-			: "";
+		let jurisdictionClause = "";
+		const jurisdictionParams: string[] = [];
+
+		if (jurisdiction) {
+			if (jurisdiction === "es") {
+				jurisdictionClause =
+					"AND (n.source_url LIKE ? AND n.source_url NOT LIKE ?)";
+				jurisdictionParams.push("%/eli/es/%", "%/eli/es-__/%");
+			} else {
+				jurisdictionClause =
+					"AND (n.source_url LIKE ? OR (n.source_url LIKE ? AND n.source_url NOT LIKE ?))";
+				jurisdictionParams.push(
+					`%/eli/${jurisdiction}/%`,
+					"%/eli/es/%",
+					"%/eli/es-__/%",
+				);
+			}
+		}
 
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
@@ -895,9 +926,9 @@ export class DbService {
 					materia_count: number;
 					omnibus_topic_count: number;
 				},
-				[string, number]
+				unknown[]
 			>(sql)
-			.all(since, limit);
+			.all(since, ...jurisdictionParams, limit);
 	}
 
 	upsertReformSummary(

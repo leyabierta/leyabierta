@@ -9,8 +9,21 @@ const FROM_EMAIL =
 	process.env.FROM_EMAIL ?? "Ley Abierta <alertas@leyabierta.es>";
 const SITE_URL = process.env.SITE_URL ?? "https://leyabierta.es";
 const RESEND_AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID ?? "";
-const ALERTS_SECRET =
-	process.env.ALERTS_SECRET ?? `derived-key-${RESEND_API_KEY}`;
+const ALERTS_SECRET = (() => {
+	const secret = process.env.ALERTS_SECRET;
+	if (!secret) {
+		if (process.env.NODE_ENV === "production") {
+			throw new Error(
+				"ALERTS_SECRET must be set in production — generate a random 32+ byte hex string",
+			);
+		}
+		console.warn(
+			"[email] ALERTS_SECRET not set — using insecure dev fallback. Do NOT use in production.",
+		);
+		return `dev-only-key-${RESEND_API_KEY}`;
+	}
+	return secret;
+})();
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -114,7 +127,7 @@ export async function sendConfirmationEmail(
 </html>`.trim();
 
 	if (!resend) {
-		console.log(`[email-dry-run] Confirmation to ${email}: ${confirmUrl}`);
+		console.log(`[email-dry-run] Confirmation to ${maskEmail(email)}`);
 		return true;
 	}
 
@@ -174,7 +187,7 @@ export async function sendFollowConfirmationEmail(
 
 	if (!resend) {
 		console.log(
-			`[email-dry-run] Follow confirmation to ${email} for ${normId}: ${confirmUrl}`,
+			`[email-dry-run] Follow confirmation to ${maskEmail(email)} for ${normId}`,
 		);
 		return true;
 	}
@@ -217,7 +230,7 @@ export async function sendWelcomeEmail(email: string): Promise<boolean> {
 </html>`.trim();
 
 	if (!resend) {
-		console.log(`[email-dry-run] Welcome to ${email}`);
+		console.log(`[email-dry-run] Welcome to ${maskEmail(email)}`);
 		return true;
 	}
 
@@ -245,7 +258,7 @@ export async function sendNotificationEmail(
 	html: string,
 ): Promise<boolean> {
 	if (!resend) {
-		console.log(`[email-dry-run] Notification to ${email}: ${subject}`);
+		console.log(`[email-dry-run] Notification to ${maskEmail(email)}: ${subject}`);
 		return true;
 	}
 
@@ -263,9 +276,15 @@ export async function sendNotificationEmail(
 		});
 		return true;
 	} catch (err) {
-		console.error(`[email] Failed to send notification to ${email}:`, err);
+		console.error(`[email] Failed to send notification to ${maskEmail(email)}:`, err);
 		return false;
 	}
+}
+
+export function maskEmail(email: string): string {
+	const [local, domain] = email.split("@");
+	if (!domain) return "***";
+	return `${local.slice(0, 1)}***@${domain}`;
 }
 
 function escapeHtml(str: string): string {

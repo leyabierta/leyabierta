@@ -32,39 +32,47 @@ interface RateEntry {
 	resetAt: number;
 }
 
-const rateLimitMap = new Map<string, RateEntry>();
-const RATE_LIMIT_MAX = 3;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
-function isRateLimited(ip: string): boolean {
-	const now = Date.now();
-	const entry = rateLimitMap.get(ip);
+function createRateLimiter(maxRequests: number) {
+	const map = new Map<string, RateEntry>();
 
-	if (!entry || now >= entry.resetAt) {
-		rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-		return false;
-	}
+	// Periodically clean expired entries (every 10 minutes)
+	setInterval(() => {
+		const now = Date.now();
+		for (const [ip, entry] of map) {
+			if (now >= entry.resetAt) map.delete(ip);
+		}
+	}, 10 * 60 * 1000);
 
-	if (entry.count >= RATE_LIMIT_MAX) {
-		return true;
-	}
+	return {
+		isLimited(ip: string): boolean {
+			const now = Date.now();
+			const entry = map.get(ip);
 
-	entry.count++;
-	return false;
+			if (!entry || now >= entry.resetAt) {
+				map.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+				return false;
+			}
+
+			if (entry.count >= maxRequests) return true;
+
+			entry.count++;
+			return false;
+		},
+	};
 }
 
-// Periodically clean expired entries (every 10 minutes)
-setInterval(
-	() => {
-		const now = Date.now();
-		for (const [ip, entry] of rateLimitMap) {
-			if (now >= entry.resetAt) {
-				rateLimitMap.delete(ip);
-			}
-		}
-	},
-	10 * 60 * 1000,
-);
+const postLimiter = createRateLimiter(3); // 3/hour for POST (subscribe, follow)
+const getLimiter = createRateLimiter(10); // 10/hour for GET (confirm, unsubscribe)
+
+function isRateLimited(ip: string): boolean {
+	return postLimiter.isLimited(ip);
+}
+
+function isGetRateLimited(ip: string): boolean {
+	return getLimiter.isLimited(ip);
+}
 
 // ── Helper: extract client IP from request ──────────────────────────────
 
@@ -205,7 +213,13 @@ export function alertRoutes(_dbService?: DbService) {
 
 		.get(
 			"/alerts/confirm",
-			async ({ query, set }) => {
+			async ({ query, set, request }) => {
+				const ip = getClientIp(request);
+				if (isGetRateLimited(ip)) {
+					set.status = 429;
+					return { error: "Demasiados intentos. Inténtalo más tarde." };
+				}
+
 				const { email, code } = query;
 
 				if (!email || !code) {
@@ -335,7 +349,13 @@ export function alertRoutes(_dbService?: DbService) {
 
 		.get(
 			"/alerts/follow/confirm",
-			async ({ query, set }) => {
+			async ({ query, set, request }) => {
+				const ip = getClientIp(request);
+				if (isGetRateLimited(ip)) {
+					set.status = 429;
+					return { error: "Demasiados intentos. Inténtalo más tarde." };
+				}
+
 				const { token } = query;
 
 				if (!token) {
@@ -369,7 +389,13 @@ export function alertRoutes(_dbService?: DbService) {
 
 		.get(
 			"/alerts/unsubscribe",
-			async ({ query, set }) => {
+			async ({ query, set, request }) => {
+				const ip = getClientIp(request);
+				if (isGetRateLimited(ip)) {
+					set.status = 429;
+					return { error: "Demasiados intentos. Inténtalo más tarde." };
+				}
+
 				const { email, code } = query;
 
 				if (!email || !code) {
@@ -402,6 +428,15 @@ export function alertRoutes(_dbService?: DbService) {
 				} catch (err) {
 					console.error("[alerts] Resend contacts.remove failed:", err);
 					// If the contact doesn't exist, that's fine — treat as success
+				}
+
+				// GDPR: also remove norm follow records for this email
+				if (_dbService) {
+					try {
+						_dbService.deleteNormFollowsByEmail(email);
+					} catch (err) {
+						console.error("[alerts] Failed to delete norm_follows:", err);
+					}
 				}
 
 				return { success: true };

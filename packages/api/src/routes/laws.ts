@@ -10,6 +10,14 @@ import type { GitService } from "../services/git.ts";
 
 const boeClient = new BoeClient();
 
+/** Validate that a string is a real YYYY-MM-DD date (not just the right shape). */
+export function isValidISODate(s: string): boolean {
+	if (s.length !== 10) return false;
+	const d = new Date(s + "T00:00:00Z");
+	if (isNaN(d.getTime())) return false;
+	return d.toISOString().startsWith(s);
+}
+
 // Map norm to its filepath in the git repo (ELI convention: jurisdiction/ID.md)
 function normFilepath(id: string, sourceUrl: string, country: string): string {
 	const match = sourceUrl.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
@@ -169,6 +177,10 @@ export function lawRoutes(
 			.get(
 				"/laws/:id/versions/:date",
 				async ({ params, set }) => {
+					if (!isValidISODate(params.date)) {
+						set.status = 400;
+						return { error: "Invalid date format. Use YYYY-MM-DD" };
+					}
 					const law = dbService.getLaw(params.id);
 					if (!law) {
 						set.status = 404;
@@ -199,6 +211,11 @@ export function lawRoutes(
 					if (!query.from || !query.to) {
 						set.status = 400;
 						return { error: "Both 'from' and 'to' query params required" };
+					}
+
+					if (!isValidISODate(query.from) || !isValidISODate(query.to)) {
+						set.status = 400;
+						return { error: "Invalid date format. Use YYYY-MM-DD" };
 					}
 
 					const cacheKey = `${params.id}:${query.from}:${query.to}`;

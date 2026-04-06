@@ -15,6 +15,11 @@ services:
       - REPO_PATH=/data/leyes
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   watchtower:
     image: containrrr/watchtower
@@ -27,5 +32,10 @@ services:
       - WATCHTOWER_LABEL_ENABLE=true
       - WATCHTOWER_ROLLING_RESTART=true
       - DOCKER_API_VERSION=1.54
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
     profiles:
       - production

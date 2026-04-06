@@ -20,6 +20,7 @@ import { Resend } from "resend";
 import { DbService } from "../services/db.ts";
 import {
 	buildUnsubscribeUrl,
+	maskEmail,
 	sendNotificationEmail,
 } from "../services/email.ts";
 
@@ -477,7 +478,7 @@ for (const contact of contactInfos) {
 
 	if (dryRun) {
 		console.log(
-			`[dry-run] ${contact.email}: ${reforms.length} reforms, subject: "${subject}"`,
+			`[dry-run] ${maskEmail(contact.email)}: ${reforms.length} reforms, subject: "${subject}"`,
 		);
 		sent++;
 		continue;
@@ -485,7 +486,7 @@ for (const contact of contactInfos) {
 
 	const ok = await sendNotificationEmail(contact.email, subject, html);
 	if (ok) sent++;
-	else console.error(`Failed: ${contact.email}`);
+	else console.error(`Failed: ${maskEmail(contact.email)}`);
 }
 
 // Mark all pending reforms as notified AFTER sends complete

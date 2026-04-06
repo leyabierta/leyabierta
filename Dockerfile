@@ -3,10 +3,7 @@ FROM oven/bun:1-slim
 WORKDIR /app
 
 # Git is needed by GitService for diff operations
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/* \
-    && git config --global --add safe.directory /data/leyes \
-    && git config --global user.name "Ley Abierta" \
-    && git config --global user.email "bot@leyabierta.es"
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace config + package files for dependency install
 COPY package.json bun.lock ./
@@ -29,6 +26,16 @@ ENV REPO_PATH=/data/leyes
 
 # Symlink so pipeline's default ./data resolves to the mounted volume
 RUN ln -sf /data /app/data
+
+# Run as non-root user
+RUN addgroup --gid 1001 app && adduser --uid 1001 --gid 1001 --disabled-password --gecos "" app \
+    && chown -R app:app /app \
+    && mkdir -p /data && chown app:app /data
+
+USER app
+RUN git config --global --add safe.directory /data/leyes \
+    && git config --global user.name "Ley Abierta" \
+    && git config --global user.email "bot@leyabierta.es"
 
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD bun -e "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1))" || exit 1

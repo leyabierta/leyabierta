@@ -6,7 +6,6 @@
 
 import { Database } from "bun:sqlite";
 import { cors } from "@elysiajs/cors";
-import { swagger } from "@elysiajs/swagger";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
 import { alertRoutes } from "./routes/alerts.ts";
@@ -47,8 +46,11 @@ const app = new Elysia()
 		set.headers["X-Frame-Options"] = "DENY";
 		set.headers["X-Robots-Tag"] = "noindex";
 		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-	})
-	.use(
+	});
+
+if (process.env.NODE_ENV !== "production") {
+	const { swagger } = await import("@elysiajs/swagger");
+	app.use(
 		swagger({
 			documentation: {
 				info: {
@@ -59,7 +61,10 @@ const app = new Elysia()
 				},
 			},
 		}),
-	)
+	);
+}
+
+app
 	.use(lawRoutes(dbService, gitService, diffCache))
 	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))
@@ -71,6 +76,8 @@ const app = new Elysia()
 	.listen(PORT);
 
 console.log(`Ley Abierta API running on http://localhost:${PORT}`);
-console.log(`Swagger docs: http://localhost:${PORT}/swagger`);
+if (process.env.NODE_ENV !== "production") {
+	console.log(`Swagger docs: http://localhost:${PORT}/swagger`);
+}
 
 export type App = typeof app;
