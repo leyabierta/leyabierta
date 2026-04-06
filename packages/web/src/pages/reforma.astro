@@ -156,6 +156,39 @@ import Base from "../layouts/Base.astro";
 		}
 		.error-state p { color: var(--danger); margin-bottom: 1rem; }
 
+		/* ── Unified diff fallback ── */
+		.unified-diff {
+			font-family: var(--font-mono);
+			font-size: 0.8125rem;
+			line-height: 1.6;
+			padding: 1rem;
+			overflow-x: auto;
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			margin-top: 1rem;
+		}
+		.unified-diff-line {
+			white-space: pre-wrap;
+			word-break: break-word;
+			padding: 0.0625rem 0.5rem;
+		}
+		.unified-diff-line-add {
+			background: color-mix(in srgb, var(--success) 10%, var(--bg));
+			color: var(--success);
+		}
+		.unified-diff-line-del {
+			background: color-mix(in srgb, var(--danger) 8%, var(--bg));
+			color: var(--danger);
+		}
+		.unified-diff-line-hunk {
+			color: var(--accent);
+			font-weight: 600;
+			margin-top: 0.5rem;
+		}
+		.unified-diff-line-ctx {
+			color: var(--text-muted);
+		}
+
 		@media (max-width: 640px) {
 			.reforma-headline { font-size: 1.375rem; }
 		}
@@ -183,9 +216,28 @@ import Base from "../layouts/Base.astro";
 			if (backLink) {
 				var params = new URLSearchParams(window.location.search);
 				var from = params.get("from");
+				var normId = params.get("id") || "";
 				if (from === "cambios") {
 					backLink.href = "/cambios";
 					backLink.innerHTML = "&larr; Volver a cambios recientes";
+				} else if (from === "omnibus") {
+					backLink.href = "/omnibus/detalle?id=" + encodeURIComponent(normId);
+					backLink.innerHTML = "&larr; Volver al desglose";
+				} else if (from === "law") {
+					backLink.href = "/laws/" + encodeURIComponent(normId);
+					backLink.innerHTML = "&larr; Volver a la ley";
+				} else if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
+					var refPath = new URL(document.referrer).pathname;
+					if (refPath === "/cambios") {
+						backLink.href = "/cambios";
+						backLink.innerHTML = "&larr; Volver a cambios recientes";
+					} else if (refPath.indexOf("/omnibus/detalle") === 0) {
+						backLink.href = document.referrer;
+						backLink.innerHTML = "&larr; Volver al desglose";
+					} else if (refPath.indexOf("/laws/") === 0) {
+						backLink.href = document.referrer;
+						backLink.innerHTML = "&larr; Volver a la ley";
+					}
 				}
 			}
 
@@ -210,6 +262,11 @@ import Base from "../layouts/Base.astro";
 
 			// Render paragraph-level diff with word highlighting
 			function renderBlockDiff(beforeText, afterText, container) {
+				// If texts are identical, show a clear message instead of empty diff
+				if (beforeText === afterText) {
+					container.innerHTML = '<div class="diff-content"><p style="color:var(--text-muted);font-size:0.8125rem;padding:0.75rem;font-style:italic">El texto de este artículo no cambió en esta reforma. Es posible que el cambio afecte a su numeración o contexto dentro de la ley.</p></div>';
+					return;
+				}
 				if (typeof Diff === "undefined") {
 					container.innerHTML = '<div class="diff-content"><div class="diff-para">' + esc(afterText) + '</div></div>';
 					return;
@@ -347,11 +404,17 @@ import Base from "../layouts/Base.astro";
 							html += '</div></div>';
 						}
 						html += '</section>';
+					} else if (data.prev_reform_date) {
+						// No block-level data — placeholder for unified diff fallback
+						html += '<section class="reforma-changes">';
+						html += '<h2>Qué ha cambiado</h2>';
+						html += '<div id="unified-diff-container"><div class="diff-content" style="color:var(--text-muted);font-size:0.8125rem;padding:1rem">Cargando diferencias...</div></div>';
+						html += '</section>';
 					}
 
 					// ── Nav ──
 					html += '<nav class="reforma-nav">';
-					html += '<a href="/laws/' + encodeURIComponent(law.id) + '">Ver ley completa &rarr;</a>';
+					html += '<a href="/laws/' + encodeURIComponent(law.id) + '?from=reforma">Ver ley completa &rarr;</a>';
 					html += '<a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">Ver en BOE &rarr;</a>';
 					html += '</nav>';
 
@@ -369,7 +432,44 @@ import Base from "../layouts/Base.astro";
 						});
 					});
 
+					// ── Unified diff fallback (when no block-level data) ──
+					if (blocks.length === 0 && data.prev_reform_date) {
+						var diffUrl = API + "/v1/laws/" + encodeURIComponent(normId) + "/diff?from=" + encodeURIComponent(data.prev_reform_date) + "&to=" + encodeURIComponent(date);
+						fetch(diffUrl)
+							.then(function (r) { return r.ok ? r.json() : null; })
+							.then(function (diffData) {
+								var container = document.getElementById("unified-diff-container");
+								if (!container || !diffData || !diffData.diff) {
+									if (container) container.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem">No se encontraron diferencias para esta reforma.</p>';
+									return;
+								}
+								var lines = diffData.diff.split("\n");
+								var diffHtml = '<div class="unified-diff">';
+								var skippedHeader = false;
+								for (var j = 0; j < lines.length; j++) {
+									var line = lines[j];
+									// Skip git diff header lines (diff --git, index, ---, +++)
+									if (!skippedHeader) {
+										if (line.indexOf("diff --git") === 0 || line.indexOf("index ") === 0 || line.indexOf("---") === 0 || line.indexOf("+++") === 0) continue;
+										if (line.indexOf("@@") === 0) skippedHeader = true;
+									}
+									var cls = "unified-diff-line-ctx";
+									if (line.indexOf("+") === 0 && line.indexOf("+++") !== 0) cls = "unified-diff-line-add";
+									else if (line.indexOf("-") === 0 && line.indexOf("---") !== 0) cls = "unified-diff-line-del";
+									else if (line.indexOf("@@") === 0) cls = "unified-diff-line-hunk";
+									diffHtml += '<div class="unified-diff-line ' + cls + '">' + esc(line) + '</div>';
+								}
+								diffHtml += '</div>';
+								container.innerHTML = diffHtml;
+							})
+							.catch(function () {
+								var container = document.getElementById("unified-diff-container");
+								if (container) container.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem">No se pudieron cargar las diferencias.</p>';
+							});
+					}
+
 					// ── Load jsdiff and render paragraph-level diff ──
+					if (blocks.length > 0) {
 					var script = document.createElement("script");
 					script.src = "https://cdn.jsdelivr.net/npm/diff@7/dist/diff.min.js";
 					script.onload = function () {
@@ -393,10 +493,16 @@ import Base from "../layouts/Base.astro";
 						}
 					};
 					document.head.appendChild(script);
+					}
 				})
 				.catch(function () {
-					var errorBackHref = from === "cambios" ? "/cambios" : "/mis-cambios";
-					var errorBackLabel = from === "cambios" ? "Volver a cambios recientes" : "Volver a mis cambios";
+					var params2 = new URLSearchParams(window.location.search);
+					var from2 = params2.get("from") || "";
+					var errorBackHref = "/mis-cambios";
+					var errorBackLabel = "Volver a mis cambios";
+					if (from2 === "cambios") { errorBackHref = "/cambios"; errorBackLabel = "Volver a cambios recientes"; }
+					else if (from2 === "omnibus") { errorBackHref = "/omnibus/detalle?id=" + encodeURIComponent(params2.get("id") || ""); errorBackLabel = "Volver al desglose"; }
+					else if (from2 === "law") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || ""); errorBackLabel = "Volver a la ley"; }
 					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="' + errorBackHref + '" style="color:var(--accent)">' + errorBackLabel + '</a></div>';
 				});
 		})();

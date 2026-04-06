@@ -164,11 +164,15 @@ import Base from "../../layouts/Base.astro";
 			color: var(--text-secondary);
 			line-height: 1.6;
 		}
-		.topic-sneaked-note {
-			margin-top: 0.5rem;
+		.topic-link {
+			display: inline-block;
+			margin-top: 0.625rem;
 			font-size: 0.8125rem;
-			color: var(--danger);
-			font-style: italic;
+			font-weight: 500;
+			color: var(--accent-light);
+		}
+		.topic-link:hover {
+			text-decoration: underline;
 		}
 
 		@media (max-width: 640px) {
@@ -177,6 +181,7 @@ import Base from "../../layouts/Base.astro";
 	</style>
 
 	<div class="omnibus-detail-wrap">
+		<a href="/omnibus" class="omnibus-back" id="omnibus-back" style="font-size:0.8125rem;color:var(--accent-light);margin-bottom:1rem;display:inline-block">&larr; Volver a leyes ómnibus</a>
 		<div class="omnibus-detail-header" id="omnibus-header">
 			<h1 id="omnibus-title">Cargando...</h1>
 			<p id="omnibus-subtitle" class="omnibus-subtitle"></p>
@@ -235,7 +240,7 @@ import Base from "../../layouts/Base.astro";
 					metaEl.innerHTML = esc(rankLabel) + ' · ' + data.materia_count + ' materias · ' + data.topics.length + ' temas' + (data.sneaked_count > 0 ? ' · <span style="color:var(--danger);font-weight:600;">' + data.sneaked_count + ' tema' + (data.sneaked_count > 1 ? 's' : '') + ' no relacionado' + (data.sneaked_count > 1 ? 's' : '') + ' con el título</span>' : '');
 					var links = '<a href="/laws/' + encodeURIComponent(data.id) + '">Ver ley completa</a>';
 					if (data.latest_reform_date) {
-						links += '<a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '">Ver qué cambió</a>';
+						links += '<a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '&from=omnibus">Ver qué cambió</a>';
 					}
 					links += '<a href="/omnibus">Todas las leyes ómnibus</a>';
 					linksEl.innerHTML = links;
@@ -259,7 +264,9 @@ import Base from "../../layouts/Base.astro";
 						html += '</div>';
 						if (t.headline) html += '<p class="topic-headline">' + esc(t.headline) + '</p>';
 						if (t.summary) html += '<p class="topic-summary">' + esc(t.summary) + '</p>';
-						if (isSneaked) html += '<p class="topic-sneaked-note">Este tema no tiene relación con el título oficial de la ley.</p>';
+						if (data.latest_reform_date) {
+							html += '<a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '&from=omnibus" class="topic-link">Ver qué cambió &rarr;</a>';
+						}
 						html += '</div>';
 					}
 					html += '</div>';

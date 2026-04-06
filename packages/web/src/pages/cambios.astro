@@ -138,9 +138,6 @@ import Base from "../layouts/Base.astro";
 		.reform-card-high {
 			border-left: 3px solid var(--accent);
 		}
-		.reform-card-compact {
-			padding: 0.75rem 1.25rem;
-		}
 		.reform-date-row {
 			display: flex;
 			gap: 0.5rem;
@@ -337,11 +334,24 @@ import Base from "../layouts/Base.astro";
 							return;
 						}
 
-						infoDiv.textContent = data.reforms.length + " cambios · " + (data.date_range || "");
+						// Filter out reforms with absurd dates (year > current + 2)
+						var currentYear = new Date().getFullYear();
+						var validReforms = data.reforms.filter(function (r) {
+							if (!r.date) return false;
+							var year = parseInt(r.date.slice(0, 4), 10);
+							return year <= currentYear + 2;
+						});
+
+						if (validReforms.length === 0) {
+							contentDiv.innerHTML = '<div class="empty-state"><h2>No hay cambios recientes</h2><p>No se han encontrado modificaciones legislativas en este período.</p></div>';
+							return;
+						}
+
+						infoDiv.textContent = validReforms.length + " cambios · " + (data.date_range || "");
 
 						var html = '<div class="reform-timeline">';
-						for (var i = 0; i < data.reforms.length; i++) {
-							var r = data.reforms[i];
+						for (var i = 0; i < validReforms.length; i++) {
+							var r = validReforms[i];
 							var dateStr = r.date || "";
 							if (dateStr) {
 								var d = new Date(dateStr + "T00:00:00");
@@ -355,15 +365,6 @@ import Base from "../layouts/Base.astro";
 							var importance = r.importance || "";
 							var reformType = r.reform_type || "";
 							var typeLabel = TYPE_LABELS[reformType] || "";
-
-							if (importance === "low" && hasHeadline) {
-								html += '<div class="reform-card reform-card-compact">';
-								html += '<span class="reform-date">' + esc(dateStr) + '</span>';
-								html += ' · <span class="reform-type-badge">' + esc(r.headline) + '</span>';
-								html += ' · <a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=cambios" class="reform-link">Ver →</a>';
-								html += '</div>';
-								continue;
-							}
 
 							var cardClass = "reform-card";
 							if (importance === "high") cardClass += " reform-card-high";

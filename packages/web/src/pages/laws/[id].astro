@@ -622,7 +622,7 @@ const articleCount = law.articulos ?? 0;
 			<ul class="timeline">
 				{reforms.map((reform, i) => {
 					const isOriginal = i === reforms.length - 1;
-					const reformaUrl = !isOriginal ? `/reforma?id=${id}&date=${reform.fecha}` : null;
+					const reformaUrl = !isOriginal ? `/reforma?id=${id}&date=${reform.fecha}&from=law` : null;
 					return (
 						<li class="timeline-item">
 							<div class="timeline-dot"></div>
