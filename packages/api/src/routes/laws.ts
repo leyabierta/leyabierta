@@ -13,8 +13,8 @@ const boeClient = new BoeClient();
 /** Validate that a string is a real YYYY-MM-DD date (not just the right shape). */
 export function isValidISODate(s: string): boolean {
 	if (s.length !== 10) return false;
-	const d = new Date(s + "T00:00:00Z");
-	if (isNaN(d.getTime())) return false;
+	const d = new Date(`${s}T00:00:00Z`);
+	if (Number.isNaN(d.getTime())) return false;
 	return d.toISOString().startsWith(s);
 }
 

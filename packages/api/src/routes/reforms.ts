@@ -2,8 +2,8 @@
  * Reform endpoints: personal reforms by materia + public changelog.
  */
 import { Elysia, t } from "elysia";
-import type { DbService } from "../services/db.ts";
 import { computeMaterias } from "../data/materia-mappings.ts";
+import type { DbService } from "../services/db.ts";
 
 const JURISDICTION_RE = /^es(-[a-z]{2})?$/;
 
@@ -12,10 +12,13 @@ export function reformRoutes(dbService: DbService) {
 		.get(
 			"/reforms/personal",
 			({ query, set }) => {
-				const weeks = query.weeks ? Math.min(Number(query.weeks), 12) : 4;
-				if (weeks <= 0 || Number.isNaN(weeks)) {
+				const limit = query.limit
+					? Math.max(1, Math.min(Number(query.limit), 100))
+					: 20;
+				const offset = query.offset ? Math.max(0, Number(query.offset)) : 0;
+				if (Number.isNaN(limit) || Number.isNaN(offset)) {
 					set.status = 400;
-					return { error: "weeks must be between 1 and 12" };
+					return { error: "limit and offset must be numbers" };
 				}
 
 				const jurisdiction = query.j || query.jurisdiccion || "es";
@@ -52,15 +55,12 @@ export function reformRoutes(dbService: DbService) {
 					return { error: "no materias resolved from the provided answers" };
 				}
 
-				// Compute since date
-				const since = new Date();
-				since.setDate(since.getDate() - weeks * 7);
-				const sinceStr = since.toISOString().slice(0, 10);
-
 				const reforms = dbService.getRecentReformsByMaterias(
 					materias,
 					jurisdiction,
-					sinceStr,
+					"1900-01-01",
+					limit,
+					offset,
 				);
 
 				// Batch query: find which omnibus topics match the user's materias
@@ -78,14 +78,11 @@ export function reformRoutes(dbService: DbService) {
 					matched_topics: matchedTopicsMap.get(r.id) || [],
 				}));
 
-				// Compute date range
-				const today = new Date().toISOString().slice(0, 10);
-				const dateRange = `${sinceStr} to ${today}`;
-
 				return {
 					reforms: enrichedReforms,
 					materias,
-					date_range: dateRange,
+					limit,
+					offset,
 				};
 			},
 			{
@@ -100,7 +97,8 @@ export function reformRoutes(dbService: DbService) {
 					// Legacy: raw materias CSV (backward compat)
 					materias: t.Optional(t.String()),
 					jurisdiccion: t.Optional(t.String()),
-					weeks: t.Optional(t.String()),
+					limit: t.Optional(t.String()),
+					offset: t.Optional(t.String()),
 				}),
 			},
 		)
