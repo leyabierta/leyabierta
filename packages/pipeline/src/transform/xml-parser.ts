@@ -19,7 +19,10 @@ const xmlParser = new XMLParser({
 	preserveOrder: true,
 	trimValues: false,
 	processEntities: false, // We decode entities ourselves in renderInlineNodes
-	stopNodes: ["*.blockquote"], // Skip editorial blockquotes entirely
+	// Note: blockquotes are NOT in stopNodes — we parse them to extract
+	// "siempreSeVe" annotations (substantive editorial notes from the BOE
+	// consolidator). Regular editorial blockquotes (nota_pie) are filtered
+	// in extractParagraphs().
 });
 
 /**
@@ -128,8 +131,24 @@ function extractParagraphs(versionChildren: XmlNode[]): Paragraph[] {
 	const paragraphs: Paragraph[] = [];
 
 	for (const child of versionChildren) {
-		// Skip blockquotes (stopNodes already prevents deep parsing)
-		if (child.blockquote) continue;
+		// Handle blockquotes: include "siempreSeVe" notes, skip others
+		if (child.blockquote) {
+			const bqClass = (child[":@"]?.class as string) ?? "";
+			if (bqClass === "siempreSeVe") {
+				// Extract text from <p> elements inside the blockquote
+				const bqChildren: XmlNode[] = child.blockquote ?? [];
+				for (const bqChild of bqChildren) {
+					if (!bqChild.p) continue;
+					const text = renderInlineNodes(bqChild.p as XmlNode[]);
+					if (!text) continue;
+					paragraphs.push({
+						cssClass: "nota_boe",
+						text: `[Nota del BOE: ${text}]`,
+					});
+				}
+			}
+			continue;
+		}
 
 		// Handle tables
 		if (child.table) {

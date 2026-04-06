@@ -9,8 +9,8 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
-import { digestRoutes } from "../routes/digests.ts";
 import { lawRoutes } from "../routes/laws.ts";
+import { omnibusRoutes } from "../routes/omnibus.ts";
 import { LruCache } from "../services/cache.ts";
 import { DbService } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
@@ -37,7 +37,7 @@ beforeEach(() => {
 
 	app = new Elysia()
 		.use(lawRoutes(dbService, gitStub, diffCache))
-		.use(digestRoutes(dbService))
+		.use(omnibusRoutes(dbService))
 		.get("/health", () => ({
 			status: "ok",
 			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
@@ -477,145 +477,122 @@ function insertReformBlock(
 }
 
 // ---------------------------------------------------------------------------
-// GET /v1/digests/personal
+// Omnibus endpoints
 // ---------------------------------------------------------------------------
 
-describe("GET /v1/digests/personal", () => {
-	function seedDigest(profileId: string, week: string, reforms: unknown[]) {
-		dbService.upsertDigest(
-			profileId,
-			week,
-			"es",
-			`Summary for ${profileId} ${week}`,
-			"2026-03-09T00:00:00Z",
-			JSON.stringify({ reforms }),
-		);
-	}
-
-	it("returns merged reforms from multiple profiles", async () => {
-		seedDigest("autonomos", "2026-W10", [
-			{
-				id: "BOE-A-2026-1",
-				title: "Ley A",
-				rank: "ley",
-				date: "2026-03-05",
-				source_id: "S1",
-				relevant: true,
-				te_afecta_porque: "Afecta autonomos",
-				headline: "H1",
-				summary: "Sum1",
-			},
-		]);
-		seedDigest("fiscal", "2026-W10", [
-			{
-				id: "BOE-A-2026-2",
-				title: "Ley B",
-				rank: "ley",
-				date: "2026-03-06",
-				source_id: "S2",
-				relevant: true,
-				te_afecta_porque: "Afecta fiscal",
-				headline: "H2",
-				summary: "Sum2",
-			},
-		]);
-
-		const { status, body } = await json(
-			"/v1/digests/personal?profiles=autonomos,fiscal",
-		);
+describe("GET /v1/omnibus", () => {
+	it("returns empty list when no omnibus topics exist", async () => {
+		const { status, body } = await json("/v1/omnibus");
 		expect(status).toBe(200);
-		expect(body.reforms).toHaveLength(2);
-		expect(body.profiles).toEqual(["autonomos", "fiscal"]);
-		expect(body.week_range).toBe("2026-W10 to 2026-W10");
-		// Sorted by date DESC
-		expect(body.reforms[0].id).toBe("BOE-A-2026-2");
-		expect(body.reforms[1].id).toBe("BOE-A-2026-1");
+		expect(body.data).toEqual([]);
 	});
 
-	it("deduplicates reforms - first profile wins", async () => {
-		seedDigest("autonomos", "2026-W10", [
-			{
-				id: "BOE-A-2026-1",
-				title: "Ley A",
-				rank: "ley",
-				date: "2026-03-05",
-				source_id: "S1",
-				relevant: true,
-				te_afecta_porque: "From autonomos",
-				headline: "H1",
-				summary: "Sum1",
-			},
+	it("returns omnibus norms with topics", async () => {
+		insertNorm({ id: "OT1", title: "Ley Omnibus Test" });
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"OT1",
+			"2026-03-20",
+			"OT1",
 		]);
-		seedDigest("fiscal", "2026-W10", [
-			{
-				id: "BOE-A-2026-1",
-				title: "Ley A",
-				rank: "ley",
-				date: "2026-03-05",
-				source_id: "S1",
-				relevant: true,
-				te_afecta_porque: "From fiscal",
-				headline: "H2",
-				summary: "Sum2",
-			},
-		]);
+		for (let i = 0; i < 16; i++) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"OT1",
+				`Materia${i}`,
+			]);
+		}
+		dbService.upsertOmnibusTopic("OT1", 0, {
+			topicLabel: "Fiscal",
+			headline: "H",
+			summary: "S",
+			articleCount: 5,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
+		});
+		dbService.upsertOmnibusTopic("OT1", 1, {
+			topicLabel: "Penal",
+			headline: "H2",
+			summary: "S2",
+			articleCount: 1,
+			isSneaked: true,
+			relatedMaterias: "[]",
+			model: "t",
+		});
 
-		const { body } = await json(
-			"/v1/digests/personal?profiles=autonomos,fiscal",
-		);
-		expect(body.reforms).toHaveLength(1);
-		expect(body.reforms[0].te_afecta_porque).toBe("From autonomos");
-	});
-
-	it("returns 400 when profiles param is missing", async () => {
-		const { status, body } = await json("/v1/digests/personal");
-		expect(status).toBe(400);
-		expect(body.error).toContain("profiles");
-	});
-
-	it("returns 400 when profiles param is empty", async () => {
-		const { status, body } = await json("/v1/digests/personal?profiles=");
-		expect(status).toBe(400);
-		expect(body.error).toContain("profiles");
-	});
-
-	it("handles malformed JSON in digest data without crashing", async () => {
-		dbService.upsertDigest(
-			"autonomos",
-			"2026-W10",
-			"es",
-			"Summary",
-			"2026-03-09T00:00:00Z",
-			"NOT VALID JSON {{{",
-		);
-		seedDigest("fiscal", "2026-W10", [
-			{
-				id: "BOE-A-2026-1",
-				title: "Ley A",
-				rank: "ley",
-				date: "2026-03-05",
-				source_id: "S1",
-				relevant: true,
-				te_afecta_porque: "OK",
-				headline: "H",
-				summary: "S",
-			},
-		]);
-
-		const { status, body } = await json(
-			"/v1/digests/personal?profiles=autonomos,fiscal",
-		);
+		const { status, body } = await json("/v1/omnibus");
 		expect(status).toBe(200);
-		// Only the valid reform from fiscal profile
-		expect(body.reforms).toHaveLength(1);
-		expect(body.reforms[0].id).toBe("BOE-A-2026-1");
+		expect(body.data).toHaveLength(1);
+		expect(body.data[0].id).toBe("OT1");
+		expect(body.data[0].topic_count).toBe(2);
+		expect(body.data[0].sneaked_count).toBe(1);
+	});
+});
+
+describe("GET /v1/omnibus/:normId", () => {
+	it("returns 404 for unknown norm", async () => {
+		const { status, body } = await json("/v1/omnibus/NONEXISTENT");
+		expect(status).toBe(404);
+		expect(body.error).toBeDefined();
 	});
 
-	it("returns 400 when weeks=0", async () => {
-		const { status, body } = await json(
-			"/v1/digests/personal?profiles=autonomos&weeks=0",
+	it("returns detail with topics", async () => {
+		insertNorm({ id: "OT2", title: "Detail Test" });
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+			"OT2",
+			"Energia",
+		]);
+		dbService.upsertOmnibusTopic("OT2", 0, {
+			topicLabel: "Energía",
+			headline: "Cambios energéticos",
+			summary: "Se modifica la ley eléctrica",
+			articleCount: 8,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
+		});
+
+		const { status, body } = await json("/v1/omnibus/OT2");
+		expect(status).toBe(200);
+		expect(body.title).toBe("Detail Test");
+		expect(body.topics).toHaveLength(1);
+		expect(body.topics[0].topic_label).toBe("Energía");
+		expect(body.sneaked_count).toBe(0);
+	});
+});
+
+describe("GET /v1/feed-omnibus.xml", () => {
+	it("returns valid RSS XML", async () => {
+		insertNorm({ id: "OT3", title: "RSS & Test <Law>" });
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"OT3",
+			"2026-03-25",
+			"OT3",
+		]);
+		for (let i = 0; i < 16; i++) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"OT3",
+				`M${i}`,
+			]);
+		}
+		dbService.upsertOmnibusTopic("OT3", 0, {
+			topicLabel: "Fiscal",
+			headline: "H",
+			summary: "S",
+			articleCount: 3,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
+		});
+
+		const res = await app.handle(
+			new Request("http://localhost/v1/feed-omnibus.xml"),
 		);
-		expect(status).toBe(400);
-		expect(body.error).toContain("weeks");
+		expect(res.status).toBe(200);
+		const text = await res.text();
+		expect(text).toContain("<?xml");
+		expect(text).toContain("<rss");
+		// Verify XML escaping
+		expect(text).toContain("RSS &amp; Test &lt;Law&gt;");
+		expect(text).toContain("Fiscal");
 	});
 });

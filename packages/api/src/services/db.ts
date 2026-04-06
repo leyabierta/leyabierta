@@ -3,6 +3,7 @@
  */
 
 import type { Database } from "bun:sqlite";
+import { BASE_MATERIAS } from "../data/materia-mappings.ts";
 
 export interface LawRow {
 	id: string;
@@ -725,118 +726,6 @@ export class DbService {
 		return { futureDates, emptyBlocks, unresolvedMaterias, missingEli };
 	}
 
-	// ── Digests ──
-
-	upsertDigest(
-		profileId: string,
-		week: string,
-		jurisdiction: string,
-		summary: string,
-		generatedAt: string,
-		data: string,
-	): void {
-		this.db
-			.query(
-				`INSERT INTO digests (profile_id, week, jurisdiction, summary, generated_at, data)
-				 VALUES (?, ?, ?, ?, ?, ?)
-				 ON CONFLICT(profile_id, week, jurisdiction)
-				 DO UPDATE SET summary = excluded.summary, generated_at = excluded.generated_at, data = excluded.data`,
-			)
-			.run(profileId, week, jurisdiction, summary, generatedAt, data);
-	}
-
-	getDigest(
-		profileId: string,
-		week: string,
-		jurisdiction?: string,
-	): {
-		profile_id: string;
-		week: string;
-		jurisdiction: string;
-		summary: string;
-		generated_at: string;
-		data: string;
-	} | null {
-		const jur = jurisdiction ?? "es";
-		return (
-			this.db
-				.query<
-					{
-						profile_id: string;
-						week: string;
-						jurisdiction: string;
-						summary: string;
-						generated_at: string;
-						data: string;
-					},
-					[string, string, string]
-				>(
-					"SELECT profile_id, week, jurisdiction, summary, generated_at, data FROM digests WHERE profile_id = ? AND week = ? AND jurisdiction = ?",
-				)
-				.get(profileId, week, jur) ?? null
-		);
-	}
-
-	listDigestsForProfile(profileId: string): Array<{
-		week: string;
-		summary: string;
-		generated_at: string;
-		reform_count: number;
-	}> {
-		// We store reform count by parsing JSON length — but for listing, we can
-		// compute it in JS from the data column to avoid JSON parsing in SQL.
-		const rows = this.db
-			.query<
-				{ week: string; summary: string; generated_at: string; data: string },
-				[string]
-			>(
-				"SELECT week, summary, generated_at, data FROM digests WHERE profile_id = ? ORDER BY week DESC",
-			)
-			.all(profileId);
-
-		return rows.map((r) => {
-			let reformCount = 0;
-			try {
-				const parsed = JSON.parse(r.data);
-				reformCount = Array.isArray(parsed.reforms) ? parsed.reforms.length : 0;
-			} catch {
-				// malformed JSON
-			}
-			return {
-				week: r.week,
-				summary: r.summary,
-				generated_at: r.generated_at,
-				reform_count: reformCount,
-			};
-		});
-	}
-
-	listDigestProfiles(): Array<{
-		profile_id: string;
-		digest_count: number;
-		latest_week: string;
-	}> {
-		return this.db
-			.query<
-				{ profile_id: string; digest_count: number; latest_week: string },
-				[]
-			>(
-				"SELECT profile_id, COUNT(*) as digest_count, MAX(week) as latest_week FROM digests GROUP BY profile_id ORDER BY profile_id",
-			)
-			.all();
-	}
-
-	getRecentDigests(
-		profileId: string,
-		limit: number,
-	): Array<{ week: string; data: string }> {
-		return this.db
-			.query<{ week: string; data: string }, [string, number]>(
-				"SELECT week, data FROM digests WHERE profile_id = ? ORDER BY week DESC LIMIT ?",
-			)
-			.all(profileId, limit);
-	}
-
 	// ── Norm follows ──
 
 	upsertNormFollow(email: string, normId: string, token: string): void {
@@ -874,10 +763,24 @@ export class DbService {
 		summary: string | null;
 		reform_type: string | null;
 		importance: string | null;
+		materia_count: number;
+		match_ratio: number;
+		omnibus_topic_count: number;
 	}> {
 		if (materias.length === 0) return [];
 
-		const placeholders = materias.map(() => "?").join(",");
+		// Validate jurisdiction to prevent SQL injection
+		if (!/^es(-[a-z]{2})?$/.test(jurisdiction)) {
+			return [];
+		}
+
+		// Match on non-base materias only (specific to user's situation).
+		// Base materias (IRPF, SS, Consumidores, Derechos) are too generic and match
+		// almost every law. If user has NO non-base materias, fall back to all.
+		const matchMaterias = materias.filter((m) => !BASE_MATERIAS.includes(m));
+		const effectiveMaterias =
+			matchMaterias.length > 0 ? matchMaterias : materias;
+		const placeholders = effectiveMaterias.map(() => "?").join(",");
 
 		// If jurisdiction is 'es' (national), include only national laws.
 		// Otherwise include BOTH regional AND national laws (national laws apply everywhere).
@@ -887,18 +790,27 @@ export class DbService {
 				: `(n.source_url LIKE '%/eli/${jurisdiction}/%' OR (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%'))`;
 
 		const sql = `
+			WITH materia_weights AS (
+				SELECT m.norm_id,
+					COUNT(CASE WHEN m.materia IN (${placeholders}) THEN 1 END) as matched,
+					COUNT(*) as total
+				FROM materias m
+				GROUP BY m.norm_id
+			)
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
-				rs.headline, rs.summary, rs.reform_type, rs.importance
+				rs.headline, rs.summary, rs.reform_type, rs.importance,
+				mw.total as materia_count,
+				CAST(mw.matched AS REAL) / NULLIF(mw.total, 0) as match_ratio,
+				(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = r.norm_id) as omnibus_topic_count
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
-			JOIN materias m ON m.norm_id = r.norm_id
+			JOIN materia_weights mw ON mw.norm_id = r.norm_id AND mw.matched > 0
 			LEFT JOIN reform_summaries rs
 				ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
 			WHERE r.date >= ?
-			  AND m.materia IN (${placeholders})
 			  AND ${jurisdictionClause}
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
-			ORDER BY r.date DESC
+			ORDER BY match_ratio DESC, r.date DESC
 		`;
 
 		return this.db
@@ -914,10 +826,13 @@ export class DbService {
 					summary: string | null;
 					reform_type: string | null;
 					importance: string | null;
+					materia_count: number;
+					match_ratio: number;
+					omnibus_topic_count: number;
 				},
 				unknown[]
 			>(sql)
-			.all(since, ...materias);
+			.all(...effectiveMaterias, since);
 	}
 
 	getChangelog(
@@ -935,7 +850,13 @@ export class DbService {
 		summary: string | null;
 		reform_type: string | null;
 		importance: string | null;
+		materia_count: number;
+		omnibus_topic_count: number;
 	}> {
+		if (jurisdiction && !/^es(-[a-z]{2})?$/.test(jurisdiction)) {
+			return [];
+		}
+
 		const jurisdictionClause = jurisdiction
 			? jurisdiction === "es"
 				? "AND (n.source_url LIKE '%/eli/es/%' AND n.source_url NOT LIKE '%/eli/es-__/%')"
@@ -944,7 +865,9 @@ export class DbService {
 
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
-				rs.headline, rs.summary, rs.reform_type, rs.importance
+				rs.headline, rs.summary, rs.reform_type, rs.importance,
+				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count,
+				(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = r.norm_id) as omnibus_topic_count
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
 			LEFT JOIN reform_summaries rs
@@ -969,6 +892,8 @@ export class DbService {
 					summary: string | null;
 					reform_type: string | null;
 					importance: string | null;
+					materia_count: number;
+					omnibus_topic_count: number;
 				},
 				[string, number]
 			>(sql)
@@ -1232,5 +1157,191 @@ export class DbService {
 			prev_reform_date: prevDate,
 			next_reform_date: nextDate,
 		};
+	}
+
+	// ── Omnibus ──
+
+	upsertOmnibusTopic(
+		normId: string,
+		topicIndex: number,
+		data: {
+			topicLabel: string;
+			headline: string;
+			summary: string;
+			articleCount: number;
+			isSneaked: boolean;
+			relatedMaterias: string;
+			model: string;
+		},
+	): void {
+		this.db
+			.query(
+				`INSERT OR REPLACE INTO omnibus_topics
+				 (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias, generated_at, model)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+			)
+			.run(
+				normId,
+				topicIndex,
+				data.topicLabel,
+				data.headline,
+				data.summary,
+				data.articleCount,
+				data.isSneaked ? 1 : 0,
+				data.relatedMaterias,
+				data.model,
+			);
+	}
+
+	getOmnibusTopics(normId: string): Array<{
+		topic_index: number;
+		topic_label: string;
+		headline: string;
+		summary: string;
+		article_count: number;
+		is_sneaked: number;
+		related_materias: string;
+	}> {
+		return this.db
+			.query<
+				{
+					topic_index: number;
+					topic_label: string;
+					headline: string;
+					summary: string;
+					article_count: number;
+					is_sneaked: number;
+					related_materias: string;
+				},
+				[string]
+			>(
+				`SELECT topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias
+				 FROM omnibus_topics WHERE norm_id = ? ORDER BY topic_index`,
+			)
+			.all(normId);
+	}
+
+	listRecentOmnibus(
+		limit = 20,
+		since?: string,
+	): Array<{
+		id: string;
+		title: string;
+		rank: string;
+		materia_count: number;
+		topic_count: number;
+		sneaked_count: number;
+		latest_reform_date: string;
+	}> {
+		const sinceClause = since ? "AND r.date >= ?" : "";
+		const params: unknown[] = since ? [since, limit] : [limit];
+
+		return this.db
+			.query<
+				{
+					id: string;
+					title: string;
+					rank: string;
+					materia_count: number;
+					topic_count: number;
+					sneaked_count: number;
+					latest_reform_date: string;
+				},
+				unknown[]
+			>(
+				`SELECT n.id, n.title, n.rank,
+					(SELECT COUNT(*) FROM materias WHERE norm_id = n.id) as materia_count,
+					(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = n.id) as topic_count,
+					(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = n.id AND is_sneaked = 1) as sneaked_count,
+					MAX(r.date) as latest_reform_date
+				FROM norms n
+				JOIN reforms r ON r.norm_id = n.id
+				WHERE n.id IN (SELECT DISTINCT norm_id FROM omnibus_topics)
+				  ${sinceClause}
+				GROUP BY n.id
+				HAVING (SELECT COUNT(*) FROM materias WHERE norm_id = n.id) >= 15
+				ORDER BY latest_reform_date DESC
+				LIMIT ?`,
+			)
+			.all(...params);
+	}
+
+	getOmnibusDetail(normId: string): {
+		id: string;
+		title: string;
+		rank: string;
+		status: string;
+		materia_count: number;
+		latest_reform_date: string | null;
+		topics: Array<{
+			topic_index: number;
+			topic_label: string;
+			headline: string;
+			summary: string;
+			article_count: number;
+			is_sneaked: number;
+			related_materias: string;
+		}>;
+	} | null {
+		const norm = this.db
+			.query<
+				{
+					id: string;
+					title: string;
+					rank: string;
+					status: string;
+					materia_count: number;
+					latest_reform_date: string | null;
+				},
+				[string]
+			>(
+				`SELECT n.id, n.title, n.rank, n.status,
+					(SELECT COUNT(*) FROM materias WHERE norm_id = n.id) as materia_count,
+					(SELECT MAX(r.date) FROM reforms r WHERE r.norm_id = n.id) as latest_reform_date
+				FROM norms n WHERE n.id = ?`,
+			)
+			.get(normId);
+
+		if (!norm) return null;
+
+		const topics = this.getOmnibusTopics(normId);
+
+		return { ...norm, topics };
+	}
+
+	/**
+	 * Batch query: for a set of omnibus norm IDs, find which topic labels
+	 * match the user's materias via the related_materias JSON field.
+	 */
+	getMatchedTopics(
+		normIds: string[],
+		userMaterias: string[],
+	): Map<string, string[]> {
+		if (normIds.length === 0 || userMaterias.length === 0) return new Map();
+
+		const normPlaceholders = normIds.map(() => "?").join(",");
+		const materiaPlaceholders = userMaterias.map(() => "?").join(",");
+
+		const rows = this.db
+			.query<{ norm_id: string; topic_label: string }, unknown[]>(
+				`SELECT ot.norm_id, ot.topic_label
+				 FROM omnibus_topics ot
+				 WHERE ot.norm_id IN (${normPlaceholders})
+				   AND json_valid(ot.related_materias)
+				   AND EXISTS (
+				       SELECT 1 FROM json_each(ot.related_materias) je
+				       WHERE je.value IN (${materiaPlaceholders})
+				   )
+				 ORDER BY ot.topic_index`,
+			)
+			.all(...normIds, ...userMaterias);
+
+		const result = new Map<string, string[]>();
+		for (const row of rows) {
+			const existing = result.get(row.norm_id) || [];
+			existing.push(row.topic_label);
+			result.set(row.norm_id, existing);
+		}
+		return result;
 	}
 }

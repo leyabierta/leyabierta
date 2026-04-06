@@ -1,0 +1,278 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Desglose ómnibus"
+	description="Desglose temático de una ley ómnibus: qué temas agrupa y cuáles podrían ser medidas encubiertas."
+	ogTitle="Ley ómnibus — Ley Abierta"
+>
+	<style is:global>
+		.omnibus-detail-wrap {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 0 1rem 3rem;
+		}
+		.omnibus-detail-header {
+			margin-bottom: 2rem;
+		}
+		.omnibus-detail-header h1 {
+			font-family: var(--font-serif);
+			font-size: 1.75rem;
+			font-weight: 700;
+			line-height: 1.3;
+			color: var(--text);
+			margin-bottom: 0.75rem;
+		}
+		.omnibus-subtitle {
+			color: var(--text-secondary);
+			font-size: 0.875rem;
+			line-height: 1.5;
+			margin-bottom: 0.75rem;
+		}
+		.omnibus-detail-meta {
+			display: flex;
+			gap: 0.75rem;
+			align-items: center;
+			flex-wrap: wrap;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 0.5rem;
+		}
+		.omnibus-detail-links {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			margin-top: 0.25rem;
+		}
+		.omnibus-detail-links a {
+			display: inline-flex;
+			align-items: center;
+			padding: 0.4rem 0.875rem;
+			border: 1.5px solid var(--border);
+			border-radius: 8px;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--text-secondary);
+			background: var(--surface);
+			text-decoration: none;
+			transition: all 0.15s;
+		}
+		.omnibus-detail-links a:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+
+		.skeleton-cards {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.skeleton-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+		}
+		.skeleton-line {
+			height: 0.875rem;
+			background: var(--border-light);
+			border-radius: 4px;
+			margin-bottom: 0.625rem;
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+		.skeleton-line:nth-child(2) { width: 75%; }
+		.skeleton-line:nth-child(3) { width: 60%; }
+		@keyframes pulse {
+			0%, 100% { opacity: 0.4; }
+			50% { opacity: 1; }
+		}
+
+		.error-state {
+			text-align: center;
+			padding: 2rem 1.5rem;
+			background: var(--danger-bg);
+			border: 1px solid var(--danger);
+			border-radius: 12px;
+		}
+		.error-state p {
+			color: var(--danger);
+			font-size: 0.9375rem;
+		}
+
+		.empty-topics {
+			text-align: center;
+			padding: 2rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+		}
+		.empty-topics p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+		}
+
+		.topics-list {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.topic-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+		}
+		.topic-card-sneaked {
+			border-left: 3px solid var(--danger);
+			background: color-mix(in srgb, var(--danger) 3%, var(--surface));
+		}
+		.topic-label {
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+			margin-bottom: 0.25rem;
+		}
+		.topic-label h3 {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 600;
+			color: var(--text);
+		}
+		.topic-articles {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+		}
+		.topic-sneaked-badge {
+			font-size: 0.6875rem;
+			font-weight: 600;
+			color: var(--danger);
+			background: var(--danger-bg);
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+		}
+		.topic-headline {
+			font-family: var(--font-serif);
+			font-size: 0.9375rem;
+			font-weight: 600;
+			line-height: 1.4;
+			margin: 0.25rem 0;
+			color: var(--text);
+		}
+		.topic-summary {
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+			line-height: 1.6;
+		}
+		.topic-sneaked-note {
+			margin-top: 0.5rem;
+			font-size: 0.8125rem;
+			color: var(--danger);
+			font-style: italic;
+		}
+
+		@media (max-width: 640px) {
+			.omnibus-detail-header h1 { font-size: 1.5rem; }
+		}
+	</style>
+
+	<div class="omnibus-detail-wrap">
+		<div class="omnibus-detail-header" id="omnibus-header">
+			<h1 id="omnibus-title">Cargando...</h1>
+			<p id="omnibus-subtitle" class="omnibus-subtitle"></p>
+			<div class="omnibus-detail-meta" id="omnibus-meta"></div>
+			<div class="omnibus-detail-links" id="omnibus-links"></div>
+		</div>
+
+		<div id="omnibus-topics">
+			<div class="skeleton-cards">
+				<div class="skeleton-card"><div class="skeleton-line" style="width:30%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:25%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:80%"></div><div class="skeleton-line"></div></div>
+			</div>
+		</div>
+	</div>
+
+	<script is:inline>
+		(function () {
+			var RANK_LABELS = {
+				constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
+				real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+				real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución"
+			};
+
+			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+			var API = document.documentElement.dataset.api;
+			var titleEl = document.getElementById("omnibus-title");
+			var subtitleEl = document.getElementById("omnibus-subtitle");
+			var metaEl = document.getElementById("omnibus-meta");
+			var linksEl = document.getElementById("omnibus-links");
+			var topicsDiv = document.getElementById("omnibus-topics");
+
+			// Read norm ID from query param: /omnibus/detalle?id=BOE-A-xxxx
+			var params = new URLSearchParams(window.location.search);
+			var normId = params.get("id") || "";
+
+			if (!normId) {
+				topicsDiv.innerHTML = '<div class="error-state"><p>No se especificó una ley.</p></div>';
+				return;
+			}
+
+			fetch(API + "/v1/omnibus/" + encodeURIComponent(normId))
+				.then(function (r) {
+					if (r.status === 404) throw new Error("not_found");
+					return r.json();
+				})
+				.then(function (data) {
+					var rankLabel = RANK_LABELS[data.rank] || data.rank || "";
+					// Short title: "Ley ómnibus — Real Decreto-ley 5/2026"
+					var shortNum = (data.title || "").match(/\d+\/\d{4}/);
+					var shortTitle = rankLabel + (shortNum ? " " + shortNum[0] : "");
+					titleEl.textContent = "Ley ómnibus — " + shortTitle;
+					subtitleEl.textContent = data.title || "";
+					document.title = shortTitle + " — Ley ómnibus — Ley Abierta";
+					metaEl.innerHTML = esc(rankLabel) + ' · ' + data.materia_count + ' materias · ' + data.topics.length + ' temas' + (data.sneaked_count > 0 ? ' · <span style="color:var(--danger);font-weight:600;">' + data.sneaked_count + ' tema' + (data.sneaked_count > 1 ? 's' : '') + ' no relacionado' + (data.sneaked_count > 1 ? 's' : '') + ' con el título</span>' : '');
+					var links = '<a href="/laws/' + encodeURIComponent(data.id) + '">Ver ley completa</a>';
+					if (data.latest_reform_date) {
+						links += '<a href="/reforma?id=' + encodeURIComponent(data.id) + '&date=' + encodeURIComponent(data.latest_reform_date) + '">Ver qué cambió</a>';
+					}
+					links += '<a href="/omnibus">Todas las leyes ómnibus</a>';
+					linksEl.innerHTML = links;
+
+					if (!data.topics || data.topics.length === 0) {
+						topicsDiv.innerHTML = '<div class="empty-topics"><p>Desglose temático pendiente de generación.</p></div>';
+						return;
+					}
+
+					var html = '<div class="topics-list">';
+					for (var i = 0; i < data.topics.length; i++) {
+						var t = data.topics[i];
+						var isSneaked = t.is_sneaked === 1;
+						var cardClass = "topic-card" + (isSneaked ? " topic-card-sneaked" : "");
+
+						html += '<div class="' + cardClass + '">';
+						html += '<div class="topic-label">';
+						html += '<h3>' + esc(t.topic_label) + '</h3>';
+						html += '<span class="topic-articles">(' + t.article_count + ' artículo' + (t.article_count !== 1 ? 's' : '') + ')</span>';
+						if (isSneaked) html += '<span class="topic-sneaked-badge">Tema no relacionado con el título</span>';
+						html += '</div>';
+						if (t.headline) html += '<p class="topic-headline">' + esc(t.headline) + '</p>';
+						if (t.summary) html += '<p class="topic-summary">' + esc(t.summary) + '</p>';
+						if (isSneaked) html += '<p class="topic-sneaked-note">Este tema no tiene relación con el título oficial de la ley.</p>';
+						html += '</div>';
+					}
+					html += '</div>';
+					topicsDiv.innerHTML = html;
+				})
+				.catch(function (err) {
+					if (err && err.message === "not_found") {
+						titleEl.textContent = "Ley no encontrada";
+						topicsDiv.innerHTML = '<div class="error-state"><p>No se encontró la ley ' + esc(normId) + '.</p></div>';
+					} else {
+						topicsDiv.innerHTML = '<div class="error-state"><p>Error al cargar. Inténtalo de nuevo.</p></div>';
+					}
+				});
+		})();
+	</script>
+</Base>

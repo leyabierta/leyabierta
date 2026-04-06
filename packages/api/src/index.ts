@@ -10,8 +10,8 @@ import { swagger } from "@elysiajs/swagger";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
 import { alertRoutes } from "./routes/alerts.ts";
-import { digestRoutes } from "./routes/digests.ts";
 import { lawRoutes } from "./routes/laws.ts";
+import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { LruCache } from "./services/cache.ts";
 import { DbService } from "./services/db.ts";
@@ -62,8 +62,8 @@ const app = new Elysia()
 	)
 	.use(lawRoutes(dbService, gitService, diffCache))
 	.use(alertRoutes(dbService))
-	.use(digestRoutes(dbService))
 	.use(reformRoutes(dbService))
+	.use(omnibusRoutes(dbService))
 	.get("/health", () => ({
 		status: "ok",
 		laws: dbService.searchLaws(undefined, {}, 0, 0).total,

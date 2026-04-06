@@ -25,6 +25,9 @@ EXPOSE 3000
 ENV DB_PATH=/data/leyabierta.db
 ENV REPO_PATH=/data/leyes
 
+# Symlink so pipeline's default ./data resolves to the mounted volume
+RUN ln -sf /data /app/data
+
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD bun -e "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1))" || exit 1
 

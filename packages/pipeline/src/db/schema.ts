@@ -108,21 +108,6 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_blocks_empty_precepto
     ON blocks(norm_id) WHERE block_type = 'precepto' AND (current_text = '' OR current_text IS NULL);
 
-  -- Weekly digests (AI-scored reform summaries per profile)
-  CREATE TABLE IF NOT EXISTS digests (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    profile_id   TEXT NOT NULL,
-    week         TEXT NOT NULL,
-    jurisdiction TEXT NOT NULL DEFAULT 'es',
-    summary      TEXT NOT NULL DEFAULT '',
-    generated_at TEXT NOT NULL,
-    data         TEXT NOT NULL,
-    UNIQUE(profile_id, week, jurisdiction)
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_digests_profile ON digests(profile_id);
-  CREATE INDEX IF NOT EXISTS idx_digests_week ON digests(week);
-
   -- Citizen-friendly tags (LLM-generated, law-level and article-level)
   CREATE TABLE IF NOT EXISTS citizen_tags (
     norm_id     TEXT NOT NULL REFERENCES norms(id),
@@ -183,6 +168,22 @@ const SCHEMA_SQL = /* sql */ `
       REFERENCES reforms(norm_id, date, source_id)
   );
 
+  -- Omnibus law topic breakdowns (AI-generated, per-norm)
+  CREATE TABLE IF NOT EXISTS omnibus_topics (
+    norm_id       TEXT NOT NULL,
+    topic_index   INTEGER NOT NULL,
+    topic_label   TEXT NOT NULL DEFAULT '',
+    headline      TEXT NOT NULL DEFAULT '',
+    summary       TEXT NOT NULL DEFAULT '',
+    article_count INTEGER NOT NULL DEFAULT 0,
+    is_sneaked    INTEGER NOT NULL DEFAULT 0,
+    related_materias TEXT NOT NULL DEFAULT '',
+    generated_at  TEXT NOT NULL DEFAULT '',
+    model         TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (norm_id, topic_index),
+    FOREIGN KEY (norm_id) REFERENCES norms(id)
+  );
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,
@@ -203,6 +204,14 @@ export function createSchema(db: Database): void {
 	try {
 		db.exec(
 			"ALTER TABLE norms ADD COLUMN citizen_summary TEXT NOT NULL DEFAULT ''",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec(
+			"ALTER TABLE omnibus_topics ADD COLUMN related_materias TEXT NOT NULL DEFAULT ''",
 		);
 	} catch {
 		// Column already exists

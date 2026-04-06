@@ -92,6 +92,28 @@ describe("computeMaterias", () => {
 		expect(familiaCount).toBe(1);
 	});
 
+	test("SECTOR_MATERIAS.transporte does NOT include personal driving materias", () => {
+		expect(SECTOR_MATERIAS.transporte).not.toContain("Circulación vial");
+		expect(SECTOR_MATERIAS.transporte).not.toContain("Vehículos de motor");
+	});
+
+	test("SECTOR_MATERIAS.transporte includes professional transport", () => {
+		expect(SECTOR_MATERIAS.transporte).toContain("Transportes de mercancías");
+	});
+
+	test("WORK_STATUS_MATERIAS.busco_empleo does NOT include broad Empleo", () => {
+		expect(WORK_STATUS_MATERIAS.busco_empleo).not.toContain("Empleo");
+	});
+
+	test("FAMILY_MATERIAS.hijos_menores does NOT include Educación", () => {
+		expect(FAMILY_MATERIAS.hijos_menores).not.toContain("Educación");
+	});
+
+	test("hijos_menores retains citizen-relevant education materias", () => {
+		expect(FAMILY_MATERIAS.hijos_menores).toContain("Becas");
+		expect(FAMILY_MATERIAS.hijos_menores).toContain("Centros de enseñanza");
+	});
+
 	test("unknown answer keys return only base materias (plus housing)", () => {
 		const result = computeMaterias(
 			makeAnswers({

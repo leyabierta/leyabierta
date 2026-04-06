@@ -145,9 +145,9 @@ Endpoints:
 - `GET /v1/materias` — subject categories with counts
 - `GET /v1/changelog` — recent reforms with AI summaries (filters: jurisdiction, since, limit)
 - `GET /v1/reforms/personal` — reforms filtered by materias + jurisdiction (for /mis-cambios)
-- `GET /v1/digests/profiles` — profiles with digest counts + latest week
-- `GET /v1/digests/:profileId` — list of weeks for a profile
-- `GET /v1/digests/:profileId/:week` — full digest data (profile + reforms)
+- `GET /v1/omnibus` — list recent omnibus laws with topic counts
+- `GET /v1/omnibus/:normId` — omnibus detail with per-topic AI breakdowns
+- `GET /v1/feed-omnibus.xml` — RSS feed of omnibus laws
 - `POST /v1/alerts/subscribe` — subscribe to email notifications (materias + jurisdiction)
 - `GET /v1/alerts/confirm` — double opt-in confirmation (HMAC)
 - `GET /v1/feed.xml` — RSS feed of recent reforms
@@ -183,7 +183,7 @@ When a feature genuinely needs client-side state or rich interactivity (e.g., li
 - `/reforma` — single reform detail page
 - `/alertas` — newsletter subscription form
 - `/mi-situacion` — subscription preference wizard
-- `/resumenes` — AI-generated digest pages per thematic profile
+- `/omnibus` — omnibus law detection with per-topic AI breakdowns
 - `/anomalias` — detected data quality issues in BOE source data
 - `/feed.xml` — RSS feed
 - `/sitemap.xml` — dynamic sitemap for all laws
@@ -241,6 +241,8 @@ We are NOT a developer tool, a SaaS dashboard, or a startup landing page. We are
 - Use "temas" or "categorías" not "materias" in citizen-facing copy
 - Technical terms (norm IDs, API references) are fine in developer-facing contexts
 - Code, comments, and variable names remain in English (no accents needed)
+
+**Design System:** Always read `DESIGN.md` before making any visual or UI decisions. All font choices, colors, spacing, border-radius, and component patterns are defined there. Do not deviate without explicit user approval. In QA mode, flag any code that doesn't match DESIGN.md.
 
 ## Data Sources
 

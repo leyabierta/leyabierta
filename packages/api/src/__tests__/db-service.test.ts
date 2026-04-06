@@ -547,75 +547,367 @@ describe("hasAnalisis", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getRecentDigests
+// getRecentReformsByMaterias — base materia filter
 // ---------------------------------------------------------------------------
 
-describe("getRecentDigests", () => {
-	it("returns correct number of recent digests", () => {
-		svc.upsertDigest(
-			"autonomos",
-			"2026-W10",
-			"es",
-			"Summary W10",
-			"2026-03-09T00:00:00Z",
-			'{"reforms":[]}',
-		);
-		svc.upsertDigest(
-			"autonomos",
-			"2026-W11",
-			"es",
-			"Summary W11",
-			"2026-03-16T00:00:00Z",
-			'{"reforms":[]}',
-		);
-		svc.upsertDigest(
-			"autonomos",
-			"2026-W12",
-			"es",
-			"Summary W12",
-			"2026-03-23T00:00:00Z",
-			'{"reforms":[]}',
-		);
+describe("getRecentReformsByMaterias — base materia filter", () => {
+	function seedNormWithMaterias(
+		normId: string,
+		materias: string[],
+		reformDate = "2026-03-20",
+	) {
+		insertNorm({
+			id: normId,
+			title: `Norm ${normId}`,
+			source_url: `https://www.boe.es/eli/es/l/2026/01/01/(1)`,
+		});
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			normId,
+			reformDate,
+			normId,
+		]);
+		for (const m of materias) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				normId,
+				m,
+			]);
+		}
+	}
 
-		const results = svc.getRecentDigests("autonomos", 2);
-		expect(results).toHaveLength(2);
+	it("includes reform matching a non-base materia", () => {
+		seedNormWithMaterias("N1", ["Trabajadores", "Seguridad Social"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores", "Seguridad Social"],
+			"es",
+			"2026-01-01",
+		);
+		expect(results.length).toBe(1);
+		expect(results[0].id).toBe("N1");
 	});
 
-	it("handles missing profile gracefully", () => {
-		const results = svc.getRecentDigests("nonexistent", 5);
+	it("excludes reform matching only base materias when user has non-base", () => {
+		seedNormWithMaterias("N2", [
+			"Impuesto sobre la Renta de las Personas Físicas",
+			"Consumidores y usuarios",
+		]);
+		const results = svc.getRecentReformsByMaterias(
+			[
+				"Impuesto sobre la Renta de las Personas Físicas",
+				"Consumidores y usuarios",
+				"Trabajadores",
+			],
+			"es",
+			"2026-01-01",
+		);
+		// User has "Trabajadores" (non-base), so only match on non-base.
+		// N2 has no "Trabajadores" → excluded.
+		expect(results.length).toBe(0);
+	});
+
+	it("includes reform matching base materias when user has ONLY base materias", () => {
+		seedNormWithMaterias("N3", ["Seguridad Social"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Seguridad Social", "Consumidores y usuarios"],
+			"es",
+			"2026-01-01",
+		);
+		// All user materias are base → fallback to matching all → reform shown
+		expect(results.length).toBe(1);
+	});
+
+	it("returns materia_count in results", () => {
+		seedNormWithMaterias("N4", ["Trabajadores", "Empleo", "Seguridad Social"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores"],
+			"es",
+			"2026-01-01",
+		);
+		expect(results.length).toBe(1);
+		expect(results[0].materia_count).toBe(3);
+	});
+
+	it("orders results by match_ratio DESC (high density first)", () => {
+		// Norm N-SPECIFIC: 5 materias, 3 match user → ratio 0.6
+		const specificId = "N-SPECIFIC";
+		insertNorm({
+			id: specificId,
+			title: "Specific Law",
+			source_url: "https://www.boe.es/eli/es/l/2026/01/01/(1)",
+		});
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			specificId,
+			"2026-01-15",
+			specificId,
+		]);
+		for (const m of [
+			"Trabajadores",
+			"Empleo",
+			"Desempleo",
+			"Sanidad",
+			"Turismo",
+		]) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				specificId,
+				m,
+			]);
+		}
+
+		// Norm N-OMNIBUS: 20 materias, 3 match user → ratio 0.15
+		const omnibusId = "N-OMNIBUS";
+		insertNorm({
+			id: omnibusId,
+			title: "Omnibus Law",
+			source_url: "https://www.boe.es/eli/es/l/2026/01/20/(1)",
+		});
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			omnibusId,
+			"2026-01-20",
+			omnibusId,
+		]);
+		const omnibusMatList = ["Trabajadores", "Empleo", "Desempleo"];
+		for (let i = 0; i < 17; i++) omnibusMatList.push(`Filler${i}`);
+		for (const m of omnibusMatList) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				omnibusId,
+				m,
+			]);
+		}
+
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores", "Empleo", "Desempleo"],
+			"es",
+			"2026-01-01",
+		);
+
+		expect(results.length).toBe(2);
+		// Specific law (ratio 0.6) should come before omnibus (ratio 0.15), even though omnibus is more recent
+		expect(results[0].id).toBe(specificId);
+		expect(results[1].id).toBe(omnibusId);
+		expect(results[0].match_ratio).toBeGreaterThan(results[1].match_ratio);
+	});
+
+	it("returns match_ratio in results", () => {
+		seedNormWithMaterias("NR1", ["Trabajadores", "Empleo"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores"],
+			"es",
+			"2026-01-01",
+		);
+		expect(results.length).toBe(1);
+		expect(results[0].match_ratio).toBe(0.5); // 1 match out of 2 total
+	});
+
+	it("returns empty for invalid jurisdiction", () => {
+		seedNormWithMaterias("NJ1", ["Trabajadores"]);
+		const results = svc.getRecentReformsByMaterias(
+			["Trabajadores"],
+			"es' OR 1=1--",
+			"2026-01-01",
+		);
 		expect(results).toEqual([]);
 	});
+});
 
-	it("returns results ordered by week DESC", () => {
-		svc.upsertDigest(
-			"fiscal",
-			"2026-W08",
-			"es",
-			"S1",
-			"2026-02-23T00:00:00Z",
-			'{"reforms":[]}',
-		);
-		svc.upsertDigest(
-			"fiscal",
-			"2026-W10",
-			"es",
-			"S2",
-			"2026-03-09T00:00:00Z",
-			'{"reforms":[]}',
-		);
-		svc.upsertDigest(
-			"fiscal",
-			"2026-W09",
-			"es",
-			"S3",
-			"2026-03-02T00:00:00Z",
-			'{"reforms":[]}',
-		);
+// ---------------------------------------------------------------------------
+// Omnibus DB functions
+// ---------------------------------------------------------------------------
 
-		const results = svc.getRecentDigests("fiscal", 10);
-		expect(results).toHaveLength(3);
-		expect(results[0].week).toBe("2026-W10");
-		expect(results[1].week).toBe("2026-W09");
-		expect(results[2].week).toBe("2026-W08");
+describe("omnibus DB functions", () => {
+	it("upsertOmnibusTopic inserts and replaces", () => {
+		insertNorm({ id: "O1" });
+		svc.upsertOmnibusTopic("O1", 0, {
+			topicLabel: "Fiscalidad",
+			headline: "Cambios fiscales",
+			summary: "Se modifican impuestos",
+			articleCount: 5,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "test",
+		});
+
+		let topics = svc.getOmnibusTopics("O1");
+		expect(topics).toHaveLength(1);
+		expect(topics[0].topic_label).toBe("Fiscalidad");
+
+		// Replace
+		svc.upsertOmnibusTopic("O1", 0, {
+			topicLabel: "Fiscalidad v2",
+			headline: "Cambios fiscales actualizados",
+			summary: "Se modifican más impuestos",
+			articleCount: 8,
+			isSneaked: true,
+			relatedMaterias: '["IRPF"]',
+			model: "test2",
+		});
+
+		topics = svc.getOmnibusTopics("O1");
+		expect(topics).toHaveLength(1);
+		expect(topics[0].topic_label).toBe("Fiscalidad v2");
+		expect(topics[0].is_sneaked).toBe(1);
+	});
+
+	it("getOmnibusTopics returns empty array for norm without topics", () => {
+		insertNorm({ id: "O2" });
+		expect(svc.getOmnibusTopics("O2")).toEqual([]);
+	});
+
+	it("listRecentOmnibus filters and sorts correctly", () => {
+		// Norm with 16 materias + topics
+		insertNorm({ id: "O3", title: "Omnibus Law" });
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"O3",
+			"2026-03-15",
+			"O3",
+		]);
+		for (let i = 0; i < 16; i++) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"O3",
+				`Materia${i}`,
+			]);
+		}
+		svc.upsertOmnibusTopic("O3", 0, {
+			topicLabel: "Tema1",
+			headline: "H",
+			summary: "S",
+			articleCount: 3,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
+		});
+
+		// Norm with only 5 materias (not omnibus)
+		insertNorm({ id: "O4", title: "Normal Law" });
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			"O4",
+			"2026-03-20",
+			"O4",
+		]);
+		for (let i = 0; i < 5; i++) {
+			db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+				"O4",
+				`Mat${i}`,
+			]);
+		}
+		svc.upsertOmnibusTopic("O4", 0, {
+			topicLabel: "Tema",
+			headline: "H",
+			summary: "S",
+			articleCount: 1,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
+		});
+
+		const results = svc.listRecentOmnibus(10);
+		expect(results.length).toBe(1);
+		expect(results[0].id).toBe("O3");
+		expect(results[0].materia_count).toBe(16);
+		expect(results[0].topic_count).toBe(1);
+	});
+
+	it("getOmnibusDetail returns null for unknown norm", () => {
+		expect(svc.getOmnibusDetail("NONEXISTENT")).toBeNull();
+	});
+
+	it("getOmnibusDetail returns norm with topics", () => {
+		insertNorm({ id: "O5", title: "Detail Test" });
+		db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+			"O5",
+			"Tema1",
+		]);
+		svc.upsertOmnibusTopic("O5", 0, {
+			topicLabel: "Energía",
+			headline: "H",
+			summary: "S",
+			articleCount: 10,
+			isSneaked: false,
+			relatedMaterias: "[]",
+			model: "t",
+		});
+		svc.upsertOmnibusTopic("O5", 1, {
+			topicLabel: "Penal",
+			headline: "H2",
+			summary: "S2",
+			articleCount: 1,
+			isSneaked: true,
+			relatedMaterias: "[]",
+			model: "t",
+		});
+
+		const detail = svc.getOmnibusDetail("O5");
+		expect(detail).not.toBeNull();
+		expect(detail!.title).toBe("Detail Test");
+		expect(detail!.topics).toHaveLength(2);
+		expect(detail!.topics[0].topic_label).toBe("Energía");
+		expect(detail!.topics[1].is_sneaked).toBe(1);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// getMatchedTopics
+// ---------------------------------------------------------------------------
+
+describe("getMatchedTopics", () => {
+	it("returns matched topic labels for omnibus norms", () => {
+		insertNorm({ id: "MT1" });
+		svc.upsertOmnibusTopic("MT1", 0, {
+			topicLabel: "Fiscalidad",
+			headline: "H",
+			summary: "S",
+			articleCount: 5,
+			isSneaked: false,
+			model: "test",
+			relatedMaterias: JSON.stringify(["Trabajadores", "IRPF"]),
+		});
+		svc.upsertOmnibusTopic("MT1", 1, {
+			topicLabel: "Energía",
+			headline: "H2",
+			summary: "S2",
+			articleCount: 3,
+			isSneaked: true,
+			model: "test",
+			relatedMaterias: JSON.stringify(["Energía eléctrica"]),
+		});
+
+		const result = svc.getMatchedTopics(["MT1"], ["Trabajadores", "IRPF"]);
+		expect(result.get("MT1")).toEqual(["Fiscalidad"]);
+	});
+
+	it("returns empty map for no matches", () => {
+		insertNorm({ id: "MT2" });
+		svc.upsertOmnibusTopic("MT2", 0, {
+			topicLabel: "Fiscalidad",
+			headline: "H",
+			summary: "S",
+			articleCount: 5,
+			isSneaked: false,
+			model: "test",
+			relatedMaterias: JSON.stringify(["IRPF"]),
+		});
+
+		const result = svc.getMatchedTopics(["MT2"], ["Sanidad"]);
+		expect(result.get("MT2")).toBeUndefined();
+	});
+
+	it("returns empty map for empty inputs", () => {
+		expect(svc.getMatchedTopics([], ["Trabajadores"])).toEqual(new Map());
+		expect(svc.getMatchedTopics(["MT1"], [])).toEqual(new Map());
+	});
+
+	it("handles invalid JSON in related_materias gracefully", () => {
+		insertNorm({ id: "MT3" });
+		svc.upsertOmnibusTopic("MT3", 0, {
+			topicLabel: "Broken",
+			headline: "H",
+			summary: "S",
+			articleCount: 1,
+			isSneaked: false,
+			model: "test",
+			relatedMaterias: "not-json",
+		});
+
+		// Should not crash, just skip the invalid row
+		const result = svc.getMatchedTopics(["MT3"], ["Trabajadores"]);
+		expect(result.get("MT3")).toBeUndefined();
 	});
 });

@@ -313,6 +313,13 @@ import Base from "../layouts/Base.astro";
 			font-size: 0.875rem;
 			margin-top: 0.75rem;
 		}
+		.email-hint {
+			font-size: 0.8125rem;
+			color: var(--text-tertiary, var(--text-secondary));
+			margin-top: 0.375rem;
+			text-align: center;
+			transition: opacity 0.2s;
+		}
 
 		/* ── Responsive ── */
 		@media (max-width: 640px) {
@@ -328,17 +335,9 @@ import Base from "../layouts/Base.astro";
 			<div class="cambios-info" id="cambios-info"></div>
 		</div>
 
-		<div id="cambios-content">
-			<div class="skeleton-cards">
-				<div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div></div>
-				<div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:55%"></div></div>
-				<div class="skeleton-card"><div class="skeleton-line" style="width:45%"></div><div class="skeleton-line" style="width:80%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div></div>
-			</div>
-		</div>
-
 		<section class="email-cta" id="email-cta" style="display:none">
-			<h2>¿Quieres recibir esto cada lunes?</h2>
-			<p>Un email a la semana. Sin spam.</p>
+			<h2>¿Quieres recibir avisos por email?</h2>
+			<p>Te avisamos cuando cambien leyes que te afectan. Sin spam, solo lo relevante.</p>
 			<form id="email-form">
 				<input type="email" placeholder="tu@email.com" required autocomplete="email" id="email-input" />
 				<div class="consent-row">
@@ -346,10 +345,19 @@ import Base from "../layouts/Base.astro";
 					<label for="email-consent">He leído la <a href="/privacidad">política de privacidad</a></label>
 				</div>
 				<button type="submit" class="btn btn-primary" id="email-submit" disabled>Suscribirme</button>
+				<p class="email-hint" id="email-hint">Marca la casilla de privacidad para continuar</p>
 			</form>
 			<div class="email-success" id="email-success">¡Listo! Revisa tu email para confirmar.</div>
 			<div class="email-error" id="email-error"></div>
 		</section>
+
+		<div id="cambios-content">
+			<div class="skeleton-cards">
+				<div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:55%"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:45%"></div><div class="skeleton-line" style="width:80%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:50%"></div></div>
+			</div>
+		</div>
 	</div>
 
 	<script is:inline>
@@ -495,6 +503,7 @@ import Base from "../layouts/Base.astro";
 								html += '<div class="reform-card reform-card-compact">';
 								html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 								html += ' · <span class="reform-type-badge">' + esc(r.headline) + '</span>';
+								html += ' · <a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver →</a>';
 								html += '</div>';
 								continue;
 							}
@@ -507,6 +516,17 @@ import Base from "../layouts/Base.astro";
 							html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
+							// Omnibus badge only for new laws, not modifications to existing omnibus laws
+							var isNewLaw = reformType === "new_law";
+							if (isNewLaw) {
+								var otc = r.omnibus_topic_count || 0;
+								var mc = r.materia_count || 0;
+								if (otc > 0) {
+									html += '<a href="/omnibus/detalle?id=' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
+								} else if (mc >= 15) {
+									html += '<span class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);">LEY ÓMNIBUS (' + mc + ' materias)</span>';
+								}
+							}
 							html += '</div>';
 
 							if (hasHeadline) {
@@ -516,11 +536,21 @@ import Base from "../layouts/Base.astro";
 								html += '<h3 class="reform-title-fallback">' + esc(r.title) + '</h3>';
 							}
 
+							// "Te afecta por" — show matched omnibus topics (only for new omnibus laws)
+							if (isNewLaw) {
+								var mt = r.matched_topics || [];
+								if (mt.length > 0) {
+									var topicText = esc(mt[0]);
+									if (mt.length > 1) topicText += ' (+' + (mt.length - 1) + ' más)';
+									html += '<div class="reform-affects" style="font-size:0.8125rem;color:var(--accent);margin:0.375rem 0;">Te afecta por: ' + topicText + '</div>';
+								}
+							}
+
 							html += '<div class="reform-meta">';
 							if (rankLabel) html += '<span>' + esc(rankLabel) + '</span>';
 							if (statusLabel) html += '<span class="' + statusClass + '">' + esc(statusLabel) + '</span>';
 							html += '</div>';
-							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '" class="reform-link">Ver qué cambió →</a>';
+							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
 							html += '</div>';
 						}
 						html += '</div>';
@@ -547,8 +577,11 @@ import Base from "../layouts/Base.astro";
 			var emailError = document.getElementById("email-error");
 			var emailForm = document.getElementById("email-form");
 
+			var emailHint = document.getElementById("email-hint");
 			function validateEmail() {
-				emailSubmit.disabled = !(emailInput.value && emailInput.validity.valid && emailConsent.checked);
+				var valid = emailInput.value && emailInput.validity.valid && emailConsent.checked;
+				emailSubmit.disabled = !valid;
+				if (emailHint) emailHint.style.display = valid ? "none" : "";
 			}
 			emailInput.addEventListener("input", validateEmail);
 			emailConsent.addEventListener("change", validateEmail);

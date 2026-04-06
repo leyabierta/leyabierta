@@ -7,6 +7,9 @@ services:
       - "127.0.0.1:3000:3000"
     volumes:
       - ./data:/data
+    env_file:
+      - path: .env.prod
+        required: false
     environment:
       - DB_PATH=/data/leyabierta.db
       - REPO_PATH=/data/leyes

@@ -213,6 +213,17 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			box-shadow: none;
 			transition-duration: 0.1s;
 		}
+		.filter-bar {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			margin-top: 0.5rem;
+			flex-wrap: wrap;
+		}
+		.filter-bar .filter-select {
+			padding: 0.35rem 0.625rem;
+			font-size: 0.8125rem;
+		}
 		.filter-toggle {
 			display: inline-flex;
 			align-items: center;
@@ -226,7 +237,6 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			font-weight: 500;
 			cursor: pointer;
 			padding: 0.35rem 0.75rem;
-			margin-top: 0.5rem;
 			transition: all 0.15s;
 		}
 		.filter-toggle:hover { color: var(--text-secondary); border-color: var(--accent); }
@@ -267,6 +277,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			cursor: pointer;
 			transition: all 0.15s;
 			font-family: var(--font-sans);
+			text-decoration: none;
 		}
 		.search-chip:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
 		.search-sep { color: var(--border); margin: 0 0.125rem; }
@@ -329,7 +340,17 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		}
 		.juri-card:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 		.juri-card:active { transform: scale(0.98) translateY(0); transition-duration: 0.1s; }
+		.juri-card.juri-estatal {
+			grid-column: 1 / -1;
+			background: var(--accent-bg, #eef3f8);
+			border-color: var(--accent);
+			font-weight: 600;
+			font-size: 0.9375rem;
+			justify-content: center;
+			gap: 0.5rem;
+		}
 		.juri-count { font-variant-numeric: tabular-nums; font-size: 0.75rem; color: var(--text-muted); }
+		.juri-estatal .juri-count { color: var(--accent); font-size: 0.8125rem; }
 
 		/* ── Two Col ── */
 		.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
@@ -348,6 +369,25 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			vertical-align: middle;
 		}
 		@keyframes spin { to { transform: rotate(360deg); } }
+
+		/* ── Search Skeleton ── */
+		.search-skeleton { display: flex; flex-direction: column; gap: 1rem; padding: 1rem 0; }
+		.skeleton-card {
+			padding: 1.25rem;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+		}
+		.skeleton-line {
+			height: 0.875rem;
+			background: linear-gradient(90deg, var(--border) 25%, var(--surface-alt, var(--surface)) 50%, var(--border) 75%);
+			background-size: 200% 100%;
+			animation: skeleton-pulse 1.5s ease-in-out infinite;
+			border-radius: 4px;
+			margin-bottom: 0.625rem;
+		}
+		.skeleton-line:last-child { margin-bottom: 0; }
+		@keyframes skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 		/* ── Responsive ── */
 		@media (max-width: 1280px) {
@@ -390,6 +430,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		.law-card { padding: 1rem 0; transition: background 0.15s; }
 		.law-card:hover { background: var(--surface); margin: 0 -1rem; padding: 1rem; border-radius: 8px; }
 		.law-card + .law-card { border-top: 1px solid var(--border-light); }
+		.law-card-short-title {
+			display: block;
+			font-size: 0.8125rem;
+			font-weight: 600;
+			color: var(--accent);
+			margin-bottom: 0.125rem;
+		}
 		.law-card-title {
 			font-family: var(--font-serif);
 			font-weight: 600;
@@ -402,6 +449,16 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			overflow: hidden;
 		}
 		.law-card-title:hover { color: var(--accent); text-decoration: none; }
+		.law-card-official-title {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-top: 0.25rem;
+			line-height: 1.4;
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
 		.law-card-summary {
 			font-size: 0.875rem;
 			color: var(--text-secondary);
@@ -555,10 +612,18 @@ const JURISDICTION_LABELS: Record<string, string> = {
 						<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" aria-label="Buscar leyes" />
 						<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
 					</div>
-					<button type="button" class="filter-toggle" id="filter-toggle">
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-						Filtros <span style="font-size:0.625rem">&#9660;</span>
-					</button>
+					<div class="filter-bar">
+						<select id="filter-jurisdiction" class="filter-select" aria-label="Jurisdicción">
+							<option value="">Todas las jurisdicciones</option>
+							{jurisdictions.map(j => (
+								<option value={j.jurisdiction}>{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}</option>
+							))}
+						</select>
+						<button type="button" class="filter-toggle" id="filter-toggle">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+							Más filtros <span style="font-size:0.625rem">&#9660;</span>
+						</button>
+					</div>
 					<div class="filter-panel" id="filter-panel">
 						<div class="filter-row">
 							<select id="filter-rank" class="filter-select">
@@ -578,8 +643,8 @@ const JURISDICTION_LABELS: Record<string, string> = {
 
 				<div class="search-suggestions" id="search-suggestions">
 					<span>Prueba:</span>
-					<button type="button" class="search-chip" data-query="Constitución">Constitución</button>
-					<button type="button" class="search-chip" data-query="Código Penal">Código Penal</button>
+					<a href="/laws/BOE-A-1978-31229" class="search-chip">Constitución</a>
+					<a href="/laws/BOE-A-1995-25444" class="search-chip">Código Penal</a>
 					<button type="button" class="search-chip" data-query="alquileres">Alquileres</button>
 					<button type="button" class="search-chip" data-query="tráfico">Tráfico</button>
 				</div>
@@ -599,9 +664,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				<h2 class="section-title">Explora por comunidad autónoma</h2>
 				<div class="juri-grid">
 					{jurisdictions.map(j => (
-						<button type="button" class="juri-card" data-jurisdiction={j.jurisdiction}>
+						<button type="button" class={`juri-card${j.jurisdiction === "es" ? " juri-estatal" : ""}`} data-jurisdiction={j.jurisdiction}>
 							{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}
-							<span class="juri-count">{j.count.toLocaleString("es")}</span>
+							<span class="juri-count">{j.count.toLocaleString("es")} leyes</span>
 						</button>
 					))}
 				</div>
@@ -692,6 +757,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			var landingDiv = document.getElementById("landing-content");
 			var filterRank = document.getElementById("filter-rank");
 			var filterStatus = document.getElementById("filter-status");
+			var filterJurisdiction = document.getElementById("filter-jurisdiction");
 			var currentPage = 1;
 			var currentCountry = "";
 			var currentSort = "";
@@ -709,7 +775,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			});
 
 			// Search suggestion chips
-			document.querySelectorAll(".search-chip").forEach(function (chip) {
+			document.querySelectorAll("button.search-chip").forEach(function (chip) {
 				chip.addEventListener("click", function () {
 					searchInput.value = this.dataset.query;
 					currentCountry = "";
@@ -721,6 +787,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			document.querySelectorAll(".juri-card").forEach(function (card) {
 				card.addEventListener("click", function () {
 					currentCountry = this.dataset.jurisdiction;
+					filterJurisdiction.value = currentCountry;
 					doSearch(1);
 				});
 			});
@@ -753,7 +820,11 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				params.set("limit", String(LIMIT));
 				params.set("offset", String((currentPage - 1) * LIMIT));
 
-				resultsDiv.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Buscando...</div>';
+				resultsDiv.innerHTML = '<div class="search-skeleton">' +
+					'<div class="skeleton-card"><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line" style="width:40%"></div></div>' +
+					'<div class="skeleton-card"><div class="skeleton-line" style="width:55%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line" style="width:50%"></div></div>' +
+					'<div class="skeleton-card"><div class="skeleton-line" style="width:65%"></div><div class="skeleton-line" style="width:75%"></div><div class="skeleton-line" style="width:35%"></div></div>' +
+					'</div>';
 				resultsSection.style.display = "block";
 				landingDiv.style.display = "none";
 
@@ -800,9 +871,14 @@ const JURISDICTION_LABELS: Record<string, string> = {
 						for (var i = 0; i < result.data.length; i++) {
 							var law = result.data[i];
 							html += '<article class="law-card">';
-							html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.title) + '</a>';
 							if (law.citizen_summary) {
-								html += '<p class="law-card-summary">' + esc(law.citizen_summary) + '</p>';
+								html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
+								html += '<p class="law-card-official-title">' + esc(law.title) + '</p>';
+							} else {
+								if (law.short_title && law.short_title !== law.title && law.short_title.length > 25) {
+									html += '<span class="law-card-short-title">' + esc(law.short_title) + '</span>';
+								}
+								html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.title) + '</a>';
 							}
 							html += '<div class="law-card-meta">';
 							html += '<span class="badge badge-' + esc(law.status) + '">' + esc(law.status) + '</span>';
@@ -865,10 +941,11 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					});
 			}
 
-			searchBtn.addEventListener("click", function () { currentCountry = ""; doSearch(1); });
-			searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { currentCountry = ""; doSearch(1); } });
+			searchBtn.addEventListener("click", function () { currentCountry = filterJurisdiction.value; doSearch(1); });
+			searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { currentCountry = filterJurisdiction.value; doSearch(1); } });
 			filterRank.addEventListener("change", function () { doSearch(1); });
 			filterStatus.addEventListener("change", function () { doSearch(1); });
+			filterJurisdiction.addEventListener("change", function () { currentCountry = this.value; doSearch(1); });
 
 			// Restore from URL params
 			var urlParams = new URLSearchParams(window.location.search);

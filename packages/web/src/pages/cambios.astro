@@ -247,6 +247,7 @@ import Base from "../layouts/Base.astro";
 		<div class="cambios-header">
 			<h1>Últimos cambios legislativos</h1>
 			<p>Las novedades legislativas más recientes, explicadas en lenguaje ciudadano.</p>
+			<p style="margin-top: 0.5rem;"><a href="/omnibus" style="color: var(--accent); font-size: 0.875rem; font-weight: 500;">Ver leyes ómnibus recientes →</a></p>
 			<div class="cambios-filters">
 				<select id="jur-filter">
 					<option value="">Todas las jurisdicciones</option>
@@ -359,6 +360,7 @@ import Base from "../layouts/Base.astro";
 								html += '<div class="reform-card reform-card-compact">';
 								html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 								html += ' · <span class="reform-type-badge">' + esc(r.headline) + '</span>';
+								html += ' · <a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=cambios" class="reform-link">Ver →</a>';
 								html += '</div>';
 								continue;
 							}
@@ -371,6 +373,8 @@ import Base from "../layouts/Base.astro";
 							html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
+							var otc = r.omnibus_topic_count || 0;
+							if (otc > 0) html += '<a href="/omnibus/detalle?id=' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
 							html += '</div>';
 
 							if (hasHeadline) {
@@ -384,7 +388,7 @@ import Base from "../layouts/Base.astro";
 							if (rankLabel) html += '<span>' + esc(rankLabel) + '</span>';
 							if (statusLabel) html += '<span class="' + statusClass + '">' + esc(statusLabel) + '</span>';
 							html += '</div>';
-							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '" class="reform-link">Ver qué cambió →</a>';
+							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=cambios" class="reform-link">Ver qué cambió →</a>';
 							html += '</div>';
 						}
 						html += '</div>';
