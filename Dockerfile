@@ -4,7 +4,9 @@ WORKDIR /app
 
 # Git is needed by GitService for diff operations
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/* \
-    && git config --global --add safe.directory /data/leyes
+    && git config --global --add safe.directory /data/leyes \
+    && git config --global user.name "Ley Abierta" \
+    && git config --global user.email "bot@leyabierta.es"
 
 # Copy workspace config + package files for dependency install
 COPY package.json bun.lock ./
