@@ -163,6 +163,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? SITE_URL;
 			--success: #1a7a4e;
 			--success-bg: #e3f4ec;
 			--warning: #b8860b;
+			--warning-text: #664d03;
 			--warning-bg: #fdf5e0;
 			--danger: #b91c1c;
 			--danger-bg: #fde8e8;
@@ -193,6 +194,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? SITE_URL;
 			--success: #3db87a;
 			--success-bg: #142a1e;
 			--warning: #d4a017;
+			--warning-text: #e6b821;
 			--warning-bg: #2a2210;
 			--danger: #e85454;
 			--danger-bg: #2a1414;
@@ -348,7 +350,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? SITE_URL;
 		}
 		.badge-vigente { background: var(--success-bg); color: var(--success); }
 		.badge-derogada { background: var(--danger-bg); color: var(--danger); }
-		.badge-parcialmente_derogada { background: var(--warning-bg); color: var(--warning); }
+		.badge-parcialmente_derogada { background: var(--warning-bg); color: var(--warning-text); }
 
 		/* ── Buttons ── */
 		.btn {
@@ -502,7 +504,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? SITE_URL;
 			margin: 1em 0;
 		}
 		.prose li + li { margin-top: 0.5em; }
-		.prose a { color: var(--accent); }
+		.prose a { color: var(--accent); text-decoration: underline; }
 		.prose table {
 			width: 100%;
 			border-collapse: collapse;

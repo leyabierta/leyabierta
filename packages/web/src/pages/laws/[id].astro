@@ -615,7 +615,7 @@ const articleCount = law.articulos ?? 0;
 
 		{omnibusTopicCount > 0 && (
 			<div class="omnibus-breakdown" id="omnibus-breakdown">
-				<h3 class="section-heading">Desglose por temas</h3>
+				<h2 class="section-heading">Desglose por temas</h3>
 				<div class="omnibus-topics-list">
 					{omnibusTopics.map((topic, i) => (
 						<div class="omnibus-topic-card">
@@ -647,7 +647,7 @@ const articleCount = law.articulos ?? 0;
 		<!-- Technical view (shown by default when no citizen summary) -->
 		<div class="technical-details" id="technical-details" style={citizenSummary ? "display:none;" : ""}>
 			<div class="card">
-				<h3 class="card-heading">Información general</h3>
+				<h2 class="card-heading">Información general</h3>
 				<div class="meta-grid">
 					<div><div class="meta-item-label">Tipo de ley</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
 					<div><div class="meta-item-label">Vigencia</div><div class="meta-item-value">{STATUS_LABELS[law.estado] ?? capitalize(law.estado.replace(/_/g, ' '))}</div></div>
@@ -658,7 +658,7 @@ const articleCount = law.articulos ?? 0;
 
 			{materias.length > 0 && (
 				<div class="section">
-					<h3 class="section-heading">Temas</h3>
+					<h2 class="section-heading">Temas</h3>
 					<div>
 						{materias.map((m) => (
 							<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
@@ -669,7 +669,7 @@ const articleCount = law.articulos ?? 0;
 
 			{notas.length > 0 && (
 				<div class="section">
-					<h3 class="section-heading">Notas oficiales</h3>
+					<h2 class="section-heading">Notas oficiales</h3>
 					{notas.map((nota) => (
 						<p class="nota-item">{nota}</p>
 					))}
@@ -678,7 +678,7 @@ const articleCount = law.articulos ?? 0;
 
 			{refsAnt.length > 0 && (
 				<div class="section">
-					<h3 class="section-heading">Leyes en las que se basa</h3>
+					<h2 class="section-heading">Leyes en las que se basa</h3>
 					<ul class="ref-list">
 						{refsAnt.map((ref) => (
 							<li>
@@ -692,7 +692,7 @@ const articleCount = law.articulos ?? 0;
 
 			{refsPost.length > 0 && (
 				<div class="section">
-					<h3 class="section-heading">Leyes que la modifican</h3>
+					<h2 class="section-heading">Leyes que la modifican</h3>
 					<ul class="ref-list">
 						{refsPost.map((ref) => (
 							<li>
@@ -711,7 +711,7 @@ const articleCount = law.articulos ?? 0;
 				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
 			</div>
 			<div class="follow-content">
-				<h3 class="follow-heading">¿Quieres saber cuándo cambia esta ley?</h3>
+				<h2 class="follow-heading">¿Quieres saber cuándo cambia esta ley?</h3>
 				<p class="follow-desc">Recibe un aviso por email cada vez que se publique una modificación.</p>
 				<form class="follow-form" id="follow-form" data-norm-id={id}>
 					<div class="follow-input-row">
