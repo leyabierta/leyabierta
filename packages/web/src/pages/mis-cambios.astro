@@ -323,7 +323,7 @@ import Base from "../layouts/Base.astro";
 			</div>
 		</div>
 
-		<section class="email-cta" id="email-cta" style="display:none">
+		<section class="email-cta" id="email-cta" style="visibility:hidden;position:absolute">
 			<h2>¿Quieres recibir avisos por email?</h2>
 			<p>Te avisamos cuando cambien leyes que te afectan. Sin spam, solo lo relevante.</p>
 			<form id="email-form">
@@ -516,7 +516,8 @@ import Base from "../layouts/Base.astro";
 
 						if (isInitial && data.reforms.length === 0) {
 							contentDiv.innerHTML = '<div class="empty-state"><div class="empty-check">&#10003;</div><h2>No hay cambios recientes que te afecten</h2><p>¡Buenas noticias! Te avisaremos cuando algo cambie.</p></div>';
-							emailCta.style.display = "";
+							emailCta.style.visibility = "";
+							emailCta.style.position = "";
 							return;
 						}
 
@@ -551,7 +552,8 @@ import Base from "../layouts/Base.astro";
 							loadMoreBtn = null;
 						}
 
-						emailCta.style.display = "";
+						emailCta.style.visibility = "";
+						emailCta.style.position = "";
 					})
 					.catch(function () {
 						clearTimeout(timeout);
