@@ -30,6 +30,7 @@ const resolvedOgTitle = ogTitle ?? fullTitle;
 const resolvedOgDescription = ogDescription ?? description;
 const resolvedOgImage = ogImage ?? `${SITE_URL}/og-image.png`;
 const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undefined;
+const resolvedOgUrl = resolvedCanonicalUrl ?? SITE_URL;
 ---
 
 <!doctype html>
@@ -65,7 +66,8 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<meta property="og:type" content={ogType} />
 	<meta property="og:site_name" content="Ley Abierta" />
 	<meta property="og:image" content={resolvedOgImage} />
-	{resolvedCanonicalUrl && <meta property="og:url" content={resolvedCanonicalUrl} />}
+	<meta property="og:url" content={resolvedOgUrl} />
+	<meta property="og:locale" content="es_ES" />
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
