@@ -5,13 +5,16 @@
 	"scripts": {
 		"dev": "astro dev",
 		"build": "astro build",
-		"preview": "astro preview"
+		"preview": "astro preview",
+		"generate-og": "bun run scripts/generate-og-images.ts"
 	},
 	"dependencies": {
+		"@resvg/resvg-js": "^2.6.2",
 		"astro": "6.1.1",
 		"diff2html": "3.4.56",
 		"js-yaml": "4.1.1",
-		"sanitize-html": "^2.17.2"
+		"sanitize-html": "^2.17.2",
+		"satori": "^0.26.0"
 	},
 	"devDependencies": {
 		"@types/sanitize-html": "^2.16.1",
