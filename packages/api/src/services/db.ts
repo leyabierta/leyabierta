@@ -1346,6 +1346,102 @@ export class DbService {
 	}
 
 	/**
+	 * Build manifest: returns all citizen data + omnibus topics in one shot.
+	 * Used by the web build to avoid 12K individual API calls.
+	 */
+	getBuildManifest(): {
+		citizens: Record<string, { summary: string; tags: string[] }>;
+		omnibus: Record<
+			string,
+			Array<{
+				topic_label: string;
+				article_count: number;
+				headline: string;
+				summary: string;
+				is_sneaked: number;
+				block_ids: string[];
+			}>
+		>;
+	} {
+		// 1. All norms with citizen_summary
+		const summaryRows = this.db
+			.query<{ id: string; citizen_summary: string }, []>(
+				"SELECT id, citizen_summary FROM norms WHERE citizen_summary != ''",
+			)
+			.all();
+
+		// 2. All law-level citizen_tags
+		const tagRows = this.db
+			.query<{ norm_id: string; tag: string }, []>(
+				"SELECT norm_id, tag FROM citizen_tags WHERE block_id = '' ORDER BY norm_id, tag",
+			)
+			.all();
+
+		// 3. All omnibus topics
+		const topicRows = this.db
+			.query<
+				{
+					norm_id: string;
+					topic_label: string;
+					article_count: number;
+					headline: string;
+					summary: string;
+					is_sneaked: number;
+					block_ids: string;
+				},
+				[]
+			>(
+				`SELECT norm_id, topic_label, article_count, headline, summary, is_sneaked, block_ids
+				 FROM omnibus_topics ORDER BY norm_id, topic_index`,
+			)
+			.all();
+
+		// Assemble citizens map
+		const citizens: Record<string, { summary: string; tags: string[] }> = {};
+		for (const row of summaryRows) {
+			citizens[row.id] = { summary: row.citizen_summary, tags: [] };
+		}
+		for (const row of tagRows) {
+			if (!citizens[row.norm_id]) {
+				citizens[row.norm_id] = { summary: "", tags: [] };
+			}
+			citizens[row.norm_id].tags.push(row.tag);
+		}
+
+		// Assemble omnibus map
+		const omnibus: Record<
+			string,
+			Array<{
+				topic_label: string;
+				article_count: number;
+				headline: string;
+				summary: string;
+				is_sneaked: number;
+				block_ids: string[];
+			}>
+		> = {};
+		for (const row of topicRows) {
+			if (!omnibus[row.norm_id]) {
+				omnibus[row.norm_id] = [];
+			}
+			let blockIds: string[] = [];
+			try {
+				if (row.block_ids) blockIds = JSON.parse(row.block_ids);
+			} catch {}
+			omnibus[row.norm_id].push({
+				topic_label: row.topic_label,
+				article_count: row.article_count,
+				headline: row.headline,
+				summary: row.summary,
+				is_sneaked: row.is_sneaked,
+				block_ids: blockIds,
+			});
+		}
+
+		return { citizens, omnibus };
+	}
+
+	/**
 	 * Batch query: for a set of omnibus norm IDs, find which topic labels
 	 * match the user's materias via the related_materias JSON field.
 	 */

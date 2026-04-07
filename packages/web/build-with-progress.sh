@@ -14,13 +14,27 @@ if [ "$TOTAL" -eq 0 ]; then
   exec bunx astro build
 fi
 
+# ── Fetch build manifest (1 API call instead of ~12K per-page calls) ──
+echo "[build] Fetching build manifest..."
+if curl -sf -H "x-api-key: ${API_BYPASS_KEY:-}" \
+  "${API_URL:-https://api.leyabierta.es}/v1/build-manifest" \
+  -o .build-manifest.json; then
+  MANIFEST_SIZE=$(wc -c < .build-manifest.json | tr -d ' ')
+  echo "[build] Manifest downloaded (${MANIFEST_SIZE} bytes)"
+  export BUILD_MANIFEST_PATH="$(pwd)/.build-manifest.json"
+else
+  echo "[build] WARNING: Manifest fetch failed, falling back to per-page API calls"
+fi
+
 echo "[build] Building $TOTAL law pages + static pages"
-COUNT=0
 START=$(date +%s)
 
-# Astro outputs "├─ /path (+Xms)" in TTY mode, but "(+Xms)" in CI (no TTY).
-# Match both patterns to count generated pages.
-bunx astro build 2>&1 | while IFS= read -r line; do
+# Use process substitution instead of pipe to avoid subshell variable scoping.
+# In a pipe (cmd | while read), the while loop runs in a subshell so COUNT
+# never increments in the parent shell. Process substitution keeps everything
+# in the same shell.
+COUNT=0
+while IFS= read -r line; do
   if echo "$line" | grep -qE '├─|└─|\(\+[0-9]'; then
     COUNT=$((COUNT + 1))
     # Print progress every 500 pages
@@ -41,7 +55,7 @@ bunx astro build 2>&1 | while IFS= read -r line; do
   else
     echo "$line"
   fi
-done
+done < <(bunx astro build 2>&1)
 
 ELAPSED=$(( $(date +%s) - START ))
-echo "[build] Done: $TOTAL pages in ${ELAPSED}s"
+echo "[build] Done: $COUNT pages in ${ELAPSED}s"

@@ -38,6 +38,7 @@ content/
 .gstack/
 .claude/
 packages/web/.astro/
+packages/web/.build-manifest.json
 
 # research / experiments
 packages/search-lab/

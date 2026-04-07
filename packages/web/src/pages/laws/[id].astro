@@ -5,6 +5,7 @@ import MarkdownIt from "markdown-it";
 import sanitizeHtml from "sanitize-html";
 import Base from "../../layouts/Base.astro";
 import { getLaw, getOmnibusDetail, type OmnibusTopic } from "../../lib/api.ts";
+import { loadManifest } from "../../lib/manifest.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
@@ -34,29 +35,40 @@ const { entry } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
 
-// Fetch citizen data (summary + tags) from the API at build time
+// Fetch citizen data (summary + tags) + omnibus topics.
+// If a build manifest is present (CI), read from local file (zero network calls).
+// Otherwise fall back to per-page API calls (local dev).
 let citizenSummary = "";
 let citizenTags: string[] = [];
 let omnibusTopics: OmnibusTopic[] = [];
 let omnibusTopicCount = 0;
-try {
-	const detail = await getLaw(id!);
-	citizenSummary = detail.citizen_summary ?? "";
-	citizenTags = detail.citizen_tags ?? [];
-} catch {
-	// API may not be available during build — gracefully degrade
-}
-// Only fetch omnibus detail for laws with ≥15 materias (omnibus precondition).
-// This skips ~11,700 unnecessary API calls during build.
-if (law.materias.length >= 15) {
+const manifest = loadManifest();
+if (manifest) {
+	const citizenData = manifest.citizens[id!];
+	citizenSummary = citizenData?.summary ?? "";
+	citizenTags = citizenData?.tags ?? [];
+	if (law.materias.length >= 15) {
+		omnibusTopics = manifest.omnibus[id!] ?? [];
+		omnibusTopicCount = omnibusTopics.length;
+	}
+} else {
 	try {
-		const omnibus = await getOmnibusDetail(id!);
-		if (omnibus?.topics?.length) {
-			omnibusTopics = omnibus.topics;
-			omnibusTopicCount = omnibus.topics.length;
-		}
+		const detail = await getLaw(id!);
+		citizenSummary = detail.citizen_summary ?? "";
+		citizenTags = detail.citizen_tags ?? [];
 	} catch {
-		// Omnibus data not available — skip
+		// API may not be available during build — gracefully degrade
+	}
+	if (law.materias.length >= 15) {
+		try {
+			const omnibus = await getOmnibusDetail(id!);
+			if (omnibus?.topics?.length) {
+				omnibusTopics = omnibus.topics;
+				omnibusTopicCount = omnibus.topics.length;
+			}
+		} catch {
+			// Omnibus data not available — skip
+		}
 	}
 }
 

@@ -2,6 +2,7 @@
  * Law endpoints: search, detail, versions, diff, references, graph.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import { type BoeAnalisis, BoeClient } from "@leyabierta/pipeline";
 import { Elysia, t } from "elysia";
 import { LruCache } from "../services/cache.ts";
@@ -377,6 +378,31 @@ export function lawRoutes(
 			// 16. GET /v1/anomalias — detected data quality issues
 			.get("/anomalias", () => {
 				return dbService.getAnomalies();
+			})
+
+			// 17. GET /v1/build-manifest — bulk citizen data + omnibus topics for static build
+			.get("/build-manifest", ({ set, request }) => {
+				// Require API bypass key (internal endpoint for CI builds)
+				const apiKey = request.headers.get("x-api-key") ?? "";
+				const bypassKey = process.env.API_BYPASS_KEY ?? "";
+				const hasValidKey =
+					bypassKey &&
+					apiKey.length === bypassKey.length &&
+					timingSafeEqual(Buffer.from(apiKey), Buffer.from(bypassKey));
+				if (!hasValidKey) {
+					set.status = 403;
+					return { error: "Forbidden" };
+				}
+				set.headers["Cache-Control"] = "private, max-age=300";
+				try {
+					return dbService.getBuildManifest();
+				} catch (err) {
+					set.status = 500;
+					return {
+						error: "Failed to generate build manifest",
+						detail: err instanceof Error ? err.message : "Unknown error",
+					};
+				}
 			})
 
 			// 13. GET /v1/feed.xml — RSS feed of recent reforms
