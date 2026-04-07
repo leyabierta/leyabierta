@@ -18,11 +18,27 @@ const OG_DIR = join(ROOT, "og-images");
 
 // --- Font ---
 async function loadFont(): Promise<ArrayBuffer> {
+	// Try local bundled font first, fall back to Google Fonts
+	const localPath = join(
+		import.meta.dir,
+		"..",
+		"public",
+		"fonts",
+		"Inter-Bold.ttf",
+	);
+	if (existsSync(localPath)) {
+		console.log(`Using local font: ${localPath}`);
+		return Bun.file(localPath).arrayBuffer();
+	}
 	// Inter 700 (bold) from Google Fonts — used for titles
 	const url =
 		"https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf";
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch Inter font: ${res.status}`);
+	if (!res.ok) {
+		throw new Error(
+			`Failed to fetch Inter font (${res.status}). For offline use, place Inter-Bold.ttf in packages/web/public/fonts/`,
+		);
+	}
 	return res.arrayBuffer();
 }
 
@@ -239,6 +255,7 @@ WHERE n.id IN (
 
 	let generated = 0;
 	let skipped = 0;
+	let failed = 0;
 
 	for (const law of subset) {
 		const outPath = join(OG_DIR, `${law.id}.png`);
@@ -248,10 +265,17 @@ WHERE n.id IN (
 			continue;
 		}
 
-		const png = await generateImage(law, fontData);
-		writeFileSync(outPath, png);
-		generated++;
-		console.log(`Generated ${generated}/${total} - ${law.id}`);
+		try {
+			const png = await generateImage(law, fontData);
+			writeFileSync(outPath, png);
+			generated++;
+			console.log(`Generated ${generated}/${total} - ${law.id}`);
+		} catch (err) {
+			failed++;
+			console.error(
+				`Failed ${law.id}: ${err instanceof Error ? err.message : err}`,
+			);
+		}
 	}
 
 	if (skipped > 0) {
@@ -259,7 +283,12 @@ WHERE n.id IN (
 			`Skipped ${skipped} existing images (use --force to regenerate)`,
 		);
 	}
-	console.log(`Done. ${generated} images generated in ${OG_DIR}`);
+	if (failed > 0) {
+		console.error(`Failed: ${failed} images`);
+	}
+	console.log(
+		`Done. ${generated} generated, ${skipped} skipped, ${failed} failed in ${OG_DIR}`,
+	);
 
 	db.close();
 }

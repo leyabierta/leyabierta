@@ -1024,9 +1024,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					// Truncate if still long
 					if (name.length > 60) name = name.slice(0, 57) + "...";
 					if (years && years > 0) {
-						return name + " se ha modificado <strong>" + law.reform_count + " veces</strong> en " + years + " años";
+						return esc(name) + " se ha modificado <strong>" + law.reform_count + " veces</strong> en " + years + " años";
 					}
-					return name + " se ha modificado <strong>" + law.reform_count + " veces</strong>";
+					return esc(name) + " se ha modificado <strong>" + law.reform_count + " veces</strong>";
 				}
 				var html = '<ul class="fact-list">';
 				var limit = Math.min(data.data.length, 6);

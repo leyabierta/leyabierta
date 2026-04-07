@@ -195,7 +195,9 @@ app
 		"/og/:id",
 		async ({ params, set }) => {
 			const id = params.id.replace(/[^a-zA-Z0-9_-]/g, "");
-			const filePath = join(process.cwd(), "og-images", `${id}.png`);
+			const ogDir =
+				process.env.OG_IMAGES_DIR || join(process.cwd(), "og-images");
+			const filePath = join(ogDir, `${id}.png`);
 			const file = Bun.file(filePath);
 			if (!(await file.exists())) {
 				set.status = 404;

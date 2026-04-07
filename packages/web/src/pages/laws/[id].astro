@@ -156,7 +156,9 @@ const articleCount = law.articulos ?? 0;
 		"legislationDateVersion": law.ultima_actualizacion,
 		"dateModified": law.ultima_actualizacion,
 		"legislationJurisdiction": law.jurisdiccion === "es" ? "ES" : law.jurisdiccion.toUpperCase(),
-		"legislationLegalForce": law.estado === "vigente" ? "InForce" : "NotInForce",
+		...(law.estado === "vigente" || law.estado?.startsWith("derogad")
+			? { "legislationLegalForce": law.estado === "vigente" ? "InForce" : "NotInForce" }
+			: {}),
 		"inLanguage": "es",
 		"url": `https://leyabierta.es/laws/${id}`,
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
