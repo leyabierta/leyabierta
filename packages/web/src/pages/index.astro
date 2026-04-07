@@ -139,6 +139,16 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			margin-top: 2rem;
 			text-align: center;
 		}
+		.hero-cta-btn {
+			font-size: 1.125rem;
+			padding: 0.875rem 2rem;
+			border-radius: 8px;
+			letter-spacing: 0.01em;
+			box-shadow: 0 4px 14px rgba(26, 54, 93, 0.25);
+		}
+		.hero-cta-btn:hover {
+			box-shadow: 0 6px 20px rgba(26, 54, 93, 0.35);
+		}
 		.hero-stat-line {
 			margin-top: 1rem;
 			font-size: 0.8125rem;
@@ -540,18 +550,24 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			.law-card-title { -webkit-line-clamp: 2; font-size: 1rem; }
 		}
 
-		.reformed-list, .recent-list { list-style: none; padding: 0; }
+		.reformed-list, .recent-list, .fact-list { list-style: none; padding: 0; }
 		.reformed-item { display: flex; gap: 1rem; align-items: baseline; padding: 0.75rem 0; border-bottom: 1px solid var(--border-light); }
 		.reformed-item:last-child { border-bottom: none; }
 		.reformed-count { font-variant-numeric: tabular-nums; font-size: 1.125rem; font-weight: 700; color: var(--accent); min-width: 2.5rem; text-align: right; flex-shrink: 0; }
 		.reformed-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
 		.reformed-title:hover { color: var(--accent); text-decoration: none; }
 		.reformed-rank { font-size: 0.6875rem; color: var(--text-muted); }
+		.fact-item { padding: 0.625rem 0; border-bottom: 1px solid var(--border-light); font-size: 0.875rem; line-height: 1.6; color: var(--text-secondary); }
+		.fact-item:last-child { border-bottom: none; }
+		.fact-link { color: var(--text-secondary); }
+		.fact-link:hover { color: var(--accent); text-decoration: none; }
+		.fact-link strong { color: var(--accent); font-weight: 700; }
 		.recent-item { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.625rem 0; border-bottom: 1px solid var(--border-light); }
 		.recent-item:last-child { border-bottom: none; }
 		.recent-date { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); min-width: 5.5rem; flex-shrink: 0; }
 		.recent-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
 		.recent-title:hover { color: var(--accent); text-decoration: none; }
+		.recent-official { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.125rem; }
 	</style>
 
 	<!-- ── Hero ── -->
@@ -599,7 +615,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					</div>
 
 					<div class="hero-cta">
-						<a href="/mi-situacion" class="btn btn-primary">Descubre tus cambios &rarr;</a>
+						<a href="/mi-situacion" class="btn btn-primary hero-cta-btn">Descubre qué leyes te afectan &rarr;</a>
 					</div>
 					<p class="hero-stat-line">Más de {totalNorms.toLocaleString("es")} leyes desde {earliestYear} · Fuente: BOE</p>
 				</div>
@@ -687,7 +703,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 						<div id="recent-reforms"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
 					</div>
 					<div>
-						<h2 class="section-title">Leyes que más han cambiado</h2>
+						<h2 class="section-title">¿Sabías que...?</h2>
 						<div id="most-reformed"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
 					</div>
 				</div>
@@ -995,12 +1011,28 @@ const JURISDICTION_LABELS: Record<string, string> = {
 
 			fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
 				loadResults.reformed = "ok";
-				var html = '<ul class="reformed-list">';
-				for (var i = 0; i < data.data.length; i++) {
+				var currentYear = new Date().getFullYear();
+				function buildFact(law) {
+					var pubYear = law.published_at ? parseInt(law.published_at.slice(0, 4), 10) : null;
+					var years = pubYear ? currentYear - pubYear : null;
+					// Short display name — strip common prefixes for readability
+					var name = law.title
+						.replace(/^(Real Decreto Legislativo|Real Decreto-ley|Real Decreto|Ley Orgánica|Ley)\s+\d+\/\d{4},\s*de\s+\d+\s+de\s+\w+,\s*/i, "")
+						.replace(/^(por el que se aprueba el texto refundido de la |por la que se aprueba la |por el que se aprueba el )/i, "");
+					// Capitalize first letter
+					name = name.charAt(0).toUpperCase() + name.slice(1);
+					// Truncate if still long
+					if (name.length > 60) name = name.slice(0, 57) + "...";
+					if (years && years > 0) {
+						return name + " se ha modificado <strong>" + law.reform_count + " veces</strong> en " + years + " años";
+					}
+					return name + " se ha modificado <strong>" + law.reform_count + " veces</strong>";
+				}
+				var html = '<ul class="fact-list">';
+				var limit = Math.min(data.data.length, 6);
+				for (var i = 0; i < limit; i++) {
 					var law = data.data[i];
-					html += '<li class="reformed-item"><span class="reformed-count">' + law.reform_count + '</span><div>';
-					html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="reformed-title">' + esc(law.title) + '</a>';
-					html += '<div class="reformed-rank">' + esc(RANK_LABELS[law.rank] || law.rank) + '</div></div></li>';
+					html += '<li class="fact-item"><a href="/laws/' + encodeURIComponent(law.id) + '" class="fact-link">' + buildFact(law) + '</a></li>';
 				}
 				html += '</ul>';
 				document.getElementById("most-reformed").innerHTML = html;
@@ -1021,8 +1053,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				var html = '<ul class="recent-list">';
 				for (var i = 0; i < data.data.length; i++) {
 					var r = data.data[i];
+					var displayText = r.citizen_summary || r.title;
 					html += '<li class="recent-item"><span class="recent-date">' + formatDate(r.last_reform) + '</span>';
-					html += '<a href="/laws/' + encodeURIComponent(r.id) + '" class="recent-title">' + esc(r.title) + '</a></li>';
+					html += '<div><a href="/laws/' + encodeURIComponent(r.id) + '" class="recent-title">' + esc(displayText) + '</a>';
+					if (r.citizen_summary) {
+						html += '<div class="recent-official">' + esc(r.title) + '</div>';
+					}
+					html += '</div></li>';
 				}
 				html += '</ul>';
 				document.getElementById("recent-reforms").innerHTML = html;
