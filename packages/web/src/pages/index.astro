@@ -33,10 +33,16 @@ const reformsDisplay = (Math.floor(effectiveReforms / 1000) * 1000).toLocaleStri
 
 const RANK_LABELS: Record<string, string> = {
 	constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
-	real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+	real_decreto_ley: "Decreto urgente", real_decreto_legislativo: "Decreto legislativo",
 	real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
-	acuerdo_internacional: "Acuerdo Int.", circular: "Circular",
+	acuerdo_internacional: "Acuerdo internacional", circular: "Circular",
 	instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+	vigente: "En vigor",
+	derogada: "Ya no está en vigor",
+	parcialmente_derogada: "Parcialmente en vigor",
 };
 
 const JURISDICTION_LABELS: Record<string, string> = {
@@ -627,15 +633,15 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					<div class="filter-panel" id="filter-panel">
 						<div class="filter-row">
 							<select id="filter-rank" class="filter-select">
-								<option value="">Todos los rangos</option>
+								<option value="">Tipo de ley</option>
 								{ranks.map((r) => (
 									<option value={r.rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
 								))}
 							</select>
 							<select id="filter-status" class="filter-select">
-								<option value="">Todos los estados</option>
-								<option value="vigente">Vigente</option>
-								<option value="derogada">Derogada</option>
+								<option value="">Vigencia</option>
+								<option value="vigente">En vigor</option>
+								<option value="derogada">Ya no está en vigor</option>
 							</select>
 						</div>
 					</div>
@@ -689,7 +695,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		</section>
 	</div>
 
-	<script is:inline define:vars={{ RANK_LABELS, JURISDICTION_LABELS }}>
+	<script is:inline define:vars={{ RANK_LABELS, STATUS_LABELS, JURISDICTION_LABELS }}>
 		(function () {
 			// Check for returning user
 			try {
@@ -893,7 +899,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 								html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.title) + '</a>';
 							}
 							html += '<div class="law-card-meta">';
-							html += '<span class="badge badge-' + esc(law.status) + '">' + esc(law.status) + '</span>';
+							html += '<span class="badge badge-' + esc(law.status) + '" style="text-transform:none">' + esc(STATUS_LABELS[law.status] || law.status) + '</span>';
 							html += '<span class="meta-sep">&middot;</span>';
 							html += '<span>' + esc(RANK_LABELS[law.rank] || law.rank) + '</span>';
 							html += '<span class="meta-sep">&middot;</span>';

@@ -296,10 +296,16 @@ import Base from "../layouts/Base.astro";
 		(function () {
 			var RANK_LABELS = {
 				constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
-				real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+				real_decreto_ley: "Decreto urgente", real_decreto_legislativo: "Decreto legislativo",
 				real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
-				acuerdo_internacional: "Acuerdo Int.", circular: "Circular",
+				acuerdo_internacional: "Acuerdo internacional", circular: "Circular",
 				instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento"
+			};
+
+			var STATUS_LABELS = {
+				vigente: "En vigor",
+				derogada: "Ya no está en vigor",
+				parcialmente_derogada: "Parcialmente en vigor"
 			};
 
 			var TYPE_LABELS = {
@@ -358,7 +364,7 @@ import Base from "../layouts/Base.astro";
 								var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 								dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
 							}
-							var statusLabel = r.status || "";
+							var statusLabel = STATUS_LABELS[r.status] || r.status || "";
 							var statusClass = "badge badge-" + (r.status || "vigente");
 							var rankLabel = RANK_LABELS[r.rank] || r.rank || "";
 							var hasHeadline = r.headline && r.headline.length > 0;
@@ -375,7 +381,7 @@ import Base from "../layouts/Base.astro";
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
 							var otc = r.omnibus_topic_count || 0;
-							if (otc > 0) html += '<a href="/laws/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">LEY ÓMNIBUS (' + otc + ' temas)</a>';
+							if (otc > 0) html += '<a href="/laws/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">Multitemática (' + otc + ' temas)</a>';
 							html += '</div>';
 
 							if (hasHeadline) {
@@ -387,7 +393,7 @@ import Base from "../layouts/Base.astro";
 
 							html += '<div class="reform-meta">';
 							if (rankLabel) html += '<span>' + esc(rankLabel) + '</span>';
-							if (statusLabel) html += '<span class="' + statusClass + '">' + esc(statusLabel) + '</span>';
+							if (statusLabel) html += '<span class="' + statusClass + '" style="text-transform:none">' + esc(statusLabel) + '</span>';
 							html += '</div>';
 							html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=cambios" class="reform-link">Ver qué cambió →</a>';
 							html += '</div>';

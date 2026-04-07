@@ -85,16 +85,22 @@ const RANK_LABELS: Record<string, string> = {
 	constitucion: "Constitución",
 	ley_organica: "Ley Orgánica",
 	ley: "Ley",
-	real_decreto_ley: "Real Decreto-ley",
-	real_decreto_legislativo: "Real Decreto Legislativo",
+	real_decreto_ley: "Decreto urgente",
+	real_decreto_legislativo: "Decreto legislativo",
 	real_decreto: "Real Decreto",
 	orden: "Orden",
 	decreto: "Decreto",
 	circular: "Circular",
 	resolucion: "Resolución",
-	acuerdo_internacional: "Acuerdo Internacional",
+	acuerdo_internacional: "Acuerdo internacional",
 	instruccion: "Instrucción",
 	reglamento: "Reglamento",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+	vigente: "En vigor",
+	derogada: "Ya no está en vigor",
+	parcialmente_derogada: "Parcialmente en vigor",
 };
 
 const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -517,7 +523,7 @@ const articleCount = law.articulos ?? 0;
 	<div class="law-header">
 		<div>
 			<div style="display: flex; gap: 0.375rem; margin-bottom: 0.375rem;">
-				<span class={`badge badge-${law.estado}`}>{law.estado}</span>
+				<span class={`badge badge-${law.estado}`} style="text-transform:none">{STATUS_LABELS[law.estado] ?? law.estado}</span>
 				<span class="badge" style="background: var(--accent-bg); color: var(--accent);">{RANK_LABELS[law.rango] ?? law.rango}</span>
 			</div>
 			<h1 class="law-title">{law.titulo}</h1>
@@ -569,7 +575,7 @@ const articleCount = law.articulos ?? 0;
 
 		{omnibusTopicCount > 0 && (
 			<div class="omnibus-notice">
-				<span class="omnibus-notice-badge">Ley ómnibus</span>
+				<span class="omnibus-notice-badge">Ley multitemática</span>
 				<span class="omnibus-notice-text">Esta ley agrupa {omnibusTopicCount} temas distintos en una sola norma.</span>
 			</div>
 		)}
@@ -622,8 +628,8 @@ const articleCount = law.articulos ?? 0;
 			<div class="card">
 				<h3 class="card-heading">Información general</h3>
 				<div class="meta-grid">
-					<div><div class="meta-item-label">Rango</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
-					<div><div class="meta-item-label">Estado</div><div class="meta-item-value">{capitalize(law.estado.replace(/_/g, ' '))}</div></div>
+					<div><div class="meta-item-label">Tipo de ley</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
+					<div><div class="meta-item-label">Vigencia</div><div class="meta-item-value">{STATUS_LABELS[law.estado] ?? capitalize(law.estado.replace(/_/g, ' '))}</div></div>
 					<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">{formatDate(law.fecha_publicacion)}</div></div>
 					<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">{law.departamento}</div></div>
 				</div>
@@ -631,7 +637,7 @@ const articleCount = law.articulos ?? 0;
 
 			{materias.length > 0 && (
 				<div class="section">
-					<h3 class="section-heading">Categorías del BOE</h3>
+					<h3 class="section-heading">Temas</h3>
 					<div>
 						{materias.map((m) => (
 							<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
@@ -642,7 +648,7 @@ const articleCount = law.articulos ?? 0;
 
 			{notas.length > 0 && (
 				<div class="section">
-					<h3 class="section-heading">Notas del BOE</h3>
+					<h3 class="section-heading">Notas oficiales</h3>
 					{notas.map((nota) => (
 						<p class="nota-item">{nota}</p>
 					))}

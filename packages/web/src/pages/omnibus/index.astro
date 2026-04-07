@@ -172,7 +172,7 @@ import Base from "../../layouts/Base.astro";
 
 	<div class="omnibus-wrap">
 		<div class="omnibus-header">
-			<h1>Leyes ómnibus</h1>
+			<h1>Leyes multitemáticas</h1>
 			<p>Estas leyes agrupan múltiples temas en una sola norma. Aquí desglosamos qué contiene cada una.</p>
 			<div class="omnibus-rss">
 				<a href="/v1/feed-omnibus.xml">Suscríbete por RSS</a>
@@ -181,7 +181,7 @@ import Base from "../../layouts/Base.astro";
 
 		<div class="omnibus-filters" id="omnibus-filters" style="display:none;">
 			<span class="omnibus-filter-chip active" data-filter="all">Todas</span>
-			<span class="omnibus-filter-chip" data-filter="rdl">Real Decreto-ley</span>
+			<span class="omnibus-filter-chip" data-filter="rdl">Decreto urgente</span>
 			<span class="omnibus-filter-chip" data-filter="ley">Ley / Ley Orgánica</span>
 		</div>
 
@@ -197,7 +197,7 @@ import Base from "../../layouts/Base.astro";
 		(function () {
 			var RANK_LABELS = {
 				constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
-				real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+				real_decreto_ley: "Decreto urgente", real_decreto_legislativo: "Decreto legislativo",
 				real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución"
 			};
 

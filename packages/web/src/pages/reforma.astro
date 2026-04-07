@@ -250,10 +250,15 @@ import Base from "../layouts/Base.astro";
 
 			var RANK_LABELS = {
 				constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
-				real_decreto_ley: "Real Decreto-ley", real_decreto_legislativo: "RD Legislativo",
+				real_decreto_ley: "Decreto urgente", real_decreto_legislativo: "Decreto legislativo",
 				real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
-				acuerdo_internacional: "Acuerdo Int.", circular: "Circular",
+				acuerdo_internacional: "Acuerdo internacional", circular: "Circular",
 				instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento"
+			};
+			var STATUS_LABELS = {
+				vigente: "En vigor",
+				derogada: "Ya no está en vigor",
+				parcialmente_derogada: "Parcialmente en vigor"
 			};
 			var TYPE_LABELS = {
 				new_law: "Ley nueva", modification: "Modificación",
@@ -401,7 +406,7 @@ import Base from "../layouts/Base.astro";
 					html += '</div>';
 					html += '<h1 class="reforma-headline">' + esc(hasHeadline ? reform.headline : law.title) + '</h1>';
 					html += '<div class="reforma-law-info">';
-					html += esc(rankLabel) + ' · ' + esc(law.status);
+					html += esc(rankLabel) + ' · ' + esc(STATUS_LABELS[law.status] || law.status);
 					html += ' · <a href="/laws/' + encodeURIComponent(law.id) + '">' + esc(law.title) + '</a>';
 					html += '</div></div>';
 
