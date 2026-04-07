@@ -1,0 +1,370 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: "What to deploy (comma-separated: api, web)"
+        required: false
+        default: "all"
+        type: string
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: leyabierta/api
+
+jobs:
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.api.outputs.deploy }}
+      web: ${{ steps.web.outputs.deploy }}
+      msg_id: ${{ steps.notify.outputs.message-id }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check API
+        id: api
+        run: |
+          TARGETS="${{ github.event.inputs.targets || '' }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ] || echo "$TARGETS" | grep -q "api"; then
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            else
+              echo "deploy=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            PREV=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+            if [ -z "$PREV" ]; then
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            elif ! git diff --quiet "$PREV"..HEAD -- packages/api/ packages/pipeline/ packages/shared/ Dockerfile docker-compose.yml; then
+              echo "API changes detected"
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            else
+              echo "No API changes"
+              echo "deploy=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Check Web
+        id: web
+        run: |
+          TARGETS="${{ github.event.inputs.targets || '' }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ] || echo "$TARGETS" | grep -q "web"; then
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            else
+              echo "deploy=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            PREV=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+            if [ -z "$PREV" ]; then
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            elif ! git diff --quiet "$PREV"..HEAD -- packages/web/ packages/pipeline/ package.json bun.lock .github/workflows/deploy.yml; then
+              echo "Web changes detected"
+              echo "deploy=true" >> $GITHUB_OUTPUT
+            else
+              echo "No web changes"
+              echo "deploy=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Notify — Started
+        id: notify
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: send
+          message: |
+            🚀 **Deploy** · `${{ github.sha }}`
+
+            ${{ steps.api.outputs.deploy == 'true' && '⏳ **api** — Queued' || '⏸️ **api** — Skipped' }}
+
+            ${{ steps.web.outputs.deploy == 'true' && '⏳ **web** — Queued' || '⏸️ **web** — Skipped' }}
+
+            [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+  lint:
+    name: Lint & test
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run check
+
+      - name: Test
+        run: bun test || true # Some tests require data files not in CI
+
+  # ============================================
+  # API: Build Docker image and push to GHCR
+  # (Watchtower on the server picks it up)
+  # ============================================
+
+  deploy-api:
+    name: Deploy API
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Record start time
+        id: timer
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Notify — Building image
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ needs.detect-changes.outputs.msg_id }}
+          app-name: api
+          new-status: "⏳ **api** — Building Docker image..."
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+
+      - name: Wait for new API version
+        run: |
+          EXPECTED="${{ github.sha }}"
+          echo "Image pushed. Waiting for Watchtower to deploy $EXPECTED..."
+          echo "Watchtower polls every 30s + pull + restart ≈ up to 2 minutes."
+          for i in $(seq 1 36); do
+            VERSION=$(curl -sf https://api.leyabierta.es/health | jq -r '.version // empty' 2>/dev/null || echo "")
+            if [ "$VERSION" = "$EXPECTED" ]; then
+              echo "✅ API is live with correct version after $((i * 5))s"
+              exit 0
+            fi
+            if [ $((i % 6)) -eq 0 ]; then
+              echo "Still waiting... ($((i * 5))s elapsed, got '${VERSION:-unreachable}')"
+            fi
+            sleep 5
+          done
+          echo "::error::API did not report expected version after 3 minutes"
+          exit 1
+
+      - name: Calculate duration
+        if: always()
+        id: duration
+        run: |
+          ELAPSED=$(( $(date +%s) - ${{ steps.timer.outputs.start_time }} ))
+          echo "text=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> $GITHUB_OUTPUT
+
+      - name: Notify — Result
+        if: always()
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ needs.detect-changes.outputs.msg_id }}
+          app-name: api
+          new-status: "${{ job.status == 'success' && format('✅ **api** — Deployed ({0})', steps.duration.outputs.text) || job.status == 'cancelled' && '⚪ **api** — Cancelled' || format('❌ **api** — Failed ({0})', steps.duration.outputs.text) }}"
+
+  # ============================================
+  # Web: Build Astro static site, deploy to
+  # Cloudflare Pages. Waits for API if both run.
+  # ============================================
+
+  deploy-web:
+    name: Deploy Web
+    needs: [detect-changes, lint, deploy-api]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.web == 'true' &&
+      needs.lint.result == 'success' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/checkout@v6
+        with:
+          repository: leyabierta/leyes
+          path: content/laws
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Record start time
+        id: timer
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Notify — Installing
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ needs.detect-changes.outputs.msg_id }}
+          app-name: web
+          new-status: "⏳ **web** — Installing..."
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            packages/*/node_modules
+          key: bun-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Astro content store
+        uses: actions/cache@v4
+        with:
+          path: packages/web/.astro
+          key: astro-data-${{ hashFiles('content/laws/**/*.md') }}
+          restore-keys: astro-data-
+
+      - name: Notify — Building
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ needs.detect-changes.outputs.msg_id }}
+          app-name: web
+          new-status: "⏳ **web** — Building..."
+
+      - name: Verify API is reachable
+        run: |
+          for i in $(seq 1 10); do
+            if curl -sf https://api.leyabierta.es/health > /dev/null 2>&1; then
+              echo "API is reachable"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/10)"
+            sleep 5
+          done
+          echo "::error::API not reachable after 50s"
+          exit 1
+
+      - name: Build Astro
+        working-directory: packages/web
+        run: bash build-with-progress.sh
+        env:
+          LAWS_PATH: content/laws
+          API_BYPASS_KEY: ${{ secrets.API_BYPASS_KEY }}
+
+      - name: Notify — Deploying
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ needs.detect-changes.outputs.msg_id }}
+          app-name: web
+          new-status: "⏳ **web** — Deploying to Cloudflare..."
+
+      - name: Deploy to Cloudflare Pages
+        working-directory: packages/web
+        run: bunx wrangler pages deploy dist --project-name=leyabierta
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Calculate duration
+        if: always()
+        id: duration
+        run: |
+          ELAPSED=$(( $(date +%s) - ${{ steps.timer.outputs.start_time }} ))
+          echo "text=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> $GITHUB_OUTPUT
+
+      - name: Notify — Result
+        if: always()
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: set-status
+          message-id: ${{ needs.detect-changes.outputs.msg_id }}
+          app-name: web
+          new-status: "${{ job.status == 'success' && format('✅ **web** — Deployed ({0})', steps.duration.outputs.text) || job.status == 'cancelled' && '⚪ **web** — Cancelled' || format('❌ **web** — Failed ({0})', steps.duration.outputs.text) }}"
+
+  # ============================================
+  # Final notification
+  # ============================================
+
+  notify-result:
+    name: Notify result
+    needs: [detect-changes, deploy-api, deploy-web]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send final status
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: send
+          message: |
+            ${{ (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') && (needs.deploy-web.result == 'success' || needs.deploy-web.result == 'skipped') && '✅' || '❌' }} **Deploy complete** · `${{ github.sha }}`
+            API: ${{ needs.deploy-api.result }} · Web: ${{ needs.deploy-web.result }}

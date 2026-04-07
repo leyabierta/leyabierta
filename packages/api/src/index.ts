@@ -98,7 +98,11 @@ const app = new Elysia()
 		set.headers["X-Robots-Tag"] = "noindex";
 		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 		// Cache read-only endpoints at Cloudflare edge; skip for health/alerts
-		if (!set.headers["Cache-Control"] && !path.startsWith("/v1/alerts") && path !== "/health") {
+		if (
+			!set.headers["Cache-Control"] &&
+			!path.startsWith("/v1/alerts") &&
+			path !== "/health"
+		) {
 			set.headers["Cache-Control"] =
 				"public, max-age=0, s-maxage=3600, must-revalidate";
 		}
