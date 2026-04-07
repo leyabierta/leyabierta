@@ -100,6 +100,12 @@ export function reformRoutes(dbService: DbService) {
 					limit: t.Optional(t.String()),
 					offset: t.Optional(t.String()),
 				}),
+				detail: {
+					summary: "Personal reforms feed",
+					description:
+						"Returns recent reforms filtered by the user's materias and jurisdiction. Accepts wizard answer params or raw materias CSV.",
+					tags: ["Reformas"],
+				},
 			},
 		)
 		.get(
@@ -128,6 +134,12 @@ export function reformRoutes(dbService: DbService) {
 					jurisdiccion: t.Optional(t.String()),
 					limit: t.Optional(t.String()),
 				}),
+				detail: {
+					summary: "Public changelog",
+					description:
+						"Returns recent reforms with AI summaries. Filterable by jurisdiction and time window (weeks).",
+					tags: ["Reformas"],
+				},
 			},
 		)
 		.get(
@@ -160,6 +172,12 @@ export function reformRoutes(dbService: DbService) {
 					normId: t.String(),
 					date: t.String(),
 				}),
+				detail: {
+					summary: "Reform detail",
+					description:
+						"Returns full detail for a specific reform of a law, including affected blocks and navigation to adjacent reforms.",
+					tags: ["Reformas"],
+				},
 			},
 		);
 }

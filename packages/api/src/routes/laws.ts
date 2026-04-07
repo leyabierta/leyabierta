@@ -73,6 +73,12 @@ export function lawRoutes(
 						offset: t.Optional(t.Numeric()),
 						sort: t.Optional(t.String()),
 					}),
+					detail: {
+						summary: "Search and list laws",
+						description:
+							"Full-text search and filtered listing of consolidated laws. Supports pagination, filtering by country, rank, status, materia, and citizen tag.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
@@ -103,6 +109,12 @@ export function lawRoutes(
 				},
 				{
 					params: t.Object({ id: t.String() }),
+					detail: {
+						summary: "Get law detail",
+						description:
+							"Returns full law metadata, reforms, citizen tags, and structural blocks.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
@@ -137,6 +149,12 @@ export function lawRoutes(
 				},
 				{
 					params: t.Object({ id: t.String(), n: t.String() }),
+					detail: {
+						summary: "Get article by position",
+						description:
+							"Returns a specific article (block) by its position within the law, including all historical versions.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
@@ -171,6 +189,12 @@ export function lawRoutes(
 				},
 				{
 					params: t.Object({ id: t.String() }),
+					detail: {
+						summary: "Get reform history",
+						description:
+							"Returns the full reform timeline for a law, including which blocks were affected by each reform.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
@@ -197,6 +221,12 @@ export function lawRoutes(
 				},
 				{
 					params: t.Object({ id: t.String(), date: t.String() }),
+					detail: {
+						summary: "Get law version at date",
+						description:
+							"Returns the full Markdown content of a law as it was on a specific date.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
@@ -248,6 +278,12 @@ export function lawRoutes(
 						from: t.Optional(t.String()),
 						to: t.Optional(t.String()),
 					}),
+					detail: {
+						summary: "Diff between two dates",
+						description:
+							"Returns a unified diff of a law between two dates. Both 'from' and 'to' query params are required (YYYY-MM-DD).",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
@@ -307,6 +343,12 @@ export function lawRoutes(
 				},
 				{
 					params: t.Object({ id: t.String() }),
+					detail: {
+						summary: "Get law analysis",
+						description:
+							"Returns materias, notas, and cross-references for a law. Falls back to BOE API if not cached locally.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
@@ -327,18 +369,45 @@ export function lawRoutes(
 				},
 				{
 					params: t.Object({ id: t.String() }),
+					detail: {
+						summary: "Get relationship graph",
+						description:
+							"Returns graph nodes and edges representing cross-references for a law.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
 			// 9. GET /v1/ranks — rank types with counts
-			.get("/ranks", () => {
-				return { data: dbService.getRanks() };
-			})
+			.get(
+				"/ranks",
+				() => {
+					return { data: dbService.getRanks() };
+				},
+				{
+					detail: {
+						summary: "List rank types",
+						description: "Returns all legislative rank types with law counts.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 
 			// 10. GET /v1/materias — subject categories with counts
-			.get("/materias", () => {
-				return { data: dbService.listMaterias() };
-			})
+			.get(
+				"/materias",
+				() => {
+					return { data: dbService.listMaterias() };
+				},
+				{
+					detail: {
+						summary: "List subject categories",
+						description:
+							"Returns all materia (subject) categories with law counts.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 
 			// 11. GET /v1/citizen-tags — citizen tag categories with counts
 			.get(
@@ -351,80 +420,151 @@ export function lawRoutes(
 					query: t.Object({
 						limit: t.Optional(t.Numeric()),
 					}),
+					detail: {
+						summary: "List citizen tags",
+						description:
+							"Returns citizen-friendly tag categories with law counts.",
+						tags: ["Leyes"],
+					},
 				},
 			)
 
-			// 10. GET /v1/feed.xml — RSS feed of recent reforms
 			// 12. GET /v1/stats — global statistics
-			.get("/stats", () => {
-				return dbService.getStats();
-			})
+			.get(
+				"/stats",
+				() => {
+					return dbService.getStats();
+				},
+				{
+					detail: {
+						summary: "Global statistics",
+						description:
+							"Returns aggregate statistics: total laws, reforms, jurisdictions, etc.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 
 			// 13. GET /v1/most-reformed — most reformed laws
-			.get("/most-reformed", () => {
-				return { data: dbService.getMostReformed(10) };
-			})
+			.get(
+				"/most-reformed",
+				() => {
+					return { data: dbService.getMostReformed(10) };
+				},
+				{
+					detail: {
+						summary: "Most reformed laws",
+						description: "Returns the top 10 most frequently reformed laws.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 
 			// 14. GET /v1/jurisdictions — jurisdiction counts
-			.get("/jurisdictions", () => {
-				return { data: dbService.getJurisdictions() };
-			})
+			.get(
+				"/jurisdictions",
+				() => {
+					return { data: dbService.getJurisdictions() };
+				},
+				{
+					detail: {
+						summary: "List jurisdictions",
+						description:
+							"Returns all jurisdictions (state + autonomous communities) with law counts.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 
 			// 15. GET /v1/recent-reforms — recently updated laws
-			.get("/recent-reforms", () => {
-				return { data: dbService.getRecentlyUpdated(10) };
-			})
+			.get(
+				"/recent-reforms",
+				() => {
+					return { data: dbService.getRecentlyUpdated(10) };
+				},
+				{
+					detail: {
+						summary: "Recent reforms",
+						description: "Returns the 10 most recently reformed laws.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 
 			// 16. GET /v1/anomalias — detected data quality issues
-			.get("/anomalias", () => {
-				return dbService.getAnomalies();
-			})
+			.get(
+				"/anomalias",
+				() => {
+					return dbService.getAnomalies();
+				},
+				{
+					detail: {
+						summary: "Data quality anomalies",
+						description:
+							"Returns detected data quality issues in BOE source data.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 
 			// 17. GET /v1/build-manifest — bulk citizen data + omnibus topics for static build
-			.get("/build-manifest", ({ set, request }) => {
-				// Require API bypass key (internal endpoint for CI builds)
-				const apiKey = request.headers.get("x-api-key") ?? "";
-				const bypassKey = process.env.API_BYPASS_KEY ?? "";
-				const hasValidKey =
-					bypassKey &&
-					apiKey.length === bypassKey.length &&
-					timingSafeEqual(Buffer.from(apiKey), Buffer.from(bypassKey));
-				if (!hasValidKey) {
-					set.status = 403;
-					return { error: "Forbidden" };
-				}
-				set.headers["Cache-Control"] = "private, max-age=300";
-				try {
-					return dbService.getBuildManifest();
-				} catch (err) {
-					set.status = 500;
-					return {
-						error: "Failed to generate build manifest",
-						detail: err instanceof Error ? err.message : "Unknown error",
-					};
-				}
-			})
+			.get(
+				"/build-manifest",
+				({ set, request }) => {
+					// Require API bypass key (internal endpoint for CI builds)
+					const apiKey = request.headers.get("x-api-key") ?? "";
+					const bypassKey = process.env.API_BYPASS_KEY ?? "";
+					const hasValidKey =
+						bypassKey &&
+						apiKey.length === bypassKey.length &&
+						timingSafeEqual(Buffer.from(apiKey), Buffer.from(bypassKey));
+					if (!hasValidKey) {
+						set.status = 403;
+						return { error: "Forbidden" };
+					}
+					set.headers["Cache-Control"] = "private, max-age=300";
+					try {
+						return dbService.getBuildManifest();
+					} catch (err) {
+						set.status = 500;
+						return {
+							error: "Failed to generate build manifest",
+							detail: err instanceof Error ? err.message : "Unknown error",
+						};
+					}
+				},
+				{
+					detail: {
+						summary: "Build manifest",
+						description:
+							"Internal endpoint for CI builds. Returns bulk citizen data and omnibus topics. Requires API bypass key.",
+						tags: ["Sistema"],
+					},
+				},
+			)
 
-			// 13. GET /v1/feed.xml — RSS feed of recent reforms
-			.get("/feed.xml", ({ set }) => {
-				const reforms = dbService.getRecentReforms(50);
-				const items = reforms
-					.map((r) => {
-						const rawTitle = r.headline || `${r.title} — ${r.date}`;
-						const rawDesc =
-							r.summary || `Reforma de ${r.title} (${r.source_id})`;
-						return `  <item>
+			// 18. GET /v1/feed.xml — RSS feed of recent reforms
+			.get(
+				"/feed.xml",
+				({ set }) => {
+					const reforms = dbService.getRecentReforms(50);
+					const items = reforms
+						.map((r) => {
+							const rawTitle = r.headline || `${r.title} — ${r.date}`;
+							const rawDesc =
+								r.summary || `Reforma de ${r.title} (${r.source_id})`;
+							return `  <item>
     <title>${escapeXml(rawTitle)}</title>
     <link>https://leyabierta.es/laws/${r.norm_id}</link>
     <guid>${r.norm_id}:${r.date}:${r.source_id}</guid>
     <pubDate>${new Date(r.date).toUTCString()}</pubDate>
     <description>${escapeXml(rawDesc)}</description>
   </item>`;
-					})
-					.join("\n");
+						})
+						.join("\n");
 
-				set.headers["content-type"] = "application/rss+xml; charset=utf-8";
-				return `<?xml version="1.0" encoding="UTF-8"?>
+					set.headers["content-type"] = "application/rss+xml; charset=utf-8";
+					return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>
   <title>Ley Abierta — Reformas recientes</title>
@@ -434,7 +574,16 @@ export function lawRoutes(
 ${items}
 </channel>
 </rss>`;
-			})
+				},
+				{
+					detail: {
+						summary: "RSS feed of recent reforms",
+						description:
+							"Returns an RSS 2.0 XML feed of the 50 most recent legislative reforms.",
+						tags: ["Leyes"],
+					},
+				},
+			)
 	);
 }
 
