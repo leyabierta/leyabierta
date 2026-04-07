@@ -536,7 +536,7 @@ export class DbService {
 			>(
 				`SELECT n.id, n.title, n.rank, n.published_at, count(*) as reform_count
 				 FROM reforms r JOIN norms n ON n.id = r.norm_id
-				 GROUP BY r.norm_id ORDER BY reform_count DESC LIMIT ?`,
+				 GROUP BY n.id ORDER BY reform_count DESC LIMIT ?`,
 			)
 			.all(limit);
 	}

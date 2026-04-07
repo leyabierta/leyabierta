@@ -12,16 +12,17 @@ const limitIdx = args.indexOf("--limit");
 const limit = limitIdx !== -1 ? Number(args[limitIdx + 1]) : 0;
 
 // --- Paths ---
-const ROOT = join(import.meta.dir, "..", "..", "..");
-const DB_PATH = join(ROOT, "data", "leyabierta.db");
-const OG_DIR = join(ROOT, "og-images");
+const ROOT = join(import.meta.dir, "..", "..", "..", "..");
+const DB_PATH = process.env.DB_PATH || join(ROOT, "data", "leyabierta.db");
+const OG_DIR = process.env.OG_IMAGES_DIR || join(ROOT, "og-images");
 
 // --- Font ---
 async function loadFont(): Promise<ArrayBuffer> {
 	// Try local bundled font first, fall back to Google Fonts
 	const localPath = join(
-		import.meta.dir,
-		"..",
+		ROOT,
+		"packages",
+		"web",
 		"public",
 		"fonts",
 		"Inter-Bold.ttf",

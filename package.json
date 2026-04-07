@@ -17,7 +17,7 @@
 		"web": "bun run --cwd packages/web astro dev --port 4321",
 		"dev": "bun run --cwd packages/web astro dev --port 4321",
 		"generate-citizen-tags": "bun run packages/pipeline/src/scripts/generate-citizen-tags.ts",
-		"generate-og": "bun run --cwd packages/web scripts/generate-og-images.ts"
+		"generate-og": "bun run packages/api/src/scripts/generate-og-images.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.9",
