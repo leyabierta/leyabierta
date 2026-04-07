@@ -15,8 +15,8 @@ logs
 *.log
 
 # dotenv
-.env
-.env.*.local
+.env*
+!.env.example
 
 # caches
 .cache
