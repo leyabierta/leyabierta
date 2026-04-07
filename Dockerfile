@@ -14,9 +14,10 @@ COPY packages/web/package.json packages/web/
 # Install production dependencies
 RUN bun install --frozen-lockfile
 
-# Copy source code (only api + pipeline, not web)
+# Copy source code (only api + pipeline + shared, not web)
 COPY packages/api/ packages/api/
 COPY packages/pipeline/ packages/pipeline/
+COPY packages/shared/ packages/shared/
 COPY tsconfig.json ./
 
 EXPOSE 3000
