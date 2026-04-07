@@ -310,7 +310,7 @@ export async function getOmnibusDetail(
 	normId: string,
 ): Promise<OmnibusDetail | null> {
 	try {
-		return await fetchApi(`/v1/omnibus/${normId}`);
+		return await fetchApi(`/v1/omnibus/${normId}`, 1);
 	} catch {
 		return null;
 	}

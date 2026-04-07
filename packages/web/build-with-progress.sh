@@ -18,8 +18,10 @@ echo "[build] Building $TOTAL law pages + static pages"
 COUNT=0
 START=$(date +%s)
 
+# Astro outputs "├─ /path (+Xms)" in TTY mode, but "(+Xms)" in CI (no TTY).
+# Match both patterns to count generated pages.
 bunx astro build 2>&1 | while IFS= read -r line; do
-  if echo "$line" | grep -q '├─\|└─'; then
+  if echo "$line" | grep -qE '├─|└─|\(\+[0-9]'; then
     COUNT=$((COUNT + 1))
     # Print progress every 500 pages
     if [ $((COUNT % 500)) -eq 0 ]; then
@@ -33,6 +35,9 @@ bunx astro build 2>&1 | while IFS= read -r line; do
         echo "[build] $COUNT/$TOTAL ($PCT%)"
       fi
     fi
+  elif echo "$line" | grep -q '^\[api\]'; then
+    # Show API errors but don't count as pages
+    echo "$line"
   else
     echo "$line"
   fi
