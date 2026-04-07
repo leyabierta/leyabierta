@@ -833,23 +833,4 @@ const articleCount = law.articulos ?? 0;
 		})();
 	</script>
 
-	<!-- JSON-LD -->
-	<script
-		type="application/ld+json"
-		set:html={JSON.stringify({
-			"@context": "https://schema.org",
-			"@type": "Legislation",
-			name: law.titulo,
-			datePublished: law.fecha_publicacion,
-			legislationDate: law.fecha_publicacion,
-			legislationType: RANK_LABELS[law.rango] ?? law.rango,
-			inLanguage: "es",
-			url: `https://leyabierta.es/laws/${id}`,
-			publisher: {
-				"@type": "Organization",
-				name: "Agencia Estatal BOE",
-				url: "https://www.boe.es",
-			},
-		})}
-	/>
 </Base>
