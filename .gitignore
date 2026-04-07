@@ -40,5 +40,8 @@ content/
 packages/web/.astro/
 packages/web/.build-manifest.json
 
+# generated OG images
+og-images/
+
 # research / experiments
 packages/search-lab/
