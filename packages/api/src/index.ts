@@ -6,6 +6,7 @@
 
 import { Database } from "bun:sqlite";
 import { timingSafeEqual } from "node:crypto";
+import { join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
@@ -186,6 +187,30 @@ app
 			detail: {
 				summary: "Health check",
 				description: "Returns API status, version, and total law count.",
+				tags: ["Sistema"],
+			},
+		},
+	)
+	.get(
+		"/og/:id",
+		async ({ params, set }) => {
+			const id = params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+			const filePath = join(process.cwd(), "og-images", `${id}.png`);
+			const file = Bun.file(filePath);
+			if (!(await file.exists())) {
+				set.status = 404;
+				return { error: "OG image not found" };
+			}
+			return new Response(file, {
+				headers: {
+					"Content-Type": "image/png",
+					"Cache-Control": "public, immutable, max-age=31536000",
+				},
+			});
+		},
+		{
+			detail: {
+				summary: "Get OG image for a law",
 				tags: ["Sistema"],
 			},
 		},
