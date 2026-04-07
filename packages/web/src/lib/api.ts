@@ -8,9 +8,21 @@ async function fetchApi<T>(path: string, retries = 3): Promise<T> {
 	for (let attempt = 1; attempt <= retries; attempt++) {
 		try {
 			const res = await fetch(`${API_BASE}${path}`);
-			if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+			if (!res.ok) {
+				// Don't retry client errors (4xx) — they won't succeed on retry
+				if (res.status >= 400 && res.status < 500) {
+					throw new Error(`API ${res.status}: ${path}`);
+				}
+				throw new Error(`API ${res.status}: ${path} (retryable)`);
+			}
 			return res.json();
 		} catch (err) {
+			const isRetryable =
+				err instanceof Error && err.message.includes("(retryable)");
+			const isNetworkError =
+				err instanceof TypeError || // fetch network failures
+				(err instanceof Error && !err.message.startsWith("API "));
+			if (!isRetryable && !isNetworkError) throw err;
 			if (attempt === retries) throw err;
 			const delay = attempt * 2000;
 			console.warn(

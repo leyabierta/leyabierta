@@ -46,14 +46,18 @@ try {
 } catch {
 	// API may not be available during build — gracefully degrade
 }
-try {
-	const omnibus = await getOmnibusDetail(id!);
-	if (omnibus?.topics?.length) {
-		omnibusTopics = omnibus.topics;
-		omnibusTopicCount = omnibus.topics.length;
+// Only fetch omnibus detail for laws with ≥15 materias (omnibus precondition).
+// This skips ~11,700 unnecessary API calls during build.
+if (law.materias.length >= 15) {
+	try {
+		const omnibus = await getOmnibusDetail(id!);
+		if (omnibus?.topics?.length) {
+			omnibusTopics = omnibus.topics;
+			omnibusTopicCount = omnibus.topics.length;
+		}
+	} catch {
+		// Omnibus data not available — skip
 	}
-} catch {
-	// Omnibus data not available — skip
 }
 
 // Read and render the markdown body on-demand (not during content sync)
