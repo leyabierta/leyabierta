@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import satori from "satori";
@@ -46,7 +46,10 @@ async function loadFont(): Promise<ArrayBuffer> {
 // --- Helpers ---
 function truncate(text: string, maxLen: number): string {
 	if (!text || text.length <= maxLen) return text || "";
-	return `${text.slice(0, maxLen - 1)}\u2026`;
+	// Cut at last space before limit to avoid mid-word truncation
+	const cut = text.lastIndexOf(" ", maxLen - 1);
+	const end = cut > maxLen * 0.5 ? cut : maxLen - 1;
+	return `${text.slice(0, end)}\u2026`;
 }
 
 function extractYear(date: string | null): string {
@@ -73,9 +76,16 @@ interface Law {
 	reform_count: number;
 }
 
-function buildMarkup(law: Law): Record<string, unknown> {
-	const title = truncate(law.title, 100);
-	const summary = truncate(law.citizen_summary ?? "", 120);
+function loadLogo(): string {
+	const logoPath = join(ROOT, "packages", "web", "public", "logo-full.png");
+	if (!existsSync(logoPath)) return "";
+	const buf = readFileSync(logoPath);
+	return `data:image/png;base64,${buf.toString("base64")}`;
+}
+
+function buildMarkup(law: Law, logoDataUri: string): Record<string, unknown> {
+	const title = truncate(law.title, 90);
+	const summary = truncate(law.citizen_summary ?? "", 180);
 	const year = extractYear(law.published_at);
 	const status = statusLabel(law.status);
 	const reformText =
@@ -86,7 +96,7 @@ function buildMarkup(law: Law): Record<string, unknown> {
 	if (status) bottomParts.push(status);
 	if (reformText) bottomParts.push(reformText);
 	if (year) bottomParts.push(`Desde ${year}`);
-	const bottomText = bottomParts.join("  |  ");
+	const bottomText = bottomParts.join("  \u00b7  ");
 
 	return {
 		type: "div",
@@ -99,98 +109,80 @@ function buildMarkup(law: Law): Record<string, unknown> {
 				backgroundColor: "#FFFFFF",
 			},
 			children: [
-				// Top bar
+				// Top accent bar
 				{
 					type: "div",
 					props: {
 						style: {
 							width: "100%",
-							height: "8px",
+							height: "6px",
 							backgroundColor: "#1A365D",
 						},
 					},
 				},
-				// Main content area
+				// All content in one block — everything visible in top 2/3
 				{
 					type: "div",
 					props: {
 						style: {
 							display: "flex",
 							flexDirection: "column",
-							flex: 1,
-							padding: "48px 64px 32px 64px",
-							justifyContent: "space-between",
+							padding: "64px 64px",
 						},
 						children: [
-							// Top section
+							// Logo
+							...(logoDataUri
+								? [
+										{
+											type: "img",
+											props: {
+												src: logoDataUri,
+												style: {
+													height: "32px",
+													marginBottom: "28px",
+												},
+											},
+										},
+									]
+								: []),
+							// Title
 							{
 								type: "div",
 								props: {
 									style: {
-										display: "flex",
-										flexDirection: "column",
+										fontSize: "42px",
+										fontWeight: 700,
+										color: "#1A365D",
+										lineHeight: 1.2,
 									},
-									children: [
-										// Brand
-										{
-											type: "div",
-											props: {
-												style: {
-													fontSize: "14px",
-													color: "#6B7280",
-													letterSpacing: "0.1em",
-													textTransform: "uppercase" as const,
-													marginBottom: "32px",
-												},
-												children: "LEY ABIERTA",
-											},
-										},
-										// Title
-										{
-											type: "div",
-											props: {
-												style: {
-													fontSize: "36px",
-													fontWeight: 700,
-													color: "#1A365D",
-													lineHeight: 1.3,
-													maxHeight: "94px",
-													overflow: "hidden",
-												},
-												children: title,
-											},
-										},
-										// Summary
-										...(summary
-											? [
-													{
-														type: "div",
-														props: {
-															style: {
-																fontSize: "20px",
-																color: "#4B5563",
-																marginTop: "24px",
-																lineHeight: 1.4,
-																maxHeight: "28px",
-																overflow: "hidden",
-															},
-															children: summary,
-														},
-													},
-												]
-											: []),
-									],
+									children: title,
 								},
 							},
-							// Bottom bar
+							// Summary
+							...(summary
+								? [
+										{
+											type: "div",
+											props: {
+												style: {
+													fontSize: "24px",
+													color: "#475569",
+													marginTop: "24px",
+													lineHeight: 1.45,
+												},
+												children: summary,
+											},
+										},
+									]
+								: []),
+							// Metadata line
 							{
 								type: "div",
 								props: {
 									style: {
-										fontSize: "16px",
-										color: "#6B7280",
-										borderTop: "1px solid #E5E7EB",
-										paddingTop: "16px",
+										fontSize: "18px",
+										color: "#94A3B8",
+										marginTop: "28px",
 									},
 									children: bottomText,
 								},
@@ -203,8 +195,12 @@ function buildMarkup(law: Law): Record<string, unknown> {
 	};
 }
 
-async function generateImage(law: Law, fontData: ArrayBuffer): Promise<Buffer> {
-	const markup = buildMarkup(law);
+async function generateImage(
+	law: Law,
+	fontData: ArrayBuffer,
+	logoDataUri: string,
+): Promise<Buffer> {
+	const markup = buildMarkup(law, logoDataUri);
 	const svg = await satori(markup, {
 		width: 1200,
 		height: 630,
@@ -221,23 +217,20 @@ async function main() {
 		process.exit(1);
 	}
 
-	console.log("Loading Inter font...");
+	console.log("Loading assets...");
 	const fontData = await loadFont();
+	const logoDataUri = loadLogo();
 
 	const db = new Database(DB_PATH, { readonly: true });
 
+	// Generate for ALL norms — images are served from KonarServer, not Cloudflare Pages,
+	// so there's no file count limit. ~525MB total for 12K images.
 	const query = `
-SELECT DISTINCT n.id, n.title, n.citizen_summary, n.rank, n.status,
+SELECT n.id, n.title, n.citizen_summary, n.rank, n.status,
   n.published_at, n.updated_at,
   (SELECT COUNT(*) FROM reforms r WHERE r.norm_id = n.id) as reform_count
 FROM norms n
-WHERE n.id IN (
-  SELECT norm_id FROM (
-    SELECT norm_id, COUNT(*) as cnt FROM reforms GROUP BY norm_id ORDER BY cnt DESC LIMIT 2000
-  )
-  UNION
-  SELECT DISTINCT norm_id FROM reforms WHERE date >= date('now', '-6 months')
-)
+ORDER BY reform_count DESC
 `;
 
 	const laws = db.query(query).all() as Law[];
@@ -267,7 +260,7 @@ WHERE n.id IN (
 		}
 
 		try {
-			const png = await generateImage(law, fontData);
+			const png = await generateImage(law, fontData, logoDataUri);
 			writeFileSync(outPath, png);
 			generated++;
 			console.log(`Generated ${generated}/${total} - ${law.id}`);
