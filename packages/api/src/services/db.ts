@@ -414,16 +414,24 @@ export class DbService {
 	}
 
 	/** Recently changed laws (by latest reform date, excluding future anomalies). */
-	getRecentlyUpdated(
-		limit: number,
-	): Array<{ id: string; title: string; last_reform: string }> {
+	getRecentlyUpdated(limit: number): Array<{
+		id: string;
+		title: string;
+		last_reform: string;
+		citizen_summary: string | null;
+	}> {
 		const today = new Date().toISOString().slice(0, 10);
 		return this.db
 			.query<
-				{ id: string; title: string; last_reform: string },
+				{
+					id: string;
+					title: string;
+					last_reform: string;
+					citizen_summary: string | null;
+				},
 				[string, number]
 			>(
-				`SELECT n.id, n.title, MAX(r.date) AS last_reform
+				`SELECT n.id, n.title, n.citizen_summary, MAX(r.date) AS last_reform
 				 FROM norms n
 				 JOIN reforms r ON r.norm_id = n.id
 				 WHERE r.date <= ?
@@ -508,15 +516,25 @@ export class DbService {
 	}
 
 	/** Most reformed laws, for the home page. */
-	getMostReformed(
-		limit: number,
-	): Array<{ id: string; title: string; rank: string; reform_count: number }> {
+	getMostReformed(limit: number): Array<{
+		id: string;
+		title: string;
+		rank: string;
+		reform_count: number;
+		published_at: string;
+	}> {
 		return this.db
 			.query<
-				{ id: string; title: string; rank: string; reform_count: number },
+				{
+					id: string;
+					title: string;
+					rank: string;
+					reform_count: number;
+					published_at: string;
+				},
 				[number]
 			>(
-				`SELECT n.id, n.title, n.rank, count(*) as reform_count
+				`SELECT n.id, n.title, n.rank, n.published_at, count(*) as reform_count
 				 FROM reforms r JOIN norms n ON n.id = r.norm_id
 				 GROUP BY r.norm_id ORDER BY reform_count DESC LIMIT ?`,
 			)
