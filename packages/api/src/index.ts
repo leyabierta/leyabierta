@@ -5,6 +5,7 @@
  */
 
 import { Database } from "bun:sqlite";
+import { timingSafeEqual } from "node:crypto";
 import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
@@ -15,6 +16,7 @@ import { reformRoutes } from "./routes/reforms.ts";
 import { LruCache } from "./services/cache.ts";
 import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
+import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const REPO_PATH = process.env.REPO_PATH ?? "../leyes";
@@ -24,11 +26,14 @@ const PORT = Number(process.env.PORT ?? 3000);
 const db = new Database(DB_PATH);
 db.exec("PRAGMA journal_mode = WAL");
 db.exec("PRAGMA foreign_keys = ON");
+db.exec("PRAGMA cache_size = -64000"); // 64MB page cache
+db.exec("PRAGMA mmap_size = 268435456"); // 256MB memory-mapped I/O
+db.exec("PRAGMA temp_store = MEMORY"); // temp tables in RAM
 createSchema(db);
 
 const dbService = new DbService(db);
 const gitService = new GitService(REPO_PATH);
-const diffCache = new LruCache<string>(500);
+const diffCache = new LruCache<string>(5000);
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS
 	? process.env.CORS_ORIGINS.split(",")
@@ -39,21 +44,81 @@ const CORS_ORIGINS = process.env.CORS_ORIGINS
 			"http://localhost:3000",
 		];
 
+// ── Request timing ──────────────────────────────────────────────────
+const reqTimings = new WeakMap<Request, number>();
+
+// ── Rate limiting ────────────────────────────────────────────────────
+const searchLimiter = createRateLimiter(30); // 30 req/min per IP for search
+const generalLimiter = createRateLimiter(60); // 60 req/min per IP for other endpoints
+const API_BYPASS_KEY = process.env.API_BYPASS_KEY ?? "";
+
+// ── Graceful shutdown ───────────────────────────────────────────────
+let isShuttingDown = false;
+
+process.on("SIGTERM", () => {
+	isShuttingDown = true;
+	console.log("SIGTERM received, shutting down gracefully...");
+	setTimeout(() => {
+		db.close();
+		process.exit(0);
+	}, 10_000);
+});
+
 const app = new Elysia()
 	.use(cors({ origin: CORS_ORIGINS }))
-	.onAfterHandle(({ set, path }) => {
+	.onBeforeHandle(({ request, set, path }) => {
+		reqTimings.set(request, performance.now());
+		// Reject new requests during shutdown
+		if (isShuttingDown) {
+			set.status = 503;
+			set.headers.Connection = "close";
+			return { error: "Server is shutting down" };
+		}
+		// Rate limiting (skip /health and trusted clients with bypass key)
+		const apiKey = request.headers.get("x-api-key") ?? "";
+		const hasBypass =
+			API_BYPASS_KEY &&
+			apiKey.length === API_BYPASS_KEY.length &&
+			timingSafeEqual(Buffer.from(apiKey), Buffer.from(API_BYPASS_KEY));
+		if (path !== "/health" && !hasBypass) {
+			const ip = getClientIp(request);
+			const isSearch =
+				path === "/v1/laws" && new URL(request.url).searchParams.has("q");
+			const limiter = isSearch ? searchLimiter : generalLimiter;
+			if (limiter.isLimited(ip)) {
+				set.status = 429;
+				set.headers["Retry-After"] = "60";
+				return { error: "Too many requests" };
+			}
+		}
+	})
+	.onAfterHandle(({ request, set, path }) => {
 		set.headers["X-Content-Type-Options"] = "nosniff";
 		set.headers["X-Frame-Options"] = "DENY";
 		set.headers["X-Robots-Tag"] = "noindex";
 		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 		// Cache read-only endpoints at Cloudflare edge; skip for health/alerts
-		if (!set.headers["Cache-Control"] && !path.startsWith("/v1/alerts")) {
+		if (!set.headers["Cache-Control"] && !path.startsWith("/v1/alerts") && path !== "/health") {
 			set.headers["Cache-Control"] =
 				"public, max-age=0, s-maxage=3600, must-revalidate";
 		}
+		// Structured request logging (skip /health)
+		if (path !== "/health") {
+			const start = reqTimings.get(request);
+			const ms = start ? Math.round(performance.now() - start) : 0;
+			if (start) reqTimings.delete(request);
+			console.log(
+				JSON.stringify({
+					method: request.method,
+					path,
+					status: set.status ?? 200,
+					ms,
+				}),
+			);
+		}
 	});
 
-if (process.env.NODE_ENV !== "production") {
+{
 	const { swagger } = await import("@elysiajs/swagger");
 	app.use(
 		swagger({
@@ -76,13 +141,12 @@ app
 	.use(omnibusRoutes(dbService))
 	.get("/health", () => ({
 		status: "ok",
+		version: process.env.GIT_SHA ?? "dev",
 		laws: dbService.searchLaws(undefined, {}, 0, 0).total,
 	}))
 	.listen(PORT);
 
 console.log(`Ley Abierta API running on http://localhost:${PORT}`);
-if (process.env.NODE_ENV !== "production") {
-	console.log(`Swagger docs: http://localhost:${PORT}/swagger`);
-}
+console.log(`Swagger docs: http://localhost:${PORT}/swagger`);
 
 export type App = typeof app;

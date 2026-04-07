@@ -25,7 +25,7 @@ function normFilepath(id: string, sourceUrl: string, country: string): string {
 	return `${jurisdiction}/${id}.md`;
 }
 
-const analisisCache = new LruCache<BoeAnalisis>(200);
+const analisisCache = new LruCache<BoeAnalisis>(2000);
 
 export function lawRoutes(
 	dbService: DbService,

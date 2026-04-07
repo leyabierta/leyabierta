@@ -22,52 +22,13 @@ import {
 	sendWelcomeEmail,
 	verifyHmac,
 } from "../services/email.ts";
+import { createRateLimiter, getClientIp } from "../services/rate-limiter.ts";
 
 const MAX_MATERIAS = 60;
 
-// ── Rate limiter (in-memory, per IP, max 3/hour) ───────────────────────
-
-interface RateEntry {
-	count: number;
-	resetAt: number;
-}
-
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
-function createRateLimiter(maxRequests: number) {
-	const map = new Map<string, RateEntry>();
-
-	// Periodically clean expired entries (every 10 minutes)
-	setInterval(
-		() => {
-			const now = Date.now();
-			for (const [ip, entry] of map) {
-				if (now >= entry.resetAt) map.delete(ip);
-			}
-		},
-		10 * 60 * 1000,
-	);
-
-	return {
-		isLimited(ip: string): boolean {
-			const now = Date.now();
-			const entry = map.get(ip);
-
-			if (!entry || now >= entry.resetAt) {
-				map.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-				return false;
-			}
-
-			if (entry.count >= maxRequests) return true;
-
-			entry.count++;
-			return false;
-		},
-	};
-}
-
-const postLimiter = createRateLimiter(3); // 3/hour for POST (subscribe, follow)
-const getLimiter = createRateLimiter(10); // 10/hour for GET (confirm, unsubscribe)
+const postLimiter = createRateLimiter(3, RATE_LIMIT_WINDOW_MS); // 3/hour for POST
+const getLimiter = createRateLimiter(10, RATE_LIMIT_WINDOW_MS); // 10/hour for GET
 
 function isRateLimited(ip: string): boolean {
 	return postLimiter.isLimited(ip);
@@ -75,17 +36,6 @@ function isRateLimited(ip: string): boolean {
 
 function isGetRateLimited(ip: string): boolean {
 	return getLimiter.isLimited(ip);
-}
-
-// ── Helper: extract client IP from request ──────────────────────────────
-
-function getClientIp(request: Request): string {
-	return (
-		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-		request.headers.get("cf-connecting-ip") ??
-		request.headers.get("x-real-ip") ??
-		"unknown"
-	);
 }
 
 // ── Routes ──────────────────────────────────────────────────────────────

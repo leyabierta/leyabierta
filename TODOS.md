@@ -12,6 +12,14 @@ Sin esto, la feature de ómnibus se queda estática (solo las 959 normas del bac
 
 ## P2
 
+### CI build con API local
+El build de Astro en GitHub Actions llama a api.leyabierta.es (producción) para
+obtener citizen_summary y omnibus data. Si la API está lenta o caída, el build falla.
+Levantar una API local en el runner con la DB copiada eliminaría esta dependencia.
+- Requires: solución para copiar DB (~500MB) al runner (GitHub Artifacts, scp, o test DB)
+- Effort: M (human) → S (CC)
+- Files: .github/workflows/deploy-web.yml
+
 ### Contador público en landing
 Stat en la homepage: "N temas no relacionados con el título detectados este año".
 Genera curiosidad y comunica la propuesta de valor de la detección de ómnibus.

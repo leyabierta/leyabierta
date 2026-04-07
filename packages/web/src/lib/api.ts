@@ -3,11 +3,15 @@
  */
 
 const API_BASE = import.meta.env.API_URL ?? "https://api.leyabierta.es";
+const API_KEY = import.meta.env.API_BYPASS_KEY ?? "";
 
 async function fetchApi<T>(path: string, retries = 3): Promise<T> {
+	const headers: Record<string, string> = {};
+	if (API_KEY) headers["x-api-key"] = API_KEY;
+
 	for (let attempt = 1; attempt <= retries; attempt++) {
 		try {
-			const res = await fetch(`${API_BASE}${path}`);
+			const res = await fetch(`${API_BASE}${path}`, { headers });
 			if (!res.ok) {
 				// Don't retry client errors (4xx) — they won't succeed on retry
 				if (res.status >= 400 && res.status < 500) {

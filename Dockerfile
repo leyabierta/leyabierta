@@ -22,6 +22,8 @@ COPY tsconfig.json ./
 
 EXPOSE 3000
 
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA
 ENV DB_PATH=/data/leyabierta.db
 ENV REPO_PATH=/data/leyes
 
