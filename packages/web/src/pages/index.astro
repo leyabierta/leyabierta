@@ -990,6 +990,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				}
 			}
 
+			var ric = window.requestIdleCallback || function (cb) { setTimeout(cb, 1); };
+			ric(function () {
+
 			fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
 				loadResults.reformed = "ok";
 				var html = '<ul class="reformed-list">';
@@ -1028,6 +1031,8 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				document.getElementById("recent-reforms").parentElement.style.display = "none";
 				checkHideDynamic();
 			});
+
+			}); // end requestIdleCallback
 		})();
 	</script>
 
