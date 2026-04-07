@@ -42,28 +42,50 @@ function isGetRateLimited(ip: string): boolean {
 
 export function alertRoutes(_dbService?: DbService) {
 	return new Elysia({ prefix: "/v1" })
-		.get("/profiles", () => {
-			return {
-				data: PROFILES.map((p) => ({
-					id: p.id,
-					name: p.name,
-					description: p.description,
-					icon: p.icon,
-				})),
-			};
-		})
+		.get(
+			"/profiles",
+			() => {
+				return {
+					data: PROFILES.map((p) => ({
+						id: p.id,
+						name: p.name,
+						description: p.description,
+						icon: p.icon,
+					})),
+				};
+			},
+			{
+				detail: {
+					summary: "List subscriber profiles",
+					description:
+						"Returns available subscriber profiles for the alert wizard.",
+					tags: ["Alertas"],
+				},
+			},
+		)
 
-		.get("/situations", () => {
-			return {
-				categories: SITUATION_CATEGORIES,
-				situations: SITUATIONS.map((s) => ({
-					id: s.id,
-					name: s.name,
-					category: s.category,
-					icon: s.icon,
-				})),
-			};
-		})
+		.get(
+			"/situations",
+			() => {
+				return {
+					categories: SITUATION_CATEGORIES,
+					situations: SITUATIONS.map((s) => ({
+						id: s.id,
+						name: s.name,
+						category: s.category,
+						icon: s.icon,
+					})),
+				};
+			},
+			{
+				detail: {
+					summary: "List life situations",
+					description:
+						"Returns available life situation categories and options for the alert wizard.",
+					tags: ["Alertas"],
+				},
+			},
+		)
 
 		.post(
 			"/alerts/subscribe",
@@ -161,6 +183,12 @@ export function alertRoutes(_dbService?: DbService) {
 					materias: t.Optional(t.Array(t.String())),
 					jurisdiction: t.Optional(t.String()),
 				}),
+				detail: {
+					summary: "Subscribe to alerts",
+					description:
+						"Subscribe an email to legislative reform alerts. Triggers double opt-in confirmation email.",
+					tags: ["Alertas"],
+				},
 			},
 		)
 
@@ -225,6 +253,12 @@ export function alertRoutes(_dbService?: DbService) {
 					email: t.String(),
 					code: t.String(),
 				}),
+				detail: {
+					summary: "Confirm alert subscription",
+					description:
+						"Confirms a subscription via HMAC-signed email link. Marks contact as subscribed in Resend.",
+					tags: ["Alertas"],
+				},
 			},
 		)
 
@@ -297,6 +331,12 @@ export function alertRoutes(_dbService?: DbService) {
 					email: t.String({ format: "email" }),
 					normId: t.String({ minLength: 1 }),
 				}),
+				detail: {
+					summary: "Follow a specific law",
+					description:
+						"Subscribe to notifications for a specific law. Sends a confirmation email.",
+					tags: ["Alertas"],
+				},
 			},
 		)
 
@@ -337,6 +377,12 @@ export function alertRoutes(_dbService?: DbService) {
 				query: t.Object({
 					token: t.String(),
 				}),
+				detail: {
+					summary: "Confirm law follow",
+					description:
+						"Confirms a law-follow subscription via token from the confirmation email.",
+					tags: ["Alertas"],
+				},
 			},
 		)
 
@@ -399,6 +445,12 @@ export function alertRoutes(_dbService?: DbService) {
 					email: t.String(),
 					code: t.String(),
 				}),
+				detail: {
+					summary: "Unsubscribe from alerts",
+					description:
+						"Unsubscribes an email from all alerts. Removes contact from Resend and deletes law-follow records (GDPR).",
+					tags: ["Alertas"],
+				},
 			},
 		);
 }
