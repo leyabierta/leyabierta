@@ -143,7 +143,7 @@ const articleCount = law.articulos ?? 0;
 	description={`${RANK_LABELS[law.rango] ?? law.rango} · ${law.estado} · Publicada ${law.fecha_publicacion} · ${law.departamento}`}
 	ogTitle={law.titulo}
 	ogType="article"
-	ogImage={`https://api.leyabierta.es/og/${id}`}
+	ogImage={`${import.meta.env.API_URL ?? "https://api.leyabierta.es"}/og/${id}`}
 	canonicalUrl={`/laws/${id}`}
 >
 	<!-- JSON-LD: Legislation -->
