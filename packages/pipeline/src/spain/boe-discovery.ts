@@ -39,9 +39,16 @@ export class BoeDiscovery implements NormDiscovery {
 	/**
 	 * Discover norms updated since a given timestamp.
 	 *
-	 * Uses early-stop: the BOE list is ordered by fecha_actualizacion DESC,
-	 * so we paginate from the start and stop when we reach a norm older than
+	 * Uses early-stop: the BOE list is ordered by fecha_actualizacion DESC
+	 * (this is the API's default sort — no sort parameter is passed).
+	 * We paginate from the start and stop when we reach a norm older than
 	 * our watermark. On a typical day this is 1-2 pages (0-10 norms).
+	 *
+	 * Norms without fecha_actualizacion are always yielded (can't determine
+	 * if they're stale, so we let the caller decide).
+	 *
+	 * Note: error norms whose watermark has passed are NOT retried here —
+	 * the caller (cli.ts) unions error norms separately after discovery.
 	 */
 	async *discoverUpdated(
 		client: LegislativeClient,
@@ -56,6 +63,7 @@ export class BoeDiscovery implements NormDiscovery {
 			if (data.length === 0) break;
 
 			for (const item of data) {
+				// Lexicographic comparison works for "YYYYMMDDTHHmmssZ" format
 				if (
 					since &&
 					item.fecha_actualizacion &&

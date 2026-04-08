@@ -49,6 +49,13 @@ export class StateStore {
 		return s === "done" || s === "skipped";
 	}
 
+	/** Return IDs of norms in error state (for retry after watermark advances). */
+	getErrorNormIds(): string[] {
+		return Object.values(this.data.norms)
+			.filter((n) => n.status === "error")
+			.map((n) => n.id);
+	}
+
 	get lastBoeUpdate(): string | undefined {
 		return this.data.lastBoeUpdate;
 	}

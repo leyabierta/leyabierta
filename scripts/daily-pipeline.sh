@@ -9,6 +9,7 @@ set -euo pipefail
 LOG=/opt/leyabierta/logs/daily-pipeline.log
 CONTAINER=code-api-1
 
+mkdir -p "$(dirname "$LOG")"
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $1" | tee -a "$LOG"; }
 
 log "=== Daily pipeline started ==="

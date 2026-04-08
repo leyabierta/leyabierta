@@ -87,30 +87,34 @@ async function bootstrap() {
 	// Build lookup for fecha_actualizacion
 	const fechaMap = new Map(discovered.map((d) => [d.id, d.fechaActualizacion]));
 
-	// Partition: new norms vs updated norms vs errors to retry
+	// Retry error norms that the watermark may have passed over.
+	// discoverUpdated stops at the watermark, so error norms with older
+	// fecha_actualizacion would never surface again without this.
+	const errorRetries = state.getErrorNormIds();
+	const discoveredIds = new Set(discovered.map((d) => d.id));
+	let retryCount = 0;
+	for (const id of errorRetries) {
+		if (!discoveredIds.has(id)) {
+			discovered.push({ id });
+			retryCount++;
+		}
+	}
+
+	// Everything from discoverUpdated is either new or updated — process all.
+	// In --force mode, discoverAll returns everything — also process all.
 	const pending: string[] = [];
 	let newCount = 0;
 	let updatedCount = 0;
 	for (const { id } of discovered) {
-		if (!state.isProcessed(id)) {
-			pending.push(id);
-			newCount++;
-		} else if (force) {
-			// --force: re-process everything
-			pending.push(id);
-			updatedCount++;
-		} else {
-			// discoverUpdated already filtered by watermark, so anything
-			// here that IS processed must have a newer fecha_actualizacion
-			pending.push(id);
-			updatedCount++;
-		}
+		pending.push(id);
+		if (!state.isProcessed(id)) newCount++;
+		else updatedCount++;
 	}
 
 	console.log(
 		force
 			? `Found ${discovered.length} norms. Re-processing all.\n`
-			: `Found ${discovered.length} norms: ${newCount} new, ${updatedCount} updated.\n`,
+			: `Found ${discovered.length} norms: ${newCount} new, ${updatedCount} updated${retryCount > 0 ? `, ${retryCount} retries` : ""}.\n`,
 	);
 
 	if (pending.length === 0) {

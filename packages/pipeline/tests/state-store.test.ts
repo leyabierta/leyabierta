@@ -175,6 +175,23 @@ describe("StateStore", () => {
 		});
 	});
 
+	describe("getErrorNormIds", () => {
+		test("returns IDs of norms in error state", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("A", 1);
+			store.markError("B", "network timeout");
+			store.markSkipped("C");
+			store.markError("D", "parse failed");
+			expect(store.getErrorNormIds().sort()).toEqual(["B", "D"]);
+		});
+
+		test("returns empty array when no errors", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("A", 1);
+			expect(store.getErrorNormIds()).toEqual([]);
+		});
+	});
+
 	describe("loading corrupt/missing file", () => {
 		test("starts fresh when file does not exist", async () => {
 			const store = new StateStore(join(tempDir, "nonexistent.json"), "es");
