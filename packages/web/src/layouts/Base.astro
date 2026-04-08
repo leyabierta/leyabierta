@@ -30,6 +30,7 @@ const resolvedOgTitle = ogTitle ?? fullTitle;
 const resolvedOgDescription = ogDescription ?? description;
 const resolvedOgImage = ogImage ?? `${SITE_URL}/og-image.png`;
 const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undefined;
+const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`;
 ---
 
 <!doctype html>
@@ -65,7 +66,8 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 	<meta property="og:type" content={ogType} />
 	<meta property="og:site_name" content="Ley Abierta" />
 	<meta property="og:image" content={resolvedOgImage} />
-	{resolvedCanonicalUrl && <meta property="og:url" content={resolvedCanonicalUrl} />}
+	<meta property="og:url" content={resolvedOgUrl} />
+	<meta property="og:locale" content="es_ES" />
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
@@ -161,6 +163,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			--success: #1a7a4e;
 			--success-bg: #e3f4ec;
 			--warning: #b8860b;
+			--warning-text: #664d03;
 			--warning-bg: #fdf5e0;
 			--danger: #b91c1c;
 			--danger-bg: #fde8e8;
@@ -191,6 +194,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			--success: #3db87a;
 			--success-bg: #142a1e;
 			--warning: #d4a017;
+			--warning-text: #e6b821;
 			--warning-bg: #2a2210;
 			--danger: #e85454;
 			--danger-bg: #2a1414;
@@ -346,7 +350,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 		}
 		.badge-vigente { background: var(--success-bg); color: var(--success); }
 		.badge-derogada { background: var(--danger-bg); color: var(--danger); }
-		.badge-parcialmente_derogada { background: var(--warning-bg); color: var(--warning); }
+		.badge-parcialmente_derogada { background: var(--warning-bg); color: var(--warning-text); }
 
 		/* ── Buttons ── */
 		.btn {
@@ -500,7 +504,7 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 			margin: 1em 0;
 		}
 		.prose li + li { margin-top: 0.5em; }
-		.prose a { color: var(--accent); }
+		.prose a { color: var(--accent); text-decoration: underline; }
 		.prose table {
 			width: 100%;
 			border-collapse: collapse;
@@ -595,7 +599,11 @@ const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undef
 				</div>
 				<div class="footer-right">
 					<p>Gratuito y de <a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener">código abierto</a></p>
-					<p>Ley Abierta es un proyecto sin ánimo de lucro</p>
+					<p>
+						<a href="https://api.leyabierta.es/swagger" target="_blank" rel="noopener">API</a>
+						<span class="footer-sep">&middot;</span>
+						<a href="/feed.xml">RSS</a>
+					</p>
 				</div>
 			</div>
 			<div class="footer-legal">

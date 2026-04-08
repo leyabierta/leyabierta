@@ -246,6 +246,7 @@ import Base from "../layouts/Base.astro";
 			<p>Las novedades legislativas más recientes, explicadas en lenguaje ciudadano.</p>
 			<p style="margin-top: 0.5rem;"><a href="/omnibus" style="color: var(--accent); font-size: 0.875rem; font-weight: 500;">Ver leyes ómnibus recientes →</a></p>
 			<div class="cambios-filters">
+				<label for="jur-filter" class="sr-only">Jurisdicción</label>
 				<select id="jur-filter">
 					<option value="">Todas las jurisdicciones</option>
 					<option value="es">Estatal</option>
@@ -267,6 +268,7 @@ import Base from "../layouts/Base.astro";
 					<option value="es-ri">La Rioja</option>
 					<option value="es-vc">C. Valenciana</option>
 				</select>
+				<label for="weeks-filter" class="sr-only">Período de tiempo</label>
 				<select id="weeks-filter">
 					<option value="2">Últimas 2 semanas</option>
 					<option value="4" selected>Últimas 4 semanas</option>
@@ -277,6 +279,7 @@ import Base from "../layouts/Base.astro";
 			<div class="cambios-info" id="cambios-info"></div>
 		</div>
 
+		<h2 class="sr-only">Cambios recientes</h2>
 		<div id="cambios-content">
 			<div class="skeleton-cards">
 				<div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div></div>
@@ -381,7 +384,7 @@ import Base from "../layouts/Base.astro";
 							if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
 							if (importance === "high") html += '<span class="reform-importance-badge">Cambio importante</span>';
 							var otc = r.omnibus_topic_count || 0;
-							if (otc > 0) html += '<a href="/laws/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning,#856404);text-decoration:none;">Multitemática (' + otc + ' temas)</a>';
+							if (otc > 0) html += '<a href="/laws/' + encodeURIComponent(r.id) + '" class="reform-importance-badge" style="background:var(--warning-bg,#fff3cd);color:var(--warning-text,#664d03);text-decoration:none;">Multitemática (' + otc + ' temas)</a>';
 							html += '</div>';
 
 							if (hasHeadline) {

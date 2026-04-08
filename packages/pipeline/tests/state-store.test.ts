@@ -131,6 +131,67 @@ describe("StateStore", () => {
 		});
 	});
 
+	describe("lastBoeUpdate watermark", () => {
+		test("returns undefined when no watermark set", () => {
+			const store = new StateStore(filePath, "es");
+			expect(store.lastBoeUpdate).toBeUndefined();
+		});
+
+		test("stores and retrieves watermark", () => {
+			const store = new StateStore(filePath, "es");
+			store.setLastBoeUpdate("20260408T080417Z");
+			expect(store.lastBoeUpdate).toBe("20260408T080417Z");
+		});
+
+		test("persists watermark across save/load", async () => {
+			const store1 = new StateStore(filePath, "es");
+			store1.setLastBoeUpdate("20260408T080417Z");
+			await store1.save();
+
+			const store2 = new StateStore(filePath, "es");
+			await store2.load();
+			expect(store2.lastBoeUpdate).toBe("20260408T080417Z");
+		});
+	});
+
+	describe("fechaActualizacion on markDone", () => {
+		test("stores fechaActualizacion when provided", async () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 3, "sha1", "20260408T080417Z");
+			await store.save();
+
+			const store2 = new StateStore(filePath, "es");
+			await store2.load();
+			const raw = await Bun.file(filePath).json();
+			expect(raw.norms["BOE-A-1234"].fechaActualizacion).toBe(
+				"20260408T080417Z",
+			);
+		});
+
+		test("fechaActualizacion is optional (backward compat)", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 3);
+			expect(store.isProcessed("BOE-A-1234")).toBe(true);
+		});
+	});
+
+	describe("getErrorNormIds", () => {
+		test("returns IDs of norms in error state", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("A", 1);
+			store.markError("B", "network timeout");
+			store.markSkipped("C");
+			store.markError("D", "parse failed");
+			expect(store.getErrorNormIds().sort()).toEqual(["B", "D"]);
+		});
+
+		test("returns empty array when no errors", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("A", 1);
+			expect(store.getErrorNormIds()).toEqual([]);
+		});
+	});
+
 	describe("loading corrupt/missing file", () => {
 		test("starts fresh when file does not exist", async () => {
 			const store = new StateStore(join(tempDir, "nonexistent.json"), "es");

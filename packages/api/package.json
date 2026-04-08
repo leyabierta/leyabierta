@@ -9,9 +9,11 @@
 		"@elysiajs/cors": "1.4.1",
 		"@elysiajs/swagger": "1.3.1",
 		"@leyabierta/pipeline": "workspace:*",
+		"@resvg/resvg-js": "^2.6.2",
 		"@types/js-yaml": "4.0.9",
 		"elysia": "1.4.28",
 		"js-yaml": "4.1.1",
-		"resend": "6.10.0"
+		"resend": "6.10.0",
+		"satori": "^0.26.0"
 	}
 }

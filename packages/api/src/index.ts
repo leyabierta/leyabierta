@@ -6,6 +6,7 @@
 
 import { Database } from "bun:sqlite";
 import { timingSafeEqual } from "node:crypto";
+import { join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
@@ -131,8 +132,40 @@ const app = new Elysia()
 					title: "Ley Abierta API",
 					version: "0.1.0",
 					description:
-						"API REST para legislación española consolidada. Fuente: Agencia Estatal BOE.",
+						"REST API for consolidated Spanish legislation. Source: Agencia Estatal BOE.",
+					contact: {
+						name: "Ley Abierta",
+						url: "https://github.com/leyabierta/leyabierta",
+					},
+					license: {
+						name: "MIT",
+						url: "https://github.com/leyabierta/leyabierta/blob/main/LICENSE",
+					},
 				},
+				tags: [
+					{
+						name: "Leyes",
+						description:
+							"Search, detail, versions, diff, and references for laws",
+					},
+					{
+						name: "Reformas",
+						description:
+							"Personal reforms, public changelog, and reform details",
+					},
+					{
+						name: "Ómnibus",
+						description: "Omnibus law detection with per-topic breakdowns",
+					},
+					{
+						name: "Alertas",
+						description: "Email alert subscriptions and confirmation",
+					},
+					{
+						name: "Sistema",
+						description: "Health checks and internal endpoints",
+					},
+				],
 			},
 		}),
 	);
@@ -143,11 +176,51 @@ app
 	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))
 	.use(omnibusRoutes(dbService))
-	.get("/health", () => ({
-		status: "ok",
-		version: process.env.GIT_SHA ?? "dev",
-		laws: dbService.searchLaws(undefined, {}, 0, 0).total,
-	}))
+	.get(
+		"/health",
+		() => ({
+			status: "ok",
+			version: process.env.GIT_SHA ?? "dev",
+			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
+		}),
+		{
+			detail: {
+				summary: "Health check",
+				description: "Returns API status, version, and total law count.",
+				tags: ["Sistema"],
+			},
+		},
+	)
+	.get(
+		"/og/:id",
+		async ({ params, set }) => {
+			const id = params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+			if (!id) {
+				set.status = 400;
+				return { error: "Missing id" };
+			}
+			const ogDir =
+				process.env.OG_IMAGES_DIR || join(process.cwd(), "og-images");
+			const filePath = join(ogDir, `${id}.png`);
+			const file = Bun.file(filePath);
+			if (!(await file.exists())) {
+				set.status = 404;
+				return { error: "OG image not found" };
+			}
+			return new Response(file, {
+				headers: {
+					"Content-Type": "image/png",
+					"Cache-Control": "public, max-age=604800",
+				},
+			});
+		},
+		{
+			detail: {
+				summary: "Get OG image for a law",
+				tags: ["Sistema"],
+			},
+		},
+	)
 	.listen(PORT);
 
 console.log(`Ley Abierta API running on http://localhost:${PORT}`);

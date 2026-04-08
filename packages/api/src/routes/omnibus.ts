@@ -36,6 +36,12 @@ export function omnibusRoutes(dbService: DbService) {
 					limit: t.Optional(t.String()),
 					since: t.Optional(t.String()),
 				}),
+				detail: {
+					summary: "List omnibus laws",
+					description:
+						"Returns recent omnibus laws (laws bundling multiple unrelated topics) with topic counts.",
+					tags: ["Ómnibus"],
+				},
 			},
 		)
 		.get(
@@ -65,29 +71,37 @@ export function omnibusRoutes(dbService: DbService) {
 				params: t.Object({
 					normId: t.String(),
 				}),
+				detail: {
+					summary: "Omnibus law detail",
+					description:
+						"Returns full detail for an omnibus law including per-topic AI breakdowns and sneaked topic count.",
+					tags: ["Ómnibus"],
+				},
 			},
 		)
-		.get("/feed-omnibus.xml", ({ set }) => {
-			const omnibus = dbService.listRecentOmnibus(20);
+		.get(
+			"/feed-omnibus.xml",
+			({ set }) => {
+				const omnibus = dbService.listRecentOmnibus(20);
 
-			const items = omnibus
-				.map((o) => {
-					const topics = dbService.getOmnibusTopics(o.id);
-					const topicLabels = topics.map((t) => t.topic_label).join(", ");
-					const title = `Ley ómnibus: ${o.title} (${o.topic_count} temas)`;
-					const description = topicLabels || `${o.materia_count} materias`;
+				const items = omnibus
+					.map((o) => {
+						const topics = dbService.getOmnibusTopics(o.id);
+						const topicLabels = topics.map((t) => t.topic_label).join(", ");
+						const title = `Ley ómnibus: ${o.title} (${o.topic_count} temas)`;
+						const description = topicLabels || `${o.materia_count} materias`;
 
-					return `    <item>
+						return `    <item>
       <title>${escapeXml(title)}</title>
       <link>https://leyabierta.es/laws/${escapeXml(o.id)}</link>
       <description>${escapeXml(description)}</description>
       <pubDate>${new Date(o.latest_reform_date).toUTCString()}</pubDate>
       <guid>https://leyabierta.es/laws/${escapeXml(o.id)}</guid>
     </item>`;
-				})
-				.join("\n");
+					})
+					.join("\n");
 
-			const xml = `<?xml version="1.0" encoding="UTF-8"?>
+				const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
     <title>Leyes ómnibus — Ley Abierta</title>
@@ -98,7 +112,16 @@ ${items}
   </channel>
 </rss>`;
 
-			set.headers["Content-Type"] = "application/rss+xml; charset=utf-8";
-			return xml;
-		});
+				set.headers["Content-Type"] = "application/rss+xml; charset=utf-8";
+				return xml;
+			},
+			{
+				detail: {
+					summary: "RSS feed of omnibus laws",
+					description:
+						"Returns an RSS 2.0 XML feed of recent omnibus laws with topic summaries.",
+					tags: ["Ómnibus"],
+				},
+			},
+		);
 }
