@@ -90,6 +90,8 @@ async function bootstrap() {
 	// Retry error norms that the watermark may have passed over.
 	// discoverUpdated stops at the watermark, so error norms with older
 	// fecha_actualizacion would never surface again without this.
+	// Error retries bypass --limit intentionally — a failed norm must not be
+	// silently dropped just because the discovery limit was reached.
 	const errorRetries = state.getErrorNormIds();
 	const discoveredIds = new Set(discovered.map((d) => d.id));
 	let retryCount = 0;
@@ -102,11 +104,13 @@ async function bootstrap() {
 
 	// Everything from discoverUpdated is either new or updated — process all.
 	// In --force mode, discoverAll returns everything — also process all.
+	const errorIds = new Set(errorRetries);
 	const pending: string[] = [];
 	let newCount = 0;
 	let updatedCount = 0;
 	for (const { id } of discovered) {
 		pending.push(id);
+		if (errorIds.has(id)) continue; // counted separately as retryCount
 		if (!state.isProcessed(id)) newCount++;
 		else updatedCount++;
 	}
