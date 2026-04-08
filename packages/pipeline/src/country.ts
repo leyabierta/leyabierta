@@ -23,14 +23,25 @@ export interface LegislativeClient {
 }
 
 /**
+ * A norm discovered from the official catalog, with optional update metadata.
+ */
+export interface DiscoveredNorm {
+	id: string;
+	fechaActualizacion?: string; // source-specific update timestamp
+}
+
+/**
  * Discovers norms available in a country's official catalog.
  */
 export interface NormDiscovery {
-	/** Discover all available norm IDs. */
-	discoverAll(client: LegislativeClient): AsyncIterable<string>;
+	/** Discover all available norm IDs (full pagination). */
+	discoverAll(client: LegislativeClient): AsyncIterable<DiscoveredNorm>;
 
-	/** Discover norms published on a specific date. */
-	discoverDaily(client: LegislativeClient, date: string): AsyncIterable<string>;
+	/** Discover norms updated since a given timestamp (early-stop when caught up). */
+	discoverUpdated(
+		client: LegislativeClient,
+		since?: string,
+	): AsyncIterable<DiscoveredNorm>;
 }
 
 /**

@@ -38,12 +38,14 @@ Objetivo: preparar el producto para distribución. SEO, accesibilidad, homepage 
 El modo incremental del pipeline (lunes-sábado) solo detecta norms **nuevas**. Las reformas a leyes existentes (texto consolidado actualizado en BOE) solo se detectan el domingo con `--force`. Esto significa que de lunes a sábado podemos perder reformas importantes.
 
 ### Pipeline incremental
-- [ ] Implementar `discoverDaily()` en `boe-discovery.ts` — leer el sumario diario del BOE (`/boe/sumario/YYYYMMDD`), identificar qué norms consolidadas fueron afectadas, y re-fetchear solo esas
-- [ ] Modificar el modo incremental en `cli.ts` para comparar `fecha_actualizacion` del BOE contra un timestamp almacenado por norm, en vez de solo verificar si el ID existe en `state.json`
+- [x] Implementar `discoverUpdated()` en `boe-discovery.ts` con early-stop via `fecha_actualizacion` watermark
+- [x] Modificar bootstrap en `cli.ts` para usar `discoverUpdated` por defecto (1-2 API calls/día vs 123)
+- [x] Simplificar `daily-pipeline.yml` a un schedule diario (eliminar Sunday full-sync)
 
 ### Infraestructura del servidor
 - [x] Unificar los 3 cron jobs (update-db, generate-ai, send-notifications) en un solo script secuencial `daily-pipeline.sh` con `set -e` (fail-fast)
 - [ ] Desplegar `daily-pipeline.sh` en KonarServer y reemplazar los 3 crontab entries antiguos
+- [ ] Correr `--force` para pillar las ~20 reformas perdidas del 6-8 abril
 
 ---
 

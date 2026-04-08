@@ -2,14 +2,12 @@ name: Daily Pipeline
 
 on:
   schedule:
-    # Incremental: Mon-Sat 06:00 UTC (new norms only)
-    - cron: "0 6 * * 1-6"
-    # Full re-check: Sunday 04:00 UTC (catches updates to existing norms)
-    - cron: "0 4 * * 0"
+    # Daily at 06:00 UTC — detects both new norms and reforms via fecha_actualizacion watermark
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       force:
-        description: "Force re-process all norms (catches updates to existing norms)"
+        description: "Force re-process all norms (full pagination, ignores watermark)"
         type: boolean
         default: false
 
@@ -49,14 +47,14 @@ jobs:
         id: mode
         run: |
           # Sunday cron or manual --force → re-process all
-          if [[ "${{ github.event.schedule }}" == "0 4 * * 0" ]] || [[ "${{ inputs.force }}" == "true" ]]; then
+          if [[ "${{ inputs.force }}" == "true" ]]; then
             echo "force=--force" >> "$GITHUB_OUTPUT"
             echo "label=FULL" >> "$GITHUB_OUTPUT"
-            echo "Mode: FULL (re-checking all norms for updates)"
+            echo "Mode: FULL (--force, re-processing all norms)"
           else
             echo "force=" >> "$GITHUB_OUTPUT"
-            echo "label=INCREMENTAL" >> "$GITHUB_OUTPUT"
-            echo "Mode: INCREMENTAL (new norms only)"
+            echo "label=DAILY" >> "$GITHUB_OUTPUT"
+            echo "Mode: DAILY (norms updated since last watermark)"
           fi
 
       - name: Notify — Started

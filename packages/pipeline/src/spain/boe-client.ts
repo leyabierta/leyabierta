@@ -99,6 +99,10 @@ export class BoeClient implements LegislativeClient {
 	/**
 	 * List consolidated norms with pagination.
 	 * Returns the raw JSON response with `status` and `data` fields.
+	 *
+	 * The API returns results ordered by fecha_actualizacion DESC by default.
+	 * No sort parameter is passed — we rely on this default ordering for
+	 * the early-stop logic in discoverUpdated().
 	 */
 	async list(
 		limit: number,
@@ -222,6 +226,7 @@ export interface BoeListItem {
 	fecha_publicacion: string; // YYYYMMDD
 	fecha_disposicion: string; // YYYYMMDD
 	fecha_vigencia?: string;
+	fecha_actualizacion?: string; // ISO timestamp, e.g. "20260408T080417Z"
 	estatus_derogacion?: string; // "S" | "N" | null
 	vigencia_agotada?: string; // "S" | "N"
 	estado_consolidacion?: { codigo: string; texto: string };
