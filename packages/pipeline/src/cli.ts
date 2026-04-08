@@ -94,11 +94,9 @@ async function bootstrap() {
 	// silently dropped just because the discovery limit was reached.
 	const errorRetries = state.getErrorNormIds();
 	const discoveredIds = new Set(discovered.map((d) => d.id));
-	let retryCount = 0;
 	for (const id of errorRetries) {
 		if (!discoveredIds.has(id)) {
 			discovered.push({ id });
-			retryCount++;
 		}
 	}
 
@@ -108,9 +106,13 @@ async function bootstrap() {
 	const pending: string[] = [];
 	let newCount = 0;
 	let updatedCount = 0;
+	let retryCount = 0;
 	for (const { id } of discovered) {
 		pending.push(id);
-		if (errorIds.has(id)) continue; // counted separately as retryCount
+		if (errorIds.has(id)) {
+			retryCount++;
+			continue;
+		}
 		if (!state.isProcessed(id)) newCount++;
 		else updatedCount++;
 	}
