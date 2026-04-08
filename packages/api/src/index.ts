@@ -178,11 +178,22 @@ app
 	.use(omnibusRoutes(dbService))
 	.get(
 		"/health",
-		() => ({
-			status: "ok",
-			version: process.env.GIT_SHA ?? "dev",
-			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
-		}),
+		() => {
+			const dbPath = process.env.DB_PATH || "./data/leyabierta.db";
+			let lastIngest: string | null = null;
+			try {
+				const stat = Bun.file(dbPath);
+				lastIngest = new Date(stat.lastModified).toISOString();
+			} catch {
+				/* ignore */
+			}
+			return {
+				status: "ok",
+				version: process.env.GIT_SHA ?? "dev",
+				laws: dbService.searchLaws(undefined, {}, 0, 0).total,
+				last_ingest: lastIngest,
+			};
+		},
 		{
 			detail: {
 				summary: "Health check",

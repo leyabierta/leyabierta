@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ingestJsonDir } from "../src/db/index.ts";
+import {
+	ingestJsonDir,
+	normalizeArticle,
+	validateNorm,
+} from "../src/db/index.ts";
 import { createSchema } from "../src/db/schema.ts";
 
 function makeNormJson(overrides: Record<string, unknown> = {}) {
@@ -290,5 +294,299 @@ describe("ingestJsonDir", () => {
 		} finally {
 			await rm(emptyDir, { recursive: true, force: true });
 		}
+	});
+
+	test("processes files in batches with correct results", async () => {
+		// Create 5 norm files, use batchSize=2 → should produce 3 batches
+		for (let i = 1; i <= 5; i++) {
+			const norm = makeNormJson({
+				metadata: {
+					...makeNormJson().metadata,
+					id: `BOE-A-2024-000${i}`,
+					title: `Ley ${i}`,
+				},
+			});
+			await writeFile(
+				join(tempDir, `BOE-A-2024-000${i}.json`),
+				JSON.stringify(norm),
+			);
+		}
+
+		const result = await ingestJsonDir(db, tempDir, { batchSize: 2 });
+
+		expect(result.normsInserted).toBe(5);
+		expect(result.blocksInserted).toBe(5);
+		expect(result.errors).toHaveLength(0);
+		expect(result.duration).toBeGreaterThan(0);
+
+		const norms = db.query("SELECT * FROM norms").all();
+		expect(norms).toHaveLength(5);
+	});
+
+	test("selective ingest by IDs only processes specified norms", async () => {
+		for (let i = 1; i <= 3; i++) {
+			const norm = makeNormJson({
+				metadata: {
+					...makeNormJson().metadata,
+					id: `BOE-A-2024-000${i}`,
+					title: `Ley ${i}`,
+				},
+			});
+			await writeFile(
+				join(tempDir, `BOE-A-2024-000${i}.json`),
+				JSON.stringify(norm),
+			);
+		}
+
+		const result = await ingestJsonDir(db, tempDir, {
+			ids: ["BOE-A-2024-0001", "BOE-A-2024-0003"],
+		});
+
+		expect(result.normsInserted).toBe(2);
+		expect(result.errors).toHaveLength(0);
+
+		const norms = db.query("SELECT id FROM norms ORDER BY id").all() as Array<{
+			id: string;
+		}>;
+		expect(norms.map((n) => n.id)).toEqual([
+			"BOE-A-2024-0001",
+			"BOE-A-2024-0003",
+		]);
+	});
+
+	test("normalizes snake_case JSON keys to camelCase", async () => {
+		const snakeCaseNorm = {
+			metadata: {
+				title: "Ley con snake_case",
+				shortTitle: "",
+				id: "BOE-A-2024-SNAKE",
+				country: "es",
+				rank: "real_decreto_ley",
+				published: "2024-01-01",
+				updated: "",
+				status: "vigente",
+				department: "",
+				source: "",
+			},
+			articles: [
+				{
+					block_id: "art-1",
+					block_type: "articulo",
+					title: "Articulo 1",
+					versions: [
+						{
+							date: "2024-01-01",
+							sourceId: "BOE-A-2024-SNAKE",
+							text: "Snake case text.",
+						},
+					],
+				},
+			],
+			reforms: [],
+		};
+
+		await writeFile(
+			join(tempDir, "BOE-A-2024-SNAKE.json"),
+			JSON.stringify(snakeCaseNorm),
+		);
+
+		const result = await ingestJsonDir(db, tempDir);
+
+		expect(result.normsInserted).toBe(1);
+		expect(result.blocksInserted).toBe(1);
+		expect(result.errors).toHaveLength(0);
+
+		const block = db
+			.query("SELECT * FROM blocks WHERE norm_id = 'BOE-A-2024-SNAKE'")
+			.get() as Record<string, unknown>;
+		expect(block).toBeTruthy();
+		expect(block.block_id).toBe("art-1");
+		expect(block.block_type).toBe("articulo");
+		expect(block.current_text).toBe("Snake case text.");
+	});
+
+	test("skips corrupt JSON with error, continues batch", async () => {
+		// Valid norm
+		const norm = makeNormJson();
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(norm),
+		);
+
+		// Corrupt JSON
+		await writeFile(join(tempDir, "BOE-A-2024-BAD.json"), "{invalid json!!!");
+
+		// Valid norm 2
+		const norm2 = makeNormJson({
+			metadata: { ...makeNormJson().metadata, id: "BOE-A-2024-0002" },
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2024-0002.json"),
+			JSON.stringify(norm2),
+		);
+
+		const result = await ingestJsonDir(db, tempDir);
+
+		// Both valid norms should be ingested
+		expect(result.normsInserted).toBe(2);
+		// One error from corrupt JSON
+		expect(result.errors.length).toBeGreaterThanOrEqual(1);
+		expect(result.errors.some((e) => e.includes("BOE-A-2024-BAD"))).toBe(true);
+	});
+
+	test("skips empty file with error", async () => {
+		await writeFile(join(tempDir, "BOE-A-2024-EMPTY.json"), "");
+
+		const result = await ingestJsonDir(db, tempDir);
+
+		expect(result.normsInserted).toBe(0);
+		expect(result.errors.length).toBeGreaterThan(0);
+	});
+
+	test("handles non-existent ID gracefully", async () => {
+		const norm = makeNormJson();
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(norm),
+		);
+
+		const result = await ingestJsonDir(db, tempDir, {
+			ids: ["BOE-A-DOES-NOT-EXIST"],
+		});
+
+		expect(result.normsInserted).toBe(0);
+		expect(result.errors.length).toBeGreaterThan(0);
+		expect(result.errors[0]).toContain("No JSON files found for IDs");
+	});
+
+	test("re-ingest preserves citizen_summary", async () => {
+		const norm = makeNormJson();
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(norm),
+		);
+
+		await ingestJsonDir(db, tempDir);
+
+		// Set a citizen_summary manually
+		db.run(
+			"UPDATE norms SET citizen_summary = 'Test summary' WHERE id = 'BOE-A-2024-1234'",
+		);
+
+		// Re-ingest
+		await ingestJsonDir(db, tempDir);
+
+		const row = db
+			.query("SELECT citizen_summary FROM norms WHERE id = 'BOE-A-2024-1234'")
+			.get() as { citizen_summary: string };
+		expect(row.citizen_summary).toBe("Test summary");
+	});
+
+	test("skips JSON with missing required metadata fields", async () => {
+		const invalidNorm = {
+			metadata: {
+				title: "Missing id",
+				shortTitle: "",
+				country: "es",
+				rank: "ley",
+				published: "2024-01-01",
+				status: "vigente",
+			},
+			articles: [],
+			reforms: [],
+		};
+
+		await writeFile(
+			join(tempDir, "BOE-A-2024-INVALID.json"),
+			JSON.stringify(invalidNorm),
+		);
+
+		const result = await ingestJsonDir(db, tempDir);
+
+		expect(result.normsInserted).toBe(0);
+		expect(result.errors.length).toBeGreaterThan(0);
+		expect(result.errors[0]).toContain("metadata.id");
+	});
+});
+
+describe("validateNorm", () => {
+	test("accepts valid norm", () => {
+		const norm = makeNormJson();
+		const { valid, errors } = validateNorm(norm);
+		expect(valid).toBe(true);
+		expect(errors).toHaveLength(0);
+	});
+
+	test("rejects null input", () => {
+		const { valid } = validateNorm(null);
+		expect(valid).toBe(false);
+	});
+
+	test("rejects missing metadata", () => {
+		const { valid, errors } = validateNorm({ articles: [], reforms: [] });
+		expect(valid).toBe(false);
+		expect(errors[0]).toContain("metadata");
+	});
+
+	test("rejects missing required fields", () => {
+		const { valid, errors } = validateNorm({
+			metadata: { title: "Test" },
+			articles: [],
+			reforms: [],
+		});
+		expect(valid).toBe(false);
+		expect(errors.some((e) => e.includes("metadata.id"))).toBe(true);
+	});
+});
+
+describe("normalizeArticle", () => {
+	test("converts snake_case to camelCase", () => {
+		const result = normalizeArticle(
+			{
+				block_id: "art-1",
+				block_type: "articulo",
+				title: "Test",
+				versions: [],
+			},
+			0,
+		);
+		expect(result.blockId).toBe("art-1");
+		expect(result.blockType).toBe("articulo");
+		expect(result.position).toBe(0);
+		expect(result.currentText).toBe("");
+	});
+
+	test("preserves camelCase without modification", () => {
+		const result = normalizeArticle(
+			{
+				blockId: "art-2",
+				blockType: "preambulo",
+				title: "Preamble",
+				position: 5,
+				versions: [{ date: "2024-01-01", sourceId: "X", text: "hello" }],
+				currentText: "hello",
+			},
+			0,
+		);
+		expect(result.blockId).toBe("art-2");
+		expect(result.position).toBe(5);
+		expect(result.currentText).toBe("hello");
+	});
+
+	test("defaults currentText to last version text", () => {
+		const result = normalizeArticle(
+			{
+				block_id: "art-3",
+				block_type: "articulo",
+				title: "Test",
+				versions: [
+					{ date: "2024-01-01", sourceId: "X", text: "v1" },
+					{ date: "2024-06-01", sourceId: "Y", text: "v2" },
+				],
+			},
+			2,
+		);
+		expect(result.currentText).toBe("v2");
+		expect(result.position).toBe(2);
 	});
 });
