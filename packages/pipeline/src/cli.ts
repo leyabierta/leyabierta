@@ -7,6 +7,7 @@
  *   bun run pipeline status [--state PATH]
  */
 
+import type { DiscoveredNorm } from "./country.ts";
 import { getCountry } from "./country.ts";
 import { ingestJsonDir, openDatabase } from "./db/index.ts";
 import type {
@@ -48,26 +49,68 @@ async function bootstrap() {
 	const state = new StateStore(STATE_PATH, countryCode);
 	await state.load();
 
-	// Discover all norm IDs
-	console.log(`Discovering norms from ${country.name}...`);
-	const normIds: string[] = [];
-	for await (const id of country.discovery().discoverAll(discoveryClient)) {
-		normIds.push(id);
-		if (limit > 0 && normIds.length >= limit) break;
+	// Discover norms — two modes:
+	// --force: paginate ALL norms (full re-check)
+	// default: only norms updated since last run (early-stop via fecha_actualizacion)
+	const force = args.includes("--force");
+	const discovery = country.discovery();
+	const discovered: DiscoveredNorm[] = [];
+
+	if (force) {
+		console.log(`Discovering ALL norms from ${country.name} (--force)...`);
+		for await (const item of discovery.discoverAll(discoveryClient)) {
+			discovered.push(item);
+			if (limit > 0 && discovered.length >= limit) break;
+		}
+	} else {
+		const watermark = state.lastBoeUpdate;
+		if (!watermark) {
+			console.log(
+				"No watermark found — run with --force first to establish baseline.",
+			);
+			await discoveryClient.close();
+			return;
+		}
+		console.log(
+			`Discovering norms updated since ${watermark} from ${country.name}...`,
+		);
+		for await (const item of discovery.discoverUpdated(
+			discoveryClient,
+			watermark,
+		)) {
+			discovered.push(item);
+			if (limit > 0 && discovered.length >= limit) break;
+		}
 	}
 	await discoveryClient.close();
-	console.log(`Found ${normIds.length} norms.`);
 
-	// Filter: skip only norms marked done (errors are retried)
-	// With --force flag, re-process all norms (useful for catching updates)
-	const force = args.includes("--force");
-	const pending = force
-		? normIds
-		: normIds.filter((id) => !state.isProcessed(id));
+	// Build lookup for fecha_actualizacion
+	const fechaMap = new Map(discovered.map((d) => [d.id, d.fechaActualizacion]));
+
+	// Partition: new norms vs updated norms vs errors to retry
+	const pending: string[] = [];
+	let newCount = 0;
+	let updatedCount = 0;
+	for (const { id } of discovered) {
+		if (!state.isProcessed(id)) {
+			pending.push(id);
+			newCount++;
+		} else if (force) {
+			// --force: re-process everything
+			pending.push(id);
+			updatedCount++;
+		} else {
+			// discoverUpdated already filtered by watermark, so anything
+			// here that IS processed must have a newer fecha_actualizacion
+			pending.push(id);
+			updatedCount++;
+		}
+	}
+
 	console.log(
 		force
-			? `Force mode: re-processing all ${normIds.length} norms.\n`
-			: `${pending.length} pending (${normIds.length - pending.length} already done).\n`,
+			? `Found ${discovered.length} norms. Re-processing all.\n`
+			: `Found ${discovered.length} norms: ${newCount} new, ${updatedCount} updated.\n`,
 	);
 
 	if (pending.length === 0) {
@@ -170,9 +213,17 @@ async function bootstrap() {
 		},
 	);
 
-	// Mark all successfully fetched norms as done
+	// Mark all successfully fetched norms as done + update watermark
+	let maxFechaActualizacion: string | undefined;
 	for (const { id, norm } of fetchedOk) {
-		state.markDone(id, norm!.reforms.length);
+		const fecha = fechaMap.get(id);
+		state.markDone(id, norm!.reforms.length, undefined, fecha);
+		if (fecha && (!maxFechaActualizacion || fecha > maxFechaActualizacion)) {
+			maxFechaActualizacion = fecha;
+		}
+	}
+	if (maxFechaActualizacion) {
+		state.setLastBoeUpdate(maxFechaActualizacion);
 	}
 
 	await state.save();

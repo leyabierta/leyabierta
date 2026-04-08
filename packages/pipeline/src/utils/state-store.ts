@@ -12,11 +12,13 @@ export interface NormState {
 	lastCommitSha?: string;
 	error?: string;
 	processedAt: string; // ISO timestamp
+	fechaActualizacion?: string; // BOE's fecha_actualizacion timestamp
 }
 
 export interface StateData {
 	version: 1;
 	country: string;
+	lastBoeUpdate?: string; // watermark: most recent fecha_actualizacion we've processed
 	norms: Record<string, NormState>;
 }
 
@@ -47,13 +49,28 @@ export class StateStore {
 		return s === "done" || s === "skipped";
 	}
 
-	markDone(normId: string, commits: number, lastSha?: string): void {
+	get lastBoeUpdate(): string | undefined {
+		return this.data.lastBoeUpdate;
+	}
+
+	setLastBoeUpdate(ts: string): void {
+		this.data.lastBoeUpdate = ts;
+		this.dirty = true;
+	}
+
+	markDone(
+		normId: string,
+		commits: number,
+		lastSha?: string,
+		fechaActualizacion?: string,
+	): void {
 		this.data.norms[normId] = {
 			id: normId,
 			status: "done",
 			commits,
 			lastCommitSha: lastSha,
 			processedAt: new Date().toISOString(),
+			fechaActualizacion,
 		};
 		this.dirty = true;
 	}

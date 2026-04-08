@@ -222,6 +222,7 @@ export interface BoeListItem {
 	fecha_publicacion: string; // YYYYMMDD
 	fecha_disposicion: string; // YYYYMMDD
 	fecha_vigencia?: string;
+	fecha_actualizacion?: string; // ISO timestamp, e.g. "20260408T080417Z"
 	estatus_derogacion?: string; // "S" | "N" | null
 	vigencia_agotada?: string; // "S" | "N"
 	estado_consolidacion?: { codigo: string; texto: string };
