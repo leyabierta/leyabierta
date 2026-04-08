@@ -195,6 +195,10 @@ app
 		"/og/:id",
 		async ({ params, set }) => {
 			const id = params.id.replace(/[^a-zA-Z0-9_-]/g, "");
+			if (!id) {
+				set.status = 400;
+				return { error: "Missing id" };
+			}
 			const ogDir =
 				process.env.OG_IMAGES_DIR || join(process.cwd(), "og-images");
 			const filePath = join(ogDir, `${id}.png`);
@@ -206,7 +210,7 @@ app
 			return new Response(file, {
 				headers: {
 					"Content-Type": "image/png",
-					"Cache-Control": "public, immutable, max-age=31536000",
+					"Cache-Control": "public, max-age=604800",
 				},
 			});
 		},

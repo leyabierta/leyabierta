@@ -30,7 +30,7 @@ const resolvedOgTitle = ogTitle ?? fullTitle;
 const resolvedOgDescription = ogDescription ?? description;
 const resolvedOgImage = ogImage ?? `${SITE_URL}/og-image.png`;
 const resolvedCanonicalUrl = canonicalUrl ? `${SITE_URL}${canonicalUrl}` : undefined;
-const resolvedOgUrl = resolvedCanonicalUrl ?? SITE_URL;
+const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`;
 ---
 
 <!doctype html>

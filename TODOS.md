@@ -16,7 +16,7 @@ Objetivo: preparar el producto para distribución. SEO, accesibilidad, homepage 
 - [x] Auditoría completa de meta tags, OG tags y canonical URLs en todas las páginas
 - [x] OG images dinámicas por ley (Satori, top 2000 leyes + reformadas últimos 6 meses)
 - [x] JSON-LD structured data (`schema.org/Legislation`) en cada página de ley
-- [ ] Verificar sitemap.xml y robots.txt
+- [x] Verificar sitemap.xml y robots.txt
 
 ### API
 - [x] Mejorar Swagger: descripciones ricas, tags por grupo, ejemplos de respuesta
@@ -27,9 +27,9 @@ Objetivo: preparar el producto para distribución. SEO, accesibilidad, homepage 
 - [x] Añadir enlaces a API y RSS en el footer global
 
 ### QA
-- [ ] Auditoría de accesibilidad WCAG 2.1 AA (contraste, teclado, aria-labels, focus)
-- [ ] Lighthouse en páginas principales (objetivo: >=90 en Accesibilidad, SEO, Best Practices)
-- [ ] Testing responsive: 375px (iPhone SE), 768px (iPad), 1440px (desktop)
+- [x] Auditoría de accesibilidad WCAG 2.1 AA (contraste, teclado, aria-labels, focus)
+- [x] Lighthouse en páginas principales (objetivo: >=90 en Accesibilidad, SEO, Best Practices)
+- [x] Testing responsive: 375px (iPhone SE), 768px (iPad), 1440px (desktop)
 
 ---
 

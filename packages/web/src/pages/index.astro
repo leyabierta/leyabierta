@@ -1019,6 +1019,8 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					var name = law.title
 						.replace(/^(Real Decreto Legislativo|Real Decreto-ley|Real Decreto|Ley Orgánica|Ley)\s+\d+\/\d{4},\s*de\s+\d+\s+de\s+\w+,\s*/i, "")
 						.replace(/^(por el que se aprueba el texto refundido de la |por la que se aprueba la |por el que se aprueba el )/i, "");
+					// Fallback if regex stripped everything
+					if (!name) name = law.title;
 					// Capitalize first letter
 					name = name.charAt(0).toUpperCase() + name.slice(1);
 					// Truncate if still long
