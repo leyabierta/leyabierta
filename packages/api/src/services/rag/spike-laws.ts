@@ -66,6 +66,14 @@ export const SPIKE_LAW_IDS: string[] = [
 	"BOE-A-2012-10610", // Ley Estabilidad Presupuestaria (184 arts)
 	"BOE-A-1998-30155", // Ley Medidas Fiscales 1998 (186 arts)
 	"BOE-A-1996-29117", // Ley Medidas Fiscales 1996 (225 arts)
+
+	// ── Added for hard questions dataset ──
+	"BOE-A-2004-21760", // Ley Orgánica Violencia de Género (106 arts)
+	"BOE-A-2021-21788", // RDL 32/2021 reforma laboral (30 arts)
+	"BOE-A-2023-12203", // Ley 12/2023 derecho a la vivienda
 ];
 
-/** Total: ~55 laws, ~8,000 articles. Manageable for a spike. */
+/** Total: ~55+ laws, ~8,500+ articles. Manageable for a spike. */
+// Note: Código Civil (2077 arts) and Código Penal (784 arts) intentionally
+// excluded to keep embedding costs low. Cross-law questions about
+// herencias/penal will test what happens when the answer ISN'T in the dataset.

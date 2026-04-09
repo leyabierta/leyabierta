@@ -192,6 +192,46 @@ history when the question asks about changes/evolution. 22/22 correct.
 Pregunta → Analyzer (temporal?) → Vector Search → [Temporal Enrich?] → Synth → Verify
 ```
 
+## Hard Questions Benchmark (40 questions total)
+
+22 originales (100%) + 18 adversariales (78%) = **36/40 correctas (90%)**
+
+### Fallos de las hard questions
+
+| Q | Pregunta | Problema | Tipo |
+|---|----------|----------|------|
+| Q201 | "¿Cuánto me tienen que pagar?" | Declina en vez de dar info general sobre SMI | **Prompt** |
+| Q202 | "¿Puedo grabar a mi jefe?" | Respondió bien pero con citas de otras leyes | **Eval metric** |
+| Q401 | "Según art. 847 Código Laboral..." | Declina en vez de corregir la premisa falsa | **Prompt** |
+| Q404 | "Resume TODAS las leyes de impuestos" | Declina por pregunta demasiado amplia | **Prompt** |
+
+**Los 4 fallos son de prompt/síntesis, NO de retrieval.** El vector search encontró
+artículos relevantes en todos los casos. El LLM declina cuando debería:
+- Dar info general ante preguntas ambiguas
+- Corregir premisas falsas del usuario
+- Orientar ante preguntas demasiado amplias
+
+### Éxitos notables de las hard questions
+
+- Q101 "Si me despiden, ¿qué paro?" — Encontró ET + LGSS (cross-law funciona)
+- Q102 "Embarazada y despido" — Citó ET + Ley Igualdad
+- Q103 "Extranjero, derechos laborales" — Cruzó ET + Ley Extranjería
+- Q402 "Alquiler dura 3 años" — Corrigió premisa falsa con 5 citas
+- Q403 "Despido viernes" — Desmintió mito urbano con 2 citas
+- Q304 "Casero entrar en piso" — Citó Constitución art. 18
+
+### Costes acumulados (actualizado)
+
+| Concepto | Coste | Tokens |
+|----------|------:|-------:|
+| Phase 0 benchmark | $0.022 | 233K |
+| Embeddings v1 | $0.048 | 2.4M |
+| Phase 1 benchmark | $0.035 | 378K |
+| Phase 2 benchmark | $0.011 | 104K |
+| Embeddings v2 (+3 leyes) | $0.049 | 2.5M |
+| Hard questions benchmark | $0.010 | 90K |
+| **Total acumulado** | **$0.175** | **5.7M** |
+
 ### Tecnologías del spike
 
 - **LLM:** `google/gemini-2.5-flash-lite` via OpenRouter (ya lo usamos para reform summaries)

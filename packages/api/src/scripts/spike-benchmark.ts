@@ -26,6 +26,7 @@ import {
 	enrichWithTemporalContext,
 	buildTemporalEvidence,
 } from "../services/rag/temporal.ts";
+import { HARD_QUESTIONS } from "../services/rag/spike-questions-hard.ts";
 import {
 	SPIKE_QUESTIONS,
 	type SpikeQuestion,
@@ -824,9 +825,15 @@ async function main() {
 		? strategies.filter((s) => s.name === strategyFilter)
 		: strategies;
 
+	const allQuestions = [...SPIKE_QUESTIONS, ...HARD_QUESTIONS];
+	const hasFlag = (name: string) => args.includes(`--${name}`);
+	const hardOnly = hasFlag("hard");
+
 	const questions = questionFilter
-		? SPIKE_QUESTIONS.filter((q) => q.id === questionFilter)
-		: SPIKE_QUESTIONS;
+		? allQuestions.filter((q) => q.id === questionFilter)
+		: hardOnly
+			? HARD_QUESTIONS
+			: allQuestions;
 
 	if (activeStrategies.length === 0) {
 		console.error(
