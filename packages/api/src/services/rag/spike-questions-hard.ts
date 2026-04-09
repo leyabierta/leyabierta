@@ -71,9 +71,9 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 		id: 202,
 		question: "¿Puedo grabar a mi jefe sin que lo sepa?",
 		category: "cross-law",
-		expectedNorms: ["BOE-A-1978-31229"],
+		expectedNorms: ["BOE-A-1978-31229", "BOE-A-2018-16673"],
 		expectedAnswer:
-			"Tema complejo que cruza intimidad (CE art. 18), protección datos, y jurisprudencia. El sistema debería ser cauto.",
+			"Tema complejo que cruza intimidad (CE art. 18), protección datos (LOPD art. 89), y jurisprudencia. Cualquiera de las dos leyes es respuesta válida.",
 	},
 	{
 		id: 203,
