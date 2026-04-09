@@ -507,6 +507,47 @@ describe("ingestJsonDir", () => {
 		expect(result.errors.length).toBeGreaterThan(0);
 		expect(result.errors[0]).toContain("metadata.id");
 	});
+
+	test("resolves jurisdiction from ELI source URL", async () => {
+		const norm = makeNormJson({
+			metadata: {
+				...makeNormJson().metadata,
+				id: "BOE-A-2024-ANDA",
+				country: "es",
+				source: "https://www.boe.es/eli/es-an/l/2024/01/01/1",
+			},
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2024-ANDA.json"),
+			JSON.stringify(norm),
+		);
+
+		await ingestJsonDir(db, tempDir);
+
+		const row = db
+			.query("SELECT country FROM norms WHERE id = 'BOE-A-2024-ANDA'")
+			.get() as { country: string };
+		expect(row.country).toBe("es-an");
+	});
+
+	test("resolves jurisdiction from regional bulletin ID prefix", async () => {
+		const norm = makeNormJson({
+			metadata: {
+				...makeNormJson().metadata,
+				id: "BOJA-2024-0001",
+				country: "es",
+				source: "https://www.boe.es/buscar/act.php?id=BOJA-2024-0001",
+			},
+		});
+		await writeFile(join(tempDir, "BOJA-2024-0001.json"), JSON.stringify(norm));
+
+		await ingestJsonDir(db, tempDir);
+
+		const row = db
+			.query("SELECT country FROM norms WHERE id = 'BOJA-2024-0001'")
+			.get() as { country: string };
+		expect(row.country).toBe("es-an");
+	});
 });
 
 describe("validateNorm", () => {

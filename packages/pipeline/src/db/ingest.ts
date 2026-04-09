@@ -10,6 +10,38 @@ import { Glob } from "bun";
 
 const DEFAULT_BATCH_SIZE = 100;
 
+/** Map regional bulletin ID prefixes to jurisdiction codes. */
+const BULLETIN_JURISDICTION: Record<string, string> = {
+	BOA: "es-ar",
+	BOJA: "es-an",
+	BOCL: "es-cl",
+	BOCM: "es-md",
+	BOC: "es-cn",
+	BOCT: "es-cb",
+	BOIB: "es-ib",
+	BON: "es-nc",
+	BOPV: "es-pv",
+	BORM: "es-mc",
+	DOCM: "es-cm",
+	DOE: "es-ex",
+	DOG: "es-ga",
+	DOGC: "es-ct",
+	DOGV: "es-vc",
+};
+
+/** Resolve jurisdiction from ELI source URL or norm ID prefix. */
+function resolveJurisdiction(source: string, normId: string): string {
+	if (source) {
+		const match = source.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
+		if (match) return match[1];
+	}
+	const prefix = normId.split("-")[0];
+	if (prefix && BULLETIN_JURISDICTION[prefix]) {
+		return BULLETIN_JURISDICTION[prefix];
+	}
+	return "es";
+}
+
 /** Shape of the JSON cache files written by pipeline.ts */
 interface CachedNorm {
 	metadata: {
@@ -248,11 +280,16 @@ export async function ingestJsonDir(
 							)
 							.get(metadata.id)?.citizen_summary ?? "";
 
+					const country = resolveJurisdiction(
+						metadata.source ?? "",
+						metadata.id,
+					);
+
 					insertNorm.run({
 						$id: metadata.id,
 						$title: metadata.title,
 						$shortTitle: metadata.shortTitle ?? "",
-						$country: metadata.country,
+						$country: country,
 						$rank: metadata.rank,
 						$publishedAt: metadata.published,
 						$updatedAt: metadata.updated ?? "",

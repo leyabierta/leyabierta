@@ -8,6 +8,42 @@ import type { MetadataParser } from "../country.ts";
 import type { NormMetadata, NormStatus, Rank } from "../models.ts";
 import { parseBoeDate } from "../utils/date.ts";
 
+/** Map regional bulletin ID prefixes to jurisdiction codes. */
+const BULLETIN_JURISDICTION: Record<string, string> = {
+	BOA: "es-ar", // Aragón
+	BOJA: "es-an", // Andalucía
+	BOCL: "es-cl", // Castilla y León
+	BOCM: "es-md", // Madrid
+	BOC: "es-cn", // Canarias (also Cantabria via BOCT)
+	BOCT: "es-cb", // Cantabria
+	BOIB: "es-ib", // Islas Baleares
+	BON: "es-nc", // Navarra
+	BOPV: "es-pv", // País Vasco
+	BORM: "es-mc", // Murcia
+	DOCM: "es-cm", // Castilla-La Mancha
+	DOE: "es-ex", // Extremadura
+	DOG: "es-ga", // Galicia
+	DOGC: "es-ct", // Cataluña
+	DOGV: "es-vc", // Comunidad Valenciana
+};
+
+/** Extract jurisdiction from ELI URL or norm ID prefix. */
+function extractJurisdiction(eli: string | undefined, normId: string): string {
+	// 1. Try ELI URL: /eli/es-an/... → es-an
+	if (eli) {
+		const match = eli.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
+		if (match) return match[1];
+	}
+
+	// 2. Try regional bulletin prefix: BOJA-... → es-an
+	const prefix = normId.split("-")[0];
+	if (prefix && BULLETIN_JURISDICTION[prefix]) {
+		return BULLETIN_JURISDICTION[prefix];
+	}
+
+	return "es";
+}
+
 /** Map BOE rank codes to our Rank values. */
 const RANK_MAP: Record<string, Rank> = {
 	"1070": "constitucion",
@@ -66,7 +102,7 @@ export class BoeMetadataParser implements MetadataParser {
 			title,
 			shortTitle: extractShortTitle(title),
 			id: normId,
-			country: "es",
+			country: extractJurisdiction(eli, normId),
 			rank,
 			publishedAt: published ?? "1900-01-01",
 			status: deriveStatus(item),
