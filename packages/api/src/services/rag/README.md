@@ -103,6 +103,75 @@ Para cross-law se necesitan embeddings semánticos (Phase 1).
 FTS5 + LLM keywords valida que el RAG aporta valor real sobre búsqueda simple.
 El bottleneck ahora es retrieval semántico (embeddings) para los 3 fallos pendientes.
 
+## Phase 1: Embeddings + Hybrid Search
+
+### Costes acumulados
+
+| Concepto | Coste | Tokens | Notas |
+|----------|------:|-------:|-------|
+| Phase 0 benchmark (4×20q) | $0.022 | 233K | gemini-2.5-flash-lite |
+| Embeddings openai-small | $0.048 | 2.4M | 8,265 artículos, 48 MB |
+| **Total acumulado** | **$0.070** | **2.6M** | |
+
+### Embeddings generados
+
+- **Model:** openai/text-embedding-3-small (1536 dims)
+- **Articles:** 8,265 (52 leyes del spike subset)
+- **Size:** 48.4 MB (vectors.bin) + 0.5 MB (meta.json)
+- **Time:** 324s (~5 min)
+- **Cost:** $0.048
+- **Location:** `data/spike-embeddings-openai-small.{meta.json,vectors.bin}`
+
+### Benchmark Phase 1 (2026-04-09)
+
+6 strategies × 20 questions × gemini-2.5-flash-lite:
+
+| Strategy | Retrieval | Citation | Decline | Latency | Cost/q |
+|----------|:---------:|:--------:|:-------:|:-------:|:------:|
+| FTS5 only | 7% | 100% | 100% | 252ms | ~$0 |
+| FTS5 + LLM keywords | 73% | 82% | 100% | 1.2s | $0.0003 |
+| FTS5 + LLM + materia | 73% | 91% | 80% | 1.6s | $0.0003 |
+| FTS5 + LLM + materia + tags | 73% | 80% | 80% | 2.1s | $0.0003 |
+| **vector-only** | **100%** | **100%** | **100%** | **2.8s** | **$0.0003** |
+| hybrid (FTS5+LLM+vector) | 87% | 86% | 100% | 1.8s | $0.0003 |
+
+**Coste total benchmark:** $0.035 (120 queries)
+
+#### Conclusiones Phase 1
+
+1. **vector-only gana en todo.** 100% en las 3 métricas. Los embeddings de openai-small
+   son suficientes para conectar lenguaje ciudadano con vocabulario legal.
+
+2. **Hybrid es PEOR que vector-only** (87% vs 100%). FTS5 contamina los resultados
+   al insertar artículos irrelevantes por keyword match que desplazan a los buenos.
+
+3. **El Query Analyzer (LLM) sigue siendo útil** para el step de synthesis (sinónimos
+   en el prompt), pero NO para retrieval cuando hay embeddings.
+
+4. **Materia y tags son innecesarios** cuando hay embeddings. Solo añaden ruido.
+
+5. **Q12 (deducción alquiler) RESUELTA.** Vector search encontró los artículos
+   del régimen transitorio que FTS5 nunca pudo matchear.
+
+#### Decisión: arquitectura simplificada
+
+```
+Pregunta → Embed query → Vector search (top-20) → LLM Synthesis → Citation Verifier
+```
+
+No necesitamos FTS5 para retrieval. No necesitamos Query Analyzer para retrieval.
+El Query Analyzer puede ser útil para el prompt de síntesis (mejores instrucciones
+al LLM), pero el retrieval es 100% vector.
+
+### Costes acumulados (actualizado)
+
+| Concepto | Coste | Tokens | Notas |
+|----------|------:|-------:|-------|
+| Phase 0 benchmark (4×20q) | $0.022 | 233K | gemini-2.5-flash-lite |
+| Embeddings openai-small | $0.048 | 2.4M | 8,265 artículos, 48 MB |
+| Phase 1 benchmark (6×20q) | $0.035 | 378K | gemini-2.5-flash-lite + embeddings |
+| **Total acumulado** | **$0.105** | **3.0M** | |
+
 ### Tecnologías del spike
 
 - **LLM:** `google/gemini-2.5-flash-lite` via OpenRouter (ya lo usamos para reform summaries)

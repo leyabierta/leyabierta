@@ -17,6 +17,12 @@ import { createSchema } from "@leyabierta/pipeline";
 import { callOpenRouter } from "../services/openrouter.ts";
 import { SPIKE_LAW_IDS } from "../services/rag/spike-laws.ts";
 import {
+	loadEmbeddings,
+	embedQuery,
+	vectorSearch,
+	type EmbeddingStore,
+} from "../services/rag/embeddings.ts";
+import {
 	SPIKE_QUESTIONS,
 	type SpikeQuestion,
 } from "../services/rag/spike-questions.ts";
@@ -289,6 +295,31 @@ function verifyCitations(
 	return { valid, invalid, total: citations.length };
 }
 
+// ── Embedding store (lazy-loaded) ──
+
+let embeddingStore: EmbeddingStore | null = null;
+let embeddingCost = 0;
+
+async function getEmbeddingStore(): Promise<EmbeddingStore> {
+	if (!embeddingStore) {
+		const path = join(repoRoot, "data", "spike-embeddings-openai-small");
+		embeddingStore = await loadEmbeddings(path);
+		console.log(`  Loaded embeddings: ${embeddingStore.count} articles, ${embeddingStore.dimensions} dims`);
+	}
+	return embeddingStore;
+}
+
+async function vectorRetrieve(
+	question: string,
+	topK: number = 20,
+): Promise<Array<{ normId: string; blockId: string; score: number }>> {
+	const store = await getEmbeddingStore();
+	const queryResult = await embedQuery(apiKey!, "openai-small", question);
+	embeddingCost += queryResult.cost;
+	totalTokensIn += queryResult.tokens;
+	return vectorSearch(queryResult.embedding, store, topK);
+}
+
 // ── Retrieval Strategies ──
 
 type Strategy = {
@@ -297,7 +328,7 @@ type Strategy = {
 	retrieve: (
 		question: string,
 		analyzed: AnalyzedQuery,
-	) => ArticleResult[];
+	) => ArticleResult[] | Promise<ArticleResult[]>;
 };
 
 const strategies: Strategy[] = [
@@ -433,6 +464,126 @@ const strategies: Strategy[] = [
 			return getArticlesFromNorms(allNorms, allKeywords);
 		},
 	},
+	{
+		name: "vector-only",
+		description: "Vector search only (openai-small embeddings, no FTS5)",
+		retrieve: async (question) => {
+			const results = await vectorRetrieve(question, 20);
+			// Get full article data for the top results
+			const normIds = [...new Set(results.map((r) => r.normId))];
+			if (normIds.length === 0) return [];
+			const normFilter = normIds.map((id) => `'${id}'`).join(",");
+			const blockKeys = new Set(results.map((r) => `${r.normId}:${r.blockId}`));
+			const articles = db
+				.query<{
+					norm_id: string;
+					title: string;
+					block_id: string;
+					block_title: string;
+					current_text: string;
+					source_url: string;
+				}>(
+					`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
+                b.current_text, n.source_url
+         FROM blocks b
+         JOIN norms n ON n.id = b.norm_id
+         WHERE b.norm_id IN (${normFilter})
+           AND b.block_type = 'precepto'
+           AND b.current_text != ''`,
+				)
+				.all()
+				.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
+
+			// Sort by vector score
+			const scoreMap = new Map(results.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
+			articles.sort((a, b) =>
+				(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+				(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+			);
+
+			return articles.slice(0, TOP_K).map((a) => ({
+				normId: a.norm_id,
+				blockId: a.block_id,
+				normTitle: a.title,
+				blockTitle: a.block_title,
+				text: a.current_text,
+				sourceUrl: a.source_url,
+			}));
+		},
+	},
+	{
+		name: "hybrid",
+		description: "FTS5 + LLM keywords + Vector search (merged, deduplicated)",
+		retrieve: async (question, analyzed) => {
+			// FTS5 retrieval (same as fts-llm)
+			const normIds1 = ftsSearch(question);
+			const normIds2 = analyzed.keywords.length > 0
+				? ftsSearch(analyzed.keywords.join(" "))
+				: [];
+			const ftsNorms = [...new Set([...normIds1, ...normIds2])];
+			const ftsKeywords = [
+				...extractKeywords(question),
+				...analyzed.keywords,
+			];
+			const ftsArticles = getArticlesFromNorms(ftsNorms, ftsKeywords);
+
+			// Vector retrieval
+			const vectorResults = await vectorRetrieve(question, 20);
+			const vectorNormIds = [...new Set(vectorResults.map((r) => r.normId))];
+			const vectorBlockKeys = new Set(vectorResults.map((r) => `${r.normId}:${r.blockId}`));
+
+			let vectorArticles: ArticleResult[] = [];
+			if (vectorNormIds.length > 0) {
+				const normFilter = vectorNormIds.map((id) => `'${id}'`).join(",");
+				const rawArticles = db
+					.query<{
+						norm_id: string;
+						title: string;
+						block_id: string;
+						block_title: string;
+						current_text: string;
+						source_url: string;
+					}>(
+						`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
+                  b.current_text, n.source_url
+           FROM blocks b
+           JOIN norms n ON n.id = b.norm_id
+           WHERE b.norm_id IN (${normFilter})
+             AND b.block_type = 'precepto'
+             AND b.current_text != ''`,
+					)
+					.all()
+					.filter((a) => vectorBlockKeys.has(`${a.norm_id}:${a.block_id}`));
+
+				const scoreMap = new Map(vectorResults.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
+				rawArticles.sort((a, b) =>
+					(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+					(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+				);
+
+				vectorArticles = rawArticles.slice(0, TOP_K).map((a) => ({
+					normId: a.norm_id,
+					blockId: a.block_id,
+					normTitle: a.title,
+					blockTitle: a.block_title,
+					text: a.current_text,
+					sourceUrl: a.source_url,
+				}));
+			}
+
+			// Merge: FTS5 first (keyword precision), then vector (semantic recall)
+			const seen = new Set<string>();
+			const merged: ArticleResult[] = [];
+			for (const a of [...ftsArticles, ...vectorArticles]) {
+				const key = `${a.normId}:${a.blockId}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				merged.push(a);
+				if (merged.length >= TOP_K) break;
+			}
+			return merged;
+		},
+	},
 ];
 
 // ── Benchmark runner ──
@@ -460,7 +611,7 @@ async function runBenchmark(
 ): Promise<BenchmarkResult> {
 	const start = Date.now();
 
-	const articles = strategy.retrieve(q.question, analyzed);
+	const articles = await strategy.retrieve(q.question, analyzed);
 	const retrievedNorms = [...new Set(articles.map((a) => a.normId))];
 
 	const synthesis = await synthesize(q.question, articles);
@@ -635,12 +786,14 @@ async function main() {
 	console.log(`\n── Cost Summary ──`);
 	console.log(`  Analyzer cost:        $${analyzerCost.toFixed(6)}`);
 	console.log(`  Synthesis cost:       $${synthCost.toFixed(6)}`);
-	console.log(`  Total cost:           $${(analyzerCost + synthCost).toFixed(6)}`);
+	console.log(`  Embedding query cost: $${embeddingCost.toFixed(6)}`);
+	const totalBenchCost = analyzerCost + synthCost + embeddingCost;
+	console.log(`  Total cost:           $${totalBenchCost.toFixed(6)}`);
 	console.log(`  Total tokens in:      ${totalTokensIn.toLocaleString()}`);
 	console.log(`  Total tokens out:     ${totalTokensOut.toLocaleString()}`);
 	console.log(`  LLM calls:            ${llmCalls}`);
 	const queriesRun = activeStrategies.length * questions.length;
-	const costPerQuery = (analyzerCost + synthCost) / queriesRun;
+	const costPerQuery = totalBenchCost / queriesRun;
 	console.log(`  Cost per query:       $${costPerQuery.toFixed(6)}`);
 	console.log(`  Est. monthly (100q/d): $${(costPerQuery * 100 * 30).toFixed(2)}`);
 
