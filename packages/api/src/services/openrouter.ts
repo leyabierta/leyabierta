@@ -121,6 +121,9 @@ export async function callOpenRouter<T>(
 
 		const rawData = await response.json();
 		const usage = rawData.usage ?? {};
+		if (process.env.DEBUG_OPENROUTER) {
+			console.log("    DEBUG openrouter usage:", JSON.stringify(usage));
+		}
 		const resultText = rawData.choices?.[0]?.message?.content ?? "";
 
 		if (!resultText) {
