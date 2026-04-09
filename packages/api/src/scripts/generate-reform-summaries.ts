@@ -30,7 +30,7 @@ const hasFlag = (name: string) => args.includes(`--${name}`);
 
 const weeks = Number(getArg("weeks") ?? 4);
 const limitArg = Number(getArg("limit") ?? 200);
-const modelId = getArg("model") ?? "google/gemini-3.1-flash-lite-preview";
+const modelId = getArg("model") ?? "google/gemini-2.5-flash-lite";
 const dryRun = hasFlag("dry-run");
 const force = hasFlag("force");
 const omnibusOnly = hasFlag("omnibus-only");

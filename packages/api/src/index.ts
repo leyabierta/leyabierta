@@ -15,6 +15,7 @@ import { lawRoutes } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { LruCache } from "./services/cache.ts";
+import { CitizenSummaryService } from "./services/citizen-summary.ts";
 import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
@@ -35,6 +36,7 @@ createSchema(db);
 const dbService = new DbService(db);
 const gitService = new GitService(REPO_PATH);
 const diffCache = new LruCache<string>(5000);
+const citizenSummaryService = new CitizenSummaryService(db);
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS
 	? process.env.CORS_ORIGINS.split(",")
@@ -172,7 +174,7 @@ const app = new Elysia()
 }
 
 app
-	.use(lawRoutes(dbService, gitService, diffCache))
+	.use(lawRoutes(dbService, gitService, diffCache, citizenSummaryService))
 	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))
 	.use(omnibusRoutes(dbService))

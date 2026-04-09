@@ -22,7 +22,7 @@ const OMNIBUS_THRESHOLD = 15;
 
 const limitArg = Number(getArg("limit") ?? 20);
 const sinceArg = getArg("since");
-const modelId = getArg("model") ?? "google/gemini-3.1-flash-lite-preview";
+const modelId = getArg("model") ?? "google/gemini-2.5-flash-lite";
 const dryRun = hasFlag("dry-run");
 const force = hasFlag("force");
 
