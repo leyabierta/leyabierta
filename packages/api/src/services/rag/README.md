@@ -186,6 +186,11 @@ al LLM), pero el retrieval es 100% vector.
 Auto-detect temporal intent via Query Analyzer. Only enrich with version
 history when the question asks about changes/evolution. 22/22 correct.
 
+### Decisiones de diseño
+
+- **Disclaimer legal va en la UI (banner fijo), no en cada respuesta del LLM.** El LLM es inconsistente repitiendo disclaimers y gasta tokens. Un banner permanente en el chat es más fiable y más limpio.
+- **El LLM no debe añadir coletillas legales.** Su trabajo es sintetizar la información de los artículos en lenguaje llano, no hacer de abogado.
+
 ### Arquitectura final validada
 
 ```
