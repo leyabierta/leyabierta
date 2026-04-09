@@ -320,9 +320,12 @@ export async function ingestJsonDir(
 		);
 	}
 
-	// Rebuild FTS index for all ingested norms in a single pass
-	console.log(`  Rebuilding FTS index for ${ingestedIds.length} norms...`);
+	// Rebuild FTS index in batches
+	const ftsTotal = ingestedIds.length;
+	console.log(`  Rebuilding FTS index for ${ftsTotal} norms...`);
 	const ftsStart = performance.now();
+	const ftsBatchSize = 500;
+	const ftsBatches = Math.ceil(ftsTotal / ftsBatchSize);
 
 	const deleteFts = db.prepare(
 		/* sql */ `DELETE FROM norms_fts WHERE norm_id = $normId`,
@@ -331,54 +334,65 @@ export async function ingestJsonDir(
 		INSERT INTO norms_fts (norm_id, title, content, citizen_tags, citizen_summary)
 		VALUES ($normId, $title, $content, $citizenTags, $citizenSummary)
 	`);
+	const selectNorm = db.prepare<
+		{ title: string; citizen_summary: string },
+		[string]
+	>("SELECT title, citizen_summary FROM norms WHERE id = ?");
+	const selectBlocks = db.prepare<{ current_text: string }, [string]>(
+		"SELECT current_text FROM blocks WHERE norm_id = ?",
+	);
+	const selectTags = db.prepare<{ tag: string }, [string]>(
+		"SELECT DISTINCT tag FROM citizen_tags WHERE norm_id = ?",
+	);
+	const selectSummaries = db.prepare<{ summary: string }, [string]>(
+		"SELECT summary FROM citizen_article_summaries WHERE norm_id = ?",
+	);
 
-	const rebuildFts = db.transaction(() => {
-		for (const normId of ingestedIds) {
-			const norm = db
-				.query<{ title: string; citizen_summary: string }, [string]>(
-					"SELECT title, citizen_summary FROM norms WHERE id = ?",
-				)
-				.get(normId);
-			if (!norm) continue;
+	for (let fi = 0; fi < ftsBatches; fi++) {
+		const fbStart = performance.now();
+		const fStart = fi * ftsBatchSize;
+		const fEnd = Math.min(fStart + ftsBatchSize, ftsTotal);
+		const ftsBatch = ingestedIds.slice(fStart, fEnd);
 
-			const blocks = db
-				.query<{ current_text: string }, [string]>(
-					"SELECT current_text FROM blocks WHERE norm_id = ?",
-				)
-				.all(normId);
-			const blockTexts = blocks
-				.map((b) => b.current_text)
-				.filter(Boolean)
-				.join("\n");
+		const rebuildBatch = db.transaction(() => {
+			for (const normId of ftsBatch) {
+				const norm = selectNorm.get(normId);
+				if (!norm) continue;
 
-			const citizenTags = db
-				.query<{ tag: string }, [string]>(
-					"SELECT DISTINCT tag FROM citizen_tags WHERE norm_id = ?",
-				)
-				.all(normId)
-				.map((r) => r.tag)
-				.join(" ");
+				const blockTexts = selectBlocks
+					.all(normId)
+					.map((b) => b.current_text)
+					.filter(Boolean)
+					.join("\n");
 
-			const articleSummaries = db
-				.query<{ summary: string }, [string]>(
-					"SELECT summary FROM citizen_article_summaries WHERE norm_id = ?",
-				)
-				.all(normId)
-				.map((r) => r.summary)
-				.join("\n");
+				const citizenTags = selectTags
+					.all(normId)
+					.map((r) => r.tag)
+					.join(" ");
 
-			deleteFts.run({ $normId: normId });
-			insertFts.run({
-				$normId: normId,
-				$title: norm.title,
-				$content: `${blockTexts}\n${articleSummaries}`,
-				$citizenTags: citizenTags,
-				$citizenSummary: norm.citizen_summary,
-			});
-		}
-	});
+				const articleSummaries = selectSummaries
+					.all(normId)
+					.map((r) => r.summary)
+					.join("\n");
 
-	rebuildFts();
+				deleteFts.run({ $normId: normId });
+				insertFts.run({
+					$normId: normId,
+					$title: norm.title,
+					$content: `${blockTexts}\n${articleSummaries}`,
+					$citizenTags: citizenTags,
+					$citizenSummary: norm.citizen_summary,
+				});
+			}
+		});
+
+		rebuildBatch();
+
+		const fbDur = ((performance.now() - fbStart) / 1000).toFixed(1);
+		const fPct = ((fEnd / ftsTotal) * 100).toFixed(1);
+		console.log(`  FTS [${fEnd}/${ftsTotal}] (${fPct}%) — ${fbDur}s`);
+	}
+
 	const ftsDuration = ((performance.now() - ftsStart) / 1000).toFixed(1);
 	console.log(`  FTS rebuild done — ${ftsDuration}s`);
 
