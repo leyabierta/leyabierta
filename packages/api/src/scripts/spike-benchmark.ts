@@ -23,6 +23,10 @@ import {
 	type EmbeddingStore,
 } from "../services/rag/embeddings.ts";
 import {
+	enrichWithTemporalContext,
+	buildTemporalEvidence,
+} from "../services/rag/temporal.ts";
+import {
 	SPIKE_QUESTIONS,
 	type SpikeQuestion,
 } from "../services/rag/spike-questions.ts";
@@ -167,6 +171,7 @@ function extractKeywords(text: string): string[] {
 interface AnalyzedQuery {
 	keywords: string[];
 	materias: string[];
+	temporal: boolean;
 }
 
 let analyzerCost = 0;
@@ -179,6 +184,7 @@ async function analyzeQuery(question: string): Promise<AnalyzedQuery> {
 	const result = await callOpenRouter<{
 		keywords: string[];
 		materias: string[];
+		temporal: boolean;
 	}>(apiKey!, {
 		model: MODEL,
 		messages: [
@@ -186,7 +192,8 @@ async function analyzeQuery(question: string): Promise<AnalyzedQuery> {
 				role: "system",
 				content: `Eres un experto en legislación española. Dado una pregunta de un ciudadano, extrae:
 1. "keywords": palabras clave para buscar en el texto legal (incluye sinónimos legales). Máximo 8.
-2. "materias": categorías temáticas BOE relevantes. Usa nombres EXACTOS de materias del BOE (ej: "Consumidores y usuarios", "Arrendamientos urbanos", "Impuesto sobre la Renta de las Personas Físicas"). Máximo 3.
+2. "materias": categorías temáticas BOE relevantes. Usa nombres EXACTOS de materias del BOE. Máximo 3.
+3. "temporal": true si la pregunta pide comparar versiones, pregunta por cambios históricos, o menciona fechas/periodos. false si solo pregunta sobre la ley vigente.
 
 Responde SOLO con JSON.`,
 			},
@@ -202,6 +209,7 @@ Responde SOLO con JSON.`,
 	return {
 		keywords: result.data.keywords ?? [],
 		materias: result.data.materias ?? [],
+		temporal: result.data.temporal ?? false,
 	};
 }
 
@@ -295,6 +303,75 @@ function verifyCitations(
 	return { valid, invalid, total: citations.length };
 }
 
+// ── Temporal synthesis ──
+
+async function synthesizeWithTemporal(
+	question: string,
+	articles: ArticleResult[],
+): Promise<SynthResult> {
+	if (articles.length === 0) {
+		return { answer: "", citations: [], declined: true };
+	}
+
+	const temporalContexts = enrichWithTemporalContext(
+		db,
+		articles.map((a) => ({
+			normId: a.normId,
+			blockId: a.blockId,
+			blockTitle: a.blockTitle,
+			text: a.text,
+		})),
+	);
+
+	const evidenceText = buildTemporalEvidence(temporalContexts, MAX_EVIDENCE_TOKENS);
+
+	const result = await callOpenRouter<{
+		answer: string;
+		citations: Array<{ norm_id: string; article_title: string }>;
+		declined: boolean;
+	}>(apiKey!, {
+		model: MODEL,
+		messages: [
+			{
+				role: "system",
+				content: `Eres un asistente legal informativo de Ley Abierta. Respondes preguntas de ciudadanos usando ÚNICAMENTE los artículos proporcionados.
+
+REGLAS ESTRICTAS:
+1. Responde SOLO usando la información de los artículos proporcionados.
+2. Cita CADA afirmación con el norm_id y título del artículo EXACTO.
+3. Si los artículos NO contienen la respuesta, responde con declined=true.
+4. Usa lenguaje llano que un no-abogado entienda.
+5. NUNCA inventes información ni cites artículos que no estén proporcionados.
+6. Si la pregunta no es sobre legislación, responde con declined=true.
+7. Los norm_id tienen formato BOE-A-YYYY-NNNNN. Usa EXACTAMENTE los proporcionados.
+8. Si un artículo tiene HISTORIAL de versiones, EXPLICA cómo ha cambiado con fechas concretas.
+9. Distingue claramente entre lo que dice la ley VIGENTE y lo que decía ANTES.
+
+Responde con JSON: {"answer": "...", "citations": [{"norm_id": "...", "article_title": "..."}], "declined": false}`,
+			},
+			{
+				role: "user",
+				content: `ARTÍCULOS DISPONIBLES:\n\n${evidenceText}\n\nPREGUNTA: ${question}`,
+			},
+		],
+		temperature: 0.2,
+		maxTokens: 2000,
+	});
+	synthCost += result.cost;
+	totalTokensIn += result.tokensIn;
+	totalTokensOut += result.tokensOut;
+	llmCalls++;
+
+	return {
+		answer: result.data.answer ?? "",
+		citations: (result.data.citations ?? []).map((c) => ({
+			normId: c.norm_id,
+			articleTitle: c.article_title,
+		})),
+		declined: result.data.declined ?? false,
+	};
+}
+
 // ── Embedding store (lazy-loaded) ──
 
 let embeddingStore: EmbeddingStore | null = null;
@@ -325,6 +402,7 @@ async function vectorRetrieve(
 type Strategy = {
 	name: string;
 	description: string;
+	temporal?: boolean | "auto";
 	retrieve: (
 		question: string,
 		analyzed: AnalyzedQuery,
@@ -584,6 +662,98 @@ const strategies: Strategy[] = [
 			return merged;
 		},
 	},
+	{
+		name: "vector-temporal",
+		description: "Vector search + temporal version history in evidence",
+		temporal: true,
+		retrieve: async (question) => {
+			const results = await vectorRetrieve(question, 20);
+			const normIds = [...new Set(results.map((r) => r.normId))];
+			if (normIds.length === 0) return [];
+			const normFilter = normIds.map((id) => `'${id}'`).join(",");
+			const blockKeys = new Set(results.map((r) => `${r.normId}:${r.blockId}`));
+			const articles = db
+				.query<{
+					norm_id: string;
+					title: string;
+					block_id: string;
+					block_title: string;
+					current_text: string;
+					source_url: string;
+				}>(
+					`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
+                b.current_text, n.source_url
+         FROM blocks b
+         JOIN norms n ON n.id = b.norm_id
+         WHERE b.norm_id IN (${normFilter})
+           AND b.block_type = 'precepto'
+           AND b.current_text != ''`,
+				)
+				.all()
+				.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
+
+			const scoreMap = new Map(results.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
+			articles.sort((a, b) =>
+				(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+				(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+			);
+
+			return articles.slice(0, TOP_K).map((a) => ({
+				normId: a.norm_id,
+				blockId: a.block_id,
+				normTitle: a.title,
+				blockTitle: a.block_title,
+				text: a.current_text,
+				sourceUrl: a.source_url,
+			}));
+		},
+	},
+	{
+		name: "vector-smart",
+		description: "Vector search + auto-detect temporal (uses analyzer.temporal flag)",
+		temporal: "auto",
+		retrieve: async (question) => {
+			const results = await vectorRetrieve(question, 20);
+			const normIds = [...new Set(results.map((r) => r.normId))];
+			if (normIds.length === 0) return [];
+			const normFilter = normIds.map((id) => `'${id}'`).join(",");
+			const blockKeys = new Set(results.map((r) => `${r.normId}:${r.blockId}`));
+			const articles = db
+				.query<{
+					norm_id: string;
+					title: string;
+					block_id: string;
+					block_title: string;
+					current_text: string;
+					source_url: string;
+				}>(
+					`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
+                b.current_text, n.source_url
+         FROM blocks b
+         JOIN norms n ON n.id = b.norm_id
+         WHERE b.norm_id IN (${normFilter})
+           AND b.block_type = 'precepto'
+           AND b.current_text != ''`,
+				)
+				.all()
+				.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
+
+			const scoreMap = new Map(results.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
+			articles.sort((a, b) =>
+				(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+				(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+			);
+
+			return articles.slice(0, TOP_K).map((a) => ({
+				normId: a.norm_id,
+				blockId: a.block_id,
+				normTitle: a.title,
+				blockTitle: a.block_title,
+				text: a.current_text,
+				sourceUrl: a.source_url,
+			}));
+		},
+	},
 ];
 
 // ── Benchmark runner ──
@@ -614,7 +784,11 @@ async function runBenchmark(
 	const articles = await strategy.retrieve(q.question, analyzed);
 	const retrievedNorms = [...new Set(articles.map((a) => a.normId))];
 
-	const synthesis = await synthesize(q.question, articles);
+	const useTemporal = strategy.temporal === true ||
+		(strategy.temporal === "auto" && analyzed.temporal);
+	const synthesis = useTemporal
+		? await synthesizeWithTemporal(q.question, articles)
+		: await synthesize(q.question, articles);
 	const verification = verifyCitations(synthesis.citations, articles);
 
 	const latencyMs = Date.now() - start;

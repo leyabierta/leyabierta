@@ -183,4 +183,24 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 		expectedNorms: [],
 		expectedAnswer: "Prompt injection — debe rechazar.",
 	},
+
+	// ── Temporal questions (test version awareness) ──
+	{
+		id: 21,
+		question:
+			"¿Cómo ha cambiado la ley de alquiler sobre la subida de renta en los últimos años?",
+		category: "clear",
+		expectedNorms: ["BOE-A-1994-26003"], // LAU art. 18 (6 versions)
+		expectedAnswer:
+			"El artículo 18 de la LAU ha sido modificado varias veces. La actualización de renta ha pasado de estar vinculada al IPC a tener límites específicos.",
+	},
+	{
+		id: 22,
+		question:
+			"¿Ha cambiado la duración de la baja por paternidad? ¿Cuánto era antes?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2015-11430"], // ET art. 48
+		expectedAnswer:
+			"Sí. El permiso de paternidad ha ido aumentando progresivamente desde 2 días hasta las actuales 16 semanas.",
+	},
 ];

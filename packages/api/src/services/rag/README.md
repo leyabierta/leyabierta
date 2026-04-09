@@ -6,9 +6,9 @@ y recibe una respuesta anclada a artículos legislativos reales con enlaces veri
 ## Estado actual
 
 - [x] **Phase 0: Validation Spike** ← benchmark completado
-- [ ] Phase 1: Retrieval Foundation (embeddings + reranking) ← siguiente
-- [ ] Phase 2: Temporal Awareness (versiones históricas + cadenas de reforma)
-- [ ] Phase 3: UI básica (/pregunta con React island)
+- [x] **Phase 1: Embeddings** ← vector-only achieves 100% across all metrics
+- [x] **Phase 2: Temporal Awareness** ← vector-smart auto-detects temporal intent
+- [ ] Phase 3: UI básica (/pregunta con React island) ← siguiente
 - [ ] Phase 4: Expansiones (multi-turn, alertas, situación)
 
 > **Nota:** Graph Traversal (referencias cruzadas) se reclasificó a Phase 2
@@ -170,7 +170,27 @@ al LLM), pero el retrieval es 100% vector.
 | Phase 0 benchmark (4×20q) | $0.022 | 233K | gemini-2.5-flash-lite |
 | Embeddings openai-small | $0.048 | 2.4M | 8,265 artículos, 48 MB |
 | Phase 1 benchmark (6×20q) | $0.035 | 378K | gemini-2.5-flash-lite + embeddings |
-| **Total acumulado** | **$0.105** | **3.0M** | |
+| Phase 2 benchmark (smart 22q) | $0.011 | 104K | vector-smart + temporal |
+| **Total acumulado** | **$0.116** | **3.1M** | |
+
+## Phase 2: Temporal Awareness
+
+### Benchmark (2026-04-09)
+
+| Strategy | Retrieval | Citation | Decline | Latency |
+|----------|:---------:|:--------:|:-------:|:-------:|
+| vector-only | 100% | 100% | 100% | 2.5s |
+| vector-temporal (always) | 100% | 94% | 100% | 3.4s |
+| **vector-smart (auto)** | **100%** | **100%** | **100%** | **3.2s** |
+
+Auto-detect temporal intent via Query Analyzer. Only enrich with version
+history when the question asks about changes/evolution. 22/22 correct.
+
+### Arquitectura final validada
+
+```
+Pregunta → Analyzer (temporal?) → Vector Search → [Temporal Enrich?] → Synth → Verify
+```
 
 ### Tecnologías del spike
 
