@@ -106,6 +106,7 @@ export function lawRoutes(
 							title: b.title,
 							position: b.position,
 							current_text: b.current_text,
+							citizen_summary: b.citizen_summary ?? undefined,
 						})),
 					};
 				},

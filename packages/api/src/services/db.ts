@@ -26,6 +26,7 @@ export interface BlockRow {
 	title: string;
 	position: number;
 	current_text: string;
+	citizen_summary: string | null;
 }
 
 export interface ReformRow {
@@ -344,7 +345,11 @@ export class DbService {
 	getBlocks(normId: string): BlockRow[] {
 		return this.db
 			.query<BlockRow, [string]>(
-				"SELECT * FROM blocks WHERE norm_id = ? ORDER BY position",
+				`SELECT b.*, cas.summary as citizen_summary
+				 FROM blocks b
+				 LEFT JOIN citizen_article_summaries cas
+				   ON cas.norm_id = b.norm_id AND cas.block_id = b.block_id
+				 WHERE b.norm_id = ? ORDER BY b.position`,
 			)
 			.all(normId);
 	}
