@@ -48,8 +48,9 @@ const EXAMPLE_QUESTIONS = [
 
 // ── Citation parsing ──
 
+// Match BOE and regional bulletin IDs: BOE-A-YYYY-NNNNN, BOA-d-NNNNN, BOJA-b-NNNNN, DOGV-i-NNNNN, etc.
 const CITE_RE =
-	/\[(BOE-[A-Z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
+	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
 
 function buildCitationMap(citations: Citation[]): Map<string, Citation> {
 	const map = new Map<string, Citation>();
@@ -66,7 +67,7 @@ function renderAnswerWithCitations(
 	const citationMap = buildCitationMap(citations);
 	const paragraphs = text.split("\n").filter((p) => p.trim());
 
-	return paragraphs.map((paragraph) => {
+	return paragraphs.map((paragraph, pIdx) => {
 		const parts: ReactNode[] = [];
 		let lastIndex = 0;
 		let match: RegExpExecArray | null;
@@ -149,7 +150,7 @@ function renderAnswerWithCitations(
 		}
 
 		return (
-			<p key={paragraph.slice(0, 40)} className="ask-answer-paragraph">
+			<p key={pIdx} className="ask-answer-paragraph">
 				{parts}
 			</p>
 		);
@@ -346,8 +347,8 @@ export default function AskChat() {
 			{/* Conversation history */}
 			{hasHistory && (
 				<div className="ask-conversation">
-					{turns.map((turn) => (
-						<div key={turn.question} className="ask-turn">
+					{turns.map((turn, turnIdx) => (
+						<div key={turnIdx} className="ask-turn">
 							{/* User question */}
 							<div className="ask-turn-question">
 								<span className="ask-turn-label">Tu pregunta</span>

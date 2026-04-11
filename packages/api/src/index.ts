@@ -72,10 +72,11 @@ let isShuttingDown = false;
 process.on("SIGTERM", () => {
 	isShuttingDown = true;
 	console.log("SIGTERM received, shutting down gracefully...");
+	// Wait 30s for in-flight requests + fire-and-forget LLM calls to complete
 	setTimeout(() => {
 		db.close();
 		process.exit(0);
-	}, 10_000);
+	}, 30_000);
 });
 
 const app = new Elysia()

@@ -36,7 +36,7 @@ export interface ArticleEmbedding {
 	embedding: Float32Array;
 }
 
-interface EmbeddingStore {
+export interface EmbeddingStore {
 	model: string;
 	dimensions: number;
 	count: number;

@@ -8,7 +8,7 @@ y recibe una respuesta anclada a artículos legislativos reales con enlaces veri
 - [x] **Phase 0: Validation Spike** ← benchmark completado
 - [x] **Phase 1: Embeddings** ← vector-only achieves 100% across all metrics
 - [x] **Phase 2: Temporal Awareness** ← vector-smart auto-detects temporal intent
-- [ ] Phase 3: UI básica (/pregunta con React island) ← siguiente
+- [x] **Phase 3: UI básica** ← /pregunta con React island + POST /v1/ask
 - [ ] Phase 4: Expansiones (multi-turn, alertas, situación)
 
 > **Nota:** Graph Traversal (referencias cruzadas) se reclasificó a Phase 2
@@ -316,8 +316,3 @@ Pregunta del usuario
 Respuesta + citas verificables + disclaimer
 ```
 
-## Docs y decisiones
-
-- Design doc: `~/.gstack/projects/leyabierta-leyabierta/alex-main-design-20260409-120619.md`
-- CEO plan: `~/.gstack/projects/leyabierta-leyabierta/ceo-plans/2026-04-09-rag-ciudadano.md`
-- Plan file: `~/.claude-profiles/konar/plans/snuggly-watching-zebra.md`

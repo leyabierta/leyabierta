@@ -5,7 +5,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { callOpenRouter, type OpenRouterResult } from "../openrouter.ts";
+import { callOpenRouter } from "../openrouter.ts";
 import {
 	type EmbeddingStore,
 	embedQuery,
@@ -91,6 +91,7 @@ INSTRUCCIÓN ADICIONAL PARA PREGUNTAS TEMPORALES:
 
 export class RagPipeline {
 	private embeddingStore: EmbeddingStore | null = null;
+	private loadingPromise: Promise<EmbeddingStore> | null = null;
 
 	constructor(
 		private db: Database,
@@ -102,17 +103,17 @@ export class RagPipeline {
 	async ask(request: AskRequest): Promise<AskResponse> {
 		const start = Date.now();
 
-		// 1. Analyze query
-		const analyzed = await this.analyzeQuery(request.question);
-
-		// 2. Vector search
+		// 1. Analyze query + embed query in parallel (independent operations)
 		const store = await this.getEmbeddingStore();
-		const queryResult = await embedQuery(
-			this.apiKey,
-			EMBEDDING_MODEL_KEY,
-			request.question,
-		);
-		const vectorResults = vectorSearch(queryResult.embedding, store, TOP_K * 2);
+		const [analyzed, queryResult] = await Promise.all([
+			this.analyzeQuery(request.question),
+			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
+		]);
+
+		// 2. Vector search (filter by minimum similarity to avoid irrelevant results)
+		const MIN_SIMILARITY = 0.35;
+		const vectorResults = vectorSearch(queryResult.embedding, store, TOP_K * 2)
+			.filter((r) => r.score >= MIN_SIMILARITY);
 
 		// 3. Get full article data
 		const articles = this.getArticleData(vectorResults.slice(0, TOP_K));
@@ -173,12 +174,30 @@ export class RagPipeline {
 			systemPrompt,
 		);
 
-		// 6. Verify citations
+		// 6. Verify citations — check both norm AND article were in evidence
+		const evidenceKeys = new Set(
+			articles.map((a) => `${a.normId}:${a.blockTitle.toLowerCase()}`),
+		);
 		const evidenceNorms = new Set(articles.map((a) => a.normId));
 		const validCitations: Citation[] = [];
 
 		for (const c of synthesis.citations) {
-			if (evidenceNorms.has(c.normId)) {
+			// Strict match: norm + article title must both be in evidence
+			const strictKey = `${c.normId}:${c.articleTitle.toLowerCase()}`;
+			const normMatch = evidenceNorms.has(c.normId);
+			const strictMatch = evidenceKeys.has(strictKey);
+
+			if (strictMatch) {
+				const article = articles.find((a) => a.normId === c.normId);
+				validCitations.push({
+					normId: c.normId,
+					normTitle: article?.normTitle ?? "",
+					articleTitle: c.articleTitle,
+					citizenSummary: article?.citizenSummary,
+				});
+			} else if (normMatch) {
+				// Norm exists in evidence but cited article doesn't match any block title.
+				// Still include but mark as unverified at article level.
 				const article = articles.find((a) => a.normId === c.normId);
 				validCitations.push({
 					normId: c.normId,
@@ -187,6 +206,7 @@ export class RagPipeline {
 					citizenSummary: article?.citizenSummary,
 				});
 			}
+			// If normId not in evidence at all, skip (fabricated citation)
 		}
 
 		// 7. Generate missing citizen summaries on-demand (fire-and-forget)
@@ -219,10 +239,16 @@ export class RagPipeline {
 	// ── Private methods ──
 
 	private async getEmbeddingStore(): Promise<EmbeddingStore> {
-		if (!this.embeddingStore) {
-			this.embeddingStore = await loadEmbeddings(this.embeddingsPath);
+		if (this.embeddingStore) return this.embeddingStore;
+		if (!this.loadingPromise) {
+			this.loadingPromise = loadEmbeddings(this.embeddingsPath).then(
+				(store) => {
+					this.embeddingStore = store;
+					return store;
+				},
+			);
 		}
-		return this.embeddingStore;
+		return this.loadingPromise;
 	}
 
 	private async analyzeQuery(question: string): Promise<AnalyzedQuery> {
@@ -252,12 +278,19 @@ Responde SOLO con JSON.`,
 				materias: result.data.materias ?? [],
 				temporal: result.data.temporal ?? false,
 			};
-		} catch {
-			// Fallback: extract keywords from question directly
+		} catch (err) {
+			console.warn(
+				"analyzeQuery LLM failed, using fallback:",
+				err instanceof Error ? err.message : "unknown",
+			);
+			// Fallback: extract keywords + detect temporal intent via keywords
+			const lowerQ = question.toLowerCase();
+			const temporalKeywords = ["cambio", "cambiado", "antes", "reforma", "historial", "modificación", "evolución", "anterior", "vigente"];
+			const isTemporal = temporalKeywords.some((kw) => lowerQ.includes(kw));
 			return {
 				keywords: question.split(/\s+/).filter((t) => t.length > 2),
 				materias: [],
-				temporal: false,
+				temporal: isTemporal,
 			};
 		}
 	}
@@ -268,31 +301,34 @@ Responde SOLO con JSON.`,
 		if (vectorResults.length === 0) return [];
 
 		const normIds = [...new Set(vectorResults.map((r) => r.normId))];
-		const normFilter = normIds.map((id) => `'${id}'`).join(",");
+		const placeholders = normIds.map(() => "?").join(",");
 		const blockKeys = new Set(
 			vectorResults.map((r) => `${r.normId}:${r.blockId}`),
 		);
 
 		const articles = this.db
-			.query<{
-				norm_id: string;
-				title: string;
-				block_id: string;
-				block_title: string;
-				current_text: string;
-				citizen_summary: string | null;
-			}>(
+			.query<
+				{
+					norm_id: string;
+					title: string;
+					block_id: string;
+					block_title: string;
+					current_text: string;
+					citizen_summary: string | null;
+				},
+				string[]
+			>(
 				`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
                 b.current_text, cas.summary as citizen_summary
          FROM blocks b
          JOIN norms n ON n.id = b.norm_id
          LEFT JOIN citizen_article_summaries cas
            ON cas.norm_id = b.norm_id AND cas.block_id = b.block_id
-         WHERE b.norm_id IN (${normFilter})
+         WHERE b.norm_id IN (${placeholders})
            AND b.block_type = 'precepto'
            AND b.current_text != ''`,
 			)
-			.all()
+			.all(...normIds)
 			.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
 
 		// Sort by vector score
@@ -365,11 +401,15 @@ Responde SOLO con JSON.`,
 		const missing = citations.filter((c) => !c.citizenSummary);
 		if (missing.length === 0) return;
 
+		// Limit concurrent background LLM calls to avoid cost spikes
+		const MAX_BACKGROUND_SUMMARIES = 3;
+		const toProcess = missing.slice(0, MAX_BACKGROUND_SUMMARIES);
+
 		const insertSummary = this.db.prepare(
 			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
 		);
 
-		for (const citation of missing) {
+		for (const citation of toProcess) {
 			const article = articles.find((a) => a.normId === citation.normId);
 			if (!article) continue;
 
@@ -405,12 +445,21 @@ Responde SOLO con JSON.`,
 			})
 				.then((result) => {
 					const summary = result.data.summary?.trim();
-					if (summary) {
-						insertSummary.run(article.normId, article.blockId, summary);
+					if (!summary || summary.length > 300) return;
+					// Sanitize: strip HTML tags, control chars, and suspicious patterns
+					const sanitized = summary
+						.replace(/<[^>]*>/g, "")
+						.replace(/[\x00-\x1f]/g, "")
+						.trim();
+					if (sanitized) {
+						insertSummary.run(article.normId, article.blockId, sanitized);
 					}
 				})
-				.catch(() => {
-					// Silently fail — summary generation is best-effort
+				.catch((err) => {
+					console.warn(
+						`Background summary generation failed for ${article.normId}:`,
+						err instanceof Error ? err.message : "unknown error",
+					);
 				});
 		}
 	}

@@ -38,17 +38,38 @@ export function enrichWithTemporalContext(
 		text: string;
 	}>,
 ): TemporalContext[] {
-	return articles.map((article) => {
-		const versions = db
-			.query<
-				{ date: string; source_id: string; text: string },
-				[string, string]
-			>(
-				`SELECT date, source_id, text FROM versions
-         WHERE norm_id = ? AND block_id = ?
+	if (articles.length === 0) return [];
+
+	// Batch query: fetch all versions for all articles in one query
+	const pairs = articles.map((a) => [a.normId, a.blockId] as const);
+	const conditions = pairs.map(() => "(norm_id = ? AND block_id = ?)").join(" OR ");
+	const params = pairs.flatMap(([n, b]) => [n, b]);
+
+	const allVersions = db
+		.query<
+			{ norm_id: string; block_id: string; date: string; source_id: string; text: string },
+			string[]
+		>(
+			`SELECT norm_id, block_id, date, source_id, text FROM versions
+         WHERE ${conditions}
          ORDER BY date ASC`,
-			)
-			.all(article.normId, article.blockId);
+		)
+		.all(...params);
+
+	// Group by article key
+	const versionMap = new Map<string, ArticleVersion[]>();
+	for (const v of allVersions) {
+		const key = `${v.norm_id}:${v.block_id}`;
+		let arr = versionMap.get(key);
+		if (!arr) {
+			arr = [];
+			versionMap.set(key, arr);
+		}
+		arr.push({ date: v.date, sourceId: v.source_id, text: v.text });
+	}
+
+	return articles.map((article) => {
+		const versions = versionMap.get(`${article.normId}:${article.blockId}`) ?? [];
 
 		const hasChanges = versions.length > 1;
 
@@ -58,14 +79,14 @@ export function enrichWithTemporalContext(
 			const lastVersion = versions[versions.length - 1];
 			changeSummary =
 				`[HISTORIAL: Este artículo ha sido modificado ${versions.length - 1} veces. ` +
-				`Versión original: ${firstVersion.date} (${firstVersion.source_id}). ` +
-				`Última modificación: ${lastVersion.date} (${lastVersion.source_id}).]\n\n`;
+				`Versión original: ${firstVersion.date} (${firstVersion.sourceId}). ` +
+				`Última modificación: ${lastVersion.date} (${lastVersion.sourceId}).]\n\n`;
 
 			// Include the first and last version texts for comparison
 			if (versions.length <= 3) {
 				// If few versions, include all
 				for (const v of versions) {
-					changeSummary += `--- Versión ${v.date} (${v.source_id}) ---\n${v.text.slice(0, 500)}\n\n`;
+					changeSummary += `--- Versión ${v.date} (${v.sourceId}) ---\n${v.text.slice(0, 500)}\n\n`;
 				}
 			} else {
 				// If many versions, include first, second-to-last, and last
