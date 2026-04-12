@@ -170,6 +170,23 @@ import Base from "../../layouts/Base.astro";
 			border-color: var(--accent);
 		}
 
+		.propuestas-type-badge {
+			display: inline-block;
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+			font-size: 0.6875rem;
+			font-weight: 600;
+			letter-spacing: 0.02em;
+		}
+		.propuestas-type-badge.new-law {
+			background: #2b5797;
+			color: white;
+		}
+		.propuestas-type-badge.mixed {
+			background: #6b46a0;
+			color: white;
+		}
+
 		@media (max-width: 640px) {
 			.propuestas-header h1 { font-size: 1.625rem; }
 		}
@@ -236,9 +253,23 @@ import Base from "../../layouts/Base.astro";
 					html += '<div class="propuestas-card-meta">';
 					html += '<span class="propuestas-card-date">' + esc(dateStr) + '</span>';
 					html += '<span class="propuestas-alert-badge ' + esc(alertClass) + '">' + esc(alertLabel) + '</span>';
+					var billType = b.bill_type || (b.total_modifications === 0 ? "new_law" : "amendment");
+					if (billType === "new_law") {
+						html += '<span class="propuestas-type-badge new-law">Ley nueva</span>';
+					} else if (billType === "mixed") {
+						html += '<span class="propuestas-type-badge mixed">Ley nueva + modificaciones</span>';
+					}
 					html += '</div>';
 					html += '<h3>' + esc(b.title) + '</h3>';
-					html += '<div class="propuestas-card-stats">' + b.total_modifications + ' modificaciones en ' + b.laws_modified + ' leyes</div>';
+					var statsText;
+					if (billType === "new_law") {
+						statsText = "Ley nueva";
+					} else if (billType === "mixed") {
+						statsText = b.total_modifications + ' modificaciones en ' + b.laws_modified + ' leyes \u00b7 Ley nueva';
+					} else {
+						statsText = b.total_modifications + ' modificaciones en ' + b.laws_modified + ' leyes';
+					}
+					html += '<div class="propuestas-card-stats">' + esc(statsText) + '</div>';
 					html += '<a href="/propuestas/detalle?id=' + encodeURIComponent(b.bocg_id) + '" class="propuestas-card-link">Ver an\u00e1lisis \u2192</a>';
 					html += '</div>';
 				}

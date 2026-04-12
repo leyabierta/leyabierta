@@ -298,10 +298,10 @@ function saveBillToDb(
 		db.run(
 			`INSERT OR REPLACE INTO bills (
 				bocg_id, title, legislature, series, publication_date, pdf_url,
-				alert_level, total_modifications, laws_modified,
+				bill_type, alert_level, total_modifications, laws_modified,
 				critical_alerts, high_alerts, has_penalty_changes, has_type_eliminations,
 				transitional_check_json, analyzed_at, model
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				bill.bocgId,
 				bill.title,
@@ -309,6 +309,7 @@ function saveBillToDb(
 				series,
 				bill.publicationDate,
 				url ?? "",
+				bill.billType,
 				alertLevel,
 				report.summary.totalModifications,
 				report.summary.lawsModified,

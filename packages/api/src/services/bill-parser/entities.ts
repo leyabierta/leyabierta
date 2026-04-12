@@ -80,14 +80,14 @@ function findArticle(text: string, position: number): string {
  * (not just describing a generic topic like "Efectos" or "Requisitos").
  */
 const ENTITY_NAME_KEYWORDS =
-	/\b(?:Registro|Carpeta|Punto|Sede|Portal|Sistema|Comité|Consejo|Centro|Esquema|Expediente|Plataforma|Servicio)\b/;
+	/\b(?:Registro|Carpeta|Punto|Sede|Portal|Sistema|Comité|Consejo|Centro|Esquema|Expediente|Plataforma|Servicio|Licencia|Licencias|Agencia|Oficina|Observatorio|Autoridad|Comisión|Fondo)\b/;
 
 /**
  * Article titles that start with these words are generic descriptions,
  * not entity names: "Uso obligatorio de...", "Efectos de...", etc.
  */
 const GENERIC_TITLE_STARTS =
-	/^(?:Objeto|Ámbito|Terminología|Definiciones|Principios|Régimen|Disposiciones|Uso|Efectos|Forma|Requisitos|Regla|Reglas|Contenido|Acceso|Admisión|Identificación|Protección|Sobre|Del|De\s+la|De\s+los|Auto|Cómputo|Mejora|Cooperación|Relaciones|Política|Reutilización|Transferencia|Interoperabilidad|Control|Actuaciones|Comunicaciones|Documentos|Presentación|Aportación|Intercambio|Inicio|Tramitación|Cita|Atención|Teletrabajo|Puesto|Entornos|Medios|Actos|Datos|Composición|Funcionamiento|Asistencia|Recursos\s+contra|Competencias|Naturaleza|Estructura|Funciones|Medidas|Inscripción|Reconocimiento|Prestación|Secretaría)\b/i;
+	/^(?:Objeto|Ámbito|Terminología|Definiciones|Principios|Régimen|Disposiciones|Uso|Efectos|Forma|Requisitos|Regla|Reglas|Contenido|Acceso|Admisión|Identificación|Protección|Sobre|Del|De\s+la|De\s+los|Auto|Cómputo|Mejora|Cooperación|Relaciones|Política|Reutilización|Transferencia|Interoperabilidad|Control|Actuaciones|Comunicaciones|Documentos|Presentación|Aportación|Intercambio|Inicio|Tramitación|Cita|Atención|Teletrabajo|Puesto|Entornos|Medios|Actos|Datos|Composición|Funcionamiento|Asistencia|Recursos\s+contra|Competencias|Naturaleza|Estructura|Funciones|Medidas|Inscripción|Reconocimiento|Prestación|Secretaría|Infracciones|Sanciones|Responsabilidad|Graduación|Prescripción|Expedientes|Concesión|Revocación|Comprobación|Notificación|Facultades|Acciones)\b/i;
 
 /** Max allowed entity name length. Longer names are likely sentence fragments. */
 const MAX_ENTITY_NAME_LENGTH = 100;
@@ -133,8 +133,12 @@ function isSentenceFragment(name: string): boolean {
  */
 export function extractNewEntities(text: string): NewEntity[] {
 	// 1. Isolate the articulado principal (before disposiciones)
+	// Case-SENSITIVE: structural headings always use uppercase "Disposición".
+	// Using /i would match lowercase "disposición" in body text (e.g., "sin perjuicio
+	// de lo establecido en la disposición transitoria primera"), which truncates the
+	// articulado before the real articles even start (see BOCG-14-A-94-1).
 	const dispMatch = text.search(
-		/\nDisposición\s+(?:adicional|transitoria|derogatoria|final)\s/i,
+		/\nDisposición\s+(?:adicional|transitoria|derogatoria|final)\s/,
 	);
 	const articulado = dispMatch > 0 ? text.slice(0, dispMatch) : text;
 

@@ -370,9 +370,44 @@ describe("bill-parser", () => {
 		);
 	});
 
+	// Bill type classification tests
+	describe("bill type", () => {
+		const hasA62 = hasPdf("BOCG-14-A-62-1");
+		const hasA94 = hasPdf("BOCG-14-A-94-1");
+		const anyPdfAvailable = BILLS.some((b) => hasPdf(b.id));
+
+		test.skipIf(!hasA62)(
+			"BOCG-14-A-62-1 (solo sí es sí) is mixed (articulado + DFs)",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-62-1");
+				expect(parsed.billType).toBe("mixed");
+			},
+		);
+
+		test.skipIf(!hasA94)(
+			"BOCG-14-A-94-1 (precursores explosivos) is new_law",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-94-1");
+				expect(parsed.billType).toBe("new_law");
+			},
+		);
+
+		test.skipIf(!anyPdfAvailable)(
+			"all bills have a valid billType",
+			async () => {
+				for (const bill of BILLS) {
+					if (!hasPdf(bill.id)) continue;
+					const parsed = await getParsed(bill.id);
+					expect(["new_law", "amendment", "mixed"]).toContain(parsed.billType);
+				}
+			},
+		);
+	});
+
 	// New entities tests
 	describe("new entities", () => {
 		const hasA116 = hasPdf("BOCG-14-A-116-1");
+		const hasA94 = hasPdf("BOCG-14-A-94-1");
 		const anyPdfAvailable = BILLS.some((b) => hasPdf(b.id));
 
 		test.skipIf(!hasA116)(
@@ -413,6 +448,19 @@ describe("bill-parser", () => {
 				const parsed = await getParsed("BOCG-14-A-116-1");
 				const punto = parsed.newEntities.find((e) =>
 					e.name.toLowerCase().includes("punto común"),
+				);
+				expect(punto).toBeDefined();
+				expect(punto!.entityType).toBe("organo");
+			},
+		);
+
+		test.skipIf(!hasA94)(
+			"BOCG-14-A-94-1 detects >= 1 entity (Punto de Contacto Nacional)",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-94-1");
+				expect(parsed.newEntities.length).toBeGreaterThanOrEqual(1);
+				const punto = parsed.newEntities.find((e) =>
+					e.name.toLowerCase().includes("punto de contacto nacional"),
 				);
 				expect(punto).toBeDefined();
 				expect(punto!.entityType).toBe("organo");

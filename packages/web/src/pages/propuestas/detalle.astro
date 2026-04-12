@@ -453,6 +453,33 @@ import Base from "../../layouts/Base.astro";
 		}
 		.norm-link:hover { text-decoration: underline; }
 
+		.detalle-type-badge {
+			display: inline-block;
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+			font-size: 0.6875rem;
+			font-weight: 600;
+			letter-spacing: 0.02em;
+		}
+		.detalle-type-badge.new-law {
+			background: #2b5797;
+			color: white;
+		}
+		.detalle-type-badge.mixed {
+			background: #6b46a0;
+			color: white;
+		}
+		.new-law-notice {
+			background: #eef3fa;
+			border: 1px solid #c5d5ea;
+			border-radius: 10px;
+			padding: 1rem 1.25rem;
+			margin-bottom: 1.5rem;
+			font-size: 0.875rem;
+			color: #2b5797;
+			line-height: 1.5;
+		}
+
 		@media (max-width: 640px) {
 			.detalle-title { font-size: 1.25rem; }
 			.detalle-tab { padding: 0.5rem 0.625rem; font-size: 0.75rem; }
@@ -555,13 +582,27 @@ import Base from "../../layouts/Base.astro";
 				var html = '';
 				html += '<div class="detalle-bocg">' + esc(b.bocg_id) + '</div>';
 				html += '<h1 class="detalle-title">' + esc(b.title) + '</h1>';
+				var billType = b.bill_type || (s.total_modifications === 0 ? "new_law" : "amendment");
+
 				html += '<div class="detalle-meta">';
 				html += '<span>' + esc(dateStr) + '</span>';
 				html += '<span class="detalle-alert-badge ' + esc(alertClass) + '">' + esc(ALERT_LABELS[alertClass] || "Sin alertas") + '</span>';
+				if (billType === "new_law") {
+					html += '<span class="detalle-type-badge new-law">Ley nueva</span>';
+				} else if (billType === "mixed") {
+					html += '<span class="detalle-type-badge mixed">Ley nueva + modificaciones</span>';
+				}
 				html += '</div>';
 
 				var statsItems = [];
-				if (s.total_modifications) statsItems.push(s.total_modifications + ' modificaciones en ' + (s.laws_modified || 0) + ' leyes');
+				if (billType === "new_law") {
+					statsItems.push('Ley nueva');
+				} else if (billType === "mixed") {
+					if (s.total_modifications) statsItems.push(s.total_modifications + ' modificaciones en ' + (s.laws_modified || 0) + ' leyes');
+					statsItems.push('Ley nueva');
+				} else {
+					if (s.total_modifications) statsItems.push(s.total_modifications + ' modificaciones en ' + (s.laws_modified || 0) + ' leyes');
+				}
 				var derogCount = (b.derogations || []).length;
 				if (derogCount) statsItems.push(derogCount + ' derogaci\u00f3n' + (derogCount > 1 ? 'es' : ''));
 				var entityCount = (b.new_entities || []).length;
@@ -584,6 +625,8 @@ import Base from "../../layouts/Base.astro";
 				var entities = b.new_entities || [];
 				var tc = b.transitional_check || {};
 				var alertClass = b.alert_level || "ok";
+				var s = b.summary || {};
+				var billType = b.bill_type || (s.total_modifications === 0 ? "new_law" : "amendment");
 
 				var html = '';
 
@@ -608,6 +651,12 @@ import Base from "../../layouts/Base.astro";
 				html += '<div class="veredicto-label">' + esc(ALERT_LABELS[alertClass] || "Sin alertas") + '</div>';
 				html += '<div class="veredicto-desc">' + esc(ALERT_DESC[alertClass] || "") + '</div>';
 				html += '</div>';
+
+				if (billType === "new_law") {
+					html += '<div class="new-law-notice">Este proyecto crea una nueva ley. No modifica leyes existentes.</div>';
+				} else if (billType === "mixed") {
+					html += '<div class="new-law-notice">Este proyecto crea una nueva ley y adem\u00e1s modifica legislaci\u00f3n existente.</div>';
+				}
 
 				// Derogaciones
 				if (derogations.length) {
@@ -693,7 +742,11 @@ import Base from "../../layouts/Base.astro";
 				// ── Tab 2: Modificaciones ──
 				html += '<div class="detalle-tab-panel" id="tab-modificaciones">';
 				if (modGroups.length === 0) {
-					html += '<div class="empty-state"><h2>Sin modificaciones</h2><p>Este proyecto no contiene modificaciones detectadas.</p></div>';
+					if (billType === "new_law") {
+						html += '<div class="empty-state"><h2>Sin modificaciones</h2><p>Este proyecto no modifica leyes existentes. Crea un nuevo marco regulatorio.</p></div>';
+					} else {
+						html += '<div class="empty-state"><h2>Sin modificaciones</h2><p>Este proyecto no contiene modificaciones detectadas.</p></div>';
+					}
 				} else {
 					for (var gi = 0; gi < modGroups.length; gi++) {
 						var grp = modGroups[gi];

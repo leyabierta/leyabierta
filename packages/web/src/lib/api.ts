@@ -302,6 +302,7 @@ export interface BillListItem {
 	publication_date: string;
 	pdf_url: string;
 	alert_level: string; // "ok" | "high" | "critical"
+	bill_type?: string; // "new_law" | "amendment" | "mixed"
 	total_modifications: number;
 	laws_modified: number;
 	critical_alerts: number;
@@ -381,6 +382,7 @@ export interface BillDetail {
 	publication_date: string;
 	pdf_url: string;
 	alert_level: string;
+	bill_type?: string; // "new_law" | "amendment" | "mixed"
 	summary: {
 		total_modifications: number;
 		laws_modified: number;

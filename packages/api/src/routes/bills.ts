@@ -17,6 +17,7 @@ interface BillRow {
 	series: string;
 	publication_date: string;
 	pdf_url: string;
+	bill_type: string;
 	alert_level: string;
 	total_modifications: number;
 	laws_modified: number;
@@ -125,6 +126,7 @@ export function billRoutes(db: Database) {
 						series: r.series,
 						publication_date: r.publication_date,
 						pdf_url: r.pdf_url,
+						bill_type: r.bill_type ?? "amendment",
 						alert_level: r.alert_level,
 						total_modifications: r.total_modifications,
 						laws_modified: r.laws_modified,
@@ -246,6 +248,7 @@ export function billRoutes(db: Database) {
 					series: bill.series,
 					publication_date: bill.publication_date,
 					pdf_url: bill.pdf_url,
+					bill_type: bill.bill_type ?? "amendment",
 					alert_level: bill.alert_level,
 					summary: {
 						total_modifications: bill.total_modifications,

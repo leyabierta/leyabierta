@@ -13,7 +13,7 @@
  * output as fallback for sections without ordinals (~$0.001/section).
  */
 
-import type { ModificationGroup, ParsedBill } from "./types.ts";
+import type { BillType, ModificationGroup, ParsedBill } from "./types.ts";
 import { extractBocgId, extractPublicationDate, extractTitle, extractTransitionalProvisions } from "./header.ts";
 import { parseModifications, parseModificationsAsync } from "./classification.ts";
 import { extractDFGroups, extractArticuloGroups, extractArticuloUnicoGroup, extractDAGroups, extractImplicitModGroups } from "./strategies.ts";
@@ -25,7 +25,55 @@ import { extractNewEntities } from "./entities.ts";
 // ── Re-exports for backward compatibility ──
 
 export { extractTextFromPdf } from "./pdf.ts";
-export type { BillModification, Derogation, NewEntity, ModificationGroup, ParsedBill } from "./types.ts";
+export type { BillModification, BillType, Derogation, NewEntity, ModificationGroup, ParsedBill } from "./types.ts";
+
+// ── Bill type classification ──
+
+/**
+ * Classify a bill based on its content structure:
+ * - `amendment`: has modification groups but no/minimal articulado
+ * - `new_law`: has substantial articulado but 0 modification groups
+ * - `mixed`: has both (common for omnibus bills)
+ */
+function classifyBillType(text: string, modificationGroups: ModificationGroup[]): BillType {
+	const hasModifications = modificationGroups.length > 0;
+
+	// Check for substantial articulado (articles before disposiciones)
+	// Case-sensitive: structural headings use uppercase "Disposición"
+	const dispMatch = text.search(
+		/\nDisposición\s+(?:adicional|transitoria|derogatoria|final)\s/,
+	);
+	const articulado = dispMatch > 0 ? text.slice(0, dispMatch) : text;
+
+	// Count numbered articles in the articulado
+	const articleCount = [...articulado.matchAll(/\nArtículo\s+\d+(?:\s*(?:bis|ter))?\./gi)].length;
+	const hasSubstantialArticulado = articleCount >= 3;
+
+	// Check if the articulado is mostly «»-quoted text (modification instructions)
+	const firstArticle = articulado.search(/\nArtículo\s+1\./i);
+	let isMostlyQuoted = false;
+	if (firstArticle > 0) {
+		const body = articulado.slice(firstArticle);
+		const quotedChars = [...body.matchAll(/«[^»]*»/gs)].reduce(
+			(sum, m) => sum + m[0].length, 0,
+		);
+		isMostlyQuoted = quotedChars > body.length * 0.5;
+	}
+
+	// Skip "Artículo único" bills — these are almost always pure amendments
+	const hasArticuloUnico = /\bArtículo\s+único\b/i.test(articulado);
+
+	const hasRealArticulado = hasSubstantialArticulado && !isMostlyQuoted && !hasArticuloUnico;
+
+	if (hasModifications && hasRealArticulado) return "mixed";
+	if (hasModifications) return "amendment";
+	if (hasRealArticulado) return "new_law";
+
+	// Fallback: if there's articulado text but no modifications, treat as new_law
+	if (articulado.length > 2000 && articleCount >= 1) return "new_law";
+
+	return "amendment";
+}
 
 // ── Main parser ──
 
@@ -119,6 +167,9 @@ export async function parseBill(
 	// Extract derogations (repealing provisions)
 	const derogations = extractDerogations(text);
 
+	// Classify bill type based on content structure
+	const billType = classifyBillType(text, modificationGroups);
+
 	// Extract new entities created by the bill's main body
 	const newEntities = extractNewEntities(text);
 
@@ -126,6 +177,7 @@ export async function parseBill(
 		bocgId,
 		title,
 		publicationDate,
+		billType,
 		modificationGroups,
 		derogations,
 		transitionalProvisions,

@@ -56,6 +56,9 @@ export interface NewEntity {
 	description: string;
 }
 
+/** Bill classification based on content */
+export type BillType = "new_law" | "amendment" | "mixed";
+
 export interface ParsedBill {
 	/** BOCG identifier, e.g., "BOCG-14-A-62-1" */
 	bocgId: string;
@@ -63,6 +66,8 @@ export interface ParsedBill {
 	title: string;
 	/** Publication date from header (ISO format) */
 	publicationDate: string;
+	/** Bill classification based on content */
+	billType: BillType;
 	/** All modification groups found */
 	modificationGroups: ModificationGroup[];
 	/** Derogated laws/provisions */

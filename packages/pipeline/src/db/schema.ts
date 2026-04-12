@@ -193,6 +193,7 @@ const SCHEMA_SQL = /* sql */ `
     series        TEXT NOT NULL DEFAULT '',  -- A (proyectos) or B (proposiciones)
     publication_date TEXT NOT NULL DEFAULT '',
     pdf_url       TEXT NOT NULL DEFAULT '',
+    bill_type     TEXT NOT NULL DEFAULT 'amendment',  -- new_law | amendment | mixed
     alert_level   TEXT NOT NULL DEFAULT 'ok',  -- ok | high | critical
     total_modifications INTEGER NOT NULL DEFAULT 0,
     laws_modified INTEGER NOT NULL DEFAULT 0,
@@ -304,6 +305,14 @@ export function createSchema(db: Database): void {
 	try {
 		db.exec(
 			"ALTER TABLE omnibus_topics ADD COLUMN block_ids TEXT NOT NULL DEFAULT ''",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec(
+			"ALTER TABLE bills ADD COLUMN bill_type TEXT NOT NULL DEFAULT 'amendment'",
 		);
 	} catch {
 		// Column already exists
