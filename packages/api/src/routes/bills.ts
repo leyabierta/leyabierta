@@ -56,6 +56,25 @@ interface ImpactRow {
 	model: string;
 }
 
+interface DerogationRow {
+	id: number;
+	bocg_id: string;
+	target_law: string;
+	norm_id: string;
+	scope: string;
+	target_provisions: string;
+	source_text: string;
+}
+
+interface EntityRow {
+	id: number;
+	bocg_id: string;
+	name: string;
+	entity_type: string;
+	article: string;
+	description: string;
+}
+
 // ── Route factory ──
 
 export function billRoutes(db: Database) {
@@ -206,6 +225,20 @@ export function billRoutes(db: Database) {
 					)
 					.all(params.bocgId);
 
+				// Fetch derogations
+				const derogations = db
+					.query<DerogationRow, string>(
+						"SELECT * FROM bill_derogations WHERE bocg_id = ?",
+					)
+					.all(params.bocgId);
+
+				// Fetch new entities
+				const entities = db
+					.query<EntityRow, string>(
+						"SELECT * FROM bill_entities WHERE bocg_id = ?",
+					)
+					.all(params.bocgId);
+
 				return {
 					bocg_id: bill.bocg_id,
 					title: bill.title,
@@ -231,6 +264,19 @@ export function billRoutes(db: Database) {
 						blast_radius: safeJsonParse(imp.blast_radius_json),
 						generated_at: imp.generated_at,
 						model: imp.model,
+					})),
+					derogations: derogations.map((d) => ({
+						target_law: d.target_law,
+						norm_id: d.norm_id,
+						scope: d.scope,
+						target_provisions: safeJsonParse(d.target_provisions),
+						source_text: d.source_text,
+					})),
+					new_entities: entities.map((e) => ({
+						name: e.name,
+						entity_type: e.entity_type,
+						article: e.article,
+						description: e.description,
 					})),
 					analyzed_at: bill.analyzed_at,
 					model: bill.model,

@@ -243,6 +243,31 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_bill_impacts_bocg ON bill_impacts(bocg_id);
   CREATE INDEX IF NOT EXISTS idx_bill_impacts_norm ON bill_impacts(norm_id);
 
+  -- Bill derogations (laws/provisions repealed by the bill)
+  CREATE TABLE IF NOT EXISTS bill_derogations (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    bocg_id       TEXT NOT NULL REFERENCES bills(bocg_id),
+    target_law    TEXT NOT NULL DEFAULT '',
+    norm_id       TEXT NOT NULL DEFAULT '',   -- resolved BOE norm id
+    scope         TEXT NOT NULL DEFAULT 'full',  -- full | partial
+    target_provisions TEXT NOT NULL DEFAULT '',   -- JSON array of provision strings
+    source_text   TEXT NOT NULL DEFAULT ''
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bill_derogations_bocg ON bill_derogations(bocg_id);
+
+  -- New entities created by the bill's main body (registries, agencies, etc.)
+  CREATE TABLE IF NOT EXISTS bill_entities (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    bocg_id       TEXT NOT NULL REFERENCES bills(bocg_id),
+    name          TEXT NOT NULL DEFAULT '',
+    entity_type   TEXT NOT NULL DEFAULT '',
+    article       TEXT NOT NULL DEFAULT '',
+    description   TEXT NOT NULL DEFAULT ''
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bill_entities_bocg ON bill_entities(bocg_id);
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,

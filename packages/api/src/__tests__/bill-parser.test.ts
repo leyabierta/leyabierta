@@ -369,4 +369,102 @@ describe("bill-parser", () => {
 			},
 		);
 	});
+
+	// New entities tests
+	describe("new entities", () => {
+		const hasA116 = hasPdf("BOCG-14-A-116-1");
+		const anyPdfAvailable = BILLS.some((b) => hasPdf(b.id));
+
+		test.skipIf(!hasA116)(
+			"BOCG-14-A-116-1 detects new entities from articulado",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-116-1");
+				expect(parsed.newEntities.length).toBeGreaterThanOrEqual(10);
+			},
+		);
+
+		test.skipIf(!hasA116)(
+			"BOCG-14-A-116-1 detects Carpeta Justicia",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-116-1");
+				const carpeta = parsed.newEntities.find((e) =>
+					e.name.toLowerCase().includes("carpeta"),
+				);
+				expect(carpeta).toBeDefined();
+				expect(carpeta!.entityType).toBe("sistema");
+			},
+		);
+
+		test.skipIf(!hasA116)(
+			"BOCG-14-A-116-1 detects Registro Electrónico",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-116-1");
+				const registro = parsed.newEntities.find((e) =>
+					e.name.toLowerCase().includes("registro electrónico"),
+				);
+				expect(registro).toBeDefined();
+				expect(registro!.entityType).toBe("registro");
+			},
+		);
+
+		test.skipIf(!hasA116)(
+			"BOCG-14-A-116-1 detects Punto Común de Actos de Comunicación",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-116-1");
+				const punto = parsed.newEntities.find((e) =>
+					e.name.toLowerCase().includes("punto común"),
+				);
+				expect(punto).toBeDefined();
+				expect(punto!.entityType).toBe("organo");
+			},
+		);
+
+		test.skipIf(!anyPdfAvailable)(
+			"newEntities is always an array for all bills",
+			async () => {
+				for (const bill of BILLS) {
+					if (!hasPdf(bill.id)) continue;
+					const parsed = await getParsed(bill.id);
+					expect(Array.isArray(parsed.newEntities)).toBe(true);
+				}
+			},
+		);
+	});
+
+	// Derogation tests
+	describe("derogations", () => {
+		const hasA116 = hasPdf("BOCG-14-A-116-1");
+
+		test.skipIf(!hasA116)(
+			"BOCG-14-A-116-1 has at least 1 derogation",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-116-1");
+				expect(parsed.derogations.length).toBeGreaterThanOrEqual(1);
+			},
+		);
+
+		test.skipIf(!hasA116)(
+			"BOCG-14-A-116-1 derogates Ley 18/2011 (full)",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-116-1");
+				const ley18 = parsed.derogations.find((d) =>
+					d.targetLaw.includes("18/2011"),
+				);
+				expect(ley18).toBeDefined();
+				expect(ley18!.scope).toBe("full");
+			},
+		);
+
+		test.skipIf(!hasA116)(
+			"generic derogation clauses are NOT included",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-116-1");
+				for (const derog of parsed.derogations) {
+					expect(derog.text).not.toMatch(
+						/cuantas?\s+disposiciones?\s+de\s+igual\s+o\s+inferior\s+rango/i,
+					);
+				}
+			},
+		);
+	});
 });

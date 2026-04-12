@@ -23,10 +23,12 @@ import {
 	parseBill,
 	type ModificationGroup,
 	type ParsedBill,
+	type Derogation,
 } from "../services/bill-parser/parser.ts";
 import {
 	analyzeBill,
 	formatReport,
+	resolveNormId,
 	type ImpactReport,
 	type AffectedNorm,
 } from "../services/bill-parser/analyzer.ts";
@@ -191,11 +193,48 @@ Responde en JSON con este schema:
 			maxTokens: 4000,
 		});
 
+		// Post-filter: remove variables where current_state ≈ proposed_state (LLM false positives)
+		const rawVariables = result.data.variables ?? [];
+		const originalCount = rawVariables.length;
+
+		const filteredVariables = rawVariables.filter((v) => {
+			if (!v.current_state || !v.proposed_state) return true;
+			// Normalize whitespace and punctuation for comparison
+			const normalize = (s: string) =>
+				s
+					.toLowerCase()
+					.replace(/\s+/g, " ")
+					.replace(/[.,;:]+$/, "")
+					.trim();
+			const current = normalize(v.current_state);
+			const proposed = normalize(v.proposed_state);
+			if (current === proposed) {
+				console.log(`  [post-filter] Removed identical variable: "${v.variable}"`);
+				return false;
+			}
+			// Also filter if one is a substring of the other (>90% overlap)
+			if (current.length > 20 && proposed.length > 20) {
+				const shorter = current.length < proposed.length ? current : proposed;
+				const longer = current.length < proposed.length ? proposed : current;
+				if (longer.includes(shorter) && shorter.length / longer.length > 0.9) {
+					console.log(`  [post-filter] Removed near-identical variable: "${v.variable}"`);
+					return false;
+				}
+			}
+			return true;
+		});
+
+		if (originalCount !== filteredVariables.length) {
+			console.log(
+				`  [post-filter] Removed ${originalCount - filteredVariables.length} false positive(s)`,
+			);
+		}
+
 		return {
 			target_law: group.targetLaw,
 			norm_id: normId,
 			summary: result.data.summary ?? "",
-			variables: result.data.variables ?? [],
+			variables: filteredVariables,
 		};
 	} catch (err) {
 		console.error(`  WARNING: LLM impact analysis failed for "${group.targetLaw}": ${err}`);
@@ -320,6 +359,48 @@ function saveBillToDb(
 			);
 		}
 
+		// 6. Delete existing derogations (for --force)
+		db.run("DELETE FROM bill_derogations WHERE bocg_id = ?", [bill.bocgId]);
+
+		// 7. Insert derogations
+		const insertDerog = db.prepare(
+			`INSERT INTO bill_derogations (
+				bocg_id, target_law, norm_id, scope, target_provisions, source_text
+			) VALUES (?, ?, ?, ?, ?, ?)`,
+		);
+
+		for (const derog of bill.derogations) {
+			const normId = resolveNormId(db, derog.targetLaw) ?? "";
+			insertDerog.run(
+				bill.bocgId,
+				derog.targetLaw,
+				normId,
+				derog.scope,
+				JSON.stringify(derog.targetProvisions),
+				derog.text,
+			);
+		}
+
+		// 8. Delete existing entities (for --force)
+		db.run("DELETE FROM bill_entities WHERE bocg_id = ?", [bill.bocgId]);
+
+		// 9. Insert new entities
+		const insertEntity = db.prepare(
+			`INSERT INTO bill_entities (
+				bocg_id, name, entity_type, article, description
+			) VALUES (?, ?, ?, ?, ?)`,
+		);
+
+		for (const entity of bill.newEntities) {
+			insertEntity.run(
+				bill.bocgId,
+				entity.name,
+				entity.entityType,
+				entity.article,
+				entity.description,
+			);
+		}
+
 		db.exec("COMMIT");
 	} catch (err) {
 		db.exec("ROLLBACK");
@@ -365,6 +446,7 @@ async function main() {
 		0,
 	);
 	console.log(`         Total modifications: ${totalMods}`);
+	console.log(`         Derogations: ${parsed.derogations.length}`);
 
 	// Check if already analyzed
 	if (!force) {
