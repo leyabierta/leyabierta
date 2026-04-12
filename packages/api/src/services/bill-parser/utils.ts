@@ -64,9 +64,11 @@ export function deduplicateGroups(groups: ModificationGroup[]): ModificationGrou
 		const key = `${group.targetLaw.slice(0, 50).toLowerCase()}|${firstMod.slice(0, 30).toLowerCase()}`;
 
 		if (seen.has(key)) {
-			// Keep the one with more modifications
+			// Keep the one with more modifications (or longer target law name)
 			const existingIdx = seen.get(key)!;
-			if (group.modifications.length > result[existingIdx]!.modifications.length) {
+			if (group.modifications.length > result[existingIdx]!.modifications.length ||
+				(group.modifications.length === result[existingIdx]!.modifications.length &&
+				 group.targetLaw.length > result[existingIdx]!.targetLaw.length)) {
 				result[existingIdx] = group;
 			}
 		} else {
