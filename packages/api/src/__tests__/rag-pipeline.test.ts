@@ -9,7 +9,10 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 // Mock modules before importing the pipeline
 const mockCallOpenRouter = mock(() =>
 	Promise.resolve({
-		data: { keywords: ["test"], materias: [], temporal: false } as Record<string, unknown>,
+		data: { keywords: ["test"], materias: [], temporal: false } as Record<
+			string,
+			unknown
+		>,
 		cost: 0,
 		tokensIn: 0,
 		tokensOut: 0,
@@ -35,7 +38,9 @@ const mockLoadEmbeddings = mock(() =>
 	}),
 );
 
-const mockVectorSearch = mock(() => [] as Array<{ normId: string; blockId: string; score: number }>);
+const mockVectorSearch = mock(
+	() => [] as Array<{ normId: string; blockId: string; score: number }>,
+);
 
 mock.module("../services/openrouter.ts", () => ({
 	callOpenRouter: mockCallOpenRouter,
@@ -219,7 +224,9 @@ describe("RagPipeline", () => {
 		]);
 
 		const pipeline = new RagPipeline(db, "fake-key", "/fake/path");
-		const result = await pipeline.ask({ question: "Cuantas vacaciones tengo?" });
+		const result = await pipeline.ask({
+			question: "Cuantas vacaciones tengo?",
+		});
 
 		expect(result.answer).toContain("no ha podido ser verificada");
 	});

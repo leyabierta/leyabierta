@@ -9,12 +9,11 @@
  *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/spike-llm-verification.ts
  */
 
-import { callOpenRouter } from "../services/openrouter.ts";
 import {
 	extractTextFromPdf,
 	parseBill,
-	type ModificationGroup,
 } from "../services/bill-parser/parser.ts";
+import { callOpenRouter } from "../services/openrouter.ts";
 
 const MODEL = "google/gemini-2.5-flash-lite";
 const apiKey = process.env.OPENROUTER_API_KEY;
@@ -231,9 +230,7 @@ function findBestMatch(
 	}
 
 	// Try substring match
-	const llmWords = normalizedLlm
-		.split(" ")
-		.filter((w) => w.length > 3);
+	const llmWords = normalizedLlm.split(" ").filter((w) => w.length > 3);
 	for (const pl of parserLaws) {
 		const normalizedPl = normalizeLawName(pl);
 		const matchedWords = llmWords.filter((w) => normalizedPl.includes(w));
@@ -322,9 +319,7 @@ async function main() {
 		for (const llmGroup of llm.groups) {
 			const match = findBestMatch(llmGroup.target_law, parserLaws);
 			if (match) {
-				matchedBoth.push(
-					`${llmGroup.target_law} <-> ${match}`,
-				);
+				matchedBoth.push(`${llmGroup.target_law} <-> ${match}`);
 				matchedParserLaws.add(match);
 			} else {
 				llmOnly.push(
@@ -349,7 +344,9 @@ async function main() {
 		}
 
 		if (llmOnly.length > 0) {
-			console.log(`  LLM ONLY:     ${llmOnly.length} laws (parser missed these!)`);
+			console.log(
+				`  LLM ONLY:     ${llmOnly.length} laws (parser missed these!)`,
+			);
 			for (const l of llmOnly) {
 				console.log(`    - ${l}`);
 			}
@@ -403,7 +400,8 @@ async function main() {
 				: r.llmOnly.length > 0
 					? "GAPS"
 					: "OK";
-		const icon = status === "PERFECT" ? "[=]" : status === "GAPS" ? "[!]" : "[+]";
+		const icon =
+			status === "PERFECT" ? "[=]" : status === "GAPS" ? "[!]" : "[+]";
 		console.log(
 			`  ${icon} ${r.id}: Parser ${r.parserGroups} / LLM ${r.llmGroups} / Matched ${r.matchedBoth.length} / Parser-only ${r.parserOnly.length} / LLM-only ${r.llmOnly.length}`,
 		);
@@ -421,9 +419,7 @@ async function main() {
 	console.log(`\n  Total LLM cost: $${totalCost.toFixed(6)}`);
 
 	if (totalLlmOnlyCount > 0) {
-		console.log(
-			"\n  >> LLM found gaps in the parser! Details of missed laws:",
-		);
+		console.log("\n  >> LLM found gaps in the parser! Details of missed laws:");
 		for (const r of reports) {
 			if (r.llmOnly.length > 0) {
 				console.log(`\n  ${r.id} (${r.name}):`);

@@ -49,7 +49,13 @@ export interface NewEntity {
 	/** Name of the entity being created */
 	name: string;
 	/** Type of entity */
-	entityType: "registro" | "organo" | "procedimiento" | "derecho" | "sistema" | "otro";
+	entityType:
+		| "registro"
+		| "organo"
+		| "procedimiento"
+		| "derecho"
+		| "sistema"
+		| "otro";
 	/** Article where it's defined */
 	article: string;
 	/** Brief description */
@@ -175,12 +181,27 @@ export function buildOrdinalPattern(): RegExp {
 	//   Examples: "Centésimo trigésimo primero", "Ducentésimo cuarto"
 	const compoundWords = [
 		...LOWERCASE_ORDINALS.map((o) => o.toLowerCase()),
-		"primero", "segundo", "tercero", "cuarto", "quinto",
-		"sexto", "séptimo", "octavo", "noveno",
-		"décimo", "undécimo", "duodécimo",
-		"trigésimo", "cuadragésimo", "quincuagésimo",
-		"sexagésimo", "septuagésimo", "octogésimo", "nonagésimo",
-		"centésimo", "ducentésimo",
+		"primero",
+		"segundo",
+		"tercero",
+		"cuarto",
+		"quinto",
+		"sexto",
+		"séptimo",
+		"octavo",
+		"noveno",
+		"décimo",
+		"undécimo",
+		"duodécimo",
+		"trigésimo",
+		"cuadragésimo",
+		"quincuagésimo",
+		"sexagésimo",
+		"septuagésimo",
+		"octogésimo",
+		"nonagésimo",
+		"centésimo",
+		"ducentésimo",
 	];
 	const compoundPart = compoundWords.join("|");
 	return new RegExp(

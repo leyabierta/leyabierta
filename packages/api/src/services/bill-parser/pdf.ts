@@ -14,7 +14,10 @@ export function extractTextFromPdf(pdfPath: string): string {
 
 	// Write to temp file instead of stdout to work around bun worker thread bug
 	// where execSync stdout capture is broken in bun test workspace mode.
-	const tmpFile = join(tmpdir(), `pdftotext-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
+	const tmpFile = join(
+		tmpdir(),
+		`pdftotext-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`,
+	);
 	let text: string;
 	try {
 		// Use execFileSync with argument array to prevent shell injection
@@ -23,7 +26,11 @@ export function extractTextFromPdf(pdfPath: string): string {
 		});
 		text = readFileSync(tmpFile, "utf-8");
 	} finally {
-		try { unlinkSync(tmpFile); } catch { /* ignore */ }
+		try {
+			unlinkSync(tmpFile);
+		} catch {
+			/* ignore */
+		}
 	}
 
 	return text
@@ -32,10 +39,7 @@ export function extractTextFromPdf(pdfPath: string): string {
 			/BOLETÍN OFICIAL DE LAS CORTES GENERALES\nCONGRESO DE LOS DIPUTADOS\n/g,
 			"",
 		)
-		.replace(
-			/Serie [AB] Núm\. \d+-\d+\s+\d+ de \w+ de \d+\s+Pág\. \d+/g,
-			"",
-		)
+		.replace(/Serie [AB] Núm\. \d+-\d+\s+\d+ de \w+ de \d+\s+Pág\. \d+/g, "")
 		.replace(/\n{3,}/g, "\n\n")
 		.trim();
 }

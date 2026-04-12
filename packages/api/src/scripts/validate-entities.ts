@@ -5,17 +5,20 @@
  */
 
 import { readdirSync } from "node:fs";
-import { join, basename } from "node:path";
-import { extractTextFromPdf, parseBill } from "../services/bill-parser/parser.ts";
+import { basename, join } from "node:path";
+import {
+	extractTextFromPdf,
+	parseBill,
+} from "../services/bill-parser/parser.ts";
 
 const SPIKE_DIR = join(import.meta.dirname, "../../../../data/spike-bills");
 
 // Bills known to be pure modification (should have 0 entities)
 const PURE_MODIFICATION_BILLS = new Set([
-	"BOCG-14-A-62-1",  // solo si es si — pure CP modification
-	"BOCG-10-A-66-1",  // reforma CP 2015 — pure CP modification
+	"BOCG-14-A-62-1", // solo si es si — pure CP modification
+	"BOCG-10-A-66-1", // reforma CP 2015 — pure CP modification
 	"BOCG-14-B-295-1", // sedicion — pure CP modification
-	"BOCG-15-B-23-1",  // proposicion with article-based modifications
+	"BOCG-15-B-23-1", // proposicion with article-based modifications
 ]);
 
 interface BillResult {
@@ -119,9 +122,7 @@ async function main() {
 
 			if (entities.length > 0) {
 				for (const e of entities) {
-					console.log(
-						`  -> [${e.entityType}] ${e.article}: ${e.name}`,
-					);
+					console.log(`  -> [${e.entityType}] ${e.article}: ${e.name}`);
 					console.log(
 						`     ${e.description.slice(0, 120)}${e.description.length > 120 ? "..." : ""}`,
 					);
@@ -140,17 +141,14 @@ async function main() {
 	}
 
 	// Summary table
-	console.log("\n" + "=".repeat(100));
+	console.log(`\n${"=".repeat(100)}`);
 	console.log("\nSUMMARY TABLE\n");
-	console.log(
-		`${"BOCG ID".padEnd(22)} | ${"#".padStart(3)} | Entity names`,
-	);
+	console.log(`${"BOCG ID".padEnd(22)} | ${"#".padStart(3)} | Entity names`);
 	console.log("-".repeat(100));
 
 	for (const r of results) {
 		const names = r.entities.map((e) => e.name);
-		const nameStr =
-			names.length > 0 ? names.join("; ") : "(none)";
+		const nameStr = names.length > 0 ? names.join("; ") : "(none)";
 		console.log(
 			`${r.bocgId.padEnd(22)} | ${String(r.entityCount).padStart(3)} | ${nameStr}`,
 		);
@@ -159,7 +157,7 @@ async function main() {
 	// False positive report
 	const flagged = results.filter((r) => r.falsePositiveFlags.length > 0);
 	if (flagged.length > 0) {
-		console.log("\n" + "=".repeat(100));
+		console.log(`\n${"=".repeat(100)}`);
 		console.log("\nFALSE POSITIVE FLAGS\n");
 		for (const r of flagged) {
 			console.log(`${r.bocgId}:`);

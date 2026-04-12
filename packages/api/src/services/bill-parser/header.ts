@@ -5,7 +5,13 @@
 // ── Roman numeral conversion ──
 
 const ROMAN_VALUES: Record<string, number> = {
-	I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000,
+	I: 1,
+	V: 5,
+	X: 10,
+	L: 50,
+	C: 100,
+	D: 500,
+	M: 1000,
 };
 
 export function romanToArabic(roman: string): string | null {
@@ -61,7 +67,7 @@ export function extractPublicationDate(text: string): string {
 	if (dateMatch) {
 		const day = dateMatch[1]!.padStart(2, "0");
 		const month = SPANISH_MONTHS[dateMatch[2]!.toLowerCase()];
-		const year = dateMatch[3]!
+		const year = dateMatch[3]!;
 		if (month) return `${year}-${month}-${day}`;
 	}
 	return "unknown";

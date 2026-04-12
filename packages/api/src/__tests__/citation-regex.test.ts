@@ -9,7 +9,9 @@ import { describe, expect, test } from "bun:test";
 const CITE_RE =
 	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:iculo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
 
-function findCitations(text: string): Array<{ normId: string; articleRef: string }> {
+function findCitations(
+	text: string,
+): Array<{ normId: string; articleRef: string }> {
 	const results: Array<{ normId: string; articleRef: string }> = [];
 	CITE_RE.lastIndex = 0;
 	let match: RegExpExecArray | null;

@@ -54,7 +54,9 @@ export function findSectionBoundaries(text: string): number[] {
 // ── Group deduplication ──
 
 /** Remove duplicate groups that target the same law with overlapping modifications */
-export function deduplicateGroups(groups: ModificationGroup[]): ModificationGroup[] {
+export function deduplicateGroups(
+	groups: ModificationGroup[],
+): ModificationGroup[] {
 	const seen = new Map<string, number>(); // key → index of first occurrence
 	const result: ModificationGroup[] = [];
 
@@ -66,9 +68,13 @@ export function deduplicateGroups(groups: ModificationGroup[]): ModificationGrou
 		if (seen.has(key)) {
 			// Keep the one with more modifications (or longer target law name)
 			const existingIdx = seen.get(key)!;
-			if (group.modifications.length > result[existingIdx]!.modifications.length ||
-				(group.modifications.length === result[existingIdx]!.modifications.length &&
-				 group.targetLaw.length > result[existingIdx]!.targetLaw.length)) {
+			if (
+				group.modifications.length >
+					result[existingIdx]!.modifications.length ||
+				(group.modifications.length ===
+					result[existingIdx]!.modifications.length &&
+					group.targetLaw.length > result[existingIdx]!.targetLaw.length)
+			) {
 				result[existingIdx] = group;
 			}
 		} else {

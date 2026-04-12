@@ -14,7 +14,10 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { extractTextFromPdf, parseBill } from "../services/bill-parser/parser.ts";
+import {
+	extractTextFromPdf,
+	parseBill,
+} from "../services/bill-parser/parser.ts";
 
 const BILLS_DIR = "./data/spike-bills";
 const verbose = process.argv.includes("--verbose");
@@ -44,17 +47,23 @@ function countExpectedGroups(text: string): number {
 	const seen = new Set<number>(); // dedup by position
 
 	// Pattern 1: "Disposición final X. Modificación de..."
-	for (const m of text.matchAll(/Disposición final [\p{L}\d]+\.\s+Modificación (?:de|del) /gu)) {
+	for (const m of text.matchAll(
+		/Disposición final [\p{L}\d]+\.\s+Modificación (?:de|del) /gu,
+	)) {
 		seen.add(m.index!);
 	}
 
 	// Pattern 2: "Disposición adicional X. Modificación de..."
-	for (const m of text.matchAll(/Disposición adicional [\p{L}\d]+\.\s+Modificación (?:de|del) /gu)) {
+	for (const m of text.matchAll(
+		/Disposición adicional [\p{L}\d]+\.\s+Modificación (?:de|del) /gu,
+	)) {
 		seen.add(m.index!);
 	}
 
 	// Pattern 3: "Artículo X. Modificación de..."
-	for (const m of text.matchAll(/Artículo [\p{L}\d]+\.\s+Modificación (?:de|del) /gu)) {
+	for (const m of text.matchAll(
+		/Artículo [\p{L}\d]+\.\s+Modificación (?:de|del) /gu,
+	)) {
 		seen.add(m.index!);
 	}
 
@@ -68,12 +77,18 @@ function countExpectedGroups(text: string): number {
 	}
 
 	// Pattern 5: Bare disposiciones (DA/DF) whose body contains "Se modifica" in first 300 chars
-	for (const m of text.matchAll(/\n(Disposición (?:final|adicional) [\p{L}\d]+\.)\s+/gu)) {
+	for (const m of text.matchAll(
+		/\n(Disposición (?:final|adicional) [\p{L}\d]+\.)\s+/gu,
+	)) {
 		if (seen.has(m.index! + 1)) continue; // Already counted from patterns above
 		const bodyStart = m.index! + m[0].length;
 		const chunk = text.slice(bodyStart, bodyStart + 300);
-		if (/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado|párrafo)/i.test(chunk) ||
-			/queda(?:n)?\s+(?:redactad|modificad)/i.test(chunk)) {
+		if (
+			/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado|párrafo)/i.test(
+				chunk,
+			) ||
+			/queda(?:n)?\s+(?:redactad|modificad)/i.test(chunk)
+		) {
 			seen.add(m.index! + 1);
 		}
 	}
@@ -83,8 +98,14 @@ function countExpectedGroups(text: string): number {
 		if (seen.has(m.index! + 1)) continue;
 		const bodyStart = m.index! + m[0].length;
 		const chunk = text.slice(bodyStart, bodyStart + 500);
-		if (/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado).+?(?:de|del) (?:la |el )(?:Ley|Código|Estatuto|Real Decreto|texto refundido)/i.test(chunk) ||
-			/queda(?:n)?\s+(?:redactad|modificad).+?(?:de|del) (?:la |el )(?:Ley|Código)/i.test(chunk)) {
+		if (
+			/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado).+?(?:de|del) (?:la |el )(?:Ley|Código|Estatuto|Real Decreto|texto refundido)/i.test(
+				chunk,
+			) ||
+			/queda(?:n)?\s+(?:redactad|modificad).+?(?:de|del) (?:la |el )(?:Ley|Código)/i.test(
+				chunk,
+			)
+		) {
 			seen.add(m.index! + 1);
 		}
 	}
@@ -132,7 +153,10 @@ for (const pdf of pdfs) {
 
 	try {
 		const text = extractTextFromPdf(path);
-		const bill = await parseBill(text, useLLM && apiKey ? { apiKey } : undefined);
+		const bill = await parseBill(
+			text,
+			useLLM && apiKey ? { apiKey } : undefined,
+		);
 
 		const byType: Record<string, number> = {};
 		let totalMods = 0;
@@ -160,12 +184,20 @@ for (const pdf of pdfs) {
 			error: null,
 		});
 
-		const status = totalMods > 0 ? "OK" : bill.modificationGroups.length === 0 ? "NO_MODS" : "EMPTY_GROUPS";
+		const status =
+			totalMods > 0
+				? "OK"
+				: bill.modificationGroups.length === 0
+					? "NO_MODS"
+					: "EMPTY_GROUPS";
 		const warnCount = warnings.length;
 		console.log(
 			`  ${status === "OK" ? "✅" : status === "NO_MODS" ? "⚠️" : "❌"} ${pdf}`,
 		);
-		const recallPct = groupsExpected > 0 ? ((bill.modificationGroups.length / groupsExpected) * 100).toFixed(0) : "-";
+		const recallPct =
+			groupsExpected > 0
+				? ((bill.modificationGroups.length / groupsExpected) * 100).toFixed(0)
+				: "-";
 		console.log(
 			`     ${text.length.toLocaleString()} chars | ${bill.modificationGroups.length}/${groupsExpected} groups (${recallPct}%) | ${totalMods} mods | ${warnCount} warnings | ${bill.transitionalProvisions.length} DTs`,
 		);
@@ -229,23 +261,41 @@ console.log(`  Errors:          ${errors.length}`);
 console.log();
 console.log(`  Total mods:      ${totalMods}`);
 console.log(`  Total warnings:  ${totalWarnings} (unclassified ordinals)`);
-console.log(`  Classification:  ${totalMods > 0 ? ((totalMods / (totalMods + totalWarnings)) * 100).toFixed(1) : 0}%`);
+console.log(
+	`  Classification:  ${totalMods > 0 ? ((totalMods / (totalMods + totalWarnings)) * 100).toFixed(1) : 0}%`,
+);
 
 const totalGroupsFound = successful.reduce((s, r) => s + r.groupsFound, 0);
-const totalGroupsExpected = successful.reduce((s, r) => s + r.groupsExpected, 0);
-const groupRecall = totalGroupsExpected > 0 ? ((totalGroupsFound / totalGroupsExpected) * 100).toFixed(1) : "-";
-console.log(`  Group recall:    ${totalGroupsFound}/${totalGroupsExpected} (${groupRecall}%)`);
+const totalGroupsExpected = successful.reduce(
+	(s, r) => s + r.groupsExpected,
+	0,
+);
+const groupRecall =
+	totalGroupsExpected > 0
+		? ((totalGroupsFound / totalGroupsExpected) * 100).toFixed(1)
+		: "-";
+console.log(
+	`  Group recall:    ${totalGroupsFound}/${totalGroupsExpected} (${groupRecall}%)`,
+);
 
 // Bills where found > expected (catch-all finds more than text scan expects)
-const overDetected = successful.filter((r) => r.groupsFound > r.groupsExpected && r.groupsExpected > 0);
+const overDetected = successful.filter(
+	(r) => r.groupsFound > r.groupsExpected && r.groupsExpected > 0,
+);
 if (overDetected.length > 0) {
-	console.log(`  Over-detected:   ${overDetected.length} bills (found > expected, catch-all effective)`);
+	console.log(
+		`  Over-detected:   ${overDetected.length} bills (found > expected, catch-all effective)`,
+	);
 }
 
 // Bills where found < expected (missing groups)
-const underDetected = successful.filter((r) => r.groupsFound < r.groupsExpected);
+const underDetected = successful.filter(
+	(r) => r.groupsFound < r.groupsExpected,
+);
 if (underDetected.length > 0) {
-	console.log(`  Under-detected:  ${underDetected.length} bills (found < expected)`);
+	console.log(
+		`  Under-detected:  ${underDetected.length} bills (found < expected)`,
+	);
 	for (const r of underDetected) {
 		console.log(`    ${r.filename}: ${r.groupsFound}/${r.groupsExpected}`);
 	}
@@ -293,8 +343,12 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 console.log("  MARKDOWN TABLE (for README)");
 console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-console.log("| # | BOCG ID | Chars | Groups | Mods | Warnings | DTs | Status |");
-console.log("|---|---------|-------|--------|------|----------|-----|--------|");
+console.log(
+	"| # | BOCG ID | Chars | Groups | Mods | Warnings | DTs | Status |",
+);
+console.log(
+	"|---|---------|-------|--------|------|----------|-----|--------|",
+);
 for (let i = 0; i < results.length; i++) {
 	const r = results[i]!;
 	const status = r.error

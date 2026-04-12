@@ -8,8 +8,8 @@
  * - A simplified regex fallback handles the most common patterns (~60% of cases).
  */
 
-import type { Derogation } from "./types.ts";
 import { extractDerogationsWithLLM } from "./llm.ts";
+import type { Derogation } from "./types.ts";
 import { buildQuotedRanges, isInsideQuotedBlock } from "./utils.ts";
 
 // ── Generic clause patterns (skip these) ──
@@ -33,8 +33,7 @@ export function findDerogatorySections(text: string): string[] {
 
 	// Match "Disposición derogatoria única/primera/segunda/etc."
 	// Can appear after \n or at start of line in PDF text
-	const headerRegex =
-		/(?:^|\n)Disposición derogatoria ([\p{L}\d]+)\./gu;
+	const headerRegex = /(?:^|\n)Disposición derogatoria ([\p{L}\d]+)\./gu;
 
 	const headers: Array<{ startIndex: number }> = [];
 	for (const match of text.matchAll(headerRegex)) {
@@ -89,7 +88,10 @@ export function splitIntoItems(section: string): string[] {
 	// Try lettered items directly: "a) ...", "b) ..."
 	const letteredParts = body.split(/(?:^|\n)\s*[a-z]\)\s+/);
 	if (letteredParts.length > 1) {
-		const items = letteredParts.slice(1).map((s) => s.trim()).filter((s) => s.length > 0);
+		const items = letteredParts
+			.slice(1)
+			.map((s) => s.trim())
+			.filter((s) => s.length > 0);
 		if (items.length > 0) return items;
 	}
 
@@ -186,12 +188,15 @@ function extractDerogationsRegexFallback(sections: string[]): Derogation[] {
 					/(?:Se\s+(?:deroga[n]?|suprime[n]?)|Queda(?:n)?\s+derogad[oa]s?)\s+[\s\S]+?(?:de(?:l)?\s+)((?:Código|Estatuto|Reglamento)\s+[\w\s]+?)(?:\.\s*$|$)/i,
 				);
 				if (shortMatch) {
-					const hasProvisions = /art[ií]culos?\s+\d|libro\s+\w|t[ií]tulo\s+\w/i.test(text);
+					const hasProvisions =
+						/art[ií]culos?\s+\d|libro\s+\w|t[ií]tulo\s+\w/i.test(text);
 					derogations.push({
 						text,
 						targetLaw: shortMatch[1]!.trim().replace(/\.$/, ""),
 						scope: hasProvisions ? "partial" : "full",
-						targetProvisions: hasProvisions ? extractSimpleProvisions(text) : [],
+						targetProvisions: hasProvisions
+							? extractSimpleProvisions(text)
+							: [],
 					});
 				}
 				continue;

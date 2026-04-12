@@ -3,10 +3,10 @@
  * Mocks the RagPipeline to test HTTP-level behavior.
  */
 
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { Elysia } from "elysia";
-import type { AskResponse, RagPipeline } from "../services/rag/pipeline.ts";
 import { askRoutes } from "../routes/ask.ts";
+import type { AskResponse, RagPipeline } from "../services/rag/pipeline.ts";
 
 const HAPPY_RESPONSE: AskResponse = {
 	answer: "Tienes derecho a 30 dias de vacaciones.",
@@ -43,12 +43,14 @@ describe("/v1/ask route", () => {
 		);
 
 		expect(res.status).toBe(503);
-		const body = await res.json() as Record<string, unknown>;
+		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.error).toContain("no est");
 	});
 
 	test("400 for question shorter than 3 chars", async () => {
-		const mockPipeline = { ask: mock(() => Promise.resolve(HAPPY_RESPONSE)) } as unknown as RagPipeline;
+		const mockPipeline = {
+			ask: mock(() => Promise.resolve(HAPPY_RESPONSE)),
+		} as unknown as RagPipeline;
 		const app = buildApp(mockPipeline);
 
 		const res = await app.handle(
@@ -60,12 +62,14 @@ describe("/v1/ask route", () => {
 		);
 
 		expect(res.status).toBe(400);
-		const body = await res.json() as Record<string, unknown>;
+		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.error).toContain("3 caracteres");
 	});
 
 	test("400 for question longer than 1000 chars", async () => {
-		const mockPipeline = { ask: mock(() => Promise.resolve(HAPPY_RESPONSE)) } as unknown as RagPipeline;
+		const mockPipeline = {
+			ask: mock(() => Promise.resolve(HAPPY_RESPONSE)),
+		} as unknown as RagPipeline;
 		const app = buildApp(mockPipeline);
 
 		const res = await app.handle(
@@ -77,12 +81,14 @@ describe("/v1/ask route", () => {
 		);
 
 		expect(res.status).toBe(400);
-		const body = await res.json() as Record<string, unknown>;
+		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.error).toContain("1000 caracteres");
 	});
 
 	test("400 for whitespace-only question", async () => {
-		const mockPipeline = { ask: mock(() => Promise.resolve(HAPPY_RESPONSE)) } as unknown as RagPipeline;
+		const mockPipeline = {
+			ask: mock(() => Promise.resolve(HAPPY_RESPONSE)),
+		} as unknown as RagPipeline;
 		const app = buildApp(mockPipeline);
 
 		const res = await app.handle(
@@ -111,12 +117,14 @@ describe("/v1/ask route", () => {
 		);
 
 		expect(res.status).toBe(500);
-		const body = await res.json() as Record<string, unknown>;
+		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.error).toContain("Error procesando");
 	});
 
 	test("happy path returns AskResponse", async () => {
-		const mockPipeline = { ask: mock(() => Promise.resolve(HAPPY_RESPONSE)) } as unknown as RagPipeline;
+		const mockPipeline = {
+			ask: mock(() => Promise.resolve(HAPPY_RESPONSE)),
+		} as unknown as RagPipeline;
 		const app = buildApp(mockPipeline);
 
 		const res = await app.handle(
@@ -128,7 +136,7 @@ describe("/v1/ask route", () => {
 		);
 
 		expect(res.status).toBe(200);
-		const body = await res.json() as AskResponse;
+		const body = (await res.json()) as AskResponse;
 		expect(body.answer).toContain("30 dias");
 		expect(body.citations).toHaveLength(1);
 		expect(body.citations[0]!.normId).toBe("BOE-A-1995-7730");

@@ -10,12 +10,12 @@
  * These tests run WITHOUT LLM (deterministic only) so they are free and fast.
  */
 
-import { existsSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import {
 	extractTextFromPdf,
-	parseBill,
 	type ParsedBill,
+	parseBill,
 } from "../services/bill-parser/parser.ts";
 
 // ── Test case definitions ──
@@ -103,7 +103,8 @@ const BILLS: BillExpectation[] = [
 	},
 	{
 		id: "BOCG-14-A-116-1",
-		description: "Eficiencia Digital de Justicia — 7 DFs, DAs inside «» should not be detected",
+		description:
+			"Eficiencia Digital de Justicia — 7 DFs, DAs inside «» should not be detected",
 		groups: 7,
 		minMods: 50,
 		maxMods: 58,
@@ -184,7 +185,6 @@ function hasPdf(id: string): boolean {
 	return existsSync(join(PDF_DIR, `${id}.PDF`));
 }
 
-
 const parsedCache = new Map<string, ParsedBill>();
 
 // Use Promise cache to prevent parallel parses of the same bill
@@ -247,22 +247,16 @@ describe("bill-parser", () => {
 				},
 			);
 
-			test.skipIf(skip)(
-				"extracts BOCG ID correctly",
-				async () => {
-					const parsed = await getParsed(bill.id);
-					expect(parsed.bocgId).toBe(bill.id);
-				},
-			);
+			test.skipIf(skip)("extracts BOCG ID correctly", async () => {
+				const parsed = await getParsed(bill.id);
+				expect(parsed.bocgId).toBe(bill.id);
+			});
 
-			test.skipIf(skip)(
-				"extracts publication date",
-				async () => {
-					const parsed = await getParsed(bill.id);
-					expect(parsed.publicationDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-					expect(parsed.publicationDate).not.toBe("unknown");
-				},
-			);
+			test.skipIf(skip)("extracts publication date", async () => {
+				const parsed = await getParsed(bill.id);
+				expect(parsed.publicationDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+				expect(parsed.publicationDate).not.toBe("unknown");
+			});
 
 			test.skipIf(skip)(
 				"zero warnings (all modifications classified)",
@@ -294,9 +288,7 @@ describe("bill-parser", () => {
 						expect(totalMods).toBeGreaterThanOrEqual(check.minMods);
 
 						const foundTypes = new Set<string>(
-							matching.flatMap((g) =>
-								g.modifications.map((m) => m.changeType),
-							),
+							matching.flatMap((g) => g.modifications.map((m) => m.changeType)),
 						);
 						for (const expectedType of check.changeTypes) {
 							expect(foundTypes.has(expectedType)).toBe(true);
@@ -313,8 +305,7 @@ describe("bill-parser", () => {
 						const parsed = await getParsed(bill.id);
 						const found = parsed.modificationGroups.filter(
 							(g) =>
-								g.targetLaw.includes(forbidden) ||
-								g.title.includes(forbidden),
+								g.targetLaw.includes(forbidden) || g.title.includes(forbidden),
 						);
 						expect(found.length).toBe(0);
 					},
@@ -327,32 +318,26 @@ describe("bill-parser", () => {
 	describe("cross-cutting", () => {
 		const anyPdfAvailable = BILLS.some((b) => hasPdf(b.id));
 
-		test.skipIf(!anyPdfAvailable)(
-			"no group has empty target law",
-			async () => {
-				for (const bill of BILLS) {
-					if (!hasPdf(bill.id)) continue;
-					const parsed = await getParsed(bill.id);
-					for (const group of parsed.modificationGroups) {
-						expect(group.targetLaw).not.toBe("");
-						expect(group.targetLaw).not.toBe("unknown");
-					}
+		test.skipIf(!anyPdfAvailable)("no group has empty target law", async () => {
+			for (const bill of BILLS) {
+				if (!hasPdf(bill.id)) continue;
+				const parsed = await getParsed(bill.id);
+				for (const group of parsed.modificationGroups) {
+					expect(group.targetLaw).not.toBe("");
+					expect(group.targetLaw).not.toBe("unknown");
 				}
-			},
-		);
+			}
+		});
 
-		test.skipIf(!anyPdfAvailable)(
-			"no group has empty title",
-			async () => {
-				for (const bill of BILLS) {
-					if (!hasPdf(bill.id)) continue;
-					const parsed = await getParsed(bill.id);
-					for (const group of parsed.modificationGroups) {
-						expect(group.title.length).toBeGreaterThan(0);
-					}
+		test.skipIf(!anyPdfAvailable)("no group has empty title", async () => {
+			for (const bill of BILLS) {
+				if (!hasPdf(bill.id)) continue;
+				const parsed = await getParsed(bill.id);
+				for (const group of parsed.modificationGroups) {
+					expect(group.title.length).toBeGreaterThan(0);
 				}
-			},
-		);
+			}
+		});
 
 		test.skipIf(!anyPdfAvailable)(
 			"all modifications have non-empty ordinals",
@@ -547,7 +532,9 @@ describe("bill-parser", () => {
 			async () => {
 				const parsed = await getParsed("BOCG-10-A-66-1");
 				const libroCP = parsed.derogations.find(
-					(d) => d.targetLaw.includes("10/1995") && d.targetProvisions.some((p) => p.includes("libro")),
+					(d) =>
+						d.targetLaw.includes("10/1995") &&
+						d.targetProvisions.some((p) => p.includes("libro")),
 				);
 				expect(libroCP).toBeDefined();
 				expect(libroCP!.scope).toBe("partial");
@@ -564,7 +551,8 @@ describe("bill-parser", () => {
 				// at least one partial derogation of CP articles is found.
 				const articulosCP = parsed.derogations.find(
 					(d) =>
-						(d.targetLaw.includes("10/1995") || d.targetLaw.includes("Código Penal")) &&
+						(d.targetLaw.includes("10/1995") ||
+							d.targetLaw.includes("Código Penal")) &&
 						d.scope === "partial" &&
 						d.targetProvisions.some((p) => p.includes("artículo")),
 				);
@@ -589,10 +577,14 @@ describe("bill-parser", () => {
 			"BOCG-10-A-66-1 derogates artículo 24 of Ley 4/2010 (partial)",
 			async () => {
 				const parsed = await getParsed("BOCG-10-A-66-1");
-				const ley4 = parsed.derogations.find((d) => d.targetLaw.includes("4/2010"));
+				const ley4 = parsed.derogations.find((d) =>
+					d.targetLaw.includes("4/2010"),
+				);
 				expect(ley4).toBeDefined();
 				expect(ley4!.scope).toBe("partial");
-				expect(ley4!.targetProvisions.some((p) => p.includes("artículo 24"))).toBe(true);
+				expect(
+					ley4!.targetProvisions.some((p) => p.includes("artículo 24")),
+				).toBe(true);
 			},
 		);
 
@@ -601,7 +593,9 @@ describe("bill-parser", () => {
 			async () => {
 				const parsed = await getParsed("BOCG-15-A-35-1");
 				expect(parsed.derogations.length).toBeGreaterThanOrEqual(1);
-				const ley3 = parsed.derogations.find((d) => d.targetLaw.includes("3/2013"));
+				const ley3 = parsed.derogations.find((d) =>
+					d.targetLaw.includes("3/2013"),
+				);
 				expect(ley3).toBeDefined();
 				expect(ley3!.scope).toBe("partial");
 			},

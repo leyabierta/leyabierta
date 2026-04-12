@@ -2,7 +2,7 @@
  * RSS feed generated from Content Collections at build time.
  */
 
-// @ts-ignore — astro:content is a virtual module resolved by the Astro compiler
+// @ts-expect-error — astro:content is a virtual module resolved by the Astro compiler
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
 import { escapeHtml } from "../lib/escape.ts";

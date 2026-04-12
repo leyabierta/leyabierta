@@ -13,19 +13,40 @@
  * output as fallback for sections without ordinals (~$0.001/section).
  */
 
-import type { BillType, ModificationGroup, ParsedBill } from "./types.ts";
-import { extractBocgId, extractPublicationDate, extractTitle, extractTransitionalProvisions } from "./header.ts";
-import { parseModifications, parseModificationsAsync } from "./classification.ts";
-import { extractDFGroups, extractArticuloGroups, extractArticuloUnicoGroup, extractDAGroups, extractImplicitModGroups } from "./strategies.ts";
-import { verifyWithLLM } from "./llm.ts";
-import { buildQuotedRanges, deduplicateGroups } from "./utils.ts";
+import {
+	parseModifications,
+	parseModificationsAsync,
+} from "./classification.ts";
 import { extractDerogations } from "./derogations.ts";
 import { extractNewEntities } from "./entities.ts";
+import {
+	extractBocgId,
+	extractPublicationDate,
+	extractTitle,
+	extractTransitionalProvisions,
+} from "./header.ts";
+import { verifyWithLLM } from "./llm.ts";
+import {
+	extractArticuloGroups,
+	extractArticuloUnicoGroup,
+	extractDAGroups,
+	extractDFGroups,
+	extractImplicitModGroups,
+} from "./strategies.ts";
+import type { BillType, ModificationGroup, ParsedBill } from "./types.ts";
+import { buildQuotedRanges, deduplicateGroups } from "./utils.ts";
 
 // ── Re-exports for backward compatibility ──
 
 export { extractTextFromPdf } from "./pdf.ts";
-export type { BillModification, BillType, Derogation, NewEntity, ModificationGroup, ParsedBill } from "./types.ts";
+export type {
+	BillModification,
+	BillType,
+	Derogation,
+	ModificationGroup,
+	NewEntity,
+	ParsedBill,
+} from "./types.ts";
 
 // ── Bill type classification ──
 
@@ -35,7 +56,10 @@ export type { BillModification, BillType, Derogation, NewEntity, ModificationGro
  * - `new_law`: has substantial articulado but 0 modification groups
  * - `mixed`: has both (common for omnibus bills)
  */
-export function classifyBillType(text: string, modificationGroups: ModificationGroup[]): BillType {
+export function classifyBillType(
+	text: string,
+	modificationGroups: ModificationGroup[],
+): BillType {
 	const hasModifications = modificationGroups.length > 0;
 
 	// Check for substantial articulado (articles before disposiciones)
@@ -46,7 +70,9 @@ export function classifyBillType(text: string, modificationGroups: ModificationG
 	const articulado = dispMatch > 0 ? text.slice(0, dispMatch) : text;
 
 	// Count numbered articles in the articulado
-	const articleCount = [...articulado.matchAll(/\nArtículo\s+\d+(?:\s*(?:bis|ter))?\./gi)].length;
+	const articleCount = [
+		...articulado.matchAll(/\nArtículo\s+\d+(?:\s*(?:bis|ter))?\./gi),
+	].length;
 	const hasSubstantialArticulado = articleCount >= 3;
 
 	// Check if the articulado is mostly «»-quoted text (modification instructions)
@@ -63,7 +89,8 @@ export function classifyBillType(text: string, modificationGroups: ModificationG
 	// if they have no modifications, they create new rules (new_law).
 	const hasArticuloUnico = /\bArtículo\s+único\b/i.test(articulado);
 
-	const hasRealArticulado = hasSubstantialArticulado && !isMostlyQuoted && !hasArticuloUnico;
+	const hasRealArticulado =
+		hasSubstantialArticulado && !isMostlyQuoted && !hasArticuloUnico;
 
 	if (hasModifications && hasRealArticulado) return "mixed";
 	if (hasModifications) return "amendment";
@@ -71,7 +98,8 @@ export function classifyBillType(text: string, modificationGroups: ModificationG
 
 	// Fallback: if there's articulado text but no modifications, treat as new_law
 	// This covers both numbered articles (articleCount >= 1) and "Artículo único"
-	if (articulado.length > 2000 && (articleCount >= 1 || hasArticuloUnico)) return "new_law";
+	if (articulado.length > 2000 && (articleCount >= 1 || hasArticuloUnico))
+		return "new_law";
 
 	return "amendment";
 }
@@ -124,7 +152,11 @@ export async function parseBill(
 			existingRanges.push([idx, end]);
 		}
 	}
-	const implicitGroups = await extractImplicitModGroups(text, existingRanges, options?.apiKey);
+	const implicitGroups = await extractImplicitModGroups(
+		text,
+		existingRanges,
+		options?.apiKey,
+	);
 	modificationGroups.push(...implicitGroups);
 
 	// Deduplicate groups with overlapping target laws
@@ -134,10 +166,16 @@ export async function parseBill(
 	// Some Serie B proposiciones use informal structure (no Artículos, no DFs)
 	// with ordinals (Uno. Dos.) directly in the body after exposición de motivos
 	if (modificationGroups.length === 0) {
-		const titleMod = title.match(/modificación (?:de|del) (?:la |el |los |las )?(.+)/i)
-			?? text.match(/Proposición de Ley de modificación (?:de|del) (?:la |el |los |las )?(.+?)(?:\.\n|\n(?:Present|Acuerdo))/is);
+		const titleMod =
+			title.match(/modificación (?:de|del) (?:la |el |los |las )?(.+)/i) ??
+			text.match(
+				/Proposición de Ley de modificación (?:de|del) (?:la |el |los |las )?(.+?)(?:\.\n|\n(?:Present|Acuerdo))/is,
+			);
 		if (titleMod) {
-			const targetLaw = titleMod[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "");
+			const targetLaw = titleMod[1]!
+				.replace(/\n/g, " ")
+				.trim()
+				.replace(/\.$/, "");
 			// Find body: after "Exposición de motivos" section ends, look for ordinals
 			const bodyStart = text.search(/\n(?:Uno|Primero|1)\.\s/);
 			if (bodyStart > 0) {
@@ -158,7 +196,11 @@ export async function parseBill(
 
 	// Strategy 8: LLM verification — independent extraction to catch gaps
 	if (options?.apiKey) {
-		const llmGapGroups = await verifyWithLLM(text, modificationGroups, options.apiKey);
+		const llmGapGroups = await verifyWithLLM(
+			text,
+			modificationGroups,
+			options.apiKey,
+		);
 		if (llmGapGroups.length > 0) {
 			modificationGroups.push(...llmGapGroups);
 			modificationGroups = deduplicateGroups(modificationGroups);

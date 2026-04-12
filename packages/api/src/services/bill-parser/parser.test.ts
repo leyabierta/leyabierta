@@ -39,7 +39,9 @@ Disposición final primera. Entrada en vigor.`;
 			{
 				title: "Modificación del Código Penal",
 				targetLaw: "Ley Orgánica 10/1995, del Código Penal",
-				modifications: [{ type: "modify", target: "artículo 1", content: "..." }],
+				modifications: [
+					{ type: "modify", target: "artículo 1", content: "..." },
+				],
 			},
 		]);
 		expect(result).toBe("amendment");

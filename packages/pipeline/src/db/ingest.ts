@@ -146,7 +146,8 @@ export function normalizeArticle(
 	let currentText = article.currentText as string | undefined;
 	if (currentText === undefined || currentText === null) {
 		// Default to the text of the last version
-		currentText = versions.length > 0 ? versions[versions.length - 1]!.text : "";
+		currentText =
+			versions.length > 0 ? versions[versions.length - 1]!.text : "";
 	}
 
 	return { blockId, blockType, title, position, versions, currentText };

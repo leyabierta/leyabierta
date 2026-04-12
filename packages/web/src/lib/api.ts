@@ -243,21 +243,33 @@ export async function subscribe(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ email, profileId, jurisdiction }),
 	});
-	return res.json() as Promise<{ ok?: boolean; error?: string; message?: string }>;
+	return res.json() as Promise<{
+		ok?: boolean;
+		error?: string;
+		message?: string;
+	}>;
 }
 
 export async function confirmSubscription(
 	token: string,
 ): Promise<{ ok?: boolean; error?: string; message?: string }> {
 	const res = await fetch(`${API_BASE}/v1/alerts/confirm/${token}`);
-	return res.json() as Promise<{ ok?: boolean; error?: string; message?: string }>;
+	return res.json() as Promise<{
+		ok?: boolean;
+		error?: string;
+		message?: string;
+	}>;
 }
 
 export async function cancelSubscription(
 	token: string,
 ): Promise<{ ok?: boolean; error?: string; message?: string }> {
 	const res = await fetch(`${API_BASE}/v1/alerts/unsubscribe/${token}`);
-	return res.json() as Promise<{ ok?: boolean; error?: string; message?: string }>;
+	return res.json() as Promise<{
+		ok?: boolean;
+		error?: string;
+		message?: string;
+	}>;
 }
 
 // ── Omnibus endpoints ──
@@ -400,7 +412,9 @@ export interface BillDetail {
 	model: string;
 }
 
-export function getBills(params?: Record<string, string>): Promise<BillsResult> {
+export function getBills(
+	params?: Record<string, string>,
+): Promise<BillsResult> {
 	const qs = params ? `?${new URLSearchParams(params)}` : "";
 	return fetchApi(`/v1/bills${qs}`);
 }

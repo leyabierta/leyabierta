@@ -2,9 +2,9 @@
  * Bill Parser — modification classification and ordinal splitting.
  */
 
+import { classifyWithLLM } from "./llm.ts";
 import type { BillModification } from "./types.ts";
 import { buildOrdinalPattern } from "./types.ts";
-import { classifyWithLLM } from "./llm.ts";
 import { buildQuotedRanges } from "./utils.ts";
 
 // ── Modification classification ──
@@ -17,7 +17,9 @@ function classifyModification(
 	// Some patterns span 2-3 lines (e.g., "Se introduce, dentro de\nla sección..., un nuevo X")
 	// Use the text up to the first «» block or first 500 chars as the "header"
 	const quoteStart = text.indexOf("«");
-	const header = (quoteStart > 0 ? text.slice(0, quoteStart) : text.slice(0, 500)).replace(/\n/g, " ");
+	const header = (
+		quoteStart > 0 ? text.slice(0, quoteStart) : text.slice(0, 500)
+	).replace(/\n/g, " ");
 
 	// "Se suprime el Capítulo/Título X" → suppress_chapter
 	const suppressChapterMatch = firstLine.match(
@@ -39,11 +41,13 @@ function classifyModification(
 	// "Se modifica el artículo X, que quedan? redactado como sigue:" / "...en los siguientes términos:"
 	// Also handles parenthetical: "Se modifica, en su cuarto párrafo, el apartado 2 del artículo X"
 	// Try firstLine first, then header for multiline cases
-	const modifyMatch = firstLine.match(
-		/Se modifica[n]?(?:,\s+[^,]+,)?\s+(?:el |la |los |las )?(.+?),?\s+(?:que )?(?:queda(?:n|ndo)?|pasa[n]? a (?:tener|ser|denominarse))[\s\S]*?(?:redactad|siguiente|tenor|como|sigue|establece|modo|contenido|términos|forma)/i,
-	) || header.match(
-		/Se modifica[n]?(?:,\s+[^,]+,)?\s+(?:el |la |los |las )?(.+?),?\s+(?:que )?(?:queda(?:n|ndo)?|pasa[n]? a (?:tener|ser|denominarse))[\s\S]*?(?:redactad|siguiente|tenor|como|sigue|establece|modo|contenido|términos|forma)/i,
-	);
+	const modifyMatch =
+		firstLine.match(
+			/Se modifica[n]?(?:,\s+[^,]+,)?\s+(?:el |la |los |las )?(.+?),?\s+(?:que )?(?:queda(?:n|ndo)?|pasa[n]? a (?:tener|ser|denominarse))[\s\S]*?(?:redactad|siguiente|tenor|como|sigue|establece|modo|contenido|términos|forma)/i,
+		) ||
+		header.match(
+			/Se modifica[n]?(?:,\s+[^,]+,)?\s+(?:el |la |los |las )?(.+?),?\s+(?:que )?(?:queda(?:n|ndo)?|pasa[n]? a (?:tener|ser|denominarse))[\s\S]*?(?:redactad|siguiente|tenor|como|sigue|establece|modo|contenido|términos|forma)/i,
+		);
 	if (modifyMatch) {
 		return {
 			ordinal,
@@ -144,9 +148,7 @@ function classifyModification(
 	}
 
 	// Fallback: any "Se modifica" pattern
-	const genericModify = firstLine.match(
-		/Se modifica[n]? (.+?)(?:\.|,|$)/i,
-	);
+	const genericModify = firstLine.match(/Se modifica[n]? (.+?)(?:\.|,|$)/i);
 	if (genericModify) {
 		return {
 			ordinal,
@@ -166,9 +168,11 @@ function classifyModification(
 		/^(?:En )?(?:el |la |los |las )(.+?)\s+(?:queda(?:n|rá[n]?)?\s+(?:redactad[oa]s?|modificad[oa]s?)|tendrá[n]?\s+la siguiente redacción|se redacta[n]?)\s+(?:en los siguientes términos|de la siguiente (?:forma|manera)|del siguiente modo|con (?:el siguiente tenor(?: literal)?|la siguiente redacción|el siguiente contenido)|como sigue|en sus apart)/i,
 	);
 	// Variant: "X queda con la siguiente redacción:" / "X queda como sigue:"
-	const directQuedaMatch = !directRedactMatch && header.match(
-		/^(?:En )?(?:el |la |los |las )(.+?)\s+queda[n]?\s+(?:con la siguiente redacción|como sigue|con el siguiente tenor(?: literal)?)/i,
-	);
+	const directQuedaMatch =
+		!directRedactMatch &&
+		header.match(
+			/^(?:En )?(?:el |la |los |las )(.+?)\s+queda[n]?\s+(?:con la siguiente redacción|como sigue|con el siguiente tenor(?: literal)?)/i,
+		);
 	const redactMatch = directRedactMatch || directQuedaMatch;
 	if (redactMatch) {
 		return {
@@ -210,9 +214,7 @@ function classifyModification(
 	}
 
 	// "Todas las referencias que [ley] hace a X se entenderán hechas a Y" (textual substitution)
-	const referenciasMatch = header.match(
-		/Todas las referencias/i,
-	);
+	const referenciasMatch = header.match(/Todas las referencias/i);
 	if (referenciasMatch) {
 		return {
 			ordinal,
@@ -224,11 +226,13 @@ function classifyModification(
 	}
 
 	// "Se crea un nuevo artículo X" / "Se crea, dentro de ..., un «Capítulo»" (variant of add)
-	const createMatch = header.match(
-		/Se crea[n]?(?:,\s+(?:dentro de|en) .+?,\s+| )(?:un(?:a|o)? (?:nuevo?|nueva?)? )?(.+?)(?:,?\s+(?:con (?:la siguiente|el siguiente)|que queda)|$)/i,
-	) || firstLine!.match(
-		/Se crea[n]?(?:,\s+[^,]+,\s+| )(?:un(?:a|o)? )?(.+?)(?:\s+(?:con (?:la|el)|que queda|en el que)|$)/i,
-	);
+	const createMatch =
+		header.match(
+			/Se crea[n]?(?:,\s+(?:dentro de|en) .+?,\s+| )(?:un(?:a|o)? (?:nuevo?|nueva?)? )?(.+?)(?:,?\s+(?:con (?:la siguiente|el siguiente)|que queda)|$)/i,
+		) ||
+		firstLine!.match(
+			/Se crea[n]?(?:,\s+[^,]+,\s+| )(?:un(?:a|o)? )?(.+?)(?:\s+(?:con (?:la|el)|que queda|en el que)|$)/i,
+		);
 	if (createMatch) {
 		return {
 			ordinal,
@@ -250,7 +254,9 @@ export function extractQuotedText(text: string): string {
 
 // ── Ordinal splitting ──
 
-function splitByOrdinals(text: string): Array<{ ordinal: string; text: string }> {
+function splitByOrdinals(
+	text: string,
+): Array<{ ordinal: string; text: string }> {
 	const pattern = buildOrdinalPattern();
 	const parts: Array<{ ordinal: string; text: string }> = [];
 
@@ -262,7 +268,13 @@ function splitByOrdinals(text: string): Array<{ ordinal: string; text: string }>
 	// Replace from end to preserve indices
 	for (let i = quotedRanges.length - 1; i >= 0; i--) {
 		const [start, end] = quotedRanges[i]!;
-		masked = masked.slice(0, start) + PLACEHOLDER.repeat(Math.ceil((end - start) / PLACEHOLDER.length)).slice(0, end - start) + masked.slice(end);
+		masked =
+			masked.slice(0, start) +
+			PLACEHOLDER.repeat(Math.ceil((end - start) / PLACEHOLDER.length)).slice(
+				0,
+				end - start,
+			) +
+			masked.slice(end);
 	}
 
 	const matches = [...masked.matchAll(pattern)];
@@ -281,7 +293,9 @@ function splitByOrdinals(text: string): Array<{ ordinal: string; text: string }>
 }
 
 /** Split by numeric ordinals (1. 2. 3.) — fallback when text ordinals yield 0 results */
-function splitByNumericOrdinals(text: string): Array<{ ordinal: string; text: string }> {
+function splitByNumericOrdinals(
+	text: string,
+): Array<{ ordinal: string; text: string }> {
 	const parts: Array<{ ordinal: string; text: string }> = [];
 
 	// Mask «...» blocks first
@@ -289,7 +303,8 @@ function splitByNumericOrdinals(text: string): Array<{ ordinal: string; text: st
 	let masked = text;
 	for (let i = quotedRanges.length - 1; i >= 0; i--) {
 		const [start, end] = quotedRanges[i]!;
-		masked = masked.slice(0, start) + " ".repeat(end - start) + masked.slice(end);
+		masked =
+			masked.slice(0, start) + " ".repeat(end - start) + masked.slice(end);
 	}
 
 	// Match "N. " at start of line where N is a number
@@ -298,7 +313,7 @@ function splitByNumericOrdinals(text: string): Array<{ ordinal: string; text: st
 
 	// Validate: numeric ordinals should be sequential (1, 2, 3...) to avoid false positives
 	if (matches.length < 2) return [];
-	const nums = matches.map((m) => Number.parseInt(m[1]!));
+	const nums = matches.map((m) => Number.parseInt(m[1]!, 10));
 	if (nums[0] !== 1 || nums[1] !== 2) return []; // Must start with 1, 2
 
 	for (let i = 0; i < matches.length; i++) {
@@ -314,14 +329,19 @@ function splitByNumericOrdinals(text: string): Array<{ ordinal: string; text: st
 	// (not just any sentence — must contain modification verbs/patterns)
 	const modLikeParts = parts.filter((p) => {
 		const chunk = p.text.slice(0, 200);
-		return /Se modifica|Se añade|Se introduce|Se adiciona|Se suprime|Se crea|Se deroga|queda(?:n)?\s+(?:redactad|modificad|con la siguiente)|pasa a (?:ser|tener|denominarse)/i.test(chunk);
+		return /Se modifica|Se añade|Se introduce|Se adiciona|Se suprime|Se crea|Se deroga|queda(?:n)?\s+(?:redactad|modificad|con la siguiente)|pasa a (?:ser|tener|denominarse)/i.test(
+			chunk,
+		);
 	});
 	if (modLikeParts.length < parts.length * 0.5) return []; // Too many non-modification ordinals
 
 	return parts;
 }
 
-export function parseModifications(text: string, apiKey?: string): BillModification[] {
+export function parseModifications(
+	text: string,
+	_apiKey?: string,
+): BillModification[] {
 	// Try text ordinals first (Uno. Dos. Tres.)
 	let parts = splitByOrdinals(text);
 
@@ -349,25 +369,36 @@ export function parseModifications(text: string, apiKey?: string): BillModificat
 			/(?:Se modifica[n]?\s+(?:el |la |los |las )?|(?:Los? |Las? |El |La ))((?:artículo|apartado|párrafo|letra|número|disposición).+?)(?:,?\s+(?:que )?quedan?\s+(?:redactad|modificad)|,?\s+que pasa)/is,
 		);
 		if (directModMatch) {
-			const mod = classifyModification("direct", text.slice(text.indexOf(directModMatch[0])));
+			const mod = classifyModification(
+				"direct",
+				text.slice(text.indexOf(directModMatch[0])),
+			);
 			if (mod) {
 				modifications.push(mod);
 			} else {
-				unclassifiedParts.push({ ordinal: "direct", text: text.slice(text.indexOf(directModMatch[0])) });
+				unclassifiedParts.push({
+					ordinal: "direct",
+					text: text.slice(text.indexOf(directModMatch[0])),
+				});
 			}
 		}
 	}
 
 	// Store unclassified for LLM fallback (resolved in parseModificationsAsync)
+	// biome-ignore lint/suspicious/noExplicitAny: internal transport between parseModifications and parseModificationsAsync
 	(modifications as any).__unclassified = unclassifiedParts;
 
 	return modifications;
 }
 
 /** Async wrapper that resolves unclassified ordinals with LLM */
-export async function parseModificationsAsync(text: string, apiKey?: string): Promise<BillModification[]> {
+export async function parseModificationsAsync(
+	text: string,
+	apiKey?: string,
+): Promise<BillModification[]> {
 	const modifications = parseModifications(text, apiKey);
-	const unclassified: Array<{ ordinal: string; text: string }> = (modifications as any).__unclassified ?? [];
+	const unclassified: Array<{ ordinal: string; text: string }> =
+		(modifications as any).__unclassified ?? [];
 	delete (modifications as any).__unclassified;
 
 	// LLM per-ordinal fallback: classify any ordinals regex couldn't handle

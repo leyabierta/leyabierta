@@ -4,7 +4,10 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type EmbeddingStore, vectorSearch } from "../services/rag/embeddings.ts";
+import {
+	type EmbeddingStore,
+	vectorSearch,
+} from "../services/rag/embeddings.ts";
 
 function makeStore(
 	articles: Array<{ normId: string; blockId: string }>,
@@ -95,9 +98,15 @@ describe("vectorSearch", () => {
 				{ normId: "MID", blockId: "b3" },
 			],
 			new Float32Array([
-				0, 1, 0,    // LOW: orthogonal
-				1, 0, 0,    // HIGH: identical direction
-				0.5, 0.5, 0, // MID: partial overlap
+				0,
+				1,
+				0, // LOW: orthogonal
+				1,
+				0,
+				0, // HIGH: identical direction
+				0.5,
+				0.5,
+				0, // MID: partial overlap
 			]),
 			3,
 		);

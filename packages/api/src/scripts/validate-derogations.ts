@@ -11,7 +11,10 @@
 
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { extractTextFromPdf, parseBill } from "../services/bill-parser/parser.ts";
+import {
+	extractTextFromPdf,
+	parseBill,
+} from "../services/bill-parser/parser.ts";
 
 const DATA_DIR = resolve(import.meta.dirname!, "../../../../data/spike-bills");
 
@@ -40,13 +43,15 @@ function findRawDerogations(text: string): RawMatch[] {
 	// Find derogation verb patterns
 	for (const m of text.matchAll(DEROG_VERB_RE)) {
 		// Grab surrounding context (200 chars after match start)
-		const context = text.slice(m.index!, Math.min(m.index! + 300, text.length)).replace(/\n/g, " ");
+		const context = text
+			.slice(m.index!, Math.min(m.index! + 300, text.length))
+			.replace(/\n/g, " ");
 		const isGeneric = GENERIC_RE.test(context);
 		// Reset lastIndex since we're reusing the regex
 		GENERIC_RE.lastIndex = 0;
 		matches.push({
 			pattern: "Se deroga / Queda derogada",
-			text: context.slice(0, 120) + "...",
+			text: `${context.slice(0, 120)}...`,
 			isGeneric,
 		});
 	}
@@ -105,9 +110,15 @@ async function main() {
 
 			// Heuristic FP/FN calculation
 			// FN = raw specific matches that the parser didn't find
-			const falseNegatives = Math.max(0, rawSpecific.length - parserDerogations.length);
+			const falseNegatives = Math.max(
+				0,
+				rawSpecific.length - parserDerogations.length,
+			);
 			// FP = parser found more than raw specific matches (unlikely but possible)
-			const falsePositives = Math.max(0, parserDerogations.length - rawSpecific.length);
+			const falsePositives = Math.max(
+				0,
+				parserDerogations.length - rawSpecific.length,
+			);
 
 			const result: Result = {
 				bocgId: bill.bocgId || file.replace(".PDF", ""),
@@ -165,7 +176,7 @@ async function main() {
 	}
 
 	// ── Summary table ──
-	console.log("\n\n" + "=".repeat(100));
+	console.log(`\n\n${"=".repeat(100)}`);
 	console.log("SUMMARY TABLE");
 	console.log("=".repeat(100));
 	console.log(
@@ -206,7 +217,7 @@ async function main() {
 	}
 
 	// ── Verdict ──
-	console.log("\n" + "=".repeat(100));
+	console.log(`\n${"=".repeat(100)}`);
 	console.log("VERDICT");
 	console.log("=".repeat(100));
 	console.log(`Total PDFs analyzed:          ${results.length}`);

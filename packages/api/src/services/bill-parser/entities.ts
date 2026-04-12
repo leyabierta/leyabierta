@@ -5,8 +5,8 @@
  * entity detection to LLM structured output.
  */
 
-import type { NewEntity } from "./types.ts";
 import { extractEntitiesWithLLM } from "./llm.ts";
+import type { NewEntity } from "./types.ts";
 
 // ── Articulado isolation ──
 
@@ -53,7 +53,10 @@ function isolateArticulado(text: string): string | null {
  * Uses LLM structured output when an API key is available.
  * Without API key, returns an empty array.
  */
-export async function extractNewEntities(text: string, apiKey?: string): Promise<NewEntity[]> {
+export async function extractNewEntities(
+	text: string,
+	apiKey?: string,
+): Promise<NewEntity[]> {
 	// 1. Isolate articulado principal (regex, deterministic)
 	const articulado = isolateArticulado(text);
 	if (!articulado) return [];

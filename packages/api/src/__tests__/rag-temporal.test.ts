@@ -32,7 +32,12 @@ describe("enrichWithTemporalContext", () => {
 		);
 
 		const results = enrichWithTemporalContext(db, [
-			{ normId: "BOE-A-2024-001", blockId: "art1", blockTitle: "Articulo 1", text: "Texto original" },
+			{
+				normId: "BOE-A-2024-001",
+				blockId: "art1",
+				blockTitle: "Articulo 1",
+				text: "Texto original",
+			},
 		]);
 
 		expect(results).toHaveLength(1);
@@ -50,7 +55,12 @@ describe("enrichWithTemporalContext", () => {
 		);
 
 		const results = enrichWithTemporalContext(db, [
-			{ normId: "BOE-A-2024-001", blockId: "art1", blockTitle: "Articulo 1", text: "Texto v2" },
+			{
+				normId: "BOE-A-2024-001",
+				blockId: "art1",
+				blockTitle: "Articulo 1",
+				text: "Texto v2",
+			},
 		]);
 
 		expect(results[0]!.hasChanges).toBe(true);
@@ -64,16 +74,19 @@ describe("enrichWithTemporalContext", () => {
 	});
 
 	test("4+ versions: includes first, second-to-last, and last only", () => {
-		const insert = db.prepare(
-			"INSERT INTO versions VALUES (?, ?, ?, ?, ?)",
-		);
+		const insert = db.prepare("INSERT INTO versions VALUES (?, ?, ?, ?, ?)");
 		insert.run("N1", "b1", "2018-01-01", "S1", "Version 1 text");
 		insert.run("N1", "b1", "2019-06-01", "S2", "Version 2 text");
 		insert.run("N1", "b1", "2021-03-15", "S3", "Version 3 text");
 		insert.run("N1", "b1", "2024-01-01", "S4", "Version 4 text");
 
 		const results = enrichWithTemporalContext(db, [
-			{ normId: "N1", blockId: "b1", blockTitle: "Art. 5", text: "Version 4 text" },
+			{
+				normId: "N1",
+				blockId: "b1",
+				blockTitle: "Art. 5",
+				text: "Version 4 text",
+			},
 		]);
 
 		const summary = results[0]!.changeSummary;
@@ -155,7 +168,9 @@ describe("buildTemporalEvidence", () => {
 				blockId: "b1",
 				blockTitle: "Art. 1",
 				currentText: "Texto simple",
-				versions: [{ date: "2024-01-01", sourceId: "S1", text: "Texto simple" }],
+				versions: [
+					{ date: "2024-01-01", sourceId: "S1", text: "Texto simple" },
+				],
 				hasChanges: false,
 				changeSummary: "",
 			},

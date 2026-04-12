@@ -77,10 +77,7 @@ const KNOWN_LAW_ALIASES: Array<{ pattern: RegExp; normId: string }> = [
 	{ pattern: /Código de Comercio/i, normId: "BOE-A-1885-6627" },
 ];
 
-export function resolveNormId(
-	db: Database,
-	lawTitle: string,
-): string | null {
+export function resolveNormId(db: Database, lawTitle: string): string | null {
 	// Extract law number pattern like "10/1995" or "1/2015"
 	const numMatch = lawTitle.match(/(\d+\/\d{4})/);
 
@@ -178,9 +175,7 @@ function extractPenalties(text: string): PenaltyRange[] {
 	const penalties: PenaltyRange[] = [];
 
 	// "prisión de X a Y años"
-	for (const match of text.matchAll(
-		/prisi[oó]n de (\w+) a (\w+) años/gi,
-	)) {
+	for (const match of text.matchAll(/prisi[oó]n de (\w+) a (\w+) años/gi)) {
 		const min = wordToNumber(match[1]!);
 		const max = wordToNumber(match[2]!);
 		if (min !== null && max !== null) {
@@ -195,7 +190,11 @@ function extractPenalties(text: string): PenaltyRange[] {
 		const minMonths = wordToNumber(match[1]!);
 		const maxYears = wordToNumber(match[2]!);
 		if (minMonths !== null && maxYears !== null) {
-			penalties.push({ min: minMonths / 12, max: maxYears, unit: "años prisión" });
+			penalties.push({
+				min: minMonths / 12,
+				max: maxYears,
+				unit: "años prisión",
+			});
 		}
 	}
 
@@ -369,7 +368,8 @@ function checkTransitionalProvisions(
 			changesPenalties: false,
 			eliminatesTypes: false,
 			risk: "none",
-			message: "Modifica el Codigo Penal pero no altera penas de prision ni elimina tipos.",
+			message:
+				"Modifica el Codigo Penal pero no altera penas de prision ni elimina tipos.",
 		};
 	}
 
@@ -405,7 +405,8 @@ function checkTransitionalProvisions(
 		message = "Existe disposicion transitoria sobre penas/condenas.";
 	} else {
 		risk = "none";
-		message = "No se detectaron riesgos criticos en disposiciones transitorias.";
+		message =
+			"No se detectaron riesgos criticos en disposiciones transitorias.";
 	}
 
 	return {
@@ -462,9 +463,7 @@ function findAffectedNorms(
 	const results: AffectedNorm[] = [];
 	for (const [nId, data] of normMap) {
 		const norm = db
-			.query<{ title: string }, string>(
-				"SELECT title FROM norms WHERE id = ?",
-			)
+			.query<{ title: string }, string>("SELECT title FROM norms WHERE id = ?")
 			.get(nId);
 		if (norm) {
 			results.push({
@@ -487,11 +486,7 @@ export function analyzeBill(db: Database, bill: ParsedBill): ImpactReport {
 	const allTypeEliminations: TypeEliminationAlert[] = [];
 	const allAffectedNorms: AffectedNorm[] = [];
 
-	const CP_KEYWORDS = [
-		"Código Penal",
-		"Codigo Penal",
-		"10/1995",
-	];
+	const CP_KEYWORDS = ["Código Penal", "Codigo Penal", "10/1995"];
 
 	let modifiesPenalCode = false;
 
@@ -500,7 +495,8 @@ export function analyzeBill(db: Database, bill: ParsedBill): ImpactReport {
 		group.normId = resolveNormId(db, group.targetLaw) ?? undefined;
 
 		const isCP = CP_KEYWORDS.some(
-			(kw) => group.targetLaw.includes(kw) || group.normId === "BOE-A-1995-25444",
+			(kw) =>
+				group.targetLaw.includes(kw) || group.normId === "BOE-A-1995-25444",
 		);
 
 		if (isCP) {
@@ -539,9 +535,7 @@ export function analyzeBill(db: Database, bill: ParsedBill): ImpactReport {
 		}
 	}
 
-	const changesPenalties = allPenaltyComparisons.some(
-		(c) => c.risk !== "none",
-	);
+	const changesPenalties = allPenaltyComparisons.some((c) => c.risk !== "none");
 	const eliminatesTypes = allTypeEliminations.length > 0;
 
 	const transitionalCheck = checkTransitionalProvisions(
@@ -603,10 +597,7 @@ export function formatReport(report: ImpactReport): string {
 
 		const typeCounts = new Map<string, number>();
 		for (const mod of group.modifications) {
-			typeCounts.set(
-				mod.changeType,
-				(typeCounts.get(mod.changeType) ?? 0) + 1,
-			);
+			typeCounts.set(mod.changeType, (typeCounts.get(mod.changeType) ?? 0) + 1);
 		}
 		lines.push(
 			`    Types: ${[...typeCounts.entries()].map(([t, c]) => `${t}(${c})`).join(", ")}`,
@@ -663,7 +654,9 @@ export function formatReport(report: ImpactReport): string {
 
 		for (const elim of report.typeEliminations) {
 			lines.push(`  [CRITICAL] ${elim.chapter}`);
-			lines.push(`    Existing convictions: ${elim.existingConvictions ? "YES" : "NO"}`);
+			lines.push(
+				`    Existing convictions: ${elim.existingConvictions ? "YES" : "NO"}`,
+			);
 			lines.push(`    ${elim.riskReason}`);
 			lines.push("");
 		}
@@ -674,11 +667,21 @@ export function formatReport(report: ImpactReport): string {
 	lines.push("  TRANSITIONAL PROVISIONS CHECK");
 	lines.push("-".repeat(60));
 	lines.push("");
-	lines.push(`  Modifies Penal Code: ${report.transitionalCheck.modifiesPenalCode ? "YES" : "NO"}`);
-	lines.push(`  Changes penalties: ${report.transitionalCheck.changesPenalties ? "YES" : "NO"}`);
-	lines.push(`  Eliminates types: ${report.transitionalCheck.eliminatesTypes ? "YES" : "NO"}`);
-	lines.push(`  Has penalty DT: ${report.transitionalCheck.hasPenaltyTransitional ? "YES" : "NO"}`);
-	lines.push(`  Has revision DT: ${report.transitionalCheck.hasRevisionTransitional ? "YES" : "NO"}`);
+	lines.push(
+		`  Modifies Penal Code: ${report.transitionalCheck.modifiesPenalCode ? "YES" : "NO"}`,
+	);
+	lines.push(
+		`  Changes penalties: ${report.transitionalCheck.changesPenalties ? "YES" : "NO"}`,
+	);
+	lines.push(
+		`  Eliminates types: ${report.transitionalCheck.eliminatesTypes ? "YES" : "NO"}`,
+	);
+	lines.push(
+		`  Has penalty DT: ${report.transitionalCheck.hasPenaltyTransitional ? "YES" : "NO"}`,
+	);
+	lines.push(
+		`  Has revision DT: ${report.transitionalCheck.hasRevisionTransitional ? "YES" : "NO"}`,
+	);
 	lines.push(`  Risk: ${report.transitionalCheck.risk.toUpperCase()}`);
 	lines.push(`  ${report.transitionalCheck.message}`);
 	lines.push("");

@@ -9,10 +9,17 @@
  * 5. Catch-all: any section (DF, DA, Artículo) with mod keywords not caught above
  */
 
-import type { ModificationGroup } from "./types.ts";
-import { parseModifications, parseModificationsAsync } from "./classification.ts";
+import {
+	parseModifications,
+	parseModificationsAsync,
+} from "./classification.ts";
 import { classifyWithLLM } from "./llm.ts";
-import { buildQuotedRanges, isInsideQuotedBlock, findSectionBoundaries } from "./utils.ts";
+import type { ModificationGroup } from "./types.ts";
+import {
+	buildQuotedRanges,
+	findSectionBoundaries,
+	isInsideQuotedBlock,
+} from "./utils.ts";
 
 // ── Strategy 1: Disposiciones finales with "Modificación de..." ──
 
@@ -83,7 +90,10 @@ export async function extractDFGroups(
 
 // ── Strategy 2: "Artículo primero/segundo/etc. Modificación de..." ──
 
-export async function extractArticuloGroups(text: string, apiKey?: string): Promise<ModificationGroup[]> {
+export async function extractArticuloGroups(
+	text: string,
+	apiKey?: string,
+): Promise<ModificationGroup[]> {
 	const groups: ModificationGroup[] = [];
 
 	// Match "Artículo primero/segundo/1/2/etc. Modificación de..."
@@ -146,7 +156,10 @@ export async function extractArticuloGroups(text: string, apiKey?: string): Prom
 
 // ── Strategy 3: "Artículo único" ──
 
-export async function extractArticuloUnicoGroup(text: string, apiKey?: string): Promise<ModificationGroup[]> {
+export async function extractArticuloUnicoGroup(
+	text: string,
+	apiKey?: string,
+): Promise<ModificationGroup[]> {
 	// Find "Artículo único." anywhere in text, but not inside «» quoted blocks
 	const quotedRanges = buildQuotedRanges(text);
 	const artUnicoMatch = text.match(/Artículo único\./);
@@ -158,7 +171,9 @@ export async function extractArticuloUnicoGroup(text: string, apiKey?: string): 
 	// Find the end: first "Disposición" after the artículo único
 	const disposicionMatch = text
 		.slice(artUnicoStart + 20)
-		.match(/\nDisposición (?:adicional|transitoria|derogatoria|final) [\p{L}\d]+\./u);
+		.match(
+			/\nDisposición (?:adicional|transitoria|derogatoria|final) [\p{L}\d]+\./u,
+		);
 	const endIndex = disposicionMatch
 		? artUnicoStart + 20 + disposicionMatch.index!
 		: text.length;
@@ -166,7 +181,10 @@ export async function extractArticuloUnicoGroup(text: string, apiKey?: string): 
 	const bodyText = text.slice(artUnicoStart, endIndex);
 
 	// Check if the body contains modification keywords
-	const hasModKeywords = /Se modifica|quedan? redactad|Se añade|Se introduce|Se adiciona|Se suprime|Se propone (?:la )?(?:adecuación|modificación)/i.test(bodyText);
+	const hasModKeywords =
+		/Se modifica|quedan? redactad|Se añade|Se introduce|Se adiciona|Se suprime|Se propone (?:la )?(?:adecuación|modificación)/i.test(
+			bodyText,
+		);
 	if (!hasModKeywords) return [];
 
 	// Extract target law name
@@ -229,8 +247,7 @@ export async function extractDAGroups(
 
 	// Find all DA boundaries, excluding those inside «» quoted blocks
 	const quotedRanges = buildQuotedRanges(text);
-	const daHeaderRegex =
-		/Disposición adicional ([\p{L}\d]+)\.\s+/gu;
+	const daHeaderRegex = /Disposición adicional ([\p{L}\d]+)\.\s+/gu;
 	const headers: Array<{ ordinal: string; startIndex: number }> = [];
 	for (const match of text.matchAll(daHeaderRegex)) {
 		if (isInsideQuotedBlock(match.index!, quotedRanges)) continue;
@@ -249,7 +266,10 @@ export async function extractDAGroups(
 		const fullText = text.slice(header.startIndex, nextBoundary);
 
 		// Check if body contains modification keywords
-		const hasModKeywords = /Se modifica|quedan? redactad|Se añade|Se introduce|Se adiciona/i.test(fullText);
+		const hasModKeywords =
+			/Se modifica|quedan? redactad|Se añade|Se introduce|Se adiciona/i.test(
+				fullText,
+			);
 		if (!hasModKeywords) continue;
 
 		// Extract target law from body
@@ -303,7 +323,9 @@ export async function extractImplicitModGroups(
 		if (isInsideQuotedBlock(startIndex, quotedRanges)) continue;
 
 		// Skip if this range is already covered by a found group
-		if (existingGroupRanges.some(([s, e]) => startIndex >= s && startIndex < e)) {
+		if (
+			existingGroupRanges.some(([s, e]) => startIndex >= s && startIndex < e)
+		) {
 			continue;
 		}
 
@@ -319,7 +341,9 @@ export async function extractImplicitModGroups(
 		// (not buried deep in article body text)
 		const firstChunk = fullText.slice(0, 500);
 		const hasModInHeader =
-			/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado|párrafo|letra|número|disposición)/i.test(firstChunk) ||
+			/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado|párrafo|letra|número|disposición)/i.test(
+				firstChunk,
+			) ||
 			/queda(?:n)?\s+(?:redactad|modificad)/i.test(firstChunk) ||
 			/Se (?:añade|introduce|adiciona)[n]?\s/i.test(firstChunk) ||
 			/Se suprime/i.test(firstChunk);
@@ -328,7 +352,9 @@ export async function extractImplicitModGroups(
 
 		// Must reference a specific external law (Ley, RD, Código, Estatuto, etc.)
 		const referencesExternalLaw =
-			/(?:Ley|Real Decreto|Código|Estatuto|Constitución|Reglamento|texto refundido)/i.test(fullText.slice(0, 1000));
+			/(?:Ley|Real Decreto|Código|Estatuto|Constitución|Reglamento|texto refundido)/i.test(
+				fullText.slice(0, 1000),
+			);
 		if (!referencesExternalLaw) continue;
 
 		// Extract target law
@@ -349,7 +375,10 @@ export async function extractImplicitModGroups(
 				/(?:de|del) (?:la |el |los |las )?((?:Ley|Real Decreto|texto refundido|Constitución|Reglamento|Código|Estatuto).+?)(?:,\s+(?:que|en |aprobad)|\.\n)/s,
 			);
 			if (bodyLawMatch) {
-				targetLaw = bodyLawMatch[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "");
+				targetLaw = bodyLawMatch[1]!
+					.replace(/\n/g, " ")
+					.trim()
+					.replace(/\.$/, "");
 			}
 		}
 

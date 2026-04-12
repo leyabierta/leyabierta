@@ -61,7 +61,6 @@ let isShuttingDown = false;
 
 process.on("SIGTERM", () => {
 	isShuttingDown = true;
-	ragPipeline?.stop();
 	console.log("SIGTERM received, shutting down gracefully...");
 	setTimeout(() => {
 		db.close();
@@ -169,9 +168,7 @@ const app = new Elysia()
 						name: "Sistema",
 						description: "Health checks and internal endpoints",
 					},
-				],
-			},
-			{
+					{
 						name: "Propuestas",
 						description:
 							"Bill impact preview — parsed BOCG bills with modification analysis and risk alerts",

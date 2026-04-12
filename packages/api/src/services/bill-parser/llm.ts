@@ -3,7 +3,11 @@
  */
 
 import { callOpenRouter } from "../openrouter.ts";
-import type { BillModification, ModificationGroup, NewEntity } from "./types.ts";
+import type {
+	BillModification,
+	ModificationGroup,
+	NewEntity,
+} from "./types.ts";
 import { findSectionBoundaries } from "./utils.ts";
 
 // ── LLM constants ──
@@ -117,9 +121,17 @@ export function extractBillSkeleton(text: string): string {
 	const lines = text.split("\n");
 	const kept: string[] = [];
 	const patterns = [
-		/^Artículo/i, /^Disposición/i, /Se modifica/i, /Modificación/i,
-		/queda(?:n)?\s+redactad/i, /Se añade/i, /Se suprime/i, /Se introduce/i,
-		/Se adiciona/i, /Se deroga/i, /Se crea/i,
+		/^Artículo/i,
+		/^Disposición/i,
+		/Se modifica/i,
+		/Modificación/i,
+		/queda(?:n)?\s+redactad/i,
+		/Se añade/i,
+		/Se suprime/i,
+		/Se introduce/i,
+		/Se adiciona/i,
+		/Se deroga/i,
+		/Se crea/i,
 	];
 
 	for (let i = 0; i < lines.length; i++) {
@@ -208,7 +220,10 @@ Para cada ley modificada indica:
 			],
 			temperature: 0,
 			maxTokens: 4000,
-			jsonSchema: { name: "bill_verification", schema: LLM_VERIFICATION_SCHEMA },
+			jsonSchema: {
+				name: "bill_verification",
+				schema: LLM_VERIFICATION_SCHEMA,
+			},
 		});
 
 		const llmLaws = result.data.modified_laws ?? [];
@@ -222,7 +237,11 @@ Para cada ley modificada indica:
 			if (alreadyFound) continue;
 
 			// Locate the section in text
-			const sectionText = locateSection(text, llmLaw.section_in_bill, llmLaw.target_law);
+			const sectionText = locateSection(
+				text,
+				llmLaw.section_in_bill,
+				llmLaw.target_law,
+			);
 			if (!sectionText) continue;
 
 			// Validate: the section must actually contain modification keywords
@@ -235,7 +254,9 @@ Para cada ley modificada indica:
 				/Se crea[n]?\s/i.test(firstChunk);
 			if (!hasModKeywords) continue;
 
-			console.log(`  [llm-verify] Gap detected: "${llmLaw.target_law}" in ${llmLaw.section_in_bill}`);
+			console.log(
+				`  [llm-verify] Gap detected: "${llmLaw.target_law}" in ${llmLaw.section_in_bill}`,
+			);
 
 			let modifications = await parseModificationsAsync(sectionText, apiKey);
 			if (modifications.length === 0 && sectionText.length > 200) {
@@ -258,7 +279,11 @@ Para cada ley modificada indica:
 }
 
 /** Try to locate a section in the bill text by its identifier (e.g., "DF cuarta", "Artículo 3") */
-export function locateSection(text: string, sectionRef: string | undefined, targetLaw: string): string | null {
+export function locateSection(
+	text: string,
+	sectionRef: string | undefined,
+	targetLaw: string,
+): string | null {
 	if (!sectionRef) sectionRef = "";
 	const boundaries = findSectionBoundaries(text);
 
@@ -333,7 +358,13 @@ export const LLM_DEROGATIONS_SCHEMA = {
 export async function extractDerogationsWithLLM(
 	apiKey: string,
 	sectionTexts: string[],
-): Promise<Array<{ target_law: string; scope: "full" | "partial"; target_provisions: string[] }>> {
+): Promise<
+	Array<{
+		target_law: string;
+		scope: "full" | "partial";
+		target_provisions: string[];
+	}>
+> {
 	const combinedText = sectionTexts.join("\n\n---\n\n").slice(0, 12000);
 
 	try {
@@ -392,7 +423,14 @@ export const LLM_ENTITIES_SCHEMA = {
 					name: { type: "string" as const },
 					entity_type: {
 						type: "string" as const,
-						enum: ["registro", "organo", "procedimiento", "derecho", "sistema", "otro"],
+						enum: [
+							"registro",
+							"organo",
+							"procedimiento",
+							"derecho",
+							"sistema",
+							"otro",
+						],
 					},
 					article: { type: "string" as const },
 					description: { type: "string" as const },

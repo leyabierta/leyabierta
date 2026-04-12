@@ -14,8 +14,8 @@
  */
 
 import { Database } from "bun:sqlite";
-import { extractTextFromPdf, parseBill } from "../services/bill-parser/parser";
 import { analyzeBill, formatReport } from "../services/bill-parser/analyzer";
+import { extractTextFromPdf, parseBill } from "../services/bill-parser/parser";
 
 // ── Config ──
 
@@ -56,7 +56,8 @@ const BILLS: BillTestCase[] = [
 	{
 		id: "reforma-2015",
 		pdf: "./data/spike-bills/BOCG-10-A-66-1.PDF",
-		description: "LO 1/2015 — Reforma masiva del Codigo Penal (240+ modificaciones)",
+		description:
+			"LO 1/2015 — Reforma masiva del Codigo Penal (240+ modificaciones)",
 		expectedVerdict: "critical-with-dt",
 		expectations: {
 			minModifications: 100,
@@ -87,23 +88,28 @@ const BILLS: BillTestCase[] = [
 
 // ── Test runner ──
 
-async function runBill(bill: BillTestCase, db: Database): Promise<{
+async function runBill(
+	bill: BillTestCase,
+	db: Database,
+): Promise<{
 	passed: boolean;
 	failures: string[];
 }> {
 	const failures: string[] = [];
 
-	console.log("\n" + "=".repeat(70));
+	console.log(`\n${"=".repeat(70)}`);
 	console.log(`  TESTING: ${bill.id}`);
 	console.log(`  ${bill.description}`);
-	console.log("=".repeat(70) + "\n");
+	console.log(`${"=".repeat(70)}\n`);
 
 	// Step 1: Extract text
 	console.log("  [1/4] Extracting text from PDF...");
 	let text: string;
 	try {
 		text = extractTextFromPdf(bill.pdf);
-		console.log(`         ${text.length.toLocaleString()} characters extracted`);
+		console.log(
+			`         ${text.length.toLocaleString()} characters extracted`,
+		);
 	} catch (err) {
 		console.log(`         FAILED: ${err}`);
 		return { passed: false, failures: [`PDF extraction failed: ${err}`] };
@@ -128,10 +134,7 @@ async function runBill(bill: BillTestCase, db: Database): Promise<{
 	for (const group of parsed.modificationGroups) {
 		const typeCounts = new Map<string, number>();
 		for (const mod of group.modifications) {
-			typeCounts.set(
-				mod.changeType,
-				(typeCounts.get(mod.changeType) ?? 0) + 1,
-			);
+			typeCounts.set(mod.changeType, (typeCounts.get(mod.changeType) ?? 0) + 1);
 		}
 		console.log(
 			`         - ${group.targetLaw.slice(0, 60)}: ${group.modifications.length} mods [${[...typeCounts.entries()].map(([t, c]) => `${t}:${c}`).join(", ")}]`,
@@ -184,8 +187,7 @@ async function runBill(bill: BillTestCase, db: Database): Promise<{
 	}
 
 	if (
-		exp.expectTransitionalDT !==
-		report.transitionalCheck.hasPenaltyTransitional
+		exp.expectTransitionalDT !== report.transitionalCheck.hasPenaltyTransitional
 	) {
 		failures.push(
 			`Expected hasPenaltyTransitional=${exp.expectTransitionalDT}, got ${report.transitionalCheck.hasPenaltyTransitional}`,
@@ -262,9 +264,9 @@ for (const bill of billsToRun) {
 db.close();
 
 // Final summary
-console.log("\n" + "=".repeat(70));
+console.log(`\n${"=".repeat(70)}`);
 console.log("  FINAL RESULTS");
-console.log("=".repeat(70) + "\n");
+console.log(`${"=".repeat(70)}\n`);
 
 let allPassed = true;
 for (const r of results) {

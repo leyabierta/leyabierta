@@ -21,9 +21,18 @@
  * Snapshots are saved in data/bill-benchmarks/
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { extractTextFromPdf, parseBill, type ParsedBill } from "../services/bill-parser/parser.ts";
+import {
+	extractTextFromPdf,
+	parseBill,
+} from "../services/bill-parser/parser.ts";
 import { getArg, hasFlag } from "./shared.ts";
 
 // ── Config ──
@@ -84,13 +93,19 @@ interface ComparisonResult {
 function countExpectedGroups(text: string): number {
 	const seen = new Set<number>();
 
-	for (const m of text.matchAll(/Disposición final [\p{L}\d]+\.\s+Modificación (?:de|del) /gu)) {
+	for (const m of text.matchAll(
+		/Disposición final [\p{L}\d]+\.\s+Modificación (?:de|del) /gu,
+	)) {
 		seen.add(m.index!);
 	}
-	for (const m of text.matchAll(/Disposición adicional [\p{L}\d]+\.\s+Modificación (?:de|del) /gu)) {
+	for (const m of text.matchAll(
+		/Disposición adicional [\p{L}\d]+\.\s+Modificación (?:de|del) /gu,
+	)) {
 		seen.add(m.index!);
 	}
-	for (const m of text.matchAll(/Artículo [\p{L}\d]+\.\s+Modificación (?:de|del) /gu)) {
+	for (const m of text.matchAll(
+		/Artículo [\p{L}\d]+\.\s+Modificación (?:de|del) /gu,
+	)) {
 		seen.add(m.index!);
 	}
 	const artUnico = text.match(/Artículo único\./);
@@ -100,12 +115,18 @@ function countExpectedGroups(text: string): number {
 			seen.add(artUnico.index!);
 		}
 	}
-	for (const m of text.matchAll(/\n(Disposición (?:final|adicional) [\p{L}\d]+\.)\s+/gu)) {
+	for (const m of text.matchAll(
+		/\n(Disposición (?:final|adicional) [\p{L}\d]+\.)\s+/gu,
+	)) {
 		if (seen.has(m.index! + 1)) continue;
 		const bodyStart = m.index! + m[0].length;
 		const chunk = text.slice(bodyStart, bodyStart + 300);
-		if (/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado|párrafo)/i.test(chunk) ||
-			/queda(?:n)?\s+(?:redactad|modificad)/i.test(chunk)) {
+		if (
+			/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado|párrafo)/i.test(
+				chunk,
+			) ||
+			/queda(?:n)?\s+(?:redactad|modificad)/i.test(chunk)
+		) {
 			seen.add(m.index! + 1);
 		}
 	}
@@ -113,7 +134,11 @@ function countExpectedGroups(text: string): number {
 		if (seen.has(m.index! + 1)) continue;
 		const bodyStart = m.index! + m[0].length;
 		const chunk = text.slice(bodyStart, bodyStart + 500);
-		if (/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado).+?(?:de|del) (?:la |el )(?:Ley|Código|Estatuto|Real Decreto|texto refundido)/i.test(chunk)) {
+		if (
+			/Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado).+?(?:de|del) (?:la |el )(?:Ley|Código|Estatuto|Real Decreto|texto refundido)/i.test(
+				chunk,
+			)
+		) {
 			seen.add(m.index! + 1);
 		}
 	}
@@ -143,13 +168,16 @@ async function main() {
 		process.exit(1);
 	}
 
-	const pdfs = readdirSync(BILLS_DIR).filter((f) => f.endsWith(".PDF")).sort();
+	const pdfs = readdirSync(BILLS_DIR)
+		.filter((f) => f.endsWith(".PDF"))
+		.sort();
 	console.log(`  Found ${pdfs.length} PDFs\n`);
 
 	// Capture warnings
 	const warnings: string[] = [];
 	const originalWarn = console.warn;
-	console.warn = (...args: unknown[]) => warnings.push(args.map(String).join(" "));
+	console.warn = (...args: unknown[]) =>
+		warnings.push(args.map(String).join(" "));
 
 	const billSnapshots: BillSnapshot[] = [];
 	let totalExpectedGroups = 0;
@@ -161,7 +189,10 @@ async function main() {
 
 		try {
 			const text = extractTextFromPdf(pdfPath);
-			const bill = await parseBill(text, useLLM && apiKey ? { apiKey } : undefined);
+			const bill = await parseBill(
+				text,
+				useLLM && apiKey ? { apiKey } : undefined,
+			);
 
 			const groups: GroupSnapshot[] = bill.modificationGroups.map((g) => {
 				const changeTypes: Record<string, number> = {};
@@ -176,12 +207,18 @@ async function main() {
 				};
 			});
 
-			const totalMods = bill.modificationGroups.reduce((s, g) => s + g.modifications.length, 0);
+			const totalMods = bill.modificationGroups.reduce(
+				(s, g) => s + g.modifications.length,
+				0,
+			);
 			const expected = countExpectedGroups(text);
 			totalExpectedGroups += expected;
 			totalFoundGroups += bill.modificationGroups.length;
 
-			const recallPct = expected > 0 ? ((bill.modificationGroups.length / expected) * 100).toFixed(0) : "-";
+			const recallPct =
+				expected > 0
+					? ((bill.modificationGroups.length / expected) * 100).toFixed(0)
+					: "-";
 			const status = totalMods > 0 ? "OK" : "NO_MODS";
 			console.log(
 				`  ${status === "OK" ? "+" : "-"} ${bill.bocgId} | ${groups.length}/${expected} groups (${recallPct}%) | ${totalMods} mods | ${warnings.length} warns`,
@@ -219,13 +256,19 @@ async function main() {
 			totalGroups: totalFoundGroups,
 			totalMods,
 			totalWarnings,
-			classification: totalMods > 0 ? Number(((totalMods / (totalMods + totalWarnings)) * 100).toFixed(1)) : 0,
+			classification:
+				totalMods > 0
+					? Number(((totalMods / (totalMods + totalWarnings)) * 100).toFixed(1))
+					: 0,
 			groupRecall: {
 				found: totalFoundGroups,
 				expected: totalExpectedGroups,
-				pct: totalExpectedGroups > 0
-					? Number(((totalFoundGroups / totalExpectedGroups) * 100).toFixed(1))
-					: 0,
+				pct:
+					totalExpectedGroups > 0
+						? Number(
+								((totalFoundGroups / totalExpectedGroups) * 100).toFixed(1),
+							)
+						: 0,
 			},
 		},
 	};
@@ -240,11 +283,16 @@ async function main() {
 	console.log(`  Total mods:     ${snapshot.summary.totalMods}`);
 	console.log(`  Warnings:       ${snapshot.summary.totalWarnings}`);
 	console.log(`  Classification: ${snapshot.summary.classification}%`);
-	console.log(`  Group recall:   ${snapshot.summary.groupRecall.found}/${snapshot.summary.groupRecall.expected} (${snapshot.summary.groupRecall.pct}%)`);
+	console.log(
+		`  Group recall:   ${snapshot.summary.groupRecall.found}/${snapshot.summary.groupRecall.expected} (${snapshot.summary.groupRecall.pct}%)`,
+	);
 
 	// Save snapshot
 	mkdirSync(SNAPSHOTS_DIR, { recursive: true });
-	const snapshotFile = join(SNAPSHOTS_DIR, `${mode}-${new Date().toISOString().slice(0, 10)}.json`);
+	const snapshotFile = join(
+		SNAPSHOTS_DIR,
+		`${mode}-${new Date().toISOString().slice(0, 10)}.json`,
+	);
 	writeFileSync(snapshotFile, JSON.stringify(snapshot, null, 2));
 	console.log(`\n  Snapshot saved: ${snapshotFile}`);
 
@@ -255,13 +303,16 @@ async function main() {
 	}
 
 	// Compare against baseline
-	const compareFile = baselinePath ?? join(SNAPSHOTS_DIR, `baseline-${mode}.json`);
+	const compareFile =
+		baselinePath ?? join(SNAPSHOTS_DIR, `baseline-${mode}.json`);
 	if (existsSync(compareFile)) {
 		console.log("\n═══════════════════════════════════════════════════════");
 		console.log("  COMPARISON vs BASELINE");
 		console.log("═══════════════════════════════════════════════════════\n");
 
-		const baseline: BenchmarkSnapshot = JSON.parse(readFileSync(compareFile, "utf-8"));
+		const baseline: BenchmarkSnapshot = JSON.parse(
+			readFileSync(compareFile, "utf-8"),
+		);
 		const diffs = compareSnapshots(baseline, snapshot);
 
 		if (diffs.length === 0) {
@@ -273,7 +324,9 @@ async function main() {
 			if (improvements.length > 0) {
 				console.log(`  IMPROVEMENTS (${improvements.length}):`);
 				for (const d of improvements) {
-					console.log(`    + ${d.bill} ${d.field}: ${d.baseline} -> ${d.current}`);
+					console.log(
+						`    + ${d.bill} ${d.field}: ${d.baseline} -> ${d.current}`,
+					);
 				}
 				console.log();
 			}
@@ -281,7 +334,9 @@ async function main() {
 			if (regressions.length > 0) {
 				console.log(`  REGRESSIONS (${regressions.length}):`);
 				for (const d of regressions) {
-					console.log(`    - ${d.bill} ${d.field}: ${d.baseline} -> ${d.current}`);
+					console.log(
+						`    - ${d.bill} ${d.field}: ${d.baseline} -> ${d.current}`,
+					);
 				}
 				console.log();
 			}
@@ -291,7 +346,9 @@ async function main() {
 				console.log(`  VERDICT: ${regressions.length} regressions detected!`);
 				process.exit(1);
 			} else {
-				console.log(`  VERDICT: ${improvements.length} improvements, 0 regressions.`);
+				console.log(
+					`  VERDICT: ${improvements.length} improvements, 0 regressions.`,
+				);
 			}
 		}
 	} else {
@@ -302,11 +359,17 @@ async function main() {
 	console.log();
 }
 
-function compareSnapshots(baseline: BenchmarkSnapshot, current: BenchmarkSnapshot): ComparisonResult[] {
+function compareSnapshots(
+	baseline: BenchmarkSnapshot,
+	current: BenchmarkSnapshot,
+): ComparisonResult[] {
 	const diffs: ComparisonResult[] = [];
 
 	// Summary-level comparisons
-	const sumFields: Array<{ key: keyof BenchmarkSnapshot["summary"]; higher: "good" | "bad" }> = [
+	const sumFields: Array<{
+		key: keyof BenchmarkSnapshot["summary"];
+		higher: "good" | "bad";
+	}> = [
 		{ key: "totalMods", higher: "good" },
 		{ key: "totalWarnings", higher: "bad" },
 		{ key: "totalGroups", higher: "good" },
@@ -323,9 +386,10 @@ function compareSnapshots(baseline: BenchmarkSnapshot, current: BenchmarkSnapsho
 				field: key,
 				baseline: bVal,
 				current: cVal,
-				change: (isHigher && higher === "good") || (!isHigher && higher === "bad")
-					? "improvement"
-					: "regression",
+				change:
+					(isHigher && higher === "good") || (!isHigher && higher === "bad")
+						? "improvement"
+						: "regression",
 			});
 		}
 	}
@@ -352,7 +416,10 @@ function compareSnapshots(baseline: BenchmarkSnapshot, current: BenchmarkSnapsho
 				field: "groups",
 				baseline: base.groups.length,
 				current: bill.groups.length,
-				change: bill.groups.length > base.groups.length ? "improvement" : "regression",
+				change:
+					bill.groups.length > base.groups.length
+						? "improvement"
+						: "regression",
 			});
 		}
 

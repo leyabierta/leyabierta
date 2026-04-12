@@ -17,22 +17,21 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { setupDb, getArg, hasFlag } from "./shared.ts";
 import {
-	extractTextFromPdf,
-	parseBill,
-	type ModificationGroup,
-	type ParsedBill,
-	type Derogation,
-} from "../services/bill-parser/parser.ts";
-import {
+	type AffectedNorm,
 	analyzeBill,
 	formatReport,
-	resolveNormId,
 	type ImpactReport,
-	type AffectedNorm,
+	resolveNormId,
 } from "../services/bill-parser/analyzer.ts";
+import {
+	extractTextFromPdf,
+	type ModificationGroup,
+	type ParsedBill,
+	parseBill,
+} from "../services/bill-parser/parser.ts";
 import { callOpenRouter } from "../services/openrouter.ts";
+import { getArg, hasFlag, setupDb } from "./shared.ts";
 
 // ── Config ──
 
@@ -48,9 +47,13 @@ const skipLlmImpact = hasFlag("skip-llm-impact");
 const force = hasFlag("force");
 
 if (!url && !filePath) {
-	console.error("Usage: bun run analyze-bill.ts --url <PDF_URL> | --file <PATH>");
+	console.error(
+		"Usage: bun run analyze-bill.ts --url <PDF_URL> | --file <PATH>",
+	);
 	console.error("Options:");
-	console.error("  --skip-llm-impact  Skip LLM impact analysis (faster, cheaper)");
+	console.error(
+		"  --skip-llm-impact  Skip LLM impact analysis (faster, cheaper)",
+	);
 	console.error("  --force            Re-analyze even if bill already in DB");
 	process.exit(1);
 }
@@ -79,12 +82,16 @@ async function downloadPdf(pdfUrl: string): Promise<string> {
 	});
 
 	if (!response.ok) {
-		throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
+		throw new Error(
+			`Failed to download PDF: ${response.status} ${response.statusText}`,
+		);
 	}
 
 	const buffer = await response.arrayBuffer();
 	writeFileSync(localPath, Buffer.from(buffer));
-	console.log(`  Downloaded ${(buffer.byteLength / 1024).toFixed(0)} KB -> ${localPath}`);
+	console.log(
+		`  Downloaded ${(buffer.byteLength / 1024).toFixed(0)} KB -> ${localPath}`,
+	);
 	return localPath;
 }
 
@@ -179,46 +186,59 @@ Responde en JSON con este schema:
 }`;
 
 	try {
-		const result = await callOpenRouter<GroupImpactAnalysis>(OPENROUTER_API_KEY, {
-			model: IMPACT_MODEL,
-			messages: [
-				{
-					role: "system",
-					content:
-						"Eres un analista legislativo experto en derecho español. Analizas proyectos de ley comparando el texto propuesto con la legislación vigente. Eres preciso y conservador: solo reportas riesgos que estén respaldados por el texto.",
-				},
-				{ role: "user", content: prompt },
-			],
-			temperature: 0.1,
-			maxTokens: 4000,
-			jsonSchema: {
-				name: "impact_analysis",
-				schema: {
-					type: "object",
-					properties: {
-						summary: { type: "string" },
-						variables: {
-							type: "array",
-							items: {
-								type: "object",
-								properties: {
-									variable: { type: "string" },
-									current_state: { type: "string" },
-									proposed_state: { type: "string" },
-									impact_risk: { type: "string", enum: ["low", "medium", "high", "critical"] },
-									retroactivity: { type: "boolean" },
-									explanation: { type: "string" },
+		const result = await callOpenRouter<GroupImpactAnalysis>(
+			OPENROUTER_API_KEY,
+			{
+				model: IMPACT_MODEL,
+				messages: [
+					{
+						role: "system",
+						content:
+							"Eres un analista legislativo experto en derecho español. Analizas proyectos de ley comparando el texto propuesto con la legislación vigente. Eres preciso y conservador: solo reportas riesgos que estén respaldados por el texto.",
+					},
+					{ role: "user", content: prompt },
+				],
+				temperature: 0.1,
+				maxTokens: 4000,
+				jsonSchema: {
+					name: "impact_analysis",
+					schema: {
+						type: "object",
+						properties: {
+							summary: { type: "string" },
+							variables: {
+								type: "array",
+								items: {
+									type: "object",
+									properties: {
+										variable: { type: "string" },
+										current_state: { type: "string" },
+										proposed_state: { type: "string" },
+										impact_risk: {
+											type: "string",
+											enum: ["low", "medium", "high", "critical"],
+										},
+										retroactivity: { type: "boolean" },
+										explanation: { type: "string" },
+									},
+									required: [
+										"variable",
+										"current_state",
+										"proposed_state",
+										"impact_risk",
+										"retroactivity",
+										"explanation",
+									],
+									additionalProperties: false,
 								},
-								required: ["variable", "current_state", "proposed_state", "impact_risk", "retroactivity", "explanation"],
-								additionalProperties: false,
 							},
 						},
+						required: ["summary", "variables"],
+						additionalProperties: false,
 					},
-					required: ["summary", "variables"],
-					additionalProperties: false,
 				},
 			},
-		});
+		);
 
 		// Post-filter: remove variables where current_state ≈ proposed_state (LLM false positives)
 		const rawVariables = result.data.variables ?? [];
@@ -236,7 +256,9 @@ Responde en JSON con este schema:
 			const current = normalize(v.current_state);
 			const proposed = normalize(v.proposed_state);
 			if (current === proposed) {
-				console.log(`  [post-filter] Removed identical variable: "${v.variable}"`);
+				console.log(
+					`  [post-filter] Removed identical variable: "${v.variable}"`,
+				);
 				return false;
 			}
 			// Also filter if one is a substring of the other (>90% overlap)
@@ -244,7 +266,9 @@ Responde en JSON con este schema:
 				const shorter = current.length < proposed.length ? current : proposed;
 				const longer = current.length < proposed.length ? proposed : current;
 				if (longer.includes(shorter) && shorter.length / longer.length > 0.9) {
-					console.log(`  [post-filter] Removed near-identical variable: "${v.variable}"`);
+					console.log(
+						`  [post-filter] Removed near-identical variable: "${v.variable}"`,
+					);
 					return false;
 				}
 			}
@@ -264,7 +288,9 @@ Responde en JSON con este schema:
 			variables: filteredVariables,
 		};
 	} catch (err) {
-		console.error(`  WARNING: LLM impact analysis failed for "${group.targetLaw}": ${err}`);
+		console.error(
+			`  WARNING: LLM impact analysis failed for "${group.targetLaw}": ${err}`,
+		);
 		return null;
 	}
 }
@@ -281,7 +307,7 @@ function saveBillToDb(
 ): void {
 	// Extract legislature and series from bocgId: BOCG-14-A-62-1 -> legislature=14, series=A
 	const bocgParts = bill.bocgId.match(/BOCG-(\d+)-([AB])/);
-	const legislature = bocgParts?.[1] ? Number.parseInt(bocgParts[1]) : 0;
+	const legislature = bocgParts?.[1] ? Number.parseInt(bocgParts[1], 10) : 0;
 	const series = bocgParts?.[2] ?? "";
 
 	const alertLevel =
@@ -439,9 +465,9 @@ function saveBillToDb(
 // ── Main ──
 
 async function main() {
-	console.log("\n" + "=".repeat(60));
+	console.log(`\n${"=".repeat(60)}`);
 	console.log("  BILL ANALYZER — Phase 2 Pipeline");
-	console.log("=".repeat(60) + "\n");
+	console.log(`${"=".repeat(60)}\n`);
 
 	const { db } = setupDb();
 
@@ -464,7 +490,9 @@ async function main() {
 
 	// Step 3: Parse bill
 	console.log("  [2/5] Parsing bill structure...");
-	const parsed = await parseBill(text, { apiKey: OPENROUTER_API_KEY || undefined });
+	const parsed = await parseBill(text, {
+		apiKey: OPENROUTER_API_KEY || undefined,
+	});
 	console.log(`         BOCG ID: ${parsed.bocgId}`);
 	console.log(`         Title: ${parsed.title.slice(0, 80)}`);
 	console.log(`         Date: ${parsed.publicationDate}`);
@@ -484,22 +512,28 @@ async function main() {
 			)
 			.get(parsed.bocgId);
 		if (existing) {
-			console.log(`\n  Bill ${parsed.bocgId} already analyzed. Use --force to re-analyze.`);
+			console.log(
+				`\n  Bill ${parsed.bocgId} already analyzed. Use --force to re-analyze.`,
+			);
 			process.exit(0);
 		}
 	}
 
 	// Step 4: Run impact analysis (deterministic)
-	console.log("  [3/5] Running impact analysis (penalties, DTs, blast radius)...");
+	console.log(
+		"  [3/5] Running impact analysis (penalties, DTs, blast radius)...",
+	);
 	const report = analyzeBill(db, parsed);
 
 	console.log(`         Critical alerts: ${report.summary.criticalAlerts}`);
 	console.log(`         High alerts: ${report.summary.highAlerts}`);
 	console.log(`         Penalty comparisons: ${report.penaltyAnalysis.length}`);
-	console.log(`         Affected norms (blast radius): ${report.affectedNorms.length}`);
+	console.log(
+		`         Affected norms (blast radius): ${report.affectedNorms.length}`,
+	);
 
 	// Print report to console
-	console.log("\n" + formatReport(report));
+	console.log(`\n${formatReport(report)}`);
 
 	// Build blast radius map: group affected norms by the modified law's normId.
 	// affectedNorms come from findAffectedNorms(db, groupNormId, ...) — each affected
@@ -518,7 +552,7 @@ async function main() {
 
 	// Step 5: LLM impact analysis per group
 	const impacts: GroupImpactAnalysis[] = [];
-	let totalCost = 0;
+	const _totalCost = 0;
 
 	if (!skipLlmImpact && OPENROUTER_API_KEY) {
 		console.log(
@@ -534,9 +568,7 @@ async function main() {
 			const impact = await analyzeGroupImpact(db, group, parsed);
 			if (impact) {
 				impacts.push(impact);
-				console.log(
-					` ${impact.variables.length} variables`,
-				);
+				console.log(` ${impact.variables.length} variables`);
 			} else {
 				console.log(" skipped");
 			}
@@ -544,7 +576,9 @@ async function main() {
 
 		console.log(`         Total impacts: ${impacts.length}`);
 	} else {
-		console.log("  [4/5] Skipping LLM impact analysis (no API key or --skip-llm-impact)");
+		console.log(
+			"  [4/5] Skipping LLM impact analysis (no API key or --skip-llm-impact)",
+		);
 	}
 
 	// Step 6: Save to DB
@@ -566,12 +600,14 @@ async function main() {
 				? "HIGH"
 				: "OK";
 
-	console.log("\n" + "=".repeat(60));
+	console.log(`\n${"=".repeat(60)}`);
 	console.log("  DONE");
 	console.log("=".repeat(60));
 	console.log(`  Bill: ${parsed.bocgId}`);
 	console.log(`  Alert level: ${alertLevel}`);
-	console.log(`  Modifications: ${totalMods} across ${report.groups.length} laws`);
+	console.log(
+		`  Modifications: ${totalMods} across ${report.groups.length} laws`,
+	);
 	console.log(`  LLM impacts: ${impacts.length} groups analyzed`);
 	console.log(`  Saved to DB: bills, bill_modifications, bill_impacts`);
 	console.log("");
