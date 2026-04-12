@@ -429,11 +429,29 @@ describe("bill-parser", () => {
 				}
 			},
 		);
+
+		// Pure modification bills should have 0 entities (no articulado principal)
+		const PURE_MOD_BILLS = [
+			"BOCG-14-A-62-1",
+			"BOCG-10-A-66-1",
+			"BOCG-14-B-295-1",
+			"BOCG-15-B-23-1",
+		];
+		for (const id of PURE_MOD_BILLS) {
+			test.skipIf(!hasPdf(id))(
+				`${id} has 0 entities (pure modification bill)`,
+				async () => {
+					const parsed = await getParsed(id);
+					expect(parsed.newEntities.length).toBe(0);
+				},
+			);
+		}
 	});
 
 	// Derogation tests
 	describe("derogations", () => {
 		const hasA116 = hasPdf("BOCG-14-A-116-1");
+		const hasA7 = hasPdf("BOCG-14-A-7-1");
 
 		test.skipIf(!hasA116)(
 			"BOCG-14-A-116-1 has at least 1 derogation",
@@ -464,6 +482,38 @@ describe("bill-parser", () => {
 						/cuantas?\s+disposiciones?\s+de\s+igual\s+o\s+inferior\s+rango/i,
 					);
 				}
+			},
+		);
+
+		test.skipIf(!hasA7)(
+			"BOCG-14-A-7-1 (LOMLOE) detects 2 derogations",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-7-1");
+				expect(parsed.derogations.length).toBe(2);
+			},
+		);
+
+		test.skipIf(!hasA7)(
+			"BOCG-14-A-7-1 derogates Ley Orgánica 8/2013 (full)",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-7-1");
+				const lomce = parsed.derogations.find((d) =>
+					d.targetLaw.includes("8/2013"),
+				);
+				expect(lomce).toBeDefined();
+				expect(lomce!.scope).toBe("full");
+			},
+		);
+
+		test.skipIf(!hasA7)(
+			"BOCG-14-A-7-1 derogates Real Decreto-ley 5/2016 (full, masculine form)",
+			async () => {
+				const parsed = await getParsed("BOCG-14-A-7-1");
+				const rdl = parsed.derogations.find((d) =>
+					d.targetLaw.includes("5/2016"),
+				);
+				expect(rdl).toBeDefined();
+				expect(rdl!.scope).toBe("full");
 			},
 		);
 	});

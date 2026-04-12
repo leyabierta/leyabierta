@@ -161,7 +161,8 @@ function splitIntoItems(section: string): string[] {
 	);
 
 	// Try numbered items: "1. ...", "2. ..."
-	const numberedItems = body.split(/\n\s*(\d+)\.\s+/);
+	// Prepend \n so that a body starting with "1. ..." is matched by the split regex
+	const numberedItems = `\n${body}`.split(/\n\s*(\d+)\.\s+/);
 	if (numberedItems.length > 2) {
 		// numberedItems: ["preamble", "1", "text1", "2", "text2", ...]
 		const items: string[] = [];
@@ -188,7 +189,7 @@ function parseDerogationItem(item: string): Derogation | null {
 
 	// Full derogation patterns
 	const fullPatterns = [
-		/(?:Se deroga[n]?|Queda(?:n)? derogada?s?)\s+(?:expresamente\s+|íntegramente\s+)?(?:la |el |los |las )?((?:Ley\s+Orgánica|Ley|Real\s+Decreto(?:-[Ll]ey)?|Decreto(?:-[Ll]ey)?|texto\s+refundido|Código|Estatuto|Reglamento)\s+[\s\S]+)/i,
+		/(?:Se deroga[n]?|Queda(?:n)? derogad[oa]s?)\s+(?:expresamente\s+|íntegramente\s+)?(?:la |el |los |las )?((?:Ley\s+Orgánica|Ley|Real\s+Decreto(?:-[Ll]ey)?|Decreto(?:-[Ll]ey)?|texto\s+refundido|Código|Estatuto|Reglamento)\s+[\s\S]+)/i,
 	];
 
 	// Partial derogation patterns (mentions specific articles/provisions)

@@ -87,7 +87,43 @@ const ENTITY_NAME_KEYWORDS =
  * not entity names: "Uso obligatorio de...", "Efectos de...", etc.
  */
 const GENERIC_TITLE_STARTS =
-	/^(?:Objeto|Ámbito|Terminología|Definiciones|Principios|Régimen|Disposiciones|Uso|Efectos|Forma|Requisitos|Regla|Reglas|Contenido|Acceso|Admisión|Identificación|Protección|Sobre|Del|De\s+la|De\s+los|Auto|Cómputo|Mejora|Cooperación|Relaciones|Política|Reutilización|Transferencia|Interoperabilidad|Control|Actuaciones|Comunicaciones|Documentos|Presentación|Aportación|Intercambio|Inicio|Tramitación|Cita|Atención|Teletrabajo|Puesto|Entornos|Medios|Actos|Datos)\b/i;
+	/^(?:Objeto|Ámbito|Terminología|Definiciones|Principios|Régimen|Disposiciones|Uso|Efectos|Forma|Requisitos|Regla|Reglas|Contenido|Acceso|Admisión|Identificación|Protección|Sobre|Del|De\s+la|De\s+los|Auto|Cómputo|Mejora|Cooperación|Relaciones|Política|Reutilización|Transferencia|Interoperabilidad|Control|Actuaciones|Comunicaciones|Documentos|Presentación|Aportación|Intercambio|Inicio|Tramitación|Cita|Atención|Teletrabajo|Puesto|Entornos|Medios|Actos|Datos|Composición|Funcionamiento|Asistencia|Recursos\s+contra|Competencias|Naturaleza|Estructura|Funciones|Medidas|Inscripción|Reconocimiento|Prestación|Secretaría)\b/i;
+
+/** Max allowed entity name length. Longer names are likely sentence fragments. */
+const MAX_ENTITY_NAME_LENGTH = 100;
+
+/**
+ * Names that are modification instructions or legal-structure references,
+ * not real entities.
+ */
+const MODIFICATION_INSTRUCTION_PATTERN =
+	/^(?:nuevo\s+art[ií]culo|art[ií]culo\s+\d|apartado|disposici[oó]n|p[aá]rrafo|letra)\b/i;
+
+/**
+ * Strategy B filter: reject names that start with a definite article
+ * followed by a lowercase word (not a proper noun).
+ * Real entity names have proper-noun-style capitalization:
+ *   "Carpeta Justicia" OK, "Los tribunales remitirán" rejected.
+ */
+function startsWithGenericArticle(name: string): boolean {
+	return /^(?:El|La|Los|Las)\s+[a-záéíóúñü]/.test(name);
+}
+
+/**
+ * Reject names that are clearly sentence fragments rather than entity names.
+ * Checks for: list markers (a), b), m)), verb forms mid-name, etc.
+ */
+function isSentenceFragment(name: string): boolean {
+	// Starts with a list marker like "a)", "m)", "1.", "ii)"
+	if (/^[a-záéíóú0-9]{1,4}[).]\s/i.test(name)) return true;
+	// Contains conjugated verb forms mid-name (sentence indicator)
+	if (/\b(?:es\s+un|será|serán|tendrá|podrá|deberá|queda|tienen|remitirán)\b/i.test(name))
+		return true;
+	// Ends with "que", "de", "al", "del", "a la" (truncated mid-sentence)
+	if (/\s+(?:que|de|al|del|a\s+la|a\s+los|en\s+el|en\s+la)\s*$/i.test(name))
+		return true;
+	return false;
+}
 
 // ── Main extractor ──
 
@@ -103,7 +139,30 @@ export function extractNewEntities(text: string): NewEntity[] {
 	const articulado = dispMatch > 0 ? text.slice(0, dispMatch) : text;
 
 	// If articulado is very short, this bill probably has no main body
+	// (pure modification bills have their body entirely in DFs/DAs)
 	if (articulado.length < 500) return [];
+
+	// Also check: if the first article is very close to the disposiciones,
+	// the bill has no real articulado principal (it's all modifications).
+	const firstArticleMatch = articulado.search(/\nArtículo\s+1\./i);
+	if (firstArticleMatch > 0 && dispMatch > 0) {
+		const articuladoBody = text.slice(firstArticleMatch, dispMatch).trim();
+		if (articuladoBody.length < 500) return [];
+	}
+
+	// Check for "Artículo único" pattern — these are almost always pure modification bills
+	if (/\bArtículo\s+único\b/i.test(articulado)) return [];
+
+	// Check if the articulado is predominantly «»-quoted text (modification instructions).
+	// If >60% of the articulado body (after first article) is inside quotes, skip.
+	if (firstArticleMatch > 0) {
+		const body = articulado.slice(firstArticleMatch);
+		const quotedChars = [...body.matchAll(/«[^»]*»/gs)].reduce(
+			(sum, m) => sum + m[0].length,
+			0,
+		);
+		if (quotedChars > body.length * 0.6) return [];
+	}
 
 	const entities: NewEntity[] = [];
 	const seenNames = new Set<string>();
@@ -124,6 +183,18 @@ export function extractNewEntities(text: string): NewEntity[] {
 
 		// Must have at least 2 words
 		if (titleText.split(/\s+/).length < 2) continue;
+
+		// Reject modification instructions
+		if (MODIFICATION_INSTRUCTION_PATTERN.test(titleText)) continue;
+
+		// Reject names that are too long
+		if (titleText.length > MAX_ENTITY_NAME_LENGTH) continue;
+
+		// Reject names starting with "El/La/Los/Las + lowercase" (sentence fragments)
+		if (startsWithGenericArticle(titleText)) continue;
+
+		// Reject sentence fragments
+		if (isSentenceFragment(titleText)) continue;
 
 		// Get description from article body
 		const afterTitle = articulado.slice(match.index! + match[0].length);
@@ -162,13 +233,35 @@ export function extractNewEntities(text: string): NewEntity[] {
 			const firstArticle = articulado.search(/\nArtículo\s+1\./i);
 			if (firstArticle > 0 && matchIdx < firstArticle) continue;
 
-			const rawName = cleanName(match[1]!);
+			let rawName = cleanName(match[1]!);
+
+			// Truncate overly long names at natural breaks
+			if (rawName.length > MAX_ENTITY_NAME_LENGTH) {
+				const truncated = rawName.slice(0, MAX_ENTITY_NAME_LENGTH);
+				const breakPoint = Math.max(
+					truncated.lastIndexOf(","),
+					truncated.lastIndexOf("."),
+					truncated.lastIndexOf(" de "),
+				);
+				rawName = breakPoint > 20 ? truncated.slice(0, breakPoint).trim() : "";
+			}
+			if (!rawName) continue;
 
 			// Filter: name must have at least 3 words to avoid generic references
 			if (rawName.split(/\s+/).length < 3) continue;
 
 			// Filter: skip generic patterns
 			if (/^(?:un|una|el|la|los|las|este|esta)\s/i.test(rawName)) continue;
+
+			// Filter: reject modification instructions
+			if (MODIFICATION_INSTRUCTION_PATTERN.test(rawName)) continue;
+
+			// Filter: reject names starting with "El/La/Los/Las + lowercase"
+			// (sentence fragments, not proper entity names)
+			if (startsWithGenericArticle(rawName)) continue;
+
+			// Filter: reject sentence fragments
+			if (isSentenceFragment(rawName)) continue;
 
 			const key = rawName.toLowerCase();
 			if (seenNames.has(key)) continue;
@@ -199,8 +292,21 @@ export function extractNewEntities(text: string): NewEntity[] {
 		const firstArticle = articulado.search(/\nArtículo\s+1\./i);
 		if (firstArticle > 0 && matchIdx < firstArticle) continue;
 
-		const rawName = cleanName(match[1]!);
+		let rawName = cleanName(match[1]!);
+		if (rawName.length > MAX_ENTITY_NAME_LENGTH) {
+			const truncated = rawName.slice(0, MAX_ENTITY_NAME_LENGTH);
+			const breakPoint = Math.max(
+				truncated.lastIndexOf(","),
+				truncated.lastIndexOf("."),
+				truncated.lastIndexOf(" de "),
+			);
+			rawName = breakPoint > 20 ? truncated.slice(0, breakPoint).trim() : "";
+		}
+		if (!rawName) continue;
 		if (rawName.split(/\s+/).length < 3) continue;
+		if (MODIFICATION_INSTRUCTION_PATTERN.test(rawName)) continue;
+		if (startsWithGenericArticle(rawName)) continue;
+		if (isSentenceFragment(rawName)) continue;
 
 		const key = rawName.toLowerCase();
 		if (seenNames.has(key)) continue;
