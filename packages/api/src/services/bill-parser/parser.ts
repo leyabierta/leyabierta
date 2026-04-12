@@ -18,7 +18,7 @@ import { extractBocgId, extractPublicationDate, extractTitle, extractTransitiona
 import { parseModifications, parseModificationsAsync } from "./classification.ts";
 import { extractDFGroups, extractArticuloGroups, extractArticuloUnicoGroup, extractDAGroups, extractImplicitModGroups } from "./strategies.ts";
 import { verifyWithLLM } from "./llm.ts";
-import { deduplicateGroups } from "./utils.ts";
+import { buildQuotedRanges, deduplicateGroups } from "./utils.ts";
 import { extractDerogations } from "./derogations.ts";
 import { extractNewEntities } from "./entities.ts";
 
@@ -54,9 +54,8 @@ export function classifyBillType(text: string, modificationGroups: ModificationG
 	let isMostlyQuoted = false;
 	if (firstArticle > 0) {
 		const body = articulado.slice(firstArticle);
-		const quotedChars = [...body.matchAll(/«[^»]*»/gs)].reduce(
-			(sum, m) => sum + m[0].length, 0,
-		);
+		const ranges = buildQuotedRanges(body);
+		const quotedChars = ranges.reduce((sum, [s, e]) => sum + (e - s), 0);
 		isMostlyQuoted = quotedChars > body.length * 0.5;
 	}
 
@@ -167,13 +166,14 @@ export async function parseBill(
 	}
 
 	// Extract derogations (repealing provisions)
-	const derogations = extractDerogations(text);
+	const derogations = await extractDerogations(text, options?.apiKey);
 
 	// Classify bill type based on content structure
 	const billType = classifyBillType(text, modificationGroups);
 
 	// Extract new entities created by the bill's main body
-	const newEntities = extractNewEntities(text);
+	// (requires API key for LLM extraction; returns [] without one)
+	const newEntities = await extractNewEntities(text, options?.apiKey);
 
 	return {
 		bocgId,

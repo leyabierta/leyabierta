@@ -3,7 +3,7 @@
  */
 
 import { callOpenRouter } from "../openrouter.ts";
-import type { BillModification, ModificationGroup } from "./types.ts";
+import type { BillModification, ModificationGroup, NewEntity } from "./types.ts";
 import { findSectionBoundaries } from "./utils.ts";
 
 // ── LLM constants ──
@@ -297,4 +297,172 @@ export function locateSection(text: string, sectionRef: string | undefined, targ
 	}
 
 	return null;
+}
+
+// ── LLM derogation extraction ──
+
+/** JSON Schema for structured derogation output */
+export const LLM_DEROGATIONS_SCHEMA = {
+	type: "object" as const,
+	properties: {
+		derogations: {
+			type: "array" as const,
+			items: {
+				type: "object" as const,
+				properties: {
+					target_law: { type: "string" as const },
+					scope: { type: "string" as const, enum: ["full", "partial"] },
+					target_provisions: {
+						type: "array" as const,
+						items: { type: "string" as const },
+					},
+				},
+				required: ["target_law", "scope", "target_provisions"] as const,
+				additionalProperties: false,
+			},
+		},
+	},
+	required: ["derogations"] as const,
+	additionalProperties: false,
+};
+
+/**
+ * Extract derogations from raw derogatory section texts using LLM structured output.
+ * Each section is the full text of a "Disposición derogatoria" section.
+ */
+export async function extractDerogationsWithLLM(
+	apiKey: string,
+	sectionTexts: string[],
+): Promise<Array<{ target_law: string; scope: "full" | "partial"; target_provisions: string[] }>> {
+	const combinedText = sectionTexts.join("\n\n---\n\n").slice(0, 12000);
+
+	try {
+		const result = await callOpenRouter<{
+			derogations: Array<{
+				target_law: string;
+				scope: "full" | "partial";
+				target_provisions: string[];
+			}>;
+		}>(apiKey, {
+			model: LLM_MODEL,
+			messages: [
+				{
+					role: "system",
+					content: `Eres un analizador de disposiciones derogatorias de proyectos de ley españoles.
+
+Dado el texto de una o más disposiciones derogatorias, extrae CADA derogación específica:
+- target_law: nombre completo de la ley derogada (e.g., "Ley Orgánica 10/1995, de 23 de noviembre, del Código Penal")
+- scope: "full" si se deroga la ley entera, "partial" si se derogan artículos/títulos/libros específicos
+- target_provisions: lista de provisiones específicas derogadas (e.g., ["libro III", "artículo 89", "artículo 295"])
+
+IMPORTANTE:
+- NO incluyas cláusulas genéricas como "cuantas disposiciones de igual o inferior rango se opongan..."
+- Cada ley derogada es una entrada separada, incluso si aparecen en el mismo párrafo
+- Si un párrafo deroga artículos de VARIAS leyes, crea una entrada por ley
+- "Se suprime" dentro de una disposición derogatoria equivale a derogación parcial`,
+				},
+				{ role: "user", content: combinedText },
+			],
+			temperature: 0,
+			maxTokens: 2000,
+			jsonSchema: {
+				name: "bill_derogations",
+				schema: LLM_DEROGATIONS_SCHEMA,
+			},
+		});
+
+		return result.data.derogations ?? [];
+	} catch (err) {
+		console.warn(`  [llm-derogations] Failed: ${err}`);
+		return [];
+	}
+}
+
+// ── LLM entity extraction ──
+
+/** JSON Schema for structured entity output */
+export const LLM_ENTITIES_SCHEMA = {
+	type: "object" as const,
+	properties: {
+		entities: {
+			type: "array" as const,
+			items: {
+				type: "object" as const,
+				properties: {
+					name: { type: "string" as const },
+					entity_type: {
+						type: "string" as const,
+						enum: ["registro", "organo", "procedimiento", "derecho", "sistema", "otro"],
+					},
+					article: { type: "string" as const },
+					description: { type: "string" as const },
+				},
+				required: ["name", "entity_type", "article", "description"] as const,
+				additionalProperties: false,
+			},
+		},
+	},
+	required: ["entities"] as const,
+	additionalProperties: false,
+};
+
+/**
+ * Extract new entities from the articulado principal using LLM structured output.
+ * Truncates to 15000 chars (~4K tokens) to stay within context limits.
+ */
+export async function extractEntitiesWithLLM(
+	apiKey: string,
+	articuladoText: string,
+): Promise<NewEntity[]> {
+	const truncated = articuladoText.slice(0, 15000);
+
+	try {
+		const result = await callOpenRouter<{
+			entities: Array<{
+				name: string;
+				entity_type: string;
+				article: string;
+				description: string;
+			}>;
+		}>(apiKey, {
+			model: LLM_MODEL,
+			messages: [
+				{
+					role: "system",
+					content: `Eres un analizador de proyectos de ley españoles. Dado el articulado principal de un proyecto de ley (el texto ANTES de las disposiciones adicionales/transitorias/derogatorias/finales), identifica las ENTIDADES NUEVAS que el proyecto crea.
+
+Entidades nuevas son: registros, órganos, comisiones, sistemas informáticos, plataformas, procedimientos, derechos, o servicios que NO EXISTÍAN antes y que este proyecto crea por primera vez.
+
+Para cada entidad:
+- name: nombre propio de la entidad (e.g., "Carpeta Justicia", "Punto de Contacto Nacional")
+- entity_type: tipo — "registro" | "organo" | "procedimiento" | "derecho" | "sistema" | "otro"
+- article: artículo donde se define (e.g., "Artículo 5")
+- description: descripción breve de qué es y para qué sirve (1-2 frases)
+
+IMPORTANTE:
+- Solo incluye entidades con NOMBRE PROPIO, no conceptos genéricos ("el procedimiento", "un registro")
+- NO incluyas modificaciones a leyes existentes (eso va en las disposiciones finales)
+- NO incluyas artículos que solo describen atributos de una entidad ya mencionada (e.g., "Composición", "Funcionamiento")
+- Si el proyecto no crea ninguna entidad nueva, devuelve un array vacío`,
+				},
+				{ role: "user", content: truncated },
+			],
+			temperature: 0,
+			maxTokens: 2000,
+			jsonSchema: {
+				name: "bill_entities",
+				schema: LLM_ENTITIES_SCHEMA,
+			},
+		});
+
+		return (result.data.entities ?? []).map((e) => ({
+			name: e.name,
+			entityType: (e.entity_type as NewEntity["entityType"]) || "otro",
+			article: e.article,
+			description: e.description,
+		}));
+	} catch (err) {
+		console.warn(`  [llm-entities] Failed: ${err}`);
+		return [];
+	}
 }

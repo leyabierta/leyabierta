@@ -5,6 +5,7 @@
 import type { BillModification } from "./types.ts";
 import { buildOrdinalPattern } from "./types.ts";
 import { classifyWithLLM } from "./llm.ts";
+import { buildQuotedRanges } from "./utils.ts";
 
 // ── Modification classification ──
 
@@ -256,10 +257,7 @@ function splitByOrdinals(text: string): Array<{ ordinal: string; text: string }>
 	// Replace «...» quoted blocks with placeholders to avoid matching ordinals
 	// inside replacement text (e.g., "«Uno. Los seguros...»" is content, not an ordinal)
 	const PLACEHOLDER = "\x00QUOTED\x00";
-	const quotedRanges: Array<[number, number]> = [];
-	for (const m of text.matchAll(/«[\s\S]*?»/g)) {
-		quotedRanges.push([m.index!, m.index! + m[0].length]);
-	}
+	const quotedRanges = buildQuotedRanges(text);
 	let masked = text;
 	// Replace from end to preserve indices
 	for (let i = quotedRanges.length - 1; i >= 0; i--) {
@@ -287,10 +285,7 @@ function splitByNumericOrdinals(text: string): Array<{ ordinal: string; text: st
 	const parts: Array<{ ordinal: string; text: string }> = [];
 
 	// Mask «...» blocks first
-	const quotedRanges: Array<[number, number]> = [];
-	for (const m of text.matchAll(/«[\s\S]*?»/g)) {
-		quotedRanges.push([m.index!, m.index! + m[0].length]);
-	}
+	const quotedRanges = buildQuotedRanges(text);
 	let masked = text;
 	for (let i = quotedRanges.length - 1; i >= 0; i--) {
 		const [start, end] = quotedRanges[i]!;
