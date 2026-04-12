@@ -46,6 +46,7 @@ export type {
 	ModificationGroup,
 	NewEntity,
 	ParsedBill,
+	ParseModificationsResult,
 } from "./types.ts";
 
 // ── Bill type classification ──
@@ -182,7 +183,7 @@ export async function parseBill(
 				const bodyText = text.slice(bodyStart);
 				const modifications = options?.apiKey
 					? await parseModificationsAsync(bodyText, options.apiKey)
-					: parseModifications(bodyText);
+					: parseModifications(bodyText).modifications;
 				if (modifications.length > 0) {
 					modificationGroups.push({
 						title: `Modificación de ${targetLaw}`,
@@ -194,16 +195,30 @@ export async function parseBill(
 		}
 	}
 
+	// Track analysis completeness warnings
+	const warnings: string[] = [];
+	if (!options?.apiKey) {
+		warnings.push(
+			"Sin clave API — análisis LLM no disponible (verificación, derogaciones y entidades pueden estar incompletos)",
+		);
+	}
+
 	// Strategy 8: LLM verification — independent extraction to catch gaps
 	if (options?.apiKey) {
-		const llmGapGroups = await verifyWithLLM(
-			text,
-			modificationGroups,
-			options.apiKey,
-		);
-		if (llmGapGroups.length > 0) {
-			modificationGroups.push(...llmGapGroups);
-			modificationGroups = deduplicateGroups(modificationGroups);
+		try {
+			const llmGapGroups = await verifyWithLLM(
+				text,
+				modificationGroups,
+				options.apiKey,
+			);
+			if (llmGapGroups.length > 0) {
+				modificationGroups.push(...llmGapGroups);
+				modificationGroups = deduplicateGroups(modificationGroups);
+			}
+		} catch {
+			warnings.push(
+				"LLM verification failed — some modified laws may not be detected",
+			);
 		}
 	}
 
@@ -212,6 +227,16 @@ export async function parseBill(
 
 	// Classify bill type based on content structure
 	const billType = classifyBillType(text, modificationGroups);
+
+	// Check if LLM-dependent extractions returned empty when text suggests they shouldn't
+	if (options?.apiKey) {
+		const hasDerogatorySections = /Disposici[oó]n derogatoria/i.test(text);
+		if (hasDerogatorySections && derogations.length === 0) {
+			warnings.push(
+				"Se detectaron disposiciones derogatorias en el texto pero no se extrajeron derogaciones — posible fallo LLM",
+			);
+		}
+	}
 
 	// Extract new entities created by the bill's main body
 	// (requires API key for LLM extraction; returns [] without one)
@@ -227,5 +252,6 @@ export async function parseBill(
 		transitionalProvisions,
 		newEntities,
 		rawText: text,
+		warnings,
 	};
 }

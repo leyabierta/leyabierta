@@ -4,6 +4,11 @@
 
 // ── Types ──
 
+export interface ParseModificationsResult {
+	modifications: BillModification[];
+	unclassified: Array<{ ordinal: string; text: string }>;
+}
+
 export interface BillModification {
 	/** Ordinal in the bill (Uno, Dos, Primero, etc.) */
 	ordinal: string;
@@ -84,6 +89,8 @@ export interface ParsedBill {
 	newEntities: NewEntity[];
 	/** Full cleaned text */
 	rawText: string;
+	/** Warnings about incomplete analysis (e.g., LLM failures) */
+	warnings: string[];
 }
 
 // ── Ordinal lists ──

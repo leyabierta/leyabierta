@@ -12,8 +12,8 @@
 import {
 	extractTextFromPdf,
 	parseBill,
-} from "../services/bill-parser/parser.ts";
-import { callOpenRouter } from "../services/openrouter.ts";
+} from "../../services/bill-parser/parser.ts";
+import { callOpenRouter } from "../../services/openrouter.ts";
 
 const MODEL = "google/gemini-2.5-flash-lite";
 const apiKey = process.env.OPENROUTER_API_KEY;

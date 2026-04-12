@@ -17,7 +17,7 @@ import { join } from "node:path";
 import {
 	extractTextFromPdf,
 	parseBill,
-} from "../services/bill-parser/parser.ts";
+} from "../../services/bill-parser/parser.ts";
 
 const BILLS_DIR = "./data/spike-bills";
 const verbose = process.argv.includes("--verbose");

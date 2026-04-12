@@ -14,7 +14,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { callOpenRouter } from "../services/openrouter.ts";
+import { callOpenRouter } from "../../services/openrouter.ts";
 
 const BILL_PDF = "./data/spike-bills/BOCG-14-A-62-1.PDF";
 const MODEL = "google/gemini-2.5-flash-lite";

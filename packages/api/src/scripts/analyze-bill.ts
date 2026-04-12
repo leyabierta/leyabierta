@@ -326,8 +326,8 @@ function saveBillToDb(
 				bocg_id, title, legislature, series, publication_date, pdf_url,
 				bill_type, alert_level, total_modifications, laws_modified,
 				critical_alerts, high_alerts, has_penalty_changes, has_type_eliminations,
-				transitional_check_json, analyzed_at, model
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				transitional_check_json, analyzed_at, model, warnings_json
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				bill.bocgId,
 				bill.title,
@@ -346,6 +346,7 @@ function saveBillToDb(
 				JSON.stringify(report.transitionalCheck),
 				new Date().toISOString(),
 				model,
+				JSON.stringify(bill.warnings ?? []),
 			],
 		);
 

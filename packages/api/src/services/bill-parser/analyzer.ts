@@ -125,10 +125,17 @@ export function resolveNormId(db: Database, lawTitle: string): string | null {
 		if (contains) return contains.id;
 	}
 
-	// Last resort: search by law number, prefer shortest title (likely the original norm)
+	// Last resort: search by law number
+	// Exclude modifying norms (they reference the number but aren't the original)
+	// Prefer shorter titles (original norms tend to be shorter than "Ley X por la que se modifica...")
 	const norm = db
-		.query<{ id: string }, string>(
-			"SELECT id FROM norms WHERE title LIKE ? ORDER BY length(title) ASC LIMIT 1",
+		.query<{ id: string }, [string]>(
+			`SELECT id FROM norms
+			 WHERE title LIKE ?
+			 AND title NOT LIKE '%por la que se modifica%'
+			 AND title NOT LIKE '%por el que se modifica%'
+			 ORDER BY length(title) ASC
+			 LIMIT 1`,
 		)
 		.get(`%${lawNum}%`);
 
@@ -198,6 +205,35 @@ function extractPenalties(text: string): PenaltyRange[] {
 		}
 	}
 
+	// "prisión de X a Y meses"
+	for (const match of text.matchAll(/prisi[oó]n de (\w+) a (\w+) meses/gi)) {
+		const min = wordToNumber(match[1]!);
+		const max = wordToNumber(match[2]!);
+		if (min !== null && max !== null) {
+			penalties.push({ min: min / 12, max: max / 12, unit: "años prisión" });
+		}
+	}
+
+	// "multa de X a Y meses" (fine measured in months)
+	for (const match of text.matchAll(/multa de (\w+) a (\w+) meses/gi)) {
+		const min = wordToNumber(match[1]!);
+		const max = wordToNumber(match[2]!);
+		if (min !== null && max !== null) {
+			penalties.push({ min, max, unit: "meses multa" });
+		}
+	}
+
+	// "inhabilitación ... de X a Y años"
+	for (const match of text.matchAll(
+		/inhabilitaci[oó]n[\w\s]*?de (\w+) a (\w+) a[ñn]os/gi,
+	)) {
+		const min = wordToNumber(match[1]!);
+		const max = wordToNumber(match[2]!);
+		if (min !== null && max !== null) {
+			penalties.push({ min, max, unit: "años inhabilitación" });
+		}
+	}
+
 	return penalties;
 }
 
@@ -243,45 +279,66 @@ function comparePenalties(
 		const currentPenalties = extractPenalties(preVersion.text);
 		const proposedPenalties = extractPenalties(mod.newText);
 
+		// Compare all extracted penalty pairs
 		if (currentPenalties.length === 0 && proposedPenalties.length === 0)
 			continue;
 
-		const current = currentPenalties[0] ?? null;
-		const proposed = proposedPenalties[0] ?? null;
+		// Compare each pair of penalties
+		const maxPairs = Math.max(
+			currentPenalties.length,
+			proposedPenalties.length,
+		);
+		let worstRisk: PenaltyComparison["risk"] = "none";
+		let worstRiskReason = "";
+		let worstDelta: PenaltyComparison["delta"] = null;
+		let bestCurrent: PenaltyRange | null = currentPenalties[0] ?? null;
+		let bestProposed: PenaltyRange | null = proposedPenalties[0] ?? null;
 
-		let delta: PenaltyComparison["delta"] = null;
-		let risk: PenaltyComparison["risk"] = "none";
-		let riskReason = "";
+		for (let pi = 0; pi < maxPairs; pi++) {
+			const cur = currentPenalties[pi] ?? null;
+			const prop = proposedPenalties[pi] ?? null;
 
-		if (current && proposed) {
-			delta = {
-				minChange: proposed.min - current.min,
-				maxChange: proposed.max - current.max,
-			};
+			let pairRisk: PenaltyComparison["risk"] = "none";
+			let pairReason = "";
+			let pairDelta: PenaltyComparison["delta"] = null;
 
-			if (delta.minChange < 0) {
-				risk = "critical";
-				riskReason = `BAJADA DE MINIMO: de ${current.min} a ${proposed.min} anos. Por principio pro reo (art. 2.2 CP), los condenados con penas entre ${proposed.min}-${current.min} anos podrian solicitar revision de condena.`;
-			} else if (delta.maxChange < 0) {
-				risk = "high";
-				riskReason = `Bajada de maximo: de ${current.max} a ${proposed.max} anos.`;
-			} else if (delta.minChange > 0) {
-				risk = "low";
-				riskReason = `Subida de minimo: de ${current.min} a ${proposed.min} anos.`;
+			if (cur && prop) {
+				pairDelta = {
+					minChange: prop.min - cur.min,
+					maxChange: prop.max - cur.max,
+				};
+				if (pairDelta.minChange < 0) {
+					pairRisk = "critical";
+					pairReason = `BAJADA DE MINIMO: de ${cur.min} a ${prop.min} anos. Por principio pro reo (art. 2.2 CP), los condenados con penas entre ${prop.min}-${cur.min} anos podrian solicitar revision de condena.`;
+				} else if (pairDelta.maxChange < 0) {
+					pairRisk = "high";
+					pairReason = `Bajada de maximo: de ${cur.max} a ${prop.max} anos.`;
+				} else if (pairDelta.minChange > 0) {
+					pairRisk = "low";
+					pairReason = `Subida de minimo: de ${cur.min} a ${prop.min} anos.`;
+				}
+			} else if (cur && !prop) {
+				pairRisk = "critical";
+				pairReason = `Pena de prision eliminada: ${cur.min}-${cur.max} ${cur.unit} desaparece en la nueva redaccion.`;
 			}
-		} else if (current && !proposed) {
-			risk = "medium";
-			riskReason =
-				"El articulo actual tiene penas de prision pero la nueva redaccion no contiene penas explicitas.";
+
+			const riskOrder = { none: 0, low: 1, medium: 2, high: 3, critical: 4 };
+			if (riskOrder[pairRisk] > riskOrder[worstRisk]) {
+				worstRisk = pairRisk;
+				worstRiskReason = pairReason;
+				worstDelta = pairDelta;
+				bestCurrent = cur;
+				bestProposed = prop;
+			}
 		}
 
 		comparisons.push({
 			article: `Articulo ${articleNum}`,
-			current,
-			proposed,
-			delta,
-			risk,
-			riskReason,
+			current: bestCurrent,
+			proposed: bestProposed,
+			delta: worstDelta,
+			risk: worstRisk,
+			riskReason: worstRiskReason,
 		});
 	}
 

@@ -69,7 +69,7 @@ export async function extractDFGroups(
 
 		let modifications = apiKey
 			? await parseModificationsAsync(fullText, apiKey)
-			: parseModifications(fullText);
+			: parseModifications(fullText).modifications;
 
 		// LLM fallback: if no ordinals found but DF has content, use LLM
 		if (modifications.length === 0 && apiKey && fullText.length > 200) {
@@ -140,7 +140,7 @@ export async function extractArticuloGroups(
 		const fullText = text.slice(header.startIndex, nextBoundary);
 		const modifications = apiKey
 			? await parseModificationsAsync(fullText, apiKey)
-			: parseModifications(fullText);
+			: parseModifications(fullText).modifications;
 
 		if (modifications.length > 0) {
 			groups.push({
@@ -224,7 +224,7 @@ export async function extractArticuloUnicoGroup(
 
 	const modifications = apiKey
 		? await parseModificationsAsync(bodyText, apiKey)
-		: parseModifications(bodyText);
+		: parseModifications(bodyText).modifications;
 
 	if (modifications.length === 0) return [];
 
@@ -282,7 +282,7 @@ export async function extractDAGroups(
 
 		let modifications = apiKey
 			? await parseModificationsAsync(fullText, apiKey)
-			: parseModifications(fullText);
+			: parseModifications(fullText).modifications;
 
 		// LLM fallback for DAs without ordinals
 		if (modifications.length === 0 && apiKey && fullText.length > 200) {
@@ -384,7 +384,7 @@ export async function extractImplicitModGroups(
 
 		let modifications = apiKey
 			? await parseModificationsAsync(fullText, apiKey)
-			: parseModifications(fullText);
+			: parseModifications(fullText).modifications;
 
 		// LLM fallback for sections with 0 mods
 		if (modifications.length === 0 && apiKey && fullText.length > 200) {

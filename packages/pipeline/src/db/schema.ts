@@ -203,7 +203,8 @@ const SCHEMA_SQL = /* sql */ `
     has_type_eliminations INTEGER NOT NULL DEFAULT 0,
     transitional_check_json TEXT NOT NULL DEFAULT '{}',
     analyzed_at   TEXT NOT NULL DEFAULT '',
-    model         TEXT NOT NULL DEFAULT ''
+    model         TEXT NOT NULL DEFAULT '',
+    warnings_json TEXT NOT NULL DEFAULT '[]'
   );
 
   CREATE INDEX IF NOT EXISTS idx_bills_legislature ON bills(legislature);
@@ -313,6 +314,14 @@ export function createSchema(db: Database): void {
 	try {
 		db.exec(
 			"ALTER TABLE bills ADD COLUMN bill_type TEXT NOT NULL DEFAULT 'amendment'",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec(
+			"ALTER TABLE bills ADD COLUMN warnings_json TEXT NOT NULL DEFAULT '[]'",
 		);
 	} catch {
 		// Column already exists

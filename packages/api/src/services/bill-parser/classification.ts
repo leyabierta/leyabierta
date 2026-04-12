@@ -3,7 +3,7 @@
  */
 
 import { classifyWithLLM } from "./llm.ts";
-import type { BillModification } from "./types.ts";
+import type { BillModification, ParseModificationsResult } from "./types.ts";
 import { buildOrdinalPattern } from "./types.ts";
 import { buildQuotedRanges } from "./utils.ts";
 
@@ -248,8 +248,8 @@ function classifyModification(
 }
 
 export function extractQuotedText(text: string): string {
-	const quoted = text.match(/«([\s\S]*?)»/);
-	return quoted ? quoted[1]!.trim() : "";
+	const matches = [...text.matchAll(/«([\s\S]*?)»/g)];
+	return matches.map((m) => m[1]!.trim()).join("\n\n");
 }
 
 // ── Ordinal splitting ──
@@ -341,7 +341,7 @@ function splitByNumericOrdinals(
 export function parseModifications(
 	text: string,
 	_apiKey?: string,
-): BillModification[] {
+): ParseModificationsResult {
 	// Try text ordinals first (Uno. Dos. Tres.)
 	let parts = splitByOrdinals(text);
 
@@ -351,14 +351,14 @@ export function parseModifications(
 	}
 
 	const modifications: BillModification[] = [];
-	const unclassifiedParts: Array<{ ordinal: string; text: string }> = [];
+	const unclassified: Array<{ ordinal: string; text: string }> = [];
 
 	for (const part of parts) {
 		const mod = classifyModification(part.ordinal, part.text);
 		if (mod) {
 			modifications.push(mod);
 		} else {
-			unclassifiedParts.push(part);
+			unclassified.push(part);
 		}
 	}
 
@@ -376,7 +376,7 @@ export function parseModifications(
 			if (mod) {
 				modifications.push(mod);
 			} else {
-				unclassifiedParts.push({
+				unclassified.push({
 					ordinal: "direct",
 					text: text.slice(text.indexOf(directModMatch[0])),
 				});
@@ -384,11 +384,7 @@ export function parseModifications(
 		}
 	}
 
-	// Store unclassified for LLM fallback (resolved in parseModificationsAsync)
-	// biome-ignore lint/suspicious/noExplicitAny: internal transport between parseModifications and parseModificationsAsync
-	(modifications as any).__unclassified = unclassifiedParts;
-
-	return modifications;
+	return { modifications, unclassified };
 }
 
 /** Async wrapper that resolves unclassified ordinals with LLM */
@@ -396,12 +392,7 @@ export async function parseModificationsAsync(
 	text: string,
 	apiKey?: string,
 ): Promise<BillModification[]> {
-	const modifications = parseModifications(text, apiKey);
-	const unclassified: Array<{ ordinal: string; text: string }> =
-		// biome-ignore lint/suspicious/noExplicitAny: internal __unclassified property from parseModifications
-		(modifications as any).__unclassified ?? [];
-	// biome-ignore lint/suspicious/noExplicitAny: internal __unclassified property from parseModifications
-	delete (modifications as any).__unclassified;
+	const { modifications, unclassified } = parseModifications(text, apiKey);
 
 	// LLM per-ordinal fallback: classify any ordinals regex couldn't handle
 	if (unclassified.length > 0 && apiKey) {

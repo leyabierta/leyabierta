@@ -708,10 +708,11 @@ import Base from "../../layouts/Base.astro";
 
 				// Transitional check
 				var tcKeys = [
-					["modifies_penal_code", "Modifica el C\u00f3digo Penal"],
-					["has_penalty_dt", "Tiene disposici\u00f3n transitoria penal"],
-					["has_type_eliminations", "Elimina tipos penales"],
-					["has_penalty_changes", "Modifica penas"]
+					["modifiesPenalCode", "Modifica el C\u00f3digo Penal"],
+					["changesPenalties", "Modifica penas"],
+					["eliminatesTypes", "Elimina tipos penales"],
+					["hasPenaltyTransitional", "Tiene disposici\u00f3n transitoria penal"],
+					["hasRevisionTransitional", "Tiene disposici\u00f3n de revisi\u00f3n de sentencias"]
 				];
 				var hasTc = false;
 				for (var tk = 0; tk < tcKeys.length; tk++) {

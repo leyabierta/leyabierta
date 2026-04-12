@@ -14,8 +14,11 @@
  */
 
 import { Database } from "bun:sqlite";
-import { analyzeBill, formatReport } from "../services/bill-parser/analyzer";
-import { extractTextFromPdf, parseBill } from "../services/bill-parser/parser";
+import { analyzeBill, formatReport } from "../../services/bill-parser/analyzer";
+import {
+	extractTextFromPdf,
+	parseBill,
+} from "../../services/bill-parser/parser";
 
 // ── Config ──
 

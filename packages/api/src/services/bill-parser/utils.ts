@@ -53,7 +53,11 @@ export function findSectionBoundaries(text: string): number[] {
 
 // ── Group deduplication ──
 
-/** Remove duplicate groups that target the same law with overlapping modifications */
+/** Remove duplicate groups that target the same law with overlapping modifications.
+ * Note: fuzzy law name matching (lawNamesMatch) is intentionally NOT used here
+ * because it produces false merges in omnibus bills with many similar law names.
+ * The LLM verification step (llm.ts verifyWithLLM) already uses lawNamesMatch
+ * to avoid adding groups for laws already detected by regex strategies. */
 export function deduplicateGroups(
 	groups: ModificationGroup[],
 ): ModificationGroup[] {

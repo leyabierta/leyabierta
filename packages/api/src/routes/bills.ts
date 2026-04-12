@@ -28,6 +28,7 @@ interface BillRow {
 	transitional_check_json: string;
 	analyzed_at: string;
 	model: string;
+	warnings_json: string;
 }
 
 interface ModRow {
@@ -282,6 +283,7 @@ export function billRoutes(db: Database) {
 							article: e.article,
 							description: e.description,
 						})),
+						warnings: safeJsonParse(bill.warnings_json ?? "[]"),
 						analyzed_at: bill.analyzed_at,
 						model: bill.model,
 					};

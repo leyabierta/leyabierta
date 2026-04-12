@@ -107,8 +107,8 @@ No incluyas texto del articulado, solo el tipo y target.`,
 
 /** Local helper — extract quoted text for LLM results */
 function extractQuotedTextForLLM(text: string): string {
-	const quoted = text.match(/«([\s\S]*?)»/);
-	return quoted ? quoted[1]!.trim() : "";
+	const matches = [...text.matchAll(/«([\s\S]*?)»/g)];
+	return matches.map((m) => m[1]!.trim()).join("\n\n");
 }
 
 // ── LLM verification ──
@@ -152,7 +152,7 @@ export function normalizeLawName(name: string): string {
 		.replace(/\s+/g, " ")
 		.replace(/ley orgánica/g, "lo")
 		.replace(/real decreto[- ]ley/g, "rdl")
-		.replace(/real decreto legislativo/g, "rdl")
+		.replace(/real decreto legislativo/g, "rdleg")
 		.replace(/real decreto/g, "rd")
 		.replace(/texto refundido de la /g, "")
 		.replace(/texto refundido del /g, "")
