@@ -359,8 +359,14 @@ describe("GET /v1/bills", () => {
 // ---------------------------------------------------------------------------
 
 describe("GET /v1/bills/:bocgId", () => {
-	it("returns 404 for unknown bocgId", async () => {
+	it("returns 400 for malformed bocgId", async () => {
 		const { status, body } = await json("/v1/bills/NONEXISTENT");
+		expect(status).toBe(400);
+		expect(body.error).toBe("Invalid BOCG ID format");
+	});
+
+	it("returns 404 for unknown bocgId", async () => {
+		const { status, body } = await json("/v1/bills/BOCG-99-Z-999-999");
 		expect(status).toBe(404);
 		expect(body.error).toBe("Bill not found");
 	});
@@ -467,7 +473,7 @@ describe("GET /v1/bills/:bocgId", () => {
          transitional_check_json, analyzed_at, model, warnings_json)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
-				"BDEFAULT2",
+				"BOCG-15-A-99-1",
 				"Test",
 				15,
 				"A",
@@ -487,7 +493,7 @@ describe("GET /v1/bills/:bocgId", () => {
 			],
 		);
 
-		const { body } = await json("/v1/bills/BDEFAULT2");
+		const { body } = await json("/v1/bills/BOCG-15-A-99-1");
 		expect(body.bill_type).toBe("amendment");
 	});
 

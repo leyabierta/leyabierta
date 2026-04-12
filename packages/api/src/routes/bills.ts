@@ -164,6 +164,11 @@ export function billRoutes(db: Database) {
 			.get(
 				"/bills/:bocgId",
 				({ params, set }) => {
+					if (!/^BOCG-\d+-[A-Z]-\d+-\d+$/.test(params.bocgId)) {
+						set.status = 400;
+						return { error: "Invalid BOCG ID format" };
+					}
+
 					const bill = db
 						.query<BillRow, string>("SELECT * FROM bills WHERE bocg_id = ?")
 						.get(params.bocgId);
@@ -266,7 +271,7 @@ export function billRoutes(db: Database) {
 							norm_id: imp.norm_id,
 							target_law: imp.target_law,
 							analysis: safeJsonParse(imp.impact_json),
-							blast_radius: safeJsonParse(imp.blast_radius_json),
+							blast_radius: safeJsonParseArray(imp.blast_radius_json),
 							generated_at: imp.generated_at,
 							model: imp.model,
 						})),
@@ -274,7 +279,7 @@ export function billRoutes(db: Database) {
 							target_law: d.target_law,
 							norm_id: d.norm_id,
 							scope: d.scope,
-							target_provisions: safeJsonParse(d.target_provisions),
+							target_provisions: safeJsonParseArray(d.target_provisions),
 							source_text: d.source_text,
 						})),
 						new_entities: entities.map((e) => ({
@@ -306,5 +311,14 @@ function safeJsonParse(str: string): unknown {
 		return JSON.parse(str);
 	} catch {
 		return {};
+	}
+}
+
+function safeJsonParseArray(str: string): unknown[] {
+	try {
+		const parsed = JSON.parse(str);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
 	}
 }

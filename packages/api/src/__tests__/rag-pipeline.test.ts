@@ -132,7 +132,7 @@ beforeEach(() => {
 });
 
 describe("RagPipeline", () => {
-	test("returns declined=true when no articles match vector search", async () => {
+	test("returns declined=false when no articles match vector search (empty retrieval is not a refusal)", async () => {
 		mockCallOpenRouter.mockResolvedValueOnce({
 			data: { keywords: ["test"], materias: [], temporal: false },
 			cost: 0,
@@ -145,7 +145,7 @@ describe("RagPipeline", () => {
 		const pipeline = new RagPipeline(db, "fake-key", "/fake/path");
 		const result = await pipeline.ask({ question: "What are my rights?" });
 
-		expect(result.declined).toBe(true);
+		expect(result.declined).toBe(false);
 		expect(result.citations).toHaveLength(0);
 		expect(result.meta.articlesRetrieved).toBe(0);
 	});

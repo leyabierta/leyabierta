@@ -361,23 +361,7 @@ function detectTypeEliminations(
 		// The target is something like "Capítulo I del Título XXII"
 		const chapterName = mod.targetProvision;
 
-		// Search blocks table for articles that might be in this chapter
-		// We look for blocks whose title contains the chapter reference
-		const blocks = db
-			.query<{ block_id: string; title: string }, string>(
-				`SELECT block_id, title FROM blocks
-				 WHERE norm_id = ? AND block_type = 'precepto'
-				 ORDER BY position`,
-			)
-			.all(normId);
-
-		// For "Capítulo I del Título XXII", articles 544-549 are sedition
-		// We need a heuristic: find articles near this chapter's position
-		// For now, report the chapter name and check if any versions exist
-		const articleIds = blocks
-			.filter((b) => b.block_id.startsWith("a"))
-			.map((b) => b.block_id);
-
+		// TODO: chapter-to-article mapping requires parent-child block traversal.
 		// Check if any articles in this norm have version history
 		const hasVersions = db
 			.query<{ count: number }, string>(
@@ -387,7 +371,8 @@ function detectTypeEliminations(
 
 		alerts.push({
 			chapter: chapterName,
-			articlesAffected: articleIds.slice(0, 10), // sample
+			// TODO: chapter-to-article mapping requires parent-child block traversal — returns empty until implemented.
+			articlesAffected: [],
 			existingConvictions: (hasVersions?.count ?? 0) > 0,
 			risk: "critical",
 			riskReason: `Eliminacion completa de tipo penal (${chapterName}). Condenas existentes deben ser revisadas bajo art. 2.2 CP.`,
@@ -517,15 +502,28 @@ function findAffectedNorms(
 		}
 	}
 
+	// Batch-fetch all norm titles in a single query to avoid N+1
+	const normIds = [...normMap.keys()];
+	const titleMap = new Map<string, string>();
+	if (normIds.length > 0) {
+		const placeholders = normIds.map(() => "?").join(", ");
+		const rows = db
+			.query<{ id: string; title: string }, string[]>(
+				`SELECT id, title FROM norms WHERE id IN (${placeholders})`,
+			)
+			.all(...normIds);
+		for (const row of rows) {
+			titleMap.set(row.id, row.title);
+		}
+	}
+
 	const results: AffectedNorm[] = [];
 	for (const [nId, data] of normMap) {
-		const norm = db
-			.query<{ title: string }, string>("SELECT title FROM norms WHERE id = ?")
-			.get(nId);
-		if (norm) {
+		const title = titleMap.get(nId);
+		if (title) {
 			results.push({
 				normId: nId,
-				title: norm.title,
+				title,
 				relation: [...data.relations].join(", "),
 				articleRefs: [...data.articleRefs],
 			});
