@@ -202,7 +202,7 @@ describe("ingestJsonDir", () => {
 			.query("SELECT * FROM norms_fts WHERE norms_fts MATCH 'Pruebas'")
 			.all() as Array<Record<string, unknown>>;
 		expect(ftsResult).toHaveLength(1);
-		expect(ftsResult[0].norm_id).toBe("BOE-A-2024-1234");
+		expect(ftsResult[0]!.norm_id).toBe("BOE-A-2024-1234");
 	});
 
 	test("re-ingesting same norm does not create duplicates (upsert)", async () => {

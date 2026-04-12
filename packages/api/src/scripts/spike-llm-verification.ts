@@ -130,12 +130,12 @@ function extractSkeleton(text: string): string {
 	];
 
 	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
+		const line = lines[i]!;
 		if (patterns.some((p) => p.test(line))) {
 			// Keep the line + 1 line of context after
 			kept.push(line);
 			if (i + 1 < lines.length) {
-				kept.push(lines[i + 1]);
+				kept.push(lines[i + 1]!);
 			}
 			kept.push(""); // separator
 		}

@@ -201,7 +201,7 @@ async function generateImage(
 	logoDataUri: string,
 ): Promise<Buffer> {
 	const markup = buildMarkup(law, logoDataUri);
-	const svg = await satori(markup, {
+	const svg = await satori(markup as unknown as React.ReactNode, {
 		width: 1200,
 		height: 630,
 		fonts: [{ name: "Inter", data: fontData, style: "normal" as const }],

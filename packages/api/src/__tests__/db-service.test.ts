@@ -145,7 +145,7 @@ describe("searchLaws", () => {
 
 		const { laws, total } = svc.searchLaws(undefined, { country: "es" }, 20, 0);
 		expect(total).toBe(1);
-		expect(laws[0].id).toBe("N1");
+		expect(laws[0]!.id).toBe("N1");
 	});
 
 	it("filters by rank", () => {
@@ -154,7 +154,7 @@ describe("searchLaws", () => {
 
 		const { laws } = svc.searchLaws(undefined, { rank: "ley" }, 20, 0);
 		expect(laws).toHaveLength(1);
-		expect(laws[0].id).toBe("N1");
+		expect(laws[0]!.id).toBe("N1");
 	});
 
 	it("filters by status", () => {
@@ -163,7 +163,7 @@ describe("searchLaws", () => {
 
 		const { laws } = svc.searchLaws(undefined, { status: "vigente" }, 20, 0);
 		expect(laws).toHaveLength(1);
-		expect(laws[0].id).toBe("N1");
+		expect(laws[0]!.id).toBe("N1");
 	});
 
 	it("combines multiple filters", () => {
@@ -188,7 +188,7 @@ describe("searchLaws", () => {
 			0,
 		);
 		expect(laws).toHaveLength(1);
-		expect(laws[0].id).toBe("N1");
+		expect(laws[0]!.id).toBe("N1");
 	});
 
 	it("respects limit and offset for pagination", () => {
@@ -206,7 +206,7 @@ describe("searchLaws", () => {
 		const page2 = svc.searchLaws(undefined, {}, 2, 2);
 		expect(page2.laws).toHaveLength(2);
 		// Pages should not overlap
-		expect(page1.laws[0].id).not.toBe(page2.laws[0].id);
+		expect(page1.laws[0]!.id).not.toBe(page2.laws[0]!.id);
 	});
 
 	it("searches via FTS5 when query is provided", () => {
@@ -217,7 +217,7 @@ describe("searchLaws", () => {
 
 		const { laws } = svc.searchLaws("Constitucion", {}, 20, 0);
 		expect(laws).toHaveLength(1);
-		expect(laws[0].id).toBe("N1");
+		expect(laws[0]!.id).toBe("N1");
 	});
 
 	it("ranks title matches higher than content-only matches", () => {
@@ -243,7 +243,7 @@ describe("searchLaws", () => {
 		const { laws } = svc.searchLaws("codigo penal", {}, 20, 0);
 		expect(laws).toHaveLength(3);
 		// The law with "codigo penal" in the title should come first
-		expect(laws[0].id).toBe("CP");
+		expect(laws[0]!.id).toBe("CP");
 	});
 
 	it("returns empty when FTS query has no matches", () => {
@@ -263,7 +263,7 @@ describe("searchLaws", () => {
 
 		const { laws } = svc.searchLaws("Codigo", { status: "vigente" }, 20, 0);
 		expect(laws).toHaveLength(1);
-		expect(laws[0].id).toBe("N1");
+		expect(laws[0]!.id).toBe("N1");
 	});
 });
 
@@ -302,9 +302,9 @@ describe("getBlocks", () => {
 
 		const blocks = svc.getBlocks("N1");
 		expect(blocks).toHaveLength(3);
-		expect(blocks[0].block_id).toBe("art-1");
-		expect(blocks[1].block_id).toBe("art-2");
-		expect(blocks[2].block_id).toBe("art-3");
+		expect(blocks[0]!.block_id).toBe("art-1");
+		expect(blocks[1]!.block_id).toBe("art-2");
+		expect(blocks[2]!.block_id).toBe("art-3");
 	});
 });
 
@@ -344,8 +344,8 @@ describe("getReforms", () => {
 
 		const reforms = svc.getReforms("N1");
 		expect(reforms).toHaveLength(2);
-		expect(reforms[0].date).toBe("2020-06-15");
-		expect(reforms[1].date).toBe("2024-01-01");
+		expect(reforms[0]!.date).toBe("2020-06-15");
+		expect(reforms[1]!.date).toBe("2024-01-01");
 	});
 });
 
@@ -390,8 +390,8 @@ describe("getVersions", () => {
 
 		const versions = svc.getVersions("N1", "art-1");
 		expect(versions).toHaveLength(2);
-		expect(versions[0].date).toBe("1978-12-29");
-		expect(versions[1].text).toBe("Version 2");
+		expect(versions[0]!.date).toBe("1978-12-29");
+		expect(versions[1]!.text).toBe("Version 2");
 	});
 });
 
@@ -411,10 +411,10 @@ describe("getRanks", () => {
 
 		const ranks = svc.getRanks();
 		expect(ranks).toHaveLength(2);
-		expect(ranks[0].rank).toBe("ley");
-		expect(ranks[0].count).toBe(2);
-		expect(ranks[1].rank).toBe("constitucion");
-		expect(ranks[1].count).toBe(1);
+		expect(ranks[0]!.rank).toBe("ley");
+		expect(ranks[0]!.count).toBe(2);
+		expect(ranks[1]!.rank).toBe("constitucion");
+		expect(ranks[1]!.count).toBe(1);
 	});
 });
 
@@ -430,8 +430,8 @@ describe("getRecentReforms", () => {
 
 		const recent = svc.getRecentReforms(1);
 		expect(recent).toHaveLength(1);
-		expect(recent[0].title).toBe("Law A");
-		expect(recent[0].date).toBe("2024-01-01");
+		expect(recent[0]!.title).toBe("Law A");
+		expect(recent[0]!.date).toBe("2024-01-01");
 	});
 });
 
@@ -509,12 +509,12 @@ describe("getReferencias", () => {
 
 		const anterior = svc.getReferencias("N1", "anterior");
 		expect(anterior).toHaveLength(1);
-		expect(anterior[0].relation).toBe("SE MODIFICA");
-		expect(anterior[0].target_id).toBe("BOE-X-123");
+		expect(anterior[0]!.relation).toBe("SE MODIFICA");
+		expect(anterior[0]!.target_id).toBe("BOE-X-123");
 
 		const posterior = svc.getReferencias("N1", "posterior");
 		expect(posterior).toHaveLength(1);
-		expect(posterior[0].relation).toBe("DEROGA");
+		expect(posterior[0]!.relation).toBe("DEROGA");
 	});
 });
 
@@ -582,7 +582,7 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 			"2026-01-01",
 		);
 		expect(results.length).toBe(1);
-		expect(results[0].id).toBe("N1");
+		expect(results[0]!.id).toBe("N1");
 	});
 
 	it("excludes reform matching only base materias when user has non-base", () => {
@@ -623,7 +623,7 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 			"2026-01-01",
 		);
 		expect(results.length).toBe(1);
-		expect(results[0].materia_count).toBe(3);
+		expect(results[0]!.materia_count).toBe(3);
 	});
 
 	it("orders results by match_ratio DESC (high density first)", () => {
@@ -681,9 +681,9 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 
 		expect(results.length).toBe(2);
 		// Specific law (ratio 0.6) should come before omnibus (ratio 0.15), even though omnibus is more recent
-		expect(results[0].id).toBe(specificId);
-		expect(results[1].id).toBe(omnibusId);
-		expect(results[0].match_ratio).toBeGreaterThan(results[1].match_ratio);
+		expect(results[0]!.id).toBe(specificId);
+		expect(results[1]!.id).toBe(omnibusId);
+		expect(results[0]!.match_ratio).toBeGreaterThan(results[1]!.match_ratio);
 	});
 
 	it("returns match_ratio in results", () => {
@@ -694,7 +694,7 @@ describe("getRecentReformsByMaterias — base materia filter", () => {
 			"2026-01-01",
 		);
 		expect(results.length).toBe(1);
-		expect(results[0].match_ratio).toBe(0.5); // 1 match out of 2 total
+		expect(results[0]!.match_ratio).toBe(0.5); // 1 match out of 2 total
 	});
 
 	it("returns empty for invalid jurisdiction", () => {
@@ -722,12 +722,13 @@ describe("omnibus DB functions", () => {
 			articleCount: 5,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "test",
 		});
 
 		let topics = svc.getOmnibusTopics("O1");
 		expect(topics).toHaveLength(1);
-		expect(topics[0].topic_label).toBe("Fiscalidad");
+		expect(topics[0]!.topic_label).toBe("Fiscalidad");
 
 		// Replace
 		svc.upsertOmnibusTopic("O1", 0, {
@@ -737,13 +738,14 @@ describe("omnibus DB functions", () => {
 			articleCount: 8,
 			isSneaked: true,
 			relatedMaterias: '["IRPF"]',
+			blockIds: "",
 			model: "test2",
 		});
 
 		topics = svc.getOmnibusTopics("O1");
 		expect(topics).toHaveLength(1);
-		expect(topics[0].topic_label).toBe("Fiscalidad v2");
-		expect(topics[0].is_sneaked).toBe(1);
+		expect(topics[0]!.topic_label).toBe("Fiscalidad v2");
+		expect(topics[0]!.is_sneaked).toBe(1);
 	});
 
 	it("getOmnibusTopics returns empty array for norm without topics", () => {
@@ -772,6 +774,7 @@ describe("omnibus DB functions", () => {
 			articleCount: 3,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 
@@ -795,14 +798,15 @@ describe("omnibus DB functions", () => {
 			articleCount: 1,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 
 		const results = svc.listRecentOmnibus(10);
 		expect(results.length).toBe(1);
-		expect(results[0].id).toBe("O3");
-		expect(results[0].materia_count).toBe(16);
-		expect(results[0].topic_count).toBe(1);
+		expect(results[0]!.id).toBe("O3");
+		expect(results[0]!.materia_count).toBe(16);
+		expect(results[0]!.topic_count).toBe(1);
 	});
 
 	it("getOmnibusDetail returns null for unknown norm", () => {
@@ -822,6 +826,7 @@ describe("omnibus DB functions", () => {
 			articleCount: 10,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 		svc.upsertOmnibusTopic("O5", 1, {
@@ -831,6 +836,7 @@ describe("omnibus DB functions", () => {
 			articleCount: 1,
 			isSneaked: true,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 
@@ -838,8 +844,8 @@ describe("omnibus DB functions", () => {
 		expect(detail).not.toBeNull();
 		expect(detail!.title).toBe("Detail Test");
 		expect(detail!.topics).toHaveLength(2);
-		expect(detail!.topics[0].topic_label).toBe("Energía");
-		expect(detail!.topics[1].is_sneaked).toBe(1);
+		expect(detail!.topics[0]!.topic_label).toBe("Energía");
+		expect(detail!.topics[1]!.is_sneaked).toBe(1);
 	});
 });
 
@@ -858,6 +864,7 @@ describe("getMatchedTopics", () => {
 			isSneaked: false,
 			model: "test",
 			relatedMaterias: JSON.stringify(["Trabajadores", "IRPF"]),
+			blockIds: "",
 		});
 		svc.upsertOmnibusTopic("MT1", 1, {
 			topicLabel: "Energía",
@@ -867,6 +874,7 @@ describe("getMatchedTopics", () => {
 			isSneaked: true,
 			model: "test",
 			relatedMaterias: JSON.stringify(["Energía eléctrica"]),
+			blockIds: "",
 		});
 
 		const result = svc.getMatchedTopics(["MT1"], ["Trabajadores", "IRPF"]);
@@ -883,6 +891,7 @@ describe("getMatchedTopics", () => {
 			isSneaked: false,
 			model: "test",
 			relatedMaterias: JSON.stringify(["IRPF"]),
+			blockIds: "",
 		});
 
 		const result = svc.getMatchedTopics(["MT2"], ["Sanidad"]);
@@ -904,6 +913,7 @@ describe("getMatchedTopics", () => {
 			isSneaked: false,
 			model: "test",
 			relatedMaterias: "not-json",
+			blockIds: "",
 		});
 
 		// Should not crash, just skip the invalid row

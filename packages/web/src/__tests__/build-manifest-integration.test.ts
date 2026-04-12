@@ -104,9 +104,9 @@ describe("Build manifest integration", () => {
 		const omnibusTopics = manifest!.omnibus[id] ?? [];
 
 		expect(omnibusTopics).toHaveLength(2);
-		expect(omnibusTopics[0].topic_label).toBe("Reforma fiscal");
-		expect(omnibusTopics[1].topic_label).toBe("Vivienda");
-		expect(omnibusTopics[1].is_sneaked).toBe(1);
+		expect(omnibusTopics[0]!.topic_label).toBe("Reforma fiscal");
+		expect(omnibusTopics[1]!.topic_label).toBe("Vivienda");
+		expect(omnibusTopics[1]!.is_sneaked).toBe(1);
 	});
 
 	it("returns empty omnibus array for law without topics", () => {

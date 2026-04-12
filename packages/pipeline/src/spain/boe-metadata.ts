@@ -32,7 +32,7 @@ function extractJurisdiction(eli: string | undefined, normId: string): string {
 	// 1. Try ELI URL: /eli/es-an/... → es-an
 	if (eli) {
 		const match = eli.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
-		if (match) return match[1];
+		if (match) return match[1]!;
 	}
 
 	// 2. Try regional bulletin prefix: BOJA-... → es-an

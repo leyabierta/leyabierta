@@ -398,16 +398,16 @@ function inferCssClass(text: string): string {
 function jsonToNorm(raw: Record<string, unknown>): Norm {
 	const m = raw.metadata as Record<string, string>;
 	const metadata: NormMetadata = {
-		title: m.title,
-		shortTitle: m.shortTitle,
-		id: m.id,
-		country: m.country,
-		rank: m.rank as Rank,
-		publishedAt: m.published,
-		updatedAt: m.updated,
-		status: m.status as NormMetadata["status"],
-		department: m.department,
-		source: m.source,
+		title: m.title ?? "",
+		shortTitle: m.shortTitle ?? "",
+		id: m.id ?? "",
+		country: m.country ?? "",
+		rank: (m.rank ?? "") as Rank,
+		publishedAt: m.published ?? "",
+		updatedAt: m.updated ?? "",
+		status: (m.status ?? "") as NormMetadata["status"],
+		department: m.department ?? "",
+		source: m.source ?? "",
 	};
 
 	const articles = raw.articles as Array<Record<string, unknown>>;
@@ -417,9 +417,9 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 		title: a.title as string,
 		versions: (a.versions as Array<Record<string, string>>).map(
 			(v): Version => ({
-				normId: v.sourceId,
-				publishedAt: v.date,
-				effectiveAt: v.date,
+				normId: v.sourceId ?? "",
+				publishedAt: v.date ?? "",
+				effectiveAt: v.date ?? "",
 				paragraphs: (v.text ?? "").split("\n\n").map(
 					(text): Paragraph => ({
 						cssClass: inferCssClass(text),
@@ -463,16 +463,16 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 				anteriores: (
 					(refs?.anteriores as Array<Record<string, string>>) ?? []
 				).map((r) => ({
-					normId: r.normId,
-					relation: r.relation,
-					text: r.text,
+					normId: r.normId ?? "",
+					relation: r.relation ?? "",
+					text: r.text ?? "",
 				})),
 				posteriores: (
 					(refs?.posteriores as Array<Record<string, string>>) ?? []
 				).map((r) => ({
-					normId: r.normId,
-					relation: r.relation,
-					text: r.text,
+					normId: r.normId ?? "",
+					relation: r.relation ?? "",
+					text: r.text ?? "",
 				})),
 			},
 		};

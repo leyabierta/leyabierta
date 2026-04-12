@@ -18,7 +18,7 @@ import { callOpenRouter } from "../services/openrouter.ts";
 
 const BILL_PDF = "./data/spike-bills/BOCG-14-A-62-1.PDF";
 const MODEL = "google/gemini-2.5-flash-lite";
-const apiKey = process.env.OPENROUTER_API_KEY;
+const apiKey = process.env.OPENROUTER_API_KEY ?? "";
 
 if (!apiKey) {
 	console.error("Set OPENROUTER_API_KEY");
@@ -62,7 +62,7 @@ function extractText(pdfPath: string): string {
 
 async function approachA(text: string) {
 	const { parseBill } = await import("../services/bill-parser/parser.ts");
-	const bill = parseBill(text);
+	const bill = await parseBill(text);
 	return {
 		groups: bill.modificationGroups.length,
 		totalMods: bill.modificationGroups.reduce((s, g) => s + g.modifications.length, 0),
@@ -91,13 +91,14 @@ async function approachB(text: string) {
 
 	const dfSections: Array<{ ordinal: string; text: string }> = [];
 	for (let i = 0; i < dfBoundaries.length; i++) {
-		const start = dfBoundaries[i].index!;
-		const end = i + 1 < dfBoundaries.length ? dfBoundaries[i + 1].index! : dfsSection.length;
+		const start = dfBoundaries[i]!.index!;
+		const end = i + 1 < dfBoundaries.length ? dfBoundaries[i + 1]!.index! : dfsSection.length;
 		const sectionText = dfsSection.slice(start, end).trim();
 		// Only include if it has "Modificación" in the title
-		if (/Modificación/i.test(sectionText.split("\n")[0])) {
+		const firstLine = sectionText.split("\n")[0] ?? "";
+		if (/Modificación/i.test(firstLine)) {
 			dfSections.push({
-				ordinal: dfBoundaries[i][1],
+				ordinal: dfBoundaries[i]![1]!,
 				text: sectionText,
 			});
 		}
@@ -166,7 +167,7 @@ async function approachC(text: string) {
 	const dfSections: Array<{ ordinal: string; title: string; text: string }> = [];
 
 	for (let i = 0; i < allDfPositions.length; i++) {
-		const pos = allDfPositions[i];
+		const pos = allDfPositions[i]!;
 		// Find next DF or Disposición boundary
 		const nextBoundary = text.indexOf("\nDisposición ", pos.index! + 50);
 		const sectionEnd = nextBoundary > 0 ? nextBoundary : text.length;
@@ -194,13 +195,13 @@ async function approachC(text: string) {
 			if (mods === 0) mods = 1; // At minimum 1 mod if it's a Modificación DF
 		}
 
-		const lawMatch = pos[2].match(
+		const lawMatch = pos[2]!.match(
 			/Modificación (?:de|del) (?:la |el |los |las )?(.+)/,
 		);
 
 		dfSections.push({
-			ordinal: pos[1],
-			title: lawMatch ? lawMatch[1].slice(0, 60) : pos[2].slice(0, 60),
+			ordinal: pos[1]!,
+			title: lawMatch ? lawMatch[1]!.slice(0, 60) : pos[2]!.slice(0, 60),
 			text: sectionText,
 		});
 	}

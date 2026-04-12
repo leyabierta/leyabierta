@@ -6,7 +6,8 @@ import { reformRoutes } from "../routes/reforms.ts";
 import { DbService } from "../services/db.ts";
 
 let db: Database;
-let app: Elysia;
+// biome-ignore lint: test file uses loose typing for Elysia app
+let app: any;
 
 function seedTestData(database: Database) {
 	// Insert a norm with a national ELI source URL
@@ -104,14 +105,14 @@ describe("GET /v1/reforms/personal", () => {
 	test("missing materias param returns 400", async () => {
 		const res = await request("/v1/reforms/personal");
 		expect(res.status).toBe(400);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		expect(body.error).toContain("materias");
 	});
 
 	test("empty materias param returns 400", async () => {
 		const res = await request("/v1/reforms/personal?materias=");
 		expect(res.status).toBe(400);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		expect(body.error).toContain("materias");
 	});
 
@@ -120,7 +121,7 @@ describe("GET /v1/reforms/personal", () => {
 			"/v1/reforms/personal?materias=Seguridad%20Social",
 		);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		expect(body).toHaveProperty("reforms");
 		expect(body).toHaveProperty("materias");
 		expect(body).toHaveProperty("limit");
@@ -136,7 +137,7 @@ describe("GET /v1/reforms/personal", () => {
 			"/v1/reforms/personal?materias=Seguridad%20Social&limit=1&offset=0",
 		);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		expect(body.reforms.length).toBeLessThanOrEqual(1);
 		expect(body.limit).toBe(1);
 		expect(body.offset).toBe(0);
@@ -147,7 +148,7 @@ describe("GET /v1/reforms/personal", () => {
 			"/v1/reforms/personal?materias=Seguridad%20Social&limit=100",
 		);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		// Should include both the recent (7 days ago) and old (90 days ago) reforms
 		expect(body.reforms.length).toBe(2);
 	});
@@ -158,7 +159,7 @@ describe("GET /v1/reforms/personal", () => {
 			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiccion=es-pv&limit=100",
 		);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		// Should find the Basque norm
 		expect(body.reforms.length).toBeGreaterThanOrEqual(1);
 		expect(body.reforms[0].id).toBe("BOE-A-2024-2000");
@@ -169,7 +170,7 @@ describe("GET /v1/reforms/personal", () => {
 			"/v1/reforms/personal?materias=NonexistentMateria&weeks=4",
 		);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		expect(body.reforms).toEqual([]);
 	});
 
@@ -180,7 +181,7 @@ describe("GET /v1/reforms/personal", () => {
 			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiccion=es&limit=100",
 		);
 		expect(res.status).toBe(200);
-		const body = await res.json();
+		const body = (await res.json()) as any;
 		expect(body.reforms).toEqual([]);
 	});
 });

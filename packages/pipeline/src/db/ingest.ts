@@ -33,7 +33,7 @@ const BULLETIN_JURISDICTION: Record<string, string> = {
 function resolveJurisdiction(source: string, normId: string): string {
 	if (source) {
 		const match = source.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
-		if (match) return match[1];
+		if (match) return match[1]!;
 	}
 	const prefix = normId.split("-")[0];
 	if (prefix && BULLETIN_JURISDICTION[prefix]) {
@@ -146,7 +146,7 @@ export function normalizeArticle(
 	let currentText = article.currentText as string | undefined;
 	if (currentText === undefined || currentText === null) {
 		// Default to the text of the last version
-		currentText = versions.length > 0 ? versions[versions.length - 1].text : "";
+		currentText = versions.length > 0 ? versions[versions.length - 1]!.text : "";
 	}
 
 	return { blockId, blockType, title, position, versions, currentText };

@@ -282,7 +282,7 @@ async function callLlm(
 				return null;
 			}
 
-			const data = await response.json();
+			const data: any = await response.json();
 			const usage = data.usage ?? {};
 			const content = data.choices?.[0]?.message?.content ?? "";
 
@@ -319,7 +319,7 @@ function parseJson(raw: string): unknown | null {
 // ── Process norms ──
 
 for (let i = 0; i < norms.length; i++) {
-	const norm = norms[i];
+	const norm = norms[i]!;
 	const jsonPath = join(WORKSPACE_ROOT, "data", "json", `${norm.id}.json`);
 
 	// Read article text from JSON cache

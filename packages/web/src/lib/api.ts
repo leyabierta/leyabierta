@@ -19,7 +19,7 @@ async function fetchApi<T>(path: string, retries = 3): Promise<T> {
 				}
 				throw new Error(`API ${res.status}: ${path} (retryable)`);
 			}
-			return res.json();
+			return res.json() as Promise<T>;
 		} catch (err) {
 			const isRetryable =
 				err instanceof Error && err.message.includes("(retryable)");
@@ -243,21 +243,21 @@ export async function subscribe(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ email, profileId, jurisdiction }),
 	});
-	return res.json();
+	return res.json() as Promise<{ ok?: boolean; error?: string; message?: string }>;
 }
 
 export async function confirmSubscription(
 	token: string,
 ): Promise<{ ok?: boolean; error?: string; message?: string }> {
 	const res = await fetch(`${API_BASE}/v1/alerts/confirm/${token}`);
-	return res.json();
+	return res.json() as Promise<{ ok?: boolean; error?: string; message?: string }>;
 }
 
 export async function cancelSubscription(
 	token: string,
 ): Promise<{ ok?: boolean; error?: string; message?: string }> {
 	const res = await fetch(`${API_BASE}/v1/alerts/unsubscribe/${token}`);
-	return res.json();
+	return res.json() as Promise<{ ok?: boolean; error?: string; message?: string }>;
 }
 
 // ── Omnibus endpoints ──

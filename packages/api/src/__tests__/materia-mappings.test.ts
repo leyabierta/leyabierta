@@ -39,7 +39,7 @@ describe("computeMaterias", () => {
 
 	test("work status autonomo adds the right materias", () => {
 		const result = computeMaterias(makeAnswers({ workStatus: "autonomo" }));
-		for (const m of WORK_STATUS_MATERIAS.autonomo) {
+		for (const m of WORK_STATUS_MATERIAS.autonomo!) {
 			expect(result).toContain(m);
 		}
 	});
@@ -49,11 +49,11 @@ describe("computeMaterias", () => {
 		const withoutSector = computeMaterias(makeAnswers({ sector: null }));
 
 		// Sanidad materias should only be in the with-sector result
-		for (const m of SECTOR_MATERIAS.sanidad) {
+		for (const m of SECTOR_MATERIAS.sanidad!) {
 			expect(withSector).toContain(m);
 		}
 		// At least one sanidad-specific materia should be absent without sector
-		const sanidadOnly = SECTOR_MATERIAS.sanidad.filter(
+		const sanidadOnly = SECTOR_MATERIAS.sanidad!.filter(
 			(m) => !BASE_MATERIAS.includes(m),
 		);
 		expect(sanidadOnly.some((m) => !withoutSector.includes(m))).toBe(true);
@@ -63,10 +63,10 @@ describe("computeMaterias", () => {
 		const result = computeMaterias(
 			makeAnswers({ family: ["hijos_menores", "dependiente"] }),
 		);
-		for (const m of FAMILY_MATERIAS.hijos_menores) {
+		for (const m of FAMILY_MATERIAS.hijos_menores!) {
 			expect(result).toContain(m);
 		}
-		for (const m of FAMILY_MATERIAS.dependiente) {
+		for (const m of FAMILY_MATERIAS.dependiente!) {
 			expect(result).toContain(m);
 		}
 	});
@@ -75,10 +75,10 @@ describe("computeMaterias", () => {
 		const result = computeMaterias(
 			makeAnswers({ extras: ["coche", "mascotas"] }),
 		);
-		for (const m of EXTRAS_MATERIAS.coche) {
+		for (const m of EXTRAS_MATERIAS.coche!) {
 			expect(result).toContain(m);
 		}
-		for (const m of EXTRAS_MATERIAS.mascotas) {
+		for (const m of EXTRAS_MATERIAS.mascotas!) {
 			expect(result).toContain(m);
 		}
 	});
@@ -112,7 +112,7 @@ describe("computeMaterias", () => {
 		];
 		for (const key of originalKeys) {
 			expect(SECTOR_MATERIAS[key]).toBeDefined();
-			expect(SECTOR_MATERIAS[key].length).toBeGreaterThan(0);
+			expect(SECTOR_MATERIAS[key]!.length).toBeGreaterThan(0);
 		}
 	});
 
@@ -127,7 +127,7 @@ describe("computeMaterias", () => {
 		];
 		for (const key of newKeys) {
 			expect(SECTOR_MATERIAS[key]).toBeDefined();
-			expect(SECTOR_MATERIAS[key].length).toBeGreaterThan(0);
+			expect(SECTOR_MATERIAS[key]!.length).toBeGreaterThan(0);
 		}
 	});
 
@@ -186,7 +186,7 @@ describe("computeMaterias", () => {
 
 	test("housing materias are included", () => {
 		const result = computeMaterias(makeAnswers({ housing: "hipoteca" }));
-		for (const m of HOUSING_MATERIAS.hipoteca) {
+		for (const m of HOUSING_MATERIAS.hipoteca!) {
 			expect(result).toContain(m);
 		}
 	});

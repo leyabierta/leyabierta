@@ -58,10 +58,10 @@ describe("getBuildManifest()", () => {
 
 		const result = svc.getBuildManifest();
 		expect(Object.keys(result.citizens)).toHaveLength(2);
-		expect(result.citizens["BOE-A-2024-001"].summary).toBe(
+		expect(result.citizens["BOE-A-2024-001"]!.summary).toBe(
 			"This law affects taxes",
 		);
-		expect(result.citizens["BOE-A-2024-003"].summary).toBe(
+		expect(result.citizens["BOE-A-2024-003"]!.summary).toBe(
 			"This law affects housing",
 		);
 		expect(result.citizens["BOE-A-2024-002"]).toBeUndefined();
@@ -74,7 +74,7 @@ describe("getBuildManifest()", () => {
 		insertCitizenTag("BOE-A-2024-001", "article-tag", "art-1"); // article-level
 
 		const result = svc.getBuildManifest();
-		expect(result.citizens["BOE-A-2024-001"].tags).toEqual([
+		expect(result.citizens["BOE-A-2024-001"]!.tags).toEqual([
 			"autonomo",
 			"inquilino",
 		]);
@@ -101,10 +101,10 @@ describe("getBuildManifest()", () => {
 		const result = svc.getBuildManifest();
 		expect(Object.keys(result.omnibus)).toHaveLength(2);
 		expect(result.omnibus["BOE-A-2024-001"]).toHaveLength(2);
-		expect(result.omnibus["BOE-A-2024-001"][0].topic_label).toBe(
+		expect(result.omnibus["BOE-A-2024-001"]![0]!.topic_label).toBe(
 			"Fiscal reform",
 		);
-		expect(result.omnibus["BOE-A-2024-001"][1].topic_label).toBe(
+		expect(result.omnibus["BOE-A-2024-001"]![1]!.topic_label).toBe(
 			"Labor changes",
 		);
 		expect(result.omnibus["BOE-A-2024-002"]).toHaveLength(1);
@@ -115,7 +115,7 @@ describe("getBuildManifest()", () => {
 		insertOmnibusTopic("BOE-A-2024-001", 0, "Topic A");
 
 		const result = svc.getBuildManifest();
-		const topic = result.omnibus["BOE-A-2024-001"][0];
+		const topic = result.omnibus["BOE-A-2024-001"]![0]!;
 		expect(topic).toHaveProperty("topic_label");
 		expect(topic).toHaveProperty("article_count");
 		expect(topic).toHaveProperty("headline");

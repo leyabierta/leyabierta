@@ -63,10 +63,10 @@ describe("loadManifest()", () => {
 
 		const result = loadManifest();
 		expect(result).not.toBeNull();
-		expect(result!.citizens["BOE-A-2024-001"].summary).toBe(
+		expect(result!.citizens["BOE-A-2024-001"]!.summary).toBe(
 			"This law affects taxes",
 		);
-		expect(result!.citizens["BOE-A-2024-001"].tags).toEqual([
+		expect(result!.citizens["BOE-A-2024-001"]!.tags).toEqual([
 			"autonomo",
 			"empresario",
 		]);
@@ -94,7 +94,7 @@ describe("loadManifest()", () => {
 		const second = loadManifest();
 
 		expect(first).toBe(second); // same reference (cached)
-		expect(second!.citizens["BOE-A-2024-001"].summary).toBe(
+		expect(second!.citizens["BOE-A-2024-001"]!.summary).toBe(
 			"This law affects taxes",
 		);
 	});

@@ -232,12 +232,12 @@ function validateTopics(data: unknown): {
 		const sneakedIn =
 			typeof topic.sneaked_in === "boolean" ? topic.sneaked_in : false;
 		const relatedMaterias = Array.isArray(topic.related_materias)
-			? (topic.related_materias as unknown[]).filter(
+			? (topic.related_materias as (string | number | null)[]).filter(
 					(m): m is string => typeof m === "string",
 				)
 			: [];
 		const blockIds = Array.isArray(topic.block_ids)
-			? (topic.block_ids as unknown[]).filter(
+			? (topic.block_ids as (string | number | null)[]).filter(
 					(id): id is string => typeof id === "string",
 				)
 			: [];
@@ -270,14 +270,14 @@ async function main() {
 	const sinceClause = sinceArg
 		? "HAVING materia_count >= ? AND latest_date >= ?"
 		: "HAVING materia_count >= ?";
-	const params: unknown[] = sinceArg
+	const params: (string | number | null)[] = sinceArg
 		? [OMNIBUS_THRESHOLD, sinceArg, limitArg]
 		: [OMNIBUS_THRESHOLD, limitArg];
 
 	const norms = db
 		.query<
 			{ id: string; title: string; materia_count: number; latest_date: string },
-			unknown[]
+			(string | number | null)[]
 		>(
 			`SELECT n.id, n.title,
 				COUNT(DISTINCT m.materia) as materia_count,
@@ -368,7 +368,7 @@ async function main() {
 				}
 
 				for (let i = 0; i < topics.length; i++) {
-					const t = topics[i];
+					const t = topics[i]!;
 					// Filter out BASE_MATERIAS and validate against actual norm materias
 					const filteredRelatedMaterias = t.related_materias.filter(
 						(m) => !BASE_MATERIAS.includes(m) && materias.includes(m),

@@ -96,7 +96,7 @@ function countExpectedGroups(text: string): number {
 	const positions = [...seen].sort((a, b) => a - b);
 	let count = 0;
 	for (let i = 0; i < positions.length; i++) {
-		const pos = positions[i];
+		const pos = positions[i]!;
 		const nextPos = positions[i + 1] ?? text.length;
 		const sectionLength = nextPos - pos;
 		// Skip short entries (likely index/TOC entries, < 300 chars)
@@ -296,7 +296,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 console.log("| # | BOCG ID | Chars | Groups | Mods | Warnings | DTs | Status |");
 console.log("|---|---------|-------|--------|------|----------|-----|--------|");
 for (let i = 0; i < results.length; i++) {
-	const r = results[i];
+	const r = results[i]!;
 	const status = r.error
 		? "ERROR"
 		: r.totalModifications > 0
