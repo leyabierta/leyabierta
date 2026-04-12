@@ -1,0 +1,372 @@
+/**
+ * Bill Parser test suite.
+ *
+ * Tests the parser against real BOCG PDFs to ensure no regressions.
+ * PDFs are in data/spike-bills/ (gitignored). Tests are skipped if PDFs are missing.
+ *
+ * To download all test PDFs, run the benchmark first:
+ *   bun run packages/api/src/scripts/spike-bill-benchmark.ts
+ *
+ * These tests run WITHOUT LLM (deterministic only) so they are free and fast.
+ */
+
+import { existsSync } from "node:fs";
+import { describe, expect, test } from "bun:test";
+import {
+	extractTextFromPdf,
+	parseBill,
+	type ParsedBill,
+} from "../services/bill-parser/parser.ts";
+
+// ── Test case definitions ──
+
+interface BillExpectation {
+	id: string;
+	description: string;
+	groups: number;
+	minMods: number;
+	maxMods: number;
+	transitionalProvisions: number;
+	/** Per-group expectations: [targetLawSubstring, minMods, expectedChangeTypes] */
+	groupChecks: Array<{
+		targetLaw: string;
+		minMods: number;
+		changeTypes: string[];
+	}>;
+	/** Groups that should NOT appear (false positive checks) */
+	forbiddenGroups?: string[];
+}
+
+const BILLS: BillExpectation[] = [
+	{
+		id: "BOCG-14-A-62-1",
+		description: "LO 10/2022 — Solo sí es sí (libertad sexual)",
+		groups: 14,
+		minMods: 90,
+		maxMods: 110,
+		transitionalProvisions: 6,
+		groupChecks: [
+			{
+				targetLaw: "Código Penal",
+				minMods: 20,
+				changeTypes: ["modify", "add", "delete"],
+			},
+			{
+				targetLaw: "Ley de Enjuiciamiento Criminal",
+				minMods: 3,
+				changeTypes: ["modify"],
+			},
+			{
+				targetLaw: "Estatuto de la víctima",
+				minMods: 5,
+				changeTypes: ["modify"],
+			},
+		],
+		forbiddenGroups: [],
+	},
+	{
+		id: "BOCG-10-A-66-1",
+		description: "LO 1/2015 — Reforma masiva del CP (240+ artículos)",
+		groups: 4,
+		minMods: 220,
+		maxMods: 240,
+		transitionalProvisions: 4,
+		groupChecks: [
+			{
+				targetLaw: "Código Penal",
+				minMods: 190,
+				changeTypes: ["modify", "add", "suppress_chapter"],
+			},
+			{
+				targetLaw: "Poder Judicial",
+				minMods: 1,
+				changeTypes: ["add"],
+			},
+		],
+		forbiddenGroups: [],
+	},
+	{
+		id: "BOCG-14-B-295-1",
+		description: "LO 14/2022 — Sedición, malversación, transposición UE",
+		groups: 3,
+		minMods: 18,
+		maxMods: 25,
+		transitionalProvisions: 3,
+		groupChecks: [
+			{
+				targetLaw: "Código Penal",
+				minMods: 15,
+				changeTypes: ["modify", "add", "suppress_chapter"],
+			},
+		],
+		forbiddenGroups: [],
+	},
+	{
+		id: "BOCG-14-A-116-1",
+		description: "Eficiencia Digital de Justicia — 7 DFs, DAs inside «» should not be detected",
+		groups: 7,
+		minMods: 50,
+		maxMods: 58,
+		transitionalProvisions: 2,
+		groupChecks: [
+			{
+				targetLaw: "Enjuiciamiento Civil",
+				minMods: 28,
+				changeTypes: ["modify", "add", "delete"],
+			},
+			{
+				targetLaw: "Enjuiciamiento Criminal",
+				minMods: 3,
+				changeTypes: ["modify"],
+			},
+			{
+				targetLaw: "Jurisdicción Voluntaria",
+				minMods: 3,
+				changeTypes: ["modify"],
+			},
+			{
+				targetLaw: "jurisdicción social",
+				minMods: 5,
+				changeTypes: ["modify"],
+			},
+		],
+		// These DAs appear inside «» (proposed LEC text) and must NOT be detected as groups
+		forbiddenGroups: [
+			"antecedentes por medios electrónicos",
+			"gestión procesal",
+			"Funciones procesales",
+			"soluciones tecnológicas",
+		],
+	},
+	{
+		id: "BOCG-15-A-2-1",
+		// Note: parser extracts BOCG-15-A-2-1 from CVE or fallback to roman numeral conversion
+		description: "Presupuestos 2023 — omnibus with many DFs",
+		groups: 17,
+		minMods: 160,
+		maxMods: 185,
+		transitionalProvisions: 12,
+		groupChecks: [],
+		forbiddenGroups: [],
+	},
+	{
+		id: "BOCG-15-A-3-1",
+		description: "Acompañamiento presupuestos — omnibus catch-all",
+		groups: 31,
+		minMods: 55,
+		maxMods: 75,
+		transitionalProvisions: 12,
+		groupChecks: [],
+		forbiddenGroups: [],
+	},
+	{
+		id: "BOCG-15-B-23-1",
+		description: "Proposición — artículo-based groups",
+		groups: 7,
+		minMods: 7,
+		maxMods: 12,
+		transitionalProvisions: 0,
+		groupChecks: [],
+		forbiddenGroups: [],
+	},
+];
+
+// ── Helpers ──
+
+import { join } from "node:path";
+
+// Resolve PDF dir: works both from packages/api/ (normal bun test) and repo root
+// import.meta.dir = .../packages/api/src/__tests__ → go up 4 levels to repo root
+const REPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
+const PDF_DIR = join(REPO_ROOT, "data", "spike-bills");
+
+function hasPdf(id: string): boolean {
+	return existsSync(join(PDF_DIR, `${id}.PDF`));
+}
+
+
+const parsedCache = new Map<string, ParsedBill>();
+
+// Use Promise cache to prevent parallel parses of the same bill
+const parsePromises = new Map<string, Promise<ParsedBill>>();
+
+async function getParsed(id: string): Promise<ParsedBill> {
+	if (parsedCache.has(id)) return parsedCache.get(id)!;
+
+	// Deduplicate concurrent requests for the same bill
+	if (parsePromises.has(id)) return parsePromises.get(id)!;
+
+	const promise = (async () => {
+		const pdfPath = join(PDF_DIR, `${id}.PDF`);
+		const text = extractTextFromPdf(pdfPath);
+		const parsed = await parseBill(text);
+		parsedCache.set(id, parsed);
+		parsePromises.delete(id);
+		return parsed;
+	})();
+
+	parsePromises.set(id, promise);
+	return promise;
+}
+
+// ── Tests ──
+
+describe("bill-parser", () => {
+	for (const bill of BILLS) {
+		describe(bill.id, () => {
+			const skip = !hasPdf(bill.id);
+
+			test.skipIf(skip)(
+				`${bill.description}: detects ${bill.groups} groups`,
+				async () => {
+					const parsed = await getParsed(bill.id);
+					expect(parsed.modificationGroups.length).toBe(bill.groups);
+				},
+			);
+
+			test.skipIf(skip)(
+				"total modifications within expected range",
+				async () => {
+					const parsed = await getParsed(bill.id);
+					const totalMods = parsed.modificationGroups.reduce(
+						(s, g) => s + g.modifications.length,
+						0,
+					);
+					expect(totalMods).toBeGreaterThanOrEqual(bill.minMods);
+					expect(totalMods).toBeLessThanOrEqual(bill.maxMods);
+				},
+			);
+
+			test.skipIf(skip)(
+				`detects ${bill.transitionalProvisions} transitional provisions`,
+				async () => {
+					const parsed = await getParsed(bill.id);
+					expect(parsed.transitionalProvisions.length).toBe(
+						bill.transitionalProvisions,
+					);
+				},
+			);
+
+			test.skipIf(skip)(
+				"extracts BOCG ID correctly",
+				async () => {
+					const parsed = await getParsed(bill.id);
+					expect(parsed.bocgId).toBe(bill.id);
+				},
+			);
+
+			test.skipIf(skip)(
+				"extracts publication date",
+				async () => {
+					const parsed = await getParsed(bill.id);
+					expect(parsed.publicationDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+					expect(parsed.publicationDate).not.toBe("unknown");
+				},
+			);
+
+			test.skipIf(skip)(
+				"zero warnings (all modifications classified)",
+				async () => {
+					const parsed = await getParsed(bill.id);
+					for (const group of parsed.modificationGroups) {
+						for (const mod of group.modifications) {
+							expect(mod.changeType).not.toBe("unknown");
+						}
+					}
+				},
+			);
+
+			// Per-group checks
+			for (const check of bill.groupChecks) {
+				test.skipIf(skip)(
+					`group "${check.targetLaw}" has >= ${check.minMods} mods with types [${check.changeTypes.join(", ")}]`,
+					async () => {
+						const parsed = await getParsed(bill.id);
+						const matching = parsed.modificationGroups.filter((g) =>
+							g.targetLaw.includes(check.targetLaw),
+						);
+						expect(matching.length).toBeGreaterThanOrEqual(1);
+
+						const totalMods = matching.reduce(
+							(s, g) => s + g.modifications.length,
+							0,
+						);
+						expect(totalMods).toBeGreaterThanOrEqual(check.minMods);
+
+						const foundTypes = new Set<string>(
+							matching.flatMap((g) =>
+								g.modifications.map((m) => m.changeType),
+							),
+						);
+						for (const expectedType of check.changeTypes) {
+							expect(foundTypes.has(expectedType)).toBe(true);
+						}
+					},
+				);
+			}
+
+			// Forbidden group checks (false positive detection)
+			for (const forbidden of bill.forbiddenGroups ?? []) {
+				test.skipIf(skip)(
+					`no false positive group containing "${forbidden}"`,
+					async () => {
+						const parsed = await getParsed(bill.id);
+						const found = parsed.modificationGroups.filter(
+							(g) =>
+								g.targetLaw.includes(forbidden) ||
+								g.title.includes(forbidden),
+						);
+						expect(found.length).toBe(0);
+					},
+				);
+			}
+		});
+	}
+
+	// Cross-cutting tests
+	describe("cross-cutting", () => {
+		const anyPdfAvailable = BILLS.some((b) => hasPdf(b.id));
+
+		test.skipIf(!anyPdfAvailable)(
+			"no group has empty target law",
+			async () => {
+				for (const bill of BILLS) {
+					if (!hasPdf(bill.id)) continue;
+					const parsed = await getParsed(bill.id);
+					for (const group of parsed.modificationGroups) {
+						expect(group.targetLaw).not.toBe("");
+						expect(group.targetLaw).not.toBe("unknown");
+					}
+				}
+			},
+		);
+
+		test.skipIf(!anyPdfAvailable)(
+			"no group has empty title",
+			async () => {
+				for (const bill of BILLS) {
+					if (!hasPdf(bill.id)) continue;
+					const parsed = await getParsed(bill.id);
+					for (const group of parsed.modificationGroups) {
+						expect(group.title.length).toBeGreaterThan(0);
+					}
+				}
+			},
+		);
+
+		test.skipIf(!anyPdfAvailable)(
+			"all modifications have non-empty ordinals",
+			async () => {
+				for (const bill of BILLS) {
+					if (!hasPdf(bill.id)) continue;
+					const parsed = await getParsed(bill.id);
+					for (const group of parsed.modificationGroups) {
+						for (const mod of group.modifications) {
+							expect(mod.ordinal).not.toBe("");
+						}
+					}
+				}
+			},
+		);
+	});
+});

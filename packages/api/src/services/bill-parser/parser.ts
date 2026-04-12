@@ -14,7 +14,9 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { callOpenRouter } from "../openrouter.ts";
 
 // ── Types ──
@@ -180,10 +182,18 @@ export function extractTextFromPdf(pdfPath: string): string {
 		throw new Error(`PDF not found: ${pdfPath}`);
 	}
 
-	const text = execSync(`pdftotext -raw "${pdfPath}" -`, {
-		encoding: "utf-8",
-		maxBuffer: 10 * 1024 * 1024,
-	});
+	// Write to temp file instead of stdout to work around bun worker thread bug
+	// where execSync stdout capture is broken in bun test workspace mode.
+	const tmpFile = join(tmpdir(), `pdftotext-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
+	try {
+		execSync(`pdftotext -raw "${pdfPath}" "${tmpFile}"`, {
+			encoding: "utf-8",
+			maxBuffer: 10 * 1024 * 1024,
+		});
+		var text = readFileSync(tmpFile, "utf-8");
+	} finally {
+		try { unlinkSync(tmpFile); } catch { /* ignore */ }
+	}
 
 	return text
 		.replace(/cve: BOCG-\d+-[A-Z]-\d+-\d+/g, "")
@@ -197,6 +207,24 @@ export function extractTextFromPdf(pdfPath: string): string {
 		)
 		.replace(/\n{3,}/g, "\n\n")
 		.trim();
+}
+
+// ── Roman numeral conversion ──
+
+const ROMAN_VALUES: Record<string, number> = {
+	I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000,
+};
+
+function romanToArabic(roman: string): string | null {
+	if (!roman || !/^[IVXLCDM]+$/i.test(roman)) return null;
+	const upper = roman.toUpperCase();
+	let result = 0;
+	for (let i = 0; i < upper.length; i++) {
+		const current = ROMAN_VALUES[upper[i]!]!;
+		const next = i + 1 < upper.length ? ROMAN_VALUES[upper[i + 1]!]! : 0;
+		result += current < next ? -current : current;
+	}
+	return String(result);
 }
 
 // ── Header extraction ──
@@ -226,7 +254,7 @@ function extractBocgId(text: string): string {
 		/(\w+) LEGISLATURA\nSerie ([AB]):\n[\s\S]*?Núm\. (\d+-\d+)/,
 	);
 	if (serieMatch) {
-		const legislatura = serieMatch[1] === "XIV" ? "14" : serieMatch[1] === "X" ? "10" : serieMatch[1];
+		const legislatura = romanToArabic(serieMatch[1] ?? "") ?? serieMatch[1];
 		return `BOCG-${legislatura}-${serieMatch[2]}-${serieMatch[3]}`;
 	}
 
@@ -238,9 +266,9 @@ function extractPublicationDate(text: string): string {
 	const header = text.slice(0, 500);
 	const dateMatch = header.match(/(\d{1,2}) de (\w+) de (\d{4})/);
 	if (dateMatch) {
-		const day = dateMatch[1].padStart(2, "0");
-		const month = SPANISH_MONTHS[dateMatch[2].toLowerCase()];
-		const year = dateMatch[3];
+		const day = dateMatch[1]!.padStart(2, "0");
+		const month = SPANISH_MONTHS[dateMatch[2]!.toLowerCase()];
+		const year = dateMatch[3]!
 		if (month) return `${year}-${month}-${day}`;
 	}
 	return "unknown";
@@ -251,13 +279,13 @@ function extractTitle(text: string): string {
 	const titleMatch = text.match(
 		/(?:PROYECTO|PROPOSICIÓN) DE LEY.*?\n\d+\/\d+\s+(.+?)(?:\n(?:La Mesa|Presentad))/s,
 	);
-	if (titleMatch) return titleMatch[1].replace(/\n/g, " ").trim();
+	if (titleMatch) return titleMatch[1]!.replace(/\n/g, " ").trim();
 
 	// Fallback: look for the title pattern after the reference number
 	const fallback = text.match(
 		/\d+\/\d+\s+(?:Proyecto|Proposición) de Ley (.+?)(?:\.\n|\nLa Mesa)/s,
 	);
-	if (fallback) return fallback[1].replace(/\n/g, " ").trim();
+	if (fallback) return fallback[1]!.replace(/\n/g, " ").trim();
 
 	return "unknown";
 }
@@ -272,7 +300,7 @@ function extractTransitionalProvisions(text: string): string[] {
 		/Disposición transitoria [\p{L}\d]+\.\s+(.+?)(?=\nDisposición (?:transitoria|derogatoria|final|adicional) [\p{L}\d]+\.|$)/gsu;
 
 	for (const match of text.matchAll(dtRegex)) {
-		provisions.push(match[1].trim());
+		provisions.push(match[1]!.trim());
 	}
 
 	return provisions;
@@ -284,7 +312,7 @@ function classifyModification(
 	ordinal: string,
 	text: string,
 ): BillModification | null {
-	const firstLine = text.split("\n")[0];
+	const firstLine = text.split("\n")[0] ?? "";
 	// Some patterns span 2-3 lines (e.g., "Se introduce, dentro de\nla sección..., un nuevo X")
 	// Use the text up to the first «» block or first 500 chars as the "header"
 	const quoteStart = text.indexOf("«");
@@ -319,7 +347,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "modify",
-			targetProvision: modifyMatch[1].trim(),
+			targetProvision: modifyMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -335,7 +363,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "add",
-			targetProvision: addMatch[1].trim(),
+			targetProvision: addMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -349,7 +377,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "add",
-			targetProvision: addParrafoMatch[1].trim(),
+			targetProvision: addParrafoMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -363,7 +391,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "delete",
-			targetProvision: deleteMatch[1].trim().replace(/\.$/, ""),
+			targetProvision: deleteMatch[1]!.trim().replace(/\.$/, ""),
 			newText: "",
 			sourceText: text,
 		};
@@ -377,7 +405,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "renumber",
-			targetProvision: renumberMatch[1].trim(),
+			targetProvision: renumberMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -392,7 +420,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "renumber",
-			targetProvision: passiveRenumberMatch[1].trim(),
+			targetProvision: passiveRenumberMatch[1]!.trim(),
 			newText: "",
 			sourceText: text,
 		};
@@ -408,7 +436,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "add",
-			targetProvision: compoundRenumberAddMatch[1].trim(),
+			targetProvision: compoundRenumberAddMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -422,7 +450,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "modify",
-			targetProvision: genericModify[1].trim(),
+			targetProvision: genericModify[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -445,7 +473,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "modify",
-			targetProvision: redactMatch[1].trim(),
+			targetProvision: redactMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -460,7 +488,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "modify",
-			targetProvision: firstLine.trim().replace(/[.:]+$/, ""),
+			targetProvision: firstLine!.trim().replace(/[.:]+$/, ""),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -474,7 +502,7 @@ function classifyModification(
 		return {
 			ordinal,
 			changeType: "add",
-			targetProvision: dotaMatch[1].trim(),
+			targetProvision: dotaMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -497,14 +525,14 @@ function classifyModification(
 	// "Se crea un nuevo artículo X" / "Se crea, dentro de ..., un «Capítulo»" (variant of add)
 	const createMatch = header.match(
 		/Se crea[n]?(?:,\s+(?:dentro de|en) .+?,\s+| )(?:un(?:a|o)? (?:nuevo?|nueva?)? )?(.+?)(?:,?\s+(?:con (?:la siguiente|el siguiente)|que queda)|$)/i,
-	) || firstLine.match(
+	) || firstLine!.match(
 		/Se crea[n]?(?:,\s+[^,]+,\s+| )(?:un(?:a|o)? )?(.+?)(?:\s+(?:con (?:la|el)|que queda|en el que)|$)/i,
 	);
 	if (createMatch) {
 		return {
 			ordinal,
 			changeType: "add",
-			targetProvision: createMatch[1].trim(),
+			targetProvision: createMatch[1]!.trim(),
 			newText: extractQuotedText(text),
 			sourceText: text,
 		};
@@ -516,7 +544,7 @@ function classifyModification(
 
 function extractQuotedText(text: string): string {
 	const quoted = text.match(/«([\s\S]*?)»/);
-	return quoted ? quoted[1].trim() : "";
+	return quoted ? quoted[1]!.trim() : "";
 }
 
 // ── Ordinal splitting ──
@@ -535,18 +563,18 @@ function splitByOrdinals(text: string): Array<{ ordinal: string; text: string }>
 	let masked = text;
 	// Replace from end to preserve indices
 	for (let i = quotedRanges.length - 1; i >= 0; i--) {
-		const [start, end] = quotedRanges[i];
+		const [start, end] = quotedRanges[i]!;
 		masked = masked.slice(0, start) + PLACEHOLDER.repeat(Math.ceil((end - start) / PLACEHOLDER.length)).slice(0, end - start) + masked.slice(end);
 	}
 
 	const matches = [...masked.matchAll(pattern)];
 
 	for (let i = 0; i < matches.length; i++) {
-		const start = matches[i].index! + matches[i][0].length;
-		const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+		const start = matches[i]!.index! + matches[i]![0].length;
+		const end = i + 1 < matches.length ? matches[i + 1]!.index! : text.length;
 		// Use original text (not masked) for the actual content
 		parts.push({
-			ordinal: matches[i][1],
+			ordinal: matches[i]![1]!,
 			text: text.slice(start, end).trim(),
 		});
 	}
@@ -565,7 +593,7 @@ function splitByNumericOrdinals(text: string): Array<{ ordinal: string; text: st
 	}
 	let masked = text;
 	for (let i = quotedRanges.length - 1; i >= 0; i--) {
-		const [start, end] = quotedRanges[i];
+		const [start, end] = quotedRanges[i]!;
 		masked = masked.slice(0, start) + " ".repeat(end - start) + masked.slice(end);
 	}
 
@@ -575,14 +603,14 @@ function splitByNumericOrdinals(text: string): Array<{ ordinal: string; text: st
 
 	// Validate: numeric ordinals should be sequential (1, 2, 3...) to avoid false positives
 	if (matches.length < 2) return [];
-	const nums = matches.map((m) => Number.parseInt(m[1]));
+	const nums = matches.map((m) => Number.parseInt(m[1]!));
 	if (nums[0] !== 1 || nums[1] !== 2) return []; // Must start with 1, 2
 
 	for (let i = 0; i < matches.length; i++) {
-		const start = matches[i].index! + matches[i][0].length;
-		const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+		const start = matches[i]!.index! + matches[i]![0].length;
+		const end = i + 1 < matches.length ? matches[i + 1]!.index! : text.length;
 		parts.push({
-			ordinal: matches[i][1],
+			ordinal: matches[i]![1]!,
 			text: text.slice(start, end).trim(),
 		});
 	}
@@ -659,7 +687,7 @@ async function parseModificationsAsync(text: string, apiKey?: string): Promise<B
 			} else {
 				// Both regex AND LLM failed — this is a genuine unclassifiable ordinal
 				console.warn(
-					`  [warn] Could not classify ordinal "${part.ordinal}": ${part.text.split("\n")[0].slice(0, 80)}`,
+					`  [warn] Could not classify ordinal "${part.ordinal}": ${part.text.split("\n")[0]!.slice(0, 80)}`,
 				);
 			}
 		}
@@ -667,7 +695,7 @@ async function parseModificationsAsync(text: string, apiKey?: string): Promise<B
 		// No API key — warn about unclassified ordinals
 		for (const part of unclassified) {
 			console.warn(
-				`  [warn] Could not classify ordinal "${part.ordinal}": ${part.text.split("\n")[0].slice(0, 80)}`,
+				`  [warn] Could not classify ordinal "${part.ordinal}": ${part.text.split("\n")[0]!.slice(0, 80)}`,
 			);
 		}
 	}
@@ -691,10 +719,12 @@ async function extractDFGroups(
 	const dfHeaderRegex =
 		/Disposición final ([\p{L}\d]+)\. (Modificación (?:de|del) [\s\S]+?)(?=\n(?:Se |Uno\.|Único\.|El |La |Los |Las |\d+\.\s|Disposición ))/gu;
 
+	const quotedRanges = buildQuotedRanges(text);
 	const headers: Array<{ title: string; startIndex: number }> = [];
 	for (const match of text.matchAll(dfHeaderRegex)) {
+		if (isInsideQuotedBlock(match.index!, quotedRanges)) continue;
 		headers.push({
-			title: match[0].split("\n")[0],
+			title: match[0].split("\n")[0]!,
 			startIndex: match.index!,
 		});
 	}
@@ -719,7 +749,7 @@ async function extractDFGroups(
 			/Modificación (?:de|del) (?:la |el |los |las )?(.+?)(?:\.\n|\n(?:Se |Uno\.|Único\.|El |La |Los |Las |\d+\.\s))/s,
 		);
 		const targetLaw = lawMatch
-			? lawMatch[1].replace(/\n/g, " ").trim()
+			? lawMatch[1]!.replace(/\n/g, " ").trim()
 			: header.title;
 
 		let modifications = apiKey
@@ -754,6 +784,7 @@ async function extractArticuloGroups(text: string, apiKey?: string): Promise<Mod
 	const artHeaderRegex =
 		/Artículo ([\p{L}\d]+)\. (Modificación (?:de|del) [\s\S]+?)(?=\n(?:Se |Uno\.|Único\.|El |La |Los |Las |\d+\.\s))/gu;
 
+	const quotedRanges = buildQuotedRanges(text);
 	const headers: Array<{
 		title: string;
 		targetLaw: string;
@@ -761,14 +792,15 @@ async function extractArticuloGroups(text: string, apiKey?: string): Promise<Mod
 	}> = [];
 
 	for (const match of text.matchAll(artHeaderRegex)) {
-		const lawMatch = match[2].match(
+		if (isInsideQuotedBlock(match.index!, quotedRanges)) continue;
+		const lawMatch = match[2]!.match(
 			/Modificación (?:de|del) (?:la |el |los |las )?(.+)/s,
 		);
 		headers.push({
-			title: `Artículo ${match[1]}. ${match[2].replace(/\n/g, " ").trim()}`,
+			title: `Artículo ${match[1]!}. ${match[2]!.replace(/\n/g, " ").trim()}`,
 			targetLaw: lawMatch
-				? lawMatch[1].replace(/\n/g, " ").trim().replace(/\.$/, "")
-				: match[2].replace(/\n/g, " ").trim(),
+				? lawMatch[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "")
+				: match[2]!.replace(/\n/g, " ").trim(),
 			startIndex: match.index!,
 		});
 	}
@@ -815,9 +847,11 @@ async function extractArticuloGroups(text: string, apiKey?: string): Promise<Mod
  * c) "Artículo único.\nUno. El artículo 87 de la Constitución quedan? redactado..." — no keyword, just mods
  */
 async function extractArticuloUnicoGroup(text: string, apiKey?: string): Promise<ModificationGroup[]> {
-	// Find "Artículo único." anywhere in text
+	// Find "Artículo único." anywhere in text, but not inside «» quoted blocks
+	const quotedRanges = buildQuotedRanges(text);
 	const artUnicoMatch = text.match(/Artículo único\./);
 	if (!artUnicoMatch) return [];
+	if (isInsideQuotedBlock(artUnicoMatch.index!, quotedRanges)) return [];
 
 	const artUnicoStart = artUnicoMatch.index!;
 
@@ -843,7 +877,7 @@ async function extractArticuloUnicoGroup(text: string, apiKey?: string): Promise
 		/Artículo único\.\s+(Modificación (?:de|del) (?:la |el |los |las )?(.+?))(?:\.\n|\n(?:Se |Uno\.|Único\.|El |La |Los |Las |\d+\.\s))/s,
 	);
 	if (modTitleMatch) {
-		targetLaw = modTitleMatch[2].replace(/\n/g, " ").trim().replace(/\.$/, "");
+		targetLaw = modTitleMatch[2]!.replace(/\n/g, " ").trim().replace(/\.$/, "");
 	}
 
 	// Pattern b: "Se modifican los siguientes artículos de la Ley X..."
@@ -852,7 +886,7 @@ async function extractArticuloUnicoGroup(text: string, apiKey?: string): Promise
 			/Se modifica[n]?\s+(?:los siguientes (?:artículos|preceptos|apartados) (?:de|del) (?:la |el |los |las )?)?(.+?)(?:,|\.\n|\n(?:en los siguientes|como sigue|\d+\.\s|Uno\.))/s,
 		);
 		if (seModMatch) {
-			targetLaw = seModMatch[1].replace(/\n/g, " ").trim().replace(/\.$/, "");
+			targetLaw = seModMatch[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "");
 		}
 	}
 
@@ -862,12 +896,12 @@ async function extractArticuloUnicoGroup(text: string, apiKey?: string): Promise
 			/(?:del artículo|de la disposición) .+? (?:de|del) (?:la |el )(.+?)(?:\s+queda| que )/s,
 		);
 		if (lawRefMatch) {
-			targetLaw = lawRefMatch[1].replace(/\n/g, " ").trim().replace(/\.$/, "");
+			targetLaw = lawRefMatch[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "");
 		}
 	}
 
 	const title = modTitleMatch
-		? `Artículo único. ${modTitleMatch[1].replace(/\n/g, " ").trim()}`
+		? `Artículo único. ${modTitleMatch[1]!.replace(/\n/g, " ").trim()}`
 		: `Artículo único. Modificación de ${targetLaw}`;
 
 	const modifications = apiKey
@@ -965,12 +999,14 @@ async function extractDAGroups(
 ): Promise<ModificationGroup[]> {
 	const groups: ModificationGroup[] = [];
 
-	// Find all DA boundaries
+	// Find all DA boundaries, excluding those inside «» quoted blocks
+	const quotedRanges = buildQuotedRanges(text);
 	const daHeaderRegex =
 		/Disposición adicional ([\p{L}\d]+)\.\s+/gu;
 	const headers: Array<{ ordinal: string; startIndex: number }> = [];
 	for (const match of text.matchAll(daHeaderRegex)) {
-		headers.push({ ordinal: match[1], startIndex: match.index! });
+		if (isInsideQuotedBlock(match.index!, quotedRanges)) continue;
+		headers.push({ ordinal: match[1]!, startIndex: match.index! });
 	}
 
 	if (headers.length === 0) return [];
@@ -993,7 +1029,7 @@ async function extractDAGroups(
 			/(?:Se modifica[n]?\s+(?:el |la |los |las )?(?:artículo|apartado|párrafo|letra|número).+?(?:de|del) (?:la |el |los |las )?|(?:de|del) (?:la |el |los |las )?)(.+?)(?:,\s+que queda|\.\n|\n«)/s,
 		);
 		const targetLaw = lawMatch
-			? lawMatch[1].replace(/\n/g, " ").trim().replace(/\.$/, "")
+			? lawMatch[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "")
 			: `DA ${header.ordinal}`;
 
 		let modifications = apiKey
@@ -1031,6 +1067,7 @@ async function extractImplicitModGroups(
 ): Promise<ModificationGroup[]> {
 	const groups: ModificationGroup[] = [];
 	const boundaries = findSectionBoundaries(text);
+	const quotedRanges = buildQuotedRanges(text);
 
 	// Find Artículo and DF/DA section headers (exclude transitorias and derogatorias)
 	const sectionRegex =
@@ -1038,6 +1075,9 @@ async function extractImplicitModGroups(
 
 	for (const match of text.matchAll(sectionRegex)) {
 		const startIndex = match.index!;
+
+		// Skip headers inside «» quoted blocks (proposed law text, not bill structure)
+		if (isInsideQuotedBlock(startIndex, quotedRanges)) continue;
 
 		// Skip if this range is already covered by a found group
 		if (existingGroupRanges.some(([s, e]) => startIndex >= s && startIndex < e)) {
@@ -1077,7 +1117,7 @@ async function extractImplicitModGroups(
 			/(?:Modificación|modificación) (?:de|del) (?:la |el |los |las )?(.+?)(?:\.\n|\n)/,
 		);
 		if (titleLawMatch) {
-			targetLaw = titleLawMatch[1].replace(/\n/g, " ").trim();
+			targetLaw = titleLawMatch[1]!.replace(/\n/g, " ").trim();
 		}
 
 		// Check body for law reference
@@ -1086,7 +1126,7 @@ async function extractImplicitModGroups(
 				/(?:de|del) (?:la |el |los |las )?((?:Ley|Real Decreto|texto refundido|Constitución|Reglamento|Código|Estatuto).+?)(?:,\s+(?:que|en |aprobad)|\.\n)/s,
 			);
 			if (bodyLawMatch) {
-				targetLaw = bodyLawMatch[1].replace(/\n/g, " ").trim().replace(/\.$/, "");
+				targetLaw = bodyLawMatch[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "");
 			}
 		}
 
@@ -1109,6 +1149,40 @@ async function extractImplicitModGroups(
 	}
 
 	return groups;
+}
+
+// ── Quote range detection (shared utility) ──
+
+/**
+ * Build sorted list of [start, end] ranges for «...» quoted blocks.
+ * Text inside «» is proposed law text, not bill structure — any headers
+ * found inside (e.g., "Disposición adicional séptima") are NOT real sections.
+ */
+function buildQuotedRanges(text: string): Array<[number, number]> {
+	const ranges: Array<[number, number]> = [];
+	let searchFrom = 0;
+	while (true) {
+		const open = text.indexOf("«", searchFrom);
+		if (open === -1) break;
+		const close = text.indexOf("»", open + 1);
+		if (close === -1) break;
+		ranges.push([open, close]);
+		searchFrom = close + 1;
+	}
+	return ranges;
+}
+
+/** Check if a character index falls inside any «...» quoted block. */
+function isInsideQuotedBlock(
+	index: number,
+	quotedRanges: Array<[number, number]>,
+): boolean {
+	// Binary search would be faster but linear is fine for typical bill sizes
+	for (const [start, end] of quotedRanges) {
+		if (index > start && index < end) return true;
+		if (start > index) break; // ranges are sorted, no point continuing
+	}
+	return false;
 }
 
 // ── Section boundary finder (shared utility) ──
@@ -1185,7 +1259,7 @@ export async function parseBill(
 		const titleMod = title.match(/modificación (?:de|del) (?:la |el |los |las )?(.+)/i)
 			?? text.match(/Proposición de Ley de modificación (?:de|del) (?:la |el |los |las )?(.+?)(?:\.\n|\n(?:Present|Acuerdo))/is);
 		if (titleMod) {
-			const targetLaw = titleMod[1].replace(/\n/g, " ").trim().replace(/\.$/, "");
+			const targetLaw = titleMod[1]!.replace(/\n/g, " ").trim().replace(/\.$/, "");
 			// Find body: after "Exposición de motivos" section ends, look for ordinals
 			const bodyStart = text.search(/\n(?:Uno|Primero|1)\.\s/);
 			if (bodyStart > 0) {
@@ -1260,9 +1334,9 @@ function extractBillSkeleton(text: string): string {
 	];
 
 	for (let i = 0; i < lines.length; i++) {
-		if (patterns.some((p) => p.test(lines[i]))) {
-			kept.push(lines[i]);
-			if (i + 1 < lines.length) kept.push(lines[i + 1]);
+		if (patterns.some((p) => p.test(lines[i]!))) {
+			kept.push(lines[i]!);
+			if (i + 1 < lines.length) kept.push(lines[i + 1]!);
 			kept.push("");
 		}
 	}
@@ -1446,7 +1520,7 @@ function deduplicateGroups(groups: ModificationGroup[]): ModificationGroup[] {
 		if (seen.has(key)) {
 			// Keep the one with more modifications
 			const existingIdx = seen.get(key)!;
-			if (group.modifications.length > result[existingIdx].modifications.length) {
+			if (group.modifications.length > result[existingIdx]!.modifications.length) {
 				result[existingIdx] = group;
 			}
 		} else {

@@ -185,6 +185,64 @@ const SCHEMA_SQL = /* sql */ `
     FOREIGN KEY (norm_id) REFERENCES norms(id)
   );
 
+  -- Bills (proposed legislation from BOCG)
+  CREATE TABLE IF NOT EXISTS bills (
+    bocg_id       TEXT PRIMARY KEY,  -- e.g. BOCG-14-A-62-1
+    title         TEXT NOT NULL,
+    legislature   INTEGER NOT NULL,
+    series        TEXT NOT NULL DEFAULT '',  -- A (proyectos) or B (proposiciones)
+    publication_date TEXT NOT NULL DEFAULT '',
+    pdf_url       TEXT NOT NULL DEFAULT '',
+    alert_level   TEXT NOT NULL DEFAULT 'ok',  -- ok | high | critical
+    total_modifications INTEGER NOT NULL DEFAULT 0,
+    laws_modified INTEGER NOT NULL DEFAULT 0,
+    critical_alerts INTEGER NOT NULL DEFAULT 0,
+    high_alerts   INTEGER NOT NULL DEFAULT 0,
+    has_penalty_changes INTEGER NOT NULL DEFAULT 0,
+    has_type_eliminations INTEGER NOT NULL DEFAULT 0,
+    transitional_check_json TEXT NOT NULL DEFAULT '{}',
+    analyzed_at   TEXT NOT NULL DEFAULT '',
+    model         TEXT NOT NULL DEFAULT ''
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bills_legislature ON bills(legislature);
+  CREATE INDEX IF NOT EXISTS idx_bills_alert_level ON bills(alert_level);
+
+  -- Bill modification groups + individual modifications
+  CREATE TABLE IF NOT EXISTS bill_modifications (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    bocg_id       TEXT NOT NULL REFERENCES bills(bocg_id),
+    group_index   INTEGER NOT NULL,  -- position of the group in the bill
+    group_title   TEXT NOT NULL DEFAULT '',
+    target_law    TEXT NOT NULL DEFAULT '',
+    norm_id       TEXT NOT NULL DEFAULT '',  -- resolved BOE norm id
+    ordinal       TEXT NOT NULL DEFAULT '',
+    change_type   TEXT NOT NULL DEFAULT '',  -- modify | add | delete | derogate | renumber | suppress_chapter
+    target_provision TEXT NOT NULL DEFAULT '',
+    new_text      TEXT NOT NULL DEFAULT '',
+    source_text   TEXT NOT NULL DEFAULT '',
+    penalty_risk  TEXT NOT NULL DEFAULT 'none',  -- none | low | medium | high | critical
+    penalty_json  TEXT NOT NULL DEFAULT '{}'  -- PenaltyComparison as JSON
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bill_mods_bocg ON bill_modifications(bocg_id);
+  CREATE INDEX IF NOT EXISTS idx_bill_mods_norm ON bill_modifications(norm_id);
+
+  -- Bill impact analysis (LLM-generated, per affected law)
+  CREATE TABLE IF NOT EXISTS bill_impacts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    bocg_id       TEXT NOT NULL REFERENCES bills(bocg_id),
+    norm_id       TEXT NOT NULL DEFAULT '',
+    target_law    TEXT NOT NULL DEFAULT '',
+    impact_json   TEXT NOT NULL DEFAULT '{}',  -- structured LLM analysis
+    blast_radius_json TEXT NOT NULL DEFAULT '[]',  -- affected norms via reference graph
+    generated_at  TEXT NOT NULL DEFAULT '',
+    model         TEXT NOT NULL DEFAULT ''
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bill_impacts_bocg ON bill_impacts(bocg_id);
+  CREATE INDEX IF NOT EXISTS idx_bill_impacts_norm ON bill_impacts(norm_id);
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,

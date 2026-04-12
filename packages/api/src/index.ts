@@ -11,6 +11,7 @@ import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
 import { alertRoutes } from "./routes/alerts.ts";
+import { billRoutes } from "./routes/bills.ts";
 import { lawRoutes } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
@@ -169,11 +170,19 @@ const app = new Elysia()
 					},
 				],
 			},
+			{
+						name: "Propuestas",
+						description:
+							"Bill impact preview — parsed BOCG bills with modification analysis and risk alerts",
+					},
+				],
+			},
 		}),
 	);
 }
 
 app
+	.use(billRoutes(db))
 	.use(lawRoutes(dbService, gitService, diffCache, citizenSummaryService))
 	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))

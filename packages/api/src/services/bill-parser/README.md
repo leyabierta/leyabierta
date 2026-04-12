@@ -15,8 +15,8 @@ legal antes de su "despliegue".
 - [x] **Hybrid parsing**: regex (determinístico) + LLM structured output (fallback)
 - [x] **LLM verification**: second opinion independiente para detectar gaps (approach 7)
 - [x] **Métricas honestas**: classification + group recall (no solo precisión)
+- [x] **Phase 2**: DB schema + API endpoints + analyze-bill pipeline
 - [ ] Enriquecer grafo de referencias (parsear campo `text` de 42K referencias)
-- [ ] DB schema + API endpoints + import script (Phase 2)
 - [ ] UI de visualización del informe de impacto (Phase 3)
 
 ## Resultados del linter (3 test cases)
@@ -69,6 +69,12 @@ El parser combina 5 estrategias regex (gratis, determinísticas) con 1 verificac
 | 5 | Catch-all implícito | Artículos/DFs sin keyword estándar | Omnibus A-3-1 |
 | 6 | Verificación LLM | Second opinion para gaps | Approach 7 |
 
+All 5 regex strategies filter headers inside `<<>>` quoted blocks to prevent false positives from proposed law text (e.g., a DF that quotes a new article mentioning another law).
+
+Additional parser capabilities:
+- **Known law aliases** for pre-codification laws: LECrim, Codigo Civil, Codigo de Comercio, etc. Maps informal names to their BOE identifiers.
+- **Roman numeral conversion** for legislature extraction: XV -> 15, XIV -> 14.
+
 Las estrategias 1-5 corren siempre (sin coste). La 6 solo con API key (~$0.002/bill).
 Los resultados se deduplican por ley target y rango de texto.
 
@@ -101,6 +107,68 @@ Soporta ordinales textuales (Uno-Treinta, Primero-Ducentésimo, Único/a), compu
 | 7 | Auditoría: 5 estrategias, ordinales numéricos, DAs | +347 mods, 5 falsos negativos eliminados |
 | 8 | LLM verification (approach 7) | +23 mods, 0 bills under-detected |
 | 9 | "Único" en ordinales, "quedan redactados", no-ordinal fallback | B-23-1 de 6/7→7/7 |
+
+## Phase 2: DB + API + Analysis pipeline
+
+### DB schema
+
+Three new tables in `packages/pipeline/src/db/schema.ts`:
+
+| Table | Purpose |
+|-------|---------|
+| `bills` | BOCG bill metadata: bocgId, title, legislature, series, alert_level, PDF URL, timestamps |
+| `bill_modifications` | Parsed modification groups per bill: target law, article ranges, change types |
+| `bill_impacts` | LLM-generated impact analysis per bill: severity, affected populations, plain-language explanation |
+
+### Script: `analyze-bill.ts`
+
+Full pipeline: PDF download → parser → analyzer → LLM impact generation → SQLite persistence.
+
+```bash
+# Analyze a single BOCG bill
+bun run packages/api/src/scripts/analyze-bill.ts --url https://...PDF
+
+# Skip LLM impact generation (deterministic analysis only)
+bun run packages/api/src/scripts/analyze-bill.ts --url https://...PDF --skip-llm-impact
+
+# Force re-analysis of an already-analyzed bill
+bun run packages/api/src/scripts/analyze-bill.ts --url https://...PDF --force
+```
+
+### API endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /v1/bills` | List analyzed bills with filters: `legislature`, `alert_level`, `series`. Paginated. |
+| `GET /v1/bills/:bocgId` | Full bill detail: modification groups, penalty analysis, LLM impacts, blast radius |
+
+## Test suite
+
+### Unit tests
+
+`packages/api/src/__tests__/bill-parser.test.ts` — 59 tests covering 7 bills. Fully deterministic (no LLM calls).
+
+```bash
+bun test packages/api/src/__tests__/bill-parser.test.ts
+```
+
+### E2E precision benchmark
+
+`packages/api/src/scripts/bill-benchmark-e2e.ts` — 38 bills with snapshot comparison against saved baselines.
+
+```bash
+# Run deterministic benchmark (no LLM)
+bun run packages/api/src/scripts/bill-benchmark-e2e.ts
+
+# Save current results as the new baseline
+bun run packages/api/src/scripts/bill-benchmark-e2e.ts --save-baseline
+
+# Run with LLM verification + impact generation
+OPENROUTER_API_KEY=... bun run packages/api/src/scripts/bill-benchmark-e2e.ts --llm
+
+# Save LLM baseline
+OPENROUTER_API_KEY=... bun run packages/api/src/scripts/bill-benchmark-e2e.ts --llm --save-baseline
+```
 
 ## Analyzer (`analyzer.ts`)
 
@@ -163,7 +231,7 @@ Serie A = Proyectos de Ley, Serie B = Proposiciones de Ley. Requiere `User-Agent
 
 ## Próximos pasos
 
-- [ ] Phase 2: DB schema + API endpoints + import script
+- [x] Phase 2: DB schema + API endpoints + analyze-bill pipeline
 - [ ] Phase 3: `/propuestas` y `/propuestas/[id]` en leyabierta.es
 - [ ] Enriquecer grafo: parsear campo `text` de 42K referencias para extraer artículos
 - [ ] Analyzer: comparar TODAS las penas por artículo (no solo la primera)
@@ -190,16 +258,22 @@ bun run packages/api/src/scripts/spike-bill-benchmark.ts --llm --verbose
 ```
 packages/api/src/
 ├── services/bill-parser/
-│   ├── README.md              ← este archivo
-│   ├── PHASE0-VALIDATION.md   ← detalle de los 9 runs de validación
-│   ├── parser.ts              ← 6 estrategias de detección + clasificación
-│   └── analyzer.ts            ← comparación con DB + detección de riesgos
+│   ├── README.md                ← este archivo
+│   ├── PHASE0-VALIDATION.md     ← detalle de los 9 runs de validación
+│   ├── parser.ts                ← 6 estrategias de detección + clasificación
+│   └── analyzer.ts              ← comparación con DB + detección de riesgos
+├── __tests__/
+│   └── bill-parser.test.ts      ← 59 unit tests, 7 bills (deterministic)
 ├── scripts/
-│   ├── spike-bill-benchmark.ts  ← benchmark de 36 bills con métricas
+│   ├── analyze-bill.ts          ← full pipeline: PDF → parser → analyzer → LLM → SQLite
+│   ├── bill-benchmark-e2e.ts    ← E2E precision benchmark, 38 bills, snapshot baselines
+│   ├── spike-bill-benchmark.ts  ← original benchmark de 36 bills con métricas
 │   ├── spike-bill-linter.ts     ← test suite con 3 bills
 │   └── spike-bill-llm-parse.ts  ← spike de comparación regex vs LLM
+packages/pipeline/src/db/
+│   └── schema.ts                ← DB schema: bills, bill_modifications, bill_impacts tables
 data/
-└── spike-bills/               ← 36 PDFs descargados (gitignored)
+└── spike-bills/                 ← 38 PDFs descargados (gitignored)
 ```
 
 ## Referencias

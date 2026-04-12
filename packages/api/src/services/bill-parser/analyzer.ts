@@ -70,13 +70,35 @@ export interface ImpactReport {
 
 // ── Norm ID resolution ──
 
+// Well-known pre-codification laws referenced by name (no N/YYYY pattern)
+const KNOWN_LAW_ALIASES: Array<{ pattern: RegExp; normId: string }> = [
+	{ pattern: /Ley de Enjuiciamiento Criminal/i, normId: "BOE-A-1882-6036" },
+	{ pattern: /Código Civil/i, normId: "BOE-A-1889-4763" },
+	{ pattern: /Código de Comercio/i, normId: "BOE-A-1885-6627" },
+];
+
 export function resolveNormId(
 	db: Database,
 	lawTitle: string,
 ): string | null {
 	// Extract law number pattern like "10/1995" or "1/2015"
 	const numMatch = lawTitle.match(/(\d+\/\d{4})/);
-	if (!numMatch) return null;
+
+	// For laws without N/YYYY pattern, try well-known aliases
+	if (!numMatch) {
+		for (const alias of KNOWN_LAW_ALIASES) {
+			if (alias.pattern.test(lawTitle)) {
+				// Verify the norm exists in DB
+				const exists = db
+					.query<{ id: string }, string>(
+						"SELECT id FROM norms WHERE id = ? LIMIT 1",
+					)
+					.get(alias.normId);
+				if (exists) return alias.normId;
+			}
+		}
+		return null;
+	}
 	const lawNum = numMatch[1];
 
 	// Extract rank + number: "Ley Orgánica 10/1995" or "Ley 35/1995"
@@ -159,8 +181,8 @@ function extractPenalties(text: string): PenaltyRange[] {
 	for (const match of text.matchAll(
 		/prisi[oó]n de (\w+) a (\w+) años/gi,
 	)) {
-		const min = wordToNumber(match[1]);
-		const max = wordToNumber(match[2]);
+		const min = wordToNumber(match[1]!);
+		const max = wordToNumber(match[2]!);
 		if (min !== null && max !== null) {
 			penalties.push({ min, max, unit: "años prisión" });
 		}
@@ -170,8 +192,8 @@ function extractPenalties(text: string): PenaltyRange[] {
 	for (const match of text.matchAll(
 		/prisi[oó]n de (\w+) meses a (\w+) años/gi,
 	)) {
-		const minMonths = wordToNumber(match[1]);
-		const maxYears = wordToNumber(match[2]);
+		const minMonths = wordToNumber(match[1]!);
+		const maxYears = wordToNumber(match[2]!);
 		if (minMonths !== null && maxYears !== null) {
 			penalties.push({ min: minMonths / 12, max: maxYears, unit: "años prisión" });
 		}
@@ -204,7 +226,7 @@ function comparePenalties(
 		);
 		if (!artMatch) continue;
 
-		const articleNum = artMatch[1].trim().replace(/\s+/, " ");
+		const articleNum = artMatch[1]!.trim().replace(/\s+/, " ");
 		const blockId = `a${articleNum.replace(/\s+/g, "")}`;
 
 		const preVersion = db
