@@ -505,23 +505,7 @@ export function lawRoutes(
 				},
 			)
 
-			// 16. GET /v1/anomalias — detected data quality issues
-			.get(
-				"/anomalias",
-				() => {
-					return dbService.getAnomalies();
-				},
-				{
-					detail: {
-						summary: "Data quality anomalies",
-						description:
-							"Returns detected data quality issues in BOE source data.",
-						tags: ["Leyes"],
-					},
-				},
-			)
-
-			// 17. GET /v1/build-manifest — bulk citizen data + omnibus topics for static build
+			// 16. GET /v1/build-manifest — bulk citizen data + omnibus topics for static build
 			.get(
 				"/build-manifest",
 				({ set, request }) => {

@@ -184,7 +184,6 @@ When a feature genuinely needs client-side state or rich interactivity (e.g., li
 - `/alertas` — newsletter subscription form
 - `/mi-situacion` — subscription preference wizard
 - `/omnibus` — omnibus law detection with per-topic AI breakdowns
-- `/anomalias` — detected data quality issues in BOE source data
 - `/feed.xml` — RSS feed
 - `/sitemap.xml` — dynamic sitemap for all laws
 
