@@ -317,7 +317,7 @@ async function rebuild() {
 		try {
 			const raw = await Bun.file(`${jsonDir}/${file}`).json();
 			const norm = jsonToNorm(raw);
-			if (norm.reforms.length > 0) {
+			if (norm.blocks.length > 0) {
 				norms.push(norm);
 			}
 		} catch (err) {
@@ -430,13 +430,24 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 		),
 	}));
 
-	const reforms: Reform[] = (raw.reforms as Array<Record<string, unknown>>).map(
+	let reforms: Reform[] = (raw.reforms as Array<Record<string, unknown>>).map(
 		(r) => ({
 			date: r.date as string,
 			normId: r.sourceId as string,
 			affectedBlockIds: (r.affectedBlocks as string[]) ?? [],
 		}),
 	);
+
+	// Synthetic bootstrap reform for norms without version history in the BOE XML
+	if (reforms.length === 0 && blocks.length > 0) {
+		reforms = [
+			{
+				date: metadata.publishedAt,
+				normId: metadata.id,
+				affectedBlockIds: blocks.map((b) => b.id),
+			},
+		];
+	}
 
 	// Load analisis if present in enriched JSON cache
 	let analisis: NormAnalisis | undefined;

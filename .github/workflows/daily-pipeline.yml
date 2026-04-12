@@ -2,8 +2,10 @@ name: Daily Pipeline
 
 on:
   schedule:
-    # Daily at 06:00 UTC — detects both new norms and reforms via fecha_actualizacion watermark
-    - cron: "0 6 * * *"
+    # Mon-Sat 06:00 UTC — incremental via fecha_actualizacion watermark
+    - cron: "0 6 * * 1-6"
+    # Sunday 04:00 UTC — full re-check as safety net (catches anything the watermark missed)
+    - cron: "0 4 * * 0"
   workflow_dispatch:
     inputs:
       force:
@@ -46,11 +48,11 @@ jobs:
       - name: Determine mode
         id: mode
         run: |
-          # Sunday cron or manual --force → re-process all
-          if [[ "${{ inputs.force }}" == "true" ]]; then
+          # Sunday cron or manual --force → full re-check
+          if [[ "${{ github.event.schedule }}" == "0 4 * * 0" ]] || [[ "${{ inputs.force }}" == "true" ]]; then
             echo "force=--force" >> "$GITHUB_OUTPUT"
             echo "label=FULL" >> "$GITHUB_OUTPUT"
-            echo "Mode: FULL (--force, re-processing all norms)"
+            echo "Mode: FULL (re-checking all norms for updates)"
           else
             echo "force=" >> "$GITHUB_OUTPUT"
             echo "label=DAILY" >> "$GITHUB_OUTPUT"
@@ -143,12 +145,12 @@ jobs:
         id: changes
         working-directory: leyes
         run: |
-          if git diff --quiet HEAD; then
+          COUNT=$(git rev-list origin/main..HEAD --count 2>/dev/null || echo 0)
+          if [ "$COUNT" -eq 0 ]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "count=0" >> "$GITHUB_OUTPUT"
             echo "No new reforms found"
           else
-            COUNT=$(git log --oneline HEAD --not $(git rev-parse HEAD~1 2>/dev/null || echo HEAD) 2>/dev/null | wc -l || echo 0)
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
             echo "New commits: $COUNT"
