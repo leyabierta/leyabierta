@@ -282,7 +282,8 @@ async function callLlm(
 				return null;
 			}
 
-			const data: any = await response.json();
+			// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
+			const data = (await response.json()) as any;
 			const usage = data.usage ?? {};
 			const content = data.choices?.[0]?.message?.content ?? "";
 

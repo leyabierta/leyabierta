@@ -123,7 +123,7 @@ export async function commitNorm(
 export interface ReformEntry {
 	readonly norm: Norm;
 	readonly reformIndex: number;
-	readonly reform: any;
+	readonly reform: Reform;
 }
 
 /**

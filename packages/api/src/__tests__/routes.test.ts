@@ -126,7 +126,10 @@ async function req(path: string): Promise<Response> {
 
 async function json(path: string) {
 	const res = await req(path);
-	return { status: res.status, body: (await res.json()) as any };
+	return {
+		status: res.status,
+		body: (await res.json()) as Record<string, unknown>,
+	};
 }
 
 // ---------------------------------------------------------------------------

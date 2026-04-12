@@ -16,12 +16,16 @@ export const GET: APIRoute = async () => {
 
 	// Sort by most recently updated
 	const sorted = laws
-		.sort((a: any, b: any) =>
-			b.data.ultima_actualizacion.localeCompare(a.data.ultima_actualizacion),
+		.sort(
+			(
+				a: { data: Record<string, string> },
+				b: { data: Record<string, string> },
+			) =>
+				b.data.ultima_actualizacion.localeCompare(a.data.ultima_actualizacion),
 		)
 		.slice(0, 50);
 
-	const items = sorted.map((law: any) => {
+	const items = sorted.map((law: { data: Record<string, string> }) => {
 		const d = law.data;
 		return `    <item>
       <title>${escapeHtml(d.titulo)}</title>

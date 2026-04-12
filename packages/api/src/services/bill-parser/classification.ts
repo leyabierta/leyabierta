@@ -398,7 +398,9 @@ export async function parseModificationsAsync(
 ): Promise<BillModification[]> {
 	const modifications = parseModifications(text, apiKey);
 	const unclassified: Array<{ ordinal: string; text: string }> =
+		// biome-ignore lint/suspicious/noExplicitAny: internal __unclassified property from parseModifications
 		(modifications as any).__unclassified ?? [];
+	// biome-ignore lint/suspicious/noExplicitAny: internal __unclassified property from parseModifications
 	delete (modifications as any).__unclassified;
 
 	// LLM per-ordinal fallback: classify any ordinals regex couldn't handle
