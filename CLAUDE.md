@@ -151,8 +151,8 @@ Endpoints:
 - `POST /v1/alerts/subscribe` — subscribe to email notifications (materias + jurisdiction)
 - `GET /v1/alerts/confirm` — double opt-in confirmation (HMAC)
 - `POST /v1/ask` — RAG Q&A: ask questions about legislation, get grounded answers with citations
-- `GET /v1/bills` — list analyzed BOCG bills with alert levels (filters: legislature, alert_level, series)
-- `GET /v1/bills/:bocgId` — full bill impact analysis detail (modification groups, penalty analysis, LLM impacts, blast radius)
+- `GET /v1/bills` — list analyzed BOCG bills. Filters: `legislature`, `alert_level`, `series`. Returns bill_type (new_law/amendment/mixed), alert badges, modification counts.
+- `GET /v1/bills/:bocgId` — full bill impact analysis: modification groups, derogations, new entities, penalty analysis, LLM impacts, blast radius, transitional provision checks, bill type.
 - `GET /v1/feed.xml` — RSS feed of recent reforms
 - `GET /health` — status + law count
 
@@ -188,6 +188,8 @@ Features requiring client-side state use React islands with `client:visible` or 
 - `/reforma` — single reform detail page
 - `/alertas` — newsletter subscription form
 - `/mi-situacion` — subscription preference wizard
+- `/propuestas` — "Radar legislativo": analyzed legislative bills with impact analysis, alert badges, bill type classification
+- `/propuestas/detalle` — bill impact detail: 3 tabs (Resumen with derogations/entities, Modificaciones with grouped changes, Impacto with LLM analysis)
 - `/omnibus` — omnibus law detection with per-topic AI breakdowns
 - `/feed.xml` — RSS feed
 - `/sitemap.xml` — dynamic sitemap for all laws
