@@ -16,8 +16,9 @@ legal antes de su "despliegue".
 - [x] **LLM verification**: second opinion independiente para detectar gaps (approach 7)
 - [x] **Métricas honestas**: classification + group recall (no solo precisión)
 - [x] **Phase 2**: DB schema + API endpoints + analyze-bill pipeline
+- [ ] **Phase 2.5**: gaps detectados en validación E2E (ver abajo)
+- [ ] **Phase 3**: `/propuestas` y `/propuestas/[id]` en leyabierta.es
 - [ ] Enriquecer grafo de referencias (parsear campo `text` de 42K referencias)
-- [ ] UI de visualización del informe de impacto (Phase 3)
 
 ## Resultados del linter (3 test cases)
 
@@ -229,13 +230,88 @@ Serie A = Proyectos de Ley, Serie B = Proposiciones de Ley. Requiere `User-Agent
 | Senado open data | XML | Legislaturas 8-15 |
 | BOE | XML/JSON API | Todo (desde 1835) |
 
-## Próximos pasos
+## Phase 2.5: Gaps detectados en validación E2E
 
-- [x] Phase 2: DB schema + API endpoints + analyze-bill pipeline
-- [ ] Phase 3: `/propuestas` y `/propuestas/[id]` en leyabierta.es
-- [ ] Enriquecer grafo: parsear campo `text` de 42K referencias para extraer artículos
-- [ ] Analyzer: comparar TODAS las penas por artículo (no solo la primera)
-- [ ] Analyzer: mapeo real capítulo→artículos para `suppress_chapter`
+Validación comparativa del pipeline contra análisis externo (Gemini) sobre
+BOCG-14-A-116-1 (Eficiencia Digital de Justicia). Nuestro pipeline detectó
+**7/7 leyes afectadas** (Gemini solo 5/7) y **53 modificaciones** con **0 falsos
+positivos**. Pero se identificaron 4 gaps:
+
+### Gap 1: Disposiciones derogatorias — **P0**
+
+El parser solo analiza disposiciones **modificatorias** (DFs/DAs que cambian leyes).
+No detecta disposiciones **derogatorias** ("Se deroga la Ley X").
+
+**Ejemplo:** BOCG-14-A-116-1 deroga la Ley 18/2011 completa. Nuestro pipeline no
+lo reporta. Deberíamos detectar derogaciones y marcar las normas afectadas en la DB.
+
+**Implementación:**
+- Nuevo extractor `extractDerogations(text)` en `parser.ts`
+- Buscar patrones: "Se deroga/n...", "Queda/n derogada/s...", "Disposición derogatoria"
+- Añadir campo `derogations: string[]` a `ParsedBill`
+- En el analyzer, resolver norm_ids de las leyes derogadas
+- En la API, incluir derogaciones en el response de `/v1/bills/:bocgId`
+
+### Gap 2: Síntesis temática de modificaciones — **P1**
+
+Los 43+ cambios individuales son correctos pero difíciles de consumir. Una capa de
+agrupación por tema (digitalización, videoconferencia, expediente electrónico, firma
+digital) haría el output comparable al análisis de alto nivel que produce un LLM
+conversacional.
+
+**Implementación:**
+- Post-proceso LLM después del análisis per-group: agrupar variables por tema
+- Input: todas las variables de impacto de un bill
+- Output: 3-6 temas con resumen, leyes afectadas, y riesgo agregado
+- Guardar en `bill_impacts` o nueva tabla `bill_themes`
+- Esto es lo que el frontend mostraría como "resumen ejecutivo" del bill
+
+### Gap 3: Detección de adiciones sustantivas — **P1**
+
+El articulado principal de un proyecto de ley puede crear entidades, registros,
+órganos o procedimientos nuevos que no existían. Ejemplo: BOCG-14-A-116-1 crea la
+"Carpeta Justicia", el "Punto Común de Actos de Comunicación" y el "Registro
+Electrónico Común". Esto es distinto del `changeType: "add"` (que añade artículos
+a leyes existentes) — aquí se crean conceptos jurídicos nuevos en el propio bill.
+
+Junto con modificar (Phase 0) y derogar (Gap 1), esto completa el ciclo:
+un proyecto de ley puede **modificar**, **derogar** o **crear**. Sin los tres,
+el análisis está incompleto.
+
+**Implementación:**
+- Nuevo extractor en `parser.ts` que analice el articulado principal (no las DFs)
+- Buscar patrones: "Se crea...", "Se establece...", "Se regula...",
+  "tendrá por objeto...", definiciones en artículos 2/3
+- LLM para extraer: nombre de la entidad, tipo (registro/órgano/procedimiento/
+  derecho), artículo donde se define, descripción breve
+- Nuevo campo `newEntities` en `ParsedBill`
+- Persistir en la DB y exponer en la API
+
+### Gap 4: Falsos positivos LLM ("no altera el texto vigente") — **P0**
+
+El LLM a veces reporta variables donde el cambio propuesto es idéntico al vigente
+(e.g., Jurisdicción Social arts. 18.1, 19.2, 62 en BOCG-14-A-116-1). Esto es ruido.
+
+**Implementación:**
+- Mejorar el prompt del LLM en `analyze-bill.ts`:
+  "Si el texto propuesto es idéntico o equivalente al vigente, NO lo incluyas como
+  variable — solo reporta cambios reales"
+- Post-filtro: eliminar variables donde `current_state ≈ proposed_state`
+- Añadir test de regresión con BOCG-14-A-116-1 (jurisdicción social debe tener
+  ≤3 variables, no 6)
+
+### Próximos pasos (por prioridad)
+
+| Prioridad | Gap | Esfuerzo | Impacto |
+|-----------|-----|----------|---------|
+| **P0** | Disposiciones derogatorias | Medio | Alto — sin esto no detectamos derogaciones completas |
+| **P0** | Falsos positivos LLM | Bajo | Medio — mejora calidad del output sin coste |
+| **P1** | Adiciones sustantivas (crear) | Alto | Alto — completa el ciclo modificar/derogar/crear |
+| **P1** | Síntesis temática | Medio | Alto — hace el output consumible por ciudadanos |
+| **P1** | Phase 3: UI `/propuestas` | Alto | Alto — hace visible todo el trabajo |
+| **P2** | Enriquecer grafo de referencias | Medio | Medio — mejora blast radius |
+| **P2** | Analyzer: todas las penas por artículo | Bajo | Medio — más precisión penal |
+| **P2** | Analyzer: mapeo capítulo→artículos | Medio | Medio — para `suppress_chapter` |
 
 ## Scripts
 

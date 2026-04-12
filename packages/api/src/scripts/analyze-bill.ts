@@ -35,7 +35,7 @@ import { callOpenRouter } from "../services/openrouter.ts";
 // ── Config ──
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
-const IMPACT_MODEL = "google/gemini-2.5-flash-preview";
+const IMPACT_MODEL = "google/gemini-2.5-flash-lite";
 const DOWNLOAD_DIR = "./data/spike-bills";
 
 // ── CLI ──
@@ -166,6 +166,7 @@ Genera un análisis estructurado. Para cada cambio significativo, identifica:
 
 IMPORTANTE:
 - Solo reporta cambios que estén explícitamente en el texto, no inventes riesgos
+- Si el texto propuesto es idéntico o equivalente al vigente, NO lo incluyas como variable — solo reporta cambios reales donde haya una diferencia material
 - Sé conservador con el nivel de riesgo: critical solo para bajadas de penas o eliminación de tipos penales
 - Si no hay cambios significativos, devuelve un array vacío de variables
 
