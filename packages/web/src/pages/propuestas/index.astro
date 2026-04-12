@@ -1,0 +1,291 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Radar legislativo"
+	description="Analizamos los proyectos y proposiciones de ley antes de su aprobación para detectar qué efectos tendrán sobre la legislación vigente."
+	ogTitle="Radar legislativo — Ley Abierta"
+	canonicalUrl="/propuestas"
+>
+	<style is:global>
+		.propuestas-wrap {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 0 1rem 3rem;
+		}
+		.propuestas-header {
+			margin-bottom: 2rem;
+		}
+		.propuestas-header h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin-bottom: 0.75rem;
+		}
+		.propuestas-header p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			line-height: 1.6;
+		}
+
+		.skeleton-cards {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.skeleton-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+		}
+		.skeleton-line {
+			height: 0.875rem;
+			background: var(--border-light);
+			border-radius: 4px;
+			margin-bottom: 0.625rem;
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+		.skeleton-line:nth-child(2) { width: 75%; }
+		.skeleton-line:nth-child(3) { width: 60%; }
+		@keyframes pulse {
+			0%, 100% { opacity: 0.4; }
+			50% { opacity: 1; }
+		}
+
+		.empty-state {
+			text-align: center;
+			padding: 3rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+		}
+		.empty-state h2 {
+			font-family: var(--font-serif);
+			font-size: 1.375rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.empty-state p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+		}
+
+		.propuestas-list {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.propuestas-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+			transition: box-shadow 0.2s;
+		}
+		.propuestas-card:hover {
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+		}
+		.propuestas-card-meta {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+			margin-bottom: 0.25rem;
+		}
+		.propuestas-card-date {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			font-family: var(--font-mono);
+		}
+		.propuestas-alert-badge {
+			display: inline-block;
+			font-size: 0.6875rem;
+			font-weight: 600;
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+			color: #fff;
+			line-height: 1.4;
+		}
+		.propuestas-alert-badge.critical {
+			background: #b91c1c;
+		}
+		.propuestas-alert-badge.high {
+			background: #c2410c;
+		}
+		.propuestas-alert-badge.ok {
+			background: #1a7a4e;
+		}
+		.propuestas-card h3 {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 600;
+			line-height: 1.4;
+			color: var(--text);
+			margin-bottom: 0.5rem;
+		}
+		.propuestas-card-stats {
+			margin-bottom: 0.5rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.propuestas-card-link {
+			font-size: 0.8125rem;
+			color: var(--accent-light);
+			font-weight: 500;
+		}
+		.propuestas-card-link:hover {
+			text-decoration: underline;
+		}
+
+		.propuestas-filters {
+			display: flex;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+			margin-bottom: 1.5rem;
+		}
+		.propuestas-filter-chip {
+			display: inline-block;
+			padding: 0.25rem 0.75rem;
+			border-radius: 20px;
+			font-size: 0.8125rem;
+			border: 1px solid var(--border-light);
+			background: var(--surface);
+			color: var(--text-secondary);
+			cursor: pointer;
+			transition: all 0.15s;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+		.propuestas-filter-chip:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+		.propuestas-filter-chip.active {
+			background: var(--accent);
+			color: white;
+			border-color: var(--accent);
+		}
+
+		@media (max-width: 640px) {
+			.propuestas-header h1 { font-size: 1.625rem; }
+		}
+	</style>
+
+	<div class="propuestas-wrap">
+		<div class="propuestas-header">
+			<h1>Radar legislativo</h1>
+			<p>Analizamos los proyectos y proposiciones de ley antes de su aprobación para detectar qué efectos tendrán sobre la legislación vigente.</p>
+		</div>
+
+		<div class="propuestas-filters" id="propuestas-filters" style="visibility:hidden;">
+			<span class="propuestas-filter-chip active" data-filter="all">Todas</span>
+			<span class="propuestas-filter-chip" data-filter="critical">Riesgo crítico</span>
+			<span class="propuestas-filter-chip" data-filter="high">Riesgo alto</span>
+			<span class="propuestas-filter-chip" data-filter="ok">Sin riesgo</span>
+			<span class="propuestas-filter-chip" data-filter="leg15">Legislatura XV</span>
+			<span class="propuestas-filter-chip" data-filter="leg14">Legislatura XIV</span>
+		</div>
+
+		<h2 class="sr-only">Listado de proyectos y proposiciones de ley</h2>
+		<div id="propuestas-content" style="min-height:24rem">
+			<div class="skeleton-cards">
+				<div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div></div>
+			</div>
+		</div>
+	</div>
+
+	<script is:inline>
+		(function () {
+			var ALERT_LABELS = {
+				critical: "Riesgo cr\u00edtico",
+				high: "Riesgo alto",
+				ok: "Sin alertas"
+			};
+
+			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+			var API = document.documentElement.dataset.api;
+			var contentDiv = document.getElementById("propuestas-content");
+			var filtersDiv = document.getElementById("propuestas-filters");
+			var allData = [];
+			var activeFilter = "all";
+
+			function renderCards(items) {
+				if (items.length === 0) {
+					contentDiv.innerHTML = '<div class="empty-state"><h2>No hay resultados</h2><p>No hay proyectos de ley que coincidan con este filtro.</p></div>';
+					return;
+				}
+				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+				var html = '<div class="propuestas-list">';
+				for (var i = 0; i < items.length; i++) {
+					var b = items[i];
+					var dateStr = b.publication_date || "";
+					if (dateStr) {
+						var d = new Date(dateStr + "T00:00:00");
+						dateStr = d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+					}
+					var alertClass = b.alert_level || "ok";
+					var alertLabel = ALERT_LABELS[alertClass] || ALERT_LABELS.ok;
+
+					html += '<div class="propuestas-card">';
+					html += '<div class="propuestas-card-meta">';
+					html += '<span class="propuestas-card-date">' + esc(dateStr) + '</span>';
+					html += '<span class="propuestas-alert-badge ' + esc(alertClass) + '">' + esc(alertLabel) + '</span>';
+					html += '</div>';
+					html += '<h3>' + esc(b.title) + '</h3>';
+					html += '<div class="propuestas-card-stats">' + b.total_modifications + ' modificaciones en ' + b.laws_modified + ' leyes</div>';
+					html += '<a href="/propuestas/detalle?id=' + encodeURIComponent(b.bocg_id) + '" class="propuestas-card-link">Ver an\u00e1lisis \u2192</a>';
+					html += '</div>';
+				}
+				html += '</div>';
+				contentDiv.innerHTML = html;
+			}
+
+			function applyFilter() {
+				var filtered = allData;
+				if (activeFilter === "critical") {
+					filtered = allData.filter(function (b) { return b.alert_level === "critical"; });
+				} else if (activeFilter === "high") {
+					filtered = allData.filter(function (b) { return b.alert_level === "high"; });
+				} else if (activeFilter === "ok") {
+					filtered = allData.filter(function (b) { return b.alert_level === "ok"; });
+				} else if (activeFilter === "leg15") {
+					filtered = allData.filter(function (b) { return b.legislature === 15; });
+				} else if (activeFilter === "leg14") {
+					filtered = allData.filter(function (b) { return b.legislature === 14; });
+				}
+				renderCards(filtered);
+			}
+
+			var chips = filtersDiv.querySelectorAll(".propuestas-filter-chip");
+			for (var c = 0; c < chips.length; c++) {
+				chips[c].addEventListener("click", function () {
+					activeFilter = this.getAttribute("data-filter");
+					for (var j = 0; j < chips.length; j++) chips[j].classList.remove("active");
+					this.classList.add("active");
+					applyFilter();
+				});
+			}
+
+			fetch(API + "/v1/bills?limit=50")
+				.then(function (r) { return r.json(); })
+				.then(function (data) {
+					if (!data.data || data.data.length === 0) {
+						contentDiv.innerHTML = '<div class="empty-state"><h2>Sin proyectos analizados</h2><p>A\u00fan no se han analizado proyectos de ley. Vuelve pronto.</p></div>';
+						return;
+					}
+					allData = data.data;
+					filtersDiv.style.visibility = "";
+					renderCards(allData);
+				})
+				.catch(function () {
+					contentDiv.innerHTML = '<div class="empty-state"><h2>Error al cargar</h2><p>No se pudieron cargar los proyectos de ley. Int\u00e9ntalo de nuevo.</p></div>';
+				});
+		})();
+	</script>
+</Base>

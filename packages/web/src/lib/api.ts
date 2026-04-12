@@ -291,3 +291,118 @@ export async function getOmnibusDetail(
 		return null;
 	}
 }
+
+// ── Bill impact preview endpoints ──
+
+export interface BillListItem {
+	bocg_id: string;
+	title: string;
+	legislature: number;
+	series: string;
+	publication_date: string;
+	pdf_url: string;
+	alert_level: string; // "ok" | "high" | "critical"
+	total_modifications: number;
+	laws_modified: number;
+	critical_alerts: number;
+	high_alerts: number;
+	has_penalty_changes: boolean;
+	has_type_eliminations: boolean;
+	analyzed_at: string;
+}
+
+export interface BillsResult {
+	data: BillListItem[];
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export interface BillModification {
+	ordinal: string;
+	change_type: string;
+	target_provision: string;
+	new_text: string;
+	penalty_risk: string;
+	penalty_detail?: unknown;
+}
+
+export interface BillModificationGroup {
+	title: string;
+	target_law: string;
+	norm_id: string;
+	modifications: BillModification[];
+}
+
+export interface BillDerogation {
+	target_law: string;
+	norm_id: string;
+	scope: string;
+	target_provisions: string;
+	source_text: string;
+}
+
+export interface BillEntity {
+	name: string;
+	entity_type: string;
+	article: string;
+	description: string;
+}
+
+export interface BillImpact {
+	norm_id: string;
+	target_law: string;
+	analysis: {
+		summary?: string;
+		variables?: Array<{
+			variable: string;
+			current_state: string;
+			proposed_state: string;
+			impact_risk: string;
+			retroactivity: boolean;
+			explanation: string;
+		}>;
+	};
+	blast_radius: Array<{
+		normId: string;
+		title: string;
+		relation: string;
+		articleRefs: string[];
+	}>;
+	generated_at: string;
+	model: string;
+}
+
+export interface BillDetail {
+	bocg_id: string;
+	title: string;
+	legislature: number;
+	series: string;
+	publication_date: string;
+	pdf_url: string;
+	alert_level: string;
+	summary: {
+		total_modifications: number;
+		laws_modified: number;
+		critical_alerts: number;
+		high_alerts: number;
+		has_penalty_changes: boolean;
+		has_type_eliminations: boolean;
+	};
+	transitional_check: unknown;
+	modification_groups: BillModificationGroup[];
+	derogations: BillDerogation[];
+	new_entities: BillEntity[];
+	impacts: BillImpact[];
+	analyzed_at: string;
+	model: string;
+}
+
+export function getBills(params?: Record<string, string>): Promise<BillsResult> {
+	const qs = params ? `?${new URLSearchParams(params)}` : "";
+	return fetchApi(`/v1/bills${qs}`);
+}
+
+export function getBillDetail(bocgId: string): Promise<BillDetail> {
+	return fetchApi(`/v1/bills/${bocgId}`);
+}

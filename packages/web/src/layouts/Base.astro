@@ -555,11 +555,12 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			</a>
 			<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Menú" aria-expanded="false">☰</button>
 			<div class="nav-links" id="nav-links">
-				<a href="/">Buscar</a>
-				<a href="/mi-situacion" id="nav-mis-cambios" style="min-width:8ch">Mi situación</a>
-				<a href="/cambios">Cambios recientes</a>
-				<a href="/omnibus">Ómnibus</a>
-				<a href="/sobre-leyabierta">Sobre nosotros</a>
+				<a href="/" class={Astro.url.pathname === "/" ? "nav-active" : ""}>Buscar</a>
+				<a href="/cambios" class={Astro.url.pathname === "/cambios" ? "nav-active" : ""}>Cambios recientes</a>
+				<a href="/omnibus" class={Astro.url.pathname.startsWith("/omnibus") ? "nav-active" : ""}>Ómnibus</a>
+				<a href="/propuestas" class={Astro.url.pathname.startsWith("/propuestas") ? "nav-active" : ""}>Propuestas</a>
+				<span class="nav-sep" aria-hidden="true"></span>
+				<a href="/mi-situacion" id="nav-mis-cambios" class={Astro.url.pathname.startsWith("/mi-situacion") || Astro.url.pathname.startsWith("/mis-cambios") ? "nav-active" : ""}>Mi situación</a>
 				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
 		</nav>

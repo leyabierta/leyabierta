@@ -1,0 +1,843 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Detalle de proyecto de ley"
+	description="Análisis de impacto legislativo completo: modificaciones, derogaciones, entidades nuevas y riesgos detectados."
+	ogTitle="Análisis de proyecto de ley — Ley Abierta"
+	canonicalUrl="/propuestas/detalle"
+>
+	<style is:global>
+		.detalle-wrap {
+			max-width: 720px;
+			margin: 0 auto;
+			padding: 0 1rem 3rem;
+		}
+
+		/* ── Back link ── */
+		.detalle-back {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.detalle-back:hover {
+			color: var(--text-secondary);
+		}
+
+		/* ── Header ── */
+		.detalle-bocg {
+			font-family: var(--font-mono);
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			margin: 0.75rem 0 0.25rem;
+		}
+		.detalle-title {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			line-height: 1.3;
+			color: var(--text);
+			margin-bottom: 0.75rem;
+		}
+		.detalle-meta {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			align-items: center;
+			margin-bottom: 0.75rem;
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.detalle-alert-badge {
+			display: inline-block;
+			font-size: 0.6875rem;
+			font-weight: 600;
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+			color: #fff;
+			line-height: 1.4;
+		}
+		.detalle-alert-badge.critical { background: #b91c1c; }
+		.detalle-alert-badge.high { background: #c2410c; }
+		.detalle-alert-badge.ok { background: #1a7a4e; }
+
+		.detalle-stats {
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			margin-bottom: 0.5rem;
+		}
+		.detalle-pdf-btn {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			padding: 0.4rem 0.875rem;
+			border: 1.5px solid var(--border);
+			border-radius: 6px;
+			font-size: 0.8125rem;
+			font-weight: 600;
+			color: var(--text-secondary);
+			background: var(--surface);
+			white-space: nowrap;
+			transition: all 0.15s;
+			margin-bottom: 1.25rem;
+		}
+		.detalle-pdf-btn:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+			text-decoration: none;
+		}
+
+		/* ── Tabs ── */
+		.detalle-tabs {
+			display: flex;
+			gap: 0;
+			border-bottom: 1px solid var(--border);
+		}
+		.detalle-tab {
+			padding: 0.5rem 1rem;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			color: var(--text-muted);
+			cursor: pointer;
+			border: none;
+			background: none;
+			border-bottom: 2px solid transparent;
+			margin-bottom: -1px;
+			font-family: var(--font-sans);
+		}
+		.detalle-tab:hover { color: var(--text); }
+		.detalle-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+		.detalle-tab-badge {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 1.25rem;
+			height: 1.25rem;
+			padding: 0 0.3rem;
+			border-radius: 100px;
+			background: var(--accent-bg);
+			color: var(--accent);
+			font-size: 0.6875rem;
+			font-weight: 600;
+			margin-left: 0.375rem;
+		}
+		.detalle-tab-panel {
+			display: none;
+			padding-top: 1.5rem;
+		}
+		.detalle-tab-panel.active { display: block; }
+
+		/* ── Skeleton ── */
+		.skeleton-cards {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.skeleton-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+			padding: 1.25rem;
+		}
+		.skeleton-line {
+			height: 0.875rem;
+			background: var(--border-light);
+			border-radius: 4px;
+			margin-bottom: 0.625rem;
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+		.skeleton-line:nth-child(2) { width: 75%; }
+		.skeleton-line:nth-child(3) { width: 60%; }
+		@keyframes pulse {
+			0%, 100% { opacity: 0.4; }
+			50% { opacity: 1; }
+		}
+
+		.empty-state {
+			text-align: center;
+			padding: 3rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 12px;
+		}
+		.empty-state h2 {
+			font-family: var(--font-serif);
+			font-size: 1.375rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.empty-state p {
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+		}
+
+		/* ── Veredicto ── */
+		.veredicto-box {
+			padding: 1.25rem;
+			border-radius: 12px;
+			border: 2px solid var(--border-light);
+			background: var(--surface);
+			margin-bottom: 1.5rem;
+		}
+		.veredicto-box.critical {
+			border-color: #b91c1c;
+			background: #fde8e8;
+		}
+		.veredicto-box.high {
+			border-color: #c2410c;
+			background: #fff3e0;
+		}
+		.veredicto-box.ok {
+			border-color: #1a7a4e;
+			background: #e3f4ec;
+		}
+		.veredicto-label {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 700;
+			margin-bottom: 0.25rem;
+		}
+		.veredicto-box.critical .veredicto-label { color: #b91c1c; }
+		.veredicto-box.high .veredicto-label { color: #c2410c; }
+		.veredicto-box.ok .veredicto-label { color: #1a7a4e; }
+		.veredicto-desc {
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+		}
+
+		/* ── Section headers ── */
+		.section-heading {
+			font-family: var(--font-serif);
+			font-size: 1.125rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-bottom: 0.75rem;
+		}
+
+		/* ── Cards (derogations, entities) ── */
+		.derog-card, .entity-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1rem;
+			margin-bottom: 0.75rem;
+		}
+		.derog-card-title, .entity-card-name {
+			font-weight: 600;
+			font-size: 0.875rem;
+			color: var(--text);
+			margin-bottom: 0.25rem;
+		}
+		.derog-card-detail, .entity-card-detail {
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			line-height: 1.5;
+		}
+
+		/* ── Badges (scope, change_type, entity_type, penalty) ── */
+		.badge {
+			display: inline-block;
+			font-size: 0.6875rem;
+			font-weight: 600;
+			padding: 0.0625rem 0.4375rem;
+			border-radius: 4px;
+			line-height: 1.4;
+			vertical-align: middle;
+		}
+		.badge-full { background: #fde8e8; color: #b91c1c; }
+		.badge-partial { background: #fff3e0; color: #c2410c; }
+
+		.badge-modify { background: #dbeafe; color: #1e40af; }
+		.badge-add { background: #e3f4ec; color: #1a7a4e; }
+		.badge-delete { background: #fde8e8; color: #b91c1c; }
+		.badge-suppress-chapter { background: #fde8e8; color: #b91c1c; }
+		.badge-renumber { background: #f1f5f9; color: #64748b; }
+		.badge-derogate { background: #fce7f3; color: #9f1239; }
+
+		.badge-registro { background: #dbeafe; color: #1e40af; }
+		.badge-organo { background: #f3e8ff; color: #7c3aed; }
+		.badge-procedimiento { background: #e0f7fa; color: #0e7490; }
+		.badge-derecho { background: #e3f4ec; color: #1a7a4e; }
+		.badge-sistema { background: #e0e7ff; color: #4338ca; }
+		.badge-otro { background: #f1f5f9; color: #64748b; }
+
+		.badge-penalty-critical { background: #fde8e8; color: #b91c1c; }
+		.badge-penalty-high { background: #fff3e0; color: #c2410c; }
+
+		.badge-risk-critical { background: #fde8e8; color: #b91c1c; }
+		.badge-risk-high { background: #fff3e0; color: #c2410c; }
+		.badge-risk-medium { background: #fef9c3; color: #854d0e; }
+		.badge-risk-low { background: #e3f4ec; color: #1a7a4e; }
+
+		/* ── Transitional check ── */
+		.transitional-check {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1rem;
+			margin-bottom: 1.5rem;
+		}
+		.transitional-row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 0.375rem 0;
+			font-size: 0.8125rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.transitional-row:last-child { border-bottom: none; }
+		.transitional-label { color: var(--text-secondary); }
+		.transitional-value { font-weight: 600; }
+		.transitional-value.yes { color: #b91c1c; }
+		.transitional-value.no { color: #1a7a4e; }
+
+		/* ── Modification groups ── */
+		.mod-group {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			margin-bottom: 0.75rem;
+			overflow: hidden;
+		}
+		.mod-group-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 0.875rem 1rem;
+			cursor: pointer;
+			user-select: none;
+			-webkit-user-select: none;
+			transition: background 0.1s;
+		}
+		.mod-group-header:hover {
+			background: var(--accent-faint, #f8fafc);
+		}
+		.mod-group-title {
+			font-weight: 600;
+			font-size: 0.875rem;
+			color: var(--text);
+			flex: 1;
+			min-width: 0;
+		}
+		.mod-group-target {
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			margin-top: 0.125rem;
+		}
+		.mod-group-count {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 1.5rem;
+			height: 1.5rem;
+			padding: 0 0.375rem;
+			border-radius: 100px;
+			background: var(--accent-bg);
+			color: var(--accent);
+			font-size: 0.75rem;
+			font-weight: 600;
+			flex-shrink: 0;
+			margin-left: 0.75rem;
+		}
+		.mod-group-chevron {
+			flex-shrink: 0;
+			margin-left: 0.5rem;
+			color: var(--text-muted);
+			transition: transform 0.15s;
+		}
+		.mod-group.open .mod-group-chevron {
+			transform: rotate(180deg);
+		}
+		.mod-group-body {
+			display: none;
+			padding: 0 1rem 0.875rem;
+			border-top: 1px solid var(--border-light);
+		}
+		.mod-group.open .mod-group-body {
+			display: block;
+		}
+
+		.mod-item {
+			padding: 0.5rem 0;
+			border-bottom: 1px solid var(--border-light);
+			font-size: 0.8125rem;
+		}
+		.mod-item:last-child { border-bottom: none; }
+		.mod-item-head {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+		}
+		.mod-ordinal {
+			font-family: var(--font-mono);
+			font-size: 0.75rem;
+			color: var(--text-muted);
+		}
+		.mod-target {
+			color: var(--text);
+			font-weight: 500;
+		}
+
+		/* ── Impact tab ── */
+		.impact-group {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1.25rem;
+			margin-bottom: 1rem;
+		}
+		.impact-law {
+			font-family: var(--font-serif);
+			font-size: 1rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-bottom: 0.5rem;
+		}
+		.impact-summary {
+			font-size: 0.875rem;
+			color: var(--text-secondary);
+			line-height: 1.6;
+			margin-bottom: 1rem;
+		}
+		.impact-vars-table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 0.8125rem;
+			margin-bottom: 0.75rem;
+		}
+		.impact-vars-table th {
+			text-align: left;
+			font-weight: 600;
+			color: var(--text-muted);
+			font-size: 0.6875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.03em;
+			padding: 0.375rem 0.5rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.impact-vars-table td {
+			padding: 0.375rem 0.5rem;
+			border-bottom: 1px solid var(--border-light);
+			color: var(--text);
+			vertical-align: top;
+		}
+		.impact-vars-table tr:last-child td { border-bottom: none; }
+		.impact-blast {
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+		}
+		.impact-blast-title {
+			font-weight: 600;
+			margin-bottom: 0.25rem;
+		}
+		.impact-blast-list {
+			list-style: disc;
+			padding-left: 1.25rem;
+			margin: 0;
+		}
+		.impact-blast-list li {
+			margin-bottom: 0.125rem;
+		}
+
+		/* ── Section spacing ── */
+		.detalle-section {
+			margin-bottom: 1.5rem;
+		}
+
+		/* ── Norm link ── */
+		.norm-link {
+			font-family: var(--font-mono);
+			font-size: 0.75rem;
+			color: var(--accent);
+		}
+		.norm-link:hover { text-decoration: underline; }
+
+		@media (max-width: 640px) {
+			.detalle-title { font-size: 1.25rem; }
+			.detalle-tab { padding: 0.5rem 0.625rem; font-size: 0.75rem; }
+			.impact-vars-table { font-size: 0.75rem; }
+		}
+	</style>
+
+	<div class="detalle-wrap">
+		<a href="/propuestas" class="detalle-back">&larr; Radar legislativo</a>
+
+		<div id="detalle-header">
+			<!-- Filled by JS -->
+		</div>
+
+		<div id="detalle-content" style="min-height:24rem">
+			<div class="skeleton-cards">
+				<div class="skeleton-card"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:35%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line"></div></div>
+				<div class="skeleton-card"><div class="skeleton-line" style="width:50%"></div><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line"></div></div>
+			</div>
+		</div>
+	</div>
+
+	<script is:inline>
+		(function () {
+			function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+			var API = document.documentElement.dataset.api;
+			var headerDiv = document.getElementById("detalle-header");
+			var contentDiv = document.getElementById("detalle-content");
+
+			// Get bill id from URL query param
+			var params = new URLSearchParams(location.search);
+			var billId = params.get("id");
+			if (!billId) {
+				location.replace("/propuestas");
+				return;
+			}
+
+			var ALERT_LABELS = {
+				critical: "RIESGO CR\u00cdTICO",
+				high: "RIESGO ALTO",
+				ok: "Sin alertas"
+			};
+			var ALERT_DESC = {
+				critical: "Requiere revisi\u00f3n antes de su aprobaci\u00f3n",
+				high: "Se recomienda atenci\u00f3n",
+				ok: "Sin alertas cr\u00edticas detectadas"
+			};
+			var CHANGE_LABELS = {
+				modify: "Modifica",
+				add: "A\u00f1ade",
+				"delete": "Elimina",
+				suppress_chapter: "Suprime",
+				renumber: "Renumera",
+				derogate: "Deroga"
+			};
+			var CHANGE_BADGE = {
+				modify: "badge-modify",
+				add: "badge-add",
+				"delete": "badge-delete",
+				suppress_chapter: "badge-suppress-chapter",
+				renumber: "badge-renumber",
+				derogate: "badge-derogate"
+			};
+			var ENTITY_LABELS = {
+				registro: "Registro",
+				organo: "\u00d3rgano",
+				procedimiento: "Procedimiento",
+				derecho: "Derecho",
+				sistema: "Sistema",
+				otro: "Otro"
+			};
+			var ENTITY_BADGE = {
+				registro: "badge-registro",
+				organo: "badge-organo",
+				procedimiento: "badge-procedimiento",
+				derecho: "badge-derecho",
+				sistema: "badge-sistema",
+				otro: "badge-otro"
+			};
+
+			var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+			function fmtDate(iso) {
+				if (!iso) return "";
+				var d = new Date(iso + "T00:00:00");
+				return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+			}
+
+			function normLink(normId, text) {
+				if (!normId) return esc(text || "");
+				return '<a href="/laws/' + encodeURIComponent(normId) + '" class="norm-link">' + esc(text || normId) + '</a>';
+			}
+
+			function renderHeader(b) {
+				var s = b.summary || {};
+				var alertClass = b.alert_level || "ok";
+				var dateStr = fmtDate(b.publication_date);
+
+				var html = '';
+				html += '<div class="detalle-bocg">' + esc(b.bocg_id) + '</div>';
+				html += '<h1 class="detalle-title">' + esc(b.title) + '</h1>';
+				html += '<div class="detalle-meta">';
+				html += '<span>' + esc(dateStr) + '</span>';
+				html += '<span class="detalle-alert-badge ' + esc(alertClass) + '">' + esc(ALERT_LABELS[alertClass] || "Sin alertas") + '</span>';
+				html += '</div>';
+
+				var statsItems = [];
+				if (s.total_modifications) statsItems.push(s.total_modifications + ' modificaciones en ' + (s.laws_modified || 0) + ' leyes');
+				var derogCount = (b.derogations || []).length;
+				if (derogCount) statsItems.push(derogCount + ' derogaci\u00f3n' + (derogCount > 1 ? 'es' : ''));
+				var entityCount = (b.new_entities || []).length;
+				if (entityCount) statsItems.push(entityCount + ' entidad' + (entityCount > 1 ? 'es' : '') + ' nueva' + (entityCount > 1 ? 's' : ''));
+				if (statsItems.length) {
+					html += '<div class="detalle-stats">' + esc(statsItems.join(' \u00b7 ')) + '</div>';
+				}
+
+				if (b.pdf_url) {
+					html += '<a href="' + esc(b.pdf_url) + '" target="_blank" rel="noopener" class="detalle-pdf-btn">Ver PDF original</a>';
+				}
+
+				headerDiv.innerHTML = html;
+			}
+
+			function renderTabs(b) {
+				var hasImpacts = b.impacts && b.impacts.length > 0;
+				var modGroups = b.modification_groups || [];
+				var derogations = b.derogations || [];
+				var entities = b.new_entities || [];
+				var tc = b.transitional_check || {};
+				var alertClass = b.alert_level || "ok";
+
+				var html = '';
+
+				// Tab bar
+				html += '<div class="detalle-tabs">';
+				html += '<button class="detalle-tab active" data-tab="resumen">Resumen</button>';
+				html += '<button class="detalle-tab" data-tab="modificaciones">Modificaciones';
+				var totalMods = 0;
+				for (var g = 0; g < modGroups.length; g++) totalMods += (modGroups[g].modifications || []).length;
+				if (totalMods) html += '<span class="detalle-tab-badge">' + totalMods + '</span>';
+				html += '</button>';
+				if (hasImpacts) {
+					html += '<button class="detalle-tab" data-tab="impacto">Impacto<span class="detalle-tab-badge">' + b.impacts.length + '</span></button>';
+				}
+				html += '</div>';
+
+				// ── Tab 1: Resumen ──
+				html += '<div class="detalle-tab-panel active" id="tab-resumen">';
+
+				// Veredicto
+				html += '<div class="veredicto-box ' + esc(alertClass) + '">';
+				html += '<div class="veredicto-label">' + esc(ALERT_LABELS[alertClass] || "Sin alertas") + '</div>';
+				html += '<div class="veredicto-desc">' + esc(ALERT_DESC[alertClass] || "") + '</div>';
+				html += '</div>';
+
+				// Derogaciones
+				if (derogations.length) {
+					html += '<div class="detalle-section">';
+					html += '<h2 class="section-heading">Derogaciones</h2>';
+					for (var di = 0; di < derogations.length; di++) {
+						var dr = derogations[di];
+						var scopeClass = dr.scope === "full" ? "badge-full" : "badge-partial";
+						var scopeLabel = dr.scope === "full" ? "Completa" : "Parcial";
+						html += '<div class="derog-card">';
+						html += '<div class="derog-card-title">';
+						if (dr.norm_id) html += normLink(dr.norm_id, dr.target_law);
+						else html += esc(dr.target_law);
+						html += '</div>';
+						html += '<div class="derog-card-detail">';
+						html += '<span class="badge ' + scopeClass + '">' + esc(scopeLabel) + '</span>';
+						if (dr.target_provisions) html += ' &middot; ' + esc(dr.target_provisions);
+						html += '</div>';
+						html += '</div>';
+					}
+					html += '</div>';
+				}
+
+				// Entidades nuevas
+				if (entities.length) {
+					html += '<div class="detalle-section">';
+					html += '<h2 class="section-heading">Entidades nuevas</h2>';
+					for (var ei = 0; ei < entities.length; ei++) {
+						var en = entities[ei];
+						var etype = en.entity_type || "otro";
+						var ebadge = ENTITY_BADGE[etype] || "badge-otro";
+						var elabel = ENTITY_LABELS[etype] || etype;
+						html += '<div class="entity-card">';
+						html += '<div class="entity-card-name">' + esc(en.name) + '</div>';
+						html += '<div class="entity-card-detail">';
+						html += '<span class="badge ' + ebadge + '">' + esc(elabel) + '</span>';
+						if (en.article) html += ' &middot; ' + esc(en.article);
+						html += '</div>';
+						if (en.description) {
+							html += '<div class="entity-card-detail" style="margin-top:0.25rem">' + esc(en.description) + '</div>';
+						}
+						html += '</div>';
+					}
+					html += '</div>';
+				}
+
+				// Transitional check
+				var tcKeys = [
+					["modifies_penal_code", "Modifica el C\u00f3digo Penal"],
+					["has_penalty_dt", "Tiene disposici\u00f3n transitoria penal"],
+					["has_type_eliminations", "Elimina tipos penales"],
+					["has_penalty_changes", "Modifica penas"]
+				];
+				var hasTc = false;
+				for (var tk = 0; tk < tcKeys.length; tk++) {
+					if (tc[tcKeys[tk][0]] !== undefined) { hasTc = true; break; }
+				}
+				if (hasTc) {
+					html += '<div class="detalle-section">';
+					html += '<h2 class="section-heading">Check de disposiciones transitorias</h2>';
+					html += '<div class="transitional-check">';
+					for (var ti = 0; ti < tcKeys.length; ti++) {
+						var key = tcKeys[ti][0];
+						var label = tcKeys[ti][1];
+						if (tc[key] === undefined) continue;
+						var val = tc[key];
+						var valClass = val ? "yes" : "no";
+						var valText = val ? "S\u00ed" : "No";
+						html += '<div class="transitional-row">';
+						html += '<span class="transitional-label">' + esc(label) + '</span>';
+						html += '<span class="transitional-value ' + valClass + '">' + esc(valText) + '</span>';
+						html += '</div>';
+					}
+					html += '</div>';
+					html += '</div>';
+				}
+
+				html += '</div>'; // end tab-resumen
+
+				// ── Tab 2: Modificaciones ──
+				html += '<div class="detalle-tab-panel" id="tab-modificaciones">';
+				if (modGroups.length === 0) {
+					html += '<div class="empty-state"><h2>Sin modificaciones</h2><p>Este proyecto no contiene modificaciones detectadas.</p></div>';
+				} else {
+					for (var gi = 0; gi < modGroups.length; gi++) {
+						var grp = modGroups[gi];
+						var mods = grp.modifications || [];
+						html += '<div class="mod-group" data-group="' + gi + '">';
+						html += '<div class="mod-group-header">';
+						html += '<div style="flex:1;min-width:0">';
+						html += '<div class="mod-group-title">' + esc(grp.title) + '</div>';
+						html += '<div class="mod-group-target">';
+						if (grp.norm_id) html += normLink(grp.norm_id, grp.target_law);
+						else html += esc(grp.target_law || "");
+						html += '</div>';
+						html += '</div>';
+						if (mods.length) html += '<span class="mod-group-count">' + mods.length + '</span>';
+						html += '<svg class="mod-group-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+						html += '</div>'; // header
+						html += '<div class="mod-group-body">';
+						for (var mi = 0; mi < mods.length; mi++) {
+							var mod = mods[mi];
+							var ctype = mod.change_type || "modify";
+							var cbadge = CHANGE_BADGE[ctype] || "badge-modify";
+							var clabel = CHANGE_LABELS[ctype] || ctype;
+							html += '<div class="mod-item">';
+							html += '<div class="mod-item-head">';
+							if (mod.ordinal) html += '<span class="mod-ordinal">' + esc(mod.ordinal) + '</span>';
+							html += '<span class="badge ' + cbadge + '">' + esc(clabel) + '</span>';
+							if (mod.target_provision) html += '<span class="mod-target">' + esc(mod.target_provision) + '</span>';
+							if (mod.penalty_risk && mod.penalty_risk !== "none") {
+								var prClass = mod.penalty_risk === "critical" ? "badge-penalty-critical" : "badge-penalty-high";
+								var prLabel = mod.penalty_risk === "critical" ? "Riesgo penal cr\u00edtico" : "Riesgo penal alto";
+								html += '<span class="badge ' + prClass + '">' + esc(prLabel) + '</span>';
+							}
+							html += '</div>';
+							html += '</div>';
+						}
+						html += '</div>'; // body
+						html += '</div>'; // mod-group
+					}
+				}
+				html += '</div>'; // end tab-modificaciones
+
+				// ── Tab 3: Impacto ──
+				if (hasImpacts) {
+					html += '<div class="detalle-tab-panel" id="tab-impacto">';
+					for (var ii = 0; ii < b.impacts.length; ii++) {
+						var imp = b.impacts[ii];
+						var analysis = imp.analysis || {};
+						var vars = analysis.variables || [];
+						var blast = imp.blast_radius || [];
+						html += '<div class="impact-group">';
+						html += '<div class="impact-law">';
+						if (imp.norm_id) html += normLink(imp.norm_id, imp.target_law);
+						else html += esc(imp.target_law || "");
+						html += '</div>';
+						if (analysis.summary) {
+							html += '<div class="impact-summary">' + esc(analysis.summary) + '</div>';
+						}
+						if (vars.length) {
+							html += '<table class="impact-vars-table">';
+							html += '<thead><tr><th>Variable</th><th>Estado actual</th><th>Estado propuesto</th><th>Riesgo</th></tr></thead>';
+							html += '<tbody>';
+							for (var vi = 0; vi < vars.length; vi++) {
+								var v = vars[vi];
+								var riskClass = v.risk ? "badge-risk-" + v.risk : "";
+								var riskLabel = v.risk || "";
+								html += '<tr>';
+								html += '<td>' + esc(v.variable) + '</td>';
+								html += '<td>' + esc(v.current_state) + '</td>';
+								html += '<td>' + esc(v.proposed_state) + '</td>';
+								html += '<td>';
+								if (riskLabel) html += '<span class="badge ' + riskClass + '">' + esc(riskLabel) + '</span>';
+								html += '</td>';
+								html += '</tr>';
+							}
+							html += '</tbody></table>';
+						}
+						if (blast.length) {
+							html += '<div class="impact-blast">';
+							html += '<div class="impact-blast-title">Normas afectadas</div>';
+							html += '<ul class="impact-blast-list">';
+							for (var bi = 0; bi < blast.length; bi++) {
+								var bn = blast[bi];
+								html += '<li>';
+								if (bn.norm_id) html += normLink(bn.norm_id, bn.title || bn.norm_id);
+								else html += esc(bn.title || bn.norm_id || "");
+								html += '</li>';
+							}
+							html += '</ul>';
+							html += '</div>';
+						}
+						html += '</div>';
+					}
+					html += '</div>'; // end tab-impacto
+				}
+
+				contentDiv.innerHTML = html;
+
+				// Wire up tabs
+				var tabs = contentDiv.querySelectorAll('.detalle-tab');
+				function activateTab(name) {
+					tabs.forEach(function(t) { t.classList.remove('active'); });
+					contentDiv.querySelectorAll('.detalle-tab-panel').forEach(function(p) { p.classList.remove('active'); });
+					var target = contentDiv.querySelector('.detalle-tab[data-tab="' + name + '"]');
+					var panel = document.getElementById('tab-' + name);
+					if (target && panel) {
+						target.classList.add('active');
+						panel.classList.add('active');
+					}
+				}
+				tabs.forEach(function(tab) {
+					tab.addEventListener('click', function() {
+						activateTab(tab.dataset.tab);
+						history.replaceState(null, '', location.pathname + location.search + '#' + tab.dataset.tab);
+					});
+				});
+				// Restore tab from hash
+				var hash = location.hash.replace('#', '');
+				if (hash && document.getElementById('tab-' + hash)) {
+					activateTab(hash);
+				}
+
+				// Wire up expand/collapse on modification groups
+				var groupHeaders = contentDiv.querySelectorAll('.mod-group-header');
+				groupHeaders.forEach(function(hdr) {
+					hdr.addEventListener('click', function() {
+						hdr.parentElement.classList.toggle('open');
+					});
+				});
+			}
+
+			fetch(API + "/v1/bills/" + encodeURIComponent(billId))
+				.then(function (r) {
+					if (!r.ok) throw new Error(r.status);
+					return r.json();
+				})
+				.then(function (data) {
+					renderHeader(data);
+					renderTabs(data);
+				})
+				.catch(function (err) {
+					headerDiv.innerHTML = '';
+					if (err.message === "404") {
+						contentDiv.innerHTML = '<div class="empty-state"><h2>No se encontr\u00f3 este proyecto de ley</h2><p>El identificador proporcionado no corresponde a ning\u00fan proyecto analizado.</p></div>';
+					} else {
+						contentDiv.innerHTML = '<div class="empty-state"><h2>Error al cargar</h2><p>No se pudo cargar el an\u00e1lisis. Int\u00e9ntalo de nuevo.</p></div>';
+					}
+				});
+		})();
+	</script>
+</Base>
