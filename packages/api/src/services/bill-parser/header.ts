@@ -68,15 +68,15 @@ export function extractPublicationDate(text: string): string {
 }
 
 export function extractTitle(text: string): string {
-	// Look for "PROYECTO DE LEY" or "PROPOSICIÓN DE LEY" followed by the title
+	// Look for "PROYECTO DE LEY", "PROPOSICIÓN DE LEY", or "PROPOSICIÓN DE REFORMA" followed by the title
 	const titleMatch = text.match(
-		/(?:PROYECTO|PROPOSICIÓN) DE LEY.*?\n\d+\/\d+\s+(.+?)(?:\n(?:La Mesa|Presentad))/s,
+		/(?:PROYECTO|PROPOSICIÓN) DE (?:LEY|REFORMA).*?\n\d+\/\d+\s+(.+?)(?:\n(?:La Mesa|Presentad))/s,
 	);
 	if (titleMatch) return titleMatch[1]!.replace(/\n/g, " ").trim();
 
 	// Fallback: look for the title pattern after the reference number
 	const fallback = text.match(
-		/\d+\/\d+\s+(?:Proyecto|Proposición) de Ley (.+?)(?:\.\n|\nLa Mesa)/s,
+		/\d+\/\d+\s+(?:Proyecto|Proposición) de (?:Ley|Reforma) (.+?)(?:\.\n|\nLa Mesa)/s,
 	);
 	if (fallback) return fallback[1]!.replace(/\n/g, " ").trim();
 

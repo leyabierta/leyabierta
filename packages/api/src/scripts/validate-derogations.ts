@@ -20,9 +20,9 @@ const DATA_DIR = resolve(import.meta.dirname!, "../../../../data/spike-bills");
 /** Matches "Disposición derogatoria" section headers */
 const DEROG_SECTION_RE = /Disposición derogatoria\s+[\p{L}\d]+\./gu;
 
-/** Matches specific derogation verbs with a law reference nearby */
+/** Matches specific derogation verbs with a law reference nearby (direct or via provisions) */
 const DEROG_VERB_RE =
-	/(?:Se deroga[n]?|Queda(?:n)? derogada?s?)\s+(?:expresamente\s+|íntegramente\s+)?(?:la |el |los |las )?(?:Ley|Real Decreto|Decreto|texto refundido|Código|Estatuto|Reglamento)/gi;
+	/(?:Se deroga[n]?|Queda(?:n)? derogada?s?|Se suprime[n]?)\s+(?:expresamente\s+|íntegramente\s+)?(?:la |el |los |las )?(?:Ley|Real Decreto|Decreto|texto refundido|Código|Estatuto|Reglamento|art[ií]culos?\s|libro\s|t[ií]tulo\s|apartado\s|disposición\s+(?:adicional|final|transitoria))/gi;
 
 /** Generic clause — should NOT be counted as a specific derogation */
 const GENERIC_RE =

@@ -564,5 +564,77 @@ describe("bill-parser", () => {
 				expect(rdl!.scope).toBe("full");
 			},
 		);
+
+		// Partial derogation tests (numbered items + "se suprime" + lettered items)
+		const hasA66 = hasPdf("BOCG-10-A-66-1");
+		const hasA35_15 = hasPdf("BOCG-15-A-35-1");
+
+		test.skipIf(!hasA66)(
+			"BOCG-10-A-66-1 detects >= 3 derogations (libro III CP, artículos CP, art. 24 Ley 4/2010)",
+			async () => {
+				const parsed = await getParsed("BOCG-10-A-66-1");
+				expect(parsed.derogations.length).toBeGreaterThanOrEqual(3);
+			},
+		);
+
+		test.skipIf(!hasA66)(
+			"BOCG-10-A-66-1 derogates libro III of Código Penal (partial)",
+			async () => {
+				const parsed = await getParsed("BOCG-10-A-66-1");
+				const libroCP = parsed.derogations.find(
+					(d) => d.targetLaw.includes("10/1995") && d.targetProvisions.some((p) => p.includes("libro")),
+				);
+				expect(libroCP).toBeDefined();
+				expect(libroCP!.scope).toBe("partial");
+			},
+		);
+
+		test.skipIf(!hasA66)(
+			"BOCG-10-A-66-1 derogates artículos of Código Penal (partial)",
+			async () => {
+				const parsed = await getParsed("BOCG-10-A-66-1");
+				const articulosCP = parsed.derogations.find(
+					(d) =>
+						d.targetLaw.includes("10/1995") &&
+						d.targetProvisions.some((p) => p.includes("artículo 89")),
+				);
+				expect(articulosCP).toBeDefined();
+				expect(articulosCP!.scope).toBe("partial");
+			},
+		);
+
+		test.skipIf(!hasA66)(
+			"BOCG-10-A-66-1 handles 'Se suprime' as derogation",
+			async () => {
+				const parsed = await getParsed("BOCG-10-A-66-1");
+				const suprime = parsed.derogations.find((d) =>
+					d.targetProvisions.some((p) => p.includes("título")),
+				);
+				expect(suprime).toBeDefined();
+				expect(suprime!.scope).toBe("partial");
+			},
+		);
+
+		test.skipIf(!hasA66)(
+			"BOCG-10-A-66-1 derogates artículo 24 of Ley 4/2010 (partial)",
+			async () => {
+				const parsed = await getParsed("BOCG-10-A-66-1");
+				const ley4 = parsed.derogations.find((d) => d.targetLaw.includes("4/2010"));
+				expect(ley4).toBeDefined();
+				expect(ley4!.scope).toBe("partial");
+				expect(ley4!.targetProvisions.some((p) => p.includes("artículo 24"))).toBe(true);
+			},
+		);
+
+		test.skipIf(!hasA35_15)(
+			"BOCG-15-A-35-1 detects >= 1 derogation (artículos de Ley 3/2013)",
+			async () => {
+				const parsed = await getParsed("BOCG-15-A-35-1");
+				expect(parsed.derogations.length).toBeGreaterThanOrEqual(1);
+				const ley3 = parsed.derogations.find((d) => d.targetLaw.includes("3/2013"));
+				expect(ley3).toBeDefined();
+				expect(ley3!.scope).toBe("partial");
+			},
+		);
 	});
 });

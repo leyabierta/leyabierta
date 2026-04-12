@@ -35,7 +35,7 @@ export type { BillModification, BillType, Derogation, NewEntity, ModificationGro
  * - `new_law`: has substantial articulado but 0 modification groups
  * - `mixed`: has both (common for omnibus bills)
  */
-function classifyBillType(text: string, modificationGroups: ModificationGroup[]): BillType {
+export function classifyBillType(text: string, modificationGroups: ModificationGroup[]): BillType {
 	const hasModifications = modificationGroups.length > 0;
 
 	// Check for substantial articulado (articles before disposiciones)
@@ -60,7 +60,8 @@ function classifyBillType(text: string, modificationGroups: ModificationGroup[])
 		isMostlyQuoted = quotedChars > body.length * 0.5;
 	}
 
-	// Skip "Artículo único" bills — these are almost always pure amendments
+	// "Artículo único" bills: if they have modifications, they're amendments;
+	// if they have no modifications, they create new rules (new_law).
 	const hasArticuloUnico = /\bArtículo\s+único\b/i.test(articulado);
 
 	const hasRealArticulado = hasSubstantialArticulado && !isMostlyQuoted && !hasArticuloUnico;
@@ -70,7 +71,8 @@ function classifyBillType(text: string, modificationGroups: ModificationGroup[])
 	if (hasRealArticulado) return "new_law";
 
 	// Fallback: if there's articulado text but no modifications, treat as new_law
-	if (articulado.length > 2000 && articleCount >= 1) return "new_law";
+	// This covers both numbered articles (articleCount >= 1) and "Artículo único"
+	if (articulado.length > 2000 && (articleCount >= 1 || hasArticuloUnico)) return "new_law";
 
 	return "amendment";
 }
