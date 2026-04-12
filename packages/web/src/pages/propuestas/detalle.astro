@@ -624,7 +624,10 @@ import Base from "../../layouts/Base.astro";
 						html += '</div>';
 						html += '<div class="derog-card-detail">';
 						html += '<span class="badge ' + scopeClass + '">' + esc(scopeLabel) + '</span>';
-						if (dr.target_provisions) html += ' &middot; ' + esc(dr.target_provisions);
+						if (dr.target_provisions) {
+							var provisions = Array.isArray(dr.target_provisions) ? dr.target_provisions.join(", ") : String(dr.target_provisions);
+							if (provisions) html += ' &middot; ' + esc(provisions);
+						}
 						html += '</div>';
 						html += '</div>';
 					}
@@ -754,8 +757,9 @@ import Base from "../../layouts/Base.astro";
 							html += '<tbody>';
 							for (var vi = 0; vi < vars.length; vi++) {
 								var v = vars[vi];
-								var riskClass = v.risk ? "badge-risk-" + v.risk : "";
-								var riskLabel = v.risk || "";
+								var VALID_RISKS = {low:1, medium:1, high:1, critical:1};
+								var riskClass = VALID_RISKS[v.impact_risk] ? "badge-risk-" + v.impact_risk : "";
+								var riskLabel = VALID_RISKS[v.impact_risk] ? v.impact_risk : "";
 								html += '<tr>';
 								html += '<td>' + esc(v.variable) + '</td>';
 								html += '<td>' + esc(v.current_state) + '</td>';
@@ -774,8 +778,8 @@ import Base from "../../layouts/Base.astro";
 							for (var bi = 0; bi < blast.length; bi++) {
 								var bn = blast[bi];
 								html += '<li>';
-								if (bn.norm_id) html += normLink(bn.norm_id, bn.title || bn.norm_id);
-								else html += esc(bn.title || bn.norm_id || "");
+								if (bn.normId) html += normLink(bn.normId, bn.title || bn.normId);
+								else html += esc(bn.title || bn.normId || "");
 								html += '</li>';
 							}
 							html += '</ul>';

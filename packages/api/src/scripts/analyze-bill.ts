@@ -191,6 +191,33 @@ Responde en JSON con este schema:
 			],
 			temperature: 0.1,
 			maxTokens: 4000,
+			jsonSchema: {
+				name: "impact_analysis",
+				schema: {
+					type: "object",
+					properties: {
+						summary: { type: "string" },
+						variables: {
+							type: "array",
+							items: {
+								type: "object",
+								properties: {
+									variable: { type: "string" },
+									current_state: { type: "string" },
+									proposed_state: { type: "string" },
+									impact_risk: { type: "string", enum: ["low", "medium", "high", "critical"] },
+									retroactivity: { type: "boolean" },
+									explanation: { type: "string" },
+								},
+								required: ["variable", "current_state", "proposed_state", "impact_risk", "retroactivity", "explanation"],
+								additionalProperties: false,
+							},
+						},
+					},
+					required: ["summary", "variables"],
+					additionalProperties: false,
+				},
+			},
 		});
 
 		// Post-filter: remove variables where current_state ≈ proposed_state (LLM false positives)
@@ -473,20 +500,19 @@ async function main() {
 	// Print report to console
 	console.log("\n" + formatReport(report));
 
-	// Build blast radius map by normId
+	// Build blast radius map: group affected norms by the modified law's normId.
+	// affectedNorms come from findAffectedNorms(db, groupNormId, ...) — each affected
+	// norm references a specific modified law. We match them to groups by checking which
+	// group's normId was the target_id in the reference query.
 	const affectedNormsMap = new Map<string, AffectedNorm[]>();
-	for (const norm of report.affectedNorms) {
-		// Group affected norms by the modified norm (not the affected one)
-		// We need to attribute them to the group's normId
-		for (const group of report.groups) {
-			if (group.normId) {
-				const existing = affectedNormsMap.get(group.normId) ?? [];
-				if (!existing.some((n) => n.normId === norm.normId)) {
-					existing.push(norm);
-					affectedNormsMap.set(group.normId, existing);
-				}
-			}
-		}
+	const groupNormIds = new Set(
+		report.groups.filter((g) => g.normId).map((g) => g.normId!),
+	);
+	for (const normId of groupNormIds) {
+		// All affected norms were found by querying referencias WHERE target_id = normId,
+		// so they all belong to this group's normId. Since currently only CP groups get
+		// blast radius analysis and they share the same normId, this is equivalent.
+		affectedNormsMap.set(normId, [...report.affectedNorms]);
 	}
 
 	// Step 5: LLM impact analysis per group

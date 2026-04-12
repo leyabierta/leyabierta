@@ -2,7 +2,7 @@
  * Bill Parser — PDF text extraction.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,12 +15,13 @@ export function extractTextFromPdf(pdfPath: string): string {
 	// Write to temp file instead of stdout to work around bun worker thread bug
 	// where execSync stdout capture is broken in bun test workspace mode.
 	const tmpFile = join(tmpdir(), `pdftotext-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
+	let text: string;
 	try {
-		execSync(`pdftotext -raw "${pdfPath}" "${tmpFile}"`, {
-			encoding: "utf-8",
+		// Use execFileSync with argument array to prevent shell injection
+		execFileSync("pdftotext", ["-raw", pdfPath, tmpFile], {
 			maxBuffer: 10 * 1024 * 1024,
 		});
-		var text = readFileSync(tmpFile, "utf-8");
+		text = readFileSync(tmpFile, "utf-8");
 	} finally {
 		try { unlinkSync(tmpFile); } catch { /* ignore */ }
 	}

@@ -13,7 +13,7 @@
  *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/spike-bill-llm-parse.ts
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { callOpenRouter } from "../services/openrouter.ts";
 
 const BILL_PDF = "./data/spike-bills/BOCG-14-A-62-1.PDF";
@@ -47,7 +47,7 @@ const GROUND_TRUTH_DFS = [
 // ── Extract text ──
 
 function extractText(pdfPath: string): string {
-	return execSync(`pdftotext -raw "${pdfPath}" -`, {
+	return execFileSync("pdftotext", ["-raw", pdfPath, "-"], {
 		encoding: "utf-8",
 		maxBuffer: 10 * 1024 * 1024,
 	})

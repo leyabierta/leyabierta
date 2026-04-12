@@ -61,6 +61,7 @@ let isShuttingDown = false;
 
 process.on("SIGTERM", () => {
 	isShuttingDown = true;
+	ragPipeline?.stop();
 	console.log("SIGTERM received, shutting down gracefully...");
 	setTimeout(() => {
 		db.close();
