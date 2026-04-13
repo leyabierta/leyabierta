@@ -344,17 +344,17 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			background: var(--surface);
 			color: var(--text-secondary);
 			cursor: pointer;
-			transition: border-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart), transform 0.15s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
+			transition: border-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart), opacity 0.15s var(--ease-out-quart);
 		}
-		.btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; transform: translateY(-1px); }
-		.btn:active { transform: scale(0.97) translateY(0); transition-duration: 0.1s; }
+		.btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+		.btn:active { opacity: 0.85; transition-duration: 0.1s; }
 		.btn-primary {
 			background: var(--accent);
 			color: white;
 			border-color: var(--accent);
 		}
-		.btn-primary:hover { background: var(--accent-light); border-color: var(--accent-light); color: white; box-shadow: 0 2px 8px rgba(26, 54, 93, 0.2); }
-		.btn-primary:active { box-shadow: none; }
+		.btn-primary:hover { background: var(--accent-light); border-color: var(--accent-light); color: white; }
+		.btn-primary:active { opacity: 0.85; }
 
 		/* ── Pagination ── */
 		.pagination {
