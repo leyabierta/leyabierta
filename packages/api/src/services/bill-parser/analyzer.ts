@@ -309,17 +309,17 @@ function comparePenalties(
 				};
 				if (pairDelta.minChange < 0) {
 					pairRisk = "critical";
-					pairReason = `BAJADA DE MINIMO: de ${cur.min} a ${prop.min} anos. Por principio pro reo (art. 2.2 CP), los condenados con penas entre ${prop.min}-${cur.min} anos podrian solicitar revision de condena.`;
+					pairReason = `BAJADA DE MÍNIMO: de ${cur.min} a ${prop.min} años. Por principio pro reo (art. 2.2 CP), los condenados con penas entre ${prop.min}-${cur.min} años podrían solicitar revisión de condena.`;
 				} else if (pairDelta.maxChange < 0) {
 					pairRisk = "high";
-					pairReason = `Bajada de maximo: de ${cur.max} a ${prop.max} anos.`;
+					pairReason = `Bajada de máximo: de ${cur.max} a ${prop.max} años.`;
 				} else if (pairDelta.minChange > 0) {
 					pairRisk = "low";
-					pairReason = `Subida de minimo: de ${cur.min} a ${prop.min} anos.`;
+					pairReason = `Subida de mínimo: de ${cur.min} a ${prop.min} años.`;
 				}
 			} else if (cur && !prop) {
 				pairRisk = "critical";
-				pairReason = `Pena de prision eliminada: ${cur.min}-${cur.max} ${cur.unit} desaparece en la nueva redaccion.`;
+				pairReason = `Pena de prisión eliminada: ${cur.min}-${cur.max} ${cur.unit} desaparece en la nueva redacción.`;
 			}
 
 			const riskOrder = { none: 0, low: 1, medium: 2, high: 3, critical: 4 };
@@ -333,7 +333,7 @@ function comparePenalties(
 		}
 
 		comparisons.push({
-			article: `Articulo ${articleNum}`,
+			article: `Artículo ${articleNum}`,
 			current: bestCurrent,
 			proposed: bestProposed,
 			delta: worstDelta,
@@ -375,7 +375,7 @@ function detectTypeEliminations(
 			articlesAffected: [],
 			existingConvictions: (hasVersions?.count ?? 0) > 0,
 			risk: "critical",
-			riskReason: `Eliminacion completa de tipo penal (${chapterName}). Condenas existentes deben ser revisadas bajo art. 2.2 CP.`,
+			riskReason: `Eliminación completa de tipo penal (${chapterName}). Condenas existentes deben ser revisadas bajo art. 2.2 CP.`,
 		});
 	}
 
@@ -398,7 +398,7 @@ function checkTransitionalProvisions(
 			changesPenalties: false,
 			eliminatesTypes: false,
 			risk: "none",
-			message: "No modifica el Codigo Penal.",
+			message: "No modifica el Código Penal.",
 		};
 	}
 
@@ -411,7 +411,7 @@ function checkTransitionalProvisions(
 			eliminatesTypes: false,
 			risk: "none",
 			message:
-				"Modifica el Codigo Penal pero no altera penas de prision ni elimina tipos.",
+				"Modifica el Código Penal pero no altera penas de prisión ni elimina tipos.",
 		};
 	}
 
@@ -433,22 +433,22 @@ function checkTransitionalProvisions(
 	if (eliminatesTypes && !hasRevisionTransitional) {
 		risk = "critical";
 		message =
-			"RIESGO CRITICO: Se eliminan tipos penales SIN disposicion transitoria de revision de sentencias. Condenas existentes quedarian sin base legal.";
+			"RIESGO CRÍTICO: Se eliminan tipos penales SIN disposición transitoria de revisión de sentencias. Condenas existentes quedarían sin base legal.";
 	} else if (changesPenalties && !hasPenaltyTransitional) {
 		risk = "critical";
 		message =
-			"RIESGO CRITICO: Se modifican penas del Codigo Penal pero NO existe disposicion transitoria que regule la aplicacion retroactiva (art. 2.2 CP). Los condenados bajo la ley anterior podrian solicitar revision de condena si los nuevos minimos son mas bajos.";
+			"RIESGO CRÍTICO: Se modifican penas del Código Penal pero NO existe disposición transitoria que regule la aplicación retroactiva (art. 2.2 CP). Los condenados bajo la ley anterior podrían solicitar revisión de condena si los nuevos mínimos son más bajos.";
 	} else if (eliminatesTypes && hasRevisionTransitional) {
 		risk = "high";
 		message =
-			"Se eliminan tipos penales. Existe disposicion transitoria de revision de sentencias — verificar que cubre adecuadamente todas las condenas afectadas.";
+			"Se eliminan tipos penales. Existe disposición transitoria de revisión de sentencias — verificar que cubre adecuadamente todas las condenas afectadas.";
 	} else if (hasPenaltyTransitional) {
 		risk = "none";
-		message = "Existe disposicion transitoria sobre penas/condenas.";
+		message = "Existe disposición transitoria sobre penas/condenas.";
 	} else {
 		risk = "none";
 		message =
-			"No se detectaron riesgos criticos en disposiciones transitorias.";
+			"No se detectaron riesgos críticos en disposiciones transitorias.";
 	}
 
 	return {
@@ -541,7 +541,7 @@ export function analyzeBill(db: Database, bill: ParsedBill): ImpactReport {
 	const allTypeEliminations: TypeEliminationAlert[] = [];
 	const allAffectedNorms: AffectedNorm[] = [];
 
-	const CP_KEYWORDS = ["Código Penal", "Codigo Penal", "10/1995"];
+	const CP_KEYWORDS = ["Código Penal", "10/1995"];
 
 	let modifiesPenalCode = false;
 

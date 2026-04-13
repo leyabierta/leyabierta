@@ -163,7 +163,7 @@ export async function parseBill(
 	// Deduplicate groups with overlapping target laws
 	modificationGroups = deduplicateGroups(modificationGroups);
 
-	// Strategy 7: Last resort — bill title says "modificación" but no groups found
+	// Strategy 6: Last resort — bill title says "modificación" but no groups found
 	// Some Serie B proposiciones use informal structure (no Artículos, no DFs)
 	// with ordinals (Uno. Dos.) directly in the body after exposición de motivos
 	if (modificationGroups.length === 0) {
@@ -203,7 +203,7 @@ export async function parseBill(
 		);
 	}
 
-	// Strategy 8: LLM verification — independent extraction to catch gaps
+	// Strategy 7: LLM verification — independent extraction to catch gaps
 	if (options?.apiKey) {
 		try {
 			const llmGapGroups = await verifyWithLLM(

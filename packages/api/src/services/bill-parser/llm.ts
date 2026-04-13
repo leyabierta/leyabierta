@@ -452,7 +452,13 @@ export async function extractEntitiesWithLLM(
 	apiKey: string,
 	articuladoText: string,
 ): Promise<NewEntity[]> {
+	const wasTruncated = articuladoText.length > 15000;
 	const truncated = articuladoText.slice(0, 15000);
+	if (wasTruncated) {
+		console.warn(
+			`  [llm-entities] Articulado truncated from ${articuladoText.length} to 15000 chars — entities in the second half may be missed`,
+		);
+	}
 
 	try {
 		const result = await callOpenRouter<{
