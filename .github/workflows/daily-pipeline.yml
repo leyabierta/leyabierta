@@ -176,7 +176,7 @@ jobs:
 
       - name: Trigger deploy
         if: steps.changes.outputs.has_changes == 'true'
-        run: gh workflow run deploy-web.yml
+        run: gh workflow run deploy.yml
         env:
           GH_TOKEN: ${{ github.token }}
 
