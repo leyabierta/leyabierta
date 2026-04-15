@@ -6,6 +6,7 @@ import { timingSafeEqual } from "node:crypto";
 import { type BoeAnalisis, BoeClient } from "@leyabierta/pipeline";
 import { Elysia, t } from "elysia";
 import { LruCache } from "../services/cache.ts";
+import type { CitizenSummaryService } from "../services/citizen-summary.ts";
 import type { DbService } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
 
@@ -32,6 +33,7 @@ export function lawRoutes(
 	dbService: DbService,
 	gitService: GitService,
 	diffCache: LruCache<string>,
+	citizenSummaryService: CitizenSummaryService,
 ) {
 	return (
 		new Elysia({ prefix: "/v1" })
@@ -121,7 +123,7 @@ export function lawRoutes(
 			// 3. GET /v1/laws/:id/articles/:n — specific block by position
 			.get(
 				"/laws/:id/articles/:n",
-				({ params, set }) => {
+				async ({ params, set }) => {
 					const law = dbService.getLaw(params.id);
 					if (!law) {
 						set.status = 404;
@@ -134,12 +136,24 @@ export function lawRoutes(
 						return { error: "Block not found at this position" };
 					}
 					const versions = dbService.getVersions(params.id, block.block_id);
+
+					// On-demand citizen summary (cached in DB after first generation)
+					const citizen = await citizenSummaryService.getOrGenerate(
+						params.id,
+						block.block_id,
+						law.title,
+						block.title,
+						block.current_text,
+					);
+
 					return {
 						block_id: block.block_id,
 						block_type: block.block_type,
 						title: block.title,
 						position: block.position,
 						current_text: block.current_text,
+						citizen_summary: citizen?.citizen_summary ?? "",
+						citizen_tags: citizen?.citizen_tags ?? [],
 						versions: versions.map((v) => ({
 							date: v.date,
 							source_id: v.source_id,
@@ -491,23 +505,7 @@ export function lawRoutes(
 				},
 			)
 
-			// 16. GET /v1/anomalias — detected data quality issues
-			.get(
-				"/anomalias",
-				() => {
-					return dbService.getAnomalies();
-				},
-				{
-					detail: {
-						summary: "Data quality anomalies",
-						description:
-							"Returns detected data quality issues in BOE source data.",
-						tags: ["Leyes"],
-					},
-				},
-			)
-
-			// 17. GET /v1/build-manifest — bulk citizen data + omnibus topics for static build
+			// 16. GET /v1/build-manifest — bulk citizen data + omnibus topics for static build
 			.get(
 				"/build-manifest",
 				({ set, request }) => {

@@ -13,7 +13,7 @@ import type {
 } from "./country.ts";
 import { buildCommitInfo } from "./git/message.ts";
 import { GitRepo } from "./git/repo.ts";
-import type { Norm, NormMetadata } from "./models.ts";
+import type { Norm, NormMetadata, Reform } from "./models.ts";
 import { renderNormAtDate } from "./transform/markdown.ts";
 import { normToFilepath } from "./transform/slug.ts";
 import { extractReforms, parseTextXml } from "./transform/xml-parser.ts";
@@ -243,10 +243,22 @@ export async function fetchNorm(
 
 	const metadata = metadataParser.parse(metaData, normId);
 	const blocks = textParser.parseText(textData);
-	const reforms = textParser.extractReforms(blocks);
+	let reforms = textParser.extractReforms(blocks);
 
-	if (blocks.length === 0 || reforms.length === 0) {
+	if (blocks.length === 0) {
 		return null;
+	}
+
+	// Norms with blocks but no version history (e.g. missing fecha_publicacion
+	// in XML) get a synthetic bootstrap reform from the metadata publication date
+	if (reforms.length === 0) {
+		reforms = [
+			{
+				date: metadata.publishedAt,
+				normId: metadata.id,
+				affectedBlockIds: blocks.map((b) => b.id),
+			},
+		];
 	}
 
 	const norm: Norm = { metadata, blocks, reforms };

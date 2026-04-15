@@ -74,7 +74,7 @@ async function main() {
 				if (materia) insertMateria.run(normId, materia);
 			}
 			for (let j = 0; j < analisis.notas.length; j++) {
-				insertNota.run(normId, analisis.notas[j], j);
+				insertNota.run(normId, analisis.notas[j]!, j);
 			}
 			for (const ref of analisis.referencias.anteriores) {
 				if (ref.normId) {

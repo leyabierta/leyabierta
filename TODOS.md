@@ -44,8 +44,8 @@ El modo incremental del pipeline (lunes-sábado) solo detecta norms **nuevas**. 
 
 ### Infraestructura del servidor
 - [x] Unificar los 3 cron jobs (update-db, generate-ai, send-notifications) en un solo script secuencial `daily-pipeline.sh` con `set -e` (fail-fast)
-- [ ] Desplegar `daily-pipeline.sh` en KonarServer y reemplazar los 3 crontab entries antiguos
-- [ ] Correr `--force` para pillar las ~20 reformas perdidas del 6-8 abril
+- [x] Desplegar `daily-pipeline.sh` en KonarServer y reemplazar los 3 crontab entries antiguos
+- [x] Correr `--force` para pillar las ~20 reformas perdidas del 6-8 abril
 
 ---
 

@@ -150,6 +150,9 @@ Endpoints:
 - `GET /v1/feed-omnibus.xml` — RSS feed of omnibus laws
 - `POST /v1/alerts/subscribe` — subscribe to email notifications (materias + jurisdiction)
 - `GET /v1/alerts/confirm` — double opt-in confirmation (HMAC)
+- `POST /v1/ask` — RAG Q&A: ask questions about legislation, get grounded answers with citations
+- `GET /v1/bills` — list analyzed BOCG bills. Filters: `legislature`, `alert_level`, `series`. Returns bill_type (new_law/amendment/mixed), alert badges, modification counts.
+- `GET /v1/bills/:bocgId` — full bill impact analysis: modification groups, derogations, new entities, penalty analysis, LLM impacts, blast radius, transitional provision checks, bill type.
 - `GET /v1/feed.xml` — RSS feed of recent reforms
 - `GET /health` — status + law count
 
@@ -168,23 +171,26 @@ job (`send-notifications.ts`) finds subscribers whose materias match and sends f
 
 Citizen-facing website built with Astro (`output: "static"`, deployed to Cloudflare Pages).
 
-**Architecture: 100% static, no islands.**
-All pages are pre-rendered at build time. Law detail pages (Resumen, Reformas, Texto) render entirely from frontmatter and markdown — no API calls needed. Interactive behavior (tab switching, search form, theme toggle) uses inline `<script>` with vanilla JS. No UI framework (React, Svelte, etc.) is installed.
+**Architecture: Static-first with selective React islands.**
+Most pages are pre-rendered at build time. Law detail pages (Resumen, Reformas, Texto) render entirely from frontmatter and markdown — no API calls needed. Interactive behavior (tab switching, search form, theme toggle) uses inline `<script>` with vanilla JS.
 
-**When to introduce islands:**
-When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components.
+**Islands (React via `@astrojs/react`):**
+Features requiring client-side state use React islands with `client:visible` or `client:idle` directives. React + react-dom are loaded only on pages that use islands, not globally.
+- `/pregunta` — `AskChat` component (multi-turn RAG Q&A with citation parsing)
 
 **Current pages:**
 - `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results via API
 - `/laws/[id]` — law detail with static tabs (summary, reforms timeline, full text)
 - `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
+- `/pregunta` — RAG Q&A: citizens ask legal questions, get answers grounded in real articles
 - `/mis-cambios` — personal legislative changelog (client-side, filtered by user's materias)
 - `/cambios` — public changelog of all recent reforms (client-side)
 - `/reforma` — single reform detail page
 - `/alertas` — newsletter subscription form
 - `/mi-situacion` — subscription preference wizard
+- `/propuestas` — "Radar legislativo": analyzed legislative bills with impact analysis, alert badges, bill type classification
+- `/propuestas/detalle` — bill impact detail: 3 tabs (Resumen with derogations/entities, Modificaciones with grouped changes, Impacto with LLM analysis)
 - `/omnibus` — omnibus law detection with per-topic AI breakdowns
-- `/anomalias` — detected data quality issues in BOE source data
 - `/feed.xml` — RSS feed
 - `/sitemap.xml` — dynamic sitemap for all laws
 
@@ -330,6 +336,15 @@ bun run packages/api/src/scripts/send-notifications.ts              # normal cro
 bun run packages/api/src/scripts/send-notifications.ts --mark-existing  # first run: mark all as sent
 bun run packages/api/src/scripts/send-notifications.ts --dry-run        # simulate without sending
 bun run packages/api/src/scripts/send-notifications.ts --preview --materias 'IRPF,Empleo' --jurisdiction es-vc
+
+# Analyze a BOCG bill (full pipeline)
+bun run packages/api/src/scripts/analyze-bill.ts --url https://...PDF [--skip-llm-impact] [--force]
+
+# E2E precision benchmark (deterministic)
+bun run packages/api/src/scripts/bill-benchmark-e2e.ts [--save-baseline]
+
+# E2E precision benchmark (with LLM)
+OPENROUTER_API_KEY=... bun run packages/api/src/scripts/bill-benchmark-e2e.ts --llm [--save-baseline]
 
 # Run API server
 bun run api

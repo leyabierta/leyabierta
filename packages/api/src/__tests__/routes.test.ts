@@ -17,7 +17,8 @@ import type { GitService } from "../services/git.ts";
 
 let db: Database;
 let dbService: DbService;
-let app: Elysia;
+// biome-ignore lint: test file uses loose typing for Elysia app
+let app: any;
 
 // Minimal GitService stub — route tests focus on DB-backed endpoints
 const gitStub: GitService = {
@@ -125,7 +126,10 @@ async function req(path: string): Promise<Response> {
 
 async function json(path: string) {
 	const res = await req(path);
-	return { status: res.status, body: await res.json() };
+	return {
+		status: res.status,
+		body: (await res.json()) as Record<string, unknown>,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -507,6 +511,7 @@ describe("GET /v1/omnibus", () => {
 			articleCount: 5,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 		dbService.upsertOmnibusTopic("OT1", 1, {
@@ -516,6 +521,7 @@ describe("GET /v1/omnibus", () => {
 			articleCount: 1,
 			isSneaked: true,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 
@@ -548,6 +554,7 @@ describe("GET /v1/omnibus/:normId", () => {
 			articleCount: 8,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 
@@ -581,6 +588,7 @@ describe("GET /v1/feed-omnibus.xml", () => {
 			articleCount: 3,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "",
 			model: "t",
 		});
 

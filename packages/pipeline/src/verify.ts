@@ -138,7 +138,7 @@ async function verify() {
 			);
 
 			const missing = [...theirDates].filter((d) => !ourDates.has(d));
-			const extra = [...ourDates].filter((d) => !theirDates.has(d));
+			const extra = [...ourDates].filter((d) => !theirDates.has(d as string));
 
 			if (missing.length > 0) {
 				problems.push(`missing reform dates: ${missing.join(", ")}`);

@@ -11,10 +11,12 @@ import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
 import { alertRoutes } from "./routes/alerts.ts";
+import { billRoutes } from "./routes/bills.ts";
 import { lawRoutes } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { LruCache } from "./services/cache.ts";
+import { CitizenSummaryService } from "./services/citizen-summary.ts";
 import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
@@ -35,6 +37,7 @@ createSchema(db);
 const dbService = new DbService(db);
 const gitService = new GitService(REPO_PATH);
 const diffCache = new LruCache<string>(5000);
+const citizenSummaryService = new CitizenSummaryService(db);
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS
 	? process.env.CORS_ORIGINS.split(",")
@@ -165,6 +168,11 @@ const app = new Elysia()
 						name: "Sistema",
 						description: "Health checks and internal endpoints",
 					},
+					{
+						name: "Propuestas",
+						description:
+							"Bill impact preview — parsed BOCG bills with modification analysis and risk alerts",
+					},
 				],
 			},
 		}),
@@ -172,17 +180,29 @@ const app = new Elysia()
 }
 
 app
-	.use(lawRoutes(dbService, gitService, diffCache))
+	.use(billRoutes(db))
+	.use(lawRoutes(dbService, gitService, diffCache, citizenSummaryService))
 	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))
 	.use(omnibusRoutes(dbService))
 	.get(
 		"/health",
-		() => ({
-			status: "ok",
-			version: process.env.GIT_SHA ?? "dev",
-			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
-		}),
+		() => {
+			const dbPath = process.env.DB_PATH || "./data/leyabierta.db";
+			let lastIngest: string | null = null;
+			try {
+				const stat = Bun.file(dbPath);
+				lastIngest = new Date(stat.lastModified).toISOString();
+			} catch {
+				/* ignore */
+			}
+			return {
+				status: "ok",
+				version: process.env.GIT_SHA ?? "dev",
+				laws: dbService.searchLaws(undefined, {}, 0, 0).total,
+				last_ingest: lastIngest,
+			};
+		},
 		{
 			detail: {
 				summary: "Health check",

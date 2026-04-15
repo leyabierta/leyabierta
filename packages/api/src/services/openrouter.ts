@@ -20,6 +20,7 @@ export interface OpenRouterOptions {
 	maxTokens?: number;
 	jsonResponse?: boolean;
 	jsonSchema?: { name: string; schema: Record<string, unknown> };
+	timeoutMs?: number;
 }
 
 export interface OpenRouterResult<T> {
@@ -51,6 +52,7 @@ export async function callOpenRouter<T>(
 		maxTokens = 4000,
 		jsonResponse = true,
 		jsonSchema,
+		timeoutMs,
 	} = options;
 
 	let lastError: Error | null = null;
@@ -67,6 +69,7 @@ export async function callOpenRouter<T>(
 		try {
 			response = await fetch(OPENROUTER_URL, {
 				method: "POST",
+				...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
 				headers: {
 					Authorization: `Bearer ${apiKey}`,
 					"Content-Type": "application/json",

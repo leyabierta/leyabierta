@@ -30,7 +30,7 @@ const hasFlag = (name: string) => args.includes(`--${name}`);
 
 const weeks = Number(getArg("weeks") ?? 4);
 const limitArg = Number(getArg("limit") ?? 200);
-const modelId = getArg("model") ?? "google/gemini-3.1-flash-lite-preview";
+const modelId = getArg("model") ?? "google/gemini-2.5-flash-lite";
 const dryRun = hasFlag("dry-run");
 const force = hasFlag("force");
 const omnibusOnly = hasFlag("omnibus-only");
@@ -142,15 +142,15 @@ function queryBlockDiffs(
 				title: block.title,
 				change_type: "new",
 				previous_text: "",
-				current_text: truncate(versions[0].text),
+				current_text: truncate(versions[0]!.text),
 			});
 		} else {
 			diffs.push({
 				block_id: block.block_id,
 				title: block.title,
 				change_type: "modified",
-				previous_text: truncate(versions[1].text),
-				current_text: truncate(versions[0].text),
+				previous_text: truncate(versions[1]!.text),
+				current_text: truncate(versions[0]!.text),
 			});
 		}
 	}

@@ -24,7 +24,7 @@ async function main() {
 	console.log(`Discovering up to ${limit} norms from BOE...`);
 	const normIds: string[] = [];
 	for await (const id of spain.discovery().discoverAll(client)) {
-		normIds.push(id);
+		normIds.push(id as unknown as string);
 		if (normIds.length >= limit) break;
 	}
 	console.log(`Found ${normIds.length} norms.\n`);

@@ -1,6 +1,26 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
+import sectorData from "../../../shared/data/sector-materias.json";
+
+const SECTOR_OPTIONS = Object.entries(sectorData.sectors).map(([key, val]) => ({
+	value: key,
+	shortLabel: (val as any).shortLabel,
+	label: (val as any).label,
+}));
+
+const WIZARD_JURISDICTIONS = [
+	{ value: "es", label: "Estatal (toda España)" },
+	{ value: "es-an", label: "Andalucía" }, { value: "es-ar", label: "Aragón" },
+	{ value: "es-as", label: "Asturias" }, { value: "es-cb", label: "Cantabria" },
+	{ value: "es-cl", label: "Castilla y León" }, { value: "es-cm", label: "Castilla-La Mancha" },
+	{ value: "es-cn", label: "Canarias" }, { value: "es-ct", label: "Cataluña" },
+	{ value: "es-ex", label: "Extremadura" }, { value: "es-ga", label: "Galicia" },
+	{ value: "es-ib", label: "Illes Balears" }, { value: "es-mc", label: "Murcia" },
+	{ value: "es-md", label: "Madrid" }, { value: "es-nc", label: "Navarra" },
+	{ value: "es-pv", label: "País Vasco" }, { value: "es-ri", label: "La Rioja" },
+	{ value: "es-vc", label: "C. Valenciana" },
+];
 
 const laws = await getCollection("laws");
 
@@ -63,7 +83,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 >
 	<style>
 		/* ── Hero Section ── */
-		.hero-section { padding: 5rem 0 4rem; background: var(--accent-faint); border-bottom: 1px solid var(--border-light); }
+		.hero-section { padding: 3.5rem 0 3rem; background: var(--accent-faint); border-bottom: 1px solid var(--border-light); }
 		.hero-container { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
 
 		.hero-content {
@@ -74,7 +94,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		}
 		.hero-content h1 {
 			font-family: var(--font-serif);
-			font-size: 2.75rem;
+			font-size: 3rem;
 			font-weight: 700;
 			line-height: 1.15;
 			letter-spacing: -0.02em;
@@ -83,74 +103,64 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		.hero-sub {
 			color: var(--text-secondary);
 			font-size: 1.0625rem;
-			margin-top: 1rem;
+			margin-top: 0.75rem;
 			line-height: 1.7;
 			max-width: 36rem;
 			margin-left: auto;
 			margin-right: auto;
 		}
-		.hero-source {
-			margin-top: 1.25rem;
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-		}
-		.hero-source a { color: var(--text-muted); text-decoration: underline; }
 
 		/* ── Category Cards ── */
 		.category-grid {
 			display: grid;
 			grid-template-columns: repeat(4, 1fr);
-			gap: 1rem;
-			margin-top: 2.25rem;
+			gap: 0.75rem;
+			margin-top: 2rem;
 		}
 		.cat-card {
 			background: var(--surface);
 			border: 1px solid var(--border-light);
-			border-radius: 16px;
-			padding: 1.5rem;
+			border-radius: 12px;
+			padding: 1.25rem;
 			text-align: left;
 			cursor: pointer;
-			transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.25s var(--ease-out-quart), transform 0.25s var(--ease-out-quart);
+			transition: border-color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart);
 			text-decoration: none;
 			color: inherit;
 			display: block;
 		}
 		.cat-card:hover {
 			border-color: var(--accent);
-			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-			transform: translateY(-2px);
+			background: var(--accent-faint);
 			text-decoration: none;
 		}
-		.cat-card:active { transform: scale(0.98) translateY(0); transition-duration: 0.1s; }
-		.cat-emoji { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+		.cat-card:active { opacity: 0.85; transition-duration: 0.1s; }
+		.cat-icon { margin-bottom: 0.5rem; display: block; color: var(--accent); }
+		.cat-icon svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 		.cat-name {
 			font-family: var(--font-serif);
 			font-weight: 700;
-			font-size: 1rem;
+			font-size: 0.9375rem;
 			color: var(--text);
-			margin-bottom: 0.25rem;
+			margin-bottom: 0.125rem;
 		}
 		.cat-examples {
-			font-size: 0.8125rem;
+			font-size: 0.75rem;
 			color: var(--text-muted);
 			line-height: 1.5;
 		}
 		.hero-cta {
-			margin-top: 2rem;
+			margin-top: 1.5rem;
 			text-align: center;
 		}
 		.hero-cta-btn {
-			font-size: 1.125rem;
-			padding: 0.875rem 2rem;
+			font-size: 1.0625rem;
+			padding: 0.75rem 1.75rem;
 			border-radius: 8px;
 			letter-spacing: 0.01em;
-			box-shadow: 0 4px 14px rgba(26, 54, 93, 0.25);
-		}
-		.hero-cta-btn:hover {
-			box-shadow: 0 6px 20px rgba(26, 54, 93, 0.35);
 		}
 		.hero-stat-line {
-			margin-top: 1rem;
+			margin-top: 0.75rem;
 			font-size: 0.8125rem;
 			color: var(--text-muted);
 			text-align: center;
@@ -185,15 +195,16 @@ const JURISDICTION_LABELS: Record<string, string> = {
 
 		/* ── Search Section ── */
 		.search-section {
-			padding: 2.5rem 0 2rem;
+			padding: 2rem 0 1.5rem;
 			border-bottom: 1px solid var(--border-light);
 		}
 		.search-section h2 {
 			font-family: var(--font-serif);
-			font-size: 1.5rem;
+			font-size: 1.25rem;
 			font-weight: 700;
 			text-align: center;
-			margin-bottom: 1.25rem;
+			margin-bottom: 1rem;
+			color: var(--text-secondary);
 		}
 		.search-section-inner {
 			max-width: 40rem;
@@ -201,34 +212,20 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		}
 
 		/* ── Search Form ── */
-		.search-form { margin-top: 2rem; }
+		.search-form { margin-top: 0; }
 		.search-row { display: flex; gap: 0.5rem; }
 		.search-input {
 			flex: 1;
-			padding: 0.875rem 1.125rem;
+			padding: 0.75rem 1rem;
 			border: 1px solid var(--border);
 			border-radius: 8px;
 			background: var(--surface);
 			color: var(--text);
-			font-size: 1rem;
+			font-size: 0.9375rem;
 			font-family: var(--font-sans);
-			box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 		}
-		.search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); transition: border-color 0.2s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart); }
+		.search-input:focus { outline: none; border-color: var(--accent); border-width: 2px; padding: calc(0.75rem - 1px) calc(1rem - 1px); transition: border-color 0.2s var(--ease-out-quart); }
 
-		/* ── Button micro-interactions ── */
-		.hero-section .btn-primary {
-			transition: background 0.2s var(--ease-out-quart), transform 0.15s var(--ease-out-quart), box-shadow 0.2s var(--ease-out-quart);
-		}
-		.hero-section .btn-primary:hover {
-			transform: translateY(-1px);
-			box-shadow: 0 2px 8px rgba(26, 54, 93, 0.25);
-		}
-		.hero-section .btn-primary:active {
-			transform: scale(0.97) translateY(0);
-			box-shadow: none;
-			transition-duration: 0.1s;
-		}
 		.filter-bar {
 			display: flex;
 			align-items: center;
@@ -296,40 +293,18 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			text-decoration: none;
 		}
 		.search-chip:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
-		.search-sep { color: var(--border); margin: 0 0.125rem; }
-		.search-browse-link {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			white-space: nowrap;
-		}
-		.search-browse-link:hover { color: var(--accent); }
 
 		/* ── Results Section ── */
 		.results-section { padding: 2rem 0; }
-		.pagination { display: flex; gap: 0.25rem; justify-content: center; margin-top: 1.5rem; }
-		.page-num {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			min-width: 2rem;
-			height: 2rem;
-			border-radius: 6px;
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			cursor: pointer;
-			border: 1px solid transparent;
-		}
-		.page-num:hover { background: var(--surface); color: var(--text); text-decoration: none; }
-		.page-num.current { background: var(--accent-bg); color: var(--accent); font-weight: 600; border-color: var(--accent); }
 
 		/* ── Sections ── */
 		.section-alt {
 			background: var(--tierra-warm);
 			border-top: 1px solid var(--tierra-deep);
 			border-bottom: 1px solid var(--tierra-deep);
-			padding: 3rem 0;
+			padding: 2.5rem 0;
 		}
-		.section-default { padding: 3rem 0; }
+		.section-default { padding: 2.5rem 0; }
 		.section-title {
 			font-family: var(--font-serif);
 			font-size: 1.25rem;
@@ -337,39 +312,46 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			margin-bottom: 1.25rem;
 		}
 
-
 		/* ── Jurisdiction Grid ── */
-		.juri-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; }
+		.juri-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
 		.juri-card {
 			display: flex;
-			justify-content: space-between;
+			flex-direction: column;
 			align-items: center;
-			padding: 0.75rem 1rem;
+			gap: 0.125rem;
+			padding: 0.75rem 0.5rem;
 			background: var(--surface);
 			border: 1px solid var(--border-light);
 			border-radius: 8px;
-			font-size: 0.875rem;
+			font-size: 0.8125rem;
 			font-family: var(--font-sans);
 			color: var(--text);
+			font-weight: 500;
 			cursor: pointer;
-			transition: border-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart), transform 0.25s var(--ease-out-quart), box-shadow 0.25s var(--ease-out-quart);
+			text-align: center;
+			min-width: 0;
+			transition: border-color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart);
 		}
-		.juri-card:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-		.juri-card:active { transform: scale(0.98) translateY(0); transition-duration: 0.1s; }
+		.juri-card:hover { border-color: var(--accent); background: var(--accent-faint); }
+		.juri-card:active { opacity: 0.85; transition-duration: 0.1s; }
 		.juri-card.juri-estatal {
 			grid-column: 1 / -1;
+			flex-direction: row;
 			background: var(--accent-bg, #eef3f8);
 			border-color: var(--accent);
+			color: var(--accent);
 			font-weight: 600;
 			font-size: 0.9375rem;
 			justify-content: center;
 			gap: 0.5rem;
+			padding: 0.875rem 1rem;
 		}
-		.juri-count { font-variant-numeric: tabular-nums; font-size: 0.75rem; color: var(--text-muted); }
+		.juri-count { font-variant-numeric: tabular-nums; font-size: 0.6875rem; color: var(--text-muted); }
 		.juri-estatal .juri-count { color: var(--accent); font-size: 0.8125rem; }
 
 		/* ── Two Col ── */
 		.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+		.two-col > * { min-width: 0; }
 
 		/* ── Loading ── */
 		.loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
@@ -405,38 +387,111 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		.skeleton-line:last-child { margin-bottom: 0; }
 		@keyframes skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-		/* ── Responsive ── */
-		@media (max-width: 1280px) {
-			.category-grid { grid-template-columns: repeat(4, 1fr); }
+		/* ── Inline Wizard ── */
+		#wizard-inline { max-width: 680px; margin: 0 auto; }
+		#wizard-inline[hidden] { display: none; }
+
+		.wiz-progress { margin-bottom: 1rem; }
+		.wiz-progress-text { font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.5rem; }
+		.wiz-progress-track { width: 100%; height: 6px; background: var(--border-light); border-radius: 3px; overflow: hidden; }
+		.wiz-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
+
+		.wiz-step { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 1.5rem; }
+		.wiz-step[hidden] { display: none; }
+		.wiz-step-heading { font-family: var(--font-serif); font-size: 1.375rem; font-weight: 700; line-height: 1.2; margin-bottom: 0.25rem; }
+		.wiz-step-sub { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem; }
+
+		.wiz-radio-group, .wiz-checkbox-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+		.wiz-pill {
+			border: none; border-radius: 10px; padding: 0.6rem 0.75rem 0.6rem 2rem;
+			background: var(--accent-faint, #edf2f7); font-size: 0.8125rem; font-family: var(--font-sans);
+			cursor: pointer; text-align: left; color: var(--text); position: relative;
+			min-height: 44px; display: flex; align-items: center; transition: background 0.15s, color 0.15s, font-weight 0.15s;
 		}
+		.wiz-pill::before {
+			content: ""; position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%);
+			width: 14px; height: 14px; border: 2px solid var(--border); background: var(--surface); transition: background 0.15s, border-color 0.15s;
+		}
+		.wiz-pill[data-type="radio"]::before { border-radius: 50%; }
+		.wiz-pill[data-type="checkbox"]::before { border-radius: 3px; }
+		.wiz-pill:hover { background: var(--accent-bg); }
+		.wiz-pill[aria-checked="true"] { background: var(--accent-faint); color: var(--accent); font-weight: 500; }
+		.wiz-pill[aria-checked="true"]::before { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--surface); }
+
+		.wiz-sector-grid { grid-template-columns: repeat(3, 1fr); }
+		.wiz-jur-grid { grid-template-columns: repeat(3, 1fr); }
+		.wiz-jur-pill {
+			border: none; border-radius: 10px; padding: 0.75rem 0.5rem;
+			background: var(--accent-faint, #edf2f7); font-size: 0.8125rem; font-family: var(--font-sans);
+			cursor: pointer; text-align: center; color: var(--text); min-height: 44px; transition: background 0.15s, color 0.15s;
+		}
+		.wiz-jur-pill:hover { background: var(--accent-bg); }
+		.wiz-jur-pill[aria-checked="true"] { background: var(--accent); color: white; }
+		.wiz-jur-pill.highlight { font-weight: 600; }
+
+		.wiz-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; gap: 0.75rem; }
+		.wiz-btn-back {
+			background: none; border: 1.5px solid var(--border-light); border-radius: 8px;
+			padding: 0.625rem 1rem; font-size: 0.875rem; font-family: var(--font-sans);
+			color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+		}
+		.wiz-btn-back:hover { color: var(--text); border-color: var(--border); }
+		.wiz-btn-next {
+			flex: 1; max-width: 240px; margin-left: auto; padding: 0.625rem 1.25rem;
+			font-size: 0.875rem; font-weight: 600; font-family: var(--font-sans);
+			border-radius: 8px; border: none; background: var(--accent); color: white;
+			cursor: pointer; transition: all 0.15s;
+		}
+		.wiz-btn-next:hover:not(:disabled) { background: var(--accent-light); }
+		.wiz-btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
+		.wiz-btn-skip {
+			background: none; border: none; color: var(--text-muted); font-size: 0.8125rem;
+			font-family: var(--font-sans); cursor: pointer; padding: 0.5rem;
+		}
+		.wiz-btn-skip:hover { color: var(--text-secondary); text-decoration: underline; }
+
+		/* Done state */
+		#wizard-done { text-align: center; }
+		#wizard-done[hidden] { display: none; }
+		#wizard-done h2 { font-family: var(--font-serif); font-size: 1.75rem; font-weight: 700; color: var(--accent); margin-bottom: 0.5rem; }
+		#wizard-done .done-tags { font-size: 0.9375rem; color: var(--text-secondary); margin-bottom: 1.5rem; }
+		#wizard-done .done-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+		/* ── Responsive ── */
 		@media (max-width: 768px) {
-			.hero-section { padding: 3rem 0 2.5rem; }
+			.hero-section { padding: 2.5rem 0 2rem; }
 			.hero-content h1 { font-size: 2rem; }
 			.category-grid { grid-template-columns: repeat(2, 1fr); }
 			.hero-section.has-results { padding-bottom: 1.5rem; }
+			.juri-grid { grid-template-columns: repeat(4, 1fr); }
 		}
 		@media (max-width: 640px) {
-			.hero-section { padding: 2.5rem 0 2rem; }
+			.hero-section { padding: 2rem 0 1.5rem; }
 			.hero-container { padding: 0 1rem; }
 			.hero-content h1 { font-size: 1.625rem; }
 			.hero-sub { font-size: 0.9375rem; }
-			.category-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-			.cat-card { padding: 1.125rem; }
-			.cat-emoji { font-size: 1.5rem; margin-bottom: 0.5rem; }
-			.cat-name { font-size: 0.9rem; }
-			.cat-examples { font-size: 0.75rem; }
+			.category-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+			.cat-card { padding: 1rem; }
+			.cat-icon svg { width: 20px; height: 20px; }
+			.cat-name { font-size: 0.875rem; }
+			.cat-examples { font-size: 0.6875rem; }
 			.search-row { flex-direction: column; }
+			.search-row .btn-primary { font-size: 0.875rem; padding: 0.625rem 1rem; }
 			.filter-toggle { min-height: 2.75rem; }
 			.filter-row { flex-direction: column; }
 			.filter-select { width: 100%; min-height: 2.75rem; }
 			.two-col { grid-template-columns: 1fr; }
-			.juri-grid { grid-template-columns: repeat(2, 1fr); }
+			.juri-grid { grid-template-columns: repeat(3, 1fr); }
+			.juri-card { font-size: 0.75rem; padding: 0.625rem 0.375rem; }
 			.welcome-back h1 { font-size: 1.625rem; }
 			/* Tighter hero when searching */
 			.hero-section.has-results .hero-sub { display: none; }
-			.hero-section.has-results .hero-source { display: none; }
 			.hero-section.has-results .hero-content h1 { font-size: 1.375rem; margin-bottom: 0.5rem; }
 			.hero-section.has-results { padding: 1.5rem 0 1rem; }
+			/* Wizard responsive */
+			.wiz-radio-group, .wiz-checkbox-group { grid-template-columns: 1fr; }
+			.wiz-sector-grid, .wiz-jur-grid { grid-template-columns: 1fr; }
+			.wiz-btn-next { max-width: none; flex: 1; }
 		}
 	</style>
 
@@ -562,12 +617,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		.fact-link { color: var(--text-secondary); }
 		.fact-link:hover { color: var(--accent); text-decoration: none; }
 		.fact-link strong { color: var(--accent); font-weight: 700; }
-		.recent-item { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.625rem 0; border-bottom: 1px solid var(--border-light); }
+		.recent-item { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.625rem 0; border-bottom: 1px solid var(--border-light); min-width: 0; }
+		.recent-item > div { min-width: 0; }
 		.recent-item:last-child { border-bottom: none; }
 		.recent-date { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); min-width: 5.5rem; flex-shrink: 0; }
-		.recent-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
+		.recent-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 		.recent-title:hover { color: var(--accent); text-decoration: none; }
-		.recent-official { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.125rem; }
+		.recent-official { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	</style>
 
 	<!-- ── Hero ── -->
@@ -579,7 +635,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				<p class="wb-situations" id="wb-situations"></p>
 				<div class="wb-actions">
 					<a href="/mis-cambios" class="btn btn-primary" id="wb-link">Ver mis cambios &rarr;</a>
-					<a href="/mi-situacion" class="btn">Cambiar situación</a>
+					<button type="button" class="btn" id="wb-change-btn" onclick="startWizard()">Cambiar situación</button>
 				</div>
 			</div>
 
@@ -592,41 +648,165 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					</p>
 
 					<div class="category-grid">
-						<a href="/mi-situacion" class="cat-card">
-							<span class="cat-emoji">💼</span>
+						<button type="button" class="cat-card" onclick="startWizard()">
+							<span class="cat-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg></span>
 							<div class="cat-name">Trabajo</div>
 							<div class="cat-examples">Autónomo · Empleo · Empresa</div>
-						</a>
-						<a href="/mi-situacion" class="cat-card">
-							<span class="cat-emoji">👨‍👩‍👧</span>
+						</button>
+						<button type="button" class="cat-card" onclick="startWizard()">
+							<span class="cat-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" /><path d="M21 21v-1.5a3 3 0 0 0-3-3h-1" /></svg></span>
 							<div class="cat-name">Familia</div>
 							<div class="cat-examples">Hijos · Embarazo · Divorcio</div>
-						</a>
-						<a href="/mi-situacion" class="cat-card">
-							<span class="cat-emoji">🏠</span>
+						</button>
+						<button type="button" class="cat-card" onclick="startWizard()">
+							<span class="cat-icon"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" /><path d="M10 20v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" /></svg></span>
 							<div class="cat-name">Vivienda</div>
 							<div class="cat-examples">Alquiler · Hipoteca · Compra</div>
-						</a>
-						<a href="/mi-situacion" class="cat-card">
-							<span class="cat-emoji">🏥</span>
+						</button>
+						<button type="button" class="cat-card" onclick="startWizard()">
+							<span class="cat-icon"><svg viewBox="0 0 24 24"><path d="M11 2a2 2 0 0 1 2 2v4h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-4H3a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2h2z" /></svg></span>
 							<div class="cat-name">Salud</div>
 							<div class="cat-examples">Jubilación · Discapacidad · Inmigración</div>
-						</a>
+						</button>
 					</div>
 
 					<div class="hero-cta">
-						<a href="/mi-situacion" class="btn btn-primary hero-cta-btn">Descubre qué leyes te afectan &rarr;</a>
+						<button type="button" class="btn btn-primary hero-cta-btn" onclick="startWizard()">Descubre qué leyes te afectan &rarr;</button>
 					</div>
 					<p class="hero-stat-line">Más de {totalNorms.toLocaleString("es")} leyes desde {earliestYear} · Fuente: BOE</p>
 				</div>
 			</div>
+
+				<!-- Inline wizard (hidden by default, shown when user clicks a card or CTA) -->
+				<div id="wizard-inline" hidden>
+					<div class="wiz-progress" aria-live="polite">
+						<span class="wiz-progress-text" id="wiz-progress-text">Paso 1 de 6</span>
+						<div class="wiz-progress-track">
+							<div class="wiz-progress-fill" id="wiz-progress-fill" style="width: 17%"></div>
+						</div>
+					</div>
+
+					<!-- Step 1: Work status -->
+					<section class="wiz-step" aria-label="Situación laboral" id="wiz-step-work">
+						<h2 class="wiz-step-heading" tabindex="-1">¿Cuál es tu situación laboral?</h2>
+						<p class="wiz-step-sub">Elige la que mejor te describa</p>
+						<div class="wiz-radio-group" role="radiogroup" aria-label="Situación laboral" data-wiz-key="workStatus">
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="cuenta_ajena">Trabajo por cuenta ajena</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="autonomo">Soy autónomo/a</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="empresa">Tengo una empresa</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="jubilado">Estoy jubilado/a</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="busco_empleo">Busco empleo</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="estudiante">Soy estudiante</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="no_trabajo">No trabajo (ni busco)</button>
+						</div>
+						<div class="wiz-nav">
+							<button type="button" class="wiz-btn-next" id="wiz-btn-next-work" disabled>Siguiente &rarr;</button>
+						</div>
+					</section>
+
+					<!-- Step 2: Sector (conditional) -->
+					<section class="wiz-step" aria-label="Sector laboral" id="wiz-step-sector" hidden>
+						<h2 class="wiz-step-heading" tabindex="-1">¿En qué sector trabajas?</h2>
+						<p class="wiz-step-sub">Nos ayuda a filtrar los cambios que te importan</p>
+						<div class="wiz-radio-group wiz-sector-grid" role="radiogroup" aria-label="Sector laboral" data-wiz-key="sector">
+							{SECTOR_OPTIONS.map((s) => (
+								<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" aria-label={s.label} tabindex="0" data-value={s.value}>{s.shortLabel}</button>
+							))}
+						</div>
+						<div class="wiz-nav">
+							<button type="button" class="wiz-btn-back" id="wiz-btn-back-sector">&larr; Atrás</button>
+							<button type="button" class="wiz-btn-next" id="wiz-btn-next-sector" disabled>Siguiente &rarr;</button>
+						</div>
+					</section>
+
+					<!-- Step 3: Housing -->
+					<section class="wiz-step" aria-label="Vivienda" id="wiz-step-housing" hidden>
+						<h2 class="wiz-step-heading" tabindex="-1">¿Tu vivienda?</h2>
+						<p class="wiz-step-sub">Las leyes de vivienda cambian a menudo</p>
+						<div class="wiz-radio-group" role="radiogroup" aria-label="Vivienda" data-wiz-key="housing">
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="alquilo">Alquilo</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="hipoteca">Tengo hipoteca</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="propietario">Soy propietario/a (sin hipoteca)</button>
+							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="familiares">Vivo con familiares</button>
+						</div>
+						<div class="wiz-nav">
+							<button type="button" class="wiz-btn-back" id="wiz-btn-back-housing">&larr; Atrás</button>
+							<button type="button" class="wiz-btn-next" id="wiz-btn-next-housing" disabled>Siguiente &rarr;</button>
+						</div>
+					</section>
+
+					<!-- Step 4: Jurisdiction -->
+					<section class="wiz-step" aria-label="Comunidad autónoma" id="wiz-step-jurisdiction" hidden>
+						<h2 class="wiz-step-heading" tabindex="-1">¿Dónde vives?</h2>
+						<p class="wiz-step-sub">Las leyes que te afectan dependen de tu comunidad autónoma</p>
+						<div class="wiz-radio-group wiz-jur-grid" role="radiogroup" aria-label="Comunidad autónoma" data-wiz-key="jurisdiccion">
+							{WIZARD_JURISDICTIONS.map((j, i) => (
+								<button type="button" class={`wiz-jur-pill${i === 0 ? " highlight" : ""}`} data-value={j.value} role="radio" aria-checked="false" tabindex="0">{j.label}</button>
+							))}
+						</div>
+						<div class="wiz-nav">
+							<button type="button" class="wiz-btn-back" id="wiz-btn-back-jurisdiction">&larr; Atrás</button>
+							<button type="button" class="wiz-btn-next" id="wiz-btn-next-jurisdiction" disabled>Siguiente &rarr;</button>
+						</div>
+					</section>
+
+					<!-- Step 5: Family -->
+					<section class="wiz-step" aria-label="Familia" id="wiz-step-family" hidden>
+						<h2 class="wiz-step-heading" tabindex="-1">¿Tu familia?</h2>
+						<p class="wiz-step-sub">Marca todas las que apliquen</p>
+						<div class="wiz-checkbox-group" role="group" aria-label="Situación familiar" data-wiz-key="family">
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="hijos_menores">Tengo hijos menores</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="dependiente">Cuido a un familiar dependiente</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="embarazo_baja">Estoy embarazada / baja parental</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="ninguno">Ninguno</button>
+						</div>
+						<div class="wiz-nav">
+							<button type="button" class="wiz-btn-back" id="wiz-btn-back-family">&larr; Atrás</button>
+							<button type="button" class="wiz-btn-next" id="wiz-btn-next-family">Siguiente &rarr;</button>
+						</div>
+					</section>
+
+					<!-- Step 6: Extras -->
+					<section class="wiz-step" aria-label="Más sobre tu día a día" id="wiz-step-extras" hidden>
+						<h2 class="wiz-step-heading" tabindex="-1">¿Algo más en tu día a día?</h2>
+						<p class="wiz-step-sub">Marca lo que aplique. Puedes saltar este paso.</p>
+						<div class="wiz-checkbox-group" role="group" aria-label="Extras" data-wiz-key="extras">
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="coche">&#x1F697; Conduzco / tengo coche</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="inversiones">&#x1F4B0; Invierto (bolsa, fondos, cripto)</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="mascotas">&#x1F415; Tengo mascotas</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="casero">&#x1F3E0; Alquilo un piso a alguien (soy casero/a)</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="divorcio">&#x1F494; Divorcio o separación</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="discapacidad">&#x267F; Discapacidad reconocida</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="extranjeria">&#x1F30D; Trámites de extranjería</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="ecommerce">&#x1F4E6; Vendo online / e-commerce</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="herencia">&#x1F3D7;&#xFE0F; Herencia o sucesiones</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="medioambiente">&#x1F331; Me interesa el medio ambiente</button>
+							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="deporte">&#x26BD; Deporte profesional o federado</button>
+						</div>
+						<div class="wiz-nav">
+							<button type="button" class="wiz-btn-back" id="wiz-btn-back-extras">&larr; Atrás</button>
+							<button type="button" class="wiz-btn-skip" id="wiz-btn-skip-extras">Saltar este paso</button>
+							<button type="button" class="wiz-btn-next" id="wiz-btn-next-extras">Ver mis cambios &rarr;</button>
+						</div>
+					</section>
+
+					<!-- Done state -->
+					<div id="wizard-done" hidden>
+						<h2>¡Listo!</h2>
+						<p class="done-tags" id="wiz-done-tags"></p>
+						<div class="done-actions">
+							<a href="/mis-cambios" class="btn btn-primary">Ver los cambios que te afectan &rarr;</a>
+							<button type="button" class="btn" id="wiz-restart-btn">Cambiar respuestas</button>
+						</div>
+					</div>
+				</div>
 		</div>
 	</section>
 
 	<!-- ── Search Section ── -->
 	<section class="search-section" id="search-section">
 		<div class="container">
-			<h2>O busca cualquier ley</h2>
+			<h2>Buscar leyes</h2>
 			<div class="search-section-inner">
 				<div class="search-form" role="search" aria-label="Buscar leyes">
 					<div class="search-row">
@@ -665,8 +845,8 @@ const JURISDICTION_LABELS: Record<string, string> = {
 
 				<div class="search-suggestions" id="search-suggestions">
 					<span>Prueba:</span>
-					<a href="/laws/BOE-A-1978-31229" class="search-chip">Constitución</a>
-					<a href="/laws/BOE-A-1995-25444" class="search-chip">Código Penal</a>
+					<button type="button" class="search-chip" data-query="Constitución">Constitución</button>
+					<button type="button" class="search-chip" data-query="Código Penal">Código Penal</button>
 					<button type="button" class="search-chip" data-query="alquileres">Alquileres</button>
 					<button type="button" class="search-chip" data-query="tráfico">Tráfico</button>
 				</div>
@@ -710,6 +890,311 @@ const JURISDICTION_LABELS: Record<string, string> = {
 			</div>
 		</section>
 	</div>
+
+	<script is:inline>
+	(function () {
+		var SKIP_SECTOR_STATUSES = ["jubilado", "estudiante", "no_trabajo"];
+		var ALL_WIZ_STEP_IDS = ["wiz-step-work", "wiz-step-sector", "wiz-step-housing", "wiz-step-jurisdiction", "wiz-step-family", "wiz-step-extras"];
+
+		var wizAnswers = {
+			workStatus: null,
+			sector: null,
+			housing: null,
+			jurisdiccion: null,
+			family: [],
+			extras: []
+		};
+
+		var wizCurrentIdx = 0;
+
+		var ANSWER_LABELS = {
+			cuenta_ajena: "Empleado/a", autonomo: "Autónomo/a", empresa: "Empresario/a",
+			jubilado: "Jubilado/a", busco_empleo: "Busco empleo", estudiante: "Estudiante",
+			no_trabajo: "No trabajo",
+			campo: "Agricultura", industria: "Industria", energia: "Energía",
+			construccion: "Construcción", comercio: "Comercio", transporte: "Transporte",
+			hosteleria: "Hostelería", tecnologia: "Tecnología", finanzas: "Finanzas",
+			servicios_profesionales: "Serv. profesionales", admin_publica: "Admin. pública",
+			educacion: "Educación", sanidad: "Sanidad", cultura_deporte: "Cultura y deporte",
+			otro: "Otro sector",
+			alquilo: "Alquiler", hipoteca: "Hipoteca", propietario: "Propietario/a",
+			familiares: "Vivo con familiares"
+		};
+		var JNAMES = {
+			es: "Estatal", "es-an": "Andalucía", "es-ar": "Aragón", "es-as": "Asturias",
+			"es-cb": "Cantabria", "es-cl": "Castilla y León", "es-cm": "Castilla-La Mancha",
+			"es-cn": "Canarias", "es-ct": "Cataluña", "es-ex": "Extremadura", "es-ga": "Galicia",
+			"es-ib": "Illes Balears", "es-mc": "Murcia", "es-md": "Madrid", "es-nc": "Navarra",
+			"es-pv": "País Vasco", "es-ri": "La Rioja", "es-vc": "C. Valenciana"
+		};
+
+		function wizShouldSkipSector() {
+			return SKIP_SECTOR_STATUSES.indexOf(wizAnswers.workStatus) !== -1;
+		}
+
+		function wizGetVisibleStepIds() {
+			var steps = ALL_WIZ_STEP_IDS.slice();
+			if (wizShouldSkipSector()) {
+				var idx = steps.indexOf("wiz-step-sector");
+				if (idx !== -1) steps.splice(idx, 1);
+			}
+			return steps;
+		}
+
+		function wizUpdateProgress() {
+			var total = wizGetVisibleStepIds().length;
+			var pct = Math.round((wizCurrentIdx + 1) / total * 100);
+			var pt = document.getElementById("wiz-progress-text");
+			var pf = document.getElementById("wiz-progress-fill");
+			if (pt) pt.textContent = "Paso " + (wizCurrentIdx + 1) + " de " + total;
+			if (pf) pf.style.width = pct + "%";
+		}
+
+		function wizGoToStep(visIdx) {
+			var visibleIds = wizGetVisibleStepIds();
+			if (visIdx < 0 || visIdx >= visibleIds.length) return;
+			wizCurrentIdx = visIdx;
+			for (var i = 0; i < ALL_WIZ_STEP_IDS.length; i++) {
+				var el = document.getElementById(ALL_WIZ_STEP_IDS[i]);
+				if (el) el.hidden = true;
+			}
+			// Hide done state too
+			var doneEl = document.getElementById("wizard-done");
+			if (doneEl) doneEl.hidden = true;
+
+			var activeId = visibleIds[wizCurrentIdx];
+			var activeEl = document.getElementById(activeId);
+			if (activeEl) {
+				activeEl.hidden = false;
+				var heading = activeEl.querySelector(".wiz-step-heading");
+				if (heading) heading.focus();
+			}
+			wizUpdateProgress();
+			// Show progress bar
+			var progressEl = document.querySelector(".wiz-progress");
+			if (progressEl) progressEl.style.display = "";
+		}
+
+		function wizNextStep() {
+			var visibleIds = wizGetVisibleStepIds();
+			if (wizCurrentIdx < visibleIds.length - 1) {
+				wizGoToStep(wizCurrentIdx + 1);
+			}
+		}
+		function wizPrevStep() {
+			if (wizCurrentIdx > 0) {
+				wizGoToStep(wizCurrentIdx - 1);
+			}
+		}
+
+		// Radio group setup (single select)
+		function wizSetupRadioGroup(stepId, btnId, answerKey) {
+			var container = document.getElementById(stepId);
+			if (!container) return;
+			var group = container.querySelector("[role='radiogroup']");
+			if (!group) return;
+			var pills = group.querySelectorAll("[role='radio']");
+			var nextBtn = document.getElementById(btnId);
+
+			function selectPill(pill) {
+				for (var i = 0; i < pills.length; i++) {
+					pills[i].setAttribute("aria-checked", "false");
+				}
+				pill.setAttribute("aria-checked", "true");
+				wizAnswers[answerKey] = pill.dataset.value;
+				if (nextBtn) nextBtn.disabled = false;
+			}
+
+			for (var i = 0; i < pills.length; i++) {
+				pills[i].addEventListener("click", function () { selectPill(this); });
+				pills[i].addEventListener("keydown", function (e) {
+					if (e.key === " " || e.key === "Enter") { e.preventDefault(); selectPill(this); }
+				});
+			}
+		}
+
+		// Jurisdiction setup (single select, uses wiz-jur-pill class)
+		function wizSetupJurisdiction() {
+			var grid = document.querySelector("#wiz-step-jurisdiction .wiz-jur-grid");
+			if (!grid) return;
+			var pills = grid.querySelectorAll(".wiz-jur-pill");
+			var nextBtn = document.getElementById("wiz-btn-next-jurisdiction");
+
+			function selectJur(pill) {
+				for (var i = 0; i < pills.length; i++) {
+					pills[i].setAttribute("aria-checked", "false");
+				}
+				pill.setAttribute("aria-checked", "true");
+				wizAnswers.jurisdiccion = pill.dataset.value;
+				if (nextBtn) nextBtn.disabled = false;
+			}
+
+			for (var i = 0; i < pills.length; i++) {
+				pills[i].addEventListener("click", function () { selectJur(this); });
+				pills[i].addEventListener("keydown", function (e) {
+					if (e.key === " " || e.key === "Enter") { e.preventDefault(); selectJur(this); }
+				});
+			}
+		}
+
+		// Checkbox group setup (multi-select)
+		function wizSetupCheckboxGroup(stepId, answerKey, hasNinguno) {
+			var container = document.getElementById(stepId);
+			if (!container) return;
+			var group = container.querySelector("[role='group']");
+			if (!group) return;
+			var pills = group.querySelectorAll("[role='checkbox']");
+
+			function togglePill(pill) {
+				var val = pill.dataset.value;
+				var isChecked = pill.getAttribute("aria-checked") === "true";
+
+				if (hasNinguno && val === "ninguno") {
+					if (!isChecked) {
+						for (var i = 0; i < pills.length; i++) {
+							pills[i].setAttribute("aria-checked", "false");
+						}
+						pill.setAttribute("aria-checked", "true");
+						wizAnswers[answerKey] = [];
+					} else {
+						pill.setAttribute("aria-checked", "false");
+					}
+					return;
+				}
+
+				if (hasNinguno) {
+					var ningunoPill = group.querySelector("[data-value='ninguno']");
+					if (ningunoPill) ningunoPill.setAttribute("aria-checked", "false");
+				}
+
+				if (isChecked) {
+					pill.setAttribute("aria-checked", "false");
+					var idx = wizAnswers[answerKey].indexOf(val);
+					if (idx !== -1) wizAnswers[answerKey].splice(idx, 1);
+				} else {
+					pill.setAttribute("aria-checked", "true");
+					wizAnswers[answerKey].push(val);
+				}
+			}
+
+			for (var i = 0; i < pills.length; i++) {
+				pills[i].addEventListener("click", function () { togglePill(this); });
+				pills[i].addEventListener("keydown", function (e) {
+					if (e.key === " " || e.key === "Enter") { e.preventDefault(); togglePill(this); }
+				});
+			}
+		}
+
+		function wizBuildSummary() {
+			var tagKeys = [];
+			if (wizAnswers.workStatus) tagKeys.push(wizAnswers.workStatus);
+			if (wizAnswers.sector) tagKeys.push(wizAnswers.sector);
+			var pills = tagKeys.map(function(id) { return ANSWER_LABELS[id] || id; }).join(" · ");
+			var jur = JNAMES[wizAnswers.jurisdiccion] || wizAnswers.jurisdiccion || "";
+			return pills + (jur ? " · " + jur : "");
+		}
+
+		function wizFinish() {
+			var data = {
+				answers: {
+					workStatus: wizAnswers.workStatus,
+					sector: wizAnswers.sector,
+					housing: wizAnswers.housing,
+					family: wizAnswers.family.slice(),
+					extras: wizAnswers.extras.slice()
+				},
+				jurisdiccion: wizAnswers.jurisdiccion || "es"
+			};
+			try {
+				localStorage.setItem("leyabierta_perfil", JSON.stringify(data));
+			} catch (err) {}
+
+			// Show done state
+			for (var i = 0; i < ALL_WIZ_STEP_IDS.length; i++) {
+				var el = document.getElementById(ALL_WIZ_STEP_IDS[i]);
+				if (el) el.hidden = true;
+			}
+			// Hide progress bar
+			var progressEl = document.querySelector(".wiz-progress");
+			if (progressEl) progressEl.style.display = "none";
+
+			var doneEl = document.getElementById("wizard-done");
+			if (doneEl) {
+				doneEl.hidden = false;
+				var tagsEl = document.getElementById("wiz-done-tags");
+				if (tagsEl) tagsEl.textContent = wizBuildSummary();
+			}
+		}
+
+		function wizRestart() {
+			// Reset answers
+			wizAnswers.workStatus = null;
+			wizAnswers.sector = null;
+			wizAnswers.housing = null;
+			wizAnswers.jurisdiccion = null;
+			wizAnswers.family = [];
+			wizAnswers.extras = [];
+
+			// Reset all pill states
+			var allPills = document.querySelectorAll("#wizard-inline [aria-checked]");
+			for (var i = 0; i < allPills.length; i++) {
+				allPills[i].setAttribute("aria-checked", "false");
+			}
+
+			// Disable next buttons
+			var nextBtns = ["wiz-btn-next-work", "wiz-btn-next-sector", "wiz-btn-next-housing", "wiz-btn-next-jurisdiction"];
+			for (var i = 0; i < nextBtns.length; i++) {
+				var btn = document.getElementById(nextBtns[i]);
+				if (btn) btn.disabled = true;
+			}
+
+			wizGoToStep(0);
+		}
+
+		// Initialize wizard
+		wizSetupRadioGroup("wiz-step-work", "wiz-btn-next-work", "workStatus");
+		wizSetupRadioGroup("wiz-step-sector", "wiz-btn-next-sector", "sector");
+		wizSetupRadioGroup("wiz-step-housing", "wiz-btn-next-housing", "housing");
+		wizSetupJurisdiction();
+		wizSetupCheckboxGroup("wiz-step-family", "family", true);
+		wizSetupCheckboxGroup("wiz-step-extras", "extras", false);
+
+		// Navigation wiring
+		var wizNavMap = {
+			"wiz-btn-next-work": wizNextStep,
+			"wiz-btn-back-sector": wizPrevStep,
+			"wiz-btn-next-sector": wizNextStep,
+			"wiz-btn-back-housing": wizPrevStep,
+			"wiz-btn-next-housing": wizNextStep,
+			"wiz-btn-back-jurisdiction": wizPrevStep,
+			"wiz-btn-next-jurisdiction": wizNextStep,
+			"wiz-btn-back-family": wizPrevStep,
+			"wiz-btn-next-family": wizNextStep,
+			"wiz-btn-back-extras": wizPrevStep,
+			"wiz-btn-next-extras": wizFinish,
+			"wiz-btn-skip-extras": wizFinish,
+			"wiz-restart-btn": wizRestart
+		};
+		for (var btnId in wizNavMap) {
+			var el = document.getElementById(btnId);
+			if (el) el.addEventListener("click", wizNavMap[btnId]);
+		}
+
+		// Global function to start the wizard
+		window.startWizard = function () {
+			var defaultHero = document.getElementById("default-hero");
+			var welcomeBack = document.getElementById("welcome-back");
+			var wizardInline = document.getElementById("wizard-inline");
+
+			if (defaultHero) defaultHero.style.display = "none";
+			if (welcomeBack) welcomeBack.style.display = "none";
+			if (wizardInline) {
+				wizardInline.hidden = false;
+				wizGoToStep(0);
+			}
+		};
+	})();
+	</script>
 
 	<script is:inline define:vars={{ RANK_LABELS, STATUS_LABELS, JURISDICTION_LABELS }}>
 		(function () {
@@ -1031,7 +1516,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					return esc(name) + " se ha modificado <strong>" + law.reform_count + " veces</strong>";
 				}
 				var html = '<ul class="fact-list">';
-				var limit = Math.min(data.data.length, 6);
+				var limit = Math.min(data.data.length, 4);
 				for (var i = 0; i < limit; i++) {
 					var law = data.data[i];
 					html += '<li class="fact-item"><a href="/laws/' + encodeURIComponent(law.id) + '" class="fact-link">' + buildFact(law) + '</a></li>';
@@ -1053,7 +1538,8 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
 				}
 				var html = '<ul class="recent-list">';
-				for (var i = 0; i < data.data.length; i++) {
+				var recentLimit = Math.min(data.data.length, 5);
+				for (var i = 0; i < recentLimit; i++) {
 					var r = data.data[i];
 					var displayText = r.citizen_summary || r.title;
 					html += '<li class="recent-item"><span class="recent-date">' + formatDate(r.last_reform) + '</span>';

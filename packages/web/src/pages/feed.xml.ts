@@ -2,6 +2,7 @@
  * RSS feed generated from Content Collections at build time.
  */
 
+// @ts-expect-error — astro:content is a virtual module resolved by the Astro compiler
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
 import { escapeHtml } from "../lib/escape.ts";
@@ -15,12 +16,16 @@ export const GET: APIRoute = async () => {
 
 	// Sort by most recently updated
 	const sorted = laws
-		.sort((a, b) =>
-			b.data.ultima_actualizacion.localeCompare(a.data.ultima_actualizacion),
+		.sort(
+			(
+				a: { data: Record<string, string> },
+				b: { data: Record<string, string> },
+			) =>
+				b.data.ultima_actualizacion.localeCompare(a.data.ultima_actualizacion),
 		)
 		.slice(0, 50);
 
-	const items = sorted.map((law) => {
+	const items = sorted.map((law: { data: Record<string, string> }) => {
 		const d = law.data;
 		return `    <item>
       <title>${escapeHtml(d.titulo)}</title>

@@ -1,7 +1,7 @@
 /**
  * Generate citizen-friendly tags and summaries for laws using LLM.
  *
- * Reads norms from SQLite, calls Gemini 3.1 Flash Lite via OpenRouter,
+ * Reads norms from SQLite, calls Gemini 2.5 Flash Lite via OpenRouter,
  * stores citizen_tags and citizen_summary back in the DB.
  *
  * Usage:
@@ -62,7 +62,7 @@ if (!apiKey) {
 
 // ── Constants ──
 
-const MODEL = "google/gemini-3.1-flash-lite-preview";
+const MODEL = "google/gemini-2.5-flash-lite";
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DELAY_MS = 0;
 const TIMEOUT_MS = 30_000;
@@ -74,16 +74,65 @@ const ARTICLE_MIN_TEXT_LENGTH = 50;
 
 const LAW_SYSTEM_PROMPT = `Eres un clasificador de legislación española. Tu trabajo es analizar una ley y generar metadatos orientados a ciudadanos, NO a juristas.
 
-Genera:
-1. citizen_tags: Array de 5-10 tags en español llano. Piensa en cómo buscaría un ciudadano normal. Incluye situaciones específicas, no solo temas genéricos. Ejemplo para la Ley de Seguridad Social: "subsidio mayores 52", "prestación por desempleo", "baja por maternidad", "pensión viudedad", "incapacidad temporal".
-2. citizen_summary: Frase de máximo 150 caracteres en lenguaje llano. Sin jerga legal. Con acentos correctos.
+- citizen_tags: 5-10 tags en español llano. Piensa en cómo buscaría un ciudadano normal. Incluye situaciones específicas, no solo temas genéricos. Ejemplo para la Ley de Seguridad Social: "subsidio mayores 52", "prestación por desempleo", "baja por maternidad", "pensión viudedad", "incapacidad temporal".
+- citizen_summary: Frase de máximo 150 caracteres en lenguaje llano. Sin jerga legal. Con acentos correctos.`;
 
-Responde SOLO con un objeto JSON válido: { "citizen_tags": [...], "citizen_summary": "..." }`;
+const ARTICLE_SYSTEM_PROMPT = `Eres un redactor institucional que traduce artículos legales españoles a lenguaje accesible para ciudadanos.
 
-const ARTICLE_SYSTEM_PROMPT = `Eres un clasificador de artículos legales españoles. Para cada artículo, genera tags y resumen orientados a ciudadanos.
+Tono: serio e informativo, como una institución pública que explica derechos y obligaciones. NO uses tono coloquial ni de blog. Evita jerga jurídica, pero mantén la seriedad. Ejemplo: "Tienes derecho a..." es correcto; "Puedes..." es demasiado informal.
 
-Responde con un array JSON: [{ "block_id": "...", "citizen_tags": ["..."], "citizen_summary": "..." }, ...]
-Solo incluye artículos que sean relevantes para ciudadanos. Si un artículo es puramente procedimental o técnico, devuelve citizen_tags vacío y citizen_summary vacío.`;
+- citizen_tags: 3-5 tags en español llano, como buscaría un ciudadano normal.
+- citizen_summary: Resumen de máximo 280 caracteres. Lenguaje claro y serio, sin jerga legal. Con acentos correctos. Incluye los datos concretos más relevantes (plazos, requisitos, cantidades) cuando los haya.
+Si un artículo es puramente procedimental o técnico, devuelve citizen_tags vacío y citizen_summary vacío.`;
+
+// ── JSON Schemas for structured outputs ──
+
+const LAW_SCHEMA = {
+	name: "law_citizen_metadata",
+	strict: true,
+	schema: {
+		type: "object",
+		properties: {
+			citizen_tags: {
+				type: "array",
+				items: { type: "string" },
+			},
+			citizen_summary: { type: "string" },
+		},
+		required: ["citizen_tags", "citizen_summary"],
+		additionalProperties: false,
+	},
+};
+
+const ARTICLE_ITEM_SCHEMA = {
+	type: "object" as const,
+	properties: {
+		block_id: { type: "string" as const },
+		citizen_tags: {
+			type: "array" as const,
+			items: { type: "string" as const },
+		},
+		citizen_summary: { type: "string" as const },
+	},
+	required: ["block_id", "citizen_tags", "citizen_summary"],
+	additionalProperties: false,
+};
+
+const ARTICLE_SCHEMA = {
+	name: "article_citizen_metadata",
+	strict: true,
+	schema: {
+		type: "object",
+		properties: {
+			articles: {
+				type: "array",
+				items: ARTICLE_ITEM_SCHEMA,
+			},
+		},
+		required: ["articles"],
+		additionalProperties: false,
+	},
+};
 
 // ── Open DB ──
 
@@ -186,6 +235,7 @@ async function callLlm(
 	systemPrompt: string,
 	userPrompt: string,
 	maxTokens: number,
+	schema: { name: string; strict: boolean; schema: object },
 ): Promise<LlmResponse | null> {
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
 		try {
@@ -209,7 +259,10 @@ async function callLlm(
 					],
 					temperature: 0.2,
 					max_tokens: maxTokens,
-					response_format: { type: "json_object" },
+					response_format: {
+						type: "json_schema",
+						json_schema: schema,
+					},
 				}),
 			});
 
@@ -229,7 +282,8 @@ async function callLlm(
 				return null;
 			}
 
-			const data = await response.json();
+			// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
+			const data = (await response.json()) as any;
 			const usage = data.usage ?? {};
 			const content = data.choices?.[0]?.message?.content ?? "";
 
@@ -256,12 +310,8 @@ async function callLlm(
 }
 
 function parseJson(raw: string): unknown | null {
-	let text = raw.trim();
-	if (text.startsWith("```")) {
-		text = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-	}
 	try {
-		return JSON.parse(text);
+		return JSON.parse(raw);
 	} catch {
 		return null;
 	}
@@ -270,7 +320,7 @@ function parseJson(raw: string): unknown | null {
 // ── Process norms ──
 
 for (let i = 0; i < norms.length; i++) {
-	const norm = norms[i];
+	const norm = norms[i]!;
 	const jsonPath = join(WORKSPACE_ROOT, "data", "json", `${norm.id}.json`);
 
 	// Read article text from JSON cache
@@ -311,7 +361,12 @@ MATERIAS: ${materias.join(", ") || "sin materias"}
 TEXTO (primeros 2000 chars):
 ${articleText.slice(0, 2000)}`;
 
-	const lawResult = await callLlm(LAW_SYSTEM_PROMPT, userPrompt, 1500);
+	const lawResult = await callLlm(
+		LAW_SYSTEM_PROMPT,
+		userPrompt,
+		1500,
+		LAW_SCHEMA,
+	);
 
 	if (!lawResult) {
 		console.error(
@@ -322,31 +377,14 @@ ${articleText.slice(0, 2000)}`;
 		continue;
 	}
 
-	let lawData = parseJson(lawResult.content) as {
-		citizen_tags?: string[];
-		citizen_summary?: string;
+	const lawData = parseJson(lawResult.content) as {
+		citizen_tags: string[];
+		citizen_summary: string;
 	} | null;
-
-	// Retry once on JSON parse failure
-	if (!lawData) {
-		console.error(`    JSON parse failed, retrying...`);
-		const retryResult = await callLlm(LAW_SYSTEM_PROMPT, userPrompt, 1500);
-		if (retryResult) {
-			lawData = parseJson(retryResult.content) as {
-				citizen_tags?: string[];
-				citizen_summary?: string;
-			} | null;
-			if (retryResult) {
-				lawResult.inputTokens += retryResult.inputTokens;
-				lawResult.outputTokens += retryResult.outputTokens;
-				lawResult.cost += retryResult.cost;
-			}
-		}
-	}
 
 	if (!lawData) {
 		console.error(
-			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: JSON parse failed after retry`,
+			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: JSON parse failed`,
 		);
 		errorCount++;
 		await Bun.sleep(DELAY_MS);
@@ -417,40 +455,31 @@ ${articleText.slice(0, 2000)}`;
 				ARTICLE_SYSTEM_PROMPT,
 				articleUserPrompt,
 				4000,
+				ARTICLE_SCHEMA,
 			);
 
 			if (!batchResult) continue;
 
-			let batchData = parseJson(batchResult.content) as Array<{
-				block_id: string;
-				citizen_tags?: string[];
-				citizen_summary?: string;
-			}> | null;
+			const batchParsed = parseJson(batchResult.content) as {
+				articles: Array<{
+					block_id: string;
+					citizen_tags: string[];
+					citizen_summary: string;
+				}>;
+			} | null;
 
-			// Retry once on JSON parse failure
-			if (!batchData) {
-				const retryBatch = await callLlm(
-					ARTICLE_SYSTEM_PROMPT,
-					articleUserPrompt,
-					4000,
-				);
-				if (retryBatch) {
-					batchData = parseJson(retryBatch.content) as typeof batchData;
-					batchResult.inputTokens += retryBatch.inputTokens;
-					batchResult.outputTokens += retryBatch.outputTokens;
-					batchResult.cost += retryBatch.cost;
-				}
-			}
-
-			if (!batchData || !Array.isArray(batchData)) continue;
+			if (!batchParsed) continue;
+			const batchData = batchParsed.articles;
 
 			totalInputTokens += batchResult.inputTokens;
 			totalOutputTokens += batchResult.outputTokens;
 			totalCost += batchResult.cost;
 			articleCost += batchResult.cost;
 
+			const validBlockIds = new Set(batch.map((b) => b.block_id));
+
 			for (const article of batchData) {
-				if (!article.block_id) continue;
+				if (!article.block_id || !validBlockIds.has(article.block_id)) continue;
 
 				if (article.citizen_tags && article.citizen_tags.length > 0) {
 					for (const tag of article.citizen_tags) {

@@ -9,18 +9,18 @@ import type { Block, NormMetadata, Reform } from "../models.ts";
 import { extractJurisdiction } from "./slug.ts";
 
 export interface AnalisisData {
-	materias: string[];
-	notas: string[];
-	referencias: {
-		anteriores: Array<{
-			normId: string;
-			relation: string;
-			text: string;
+	readonly materias: readonly string[];
+	readonly notas: readonly string[];
+	readonly referencias: {
+		readonly anteriores: ReadonlyArray<{
+			readonly normId: string;
+			readonly relation: string;
+			readonly text: string;
 		}>;
-		posteriores: Array<{
-			normId: string;
-			relation: string;
-			text: string;
+		readonly posteriores: ReadonlyArray<{
+			readonly normId: string;
+			readonly relation: string;
+			readonly text: string;
 		}>;
 	};
 }

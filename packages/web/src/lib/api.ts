@@ -19,7 +19,7 @@ async function fetchApi<T>(path: string, retries = 3): Promise<T> {
 				}
 				throw new Error(`API ${res.status}: ${path} (retryable)`);
 			}
-			return res.json();
+			return res.json() as Promise<T>;
 		} catch (err) {
 			const isRetryable =
 				err instanceof Error && err.message.includes("(retryable)");
@@ -152,30 +152,6 @@ export function getLawAnalisis(id: string): Promise<AnalisisResult> {
 	return fetchApi(`/v1/laws/${id}/analisis`);
 }
 
-export interface AnomalyItem {
-	type?: string;
-	norm_id: string;
-	title: string;
-	date?: string;
-	source_id?: string;
-	block_id?: string;
-	block_type?: string;
-	materia?: string;
-	id?: string;
-	source_url?: string;
-}
-
-export interface AnomaliesResult {
-	futureDates: AnomalyItem[];
-	emptyBlocks: AnomalyItem[];
-	unresolvedMaterias: AnomalyItem[];
-	missingEli: AnomalyItem[];
-}
-
-export function getAnomalies(): Promise<AnomaliesResult> {
-	return fetchApi("/v1/anomalias");
-}
-
 export interface Stats {
 	norms: number;
 	articles: number;
@@ -267,21 +243,33 @@ export async function subscribe(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ email, profileId, jurisdiction }),
 	});
-	return res.json();
+	return res.json() as Promise<{
+		ok?: boolean;
+		error?: string;
+		message?: string;
+	}>;
 }
 
 export async function confirmSubscription(
 	token: string,
 ): Promise<{ ok?: boolean; error?: string; message?: string }> {
 	const res = await fetch(`${API_BASE}/v1/alerts/confirm/${token}`);
-	return res.json();
+	return res.json() as Promise<{
+		ok?: boolean;
+		error?: string;
+		message?: string;
+	}>;
 }
 
 export async function cancelSubscription(
 	token: string,
 ): Promise<{ ok?: boolean; error?: string; message?: string }> {
 	const res = await fetch(`${API_BASE}/v1/alerts/unsubscribe/${token}`);
-	return res.json();
+	return res.json() as Promise<{
+		ok?: boolean;
+		error?: string;
+		message?: string;
+	}>;
 }
 
 // ── Omnibus endpoints ──
@@ -314,4 +302,123 @@ export async function getOmnibusDetail(
 	} catch {
 		return null;
 	}
+}
+
+// ── Bill impact preview endpoints ──
+
+export interface BillListItem {
+	bocg_id: string;
+	title: string;
+	legislature: number;
+	series: string;
+	publication_date: string;
+	pdf_url: string;
+	alert_level: string; // "ok" | "high" | "critical"
+	bill_type?: string; // "new_law" | "amendment" | "mixed"
+	total_modifications: number;
+	laws_modified: number;
+	critical_alerts: number;
+	high_alerts: number;
+	has_penalty_changes: boolean;
+	has_type_eliminations: boolean;
+	analyzed_at: string;
+}
+
+export interface BillsResult {
+	data: BillListItem[];
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export interface BillModification {
+	ordinal: string;
+	change_type: string;
+	target_provision: string;
+	new_text: string;
+	penalty_risk: string;
+	penalty_detail?: unknown;
+}
+
+export interface BillModificationGroup {
+	title: string;
+	target_law: string;
+	norm_id: string;
+	modifications: BillModification[];
+}
+
+export interface BillDerogation {
+	target_law: string;
+	norm_id: string;
+	scope: string;
+	target_provisions: string;
+	source_text: string;
+}
+
+export interface BillEntity {
+	name: string;
+	entity_type: string;
+	article: string;
+	description: string;
+}
+
+export interface BillImpact {
+	norm_id: string;
+	target_law: string;
+	analysis: {
+		summary?: string;
+		variables?: Array<{
+			variable: string;
+			current_state: string;
+			proposed_state: string;
+			impact_risk: string;
+			retroactivity: boolean;
+			explanation: string;
+		}>;
+	};
+	blast_radius: Array<{
+		normId: string;
+		title: string;
+		relation: string;
+		articleRefs: string[];
+	}>;
+	generated_at: string;
+	model: string;
+}
+
+export interface BillDetail {
+	bocg_id: string;
+	title: string;
+	legislature: number;
+	series: string;
+	publication_date: string;
+	pdf_url: string;
+	alert_level: string;
+	bill_type?: string; // "new_law" | "amendment" | "mixed"
+	summary: {
+		total_modifications: number;
+		laws_modified: number;
+		critical_alerts: number;
+		high_alerts: number;
+		has_penalty_changes: boolean;
+		has_type_eliminations: boolean;
+	};
+	transitional_check: unknown;
+	modification_groups: BillModificationGroup[];
+	derogations: BillDerogation[];
+	new_entities: BillEntity[];
+	impacts: BillImpact[];
+	analyzed_at: string;
+	model: string;
+}
+
+export function getBills(
+	params?: Record<string, string>,
+): Promise<BillsResult> {
+	const qs = params ? `?${new URLSearchParams(params)}` : "";
+	return fetchApi(`/v1/bills${qs}`);
+}
+
+export function getBillDetail(bocgId: string): Promise<BillDetail> {
+	return fetchApi(`/v1/bills/${bocgId}`);
 }

@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Bill Impact Preview ("Radar Legislativo") — analyzes proposed legislation before approval
+  - Parser: detects modifications, derogations, and new entities from BOCG PDFs
+  - Derogation detection: finds laws/articles being repealed (LLM + regex fallback)
+  - Entity detection: identifies new registries, agencies, systems created by bills (LLM)
+  - Bill type classification: new_law, amendment, or mixed
+  - Penalty analysis: detects penalty reductions, type eliminations, missing transitional provisions
+  - Blast radius: finds other laws affected via reference graph
+  - DB schema: bills, bill_modifications, bill_impacts, bill_derogations, bill_entities tables
+  - API: GET /v1/bills (list with filters) and GET /v1/bills/:bocgId (full detail)
+  - UI: /propuestas (list with filter chips, alert badges) and /propuestas/detalle (3-tab detail)
+  - LLM false positive post-filter in impact analysis
+  - 460 tests, 47 bills benchmarked, 0 regressions
+
+### Changed
+- Refactored bill parser from single 1533-line file into 9 focused modules
+- Architecture: regex for structural patterns (99.4% accuracy), LLM for semantic extraction
+- "Propuestas" link added to main navbar
+
 ## [0.1.0.0] - 2026-04-05
 
 ### Added

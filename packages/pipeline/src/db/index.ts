@@ -8,7 +8,12 @@
 import { Database } from "bun:sqlite";
 import { createSchema } from "./schema.ts";
 
-export { type IngestResult, ingestJsonDir } from "./ingest.ts";
+export {
+	type IngestResult,
+	ingestJsonDir,
+	normalizeArticle,
+	validateNorm,
+} from "./ingest.ts";
 export { createSchema } from "./schema.ts";
 
 const DEFAULT_DB_PATH = "./data/leyabierta.db";

@@ -15,7 +15,7 @@ import { callOpenRouter, OpenRouterError } from "../services/openrouter.ts";
 import { getArg, hasFlag, setupDb } from "./shared.ts";
 
 const limitArg = Number(getArg("limit") ?? 100);
-const modelId = getArg("model") ?? "google/gemini-3.1-flash-lite-preview";
+const modelId = getArg("model") ?? "google/gemini-2.5-flash-lite";
 const dryRun = hasFlag("dry-run");
 
 const apiKey = process.env.OPENROUTER_API_KEY;
