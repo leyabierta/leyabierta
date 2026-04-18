@@ -16,6 +16,7 @@ import {
 	buildTemporalEvidence,
 	enrichWithTemporalContext,
 } from "./temporal.ts";
+import { type RagTrace, startTrace } from "./tracing.ts";
 
 // ── Config ──
 
@@ -109,15 +110,57 @@ export class RagPipeline {
 
 	async ask(request: AskRequest): Promise<AskResponse> {
 		const start = Date.now();
+		const trace = startTrace(request.question, {
+			jurisdiction: request.jurisdiction,
+			model: this.model,
+		});
 
+		try {
+			return await this.runPipeline(request, start, trace);
+		} catch (err) {
+			trace.end({
+				error: err instanceof Error ? err.message : String(err),
+				latencyMs: Date.now() - start,
+			});
+			throw err;
+		}
+	}
+
+	private async runPipeline(
+		request: AskRequest,
+		start: number,
+		trace: RagTrace,
+	): Promise<AskResponse> {
 		// 1. Analyze query + embed query in parallel (independent operations)
+		const analysisSpan = trace.span("query-analysis", "llm", {
+			question: request.question,
+		});
+
 		const store = await this.getEmbeddingStore();
 		const [analyzed, queryResult] = await Promise.all([
 			this.analyzeQuery(request.question),
 			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
 		]);
 
+		analysisSpan.end(
+			{
+				keywords: analyzed.keywords,
+				materias: analyzed.materias,
+				temporal: analyzed.temporal,
+			},
+			{
+				embeddingCost: queryResult.cost,
+				embeddingTokens: queryResult.tokens,
+			},
+		);
+
 		// 2. Vector search (filter by minimum similarity to avoid irrelevant results)
+		const retrievalSpan = trace.span("retrieval", "tool", {
+			topK: TOP_K,
+			embeddingModel: EMBEDDING_MODEL_KEY,
+			storeSize: store.count,
+		});
+
 		const MIN_SIMILARITY = 0.35;
 		const vectorResults = vectorSearch(
 			queryResult.embedding,
@@ -128,8 +171,36 @@ export class RagPipeline {
 		// 3. Get full article data
 		const articles = this.getArticleData(vectorResults.slice(0, TOP_K));
 
+		retrievalSpan.end(
+			{
+				resultsBeforeFilter: vectorResults.length + articles.length,
+				resultsAfterFilter: vectorResults.length,
+				articlesRetrieved: articles.length,
+				chunks: articles.map((a) => ({
+					normId: a.normId,
+					blockId: a.blockId,
+					blockTitle: a.blockTitle,
+					normTitle: a.normTitle,
+					score:
+						vectorResults.find(
+							(r) => r.normId === a.normId && r.blockId === a.blockId,
+						)?.score ?? null,
+				})),
+			},
+			{
+				minSimilarity: MIN_SIMILARITY,
+				scoreRange:
+					vectorResults.length > 0
+						? {
+								max: vectorResults[0].score,
+								min: vectorResults[vectorResults.length - 1].score,
+							}
+						: null,
+			},
+		);
+
 		if (articles.length === 0) {
-			return {
+			const result: AskResponse = {
 				answer:
 					"No he encontrado artículos relevantes en la legislación española consolidada para responder a tu pregunta.",
 				citations: [],
@@ -141,6 +212,8 @@ export class RagPipeline {
 					model: this.model,
 				},
 			};
+			trace.end({ ...result, reason: "no_articles_found" });
+			return result;
 		}
 
 		// 4. Build evidence (with temporal enrichment if needed)
@@ -174,6 +247,13 @@ export class RagPipeline {
 		}
 
 		// 5. Synthesize
+		const synthesisSpan = trace.span("synthesis", "llm", {
+			question: request.question,
+			evidenceChars: evidenceText.length,
+			evidenceApproxTokens: Math.ceil(evidenceText.length / 4),
+			temporal: useTemporal,
+		});
+
 		const systemPrompt = useTemporal
 			? SYSTEM_PROMPT + TEMPORAL_ADDENDUM
 			: SYSTEM_PROMPT;
@@ -184,7 +264,19 @@ export class RagPipeline {
 			systemPrompt,
 		);
 
+		synthesisSpan.end({
+			declined: synthesis.declined,
+			answerLength: synthesis.answer.length,
+			rawCitationCount: synthesis.citations.length,
+			rawCitations: synthesis.citations,
+		});
+
 		// 6. Verify citations — check both norm AND article were in evidence
+		const verificationSpan = trace.span("citation-verification", "tool", {
+			rawCitations: synthesis.citations,
+			evidenceNormIds: [...new Set(articles.map((a) => a.normId))],
+		});
+
 		const evidenceKeys = new Set(
 			articles.map((a) => `${a.normId}:${a.blockTitle.toLowerCase()}`),
 		);
@@ -218,6 +310,22 @@ export class RagPipeline {
 			// If normId not in evidence at all, skip (fabricated citation)
 		}
 
+		const fabricatedCount = synthesis.citations.length - validCitations.length;
+		const verifiedCount = validCitations.filter((c) => c.verified).length;
+		const approxCount = validCitations.filter((c) => !c.verified).length;
+
+		verificationSpan.end({
+			totalRaw: synthesis.citations.length,
+			verified: verifiedCount,
+			approximate: approxCount,
+			fabricated: fabricatedCount,
+			validCitations: validCitations.map((c) => ({
+				normId: c.normId,
+				articleTitle: c.articleTitle,
+				verified: c.verified,
+			})),
+		});
+
 		// 7. Generate missing citizen summaries on-demand (fire-and-forget)
 		this.generateMissingSummaries(validCitations, articles);
 
@@ -232,7 +340,7 @@ export class RagPipeline {
 				"\n\n(Nota: Parte de la información no ha podido ser verificada con las fuentes disponibles.)";
 		}
 
-		return {
+		const result: AskResponse = {
 			answer: finalAnswer,
 			citations: validCitations,
 			declined: synthesis.declined,
@@ -243,6 +351,26 @@ export class RagPipeline {
 				model: this.model,
 			},
 		};
+
+		// End trace with quality scores
+		trace.score(
+			"citation_accuracy",
+			synthesis.citations.length > 0
+				? verifiedCount / synthesis.citations.length
+				: 1,
+			`${verifiedCount} verified, ${approxCount} approx, ${fabricatedCount} fabricated`,
+		);
+
+		trace.end({
+			answer: finalAnswer.slice(0, 500),
+			declined: synthesis.declined,
+			articlesRetrieved: articles.length,
+			citationsVerified: verifiedCount,
+			citationsFabricated: fabricatedCount,
+			latencyMs: Date.now() - start,
+		});
+
+		return result;
 	}
 
 	// ── Private methods ──

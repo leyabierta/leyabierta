@@ -20,6 +20,7 @@ import { CitizenSummaryService } from "./services/citizen-summary.ts";
 import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 import { RagPipeline } from "./services/rag/pipeline.ts";
+import { flushTraces } from "./services/rag/tracing.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
@@ -73,7 +74,8 @@ process.on("SIGTERM", () => {
 	isShuttingDown = true;
 	console.log("SIGTERM received, shutting down gracefully...");
 	// Wait 30s for in-flight requests + fire-and-forget LLM calls to complete
-	setTimeout(() => {
+	setTimeout(async () => {
+		await flushTraces();
 		db.close();
 		process.exit(0);
 	}, 30_000);
