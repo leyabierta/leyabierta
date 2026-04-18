@@ -103,6 +103,7 @@ export class RagPipeline {
 	private loadingPromise: Promise<EmbeddingStore> | null = null;
 
 	private insertSummaryStmt: ReturnType<Database["prepare"]>;
+	private insertAskLogStmt: ReturnType<Database["prepare"]>;
 
 	constructor(
 		private db: Database,
@@ -112,6 +113,25 @@ export class RagPipeline {
 	) {
 		this.insertSummaryStmt = this.db.prepare(
 			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+		);
+
+		this.db.run(`CREATE TABLE IF NOT EXISTS ask_log (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			question TEXT NOT NULL,
+			jurisdiction TEXT,
+			answer TEXT,
+			declined INTEGER NOT NULL DEFAULT 0,
+			citations_count INTEGER NOT NULL DEFAULT 0,
+			articles_retrieved INTEGER NOT NULL DEFAULT 0,
+			latency_ms INTEGER NOT NULL DEFAULT 0,
+			model TEXT,
+			best_score REAL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`);
+
+		this.insertAskLogStmt = this.db.prepare(
+			`INSERT INTO ask_log (question, jurisdiction, answer, declined, citations_count, articles_retrieved, latency_ms, model, best_score)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		);
 	}
 
@@ -123,7 +143,27 @@ export class RagPipeline {
 		});
 
 		try {
-			return await this.runPipeline(request, start, trace);
+			const result = await this.runPipeline(request, start, trace);
+			try {
+				this.insertAskLogStmt.run(
+					request.question,
+					request.jurisdiction ?? null,
+					result.answer,
+					result.declined ? 1 : 0,
+					result.citations.length,
+					result.meta.articlesRetrieved,
+					result.meta.latencyMs,
+					result.meta.model,
+					result._bestScore ?? null,
+				);
+			} catch (logErr) {
+				console.warn(
+					"ask_log insert failed:",
+					logErr instanceof Error ? logErr.message : "unknown",
+				);
+			}
+			const { _bestScore: _, ...response } = result;
+			return response;
 		} catch (err) {
 			trace.end({
 				error: err instanceof Error ? err.message : String(err),
@@ -137,7 +177,7 @@ export class RagPipeline {
 		request: AskRequest,
 		start: number,
 		trace: RagTrace,
-	): Promise<AskResponse> {
+	): Promise<AskResponse & { _bestScore?: number }> {
 		// 1. Analyze query + embed query in parallel (independent operations)
 		const analysisSpan = trace.span("query-analysis", "llm", {
 			question: request.question,
@@ -429,7 +469,7 @@ export class RagPipeline {
 				"\n\n(Nota: Parte de la información no ha podido ser verificada con las fuentes disponibles.)";
 		}
 
-		const result: AskResponse = {
+		const result: AskResponse & { _bestScore?: number } = {
 			answer: finalAnswer,
 			citations: validCitations,
 			declined: synthesis.declined,
@@ -439,7 +479,24 @@ export class RagPipeline {
 				latencyMs: Date.now() - start,
 				model: this.model,
 			},
+			_bestScore: bestScore,
 		};
+
+		// 8. Citation completeness — verify inline citations in the answer
+		// include both norm ID and article (e.g. "[BOE-A-2015-11430, Artículo 38]")
+		// vs bare article references (e.g. "artículo 38" without norm ID)
+		const inlineCitePattern =
+			/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+[^\]]*)\]/g;
+		const inlineCites = [...finalAnswer.matchAll(inlineCitePattern)];
+		const bareArticlePattern =
+			/(?<!\[[A-Z]{2,5}-[A-Za-z]-\d{4}-\d+,\s*)(?:artículo|art\.)\s+\d+/gi;
+		const bareCites = [...finalAnswer.matchAll(bareArticlePattern)];
+		const citationCompleteness =
+			inlineCites.length + bareCites.length > 0
+				? inlineCites.length / (inlineCites.length + bareCites.length)
+				: synthesis.declined
+					? 1
+					: 0;
 
 		// End trace with quality scores
 		trace.score(
@@ -450,12 +507,21 @@ export class RagPipeline {
 			`${verifiedCount} verified, ${approxCount} approx, ${fabricatedCount} fabricated`,
 		);
 
+		trace.score(
+			"citation_completeness",
+			citationCompleteness,
+			`${inlineCites.length} complete inline, ${bareCites.length} bare article refs`,
+		);
+
 		trace.end({
 			answer: finalAnswer.slice(0, 500),
 			declined: synthesis.declined,
 			articlesRetrieved: articles.length,
 			citationsVerified: verifiedCount,
 			citationsFabricated: fabricatedCount,
+			citationCompleteness,
+			inlineCitationsFound: inlineCites.length,
+			bareArticleRefs: bareCites.length,
 			latencyMs: Date.now() - start,
 		});
 
