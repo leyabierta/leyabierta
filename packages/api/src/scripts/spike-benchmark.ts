@@ -26,6 +26,18 @@ import {
 	enrichWithTemporalContext,
 	buildTemporalEvidence,
 } from "../services/rag/temporal.ts";
+import {
+	reciprocalRankFusion,
+	type RankedItem,
+} from "../services/rag/rrf.ts";
+import {
+	ensureBlocksFts,
+	bm25HybridSearch,
+} from "../services/rag/blocks-fts.ts";
+import {
+	rerank,
+	type RerankerCandidate,
+} from "../services/rag/reranker.ts";
 import { HARD_QUESTIONS } from "../services/rag/spike-questions-hard.ts";
 import {
 	SPIKE_QUESTIONS,
@@ -63,6 +75,12 @@ db.exec("PRAGMA journal_mode = WAL");
 createSchema(db);
 
 const spikeFilter = SPIKE_LAW_IDS.map((id) => `'${id}'`).join(",");
+
+// Ensure article-level FTS5 exists for BM25 hybrid search
+ensureBlocksFts(db);
+
+const cohereApiKey = process.env.COHERE_API_KEY;
+let rerankerCost = 0;
 
 // ── Shared helpers ──
 
@@ -759,6 +777,197 @@ const strategies: Strategy[] = [
 			}));
 		},
 	},
+	{
+		name: "hybrid-rrf",
+		description: "Vector + BM25 article-level, fused with Reciprocal Rank Fusion (k=60)",
+		temporal: "auto",
+		retrieve: async (question, analyzed) => {
+			// System 1: Vector search (top 50)
+			const vectorResults = await vectorRetrieve(question, 50);
+			const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
+				key: `${r.normId}:${r.blockId}`,
+				score: r.score,
+			}));
+
+			// System 2: BM25 article-level search (top 50)
+			const expandedKeywords = analyzed.keywords ?? [];
+			const bm25Results = bm25HybridSearch(
+				db,
+				question,
+				expandedKeywords,
+				50,
+				SPIKE_LAW_IDS,
+			);
+			const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
+				key: `${r.normId}:${r.blockId}`,
+				score: 1 / r.rank, // convert rank to score (higher = better)
+			}));
+
+			// Fuse with RRF
+			const fused = reciprocalRankFusion(
+				new Map([
+					["vector", vectorRanked],
+					["bm25", bm25Ranked],
+				]),
+				60,
+				TOP_K * 2,
+			);
+
+			if (fused.length === 0) return [];
+
+			// Fetch full article data for fused results
+			const fusedKeys = new Set(fused.map((r) => r.key));
+			const fusedNormIds = [...new Set(fused.map((r) => r.key.split(":")[0]))];
+			const normFilterStr = fusedNormIds.map((id) => `'${id}'`).join(",");
+
+			const articles = db
+				.query<{
+					norm_id: string;
+					title: string;
+					block_id: string;
+					block_title: string;
+					current_text: string;
+					source_url: string;
+				}>(
+					`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
+                b.current_text, n.source_url
+         FROM blocks b
+         JOIN norms n ON n.id = b.norm_id
+         WHERE b.norm_id IN (${normFilterStr})
+           AND b.block_type = 'precepto'
+           AND b.current_text != ''`,
+				)
+				.all()
+				.filter((a) => fusedKeys.has(`${a.norm_id}:${a.block_id}`));
+
+			// Sort by RRF score
+			const rrfScoreMap = new Map(fused.map((r) => [r.key, r.rrfScore]));
+			articles.sort(
+				(a, b) =>
+					(rrfScoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+					(rrfScoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0),
+			);
+
+			return articles.slice(0, TOP_K).map((a) => ({
+				normId: a.norm_id,
+				blockId: a.block_id,
+				normTitle: a.title,
+				blockTitle: a.block_title,
+				text: a.current_text,
+				sourceUrl: a.source_url,
+			}));
+		},
+	},
+	{
+		name: "hybrid-rrf-reranker",
+		description: "Vector + BM25 RRF (top 50) → Reranker → top 8",
+		temporal: "auto",
+		retrieve: async (question, analyzed) => {
+			// System 1: Vector search (top 50)
+			const vectorResults = await vectorRetrieve(question, 50);
+			const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
+				key: `${r.normId}:${r.blockId}`,
+				score: r.score,
+			}));
+
+			// System 2: BM25 article-level search (top 50)
+			const expandedKeywords = analyzed.keywords ?? [];
+			const bm25Results = bm25HybridSearch(
+				db,
+				question,
+				expandedKeywords,
+				50,
+				SPIKE_LAW_IDS,
+			);
+			const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
+				key: `${r.normId}:${r.blockId}`,
+				score: 1 / r.rank,
+			}));
+
+			// Fuse with RRF — wider pool for reranker
+			const fused = reciprocalRankFusion(
+				new Map([
+					["vector", vectorRanked],
+					["bm25", bm25Ranked],
+				]),
+				60,
+				50, // wider pool for reranker to pick from
+			);
+
+			if (fused.length === 0) return [];
+
+			// Fetch full article data for ALL fused results (reranker needs text)
+			const fusedKeys = new Set(fused.map((r) => r.key));
+			const fusedNormIds = [...new Set(fused.map((r) => r.key.split(":")[0]))];
+			const normFilterStr = fusedNormIds.map((id) => `'${id}'`).join(",");
+
+			const allArticles = db
+				.query<{
+					norm_id: string;
+					title: string;
+					block_id: string;
+					block_title: string;
+					current_text: string;
+					source_url: string;
+				}>(
+					`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
+                b.current_text, n.source_url
+         FROM blocks b
+         JOIN norms n ON n.id = b.norm_id
+         WHERE b.norm_id IN (${normFilterStr})
+           AND b.block_type = 'precepto'
+           AND b.current_text != ''`,
+				)
+				.all()
+				.filter((a) => fusedKeys.has(`${a.norm_id}:${a.block_id}`));
+
+			// Build reranker candidates
+			const articleMap = new Map(
+				allArticles.map((a) => [`${a.norm_id}:${a.block_id}`, a]),
+			);
+			const candidates: RerankerCandidate[] = fused
+				.map((r) => {
+					const article = articleMap.get(r.key);
+					if (!article) return null;
+					return {
+						key: r.key,
+						title: article.block_title,
+						text: article.current_text,
+					};
+				})
+				.filter((c): c is RerankerCandidate => c !== null);
+
+			// Rerank
+			const reranked = await rerank(question, candidates, TOP_K, {
+				cohereApiKey,
+				openrouterApiKey: apiKey,
+			});
+			rerankerCost += reranked.cost;
+
+			// Map back to ArticleResult
+			const rerankedKeys = new Set(reranked.results.map((r) => r.key));
+			const rerankedOrder = new Map(
+				reranked.results.map((r) => [r.key, r.rank]),
+			);
+
+			const finalArticles = allArticles
+				.filter((a) => rerankedKeys.has(`${a.norm_id}:${a.block_id}`))
+				.sort(
+					(a, b) =>
+						(rerankedOrder.get(`${a.norm_id}:${a.block_id}`) ?? 999) -
+						(rerankedOrder.get(`${b.norm_id}:${b.block_id}`) ?? 999),
+				);
+
+			return finalArticles.map((a) => ({
+				normId: a.norm_id,
+				blockId: a.block_id,
+				normTitle: a.title,
+				blockTitle: a.block_title,
+				text: a.current_text,
+				sourceUrl: a.source_url,
+			}));
+		},
+	},
 ];
 
 // ── Benchmark runner ──
@@ -972,7 +1181,8 @@ async function main() {
 	console.log(`  Analyzer cost:        $${analyzerCost.toFixed(6)}`);
 	console.log(`  Synthesis cost:       $${synthCost.toFixed(6)}`);
 	console.log(`  Embedding query cost: $${embeddingCost.toFixed(6)}`);
-	const totalBenchCost = analyzerCost + synthCost + embeddingCost;
+	console.log(`  Reranker cost:        $${rerankerCost.toFixed(6)}`);
+	const totalBenchCost = analyzerCost + synthCost + embeddingCost + rerankerCost;
 	console.log(`  Total cost:           $${totalBenchCost.toFixed(6)}`);
 	console.log(`  Total tokens in:      ${totalTokensIn.toLocaleString()}`);
 	console.log(`  Total tokens out:     ${totalTokensOut.toLocaleString()}`);
