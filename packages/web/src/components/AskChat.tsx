@@ -49,7 +49,7 @@ const EXAMPLE_QUESTIONS = [
 // ── Citation parsing ──
 
 // Match BOE and regional bulletin IDs: BOE-A-YYYY-NNNNN, BOA-d-NNNNN, BOJA-b-NNNNN, DOGV-i-NNNNN, etc.
-const CITE_RE =
+const CITE_PATTERN =
 	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
 
 function buildCitationMap(citations: Citation[]): Map<string, Citation> {
@@ -70,11 +70,8 @@ function renderAnswerWithCitations(
 	return paragraphs.map((paragraph, pIdx) => {
 		const parts: ReactNode[] = [];
 		let lastIndex = 0;
-		let match: RegExpExecArray | null;
 
-		CITE_RE.lastIndex = 0;
-
-		while ((match = CITE_RE.exec(paragraph)) !== null) {
+		for (const match of paragraph.matchAll(CITE_PATTERN)) {
 			if (match.index > lastIndex) {
 				parts.push(paragraph.slice(lastIndex, match.index));
 			}
@@ -176,8 +173,7 @@ function loadTurns(): Turn[] {
 
 function saveTurns(turns: Turn[]) {
 	try {
-		// Only save completed turns (with response or error)
-		const completed = turns.filter((t) => t.response || t.error);
+		const completed = turns.filter((t) => t.response || t.error).slice(-20);
 		sessionStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
 	} catch {
 		/* ignore */

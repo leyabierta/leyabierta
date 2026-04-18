@@ -77,8 +77,7 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 	},
 	{
 		id: 203,
-		question:
-			"¿Es legal que mi empresa lea mis correos del trabajo?",
+		question: "¿Es legal que mi empresa lea mis correos del trabajo?",
 		category: "cross-law",
 		expectedNorms: ["BOE-A-2018-16673", "BOE-A-2015-11430"],
 		expectedAnswer:
@@ -97,8 +96,7 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 	},
 	{
 		id: 302,
-		question:
-			"Trabajo a media jornada. ¿Mis vacaciones son también la mitad?",
+		question: "Trabajo a media jornada. ¿Mis vacaciones son también la mitad?",
 		category: "clear",
 		expectedNorms: ["BOE-A-2015-11430"],
 		expectedAnswer:
@@ -152,8 +150,7 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 	},
 	{
 		id: 404,
-		question:
-			"Dame un resumen de todas las leyes de España sobre impuestos",
+		question: "Dame un resumen de todas las leyes de España sobre impuestos",
 		category: "clear",
 		expectedNorms: [],
 		expectedAnswer:

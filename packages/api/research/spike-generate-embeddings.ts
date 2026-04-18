@@ -11,12 +11,12 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "@leyabierta/pipeline";
-import { SPIKE_LAW_IDS } from "../services/rag/spike-laws.ts";
 import {
+	EMBEDDING_MODELS,
 	generateEmbeddings,
 	saveEmbeddings,
-	EMBEDDING_MODELS,
-} from "../services/rag/embeddings.ts";
+} from "../src/services/rag/embeddings.ts";
+import { SPIKE_LAW_IDS } from "./spike-laws.ts";
 
 const args = process.argv.slice(2);
 const getArg = (name: string) => {
@@ -111,7 +111,9 @@ const store = await generateEmbeddings(
 	(done, total) => {
 		const pct = ((done / total) * 100).toFixed(1);
 		const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-		process.stdout.write(`\r  Progress: ${done}/${total} (${pct}%) — ${elapsed}s`);
+		process.stdout.write(
+			`\r  Progress: ${done}/${total} (${pct}%) — ${elapsed}s`,
+		);
 	},
 );
 

@@ -16,12 +16,9 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "@leyabierta/pipeline";
-import { callOpenRouter } from "../services/openrouter.ts";
-import { SPIKE_LAW_IDS } from "../services/rag/spike-laws.ts";
-import {
-	SPIKE_QUESTIONS,
-	type SpikeQuestion,
-} from "../services/rag/spike-questions.ts";
+import { callOpenRouter } from "../src/services/openrouter.ts";
+import { SPIKE_LAW_IDS } from "./spike-laws.ts";
+import { SPIKE_QUESTIONS, type SpikeQuestion } from "./spike-questions.ts";
 
 // ── Config ──
 

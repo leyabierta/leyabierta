@@ -5,8 +5,7 @@
  * Supports brute-force cosine similarity search (sufficient for ~13K articles).
  */
 
-const OPENROUTER_EMBEDDINGS_URL =
-	"https://openrouter.ai/api/v1/embeddings";
+const OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings";
 const BATCH_SIZE = 50; // articles per API call
 const BACKOFF_MS = 1000;
 
@@ -42,6 +41,77 @@ export interface EmbeddingStore {
 	count: number;
 	articles: Array<{ normId: string; blockId: string }>;
 	vectors: Float32Array; // flattened: count × dimensions
+	norms: Float32Array; // pre-computed L2 norms per document
+}
+
+function computeNorms(
+	vectors: Float32Array,
+	count: number,
+	dims: number,
+): Float32Array {
+	const norms = new Float32Array(count);
+	for (let i = 0; i < count; i++) {
+		const offset = i * dims;
+		let sum = 0;
+		for (let j = 0; j < dims; j++) {
+			const v = vectors[offset + j];
+			sum += v * v;
+		}
+		norms[i] = Math.sqrt(sum);
+	}
+	return norms;
+}
+
+// ── Shared fetch with retry ──
+
+async function fetchWithRetry(
+	apiKey: string,
+	modelId: string,
+	input: string | string[],
+): Promise<Response> {
+	const maxRetries = 3;
+	let attempts = 0;
+
+	while (true) {
+		let response: Response;
+		try {
+			response = await fetch(OPENROUTER_EMBEDDINGS_URL, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"Content-Type": "application/json",
+					"HTTP-Referer": "https://leyabierta.es",
+					"X-Title": "Ley Abierta RAG",
+				},
+				body: JSON.stringify({ model: modelId, input }),
+			});
+
+			if (response.status === 429) {
+				attempts++;
+				if (attempts > maxRetries) {
+					throw new Error("Rate limited after max retries");
+				}
+				const delay = BACKOFF_MS * attempts * 2;
+				await new Promise((r) => setTimeout(r, delay));
+				continue;
+			}
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(
+					`Embedding API error ${response.status}: ${errorText.slice(0, 200)}`,
+				);
+			}
+
+			return response;
+		} catch (err) {
+			if (err instanceof Error && err.message.startsWith("Rate limited"))
+				throw err;
+			attempts++;
+			if (attempts > maxRetries) throw err;
+			await new Promise((r) => setTimeout(r, BACKOFF_MS * attempts));
+		}
+	}
 }
 
 // ── Generate embeddings ──
@@ -72,50 +142,9 @@ export async function generateEmbeddings(
 			return content;
 		});
 
-		let response: Response;
-		let attempts = 0;
-		const maxRetries = 3;
-
-		while (true) {
-			try {
-				response = await fetch(OPENROUTER_EMBEDDINGS_URL, {
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${apiKey}`,
-						"Content-Type": "application/json",
-						"HTTP-Referer": "https://leyabierta.es",
-						"X-Title": "Ley Abierta RAG",
-					},
-					body: JSON.stringify({
-						model: model.id,
-						input: texts,
-					}),
-				});
-
-				if (response.status === 429) {
-					attempts++;
-					if (attempts > maxRetries) {
-						throw new Error("Rate limited after max retries");
-					}
-					const delay = BACKOFF_MS * attempts * 2;
-					await new Promise((r) => setTimeout(r, delay));
-					continue;
-				}
-
-				break;
-			} catch (err) {
-				attempts++;
-				if (attempts > maxRetries) throw err;
-				await new Promise((r) => setTimeout(r, BACKOFF_MS * attempts));
-			}
-		}
-
-		if (!response!.ok) {
-			const errorText = await response!.text();
-			throw new Error(`Embedding API error ${response!.status}: ${errorText.slice(0, 200)}`);
-		}
-
-		const data = await response!.json();
+		const response = await fetchWithRetry(apiKey, model.id, texts);
+		// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
+		const data: any = await response.json();
 		const usage = data.usage ?? {};
 		totalCost += usage.cost ?? 0;
 		totalTokens += usage.total_tokens ?? 0;
@@ -148,12 +177,14 @@ export async function generateEmbeddings(
 		`  Embedding stats: ${allEmbeddings.length} articles, ${totalTokens.toLocaleString()} tokens, $${totalCost.toFixed(4)} cost`,
 	);
 
+	const norms = computeNorms(vectors, allEmbeddings.length, dims);
 	return {
 		model: modelKey,
 		dimensions: dims,
 		count: allEmbeddings.length,
 		articles: articleMeta,
 		vectors,
+		norms,
 	};
 }
 
@@ -183,7 +214,8 @@ export async function loadEmbeddings(path: string): Promise<EmbeddingStore> {
 	const meta = JSON.parse(await metaFile.text());
 	const vectorsBuffer = await Bun.file(`${path}.vectors.bin`).arrayBuffer();
 	const vectors = new Float32Array(vectorsBuffer);
-	return { ...meta, vectors };
+	const norms = computeNorms(vectors, meta.count, meta.dimensions);
+	return { ...meta, vectors, norms };
 }
 
 // ── Vector search (brute-force cosine similarity) ──
@@ -196,26 +228,9 @@ export async function embedQuery(
 	const model = EMBEDDING_MODELS[modelKey];
 	if (!model) throw new Error(`Unknown model: ${modelKey}`);
 
-	const response = await fetch(OPENROUTER_EMBEDDINGS_URL, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-			"HTTP-Referer": "https://leyabierta.es",
-			"X-Title": "Ley Abierta RAG",
-		},
-		body: JSON.stringify({
-			model: model.id,
-			input: query,
-		}),
-	});
-
-	if (!response.ok) {
-		const err = await response.text();
-		throw new Error(`Embedding API error: ${err.slice(0, 200)}`);
-	}
-
-	const data = await response.json();
+	const response = await fetchWithRetry(apiKey, model.id, query);
+	// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
+	const data: any = await response.json();
 	const usage = data.usage ?? {};
 	return {
 		embedding: new Float32Array(data.data[0].embedding),
@@ -236,6 +251,13 @@ export function vectorSearch(
 	topK: number = 10,
 ): VectorSearchResult[] {
 	const dims = store.dimensions;
+
+	if (queryEmbedding.length !== dims) {
+		throw new Error(
+			`Dimension mismatch: query=${queryEmbedding.length}, store=${dims}`,
+		);
+	}
+
 	const scores: Array<{ index: number; score: number }> = [];
 
 	// Precompute query norm
@@ -247,16 +269,13 @@ export function vectorSearch(
 
 	for (let i = 0; i < store.count; i++) {
 		const offset = i * dims;
+		const docNorm = store.norms[i];
 
-		// Cosine similarity
+		// Cosine similarity using pre-computed doc norms
 		let dotProduct = 0;
-		let docNorm = 0;
 		for (let j = 0; j < dims; j++) {
-			const docVal = store.vectors[offset + j];
-			dotProduct += queryEmbedding[j] * docVal;
-			docNorm += docVal * docVal;
+			dotProduct += queryEmbedding[j] * store.vectors[offset + j];
 		}
-		docNorm = Math.sqrt(docNorm);
 
 		const score =
 			queryNorm > 0 && docNorm > 0 ? dotProduct / (queryNorm * docNorm) : 0;

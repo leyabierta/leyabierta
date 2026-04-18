@@ -14,29 +14,32 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "@leyabierta/pipeline";
-import { callOpenRouter } from "../services/openrouter.ts";
+import { callOpenRouter } from "../src/services/openrouter.ts";
 import {
 	bm25HybridSearch,
 	ensureBlocksFts,
-} from "../services/rag/blocks-fts.ts";
+} from "../src/services/rag/blocks-fts.ts";
 import {
 	type EmbeddingStore,
 	embedQuery,
 	loadEmbeddings,
 	vectorSearch,
-} from "../services/rag/embeddings.ts";
-import { type RerankerCandidate, rerank } from "../services/rag/reranker.ts";
-import { type RankedItem, reciprocalRankFusion } from "../services/rag/rrf.ts";
-import { SPIKE_LAW_IDS } from "../services/rag/spike-laws.ts";
+} from "../src/services/rag/embeddings.ts";
 import {
-	SPIKE_QUESTIONS,
-	type SpikeQuestion,
-} from "../services/rag/spike-questions.ts";
-import { HARD_QUESTIONS } from "../services/rag/spike-questions-hard.ts";
+	type RerankerCandidate,
+	rerank,
+} from "../src/services/rag/reranker.ts";
+import {
+	type RankedItem,
+	reciprocalRankFusion,
+} from "../src/services/rag/rrf.ts";
 import {
 	buildTemporalEvidence,
 	enrichWithTemporalContext,
-} from "../services/rag/temporal.ts";
+} from "../src/services/rag/temporal.ts";
+import { SPIKE_LAW_IDS } from "./spike-laws.ts";
+import { SPIKE_QUESTIONS, type SpikeQuestion } from "./spike-questions.ts";
+import { HARD_QUESTIONS } from "./spike-questions-hard.ts";
 
 // ── Config ──
 

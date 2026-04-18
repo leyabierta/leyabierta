@@ -48,6 +48,7 @@ export interface Citation {
 	normTitle: string;
 	articleTitle: string;
 	citizenSummary?: string;
+	verified: boolean;
 }
 
 interface AnalyzedQuery {
@@ -93,12 +94,18 @@ export class RagPipeline {
 	private embeddingStore: EmbeddingStore | null = null;
 	private loadingPromise: Promise<EmbeddingStore> | null = null;
 
+	private insertSummaryStmt: ReturnType<Database["prepare"]>;
+
 	constructor(
 		private db: Database,
 		private apiKey: string,
 		private embeddingsPath: string,
 		private model: string = DEFAULT_MODEL,
-	) {}
+	) {
+		this.insertSummaryStmt = this.db.prepare(
+			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+		);
+	}
 
 	async ask(request: AskRequest): Promise<AskResponse> {
 		const start = Date.now();
@@ -185,7 +192,6 @@ export class RagPipeline {
 		const validCitations: Citation[] = [];
 
 		for (const c of synthesis.citations) {
-			// Strict match: norm + article title must both be in evidence
 			const strictKey = `${c.normId}:${c.articleTitle.toLowerCase()}`;
 			const normMatch = evidenceNorms.has(c.normId);
 			const strictMatch = evidenceKeys.has(strictKey);
@@ -197,16 +203,16 @@ export class RagPipeline {
 					normTitle: article?.normTitle ?? "",
 					articleTitle: c.articleTitle,
 					citizenSummary: article?.citizenSummary,
+					verified: true,
 				});
 			} else if (normMatch) {
-				// Norm exists in evidence but cited article doesn't match any block title.
-				// Still include but mark as unverified at article level.
 				const article = articles.find((a) => a.normId === c.normId);
 				validCitations.push({
 					normId: c.normId,
 					normTitle: article?.normTitle ?? "",
 					articleTitle: c.articleTitle,
 					citizenSummary: article?.citizenSummary,
+					verified: false,
 				});
 			}
 			// If normId not in evidence at all, skip (fabricated citation)
@@ -244,12 +250,15 @@ export class RagPipeline {
 	private async getEmbeddingStore(): Promise<EmbeddingStore> {
 		if (this.embeddingStore) return this.embeddingStore;
 		if (!this.loadingPromise) {
-			this.loadingPromise = loadEmbeddings(this.embeddingsPath).then(
-				(store) => {
+			this.loadingPromise = loadEmbeddings(this.embeddingsPath)
+				.then((store) => {
 					this.embeddingStore = store;
 					return store;
-				},
-			);
+				})
+				.catch((err) => {
+					this.loadingPromise = null;
+					throw err;
+				});
 		}
 		return this.loadingPromise;
 	}
@@ -300,8 +309,40 @@ Responde SOLO con JSON.`,
 				"vigente",
 			];
 			const isTemporal = temporalKeywords.some((kw) => lowerQ.includes(kw));
+			const STOP_WORDS = new Set([
+				"de",
+				"la",
+				"el",
+				"en",
+				"que",
+				"los",
+				"las",
+				"del",
+				"por",
+				"con",
+				"una",
+				"para",
+				"son",
+				"como",
+				"más",
+				"pero",
+				"sus",
+				"ese",
+				"esta",
+				"ser",
+				"está",
+				"tiene",
+				"hay",
+				"puede",
+				"qué",
+				"cuánto",
+				"cuántos",
+			]);
 			return {
-				keywords: question.split(/\s+/).filter((t) => t.length > 2),
+				keywords: question
+					.split(/\s+/)
+					.map((t) => t.toLowerCase().replace(/[¿?¡!.,;:]/g, ""))
+					.filter((t) => t.length > 2 && !STOP_WORDS.has(t)),
 				materias: [],
 				temporal: isTemporal,
 			};
@@ -418,10 +459,6 @@ Responde SOLO con JSON.`,
 		const MAX_BACKGROUND_SUMMARIES = 3;
 		const toProcess = missing.slice(0, MAX_BACKGROUND_SUMMARIES);
 
-		const insertSummary = this.db.prepare(
-			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
-		);
-
 		for (const citation of toProcess) {
 			const article = articles.find((a) => a.normId === citation.normId);
 			if (!article) continue;
@@ -466,7 +503,11 @@ Responde SOLO con JSON.`,
 						.replace(/[\x00-\x1f]/g, "")
 						.trim();
 					if (sanitized) {
-						insertSummary.run(article.normId, article.blockId, sanitized);
+						this.insertSummaryStmt.run(
+							article.normId,
+							article.blockId,
+							sanitized,
+						);
 					}
 				})
 				.catch((err) => {
