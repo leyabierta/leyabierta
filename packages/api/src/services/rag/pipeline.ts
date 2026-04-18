@@ -112,8 +112,11 @@ export class RagPipeline {
 
 		// 2. Vector search (filter by minimum similarity to avoid irrelevant results)
 		const MIN_SIMILARITY = 0.35;
-		const vectorResults = vectorSearch(queryResult.embedding, store, TOP_K * 2)
-			.filter((r) => r.score >= MIN_SIMILARITY);
+		const vectorResults = vectorSearch(
+			queryResult.embedding,
+			store,
+			TOP_K * 2,
+		).filter((r) => r.score >= MIN_SIMILARITY);
 
 		// 3. Get full article data
 		const articles = this.getArticleData(vectorResults.slice(0, TOP_K));
@@ -285,7 +288,17 @@ Responde SOLO con JSON.`,
 			);
 			// Fallback: extract keywords + detect temporal intent via keywords
 			const lowerQ = question.toLowerCase();
-			const temporalKeywords = ["cambio", "cambiado", "antes", "reforma", "historial", "modificación", "evolución", "anterior", "vigente"];
+			const temporalKeywords = [
+				"cambio",
+				"cambiado",
+				"antes",
+				"reforma",
+				"historial",
+				"modificación",
+				"evolución",
+				"anterior",
+				"vigente",
+			];
 			const isTemporal = temporalKeywords.some((kw) => lowerQ.includes(kw));
 			return {
 				keywords: question.split(/\s+/).filter((t) => t.length > 2),
@@ -449,6 +462,7 @@ Responde SOLO con JSON.`,
 					// Sanitize: strip HTML tags, control chars, and suspicious patterns
 					const sanitized = summary
 						.replace(/<[^>]*>/g, "")
+						// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of control chars
 						.replace(/[\x00-\x1f]/g, "")
 						.trim();
 					if (sanitized) {

@@ -15,34 +15,28 @@ import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "@leyabierta/pipeline";
 import { callOpenRouter } from "../services/openrouter.ts";
-import { SPIKE_LAW_IDS } from "../services/rag/spike-laws.ts";
 import {
-	loadEmbeddings,
-	embedQuery,
-	vectorSearch,
-	type EmbeddingStore,
-} from "../services/rag/embeddings.ts";
-import {
-	enrichWithTemporalContext,
-	buildTemporalEvidence,
-} from "../services/rag/temporal.ts";
-import {
-	reciprocalRankFusion,
-	type RankedItem,
-} from "../services/rag/rrf.ts";
-import {
-	ensureBlocksFts,
 	bm25HybridSearch,
+	ensureBlocksFts,
 } from "../services/rag/blocks-fts.ts";
 import {
-	rerank,
-	type RerankerCandidate,
-} from "../services/rag/reranker.ts";
-import { HARD_QUESTIONS } from "../services/rag/spike-questions-hard.ts";
+	type EmbeddingStore,
+	embedQuery,
+	loadEmbeddings,
+	vectorSearch,
+} from "../services/rag/embeddings.ts";
+import { type RerankerCandidate, rerank } from "../services/rag/reranker.ts";
+import { type RankedItem, reciprocalRankFusion } from "../services/rag/rrf.ts";
+import { SPIKE_LAW_IDS } from "../services/rag/spike-laws.ts";
 import {
 	SPIKE_QUESTIONS,
 	type SpikeQuestion,
 } from "../services/rag/spike-questions.ts";
+import { HARD_QUESTIONS } from "../services/rag/spike-questions-hard.ts";
+import {
+	buildTemporalEvidence,
+	enrichWithTemporalContext,
+} from "../services/rag/temporal.ts";
 
 // ── Config ──
 
@@ -85,7 +79,10 @@ let rerankerCost = 0;
 // ── Shared helpers ──
 
 const normalize = (s: string) =>
-	s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+	s
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "");
 
 interface ArticleResult {
 	normId: string;
@@ -96,6 +93,7 @@ interface ArticleResult {
 	sourceUrl: string;
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: used by strategy implementations
 interface RetrievalResult {
 	articles: ArticleResult[];
 	method: string;
@@ -150,7 +148,7 @@ function getArticlesFromNorms(
 
 	const kwNorm = keywords.map((k) => normalize(k));
 	const scored = allArticles.map((a) => {
-		const textNorm = normalize(a.block_title + " " + a.current_text);
+		const textNorm = normalize(`${a.block_title} ${a.current_text}`);
 		const score = kwNorm.reduce(
 			(sum, kw) => sum + (textNorm.includes(kw) ? 1 : 0),
 			0,
@@ -355,7 +353,10 @@ async function synthesizeWithTemporal(
 		})),
 	);
 
-	const evidenceText = buildTemporalEvidence(temporalContexts, MAX_EVIDENCE_TOKENS);
+	const evidenceText = buildTemporalEvidence(
+		temporalContexts,
+		MAX_EVIDENCE_TOKENS,
+	);
 
 	const result = await callOpenRouter<{
 		answer: string;
@@ -366,7 +367,9 @@ async function synthesizeWithTemporal(
 		messages: [
 			{
 				role: "system",
-				content: SYSTEM_PROMPT + `
+				content:
+					SYSTEM_PROMPT +
+					`
 
 INSTRUCCIÓN ADICIONAL PARA PREGUNTAS TEMPORALES:
 - Si un artículo tiene HISTORIAL de versiones, EXPLICA cómo ha cambiado con fechas concretas.
@@ -404,7 +407,9 @@ async function getEmbeddingStore(): Promise<EmbeddingStore> {
 	if (!embeddingStore) {
 		const path = join(repoRoot, "data", "spike-embeddings-openai-small");
 		embeddingStore = await loadEmbeddings(path);
-		console.log(`  Loaded embeddings: ${embeddingStore.count} articles, ${embeddingStore.dimensions} dims`);
+		console.log(
+			`  Loaded embeddings: ${embeddingStore.count} articles, ${embeddingStore.dimensions} dims`,
+		);
 	}
 	return embeddingStore;
 }
@@ -447,14 +452,12 @@ const strategies: Strategy[] = [
 		description: "FTS5 + LLM keyword expansion",
 		retrieve: (question, analyzed) => {
 			const normIds1 = ftsSearch(question);
-			const normIds2 = analyzed.keywords.length > 0
-				? ftsSearch(analyzed.keywords.join(" "))
-				: [];
+			const normIds2 =
+				analyzed.keywords.length > 0
+					? ftsSearch(analyzed.keywords.join(" "))
+					: [];
 			const allNorms = [...new Set([...normIds1, ...normIds2])];
-			const allKeywords = [
-				...extractKeywords(question),
-				...analyzed.keywords,
-			];
+			const allKeywords = [...extractKeywords(question), ...analyzed.keywords];
 			return getArticlesFromNorms(allNorms, allKeywords);
 		},
 	},
@@ -464,9 +467,10 @@ const strategies: Strategy[] = [
 		retrieve: (question, analyzed) => {
 			// FTS5 retrieval
 			const normIds1 = ftsSearch(question);
-			const normIds2 = analyzed.keywords.length > 0
-				? ftsSearch(analyzed.keywords.join(" "))
-				: [];
+			const normIds2 =
+				analyzed.keywords.length > 0
+					? ftsSearch(analyzed.keywords.join(" "))
+					: [];
 
 			// Materia retrieval — match each word in each materia separately
 			let materiaNorms: string[] = [];
@@ -492,11 +496,10 @@ const strategies: Strategy[] = [
 				}
 			}
 
-			const allNorms = [...new Set([...normIds1, ...normIds2, ...materiaNorms])];
-			const allKeywords = [
-				...extractKeywords(question),
-				...analyzed.keywords,
+			const allNorms = [
+				...new Set([...normIds1, ...normIds2, ...materiaNorms]),
 			];
+			const allKeywords = [...extractKeywords(question), ...analyzed.keywords];
 			return getArticlesFromNorms(allNorms, allKeywords);
 		},
 	},
@@ -506,9 +509,10 @@ const strategies: Strategy[] = [
 		retrieve: (question, analyzed) => {
 			// FTS5 retrieval
 			const normIds1 = ftsSearch(question);
-			const normIds2 = analyzed.keywords.length > 0
-				? ftsSearch(analyzed.keywords.join(" "))
-				: [];
+			const normIds2 =
+				analyzed.keywords.length > 0
+					? ftsSearch(analyzed.keywords.join(" "))
+					: [];
 
 			// Materia retrieval (word-level)
 			let materiaNorms: string[] = [];
@@ -558,10 +562,7 @@ const strategies: Strategy[] = [
 			const allNorms = [
 				...new Set([...normIds1, ...normIds2, ...materiaNorms, ...tagNorms]),
 			];
-			const allKeywords = [
-				...extractKeywords(question),
-				...analyzed.keywords,
-			];
+			const allKeywords = [...extractKeywords(question), ...analyzed.keywords];
 			return getArticlesFromNorms(allNorms, allKeywords);
 		},
 	},
@@ -596,10 +597,13 @@ const strategies: Strategy[] = [
 				.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
 
 			// Sort by vector score
-			const scoreMap = new Map(results.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
-			articles.sort((a, b) =>
-				(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
-				(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+			const scoreMap = new Map(
+				results.map((r) => [`${r.normId}:${r.blockId}`, r.score]),
+			);
+			articles.sort(
+				(a, b) =>
+					(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+					(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0),
 			);
 
 			return articles.slice(0, TOP_K).map((a) => ({
@@ -618,20 +622,20 @@ const strategies: Strategy[] = [
 		retrieve: async (question, analyzed) => {
 			// FTS5 retrieval (same as fts-llm)
 			const normIds1 = ftsSearch(question);
-			const normIds2 = analyzed.keywords.length > 0
-				? ftsSearch(analyzed.keywords.join(" "))
-				: [];
+			const normIds2 =
+				analyzed.keywords.length > 0
+					? ftsSearch(analyzed.keywords.join(" "))
+					: [];
 			const ftsNorms = [...new Set([...normIds1, ...normIds2])];
-			const ftsKeywords = [
-				...extractKeywords(question),
-				...analyzed.keywords,
-			];
+			const ftsKeywords = [...extractKeywords(question), ...analyzed.keywords];
 			const ftsArticles = getArticlesFromNorms(ftsNorms, ftsKeywords);
 
 			// Vector retrieval
 			const vectorResults = await vectorRetrieve(question, 20);
 			const vectorNormIds = [...new Set(vectorResults.map((r) => r.normId))];
-			const vectorBlockKeys = new Set(vectorResults.map((r) => `${r.normId}:${r.blockId}`));
+			const vectorBlockKeys = new Set(
+				vectorResults.map((r) => `${r.normId}:${r.blockId}`),
+			);
 
 			let vectorArticles: ArticleResult[] = [];
 			if (vectorNormIds.length > 0) {
@@ -656,10 +660,13 @@ const strategies: Strategy[] = [
 					.all()
 					.filter((a) => vectorBlockKeys.has(`${a.norm_id}:${a.block_id}`));
 
-				const scoreMap = new Map(vectorResults.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
-				rawArticles.sort((a, b) =>
-					(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
-					(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+				const scoreMap = new Map(
+					vectorResults.map((r) => [`${r.normId}:${r.blockId}`, r.score]),
+				);
+				rawArticles.sort(
+					(a, b) =>
+						(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+						(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0),
 				);
 
 				vectorArticles = rawArticles.slice(0, TOP_K).map((a) => ({
@@ -715,10 +722,13 @@ const strategies: Strategy[] = [
 				.all()
 				.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
 
-			const scoreMap = new Map(results.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
-			articles.sort((a, b) =>
-				(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
-				(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+			const scoreMap = new Map(
+				results.map((r) => [`${r.normId}:${r.blockId}`, r.score]),
+			);
+			articles.sort(
+				(a, b) =>
+					(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+					(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0),
 			);
 
 			return articles.slice(0, TOP_K).map((a) => ({
@@ -733,7 +743,8 @@ const strategies: Strategy[] = [
 	},
 	{
 		name: "vector-smart",
-		description: "Vector search + auto-detect temporal (uses analyzer.temporal flag)",
+		description:
+			"Vector search + auto-detect temporal (uses analyzer.temporal flag)",
 		temporal: "auto",
 		retrieve: async (question) => {
 			const results = await vectorRetrieve(question, 20);
@@ -761,10 +772,13 @@ const strategies: Strategy[] = [
 				.all()
 				.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
 
-			const scoreMap = new Map(results.map((r) => [`${r.normId}:${r.blockId}`, r.score]));
-			articles.sort((a, b) =>
-				(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
-				(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0)
+			const scoreMap = new Map(
+				results.map((r) => [`${r.normId}:${r.blockId}`, r.score]),
+			);
+			articles.sort(
+				(a, b) =>
+					(scoreMap.get(`${b.norm_id}:${b.block_id}`) ?? 0) -
+					(scoreMap.get(`${a.norm_id}:${a.block_id}`) ?? 0),
 			);
 
 			return articles.slice(0, TOP_K).map((a) => ({
@@ -779,7 +793,8 @@ const strategies: Strategy[] = [
 	},
 	{
 		name: "hybrid-rrf",
-		description: "Vector + BM25 article-level, fused with Reciprocal Rank Fusion (k=60)",
+		description:
+			"Vector + BM25 article-level, fused with Reciprocal Rank Fusion (k=60)",
 		temporal: "auto",
 		retrieve: async (question, analyzed) => {
 			// System 1: Vector search (top 50)
@@ -998,7 +1013,8 @@ async function runBenchmark(
 	const articles = await strategy.retrieve(q.question, analyzed);
 	const retrievedNorms = [...new Set(articles.map((a) => a.normId))];
 
-	const useTemporal = strategy.temporal === true ||
+	const useTemporal =
+		strategy.temporal === true ||
 		(strategy.temporal === "auto" && analyzed.temporal);
 	const synthesis = useTemporal
 		? await synthesizeWithTemporal(q.question, articles)
@@ -1056,7 +1072,9 @@ async function main() {
 	}
 
 	console.log(`\n╔══════════════════════════════════════════════════════════╗`);
-	console.log(`║  RAG Benchmark — ${activeStrategies.length} strategies × ${questions.length} questions`);
+	console.log(
+		`║  RAG Benchmark — ${activeStrategies.length} strategies × ${questions.length} questions`,
+	);
 	console.log(`║  Model: ${MODEL}`);
 	console.log(`║  Subset: ${SPIKE_LAW_IDS.length} laws`);
 	console.log(`╚══════════════════════════════════════════════════════════╝\n`);
@@ -1076,7 +1094,9 @@ async function main() {
 		console.log(`   ${strategy.description}\n`);
 
 		for (const q of questions) {
-			process.stdout.write(`  Q${String(q.id).padStart(2)} [${q.category.padEnd(12)}] `);
+			process.stdout.write(
+				`  Q${String(q.id).padStart(2)} [${q.category.padEnd(12)}] `,
+			);
 			try {
 				const result = await runBenchmark(strategy, q, analyzed.get(q.id)!);
 				allResults.push(result);
@@ -1108,10 +1128,8 @@ async function main() {
 	console.log(`║               BENCHMARK COMPARISON                       ║`);
 	console.log(`╚══════════════════════════════════════════════════════════╝\n`);
 
-	const legalQs = SPIKE_QUESTIONS.filter(
-		(q) => q.category !== "out-of-scope",
-	);
-	const oosQs = SPIKE_QUESTIONS.filter((q) => q.category === "out-of-scope");
+	const _legalQs = SPIKE_QUESTIONS.filter((q) => q.category !== "out-of-scope");
+	const _oosQs = SPIKE_QUESTIONS.filter((q) => q.category === "out-of-scope");
 
 	console.log(
 		`${"Strategy".padEnd(25)} ${"Retrieval".padStart(10)} ${"Citation".padStart(10)} ${"Decline".padStart(10)} ${"Avg Lat".padStart(10)}`,
@@ -1120,15 +1138,12 @@ async function main() {
 
 	for (const strategy of activeStrategies) {
 		const sResults = allResults.filter((r) => r.strategy === strategy.name);
-		const legalResults = sResults.filter(
-			(r) => r.category !== "out-of-scope",
-		);
-		const oosResults = sResults.filter(
-			(r) => r.category === "out-of-scope",
-		);
+		const legalResults = sResults.filter((r) => r.category !== "out-of-scope");
+		const oosResults = sResults.filter((r) => r.category === "out-of-scope");
 
 		const retrievalRate =
-			legalResults.filter((r) => r.retrievalHit).length / Math.max(legalResults.length, 1);
+			legalResults.filter((r) => r.retrievalHit).length /
+			Math.max(legalResults.length, 1);
 
 		const answeredResults = legalResults.filter((r) => !r.declined);
 		const citationRate =
@@ -1136,9 +1151,7 @@ async function main() {
 				? answeredResults.reduce(
 						(sum, r) =>
 							sum +
-							(r.citationsTotal > 0
-								? r.citationsValid / r.citationsTotal
-								: 0),
+							(r.citationsTotal > 0 ? r.citationsValid / r.citationsTotal : 0),
 						0,
 					) / answeredResults.length
 				: 0;
@@ -1182,7 +1195,8 @@ async function main() {
 	console.log(`  Synthesis cost:       $${synthCost.toFixed(6)}`);
 	console.log(`  Embedding query cost: $${embeddingCost.toFixed(6)}`);
 	console.log(`  Reranker cost:        $${rerankerCost.toFixed(6)}`);
-	const totalBenchCost = analyzerCost + synthCost + embeddingCost + rerankerCost;
+	const totalBenchCost =
+		analyzerCost + synthCost + embeddingCost + rerankerCost;
 	console.log(`  Total cost:           $${totalBenchCost.toFixed(6)}`);
 	console.log(`  Total tokens in:      ${totalTokensIn.toLocaleString()}`);
 	console.log(`  Total tokens out:     ${totalTokensOut.toLocaleString()}`);
@@ -1190,7 +1204,9 @@ async function main() {
 	const queriesRun = activeStrategies.length * questions.length;
 	const costPerQuery = totalBenchCost / queriesRun;
 	console.log(`  Cost per query:       $${costPerQuery.toFixed(6)}`);
-	console.log(`  Est. monthly (100q/d): $${(costPerQuery * 100 * 30).toFixed(2)}`);
+	console.log(
+		`  Est. monthly (100q/d): $${(costPerQuery * 100 * 30).toFixed(2)}`,
+	);
 
 	// Save results
 	const outputPath = join(repoRoot, "data", "spike-benchmark-results.json");

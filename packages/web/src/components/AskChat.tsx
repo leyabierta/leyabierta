@@ -150,6 +150,7 @@ function renderAnswerWithCitations(
 		}
 
 		return (
+			// biome-ignore lint/suspicious/noArrayIndexKey: paragraphs have no stable ID
 			<p key={pIdx} className="ask-answer-paragraph">
 				{parts}
 			</p>
@@ -198,7 +199,7 @@ export default function AskChat() {
 	// Scroll to bottom when new turn arrives
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [turns, loading]);
+	}, []);
 
 	async function handleSubmit(q?: string) {
 		const text = (q ?? question).trim();
@@ -348,6 +349,7 @@ export default function AskChat() {
 			{hasHistory && (
 				<div className="ask-conversation">
 					{turns.map((turn, turnIdx) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: turns have no stable ID
 						<div key={turnIdx} className="ask-turn">
 							{/* User question */}
 							<div className="ask-turn-question">

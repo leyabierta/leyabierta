@@ -36,9 +36,7 @@ const getArg = (name: string) => {
 };
 const hasFlag = (name: string) => args.includes(`--${name}`);
 
-const questionId = getArg("question")
-	? Number(getArg("question"))
-	: undefined;
+const questionId = getArg("question") ? Number(getArg("question")) : undefined;
 const dryRun = hasFlag("dry-run");
 
 const apiKey = process.env.OPENROUTER_API_KEY;
@@ -102,7 +100,12 @@ function retrieveArticles(query: string): ArticleResult[] {
 		.replace(/[¿?¡!,.]/g, "")
 		.split(/\s+/)
 		.filter((t) => t.length > 2)
-		.map((t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+		.map((t) =>
+			t
+				.toLowerCase()
+				.normalize("NFD")
+				.replace(/[\u0300-\u036f]/g, ""),
+		);
 
 	const allArticles = db
 		.query<{
@@ -125,7 +128,10 @@ function retrieveArticles(query: string): ArticleResult[] {
 
 	// Score articles by keyword match count in their text (diacritics-insensitive)
 	const normalize = (s: string) =>
-		s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+		s
+			.toLowerCase()
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "");
 
 	const scored = allArticles.map((a) => {
 		const textNorm = normalize(`${a.block_title} ${a.current_text}`);
@@ -209,7 +215,10 @@ function retrieveByMateria(
 
 	// Score by keyword match
 	const normalize = (s: string) =>
-		s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+		s
+			.toLowerCase()
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "");
 	const kwNorm = keywords.map((k) => normalize(k));
 
 	const scored = allArticles.map((a) => {
@@ -250,9 +259,18 @@ interface CostTracker {
 	calls: number;
 }
 
-const costTracker: CostTracker = { totalCost: 0, totalTokensIn: 0, totalTokensOut: 0, calls: 0 };
+const costTracker: CostTracker = {
+	totalCost: 0,
+	totalTokensIn: 0,
+	totalTokensOut: 0,
+	calls: 0,
+};
 
-function trackCost(result: { cost: number; tokensIn: number; tokensOut: number }) {
+function trackCost(result: {
+	cost: number;
+	tokensIn: number;
+	tokensOut: number;
+}) {
 	costTracker.totalCost += result.cost;
 	costTracker.totalTokensIn += result.tokensIn;
 	costTracker.totalTokensOut += result.tokensOut;
@@ -455,18 +473,23 @@ async function runPipeline(q: SpikeQuestion): Promise<SpikeResult> {
 	console.log(`    LLM materias: ${analyzed.materias.join(", ")}`);
 
 	const articlesFromOriginal = retrieveArticles(q.question);
-	const articlesFromKeywords = analyzed.keywords.length > 0
-		? retrieveArticles(analyzed.keywords.join(" "))
-		: [];
-	const articlesFromMaterias = retrieveByMateria(
-		analyzed.materias,
-		[...q.question.split(/\s+/).filter((t) => t.length > 2), ...analyzed.keywords],
-	);
+	const articlesFromKeywords =
+		analyzed.keywords.length > 0
+			? retrieveArticles(analyzed.keywords.join(" "))
+			: [];
+	const articlesFromMaterias = retrieveByMateria(analyzed.materias, [
+		...q.question.split(/\s+/).filter((t) => t.length > 2),
+		...analyzed.keywords,
+	]);
 
 	// Merge and deduplicate, preserving order (FTS5 first, then materia)
 	const seen = new Set<string>();
 	const articles: ArticleResult[] = [];
-	for (const a of [...articlesFromOriginal, ...articlesFromKeywords, ...articlesFromMaterias]) {
+	for (const a of [
+		...articlesFromOriginal,
+		...articlesFromKeywords,
+		...articlesFromMaterias,
+	]) {
 		const key = `${a.normId}:${a.blockId}`;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -474,7 +497,9 @@ async function runPipeline(q: SpikeQuestion): Promise<SpikeResult> {
 		if (articles.length >= TOP_K) break;
 	}
 
-	console.log(`  [3/4] Synthesizing answer from ${articles.length} articles...`);
+	console.log(
+		`  [3/4] Synthesizing answer from ${articles.length} articles...`,
+	);
 	const synthesis = await synthesize(q.question, articles);
 
 	console.log(`  [4/4] Verifying citations...`);
@@ -535,7 +560,9 @@ async function main() {
 
 	console.log(`\n╔══════════════════════════════════════════════╗`);
 	console.log(`║  RAG Spike — Prototipo B (${MODEL})  ║`);
-	console.log(`║  ${questions.length} questions, ${SPIKE_LAW_IDS.length} laws in subset     ║`);
+	console.log(
+		`║  ${questions.length} questions, ${SPIKE_LAW_IDS.length} laws in subset     ║`,
+	);
 	console.log(`╚══════════════════════════════════════════════╝\n`);
 
 	if (dryRun) {
@@ -549,9 +576,7 @@ async function main() {
 	const results: SpikeResult[] = [];
 
 	for (const q of questions) {
-		console.log(
-			`\n── Q${q.id} [${q.category}] ──────────────────────────────`,
-		);
+		console.log(`\n── Q${q.id} [${q.category}] ──────────────────────────────`);
 		console.log(`  "${q.question}"`);
 
 		try {
@@ -620,33 +645,49 @@ async function main() {
 		Math.max([...clearQs, ...crossQs].length, 1);
 
 	const declineAccuracy =
-		oosQs.filter((r) => r.correctDecline).length /
-		Math.max(oosQs.length, 1);
+		oosQs.filter((r) => r.correctDecline).length / Math.max(oosQs.length, 1);
 
 	const avgLatency =
 		results.reduce((sum, r) => sum + r.latencyMs, 0) / results.length;
 
-	console.log(`  Retrieval hit rate:   ${(retrievalHitRate * 100).toFixed(0)}% (${[...clearQs, ...crossQs].filter((r) => r.retrievalHit).length}/${[...clearQs, ...crossQs].length})`);
-	console.log(`  Citation accuracy:    ${(citationAccuracy * 100).toFixed(0)}% (valid/total across answered Qs)`);
-	console.log(`  Decline accuracy:     ${(declineAccuracy * 100).toFixed(0)}% (${oosQs.filter((r) => r.correctDecline).length}/${oosQs.length} out-of-scope correctly declined)`);
+	console.log(
+		`  Retrieval hit rate:   ${(retrievalHitRate * 100).toFixed(0)}% (${[...clearQs, ...crossQs].filter((r) => r.retrievalHit).length}/${[...clearQs, ...crossQs].length})`,
+	);
+	console.log(
+		`  Citation accuracy:    ${(citationAccuracy * 100).toFixed(0)}% (valid/total across answered Qs)`,
+	);
+	console.log(
+		`  Decline accuracy:     ${(declineAccuracy * 100).toFixed(0)}% (${oosQs.filter((r) => r.correctDecline).length}/${oosQs.length} out-of-scope correctly declined)`,
+	);
 	console.log(`  Avg latency:          ${avgLatency.toFixed(0)}ms`);
 	console.log(`  ── Cost (OpenRouter) ──`);
 	console.log(`  Total cost:           $${costTracker.totalCost.toFixed(6)}`);
-	console.log(`  Cost per query:       $${(costTracker.totalCost / results.length).toFixed(6)}`);
-	console.log(`  Total tokens in:      ${costTracker.totalTokensIn.toLocaleString()}`);
-	console.log(`  Total tokens out:     ${costTracker.totalTokensOut.toLocaleString()}`);
+	console.log(
+		`  Cost per query:       $${(costTracker.totalCost / results.length).toFixed(6)}`,
+	);
+	console.log(
+		`  Total tokens in:      ${costTracker.totalTokensIn.toLocaleString()}`,
+	);
+	console.log(
+		`  Total tokens out:     ${costTracker.totalTokensOut.toLocaleString()}`,
+	);
 	console.log(`  LLM calls:            ${costTracker.calls}`);
-	console.log(`  Est. monthly (100q/d): $${(costTracker.totalCost / results.length * 100 * 30).toFixed(2)}`);
+	console.log(
+		`  Est. monthly (100q/d): $${((costTracker.totalCost / results.length) * 100 * 30).toFixed(2)}`,
+	);
 
 	console.log(`\n  ── Per-question breakdown ──`);
 	for (const r of results) {
-		const status = r.category === "out-of-scope"
-			? r.correctDecline ? "✅ DECLINED" : "❌ SHOULD DECLINE"
-			: r.declined
-				? "❌ FALSE DECLINE"
-				: r.retrievalHit
-					? "✅ HIT"
-					: "❌ MISS";
+		const status =
+			r.category === "out-of-scope"
+				? r.correctDecline
+					? "✅ DECLINED"
+					: "❌ SHOULD DECLINE"
+				: r.declined
+					? "❌ FALSE DECLINE"
+					: r.retrievalHit
+						? "✅ HIT"
+						: "❌ MISS";
 		console.log(
 			`  Q${String(r.questionId).padStart(2)} [${r.category.padEnd(12)}] ${status.padEnd(18)} citations: ${r.validCitations}/${r.totalCitations}  latency: ${r.latencyMs}ms`,
 		);

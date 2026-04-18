@@ -168,8 +168,7 @@ app.use(
 				},
 				{
 					name: "Reformas",
-					description:
-						"Personal reforms, public changelog, and reform details",
+					description: "Personal reforms, public changelog, and reform details",
 				},
 				{
 					name: "Ómnibus",
