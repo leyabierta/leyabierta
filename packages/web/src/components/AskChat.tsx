@@ -382,7 +382,7 @@ export default function AskChat() {
 														{turn.response.citations.map((c) => (
 															<li
 																key={`${c.normId}-${c.articleTitle}`}
-																className="ask-citation-card"
+																className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
 															>
 																<a
 																	href={`/laws/${c.normId}`}
