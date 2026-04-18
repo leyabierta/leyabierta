@@ -6,6 +6,10 @@
  * - Each pipeline stage (analysis, retrieval, synthesis, verification) becomes a span
  * - Captures input/output/metadata at every stage
  *
+ * ROBUSTNESS: Every Opik SDK call is wrapped in try-catch. A tracing failure
+ * must NEVER break the RAG pipeline or user response. If Opik is down or
+ * misconfigured, the pipeline runs identically — just without traces.
+ *
  * Disabled gracefully when OPIK_API_KEY is not set (no-op in development).
  */
 
@@ -14,9 +18,12 @@ import { Opik, type Span, type SpanType, type Trace } from "opik";
 // ── Client singleton ──
 
 let client: Opik | null = null;
+let initAttempted = false;
 
 function getClient(): Opik | null {
 	if (client) return client;
+	if (initAttempted) return null;
+	initAttempted = true;
 
 	const apiKey = process.env.OPIK_API_KEY;
 	const apiUrl = process.env.OPIK_URL_OVERRIDE;
@@ -36,6 +43,14 @@ function getClient(): Opik | null {
 	} catch (err) {
 		console.warn("[tracing] Failed to initialize Opik:", err);
 		return null;
+	}
+}
+
+function safeCall(fn: () => void, context: string): void {
+	try {
+		fn();
+	} catch (err) {
+		console.warn(`[tracing] ${context} failed:`, err);
 	}
 }
 
@@ -60,7 +75,7 @@ export interface RagSpan {
 
 /**
  * Start a new trace for a RAG pipeline invocation.
- * Returns a no-op trace if Opik is not configured.
+ * Returns a no-op trace if Opik is not configured or initialization fails.
  */
 export function startTrace(
 	question: string,
@@ -69,22 +84,30 @@ export function startTrace(
 	const opik = getClient();
 	if (!opik) return NO_OP_TRACE;
 
-	const trace = opik.trace({
-		name: "rag-pipeline",
-		input: { question },
-		metadata,
-		tags: ["rag", "production"],
-	});
-
-	return new OpikRagTrace(trace);
+	try {
+		const trace = opik.trace({
+			name: "rag-pipeline",
+			input: { question },
+			metadata,
+			tags: ["rag", "production"],
+		});
+		return new OpikRagTrace(trace);
+	} catch (err) {
+		console.warn("[tracing] Failed to create trace:", err);
+		return NO_OP_TRACE;
+	}
 }
 
 /**
  * Flush all pending traces. Call on server shutdown.
+ * Safe to call even if Opik was never initialized.
  */
 export async function flushTraces(): Promise<void> {
-	if (client) {
+	if (!client) return;
+	try {
 		await client.flush();
+	} catch (err) {
+		console.warn("[tracing] Flush failed:", err);
 	}
 }
 
@@ -94,17 +117,27 @@ class OpikRagTrace implements RagTrace {
 	constructor(private trace: Trace) {}
 
 	span(name: string, type: SpanType, input: Record<string, unknown>): RagSpan {
-		const span = this.trace.span({ name, type, input });
-		return new OpikRagSpan(span);
+		try {
+			const span = this.trace.span({ name, type, input });
+			return new OpikRagSpan(span);
+		} catch (err) {
+			console.warn(`[tracing] Failed to create span '${name}':`, err);
+			return NO_OP_SPAN;
+		}
 	}
 
 	end(output: Record<string, unknown>): void {
-		this.trace.update({ output });
-		this.trace.end();
+		safeCall(() => {
+			this.trace.update({ output });
+			this.trace.end();
+		}, "trace.end");
 	}
 
 	score(name: string, value: number, reason?: string): void {
-		this.trace.score({ name, value, reason });
+		safeCall(
+			() => this.trace.score({ name, value, reason }),
+			`trace.score(${name})`,
+		);
 	}
 }
 
@@ -115,8 +148,10 @@ class OpikRagSpan implements RagSpan {
 		output: Record<string, unknown>,
 		metadata?: Record<string, unknown>,
 	): void {
-		this.span.update({ output, ...(metadata ? { metadata } : {}) });
-		this.span.end();
+		safeCall(() => {
+			this.span.update({ output, ...(metadata ? { metadata } : {}) });
+			this.span.end();
+		}, "span.end");
 	}
 }
 

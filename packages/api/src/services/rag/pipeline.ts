@@ -277,33 +277,51 @@ export class RagPipeline {
 			evidenceNormIds: [...new Set(articles.map((a) => a.normId))],
 		});
 
-		const evidenceKeys = new Set(
-			articles.map((a) => `${a.normId}:${a.blockTitle.toLowerCase()}`),
-		);
-		const evidenceNorms = new Set(articles.map((a) => a.normId));
+		const evidenceByNorm = new Map<
+			string,
+			{ blockTitle: string; normTitle: string; citizenSummary?: string }[]
+		>();
+		for (const a of articles) {
+			const list = evidenceByNorm.get(a.normId) ?? [];
+			list.push({
+				blockTitle: a.blockTitle,
+				normTitle: a.normTitle,
+				citizenSummary: a.citizenSummary,
+			});
+			evidenceByNorm.set(a.normId, list);
+		}
 		const validCitations: Citation[] = [];
 
 		for (const c of synthesis.citations) {
-			const strictKey = `${c.normId}:${c.articleTitle.toLowerCase()}`;
-			const normMatch = evidenceNorms.has(c.normId);
-			const strictMatch = evidenceKeys.has(strictKey);
+			const normArticles = evidenceByNorm.get(c.normId);
+			const normMatch = !!normArticles;
+			// Prefix match: "Artículo 116" matches "Artículo 116. Vacaciones."
+			const citeLower = c.articleTitle.toLowerCase();
+			const strictMatch =
+				normMatch &&
+				normArticles.some((a) => {
+					const blockLower = a.blockTitle.toLowerCase();
+					return (
+						blockLower === citeLower ||
+						citeLower.startsWith(blockLower) ||
+						blockLower.startsWith(citeLower)
+					);
+				});
 
-			if (strictMatch) {
-				const article = articles.find((a) => a.normId === c.normId);
+			if (strictMatch && normArticles) {
 				validCitations.push({
 					normId: c.normId,
-					normTitle: article?.normTitle ?? "",
+					normTitle: normArticles[0].normTitle,
 					articleTitle: c.articleTitle,
-					citizenSummary: article?.citizenSummary,
+					citizenSummary: normArticles[0].citizenSummary,
 					verified: true,
 				});
-			} else if (normMatch) {
-				const article = articles.find((a) => a.normId === c.normId);
+			} else if (normMatch && normArticles) {
 				validCitations.push({
 					normId: c.normId,
-					normTitle: article?.normTitle ?? "",
+					normTitle: normArticles[0].normTitle,
 					articleTitle: c.articleTitle,
-					citizenSummary: article?.citizenSummary,
+					citizenSummary: normArticles[0].citizenSummary,
 					verified: false,
 				});
 			}
