@@ -24,11 +24,16 @@ export function askRoutes(pipeline: RagPipeline | null) {
 			}
 			if (question.length > 1000) {
 				set.status = 400;
-				return { error: "La pregunta es demasiado larga (máximo 1000 caracteres)." };
+				return {
+					error: "La pregunta es demasiado larga (máximo 1000 caracteres).",
+				};
 			}
 
 			try {
-				const result = await pipeline.ask({ question });
+				const result = await pipeline.ask({
+					question,
+					jurisdiction: body.jurisdiction,
+				});
 
 				// No cache for AI-generated responses
 				set.headers["Cache-Control"] = "no-store";
@@ -45,6 +50,7 @@ export function askRoutes(pipeline: RagPipeline | null) {
 		{
 			body: t.Object({
 				question: t.String(),
+				jurisdiction: t.Optional(t.String()),
 			}),
 			detail: {
 				summary: "Ask a question about Spanish legislation",

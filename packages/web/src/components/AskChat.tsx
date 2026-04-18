@@ -12,6 +12,7 @@ interface Citation {
 	normTitle: string;
 	articleTitle: string;
 	citizenSummary?: string;
+	verified?: boolean;
 }
 
 interface AskMeta {
@@ -88,8 +89,13 @@ function renderAnswerWithCitations(
 							href={`/laws/${normId}`}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="ask-cite-link"
+							className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}
 							aria-describedby={`cite-tip-${normId}-${articleRef}`}
+							title={
+								citation.verified === false
+									? "Referencia aproximada"
+									: undefined
+							}
 						>
 							{articleRef}
 							<svg
@@ -187,15 +193,11 @@ export default function AskChat() {
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
-	// Persist turns to sessionStorage
+	// Persist turns + scroll to bottom on change
 	useEffect(() => {
 		saveTurns(turns);
-	}, [turns]);
-
-	// Scroll to bottom when new turn arrives
-	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, []);
+	}, [turns]);
 
 	async function handleSubmit(q?: string) {
 		const text = (q ?? question).trim();

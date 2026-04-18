@@ -82,21 +82,25 @@ export function bm25ArticleSearch(
 
 	if (!safeQuery) return [];
 
-	const normClause = normFilter?.length
-		? `AND norm_id IN (${normFilter.map((id) => `'${id}'`).join(",")})`
+	const normPlaceholders = normFilter?.length
+		? `AND norm_id IN (${normFilter.map(() => "?").join(",")})`
 		: "";
 
 	try {
+		const params: (string | number)[] = [safeQuery];
+		if (normFilter?.length) params.push(...normFilter);
+		params.push(Math.floor(topK));
+
 		const results = db
-			.query<{ norm_id: string; block_id: string }, [string]>(
+			.query<{ norm_id: string; block_id: string }, (string | number)[]>(
 				`SELECT norm_id, block_id
          FROM blocks_fts
          WHERE blocks_fts MATCH ?
-           ${normClause}
+           ${normPlaceholders}
          ORDER BY bm25(blocks_fts, 0, 0, 5.0, 1.0)
-         LIMIT ${topK}`,
+         LIMIT ?`,
 			)
-			.all(safeQuery);
+			.all(...params);
 
 		return results.map((r, i) => ({
 			normId: r.norm_id,
