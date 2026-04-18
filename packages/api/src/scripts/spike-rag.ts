@@ -128,7 +128,7 @@ function retrieveArticles(query: string): ArticleResult[] {
 		s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 	const scored = allArticles.map((a) => {
-		const textNorm = normalize(a.block_title + " " + a.current_text);
+		const textNorm = normalize(`${a.block_title} ${a.current_text}`);
 		const score = keywords.reduce(
 			(sum, kw) => sum + (textNorm.includes(kw) ? 1 : 0),
 			0,
@@ -213,7 +213,7 @@ function retrieveByMateria(
 	const kwNorm = keywords.map((k) => normalize(k));
 
 	const scored = allArticles.map((a) => {
-		const textNorm = normalize(a.block_title + " " + a.current_text);
+		const textNorm = normalize(`${a.block_title} ${a.current_text}`);
 		const score = kwNorm.reduce(
 			(sum, kw) => sum + (textNorm.includes(kw) ? 1 : 0),
 			0,
@@ -443,7 +443,7 @@ interface SpikeResult {
 
 async function runPipeline(q: SpikeQuestion): Promise<SpikeResult> {
 	const start = Date.now();
-	let totalCost = 0;
+	const totalCost = 0;
 
 	// Step 1+2: Analyze query + retrieve
 	console.log(`  [1/4] Analyzing query...`);

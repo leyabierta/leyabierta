@@ -9,7 +9,7 @@ import { timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { alertRoutes } from "./routes/alerts.ts";
 import { askRoutes } from "./routes/ask.ts";
 import { lawRoutes } from "./routes/laws.ts";
