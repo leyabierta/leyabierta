@@ -24,8 +24,10 @@ const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
 const TOP_K = 10;
 const MAX_EVIDENCE_TOKENS = 6000;
 const EMBEDDING_MODEL_KEY = "openai-small";
-/** If the best retrieval score is below this, skip evidence and let LLM decide alone */
-const LOW_CONFIDENCE_THRESHOLD = 0.45;
+/** If the best retrieval score is below this, skip evidence and let LLM decide alone.
+ * Set conservatively low (0.38) — the nonLegal analyzer flag handles most OOS questions.
+ * This gate only catches queries where retrieval is truly noise (e.g. "mejor abogado"). */
+const LOW_CONFIDENCE_THRESHOLD = 0.38;
 
 // ── Types ──
 
@@ -58,6 +60,8 @@ interface AnalyzedQuery {
 	keywords: string[];
 	materias: string[];
 	temporal: boolean;
+	/** True if the question is clearly not about legislation (poems, sports, etc.) */
+	nonLegal: boolean;
 }
 
 // ── System Prompt ──
@@ -150,12 +154,32 @@ export class RagPipeline {
 				keywords: analyzed.keywords,
 				materias: analyzed.materias,
 				temporal: analyzed.temporal,
+				nonLegal: analyzed.nonLegal,
 			},
 			{
 				embeddingCost: `$${queryResult.cost.toFixed(8)}`,
 				embeddingTokens: queryResult.tokens,
 			},
 		);
+
+		// 1b. Non-legal gate: if the analyzer detects the question isn't about
+		// law (poems, sports, etc.), decline immediately without wasting retrieval.
+		if (analyzed.nonLegal) {
+			const result: AskResponse = {
+				answer:
+					"Solo puedo ayudarte con preguntas sobre legislación y derechos en España. Tu pregunta no parece estar relacionada con temas legales.",
+				citations: [],
+				declined: true,
+				meta: {
+					articlesRetrieved: 0,
+					temporalEnriched: false,
+					latencyMs: Date.now() - start,
+					model: this.model,
+				},
+			};
+			trace.end({ ...result, reason: "non_legal_intent" });
+			return result;
+		}
 
 		// 2. Vector search (filter by minimum similarity to avoid irrelevant results)
 		const retrievalSpan = trace.span("retrieval", "tool", {
@@ -462,6 +486,7 @@ export class RagPipeline {
 				keywords: string[];
 				materias: string[];
 				temporal: boolean;
+				non_legal: boolean;
 			}>(this.apiKey, {
 				model: this.model,
 				messages: [
@@ -471,6 +496,7 @@ export class RagPipeline {
 1. "keywords": palabras clave para buscar en el texto legal (sinónimos legales). Máximo 8.
 2. "materias": categorías temáticas BOE. Máximo 3.
 3. "temporal": true si pregunta sobre cambios históricos o evolución de la ley. false si pregunta sobre ley vigente.
+4. "non_legal": true si la pregunta NO es sobre legislación, derechos u obligaciones legales. Ejemplos: clima, deportes, poemas, recetas, opiniones personales, hackear sistemas, preguntas sobre personas concretas. INCLUSO si la pregunta menciona palabras legales (como "Constitución"), si la INTENCIÓN no es obtener información legal (ej: "escribe un poema sobre la Constitución"), pon non_legal=true.
 Responde SOLO con JSON.`,
 					},
 					{ role: "user", content: question },
@@ -482,6 +508,7 @@ Responde SOLO con JSON.`,
 				keywords: result.data.keywords ?? [],
 				materias: result.data.materias ?? [],
 				temporal: result.data.temporal ?? false,
+				nonLegal: result.data.non_legal ?? false,
 			};
 		} catch (err) {
 			console.warn(
@@ -538,6 +565,7 @@ Responde SOLO con JSON.`,
 					.filter((t) => t.length > 2 && !STOP_WORDS.has(t)),
 				materias: [],
 				temporal: isTemporal,
+				nonLegal: false,
 			};
 		}
 	}

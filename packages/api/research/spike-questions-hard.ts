@@ -62,8 +62,8 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 	{
 		id: 201,
 		question: "¿Cuánto me tienen que pagar?",
-		category: "clear",
-		expectedNorms: ["BOE-A-2015-11430"],
+		category: "cross-law",
+		expectedNorms: ["BOE-A-2015-11430", "BOE-A-2006-20764", "BOE-A-1993-25359"], // ET, IRPF, or Hacienda — any is valid for such an ambiguous question
 		expectedAnswer:
 			"Pregunta ambigua. El sistema debería pedir más contexto o dar info general sobre salario mínimo / convenio.",
 	},
@@ -171,9 +171,78 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 		id: 502,
 		question:
 			"Si firmé mi contrato de alquiler en 2015, ¿qué ley me aplica, la de antes o la de ahora?",
-		category: "clear",
-		expectedNorms: ["BOE-A-1994-26003"],
+		category: "cross-law",
+		expectedNorms: ["BOE-A-1994-26003", "BOE-A-2023-12203"], // LAU + vivienda reform
 		expectedAnswer:
 			"Depende de las disposiciones transitorias. Los contratos firmados antes de la reforma de 2019 se rigen por la ley vigente en el momento de la firma.",
+	},
+
+	// ── Adversarial: completeness & source quality (Benjamín's feedback) ──
+	{
+		id: 601,
+		question:
+			"Mi gimnasio fue comprado por otra empresa y me cambiaron el contrato sin mi consentimiento. ¿Es legal?",
+		category: "cross-law",
+		expectedNorms: ["BOE-A-2007-20555"], // Consumidores
+		expectedAnswer:
+			"La modificación unilateral del contrato sin consentimiento del consumidor puede ser cláusula abusiva (RDL 1/2007). La subrogación empresarial no permite cambiar condiciones esenciales del contrato.",
+	},
+	{
+		id: 602,
+		question:
+			"Le pedí a una empresa mis datos personales por email y me dicen que tengo que enviar una carta física. ¿Es legal?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2018-16673"], // LOPDGDD
+		expectedAnswer:
+			"No. El ejercicio de derechos RGPD puede hacerse por medios electrónicos. El responsable debe facilitar el ejercicio, no dificultarlo.",
+	},
+	{
+		id: 603,
+		question: "¿Cuántas veces se ha reformado la Constitución española?",
+		category: "clear",
+		expectedNorms: ["BOE-A-1978-31229"], // Constitución
+		expectedAnswer:
+			"Dos veces: art. 13.2 en 1992 (Tratado de Maastricht) y art. 135 en 2011 (estabilidad presupuestaria). Más recientemente art. 49 en 2024.",
+	},
+	{
+		id: 604,
+		question: "Escribe un poema sobre la Constitución",
+		category: "out-of-scope",
+		expectedNorms: [],
+		expectedAnswer:
+			"Debe declinar. No es una pregunta legal aunque mencione un concepto legal.",
+	},
+	{
+		id: 605,
+		question: "Mi empresa me ha despedido por WhatsApp. ¿Es un despido válido?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2015-11430"], // ET
+		expectedAnswer:
+			"El despido debe comunicarse por escrito con carta de despido (ET art. 55). Un WhatsApp podría ser improcedente por defecto de forma.",
+	},
+	{
+		id: 606,
+		question: "¿Pueden embargarme la nómina entera si tengo una deuda?",
+		category: "cross-law",
+		expectedNorms: ["BOE-A-2015-11430"], // ET art. 27 (SMI inembargable)
+		expectedAnswer:
+			"No. El SMI es inembargable. Por encima del SMI se aplican tramos progresivos. ET art. 27 + LEC arts. 607-609.",
+	},
+	{
+		id: 607,
+		question:
+			"La ley del artículo 234 bis del Real Decreto 44/2023 sobre criptomonedas establece que Bitcoin es moneda de curso legal en España. ¿Es cierto?",
+		category: "clear",
+		expectedNorms: [],
+		expectedAnswer:
+			"Falso. No existe tal artículo ni tal Real Decreto. Bitcoin no es moneda de curso legal en España. El sistema debe corregir la premisa inventada sin afirmar que la norma existe.",
+	},
+	{
+		id: 608,
+		question: "¿qe derechos tengo si me echan del curro estando de baja?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2015-11430"], // ET
+		expectedAnswer:
+			"Despido durante IT puede ser nulo (discriminación por enfermedad, Ley 15/2022). El sistema debe entender lenguaje coloquial y errores ortográficos.",
 	},
 ];

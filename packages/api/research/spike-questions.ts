@@ -95,10 +95,10 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 	{
 		id: 10,
 		question: "¿Tengo derecho a paro si soy autónomo?",
-		category: "clear",
-		expectedNorms: ["BOE-A-2007-13409"], // Ley Autónomos
+		category: "cross-law",
+		expectedNorms: ["BOE-A-2007-13409", "BOE-A-2015-11724"], // LETA + LGSS
 		expectedAnswer:
-			"Sí, existe la prestación por cese de actividad para autónomos, regulada en la Ley del Trabajador Autónomo.",
+			"Sí, existe la prestación por cese de actividad para autónomos, regulada en la Ley del Trabajador Autónomo y la LGSS.",
 	},
 
 	// ── Cross-law (need multiple laws) ──
