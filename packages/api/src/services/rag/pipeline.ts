@@ -149,7 +149,7 @@ export class RagPipeline {
 				temporal: analyzed.temporal,
 			},
 			{
-				embeddingCost: queryResult.cost,
+				embeddingCost: `$${queryResult.cost.toFixed(8)}`,
 				embeddingTokens: queryResult.tokens,
 			},
 		);
