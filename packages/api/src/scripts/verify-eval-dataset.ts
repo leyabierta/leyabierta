@@ -52,7 +52,9 @@ for (const q of questions) {
 }
 const dupes = [...idCounts.entries()].filter(([, count]) => count > 1);
 if (dupes.length > 0) {
-	console.log(`  ❌ ${dupes.length} duplicate IDs: ${dupes.map(([id]) => id).join(", ")}`);
+	console.log(
+		`  ❌ ${dupes.length} duplicate IDs: ${dupes.map(([id]) => id).join(", ")}`,
+	);
 } else {
 	console.log(`  ✅ All ${questions.length} IDs are unique`);
 }
@@ -92,13 +94,16 @@ for (const normId of allNormIds) {
 			"SELECT title FROM blocks WHERE norm_id = ? AND block_type = 'precepto'",
 		)
 		.all(normId);
-	const titles = new Set(blocks.map((b) => b.title.toLowerCase().replace(/\u00A0/g, " ")));
+	const titles = new Set(
+		blocks.map((b) => b.title.toLowerCase().replace(/\u00A0/g, " ")),
+	);
 	blockCache.set(normId, titles);
 }
 
 let articleHits = 0;
 let articleMisses = 0;
-const missingArticles: Array<{ qId: string; normId: string; article: string }> = [];
+const missingArticles: Array<{ qId: string; normId: string; article: string }> =
+	[];
 
 for (const q of questions) {
 	if (!q.expectedArticles || q.expectedArticles.length === 0) continue;
@@ -141,7 +146,11 @@ for (const q of questions) {
 			articleHits++;
 		} else {
 			articleMisses++;
-			missingArticles.push({ qId: q.id, normId: q.expectedNorms[0] ?? "?", article });
+			missingArticles.push({
+				qId: q.id,
+				normId: q.expectedNorms[0] ?? "?",
+				article,
+			});
 		}
 	}
 }
@@ -149,7 +158,9 @@ for (const q of questions) {
 if (articleMisses === 0) {
 	console.log(`  ✅ All ${articleHits} article references found in DB`);
 } else {
-	console.log(`  ⚠️  ${articleMisses}/${articleHits + articleMisses} articles not found:`);
+	console.log(
+		`  ⚠️  ${articleMisses}/${articleHits + articleMisses} articles not found:`,
+	);
 	for (const m of missingArticles.slice(0, 20)) {
 		console.log(`    ❌ ${m.qId}: ${m.article} in ${m.normId}`);
 	}
@@ -173,7 +184,9 @@ console.log(`  Total: ${questions.length}`);
 console.log("\n=== Check 5: Source coverage ===");
 const noSource = questions.filter((q) => !q.source && !q.adversarialType);
 if (noSource.length > 0) {
-	console.log(`  ⚠️  ${noSource.length} questions without source: ${noSource.map((q) => q.id).join(", ")}`);
+	console.log(
+		`  ⚠️  ${noSource.length} questions without source: ${noSource.map((q) => q.id).join(", ")}`,
+	);
 } else {
 	console.log(`  ✅ All non-adversarial questions have sources`);
 }
@@ -182,8 +195,12 @@ if (noSource.length > 0) {
 console.log("\n=== Summary ===");
 console.log(`  Questions: ${questions.length}`);
 console.log(`  Unique norms referenced: ${allNormIds.length}`);
-console.log(`  Norms in DB: ${allNormIds.length - normMisses}/${allNormIds.length}`);
-console.log(`  Articles verified: ${articleHits}/${articleHits + articleMisses}`);
+console.log(
+	`  Norms in DB: ${allNormIds.length - normMisses}/${allNormIds.length}`,
+);
+console.log(
+	`  Articles verified: ${articleHits}/${articleHits + articleMisses}`,
+);
 console.log(`  Duplicate IDs: ${dupes.length}`);
 
 db.close();

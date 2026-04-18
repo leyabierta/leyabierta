@@ -117,7 +117,9 @@ async function rerankWithCohere(
 
 	if (!response.ok) {
 		const err = await response.text();
-		throw new Error(`Cohere Rerank error ${response.status}: ${err.slice(0, 200)}`);
+		throw new Error(
+			`Cohere Rerank error ${response.status}: ${err.slice(0, 200)}`,
+		);
 	}
 
 	const data = (await response.json()) as {
@@ -147,10 +149,7 @@ async function rerankWithLLM(
 ): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
 	// Build a numbered list of candidate snippets
 	const snippets = candidates
-		.map(
-			(c, i) =>
-				`[${i}] ${c.title}\n${c.text.slice(0, 300)}`,
-		)
+		.map((c, i) => `[${i}] ${c.title}\n${c.text.slice(0, 300)}`)
 		.join("\n\n");
 
 	const response = await fetch(
@@ -204,7 +203,9 @@ Responde SOLO con JSON: {"ranking": [{"index": N, "score": 0.0-1.0}, ...]}
 	let ranking: Array<{ index: number; score: number }>;
 	try {
 		const content = data.choices?.[0]?.message?.content ?? "{}";
-		const parsed = JSON.parse(content) as { ranking?: Array<{ index: number; score: number }> };
+		const parsed = JSON.parse(content) as {
+			ranking?: Array<{ index: number; score: number }>;
+		};
 		ranking = parsed.ranking ?? [];
 	} catch {
 		// If LLM fails to produce valid JSON, return candidates as-is

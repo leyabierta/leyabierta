@@ -42,12 +42,20 @@ export function enrichWithTemporalContext(
 
 	// Batch query: fetch all versions for all articles in one query
 	const pairs = articles.map((a) => [a.normId, a.blockId] as const);
-	const conditions = pairs.map(() => "(norm_id = ? AND block_id = ?)").join(" OR ");
-	const params = pairs.flatMap(([n, b]) => [n, b]);
+	const conditions = pairs
+		.map(() => "(norm_id = ? AND block_id = ?)")
+		.join(" OR ");
+	const params = pairs.flat();
 
 	const allVersions = db
 		.query<
-			{ norm_id: string; block_id: string; date: string; source_id: string; text: string },
+			{
+				norm_id: string;
+				block_id: string;
+				date: string;
+				source_id: string;
+				text: string;
+			},
 			string[]
 		>(
 			`SELECT norm_id, block_id, date, source_id, text FROM versions
@@ -69,7 +77,8 @@ export function enrichWithTemporalContext(
 	}
 
 	return articles.map((article) => {
-		const versions = versionMap.get(`${article.normId}:${article.blockId}`) ?? [];
+		const versions =
+			versionMap.get(`${article.normId}:${article.blockId}`) ?? [];
 
 		const hasChanges = versions.length > 1;
 
