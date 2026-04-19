@@ -26,7 +26,7 @@ import { type RagTrace, startTrace } from "./tracing.ts";
 const DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview";
 const TOP_K = 10;
 const MAX_EVIDENCE_TOKENS = 6000;
-const EMBEDDING_MODEL_KEY = "openai-small";
+const EMBEDDING_MODEL_KEY = "gemini-embedding-2";
 const RRF_K = 60;
 const RERANK_POOL_SIZE = 50;
 /** If the best retrieval score is below this, skip evidence and let LLM decide alone.

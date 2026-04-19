@@ -27,6 +27,10 @@ export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
 		id: "qwen/qwen3-embedding-8b",
 		dimensions: 4096,
 	},
+	"gemini-embedding-2": {
+		id: "google/gemini-embedding-2-preview",
+		dimensions: 3072,
+	},
 };
 
 export interface ArticleEmbedding {

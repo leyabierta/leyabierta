@@ -44,7 +44,7 @@ const citizenSummaryService = new CitizenSummaryService(db);
 // RAG pipeline (optional — only if API key and embeddings are available)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const EMBEDDINGS_PATH =
-	process.env.EMBEDDINGS_PATH ?? "./data/spike-embeddings-openai-small";
+	process.env.EMBEDDINGS_PATH ?? "./data/spike-embeddings-gemini-embedding-2";
 const ragPipeline = OPENROUTER_API_KEY
 	? new RagPipeline(db, OPENROUTER_API_KEY, EMBEDDINGS_PATH)
 	: null;
