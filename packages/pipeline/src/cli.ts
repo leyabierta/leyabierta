@@ -50,8 +50,9 @@ async function bootstrap() {
 	await state.load();
 
 	// Discover norms — two modes:
-	// --force: paginate ALL norms (full re-check)
-	// default: only norms updated since last run (early-stop via fecha_actualizacion)
+	// --force: paginate ALL norms and re-fetch everything (full rebuild)
+	// default: paginate ALL norms but only fetch those whose fecha_actualizacion
+	//          differs from state.json (catches new norms AND reforms to existing ones)
 	const force = args.includes("--force");
 	const discovery = country.discovery();
 	const discovered: DiscoveredNorm[] = [];
@@ -63,24 +64,35 @@ async function bootstrap() {
 			if (limit > 0 && discovered.length >= limit) break;
 		}
 	} else {
-		const watermark = state.lastBoeUpdate;
-		if (!watermark) {
-			console.log(
-				"No watermark found — run with --force first to establish baseline.",
-			);
-			await discoveryClient.close();
-			return;
-		}
-		console.log(
-			`Discovering norms updated since ${watermark} from ${country.name}...`,
-		);
-		for await (const item of discovery.discoverUpdated(
-			discoveryClient,
-			watermark,
-		)) {
+		console.log(`Scanning full catalog for changes (${country.name})...`);
+		let scanned = 0;
+		let seeded = 0;
+		for await (const item of discovery.discoverAll(discoveryClient)) {
+			scanned++;
+			if (scanned % 2000 === 0) {
+				console.log(
+					`  scanned ${scanned} norms, ${discovered.length} changed so far...`,
+				);
+			}
+			// Skip norms whose fecha_actualizacion hasn't changed since last processing
+			const storedFecha = state.getFechaActualizacion(item.id);
+			if (storedFecha && item.fechaActualizacion === storedFecha) {
+				continue;
+			}
+			// Migration: norm is already processed but has no stored fecha
+			// (pre-change-detection state). Seed the fecha without re-fetching.
+			if (!storedFecha && state.isProcessed(item.id)) {
+				state.seedFechaActualizacion(item.id, item.fechaActualizacion);
+				seeded++;
+				continue;
+			}
 			discovered.push(item);
 			if (limit > 0 && discovered.length >= limit) break;
 		}
+		if (seeded > 0) {
+			console.log(`Seeded fecha_actualizacion for ${seeded} existing norms.`);
+		}
+		console.log(`Scanned ${scanned} norms, ${discovered.length} have changes.`);
 	}
 	await discoveryClient.close();
 
@@ -195,7 +207,7 @@ async function bootstrap() {
 				console.error(`  ✗ ${id} — ERROR: ${error}`);
 			}
 		} else if (!norm) {
-			state.markSkipped(id);
+			state.markSkipped(id, fechaMap.get(id));
 		}
 	}
 

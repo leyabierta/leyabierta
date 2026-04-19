@@ -192,6 +192,144 @@ describe("StateStore", () => {
 		});
 	});
 
+	describe("getFechaActualizacion", () => {
+		test("returns undefined for unknown norms", () => {
+			const store = new StateStore(filePath, "es");
+			expect(store.getFechaActualizacion("BOE-A-9999")).toBeUndefined();
+		});
+
+		test("returns fecha for done norms", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 3, "sha1", "20260408T080417Z");
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBe(
+				"20260408T080417Z",
+			);
+		});
+
+		test("returns undefined for done norms without fecha", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 3);
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBeUndefined();
+		});
+
+		test("returns undefined for error norms (should be re-discovered)", () => {
+			const store = new StateStore(filePath, "es");
+			store.markError("BOE-A-1234", "timeout");
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBeUndefined();
+		});
+
+		test("returns fecha for skipped norms with fecha", () => {
+			const store = new StateStore(filePath, "es");
+			store.markSkipped("BOE-A-1234", "20260408T080417Z");
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBe(
+				"20260408T080417Z",
+			);
+		});
+
+		test("persists across save/load", async () => {
+			const store1 = new StateStore(filePath, "es");
+			store1.markDone("A", 1, undefined, "20260101T000000Z");
+			store1.markSkipped("B", "20260202T000000Z");
+			await store1.save();
+
+			const store2 = new StateStore(filePath, "es");
+			await store2.load();
+			expect(store2.getFechaActualizacion("A")).toBe("20260101T000000Z");
+			expect(store2.getFechaActualizacion("B")).toBe("20260202T000000Z");
+		});
+	});
+
+	describe("seedFechaActualizacion", () => {
+		test("seeds fecha for done norm without one", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 3, "sha1");
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBeUndefined();
+			store.seedFechaActualizacion("BOE-A-1234", "20260408T080417Z");
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBe(
+				"20260408T080417Z",
+			);
+		});
+
+		test("does not overwrite existing fecha", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 3, "sha1", "20260101T000000Z");
+			store.seedFechaActualizacion("BOE-A-1234", "20260408T080417Z");
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBe(
+				"20260101T000000Z",
+			);
+		});
+
+		test("no-ops for unknown norms", () => {
+			const store = new StateStore(filePath, "es");
+			store.seedFechaActualizacion("BOE-A-9999", "20260408T080417Z");
+			expect(store.getFechaActualizacion("BOE-A-9999")).toBeUndefined();
+		});
+
+		test("no-ops when fecha is undefined", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 3);
+			store.seedFechaActualizacion("BOE-A-1234", undefined);
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBeUndefined();
+		});
+	});
+
+	describe("markSkipped with fechaActualizacion", () => {
+		test("stores fechaActualizacion when provided", async () => {
+			const store = new StateStore(filePath, "es");
+			store.markSkipped("BOE-A-1234", "20260408T080417Z");
+			await store.save();
+
+			const raw = await Bun.file(filePath).json();
+			expect(raw.norms["BOE-A-1234"].fechaActualizacion).toBe(
+				"20260408T080417Z",
+			);
+			expect(raw.norms["BOE-A-1234"].status).toBe("skipped");
+		});
+
+		test("works without fechaActualizacion (backward compat)", () => {
+			const store = new StateStore(filePath, "es");
+			store.markSkipped("BOE-A-1234");
+			expect(store.isProcessed("BOE-A-1234")).toBe(true);
+			expect(store.getFechaActualizacion("BOE-A-1234")).toBeUndefined();
+		});
+	});
+
+	describe("change detection (discovery filtering)", () => {
+		test("new norm: no stored fecha → should be discovered", () => {
+			const store = new StateStore(filePath, "es");
+			const storedFecha = store.getFechaActualizacion("BOE-A-NEW");
+			// No stored fecha means it's new — should be discovered
+			expect(storedFecha).toBeUndefined();
+			expect(!storedFecha || storedFecha !== "20260415T120000Z").toBe(true);
+		});
+
+		test("unchanged norm: same fecha → should be skipped", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 5, "sha1", "20260408T080417Z");
+			const storedFecha = store.getFechaActualizacion("BOE-A-1234");
+			const catalogFecha = "20260408T080417Z";
+			// Same fecha = unchanged, should skip
+			expect(storedFecha && storedFecha === catalogFecha).toBe(true);
+		});
+
+		test("reformed norm: different fecha → should be discovered", () => {
+			const store = new StateStore(filePath, "es");
+			store.markDone("BOE-A-1234", 5, "sha1", "20260408T080417Z");
+			const storedFecha = store.getFechaActualizacion("BOE-A-1234");
+			const catalogFecha = "20260415T120000Z"; // Updated!
+			// Different fecha = reformed, should discover
+			expect(storedFecha && storedFecha === catalogFecha).toBe(false);
+		});
+
+		test("error norm: no stored fecha → should be re-discovered", () => {
+			const store = new StateStore(filePath, "es");
+			store.markError("BOE-A-1234", "timeout");
+			const storedFecha = store.getFechaActualizacion("BOE-A-1234");
+			// Error norms have no fecha → always re-discovered
+			expect(storedFecha).toBeUndefined();
+		});
+	});
+
 	describe("loading corrupt/missing file", () => {
 		test("starts fresh when file does not exist", async () => {
 			const store = new StateStore(join(tempDir, "nonexistent.json"), "es");
