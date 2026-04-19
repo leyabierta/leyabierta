@@ -712,6 +712,21 @@ export class RagPipeline {
 				meta: retrieval.response.meta,
 				declined: retrieval.response.declined,
 			};
+			try {
+				this.insertAskLogStmt.run(
+					request.question,
+					request.jurisdiction ?? null,
+					retrieval.response.answer,
+					retrieval.response.declined ? 1 : 0,
+					0,
+					0,
+					retrieval.response.meta.latencyMs,
+					SYNTHESIS_MODEL,
+					null,
+				);
+			} catch {
+				/* ignore */
+			}
 			return;
 		}
 
