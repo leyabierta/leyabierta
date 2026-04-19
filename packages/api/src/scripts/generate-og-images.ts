@@ -201,7 +201,8 @@ async function generateImage(
 	logoDataUri: string,
 ): Promise<Buffer> {
 	const markup = buildMarkup(law, logoDataUri);
-	const svg = await satori(markup, {
+	// biome-ignore lint/suspicious/noExplicitAny: satori expects ReactNode but buildMarkup returns Record
+	const svg = await satori(markup as any, {
 		width: 1200,
 		height: 630,
 		fonts: [{ name: "Inter", data: fontData, style: "normal" as const }],

@@ -33,7 +33,7 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 		category: "clear",
 		expectedNorms: ["BOE-A-2015-11430"], // ET art. 48
 		expectedAnswer:
-			"16 semanas, de las cuales las 6 primeras son obligatorias e ininterrumpidas tras el parto.",
+			"19 semanas (desde reforma 2025), de las cuales las 6 primeras son obligatorias e ininterrumpidas tras el parto. 32 semanas en monoparentalidad.",
 	},
 	{
 		id: 3,
@@ -109,7 +109,7 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 		category: "cross-law",
 		expectedNorms: ["BOE-A-2015-11430", "BOE-A-2015-11724"], // ET + LGSS
 		expectedAnswer:
-			"Protección contra despido (ET), suspensión del contrato por maternidad 16 semanas (ET art. 48), y prestación económica por nacimiento (LGSS).",
+			"Protección contra despido (ET), suspensión del contrato por nacimiento 19 semanas (ET art. 48.4), y prestación económica por nacimiento (LGSS).",
 	},
 	{
 		id: 12,
@@ -202,6 +202,6 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 		category: "clear",
 		expectedNorms: ["BOE-A-2015-11430"], // ET art. 48
 		expectedAnswer:
-			"Sí. El permiso de paternidad ha ido aumentando progresivamente desde 2 días hasta las actuales 16 semanas.",
+			"Sí. El permiso de paternidad ha ido aumentando progresivamente desde 2 días hasta las actuales 19 semanas (reforma 2025).",
 	},
 ];

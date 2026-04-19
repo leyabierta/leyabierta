@@ -16,6 +16,7 @@ import {
 	generateEmbeddings,
 	saveEmbeddings,
 } from "../src/services/rag/embeddings.ts";
+import { splitByApartados } from "../src/services/rag/subchunk.ts";
 import { SPIKE_LAW_IDS } from "./spike-laws.ts";
 
 const args = process.argv.slice(2);
@@ -103,11 +104,43 @@ const startTime = Date.now();
 // Enrich embedding text with law name for better semantic separation.
 // "Estatuto de los Trabajadores — Artículo 48" embeds differently from
 // "EBEP — Artículo 48", helping retrieval distinguish which law applies.
-const preparedArticles = articles.map((a) => ({
-	normId: a.norm_id,
-	blockId: a.block_id,
-	text: `[${a.norm_title}]\n${a.title}\n\n${a.current_text}`,
-}));
+//
+// Sub-chunking: long articles (>3000 chars) with numbered apartados are
+// split into sub-chunks. Each sub-chunk gets its own embedding with a
+// synthetic title (e.g. "Artículo 48.4 — El nacimiento...").
+// Short articles and unchunkable ones keep their single embedding.
+const preparedArticles: Array<{
+	normId: string;
+	blockId: string;
+	text: string;
+}> = [];
+let subchunkedCount = 0;
+let subchunkTotal = 0;
+
+for (const a of articles) {
+	const chunks = splitByApartados(a.block_id, a.title, a.current_text);
+	if (chunks) {
+		subchunkedCount++;
+		subchunkTotal += chunks.length;
+		for (const chunk of chunks) {
+			preparedArticles.push({
+				normId: a.norm_id,
+				blockId: chunk.blockId,
+				text: `[${a.norm_title}]\n${chunk.title}\n\n${chunk.text}`,
+			});
+		}
+	} else {
+		preparedArticles.push({
+			normId: a.norm_id,
+			blockId: a.block_id,
+			text: `[${a.norm_title}]\n${a.title}\n\n${a.current_text}`,
+		});
+	}
+}
+
+console.log(
+	`  Sub-chunked: ${subchunkedCount} articles → ${subchunkTotal} sub-chunks (+${subchunkTotal - subchunkedCount} net)`,
+);
 
 const store = await generateEmbeddings(
 	apiKey!,

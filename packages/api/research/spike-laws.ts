@@ -71,6 +71,10 @@ export const SPIKE_LAW_IDS: string[] = [
 	"BOE-A-2004-21760", // Ley Orgánica Violencia de Género (106 arts)
 	"BOE-A-2021-21788", // RDL 32/2021 reforma laboral (30 arts)
 	"BOE-A-2023-12203", // Ley 12/2023 derecho a la vivienda
+
+	// ── Added for eval coverage ──
+	"BOE-A-2000-323", // LEC - Ley de Enjuiciamiento Civil (916 arts — embargo nómina arts. 607-609)
+	"BOE-A-2022-11589", // Ley 15/2022 igualdad de trato y no discriminación (71 arts — nulidad despido por enfermedad)
 ];
 
 /** Total: ~55+ laws, ~8,500+ articles. Manageable for a spike. */

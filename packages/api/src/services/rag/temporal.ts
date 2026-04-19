@@ -83,9 +83,9 @@ export function enrichWithTemporalContext(
 		const hasChanges = versions.length > 1;
 
 		let changeSummary = "";
-		if (hasChanges) {
-			const firstVersion = versions[0];
-			const lastVersion = versions[versions.length - 1];
+		if (hasChanges && versions.length >= 2) {
+			const firstVersion = versions[0]!;
+			const lastVersion = versions[versions.length - 1]!;
 			changeSummary =
 				`[HISTORIAL: Este artículo ha sido modificado ${versions.length - 1} veces. ` +
 				`Versión original: ${firstVersion.date} (${firstVersion.sourceId}). ` +
@@ -100,7 +100,7 @@ export function enrichWithTemporalContext(
 			} else {
 				// If many versions, include first, second-to-last, and last
 				changeSummary += `--- Versión original ${firstVersion.date} ---\n${firstVersion.text.slice(0, 500)}\n\n`;
-				const prevVersion = versions[versions.length - 2];
+				const prevVersion = versions[versions.length - 2]!;
 				changeSummary += `--- Versión anterior ${prevVersion.date} ---\n${prevVersion.text.slice(0, 500)}\n\n`;
 				changeSummary += `--- Versión vigente ${lastVersion.date} ---\n${lastVersion.text.slice(0, 500)}\n\n`;
 			}

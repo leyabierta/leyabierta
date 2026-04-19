@@ -165,7 +165,7 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 		category: "clear",
 		expectedNorms: ["BOE-A-2015-11430"],
 		expectedAnswer:
-			"Sí, pasó de 5 semanas a 16 semanas equiparándose con el de maternidad. El sistema debe mostrar la evolución.",
+			"Sí, pasó de 13 días a 19 semanas (2025) equiparándose con el de maternidad. El sistema debe mostrar la evolución.",
 	},
 	{
 		id: 502,

@@ -58,7 +58,7 @@ function computeNorms(
 		const offset = i * dims;
 		let sum = 0;
 		for (let j = 0; j < dims; j++) {
-			const v = vectors[offset + j];
+			const v = vectors[offset + j] ?? 0;
 			sum += v * v;
 		}
 		norms[i] = Math.sqrt(sum);
@@ -156,9 +156,10 @@ export async function generateEmbeddings(
 		for (const item of data.data) {
 			const embedding = new Float32Array(item.embedding);
 			allEmbeddings.push(embedding);
+			const batchItem = batch[item.index]!;
 			articleMeta.push({
-				normId: batch[item.index].normId,
-				blockId: batch[item.index].blockId,
+				normId: batchItem.normId,
+				blockId: batchItem.blockId,
 			});
 		}
 
@@ -174,7 +175,7 @@ export async function generateEmbeddings(
 	const dims = allEmbeddings[0]?.length ?? model.dimensions;
 	const vectors = new Float32Array(allEmbeddings.length * dims);
 	for (let i = 0; i < allEmbeddings.length; i++) {
-		vectors.set(allEmbeddings[i], i * dims);
+		vectors.set(allEmbeddings[i]!, i * dims);
 	}
 
 	console.log(
@@ -267,18 +268,18 @@ export function vectorSearch(
 	// Precompute query norm
 	let queryNorm = 0;
 	for (let i = 0; i < dims; i++) {
-		queryNorm += queryEmbedding[i] * queryEmbedding[i];
+		queryNorm += (queryEmbedding[i] ?? 0) * (queryEmbedding[i] ?? 0);
 	}
 	queryNorm = Math.sqrt(queryNorm);
 
 	for (let i = 0; i < store.count; i++) {
 		const offset = i * dims;
-		const docNorm = store.norms[i];
+		const docNorm = store.norms[i] ?? 0;
 
 		// Cosine similarity using pre-computed doc norms
 		let dotProduct = 0;
 		for (let j = 0; j < dims; j++) {
-			dotProduct += queryEmbedding[j] * store.vectors[offset + j];
+			dotProduct += (queryEmbedding[j] ?? 0) * (store.vectors[offset + j] ?? 0);
 		}
 
 		const score =
@@ -289,9 +290,12 @@ export function vectorSearch(
 
 	scores.sort((a, b) => b.score - a.score);
 
-	return scores.slice(0, topK).map((s) => ({
-		normId: store.articles[s.index].normId,
-		blockId: store.articles[s.index].blockId,
-		score: s.score,
-	}));
+	return scores.slice(0, topK).map((s) => {
+		const article = store.articles[s.index]!;
+		return {
+			normId: article.normId,
+			blockId: article.blockId,
+			score: s.score,
+		};
+	});
 }

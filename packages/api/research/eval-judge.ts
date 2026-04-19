@@ -49,7 +49,7 @@ const repoRoot = join(import.meta.dir, "../../../");
 
 interface RAGResponse {
 	answer: string;
-	citations: Array<{ norm_id: string; article_title: string }>;
+	citations: Array<{ normId: string; articleTitle: string }>;
 	declined: boolean;
 	meta?: {
 		model: string;
@@ -75,7 +75,7 @@ interface EvalResult {
 	expectedAnswer: string;
 	ragAnswer: string;
 	ragDeclined: boolean;
-	ragCitations: Array<{ norm_id: string; article_title: string }>;
+	ragCitations: Array<{ normId: string; articleTitle: string }>;
 	scores: JudgeScores;
 	ragLatencyMs: number;
 	judgeCost: number;
@@ -179,11 +179,11 @@ async function judgeAnswer(
 	expectedAnswer: string,
 	ragAnswer: string,
 	ragDeclined: boolean,
-	citations: Array<{ norm_id: string; article_title: string }>,
+	citations: Array<{ normId: string; articleTitle: string }>,
 ): Promise<{ scores: JudgeScores; cost: number }> {
 	const citationsText =
 		citations.length > 0
-			? citations.map((c) => `- ${c.article_title} (${c.norm_id})`).join("\n")
+			? citations.map((c) => `- ${c.articleTitle} (${c.normId})`).join("\n")
 			: "(no citations)";
 
 	const userMessage = `QUESTION: ${question}

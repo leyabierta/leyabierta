@@ -10,7 +10,9 @@
  */
 
 const COHERE_RERANK_URL = "https://api.cohere.com/v2/rerank";
+const OPENROUTER_RERANK_URL = "https://openrouter.ai/api/v1/rerank";
 const COHERE_MODEL = "rerank-v3.5";
+const OPENROUTER_RERANK_MODEL = "cohere/rerank-4-pro";
 
 export interface RerankerCandidate {
 	key: string; // "normId:blockId"
@@ -68,12 +70,12 @@ export async function rerank(
 	}
 
 	if (config.openrouterApiKey) {
-		return rerankWithLLM(
+		// Prefer purpose-built reranker over LLM-based reranking
+		return rerankViaOpenRouter(
 			query,
 			candidates,
 			topK,
 			config.openrouterApiKey,
-			config.openrouterModel ?? "google/gemini-2.5-flash-lite",
 		);
 	}
 
@@ -138,8 +140,68 @@ async function rerankWithCohere(
 	return { results, backend: "cohere-rerank-v3.5", cost };
 }
 
-// ── LLM-based reranker (fallback) ──
+// ── OpenRouter Rerank (Cohere rerank-4-pro via OpenRouter) ──
 
+async function rerankViaOpenRouter(
+	query: string,
+	candidates: RerankerCandidate[],
+	topK: number,
+	apiKey: string,
+): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
+	const documents = candidates.map(
+		(c) => `${c.title}\n\n${c.text.slice(0, 1500)}`,
+	);
+
+	const response = await fetch(OPENROUTER_RERANK_URL, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			"Content-Type": "application/json",
+			"HTTP-Referer": "https://leyabierta.es",
+			"X-Title": "Ley Abierta RAG",
+		},
+		body: JSON.stringify({
+			model: OPENROUTER_RERANK_MODEL,
+			query,
+			documents,
+			top_n: topK,
+		}),
+	});
+
+	if (!response.ok) {
+		const err = await response.text();
+		console.warn(
+			`OpenRouter rerank error ${response.status}: ${err.slice(0, 200)}`,
+		);
+		// Fall back to passthrough instead of crashing
+		return {
+			results: candidates.slice(0, topK).map((c, i) => ({
+				key: c.key,
+				relevanceScore: 1 - i * 0.01,
+				rank: i + 1,
+			})),
+			backend: "openrouter-rerank-failed",
+			cost: 0,
+		};
+	}
+
+	const data = (await response.json()) as {
+		results: Array<{ index: number; relevance_score: number }>;
+		usage?: { cost?: number };
+	};
+
+	const results: RerankerResult[] = data.results.map((r, rank) => ({
+		key: candidates[r.index]!.key,
+		relevanceScore: r.relevance_score,
+		rank: rank + 1,
+	}));
+
+	const cost = data.usage?.cost ?? 0;
+	return { results, backend: "openrouter-rerank-4-pro", cost };
+}
+
+// ── LLM-based reranker (kept as fallback, not actively used) ──
+// biome-ignore lint/correctness/noUnusedVariables: kept as documented fallback
 async function rerankWithLLM(
 	query: string,
 	candidates: RerankerCandidate[],
