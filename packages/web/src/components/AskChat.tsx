@@ -86,9 +86,8 @@ function renderAnswerWithCitations(
 
 			if (citation) {
 				parts.push(
-					// biome-ignore lint/suspicious/noArrayIndexKey: pIdx disambiguates duplicate citations in different paragraphs
 					<span
-						key={`${normId}-${articleRef}-${pIdx}`}
+						key={`${normId}-${articleRef}-${match.index}`}
 						className="ask-cite-wrapper"
 					>
 						<a
