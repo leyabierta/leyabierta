@@ -6,12 +6,15 @@
 
 import type { Database } from "bun:sqlite";
 import { callOpenRouter } from "../openrouter.ts";
+import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
 import {
 	type EmbeddingStore,
 	embedQuery,
 	loadEmbeddings,
 	vectorSearch,
 } from "./embeddings.ts";
+import { type RerankerCandidate, rerank } from "./reranker.ts";
+import { type RankedItem, reciprocalRankFusion } from "./rrf.ts";
 import {
 	buildTemporalEvidence,
 	enrichWithTemporalContext,
@@ -20,10 +23,12 @@ import { type RagTrace, startTrace } from "./tracing.ts";
 
 // ── Config ──
 
-const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
+const DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview";
 const TOP_K = 10;
 const MAX_EVIDENCE_TOKENS = 6000;
 const EMBEDDING_MODEL_KEY = "openai-small";
+const RRF_K = 60;
+const RERANK_POOL_SIZE = 50;
 /** If the best retrieval score is below this, skip evidence and let LLM decide alone.
  * Set conservatively low (0.38) — the nonLegal analyzer flag handles most OOS questions.
  * This gate only catches queries where retrieval is truly noise (e.g. "mejor abogado"). */
@@ -101,6 +106,7 @@ INSTRUCCIÓN ADICIONAL PARA PREGUNTAS TEMPORALES:
 export class RagPipeline {
 	private embeddingStore: EmbeddingStore | null = null;
 	private loadingPromise: Promise<EmbeddingStore> | null = null;
+	private cohereApiKey: string | null;
 
 	private insertSummaryStmt: ReturnType<Database["prepare"]>;
 	private insertAskLogStmt: ReturnType<Database["prepare"]>;
@@ -111,6 +117,11 @@ export class RagPipeline {
 		private embeddingsPath: string,
 		private model: string = DEFAULT_MODEL,
 	) {
+		this.cohereApiKey = process.env.COHERE_API_KEY ?? null;
+
+		// Initialize article-level BM25 index for hybrid search
+		ensureBlocksFts(this.db);
+
 		this.insertSummaryStmt = this.db.prepare(
 			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
 		);
@@ -221,48 +232,110 @@ export class RagPipeline {
 			return result;
 		}
 
-		// 2. Vector search (filter by minimum similarity to avoid irrelevant results)
+		// 2. Hybrid retrieval: vector + BM25, fused with RRF, then reranked
 		const retrievalSpan = trace.span("retrieval", "tool", {
 			topK: TOP_K,
 			embeddingModel: EMBEDDING_MODEL_KEY,
 			storeSize: store.count,
+			strategy: "hybrid-rrf-reranker",
 		});
 
 		const MIN_SIMILARITY = 0.35;
+
+		// 2a. Vector search (top 50)
 		const vectorResults = vectorSearch(
 			queryResult.embedding,
 			store,
-			TOP_K * 2,
+			RERANK_POOL_SIZE,
 		).filter((r) => r.score >= MIN_SIMILARITY);
+		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: r.score,
+		}));
 
-		// 3. Get full article data
-		const articles = this.getArticleData(vectorResults.slice(0, TOP_K));
+		// 2b. BM25 article-level search (top 50)
+		const bm25Results = bm25HybridSearch(
+			this.db,
+			request.question,
+			analyzed.keywords,
+			RERANK_POOL_SIZE,
+		);
+		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+
+		// 2c. Fuse with RRF
+		const fused = reciprocalRankFusion(
+			new Map([
+				["vector", vectorRanked],
+				["bm25", bm25Ranked],
+			]),
+			RRF_K,
+			RERANK_POOL_SIZE,
+		);
+
+		// 2d. Get full article data for fused results
+		const fusedKeys = new Set(fused.map((r) => r.key));
+		const allFusedArticles = this.getArticleData(
+			fused.map((r) => {
+				const [normId, blockId] = r.key.split(":");
+				return { normId, blockId, score: r.rrfScore };
+			}),
+		).filter((a) => fusedKeys.has(`${a.normId}:${a.blockId}`));
+
+		// 2e. Rerank with Cohere (or LLM fallback)
+		let articles: typeof allFusedArticles;
+		let rerankerBackend = "none";
+
+		if (allFusedArticles.length > TOP_K) {
+			const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
+				key: `${a.normId}:${a.blockId}`,
+				title: a.blockTitle,
+				text: a.text,
+			}));
+
+			const reranked = await rerank(request.question, candidates, TOP_K, {
+				cohereApiKey: this.cohereApiKey ?? undefined,
+				openrouterApiKey: this.apiKey,
+			});
+			rerankerBackend = reranked.backend;
+
+			const rerankedKeys = new Set(reranked.results.map((r) => r.key));
+			const rerankedOrder = new Map(
+				reranked.results.map((r) => [r.key, r.rank]),
+			);
+			articles = allFusedArticles
+				.filter((a) => rerankedKeys.has(`${a.normId}:${a.blockId}`))
+				.sort(
+					(a, b) =>
+						(rerankedOrder.get(`${a.normId}:${a.blockId}`) ?? 999) -
+						(rerankedOrder.get(`${b.normId}:${b.blockId}`) ?? 999),
+				);
+		} else {
+			articles = allFusedArticles;
+		}
+
+		const bestScore = vectorResults[0]?.score ?? 0;
 
 		retrievalSpan.end(
 			{
-				resultsBeforeFilter: vectorResults.length + articles.length,
-				resultsAfterFilter: vectorResults.length,
+				vectorResults: vectorResults.length,
+				bm25Results: bm25Results.length,
+				fusedResults: fused.length,
+				rerankerBackend,
 				articlesRetrieved: articles.length,
 				chunks: articles.map((a) => ({
 					normId: a.normId,
 					blockId: a.blockId,
 					blockTitle: a.blockTitle,
 					normTitle: a.normTitle,
-					score:
-						vectorResults.find(
-							(r) => r.normId === a.normId && r.blockId === a.blockId,
-						)?.score ?? null,
 				})),
 			},
 			{
 				minSimilarity: MIN_SIMILARITY,
-				scoreRange:
-					vectorResults.length > 0
-						? {
-								max: vectorResults[0].score,
-								min: vectorResults[vectorResults.length - 1].score,
-							}
-						: null,
+				bestVectorScore: bestScore,
+				rrfK: RRF_K,
 			},
 		);
 
@@ -286,7 +359,6 @@ export class RagPipeline {
 		// 3b. Low-confidence gate: if best score is too low, the retrieved
 		// articles are probably not relevant. Let the LLM decide without
 		// evidence — it's better at declining off-topic questions that way.
-		const bestScore = vectorResults[0]?.score ?? 0;
 		if (bestScore < LOW_CONFIDENCE_THRESHOLD) {
 			const gateSpan = trace.span("low-confidence-gate", "tool", {
 				bestScore,

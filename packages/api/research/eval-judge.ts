@@ -35,6 +35,7 @@ const questionFilter = getArg("question")
 	: undefined;
 const hardOnly = hasFlag("hard");
 const apiBaseUrl = getArg("api-url") ?? "http://localhost:3000";
+const apiBypassKey = process.env.API_BYPASS_KEY ?? "";
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 if (!apiKey) {
@@ -87,7 +88,10 @@ async function callRAG(question: string): Promise<RAGResponse> {
 		const start = Date.now();
 		const response = await fetch(`${apiBaseUrl}/v1/ask`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				...(apiBypassKey ? { "x-api-key": apiBypassKey } : {}),
+			},
 			body: JSON.stringify({ question }),
 		});
 
