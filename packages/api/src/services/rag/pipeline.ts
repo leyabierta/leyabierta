@@ -265,15 +265,48 @@ export class RagPipeline {
 			score: 1 / r.rank,
 		}));
 
-		// 2c. Fuse with RRF
-		const fused = reciprocalRankFusion(
-			new Map([
-				["vector", vectorRanked],
-				["bm25", bm25Ranked],
-			]),
-			RRF_K,
-			RERANK_POOL_SIZE,
-		);
+		// 2c. Recency boost — articles from recently reformed norms rank higher.
+		// Collect all unique normIds from both retrieval systems
+		const allRetrievedKeys = new Set([
+			...vectorRanked.map((r) => r.key),
+			...bm25Ranked.map((r) => r.key),
+		]);
+		const allNormIds = [
+			...new Set([...allRetrievedKeys].map((k) => k.split(":")[0])),
+		];
+		let recencyRanked: RankedItem[] = [];
+		if (allNormIds.length > 0) {
+			const normPlaceholders = allNormIds.map((id) => `'${id}'`).join(",");
+			const recencyRows = this.db
+				.query<{ norm_id: string; updated_at: string }>(
+					`SELECT id as norm_id, updated_at FROM norms
+					 WHERE id IN (${normPlaceholders})
+					 ORDER BY updated_at DESC`,
+				)
+				.all();
+			// Build a ranking: most recently updated norms first.
+			// All articles from the same norm get the same recency rank.
+			const normRecencyRank = new Map(
+				recencyRows.map((r, i) => [r.norm_id, i + 1]),
+			);
+			recencyRanked = [...allRetrievedKeys]
+				.map((key) => {
+					const normId = key.split(":")[0];
+					const rank = normRecencyRank.get(normId) ?? allNormIds.length;
+					return { key, score: 1 / rank };
+				})
+				.sort((a, b) => b.score - a.score);
+		}
+
+		// 2d. Fuse with RRF (3 systems: vector + BM25 + recency)
+		const rrfSystems = new Map<string, RankedItem[]>([
+			["vector", vectorRanked],
+			["bm25", bm25Ranked],
+		]);
+		if (recencyRanked.length > 0) {
+			rrfSystems.set("recency", recencyRanked);
+		}
+		const fused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
 
 		// 2d. Get full article data for fused results
 		const fusedKeys = new Set(fused.map((r) => r.key));

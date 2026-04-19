@@ -44,7 +44,7 @@ if (!model) {
 
 // ── DB ──
 
-const repoRoot = join(import.meta.dir, "../../../../");
+const repoRoot = join(import.meta.dir, "../../../");
 const dbPath = join(repoRoot, "data", "leyabierta.db");
 const db = new Database(dbPath);
 db.exec("PRAGMA journal_mode = WAL");
@@ -57,12 +57,14 @@ const spikeFilter = SPIKE_LAW_IDS.map((id) => `'${id}'`).join(",");
 const articles = db
 	.query<{
 		norm_id: string;
+		norm_title: string;
 		block_id: string;
 		title: string;
 		current_text: string;
 	}>(
-		`SELECT b.norm_id, b.block_id, b.title, b.current_text
+		`SELECT b.norm_id, n.title as norm_title, b.block_id, b.title, b.current_text
      FROM blocks b
+     JOIN norms n ON n.id = b.norm_id
      WHERE b.norm_id IN (${spikeFilter})
        AND b.block_type = 'precepto'
        AND b.current_text != ''
@@ -98,10 +100,13 @@ if (dryRun) {
 
 const startTime = Date.now();
 
+// Enrich embedding text with law name for better semantic separation.
+// "Estatuto de los Trabajadores — Artículo 48" embeds differently from
+// "EBEP — Artículo 48", helping retrieval distinguish which law applies.
 const preparedArticles = articles.map((a) => ({
 	normId: a.norm_id,
 	blockId: a.block_id,
-	text: `${a.title}\n\n${a.current_text}`,
+	text: `[${a.norm_title}]\n${a.title}\n\n${a.current_text}`,
 }));
 
 const store = await generateEmbeddings(
