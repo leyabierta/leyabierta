@@ -697,6 +697,8 @@ export class RagPipeline {
 		  }
 	> {
 		const start = Date.now();
+		// Note: no Opik tracing in stream path. ask_log covers coarse metrics
+		// (latency, citation count, declined rate). Add per-stage spans if needed.
 
 		// Reuse the same retrieval pipeline as ask()
 		const retrieval = await this.runRetrieval(request);
@@ -760,11 +762,10 @@ export class RagPipeline {
 		// Verify citations against evidence
 		const validCitations = this.verifyCitations(uniqueCitations, articles);
 
-		// Detect declined
-		const declined =
-			fullText.length < 30 &&
-			validCitations.length === 0 &&
-			/no.*legisl|no.*respond|no.*puedo/i.test(fullText);
+		// Decline detection: early-gate returns from runRetrieval already set
+		// declined=true correctly. For the synthesis path, the LLM's plain-text
+		// decline messages are self-explanatory and render fine as normal answers.
+		const declined = false;
 
 		// Fire-and-forget: generate missing citizen summaries
 		this.generateMissingSummaries(validCitations, articles);

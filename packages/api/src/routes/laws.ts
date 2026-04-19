@@ -139,22 +139,21 @@ export function lawRoutes(
 						}
 					}
 
-					// Fire-and-forget: generate missing summaries for next visit
-					const missing = blocks.filter(
-						(b) => !b.citizen_summary && b.current_text.length >= 50,
-					);
-					if (missing.length > 0) {
-						for (const b of missing) {
-							citizenSummaryService
-								.getOrGenerate(
-									params.id,
-									b.block_id,
-									law.title,
-									b.title,
-									b.current_text,
-								)
-								.catch(() => {});
-						}
+					// Fire-and-forget: generate missing summaries for next visit.
+					// Cap at 5 per request to avoid unbounded concurrent AI calls.
+					const missing = blocks
+						.filter((b) => !b.citizen_summary && b.current_text.length >= 50)
+						.slice(0, 5);
+					for (const b of missing) {
+						citizenSummaryService
+							.getOrGenerate(
+								params.id,
+								b.block_id,
+								law.title,
+								b.title,
+								b.current_text,
+							)
+							.catch(() => {});
 					}
 
 					set.headers["Cache-Control"] =

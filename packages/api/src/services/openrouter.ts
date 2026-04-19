@@ -58,30 +58,42 @@ export async function* callOpenRouterStream(
 ): AsyncGenerator<StreamDelta | StreamDone> {
 	const { model, messages, temperature = 0.2, maxTokens = 4000 } = options;
 
-	const response = await fetch(OPENROUTER_URL, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-			"HTTP-Referer": "https://leyabierta.es",
-			"X-Title": "Ley Abierta",
-		},
-		body: JSON.stringify({
-			model,
-			messages,
-			temperature,
-			max_tokens: maxTokens,
-			stream: true,
-			stream_options: { include_usage: true },
-		}),
-	});
+	let response: Response | null = null;
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		if (attempt > 0) {
+			await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
+		}
+		const res = await fetch(OPENROUTER_URL, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+				"HTTP-Referer": "https://leyabierta.es",
+				"X-Title": "Ley Abierta",
+			},
+			body: JSON.stringify({
+				model,
+				messages,
+				temperature,
+				max_tokens: maxTokens,
+				stream: true,
+				stream_options: { include_usage: true },
+			}),
+		});
+		if (res.status === 429) continue;
+		if (!res.ok) {
+			const errorText = await res.text();
+			throw new OpenRouterError(
+				`http_${res.status}`,
+				`API error ${res.status}: ${errorText.slice(0, 200)}`,
+			);
+		}
+		response = res;
+		break;
+	}
 
-	if (!response.ok) {
-		const errorText = await response.text();
-		throw new OpenRouterError(
-			`http_${response.status}`,
-			`API error ${response.status}: ${errorText.slice(0, 200)}`,
-		);
+	if (!response) {
+		throw new OpenRouterError("rate_limit", "Rate limited after retries");
 	}
 
 	if (!response.body) {
