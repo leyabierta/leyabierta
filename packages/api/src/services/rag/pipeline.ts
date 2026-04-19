@@ -15,7 +15,11 @@ import {
 } from "./embeddings.ts";
 import { type RerankerCandidate, rerank } from "./reranker.ts";
 import { type RankedItem, reciprocalRankFusion } from "./rrf.ts";
-import { parseSubchunkId, splitByApartados } from "./subchunk.ts";
+import {
+	parseSubchunkId,
+	type SubChunk,
+	splitByApartados,
+} from "./subchunk.ts";
 import {
 	buildTemporalEvidence,
 	enrichWithTemporalContext,
@@ -545,21 +549,29 @@ export class RagPipeline {
 					);
 				});
 
-			const firstArticle = normArticles?.[0];
-			if (strictMatch && firstArticle) {
+			const matchedArticle =
+				normArticles?.find((a) => {
+					const b = a.blockTitle.toLowerCase();
+					return (
+						b === citeLower ||
+						citeLower.startsWith(b) ||
+						b.startsWith(citeLower)
+					);
+				}) ?? normArticles?.[0];
+			if (strictMatch && matchedArticle) {
 				validCitations.push({
 					normId: c.normId,
-					normTitle: firstArticle.normTitle,
+					normTitle: matchedArticle.normTitle,
 					articleTitle: c.articleTitle,
-					citizenSummary: firstArticle.citizenSummary,
+					citizenSummary: matchedArticle.citizenSummary,
 					verified: true,
 				});
-			} else if (normMatch && firstArticle) {
+			} else if (normMatch && matchedArticle) {
 				validCitations.push({
 					normId: c.normId,
-					normTitle: firstArticle.normTitle,
+					normTitle: matchedArticle.normTitle,
 					articleTitle: c.articleTitle,
-					citizenSummary: firstArticle.citizenSummary,
+					citizenSummary: matchedArticle.citizenSummary,
 					verified: false,
 				});
 			}
@@ -837,6 +849,7 @@ Responde SOLO con JSON.`,
 		};
 		const articles: ArticleData[] = [];
 		const seen = new Set<string>();
+		const splitCache = new Map<string, SubChunk[] | null>();
 
 		// Sort vector results by score descending
 		const sorted = [...vectorResults].sort((a, b) => b.score - a.score);
@@ -852,11 +865,16 @@ Responde SOLO con JSON.`,
 				const parent = parentLookup.get(`${r.normId}:${sub.parentBlockId}`);
 				if (!parent) continue;
 
-				const chunks = splitByApartados(
-					sub.parentBlockId,
-					parent.block_title,
-					parent.current_text,
-				);
+				const cacheKey = `${r.normId}:${sub.parentBlockId}`;
+				let chunks = splitCache.get(cacheKey);
+				if (chunks === undefined) {
+					chunks = splitByApartados(
+						sub.parentBlockId,
+						parent.block_title,
+						parent.current_text,
+					);
+					splitCache.set(cacheKey, chunks);
+				}
 				const chunk = chunks?.find((c) => c.apartado === sub.apartado);
 				if (chunk) {
 					articles.push({
