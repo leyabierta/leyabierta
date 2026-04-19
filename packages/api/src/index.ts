@@ -70,16 +70,19 @@ const API_BYPASS_KEY = process.env.API_BYPASS_KEY ?? "";
 // ── Graceful shutdown ───────────────────────────────────────────────
 let isShuttingDown = false;
 
-process.on("SIGTERM", () => {
+function shutdown(signal: string) {
 	isShuttingDown = true;
-	console.log("SIGTERM received, shutting down gracefully...");
+	console.log(`${signal} received, shutting down gracefully...`);
 	// Wait 30s for in-flight requests + fire-and-forget LLM calls to complete
 	setTimeout(async () => {
 		await flushTraces();
 		db.close();
 		process.exit(0);
 	}, 30_000);
-});
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 const app = new Elysia()
 	.use(cors({ origin: CORS_ORIGINS }))

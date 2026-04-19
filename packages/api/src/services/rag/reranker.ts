@@ -119,9 +119,19 @@ async function rerankWithCohere(
 
 	if (!response.ok) {
 		const err = await response.text();
-		throw new Error(
+		console.warn(
 			`Cohere Rerank error ${response.status}: ${err.slice(0, 200)}`,
 		);
+		// Graceful fallback: return candidates in original order
+		return {
+			results: candidates.slice(0, topK).map((c, i) => ({
+				key: c.key,
+				relevanceScore: 1 - i * 0.01,
+				rank: i + 1,
+			})),
+			backend: "cohere-rerank-failed",
+			cost: 0,
+		};
 	}
 
 	const data = (await response.json()) as {

@@ -74,8 +74,6 @@ interface AnalyzedQuery {
 	temporal: boolean;
 	/** True if the question is clearly not about legislation (poems, sports, etc.) */
 	nonLegal: boolean;
-	/** True if the question is ambiguous, involves multiple legal areas, or requires nuanced reasoning */
-	complex: boolean;
 }
 
 // ── System Prompt ──
@@ -198,12 +196,13 @@ export class RagPipeline {
 		start: number,
 		trace: RagTrace,
 	): Promise<AskResponse & { _bestScore?: number }> {
+		// Load embedding store before starting spans (disk I/O on first request)
+		const store = await this.getEmbeddingStore();
+
 		// 1. Analyze query + embed query in parallel (independent operations)
 		const analysisSpan = trace.span("query-analysis", "llm", {
 			question: request.question,
 		});
-
-		const store = await this.getEmbeddingStore();
 		const [analyzed, queryResult] = await Promise.all([
 			this.analyzeQuery(request.question),
 			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
@@ -290,14 +289,14 @@ export class RagPipeline {
 		];
 		let recencyRanked: RankedItem[] = [];
 		if (allNormIds.length > 0) {
-			const normPlaceholders = allNormIds.map((id) => `'${id}'`).join(",");
+			const placeholders = allNormIds.map(() => "?").join(",");
 			const recencyRows = this.db
-				.query<{ norm_id: string; updated_at: string }, []>(
+				.query<{ norm_id: string; updated_at: string }, string[]>(
 					`SELECT id as norm_id, updated_at FROM norms
-					 WHERE id IN (${normPlaceholders})
+					 WHERE id IN (${placeholders})
 					 ORDER BY updated_at DESC`,
 				)
-				.all();
+				.all(...allNormIds);
 			// Build a ranking: most recently updated norms first.
 			// All articles from the same norm get the same recency rank.
 			const normRecencyRank = new Map(
@@ -688,7 +687,6 @@ export class RagPipeline {
 				materias: string[];
 				temporal: boolean;
 				non_legal: boolean;
-				complex: boolean;
 			}>(this.apiKey, {
 				model: ANALYZER_MODEL,
 				messages: [
@@ -699,26 +697,18 @@ export class RagPipeline {
 2. "materias": categorías temáticas BOE. Máximo 3.
 3. "temporal": true si pregunta sobre cambios históricos o evolución de la ley. false si pregunta sobre ley vigente.
 4. "non_legal": true si la pregunta NO es sobre legislación, derechos u obligaciones legales. Ejemplos: clima, deportes, poemas, recetas, opiniones personales, hackear sistemas, preguntas sobre personas concretas. INCLUSO si la pregunta menciona palabras legales (como "Constitución"), si la INTENCIÓN no es obtener información legal (ej: "escribe un poema sobre la Constitución"), pon non_legal=true.
-5. "complex": true si la pregunta requiere razonamiento jurídico avanzado. Criterios:
-   - Cruza varias áreas del derecho (laboral + constitucional, alquiler + autónomo, etc.)
-   - Es ambigua y puede interpretarse de varias formas
-   - Mezcla dos situaciones jurídicas (vivienda + negocio, trabajador + consumidor)
-   - Requiere distinguir matices entre normas contradictorias
-   - Pregunta sobre derechos fundamentales (intimidad, comunicaciones, detención)
-   Preguntas directas sobre un solo tema (vacaciones, paternidad, fianza) son complex=false.
 Responde SOLO con JSON.`,
 					},
 					{ role: "user", content: question },
 				],
 				temperature: 0.1,
-				maxTokens: 250,
+				maxTokens: 200,
 			});
 			return {
 				keywords: result.data.keywords ?? [],
 				materias: result.data.materias ?? [],
 				temporal: result.data.temporal ?? false,
 				nonLegal: result.data.non_legal ?? false,
-				complex: result.data.complex ?? false,
 			};
 		} catch (err) {
 			console.warn(
@@ -776,7 +766,6 @@ Responde SOLO con JSON.`,
 				materias: [],
 				temporal: isTemporal,
 				nonLegal: false,
-				complex: false, // fallback defaults to fast model
 			};
 		}
 	}
