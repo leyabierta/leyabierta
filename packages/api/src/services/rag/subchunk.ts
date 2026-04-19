@@ -42,7 +42,7 @@ export function splitByApartados(
 	const matches: Array<{ index: number; num: number }> = [];
 	let match: RegExpExecArray | null;
 	while ((match = pattern.exec(text)) !== null) {
-		matches.push({ index: match.index, num: Number.parseInt(match[1]!) });
+		matches.push({ index: match.index, num: Number.parseInt(match[1]!, 10) });
 	}
 
 	if (matches.length < 2 || matches[0]!.num !== 1) return null;
@@ -103,8 +103,10 @@ export function parseSubchunkId(
 ): { parentBlockId: string; apartado: number } | null {
 	const sepIdx = blockId.indexOf(SUBCHUNK_SEP);
 	if (sepIdx < 0) return null;
-	return {
-		parentBlockId: blockId.slice(0, sepIdx),
-		apartado: Number.parseInt(blockId.slice(sepIdx + SUBCHUNK_SEP.length)),
-	};
+	const apartado = Number.parseInt(
+		blockId.slice(sepIdx + SUBCHUNK_SEP.length),
+		10,
+	);
+	if (Number.isNaN(apartado)) return null;
+	return { parentBlockId: blockId.slice(0, sepIdx), apartado };
 }

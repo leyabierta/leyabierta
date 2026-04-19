@@ -138,11 +138,13 @@ async function rerankWithCohere(
 		results: Array<{ index: number; relevance_score: number }>;
 	};
 
-	const results: RerankerResult[] = data.results.map((r, rank) => ({
-		key: candidates[r.index]!.key,
-		relevanceScore: r.relevance_score,
-		rank: rank + 1,
-	}));
+	const results: RerankerResult[] = data.results
+		.filter((r) => r.index >= 0 && r.index < candidates.length)
+		.map((r, rank) => ({
+			key: candidates[r.index]!.key,
+			relevanceScore: r.relevance_score,
+			rank: rank + 1,
+		}));
 
 	// Cohere costs ~$0.001 per 1000 search units (1 search unit = 1 doc × 1 query)
 	const cost = (candidates.length / 1000) * 0.001;
@@ -200,11 +202,13 @@ async function rerankViaOpenRouter(
 		usage?: { cost?: number };
 	};
 
-	const results: RerankerResult[] = data.results.map((r, rank) => ({
-		key: candidates[r.index]!.key,
-		relevanceScore: r.relevance_score,
-		rank: rank + 1,
-	}));
+	const results: RerankerResult[] = data.results
+		.filter((r) => r.index >= 0 && r.index < candidates.length)
+		.map((r, rank) => ({
+			key: candidates[r.index]!.key,
+			relevanceScore: r.relevance_score,
+			rank: rank + 1,
+		}));
 
 	const cost = data.usage?.cost ?? 0;
 	return { results, backend: "openrouter-rerank-4-pro", cost };

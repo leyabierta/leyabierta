@@ -427,23 +427,16 @@ export class RagPipeline {
 				articlesRetrieved: articles.length,
 			});
 
-			const noEvidenceSynthesis = await this.synthesize(
-				request.question,
-				"",
-				SYSTEM_PROMPT,
-			);
+			gateSpan.end({ action: "declined_low_confidence" });
 
-			gateSpan.end({
-				action: "skipped_evidence",
-				declined: noEvidenceSynthesis.declined,
-			});
-
+			// Always decline when no evidence — never return uncited legal advice.
+			// The LLM may claim it can answer from training data, but without
+			// grounded citations, the answer violates our core promise.
 			const result: AskResponse = {
-				answer: noEvidenceSynthesis.declined
-					? "No he encontrado legislación relevante para responder a tu pregunta. Solo puedo ayudarte con preguntas sobre leyes y derechos en España."
-					: noEvidenceSynthesis.answer,
+				answer:
+					"No he encontrado legislación relevante para responder a tu pregunta. Solo puedo ayudarte con preguntas sobre leyes y derechos en España.",
 				citations: [],
-				declined: noEvidenceSynthesis.declined,
+				declined: true,
 				meta: {
 					articlesRetrieved: 0,
 					temporalEnriched: false,
@@ -781,13 +774,11 @@ Responde SOLO con JSON.`,
 			string,
 			{ parentBlockId: string; apartado: number }
 		>();
-		const parentBlockIds = new Set<string>();
 
 		for (const r of vectorResults) {
 			const parsed = parseSubchunkId(r.blockId);
 			if (parsed) {
 				subchunkMap.set(`${r.normId}:${r.blockId}`, parsed);
-				parentBlockIds.add(`${r.normId}:${parsed.parentBlockId}`);
 			}
 		}
 
