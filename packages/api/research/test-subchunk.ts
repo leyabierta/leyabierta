@@ -236,6 +236,7 @@ if (apiKey) {
 			}),
 		});
 
+		// biome-ignore lint/suspicious/noExplicitAny: untyped API response in research script
 		const data: any = await response.json();
 		const subchunkEmb = new Float32Array(data.data[0].embedding);
 
