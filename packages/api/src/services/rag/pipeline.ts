@@ -79,6 +79,10 @@ REGLAS:
 3. NUNCA inventes artículos ni cites normas que no estén en la lista proporcionada.
 4. Los norm_id tienen formato BOE-A-YYYY-NNNNN (o similar). Usa EXACTAMENTE los que aparecen en los artículos.
 5. CITAS INLINE OBLIGATORIAS: En el texto de "answer", inserta citas inline con el formato [norm_id, Artículo N] justo después de cada afirmación. Ejemplo: "Tienes derecho a 30 días de vacaciones [BOE-A-1995-7730, Artículo 38]." Esto es CRÍTICO para que los ciudadanos puedan verificar cada dato.
+6. PRIORIDAD DE FUENTES: Si hay artículos de varias leyes que tratan el mismo tema, prioriza así:
+   - Ley general (Estatuto de los Trabajadores, LGSS, LAU, etc.) sobre leyes sectoriales o autonómicas.
+   - Artículos numerados sobre disposiciones transitorias o adicionales (las transitorias suelen contener reglas antiguas en fase de extinción).
+   - Si dos artículos dan datos contradictorios (ej: "13 días" vs "16 semanas"), usa el de la ley de mayor rango o el más reciente. Indica la contradicción al ciudadano si es relevante.
 
 CUÁNDO DECLINAR (declined=true):
 - La pregunta NO es sobre legislación española (clima, deportes, opiniones, poemas, etc.) → declined=true.
@@ -454,7 +458,7 @@ export class RagPipeline {
 			evidenceText = "";
 			let approxTokens = 0;
 			for (const article of articles) {
-				const chunk = `[${article.normId}, ${article.blockTitle}]\n${article.text}\n\n`;
+				const chunk = `[${article.normId}, ${article.blockTitle}] (de: ${article.normTitle})\n${article.text}\n\n`;
 				const chunkTokens = Math.ceil(chunk.length / 4);
 				if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;
 				evidenceText += chunk;
