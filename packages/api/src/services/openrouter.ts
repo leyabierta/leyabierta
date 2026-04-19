@@ -40,6 +40,102 @@ export class OpenRouterError extends Error {
 	}
 }
 
+export interface StreamDelta {
+	type: "delta";
+	text: string;
+}
+
+export interface StreamDone {
+	type: "done";
+	tokensIn: number;
+	tokensOut: number;
+	cost: number;
+}
+
+export async function* callOpenRouterStream(
+	apiKey: string,
+	options: Omit<OpenRouterOptions, "jsonResponse" | "jsonSchema">,
+): AsyncGenerator<StreamDelta | StreamDone> {
+	const { model, messages, temperature = 0.2, maxTokens = 4000 } = options;
+
+	const response = await fetch(OPENROUTER_URL, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			"Content-Type": "application/json",
+			"HTTP-Referer": "https://leyabierta.es",
+			"X-Title": "Ley Abierta",
+		},
+		body: JSON.stringify({
+			model,
+			messages,
+			temperature,
+			max_tokens: maxTokens,
+			stream: true,
+			stream_options: { include_usage: true },
+		}),
+	});
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new OpenRouterError(
+			`http_${response.status}`,
+			`API error ${response.status}: ${errorText.slice(0, 200)}`,
+		);
+	}
+
+	if (!response.body) {
+		throw new OpenRouterError("no_body", "Response has no body");
+	}
+
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let tokensIn = 0;
+	let tokensOut = 0;
+	let cost = 0;
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+
+		const lines = buffer.split("\n");
+		buffer = lines.pop()!;
+
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed?.startsWith("data: ")) continue;
+			const payload = trimmed.slice(6);
+			if (payload === "[DONE]") continue;
+
+			try {
+				const parsed = JSON.parse(payload) as {
+					choices?: Array<{ delta?: { content?: string } }>;
+					usage?: {
+						prompt_tokens?: number;
+						completion_tokens?: number;
+						cost?: number;
+					};
+				};
+				const content = parsed.choices?.[0]?.delta?.content;
+				if (content) {
+					yield { type: "delta", text: content };
+				}
+				if (parsed.usage) {
+					tokensIn = parsed.usage.prompt_tokens ?? 0;
+					tokensOut = parsed.usage.completion_tokens ?? 0;
+					cost = parsed.usage.cost ?? 0;
+				}
+			} catch {
+				// skip unparseable lines
+			}
+		}
+	}
+
+	yield { type: "done", tokensIn, tokensOut, cost };
+}
+
 export async function callOpenRouter<T>(
 	apiKey: string,
 	options: OpenRouterOptions,

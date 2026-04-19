@@ -135,7 +135,7 @@ REST API built with Elysia (Bun-native). SQLite + FTS5 for full-text search.
 Endpoints:
 - `GET /v1/laws` — list/search laws (filters: q, country, rank, status, materia; pagination)
 - `GET /v1/laws/:id` — full law with metadata, blocks, reforms
-- `GET /v1/laws/:id/articles/:n` — specific article by position + all versions
+- `GET /v1/laws/:id/summaries` — citizen summaries per article (lightweight, triggers lazy generation)
 - `GET /v1/laws/:id/history` — reform timeline with affected block titles
 - `GET /v1/laws/:id/diff?from=DATE&to=DATE` — unified diff between versions
 - `GET /v1/laws/:id/versions/:date` — Markdown content at a specific date

@@ -102,7 +102,7 @@ const app = new Elysia()
 			timingSafeEqual(Buffer.from(apiKey), Buffer.from(API_BYPASS_KEY));
 		if (path !== "/health" && !hasBypass) {
 			const ip = getClientIp(request);
-			const isAsk = path === "/v1/ask";
+			const isAsk = path === "/v1/ask" || path === "/v1/ask/stream";
 			const isSearch =
 				path === "/v1/laws" && new URL(request.url).searchParams.has("q");
 			const limiter = isAsk

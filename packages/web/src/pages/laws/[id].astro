@@ -15,17 +15,30 @@ md.renderer.rules.heading_open = (tokens, idx, options, _env, self) => {
 	const origLevel = Number(token.tag.slice(1));
 	const level = Math.min(origLevel + 1, 6);
 	token.tag = `h${level}`;
-	// Add id to article headings (h5 in source = "Artículo N") for linking
-	if (origLevel >= 4) {
+	// Add id to headings for linking.
+	// Articles get predictable IDs: "articulo-90", "articulo-1-bis"
+	// Other headings (titles, chapters, sections) get slugified IDs.
+	if (origLevel >= 2) {
 		const contentToken = tokens[idx + 1];
 		if (contentToken?.content) {
-			const slug = contentToken.content
-				.toLowerCase()
-				.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-				.replace(/[^a-z0-9]+/g, "-")
-				.replace(/^-|-$/g, "")
-				.slice(0, 60);
-			token.attrSet("id", slug);
+			const text = contentToken.content;
+			// Try to extract a predictable article ID first
+			const artMatch = text.match(/^Art[ií]culo\s+(\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?)/i);
+			if (artMatch) {
+				const artId = artMatch[1]
+					.toLowerCase()
+					.replace(/\s+/g, "-")
+					.replace(/\./g, "-");
+				token.attrSet("id", `articulo-${artId}`);
+			} else {
+				const slug = text
+					.toLowerCase()
+					.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+					.replace(/[^a-z0-9]+/g, "-")
+					.replace(/^-|-$/g, "")
+					.slice(0, 60);
+				token.attrSet("id", slug);
+			}
 		}
 	}
 	return self.renderToken(tokens, idx, options);
@@ -1000,6 +1013,16 @@ const articleCount = law.articulos ?? 0;
 			var hash = location.hash.replace('#', '');
 			if (hash && document.getElementById('tab-' + hash)) {
 				activateTab(hash);
+			} else if (hash && hash.indexOf('articulo-') === 0) {
+				// Deep-link to an article: switch to texto tab and scroll to it
+				activateTab('texto');
+				var target = document.getElementById(hash);
+				if (target) {
+					setTimeout(function() {
+						var top = target.getBoundingClientRect().top + window.scrollY - 80;
+						window.scrollTo({ top: top, behavior: 'smooth' });
+					}, 100);
+				}
 			}
 		})();
 	</script>
@@ -1240,18 +1263,14 @@ const articleCount = law.articulos ?? 0;
 			if (injected) return;
 			injected = true;
 
-			fetch(apiBase + '/v1/laws/' + normId)
+			fetch(apiBase + '/v1/laws/' + normId + '/summaries')
 				.then(function(r) { return r.json(); })
-				.then(function(data) {
-					if (!data.blocks) return;
-
-					// Build lookup sorted by normalized title length (longest first)
+				.then(function(summaries) {
+					// summaries is { "Artículo 1. Título.": "Resumen...", ... }
 					var entries = [];
-					data.blocks.forEach(function(b) {
-						if (b.citizen_summary) {
-							entries.push({ key: norm(b.title), summary: b.citizen_summary });
-						}
-					});
+					for (var title in summaries) {
+						entries.push({ key: norm(title), summary: summaries[title] });
+					}
 					if (!entries.length) return;
 					entries.sort(function(a, b) { return b.key.length - a.key.length; });
 

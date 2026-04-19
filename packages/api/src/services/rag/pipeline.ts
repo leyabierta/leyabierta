@@ -5,7 +5,8 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { callOpenRouter } from "../openrouter.ts";
+import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
+import { buildArticleAnchor } from "./anchor.ts";
 import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
 import {
 	type EmbeddingStore,
@@ -68,6 +69,8 @@ export interface Citation {
 	normId: string;
 	normTitle: string;
 	articleTitle: string;
+	/** Predictable HTML anchor ID (e.g. "articulo-90") for deep-linking */
+	anchor: string;
 	citizenSummary?: string;
 	verified: boolean;
 }
@@ -108,11 +111,21 @@ En todos los demás casos, INTENTA responder.
 
 Responde con JSON: {"answer": "texto con citas inline [norm_id, Artículo N]...", "citations": [{"norm_id": "...", "article_title": "..."}], "declined": false}`;
 
+/** Streaming prompt: same rules but plain text output (no JSON wrapper). */
+const SYSTEM_PROMPT_STREAM = SYSTEM_PROMPT.replace(
+	/\nResponde con JSON:.*$/s,
+	"\nResponde directamente en texto plano. NO envuelvas en JSON. Usa citas inline [norm_id, Artículo N] como se indica arriba.",
+);
+
 const TEMPORAL_ADDENDUM = `
 
 INSTRUCCIÓN ADICIONAL PARA PREGUNTAS TEMPORALES:
 - Si un artículo tiene HISTORIAL de versiones, EXPLICA cómo ha cambiado con fechas concretas.
 - Distingue claramente entre lo que dice la ley VIGENTE y lo que decía ANTES.`;
+
+/** Regex for extracting inline citations from plain text answers. */
+const INLINE_CITE_PATTERN =
+	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
 
 // ── Pipeline ──
 
@@ -564,6 +577,7 @@ export class RagPipeline {
 					normId: c.normId,
 					normTitle: matchedArticle.normTitle,
 					articleTitle: c.articleTitle,
+					anchor: buildArticleAnchor(c.articleTitle),
 					citizenSummary: matchedArticle.citizenSummary,
 					verified: true,
 				});
@@ -572,6 +586,7 @@ export class RagPipeline {
 					normId: c.normId,
 					normTitle: matchedArticle.normTitle,
 					articleTitle: c.articleTitle,
+					anchor: buildArticleAnchor(c.articleTitle),
 					citizenSummary: matchedArticle.citizenSummary,
 					verified: false,
 				});
@@ -668,7 +683,406 @@ export class RagPipeline {
 		return result;
 	}
 
+	/**
+	 * Streaming variant of ask(). Yields text chunks as they arrive from the LLM,
+	 * then a final event with citations and metadata.
+	 */
+	async *askStream(request: AskRequest): AsyncGenerator<
+		| { type: "chunk"; text: string }
+		| {
+				type: "done";
+				citations: Citation[];
+				meta: AskResponse["meta"];
+				declined: boolean;
+		  }
+	> {
+		const start = Date.now();
+
+		// Reuse the same retrieval pipeline as ask()
+		const retrieval = await this.runRetrieval(request);
+
+		if (retrieval.type === "early") {
+			// Declined or no articles — yield the full answer as a single chunk
+			yield { type: "chunk", text: retrieval.response.answer };
+			yield {
+				type: "done",
+				citations: retrieval.response.citations,
+				meta: retrieval.response.meta,
+				declined: retrieval.response.declined,
+			};
+			return;
+		}
+
+		const { evidenceText, articles, useTemporal, bestScore } = retrieval;
+
+		const systemPrompt = useTemporal
+			? SYSTEM_PROMPT_STREAM + TEMPORAL_ADDENDUM
+			: SYSTEM_PROMPT_STREAM;
+
+		// Stream synthesis
+		let fullText = "";
+		for await (const event of callOpenRouterStream(this.apiKey, {
+			model: SYNTHESIS_MODEL,
+			messages: [
+				{ role: "system", content: systemPrompt },
+				{
+					role: "user",
+					content: `ARTÍCULOS DISPONIBLES:\n\n${evidenceText}\n\nPREGUNTA: ${request.question}`,
+				},
+			],
+			temperature: 0.2,
+			maxTokens: 1500,
+		})) {
+			if (event.type === "delta") {
+				fullText += event.text;
+				yield { type: "chunk", text: event.text };
+			}
+		}
+
+		// Parse citations from the accumulated text
+		const rawCitations: Array<{
+			normId: string;
+			articleTitle: string;
+		}> = [];
+		for (const match of fullText.matchAll(INLINE_CITE_PATTERN)) {
+			rawCitations.push({ normId: match[1], articleTitle: match[2] });
+		}
+
+		// Deduplicate
+		const seen = new Set<string>();
+		const uniqueCitations = rawCitations.filter((c) => {
+			const key = `${c.normId}:${c.articleTitle}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+
+		// Verify citations against evidence
+		const validCitations = this.verifyCitations(uniqueCitations, articles);
+
+		// Detect declined
+		const declined =
+			fullText.length < 30 &&
+			validCitations.length === 0 &&
+			/no.*legisl|no.*respond|no.*puedo/i.test(fullText);
+
+		// Fire-and-forget: generate missing citizen summaries
+		this.generateMissingSummaries(validCitations, articles);
+
+		// Log to ask_log
+		const latencyMs = Date.now() - start;
+		try {
+			this.insertAskLogStmt.run(
+				request.question,
+				request.jurisdiction ?? null,
+				fullText,
+				declined ? 1 : 0,
+				validCitations.length,
+				articles.length,
+				latencyMs,
+				SYNTHESIS_MODEL,
+				bestScore,
+			);
+		} catch {
+			/* ignore */
+		}
+
+		yield {
+			type: "done",
+			citations: validCitations,
+			meta: {
+				articlesRetrieved: articles.length,
+				temporalEnriched: useTemporal,
+				latencyMs,
+				model: SYNTHESIS_MODEL,
+			},
+			declined,
+		};
+	}
+
 	// ── Private methods ──
+
+	/** Shared retrieval logic used by both ask() and askStream(). */
+	private async runRetrieval(request: AskRequest): Promise<
+		| { type: "early"; response: AskResponse }
+		| {
+				type: "ready";
+				evidenceText: string;
+				articles: Array<{
+					normId: string;
+					blockId: string;
+					normTitle: string;
+					blockTitle: string;
+					text: string;
+					citizenSummary?: string;
+				}>;
+				useTemporal: boolean;
+				bestScore: number;
+		  }
+	> {
+		const start = Date.now();
+		const store = await this.getEmbeddingStore();
+
+		const [analyzed, queryResult] = await Promise.all([
+			this.analyzeQuery(request.question),
+			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
+		]);
+
+		if (analyzed.nonLegal) {
+			return {
+				type: "early",
+				response: {
+					answer:
+						"Solo puedo ayudarte con preguntas sobre legislación y derechos en España. Tu pregunta no parece estar relacionada con temas legales.",
+					citations: [],
+					declined: true,
+					meta: {
+						articlesRetrieved: 0,
+						temporalEnriched: false,
+						latencyMs: Date.now() - start,
+						model: SYNTHESIS_MODEL,
+					},
+				},
+			};
+		}
+
+		const MIN_SIMILARITY = 0.35;
+		const vectorResults = vectorSearch(
+			queryResult.embedding,
+			store,
+			RERANK_POOL_SIZE,
+		).filter((r) => r.score >= MIN_SIMILARITY);
+		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: r.score,
+		}));
+
+		const embeddingNormIds = [...new Set(store.articles.map((a) => a.normId))];
+		const bm25Results = bm25HybridSearch(
+			this.db,
+			request.question,
+			analyzed.keywords,
+			RERANK_POOL_SIZE,
+			embeddingNormIds,
+		);
+		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+
+		const allRetrievedKeys = new Set([
+			...vectorRanked.map((r) => r.key),
+			...bm25Ranked.map((r) => r.key),
+		]);
+		const allNormIds = [
+			...new Set([...allRetrievedKeys].map((k) => k.split(":")[0]!)),
+		];
+		let recencyRanked: RankedItem[] = [];
+		if (allNormIds.length > 0) {
+			const placeholders = allNormIds.map(() => "?").join(",");
+			const recencyRows = this.db
+				.query<{ norm_id: string; updated_at: string }, string[]>(
+					`SELECT id as norm_id, updated_at FROM norms WHERE id IN (${placeholders}) ORDER BY updated_at DESC`,
+				)
+				.all(...allNormIds);
+			const normRecencyRank = new Map(
+				recencyRows.map((r, i) => [r.norm_id, i + 1]),
+			);
+			recencyRanked = [...allRetrievedKeys]
+				.map((key) => {
+					const normId = key.split(":")[0]!;
+					const rank = normRecencyRank.get(normId) ?? allNormIds.length;
+					return { key, score: 1 / rank };
+				})
+				.sort((a, b) => b.score - a.score);
+		}
+
+		const rrfSystems = new Map<string, RankedItem[]>([
+			["vector", vectorRanked],
+			["bm25", bm25Ranked],
+		]);
+		if (recencyRanked.length > 0) {
+			rrfSystems.set("recency", recencyRanked);
+		}
+		const fused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
+
+		const subchunkParents = new Set<string>();
+		for (const r of fused) {
+			const parts = r.key.split(":");
+			const parsed = parseSubchunkId(parts[1]!);
+			if (parsed) subchunkParents.add(`${parts[0]}:${parsed.parentBlockId}`);
+		}
+		const deduped = fused.filter((r) => !subchunkParents.has(r.key));
+
+		const fusedKeys = new Set(deduped.map((r) => r.key));
+		const allFusedArticles = this.getArticleData(
+			deduped.map((r) => {
+				const parts = r.key.split(":");
+				return { normId: parts[0]!, blockId: parts[1]!, score: r.rrfScore };
+			}),
+		).filter((a) => fusedKeys.has(`${a.normId}:${a.blockId}`));
+
+		let articles: typeof allFusedArticles;
+		if (allFusedArticles.length > TOP_K) {
+			const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
+				key: `${a.normId}:${a.blockId}`,
+				title: a.blockTitle,
+				text: a.text,
+			}));
+			const reranked = await rerank(request.question, candidates, TOP_K, {
+				cohereApiKey: this.cohereApiKey ?? undefined,
+				openrouterApiKey: this.apiKey,
+			});
+			const rerankedKeys = new Set(reranked.results.map((r) => r.key));
+			const rerankedOrder = new Map(
+				reranked.results.map((r) => [r.key, r.rank]),
+			);
+			articles = allFusedArticles
+				.filter((a) => rerankedKeys.has(`${a.normId}:${a.blockId}`))
+				.sort(
+					(a, b) =>
+						(rerankedOrder.get(`${a.normId}:${a.blockId}`) ?? 999) -
+						(rerankedOrder.get(`${b.normId}:${b.blockId}`) ?? 999),
+				);
+		} else {
+			articles = allFusedArticles;
+		}
+
+		const bestScore = vectorResults[0]?.score ?? 0;
+
+		if (articles.length === 0) {
+			return {
+				type: "early",
+				response: {
+					answer:
+						"No he encontrado artículos relevantes en la legislación española consolidada para responder a tu pregunta.",
+					citations: [],
+					declined: true,
+					meta: {
+						articlesRetrieved: 0,
+						temporalEnriched: false,
+						latencyMs: Date.now() - start,
+						model: SYNTHESIS_MODEL,
+					},
+				},
+			};
+		}
+
+		if (bestScore < LOW_CONFIDENCE_THRESHOLD) {
+			return {
+				type: "early",
+				response: {
+					answer:
+						"No he encontrado legislación relevante para responder a tu pregunta. Solo puedo ayudarte con preguntas sobre leyes y derechos en España.",
+					citations: [],
+					declined: true,
+					meta: {
+						articlesRetrieved: 0,
+						temporalEnriched: false,
+						latencyMs: Date.now() - start,
+						model: SYNTHESIS_MODEL,
+					},
+				},
+			};
+		}
+
+		const useTemporal = analyzed.temporal;
+		let evidenceText: string;
+		if (useTemporal) {
+			const temporalContexts = enrichWithTemporalContext(
+				this.db,
+				articles.map((a) => ({
+					normId: a.normId,
+					blockId: a.blockId,
+					blockTitle: a.blockTitle,
+					text: a.text,
+				})),
+			);
+			evidenceText = buildTemporalEvidence(
+				temporalContexts,
+				MAX_EVIDENCE_TOKENS,
+			);
+		} else {
+			evidenceText = "";
+			let approxTokens = 0;
+			for (const article of articles) {
+				const chunk = `[${article.normId}, ${article.blockTitle}] (de: ${article.normTitle})\n${article.text}\n\n`;
+				const chunkTokens = Math.ceil(chunk.length / 4);
+				if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;
+				evidenceText += chunk;
+				approxTokens += chunkTokens;
+			}
+		}
+
+		return {
+			type: "ready",
+			evidenceText,
+			articles,
+			useTemporal,
+			bestScore,
+		};
+	}
+
+	/** Verify raw citations against the evidence articles. */
+	private verifyCitations(
+		rawCitations: Array<{ normId: string; articleTitle: string }>,
+		articles: Array<{
+			normId: string;
+			blockTitle: string;
+			normTitle: string;
+			citizenSummary?: string;
+		}>,
+	): Citation[] {
+		const evidenceByNorm = new Map<
+			string,
+			{ blockTitle: string; normTitle: string; citizenSummary?: string }[]
+		>();
+		for (const a of articles) {
+			const list = evidenceByNorm.get(a.normId) ?? [];
+			list.push({
+				blockTitle: a.blockTitle,
+				normTitle: a.normTitle,
+				citizenSummary: a.citizenSummary,
+			});
+			evidenceByNorm.set(a.normId, list);
+		}
+
+		const validCitations: Citation[] = [];
+		for (const c of rawCitations) {
+			const normArticles = evidenceByNorm.get(c.normId);
+			if (!normArticles) continue;
+
+			const citeLower = c.articleTitle.toLowerCase();
+			const matchedArticle =
+				normArticles.find((a) => {
+					const b = a.blockTitle.toLowerCase();
+					return (
+						b === citeLower ||
+						citeLower.startsWith(b) ||
+						b.startsWith(citeLower)
+					);
+				}) ?? normArticles[0];
+
+			if (!matchedArticle) continue;
+
+			const strictMatch = normArticles.some((a) => {
+				const b = a.blockTitle.toLowerCase();
+				return (
+					b === citeLower || citeLower.startsWith(b) || b.startsWith(citeLower)
+				);
+			});
+
+			validCitations.push({
+				normId: c.normId,
+				normTitle: matchedArticle.normTitle,
+				articleTitle: c.articleTitle,
+				anchor: buildArticleAnchor(c.articleTitle),
+				citizenSummary: matchedArticle.citizenSummary,
+				verified: strictMatch,
+			});
+		}
+		return validCitations;
+	}
 
 	private async getEmbeddingStore(): Promise<EmbeddingStore> {
 		if (this.embeddingStore) return this.embeddingStore;

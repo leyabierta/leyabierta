@@ -3,6 +3,7 @@
  *
  * Citizens ask legal questions and get answers grounded in real articles.
  * Supports multi-turn conversation with scrollable history.
+ * Uses SSE streaming for real-time text display.
  */
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -11,6 +12,8 @@ interface Citation {
 	normId: string;
 	normTitle: string;
 	articleTitle: string;
+	/** Predictable HTML anchor ID (e.g. "articulo-90") for deep-linking */
+	anchor?: string;
 	citizenSummary?: string;
 	verified?: boolean;
 }
@@ -49,7 +52,6 @@ const EXAMPLE_QUESTIONS = [
 
 // ── Citation parsing ──
 
-// Match BOE and regional bulletin IDs: BOE-A-YYYY-NNNNN, BOA-d-NNNNN, BOJA-b-NNNNN, DOGV-i-NNNNN, etc.
 const CITE_PATTERN =
 	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
 
@@ -84,13 +86,15 @@ function renderAnswerWithCitations(
 
 			if (citation) {
 				parts.push(
-					<span key={`${normId}-${articleRef}`} className="ask-cite-wrapper">
+					<span
+						key={`${normId}-${articleRef}-${pIdx}`}
+						className="ask-cite-wrapper"
+					>
 						<a
-							href={`/laws/${normId}`}
+							href={`/laws/${normId}${citation.anchor ? `#${citation.anchor}` : ""}`}
 							target="_blank"
 							rel="noopener noreferrer"
 							className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}
-							aria-describedby={`cite-tip-${normId}-${articleRef}`}
 							title={
 								citation.verified === false
 									? "Referencia aproximada"
@@ -115,11 +119,7 @@ function renderAnswerWithCitations(
 								<line x1="10" y1="14" x2="21" y2="3" />
 							</svg>
 						</a>
-						<span
-							className="ask-cite-tooltip"
-							role="tooltip"
-							id={`cite-tip-${normId}-${articleRef}`}
-						>
+						<span className="ask-cite-tooltip" role="tooltip">
 							<span className="ask-cite-tooltip-norm">
 								{citation.normTitle || normId}
 							</span>
@@ -161,6 +161,37 @@ function renderAnswerWithCitations(
 	});
 }
 
+// ── SSE parsing ──
+
+async function* parseSSE(
+	response: Response,
+): AsyncGenerator<{ event: string; data: string }> {
+	const reader = response.body!.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+
+		const events = buffer.split("\n\n");
+		buffer = events.pop()!;
+
+		for (const eventStr of events) {
+			if (!eventStr.trim()) continue;
+			const lines = eventStr.split("\n");
+			let event = "message";
+			let data = "";
+			for (const line of lines) {
+				if (line.startsWith("event: ")) event = line.slice(7);
+				if (line.startsWith("data: ")) data = line.slice(6);
+			}
+			yield { event, data };
+		}
+	}
+}
+
 // ── Component ──
 
 const STORAGE_KEY = "leyabierta_ask_history";
@@ -193,7 +224,6 @@ export default function AskChat() {
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
-	// Persist turns + scroll to bottom on change
 	useEffect(() => {
 		saveTurns(turns);
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -212,7 +242,7 @@ export default function AskChat() {
 		setLoading(true);
 
 		try {
-			const res = await fetch(`${API_BASE}/v1/ask`, {
+			const res = await fetch(`${API_BASE}/v1/ask/stream`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ question: text }),
@@ -230,19 +260,7 @@ export default function AskChat() {
 				});
 				return;
 			}
-			if (res.status === 503) {
-				setTurns((prev) => {
-					const updated = [...prev];
-					updated[turnIndex] = {
-						...updated[turnIndex],
-						error:
-							"El servicio de preguntas no está disponible en este momento.",
-					};
-					return updated;
-				});
-				return;
-			}
-			if (!res.ok) {
+			if (!res.ok || !res.body) {
 				setTurns((prev) => {
 					const updated = [...prev];
 					updated[turnIndex] = {
@@ -254,12 +272,99 @@ export default function AskChat() {
 				return;
 			}
 
-			const data: AskResponse = await res.json();
+			// Initialize partial response for streaming
+			let accumulated = "";
 			setTurns((prev) => {
 				const updated = [...prev];
-				updated[turnIndex] = { ...updated[turnIndex], response: data };
+				updated[turnIndex] = {
+					...updated[turnIndex],
+					response: {
+						answer: "",
+						citations: [],
+						declined: false,
+						meta: {
+							articlesRetrieved: 0,
+							temporalEnriched: false,
+							latencyMs: 0,
+							model: "",
+						},
+					},
+				};
 				return updated;
 			});
+
+			// Throttle re-renders via requestAnimationFrame
+			let pendingText = "";
+			let rafId: number | null = null;
+
+			function flushText() {
+				if (!pendingText) return;
+				accumulated += pendingText;
+				const snapshot = accumulated;
+				pendingText = "";
+				setTurns((prev) => {
+					const updated = [...prev];
+					const turn = updated[turnIndex];
+					if (turn?.response) {
+						updated[turnIndex] = {
+							...turn,
+							response: { ...turn.response, answer: snapshot },
+						};
+					}
+					return updated;
+				});
+			}
+
+			for await (const sseEvent of parseSSE(res)) {
+				if (sseEvent.event === "chunk") {
+					pendingText += JSON.parse(sseEvent.data) as string;
+					if (!rafId) {
+						rafId = requestAnimationFrame(() => {
+							flushText();
+							rafId = null;
+						});
+					}
+				} else if (sseEvent.event === "done") {
+					if (rafId) {
+						cancelAnimationFrame(rafId);
+						rafId = null;
+					}
+					flushText();
+
+					const done = JSON.parse(sseEvent.data) as {
+						citations: Citation[];
+						meta: AskMeta;
+						declined: boolean;
+					};
+					setTurns((prev) => {
+						const updated = [...prev];
+						const turn = updated[turnIndex];
+						if (turn?.response) {
+							updated[turnIndex] = {
+								...turn,
+								response: {
+									answer: accumulated,
+									citations: done.citations,
+									declined: done.declined,
+									meta: done.meta,
+								},
+							};
+						}
+						return updated;
+					});
+				} else if (sseEvent.event === "error") {
+					const err = JSON.parse(sseEvent.data) as { error: string };
+					setTurns((prev) => {
+						const updated = [...prev];
+						updated[turnIndex] = {
+							...updated[turnIndex],
+							response: null,
+							error: err.error,
+						};
+						return updated;
+					});
+				}
+			}
 		} catch {
 			setTurns((prev) => {
 				const updated = [...prev];
@@ -298,7 +403,6 @@ export default function AskChat() {
 
 	return (
 		<div className="ask-chat">
-			{/* Disclaimer banner */}
 			<div className="ask-disclaimer" role="status">
 				<svg
 					width="16"
@@ -322,7 +426,6 @@ export default function AskChat() {
 				</span>
 			</div>
 
-			{/* Example questions (only when no history) */}
 			{!hasHistory && !loading && (
 				<div className="ask-examples">
 					<p className="ask-examples-label">
@@ -343,19 +446,16 @@ export default function AskChat() {
 				</div>
 			)}
 
-			{/* Conversation history */}
 			{hasHistory && (
 				<div className="ask-conversation">
 					{turns.map((turn, turnIdx) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: turns have no stable ID
 						<div key={turnIdx} className="ask-turn">
-							{/* User question */}
 							<div className="ask-turn-question">
 								<span className="ask-turn-label">Tu pregunta</span>
 								<p>{turn.question}</p>
 							</div>
 
-							{/* Response */}
 							{turn.response && (
 								<div className="ask-turn-answer">
 									{turn.response.declined ? (
@@ -372,7 +472,6 @@ export default function AskChat() {
 												)}
 											</div>
 
-											{/* Inline citations list */}
 											{turn.response.citations.length > 0 && (
 												<div className="ask-turn-citations">
 													<p className="ask-turn-citations-label">
@@ -385,7 +484,7 @@ export default function AskChat() {
 																className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
 															>
 																<a
-																	href={`/laws/${c.normId}`}
+																	href={`/laws/${c.normId}${c.anchor ? `#${c.anchor}` : ""}`}
 																	target="_blank"
 																	rel="noopener noreferrer"
 																	className="ask-citation-link"
@@ -417,36 +516,36 @@ export default function AskChat() {
 												</div>
 											)}
 
-											{/* Transparency */}
-											<details className="ask-meta-details">
-												<summary className="ask-meta-summary">
-													{turn.response.meta.articlesRetrieved} artículos
-													consultados en{" "}
-													{(turn.response.meta.latencyMs / 1000).toFixed(1)}s
-												</summary>
-												<div className="ask-meta-content">
-													<dl className="ask-meta-list">
-														<div className="ask-meta-item">
-															<dt>Contexto temporal</dt>
-															<dd>
-																{turn.response.meta.temporalEnriched
-																	? "Sí (incluye historial de cambios)"
-																	: "No"}
-															</dd>
-														</div>
-														<div className="ask-meta-item">
-															<dt>Modelo</dt>
-															<dd>{turn.response.meta.model}</dd>
-														</div>
-													</dl>
-												</div>
-											</details>
+											{turn.response.meta.model && (
+												<details className="ask-meta-details">
+													<summary className="ask-meta-summary">
+														{turn.response.meta.articlesRetrieved} artículos
+														consultados en{" "}
+														{(turn.response.meta.latencyMs / 1000).toFixed(1)}s
+													</summary>
+													<div className="ask-meta-content">
+														<dl className="ask-meta-list">
+															<div className="ask-meta-item">
+																<dt>Contexto temporal</dt>
+																<dd>
+																	{turn.response.meta.temporalEnriched
+																		? "Sí (incluye historial de cambios)"
+																		: "No"}
+																</dd>
+															</div>
+															<div className="ask-meta-item">
+																<dt>Modelo</dt>
+																<dd>{turn.response.meta.model}</dd>
+															</div>
+														</dl>
+													</div>
+												</details>
+											)}
 										</>
 									)}
 								</div>
 							)}
 
-							{/* Error */}
 							{turn.error && (
 								<div className="ask-turn-error">
 									<p>{turn.error}</p>
@@ -455,8 +554,7 @@ export default function AskChat() {
 						</div>
 					))}
 
-					{/* Loading indicator for current question */}
-					{loading && (
+					{loading && !turns[turns.length - 1]?.response?.answer && (
 						<div className="ask-loading" role="status" aria-live="polite">
 							<span className="ask-spinner-large" aria-hidden="true" />
 							<p>Buscando en la legislación española...</p>
@@ -467,7 +565,6 @@ export default function AskChat() {
 				</div>
 			)}
 
-			{/* Input area (always visible at bottom) */}
 			<div className={`ask-input-area ${hasHistory ? "ask-input-sticky" : ""}`}>
 				<label htmlFor="ask-question" className="sr-only">
 					Tu pregunta sobre legislación española

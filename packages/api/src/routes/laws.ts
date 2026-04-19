@@ -121,53 +121,52 @@ export function lawRoutes(
 				},
 			)
 
-			// 3. GET /v1/laws/:id/articles/:n — specific block by position
+			// 3. GET /v1/laws/:id/summaries — citizen summaries per article (lightweight)
 			.get(
-				"/laws/:id/articles/:n",
-				async ({ params, set }) => {
+				"/laws/:id/summaries",
+				({ params, set }) => {
 					const law = dbService.getLaw(params.id);
 					if (!law) {
 						set.status = 404;
 						return { error: "Law not found" };
 					}
-					const position = Number(params.n);
-					const block = dbService.getBlockByPosition(params.id, position);
-					if (!block) {
-						set.status = 404;
-						return { error: "Block not found at this position" };
+					const blocks = dbService.getBlocks(params.id);
+
+					const summaries: Record<string, string> = {};
+					for (const b of blocks) {
+						if (b.citizen_summary) {
+							summaries[b.title] = b.citizen_summary;
+						}
 					}
-					const versions = dbService.getVersions(params.id, block.block_id);
 
-					// On-demand citizen summary (cached in DB after first generation)
-					const citizen = await citizenSummaryService.getOrGenerate(
-						params.id,
-						block.block_id,
-						law.title,
-						block.title,
-						block.current_text,
+					// Fire-and-forget: generate missing summaries for next visit
+					const missing = blocks.filter(
+						(b) => !b.citizen_summary && b.current_text.length >= 50,
 					);
+					if (missing.length > 0) {
+						for (const b of missing) {
+							citizenSummaryService
+								.getOrGenerate(
+									params.id,
+									b.block_id,
+									law.title,
+									b.title,
+									b.current_text,
+								)
+								.catch(() => {});
+						}
+					}
 
-					return {
-						block_id: block.block_id,
-						block_type: block.block_type,
-						title: block.title,
-						position: block.position,
-						current_text: block.current_text,
-						citizen_summary: citizen?.citizen_summary ?? "",
-						citizen_tags: citizen?.citizen_tags ?? [],
-						versions: versions.map((v) => ({
-							date: v.date,
-							source_id: v.source_id,
-							text: v.text,
-						})),
-					};
+					set.headers["Cache-Control"] =
+						"public, max-age=60, stale-while-revalidate=3600";
+					return summaries;
 				},
 				{
-					params: t.Object({ id: t.String(), n: t.String() }),
+					params: t.Object({ id: t.String() }),
 					detail: {
-						summary: "Get article by position",
+						summary: "Get citizen summaries for all articles",
 						description:
-							"Returns a specific article (block) by its position within the law, including all historical versions.",
+							"Returns a lightweight map of article title → citizen summary. Triggers background generation for missing summaries.",
 						tags: ["Leyes"],
 					},
 				},
