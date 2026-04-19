@@ -77,7 +77,7 @@ function splitByApartados(
 			.split(/\.\s/)[0]; // first sentence
 		const synopsis =
 			firstSentence.length > 100
-				? firstSentence.slice(0, 97) + "..."
+				? `${firstSentence.slice(0, 97)}...`
 				: firstSentence;
 
 		chunks.push({
