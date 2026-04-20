@@ -119,6 +119,9 @@ interface AnalyzedQuery {
 	temporal: boolean;
 	/** True if the question is clearly not about legislation (poems, sports, etc.) */
 	nonLegal: boolean;
+	/** ISO 3166-2:ES jurisdiction code if the question targets a specific autonomous
+	 *  community (e.g. "es-ct" for Cataluña). Null for general/national questions. */
+	jurisdiction: string | null;
 }
 
 // ── System Prompt ──
@@ -270,6 +273,7 @@ export class RagPipeline {
 				materias: analyzed.materias,
 				temporal: analyzed.temporal,
 				nonLegal: analyzed.nonLegal,
+				jurisdiction: analyzed.jurisdiction,
 			},
 			{
 				embeddingCost: `$${queryResult.cost.toFixed(8)}`,
@@ -346,6 +350,7 @@ export class RagPipeline {
 		const { recencyRanked, normBoostMap } = this.computeBoosts(
 			allNormIds,
 			allRetrievedKeys,
+			analyzed.jurisdiction,
 		);
 
 		// 2d. Fuse with RRF (3 systems: vector + BM25 + recency)
@@ -924,6 +929,7 @@ export class RagPipeline {
 		const { recencyRanked, normBoostMap } = this.computeBoosts(
 			allNormIds,
 			allRetrievedKeys,
+			analyzed.jurisdiction,
 		);
 
 		const rrfSystems = new Map<string, RankedItem[]>([
@@ -1148,6 +1154,7 @@ export class RagPipeline {
 	private computeBoosts(
 		allNormIds: string[],
 		allRetrievedKeys: Set<string>,
+		queryJurisdiction: string | null,
 	): {
 		recencyRanked: RankedItem[];
 		normBoostMap: Map<string, number>;
@@ -1205,13 +1212,48 @@ export class RagPipeline {
 				row.source_url,
 				row.norm_id,
 			);
-			// Mild boost for state-level laws. Not too aggressive — the reranker
-			// with jurisdiction-enriched metadata handles fine-grained discrimination.
-			const jurisdictionWeight = jurisdiction === "es" ? 1.0 : 0.7;
+
+			let jurisdictionWeight: number;
+			if (queryJurisdiction) {
+				// User asked about a specific autonomous community — boost norms
+				// from that jurisdiction and slightly penalize others.
+				if (jurisdiction === queryJurisdiction) {
+					jurisdictionWeight = 1.5;
+				} else if (jurisdiction === "es") {
+					jurisdictionWeight = 0.8; // state law still relevant as fallback
+				} else {
+					jurisdictionWeight = 0.3; // other autonomous communities
+				}
+			} else {
+				// General question — mild boost for state-level laws.
+				jurisdictionWeight = jurisdiction === "es" ? 1.0 : 0.7;
+			}
+
 			normBoostMap.set(row.norm_id, rankWeight * jurisdictionWeight);
 		}
 
 		return { recencyRanked, normBoostMap };
+	}
+
+	/**
+	 * Find norm IDs from a specific jurisdiction that are also in the embedding store.
+	 * Uses the ELI source URL to determine jurisdiction accurately.
+	 */
+	private getNormIdsByJurisdiction(
+		jurisdiction: string,
+		embeddingNormIds: string[],
+	): string[] {
+		if (embeddingNormIds.length === 0) return [];
+		const placeholders = embeddingNormIds.map(() => "?").join(",");
+		const eliPattern = `%/eli/${jurisdiction}/%`;
+		const rows = this.db
+			.query<{ id: string }, string[]>(
+				`SELECT id FROM norms
+				 WHERE id IN (${placeholders})
+				   AND source_url LIKE ?`,
+			)
+			.all(...embeddingNormIds, eliPattern);
+		return rows.map((r) => r.id);
 	}
 
 	private async analyzeQuery(question: string): Promise<AnalyzedQuery> {
@@ -1221,6 +1263,7 @@ export class RagPipeline {
 				materias: string[];
 				temporal: boolean;
 				non_legal: boolean;
+				jurisdiction: string | null;
 			}>(this.apiKey, {
 				model: ANALYZER_MODEL,
 				messages: [
@@ -1231,6 +1274,7 @@ export class RagPipeline {
 2. "materias": categorías temáticas BOE. Máximo 3.
 3. "temporal": true si pregunta sobre cambios históricos o evolución de la ley. false si pregunta sobre ley vigente.
 4. "non_legal": true si la pregunta NO es sobre legislación, derechos u obligaciones legales. Ejemplos: clima, deportes, poemas, recetas, opiniones personales, hackear sistemas, preguntas sobre personas concretas. INCLUSO si la pregunta menciona palabras legales (como "Constitución"), si la INTENCIÓN no es obtener información legal (ej: "escribe un poema sobre la Constitución"), pon non_legal=true.
+5. "jurisdiction": código ISO 3166-2 de la comunidad autónoma si la pregunta se refiere ESPECÍFICAMENTE a legislación autonómica. Ejemplos: "en Cataluña" → "es-ct", "ley foral de Navarra" → "es-nc", "Illes Balears" → "es-ib", "País Vasco" / "Euskadi" → "es-pv", "Galicia" → "es-ga", "Andalucía" → "es-an", "Madrid" → "es-md", "Aragón" → "es-ar", "Canarias" → "es-cn", "Castilla y León" → "es-cl", "Castilla-La Mancha" → "es-cm", "Comunitat Valenciana" / "Valencia" → "es-vc", "Extremadura" → "es-ex", "Murcia" → "es-mc", "Cantabria" → "es-cb", "Asturias" → "es-as", "La Rioja" → "es-ri". Si la pregunta es general o no menciona una comunidad concreta, pon null.
 Responde SOLO con JSON.`,
 					},
 					{ role: "user", content: question },
@@ -1243,6 +1287,7 @@ Responde SOLO con JSON.`,
 				materias: result.data.materias ?? [],
 				temporal: result.data.temporal ?? false,
 				nonLegal: result.data.non_legal ?? false,
+				jurisdiction: result.data.jurisdiction ?? null,
 			};
 		} catch (err) {
 			console.warn(
@@ -1300,6 +1345,7 @@ Responde SOLO con JSON.`,
 				materias: [],
 				temporal: isTemporal,
 				nonLegal: false,
+				jurisdiction: null,
 			};
 		}
 	}
