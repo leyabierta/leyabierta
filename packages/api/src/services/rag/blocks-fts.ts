@@ -15,14 +15,16 @@ CREATE VIRTUAL TABLE IF NOT EXISTS blocks_fts USING fts5(
   norm_id UNINDEXED,
   block_id UNINDEXED,
   title,
+  norm_title,
   content,
   tokenize='unicode61 remove_diacritics 2'
 )`;
 
 const POPULATE = `
-INSERT INTO blocks_fts (norm_id, block_id, title, content)
-SELECT b.norm_id, b.block_id, b.title, b.current_text
+INSERT INTO blocks_fts (norm_id, block_id, title, norm_title, content)
+SELECT b.norm_id, b.block_id, b.title, n.title, b.current_text
 FROM blocks b
+JOIN norms n ON n.id = b.norm_id
 WHERE b.block_type = 'precepto'
   AND b.current_text != ''`;
 
@@ -30,12 +32,24 @@ WHERE b.block_type = 'precepto'
  * Ensure blocks_fts exists and is populated. Idempotent — skips if already built.
  */
 export function ensureBlocksFts(db: Database): void {
-	// Check if the table already has data
+	// Check if the table already has data with the current schema
 	try {
 		const count = db
 			.query<{ cnt: number }, []>("SELECT count(*) as cnt FROM blocks_fts")
 			.get();
-		if (count && count.cnt > 0) return; // already populated
+		if (count && count.cnt > 0) {
+			// Verify schema has norm_title column (added in v2)
+			try {
+				db.query("SELECT norm_title FROM blocks_fts LIMIT 0").get();
+				return; // schema is current, data exists
+			} catch {
+				// Old schema without norm_title — rebuild
+				console.log(
+					"  blocks_fts schema outdated (missing norm_title), rebuilding...",
+				);
+				db.exec("DROP TABLE IF EXISTS blocks_fts");
+			}
+		}
 	} catch {
 		// table doesn't exist yet
 	}
@@ -97,7 +111,7 @@ export function bm25ArticleSearch(
          FROM blocks_fts
          WHERE blocks_fts MATCH ?
            ${normPlaceholders}
-         ORDER BY bm25(blocks_fts, 0, 0, 5.0, 1.0)
+         ORDER BY bm25(blocks_fts, 0, 0, 5.0, 8.0, 1.0)
          LIMIT ?`,
 			)
 			.all(...params);

@@ -26,6 +26,10 @@ import {
 	enrichWithTemporalContext,
 } from "./temporal.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
+import {
+	JURISDICTION_NAMES,
+	resolveJurisdiction,
+} from "./jurisdiction.ts";
 
 // ── Config ──
 
@@ -36,15 +40,49 @@ import { type RagTrace, startTrace } from "./tracing.ts";
 const SYNTHESIS_MODEL = "google/gemini-2.5-flash-lite";
 /** Analyzer model — cheap and fast, only extracts keywords/materias/flags */
 const ANALYZER_MODEL = "google/gemini-2.5-flash-lite";
-const TOP_K = 10;
-const MAX_EVIDENCE_TOKENS = 6000;
+const TOP_K = 15;
+const MAX_EVIDENCE_TOKENS = 8000;
 const EMBEDDING_MODEL_KEY = "gemini-embedding-2";
 const RRF_K = 60;
-const RERANK_POOL_SIZE = 50;
+const RERANK_POOL_SIZE = 80;
 /** If the best retrieval score is below this, skip evidence and let LLM decide alone.
  * Set conservatively low (0.38) — the nonLegal analyzer flag handles most OOS questions.
  * This gate only catches queries where retrieval is truly noise (e.g. "mejor abogado"). */
 const LOW_CONFIDENCE_THRESHOLD = 0.38;
+
+/**
+ * Build a human-readable scope description combining norm rank and jurisdiction.
+ * Used to enrich the reranker input so it can distinguish general state laws
+ * from sectoral/autonomous norms with semantically identical text.
+ *
+ * Examples:
+ *   describeNormScope("ley", "es")      → "Ley estatal"
+ *   describeNormScope("ley", "es-ct")   → "Ley de Cataluña"
+ *   describeNormScope("instruccion", "es") → "Instrucción estatal"
+ */
+const RANK_LABELS: Record<string, string> = {
+	constitucion: "Constitución",
+	ley_organica: "Ley orgánica",
+	ley: "Ley",
+	real_decreto_ley: "Real decreto-ley",
+	real_decreto_legislativo: "Texto refundido de ley",
+	real_decreto: "Real decreto",
+	decreto: "Decreto",
+	orden: "Orden ministerial",
+	circular: "Circular",
+	instruccion: "Instrucción",
+	resolucion: "Resolución",
+	reglamento: "Reglamento",
+	acuerdo_internacional: "Acuerdo internacional",
+	otro: "Norma",
+};
+
+function describeNormScope(rank: string, jurisdiction: string): string {
+	const label = RANK_LABELS[rank] ?? rank;
+	if (jurisdiction === "es") return `${label} estatal`;
+	const name = JURISDICTION_NAMES[jurisdiction] ?? jurisdiction;
+	return `${label} de ${name}`;
+}
 
 // ── Types ──
 
@@ -305,39 +343,27 @@ export class RagPipeline {
 		const allNormIds = [
 			...new Set([...allRetrievedKeys].map((k) => k.split(":")[0]!)),
 		];
-		let recencyRanked: RankedItem[] = [];
-		if (allNormIds.length > 0) {
-			const placeholders = allNormIds.map(() => "?").join(",");
-			const recencyRows = this.db
-				.query<{ norm_id: string; updated_at: string }, string[]>(
-					`SELECT id as norm_id, updated_at FROM norms
-					 WHERE id IN (${placeholders})
-					 ORDER BY updated_at DESC`,
-				)
-				.all(...allNormIds);
-			// Build a ranking: most recently updated norms first.
-			// All articles from the same norm get the same recency rank.
-			const normRecencyRank = new Map(
-				recencyRows.map((r, i) => [r.norm_id, i + 1]),
-			);
-			recencyRanked = [...allRetrievedKeys]
-				.map((key) => {
-					const normId = key.split(":")[0]!;
-					const rank = normRecencyRank.get(normId) ?? allNormIds.length;
-					return { key, score: 1 / rank };
-				})
-				.sort((a, b) => b.score - a.score);
-		}
+		const { recencyRanked, normBoostMap } = this.computeBoosts(
+			allNormIds,
+			allRetrievedKeys,
+		);
 
 		// 2d. Fuse with RRF (3 systems: vector + BM25 + recency)
 		const rrfSystems = new Map<string, RankedItem[]>([
 			["vector", vectorRanked],
 			["bm25", bm25Ranked],
 		]);
-		if (recencyRanked.length > 0) {
-			rrfSystems.set("recency", recencyRanked);
-		}
-		const fused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
+		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
+		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
+
+		// Apply norm rank + jurisdiction multiplier to RRF scores
+		const fused = rawFused
+			.map((r) => {
+				const normId = r.key.split(":")[0]!;
+				const boost = normBoostMap.get(normId) ?? 1.0;
+				return { ...r, rrfScore: r.rrfScore * boost };
+			})
+			.sort((a, b) => b.rrfScore - a.rrfScore);
 
 		// 2d-bis. Deduplicate sub-chunks vs parents: if both a48 (from BM25)
 		// and a48__4 (from vector) appear, drop the parent — the sub-chunk is
@@ -368,9 +394,11 @@ export class RagPipeline {
 		let rerankerBackend = "none";
 
 		if (allFusedArticles.length > TOP_K) {
+			// Enrich candidates with norm metadata so the reranker can distinguish
+			// general state laws from sectoral/autonomous norms with identical text.
 			const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
 				key: `${a.normId}:${a.blockId}`,
-				title: a.blockTitle,
+				title: `${a.blockTitle} — ${describeNormScope(a.rank, resolveJurisdiction(a.sourceUrl, a.normId))}: ${a.normTitle}`,
 				text: a.text,
 			}));
 
@@ -893,34 +921,26 @@ export class RagPipeline {
 		const allNormIds = [
 			...new Set([...allRetrievedKeys].map((k) => k.split(":")[0]!)),
 		];
-		let recencyRanked: RankedItem[] = [];
-		if (allNormIds.length > 0) {
-			const placeholders = allNormIds.map(() => "?").join(",");
-			const recencyRows = this.db
-				.query<{ norm_id: string; updated_at: string }, string[]>(
-					`SELECT id as norm_id, updated_at FROM norms WHERE id IN (${placeholders}) ORDER BY updated_at DESC`,
-				)
-				.all(...allNormIds);
-			const normRecencyRank = new Map(
-				recencyRows.map((r, i) => [r.norm_id, i + 1]),
-			);
-			recencyRanked = [...allRetrievedKeys]
-				.map((key) => {
-					const normId = key.split(":")[0]!;
-					const rank = normRecencyRank.get(normId) ?? allNormIds.length;
-					return { key, score: 1 / rank };
-				})
-				.sort((a, b) => b.score - a.score);
-		}
+		const { recencyRanked, normBoostMap } = this.computeBoosts(
+			allNormIds,
+			allRetrievedKeys,
+		);
 
 		const rrfSystems = new Map<string, RankedItem[]>([
 			["vector", vectorRanked],
 			["bm25", bm25Ranked],
 		]);
-		if (recencyRanked.length > 0) {
-			rrfSystems.set("recency", recencyRanked);
-		}
-		const fused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
+		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
+		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
+
+		// Apply norm rank + jurisdiction multiplier to RRF scores
+		const fused = rawFused
+			.map((r) => {
+				const normId = r.key.split(":")[0]!;
+				const boost = normBoostMap.get(normId) ?? 1.0;
+				return { ...r, rrfScore: r.rrfScore * boost };
+			})
+			.sort((a, b) => b.rrfScore - a.rrfScore);
 
 		const subchunkParents = new Set<string>();
 		for (const r of fused) {
@@ -942,7 +962,7 @@ export class RagPipeline {
 		if (allFusedArticles.length > TOP_K) {
 			const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
 				key: `${a.normId}:${a.blockId}`,
-				title: a.blockTitle,
+				title: `${a.blockTitle} — ${describeNormScope(a.rank, resolveJurisdiction(a.sourceUrl, a.normId))}: ${a.normTitle}`,
 				text: a.text,
 			}));
 			const reranked = await rerank(request.question, candidates, TOP_K, {
@@ -1116,6 +1136,84 @@ export class RagPipeline {
 		return this.loadingPromise;
 	}
 
+	/**
+	 * Compute boost signals for retrieval ranking.
+	 * - recencyRanked: RRF signal (most recently updated norms rank higher)
+	 * - normBoostMap: per-norm multiplier = rankWeight * jurisdictionWeight
+	 *   Applied as post-RRF multiplier. Examples:
+	 *     ET (real_decreto_legislativo, BOE) → 0.8 × 1.0 = 0.80
+	 *     Convenio AGE (instruccion, BOE)   → 0.2 × 1.0 = 0.20
+	 *     Ley autonómica (ley, BOJA)        → 0.8 × 0.5 = 0.40
+	 */
+	private computeBoosts(
+		allNormIds: string[],
+		allRetrievedKeys: Set<string>,
+	): {
+		recencyRanked: RankedItem[];
+		normBoostMap: Map<string, number>;
+	} {
+		if (allNormIds.length === 0) {
+			return { recencyRanked: [], normBoostMap: new Map() };
+		}
+
+		const placeholders = allNormIds.map(() => "?").join(",");
+		const normRows = this.db
+			.query<
+				{
+					norm_id: string;
+					updated_at: string;
+					rank: string;
+					source_url: string;
+				},
+				string[]
+			>(
+				`SELECT id as norm_id, updated_at, rank, source_url FROM norms WHERE id IN (${placeholders}) ORDER BY updated_at DESC`,
+			)
+			.all(...allNormIds);
+
+		// Recency RRF signal
+		const normRecencyRank = new Map(normRows.map((r, i) => [r.norm_id, i + 1]));
+		const recencyRanked = [...allRetrievedKeys]
+			.map((key) => {
+				const normId = key.split(":")[0]!;
+				const rank = normRecencyRank.get(normId) ?? allNormIds.length;
+				return { key, score: 1 / rank };
+			})
+			.sort((a, b) => b.score - a.score);
+
+		// Per-norm boost = rankWeight × jurisdictionWeight
+		const RANK_WEIGHTS: Record<string, number> = {
+			constitucion: 1.0,
+			ley_organica: 0.9,
+			ley: 0.8,
+			real_decreto_ley: 0.8,
+			real_decreto_legislativo: 0.8,
+			real_decreto: 0.5,
+			decreto: 0.5,
+			orden: 0.3,
+			circular: 0.2,
+			instruccion: 0.2,
+			resolucion: 0.2,
+			reglamento: 0.2,
+			acuerdo_internacional: 0.4,
+		};
+
+		const normBoostMap = new Map<string, number>();
+		for (const row of normRows) {
+			const rankWeight = RANK_WEIGHTS[row.rank] ?? 0.1;
+			const jurisdiction = resolveJurisdiction(
+				row.source_url,
+				row.norm_id,
+			);
+			// Mild boost for state-level laws. Not too aggressive — the reranker
+			// with jurisdiction-enriched metadata handles fine-grained discrimination.
+			const jurisdictionWeight = jurisdiction === "es" ? 1.0 : 0.7;
+			normBoostMap.set(row.norm_id, rankWeight * jurisdictionWeight);
+		}
+
+		return { recencyRanked, normBoostMap };
+	}
+
 	private async analyzeQuery(question: string): Promise<AnalyzedQuery> {
 		try {
 			const result = await callOpenRouter<{
@@ -1242,6 +1340,8 @@ Responde SOLO con JSON.`,
 				{
 					norm_id: string;
 					title: string;
+					rank: string;
+					source_url: string;
 					block_id: string;
 					block_title: string;
 					current_text: string;
@@ -1249,7 +1349,7 @@ Responde SOLO con JSON.`,
 				},
 				string[]
 			>(
-				`SELECT b.norm_id, n.title, b.block_id, b.title as block_title,
+				`SELECT b.norm_id, n.title, n.rank, n.source_url, b.block_id, b.title as block_title,
                 b.current_text, cas.summary as citizen_summary
          FROM blocks b
          JOIN norms n ON n.id = b.norm_id
@@ -1274,6 +1374,8 @@ Responde SOLO con JSON.`,
 			normId: string;
 			blockId: string;
 			normTitle: string;
+			rank: string;
+			sourceUrl: string;
 			blockTitle: string;
 			text: string;
 			citizenSummary?: string;
@@ -1312,6 +1414,8 @@ Responde SOLO con JSON.`,
 						normId: r.normId,
 						blockId: r.blockId,
 						normTitle: parent.title,
+						rank: parent.rank,
+						sourceUrl: parent.source_url,
 						blockTitle: chunk.title,
 						text: chunk.text,
 						citizenSummary: parent.citizen_summary ?? undefined,
@@ -1325,6 +1429,8 @@ Responde SOLO con JSON.`,
 						normId: a.norm_id,
 						blockId: a.block_id,
 						normTitle: a.title,
+						rank: a.rank,
+						sourceUrl: a.source_url,
 						blockTitle: a.block_title,
 						text: a.current_text,
 						citizenSummary: a.citizen_summary ?? undefined,

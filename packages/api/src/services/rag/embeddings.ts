@@ -125,6 +125,12 @@ export async function generateEmbeddings(
 	modelKey: string,
 	articles: Array<{ normId: string; blockId: string; text: string }>,
 	onProgress?: (done: number, total: number) => void,
+	onCheckpoint?: (data: {
+		meta: Array<{ normId: string; blockId: string }>;
+		vectors: Float32Array;
+		dims: number;
+		completedArticles: number;
+	}) => Promise<void>,
 ): Promise<EmbeddingStore> {
 	const model = EMBEDDING_MODELS[modelKey];
 	if (!model) {
@@ -135,6 +141,8 @@ export async function generateEmbeddings(
 
 	const allEmbeddings: Float32Array[] = [];
 	const articleMeta: Array<{ normId: string; blockId: string }> = [];
+	const skippedBatches: Array<{ batchIndex: number; articleRange: string }> =
+		[];
 	let totalCost = 0;
 	let totalTokens = 0;
 
@@ -146,9 +154,36 @@ export async function generateEmbeddings(
 			return content;
 		});
 
-		const response = await fetchWithRetry(apiKey, model.id, texts);
 		// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
-		const data: any = await response.json();
+		let data: any = null;
+		for (let attempt = 0; attempt < 5; attempt++) {
+			if (attempt > 0) {
+				const delay = 5000 * attempt;
+				console.warn(
+					`\n  Batch ${i / BATCH_SIZE + 1}: retry ${attempt}/4 after ${delay / 1000}s...`,
+				);
+				await new Promise((r) => setTimeout(r, delay));
+			}
+			const response = await fetchWithRetry(apiKey, model.id, texts);
+			data = await response.json();
+			if (data.data && Array.isArray(data.data)) break;
+			console.warn(
+				`\n  Batch ${i / BATCH_SIZE + 1}: API returned no embeddings (${JSON.stringify(data).slice(0, 150)})`,
+			);
+			data = null;
+		}
+		if (!data) {
+			const range = `${i}-${Math.min(i + BATCH_SIZE, articles.length) - 1}`;
+			console.warn(
+				`\n  ⚠ Batch ${i / BATCH_SIZE + 1}: SKIPPED after 5 failed attempts (articles ${range})`,
+			);
+			skippedBatches.push({
+				batchIndex: i / BATCH_SIZE + 1,
+				articleRange: range,
+			});
+			continue;
+		}
+
 		const usage = data.usage ?? {};
 		totalCost += usage.cost ?? 0;
 		totalTokens += usage.total_tokens ?? 0;
@@ -163,7 +198,23 @@ export async function generateEmbeddings(
 			});
 		}
 
-		onProgress?.(Math.min(i + BATCH_SIZE, articles.length), articles.length);
+		const done = Math.min(i + BATCH_SIZE, articles.length);
+		onProgress?.(done, articles.length);
+
+		// Periodic checkpoint
+		if (onCheckpoint && done % 1000 < BATCH_SIZE) {
+			const dims = allEmbeddings[0]?.length ?? model.dimensions;
+			const vectors = new Float32Array(allEmbeddings.length * dims);
+			for (let j = 0; j < allEmbeddings.length; j++) {
+				vectors.set(allEmbeddings[j]!, j * dims);
+			}
+			await onCheckpoint({
+				meta: articleMeta,
+				vectors,
+				dims,
+				completedArticles: done,
+			});
+		}
 
 		// Small delay between batches
 		if (i + BATCH_SIZE < articles.length) {
@@ -182,6 +233,18 @@ export async function generateEmbeddings(
 		`  Embedding stats: ${allEmbeddings.length} articles, ${totalTokens.toLocaleString()} tokens, $${totalCost.toFixed(4)} cost`,
 	);
 
+	if (skippedBatches.length > 0) {
+		console.warn(
+			`\n  ⚠ ${skippedBatches.length} batch(es) SKIPPED due to API errors:`,
+		);
+		for (const s of skippedBatches) {
+			console.warn(`    Batch ${s.batchIndex}: articles ${s.articleRange}`);
+		}
+		console.warn(
+			"  Re-run the same command to retry only the missing articles.",
+		);
+	}
+
 	const norms = computeNorms(vectors, allEmbeddings.length, dims);
 	return {
 		model: modelKey,
@@ -190,6 +253,7 @@ export async function generateEmbeddings(
 		articles: articleMeta,
 		vectors,
 		norms,
+		skippedBatches,
 	};
 }
 

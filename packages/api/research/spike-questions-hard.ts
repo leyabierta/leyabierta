@@ -245,4 +245,78 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 		expectedAnswer:
 			"Despido durante IT puede ser nulo (discriminación por enfermedad, Ley 15/2022). El sistema debe entender lenguaje coloquial y errores ortográficos.",
 	},
+
+	// ── Autonomous community law retrieval (robustness tests) ──
+	{
+		id: 701,
+		question:
+			"¿Qué dice la ley de vivienda de las Illes Balears sobre el precio del alquiler?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2018-9774"], // Ley 5/2018, vivienda Baleares
+		expectedAnswer:
+			"La Ley 5/2018 de vivienda de las Illes Balears regula aspectos de alquiler en el ámbito balear.",
+	},
+	{
+		id: 702,
+		question:
+			"¿Cómo regula Cataluña las sucesiones y herencias en su código civil?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2008-13533"], // Ley 10/2008, libro cuarto CC Cataluña
+		expectedAnswer:
+			"El libro cuarto del Código Civil de Cataluña (Ley 10/2008) regula las sucesiones.",
+	},
+	{
+		id: 703,
+		question:
+			"Vivo en Navarra, ¿existe una ley foral sobre derecho a la vivienda?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2010-8618"], // Ley Foral 10/2010, vivienda Navarra
+		expectedAnswer:
+			"Sí, la Ley Foral 10/2010 regula el derecho a la vivienda en Navarra.",
+	},
+	{
+		id: 704,
+		question:
+			"¿Qué ley de servicios sociales se aplica en Andalucía?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2017-657"], // Ley 9/2016 de Servicios Sociales de Andalucía
+		expectedAnswer:
+			"En Andalucía se aplica la Ley 9/2016 de Servicios Sociales de Andalucía.",
+	},
+	{
+		id: 705,
+		question:
+			"¿Las cooperativas en el País Vasco se rigen por la ley estatal o tienen ley propia?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2020-615"], // Ley 11/2019 de Cooperativas de Euskadi
+		expectedAnswer:
+			"El País Vasco tiene su propia ley de cooperativas (Ley 11/2019).",
+	},
+	{
+		id: 706,
+		question:
+			"¿Qué norma regula la ordenación urbanística en Galicia?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2016-3191"], // Ley 2/2016 del suelo de Galicia
+		expectedAnswer:
+			"La Ley 2/2016, de 10 de febrero, del suelo de Galicia regula la ordenación urbanística gallega.",
+	},
+	{
+		id: 707,
+		question:
+			"¿Qué dice el Código Civil catalán sobre la persona y la familia?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2010-13312"], // Ley 25/2010, libro segundo CC Cataluña
+		expectedAnswer:
+			"El libro segundo del Código Civil de Cataluña (Ley 25/2010) regula la persona y la familia.",
+	},
+	{
+		id: 708,
+		question:
+			"¿Qué protección tienen los menores en Andalucía según la legislación autonómica?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2021-13605"], // Ley 4/2021 de Infancia y Adolescencia de Andalucía
+		expectedAnswer:
+			"La Ley 4/2021 de Infancia y Adolescencia de Andalucía establece el marco de protección de menores.",
+	},
 ];
