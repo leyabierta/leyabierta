@@ -368,11 +368,40 @@ export class RagPipeline {
 			}
 		}
 
-		// 2d. Recency boost — articles from recently reformed norms rank higher.
-		// Collect all unique normIds from all retrieval systems
-		const allRetrievedKeys = new Set([
+		// 2d. Collection density signal — aggregate article scores by norm to
+		// detect which LAWS (not articles) are most relevant. A law with 10
+		// articles in the retrieval pool is a stronger match than one with 1,
+		// even if individual article scores are similar. This signal lets the
+		// LAU (with many rent articles) outrank 30 autonomous laws (each with 1-2).
+		const normDensity = new Map<string, number>();
+		for (const r of vectorRanked) {
+			const normId = r.key.split(":")[0]!;
+			normDensity.set(normId, (normDensity.get(normId) ?? 0) + r.score);
+		}
+		for (const r of bm25Ranked) {
+			const normId = r.key.split(":")[0]!;
+			normDensity.set(normId, (normDensity.get(normId) ?? 0) + r.score);
+		}
+		// Rank norms by aggregate density, then assign each article a score
+		// based on its norm's density rank
+		const normsByDensity = [...normDensity.entries()]
+			.sort((a, b) => b[1] - a[1]);
+		const normDensityRank = new Map(
+			normsByDensity.map(([normId], i) => [normId, i + 1]),
+		);
+		const allArticleKeys = new Set([
 			...vectorRanked.map((r) => r.key),
 			...bm25Ranked.map((r) => r.key),
+		]);
+		const densityRanked: RankedItem[] = [...allArticleKeys].map((key) => {
+			const normId = key.split(":")[0]!;
+			const rank = normDensityRank.get(normId) ?? normsByDensity.length;
+			return { key, score: 1 / rank };
+		});
+
+		// 2e. Recency boost — articles from recently reformed norms rank higher.
+		const allRetrievedKeys = new Set([
+			...allArticleKeys,
 			...namedLawRanked.map((r) => r.key),
 		]);
 		const allNormIds = [
@@ -384,10 +413,11 @@ export class RagPipeline {
 			analyzed.jurisdiction,
 		);
 
-		// 2e. Fuse with RRF (3-4 systems: vector + BM25 + recency [+ named law])
+		// 2f. Fuse with RRF (4-5 systems: vector + BM25 + density + recency [+ named law])
 		const rrfSystems = new Map<string, RankedItem[]>([
 			["vector", vectorRanked],
 			["bm25", bm25Ranked],
+			["collection-density", densityRanked],
 		]);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
 		if (namedLawRanked.length > 0)
@@ -974,9 +1004,33 @@ export class RagPipeline {
 			}
 		}
 
-		const allRetrievedKeys = new Set([
+		// Collection density signal (same as runPipeline)
+		const normDensity2 = new Map<string, number>();
+		for (const r of vectorRanked) {
+			const normId = r.key.split(":")[0]!;
+			normDensity2.set(normId, (normDensity2.get(normId) ?? 0) + r.score);
+		}
+		for (const r of bm25Ranked) {
+			const normId = r.key.split(":")[0]!;
+			normDensity2.set(normId, (normDensity2.get(normId) ?? 0) + r.score);
+		}
+		const normsByDensity2 = [...normDensity2.entries()]
+			.sort((a, b) => b[1] - a[1]);
+		const normDensityRank2 = new Map(
+			normsByDensity2.map(([normId], i) => [normId, i + 1]),
+		);
+		const allArticleKeys2 = new Set([
 			...vectorRanked.map((r) => r.key),
 			...bm25Ranked.map((r) => r.key),
+		]);
+		const densityRanked: RankedItem[] = [...allArticleKeys2].map((key) => {
+			const normId = key.split(":")[0]!;
+			const rank = normDensityRank2.get(normId) ?? normsByDensity2.length;
+			return { key, score: 1 / rank };
+		});
+
+		const allRetrievedKeys = new Set([
+			...allArticleKeys2,
 			...namedLawRanked.map((r) => r.key),
 		]);
 		const allNormIds = [
@@ -991,6 +1045,7 @@ export class RagPipeline {
 		const rrfSystems = new Map<string, RankedItem[]>([
 			["vector", vectorRanked],
 			["bm25", bm25Ranked],
+			["collection-density", densityRanked],
 		]);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
 		if (namedLawRanked.length > 0)
