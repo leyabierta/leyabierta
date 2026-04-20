@@ -418,7 +418,7 @@ export class RagPipeline {
 		}
 		const deduped = fused.filter((r) => !subchunkParents.has(r.key));
 
-		// 2e. Get full article data for fused results
+		// 2f. Get full article data for fused results
 		const fusedKeys = new Set(deduped.map((r) => r.key));
 		const allFusedArticles = this.getArticleData(
 			deduped.map((r) => {
