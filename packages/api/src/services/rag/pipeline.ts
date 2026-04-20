@@ -122,6 +122,10 @@ interface AnalyzedQuery {
 	/** ISO 3166-2:ES jurisdiction code if the question targets a specific autonomous
 	 *  community (e.g. "es-ct" for Cataluña). Null for general/national questions. */
 	jurisdiction: string | null;
+	/** Short phrase identifying a specific named law if the user mentions one.
+	 *  E.g. "vivienda Illes Balears", "Código Civil catalán", "cooperativas Euskadi".
+	 *  Null when the question is general (not about a specific named law). */
+	normNameHint: string | null;
 }
 
 // ── System Prompt ──
@@ -338,11 +342,38 @@ export class RagPipeline {
 			score: 1 / r.rank,
 		}));
 
-		// 2c. Recency boost — articles from recently reformed norms rank higher.
-		// Collect all unique normIds from both retrieval systems
+		// 2c. Named-law lookup — when the user names a specific law, find its
+		// articles and add them as a dedicated RRF system. This ensures the
+		// named law's articles enter the pool even if they'd be outranked by
+		// semantically similar articles from other laws.
+		let namedLawRanked: RankedItem[] = [];
+		if (analyzed.normNameHint) {
+			const matchedNormIds = this.resolveNormsByName(
+				analyzed.normNameHint,
+				embeddingNormIds,
+			);
+			if (matchedNormIds.length > 0 && matchedNormIds.length <= 5) {
+				// BM25 search within just the named norm(s)
+				const nlResults = bm25HybridSearch(
+					this.db,
+					request.question,
+					analyzed.keywords,
+					Math.floor(RERANK_POOL_SIZE / 2),
+					matchedNormIds,
+				);
+				namedLawRanked = nlResults.map((r) => ({
+					key: `${r.normId}:${r.blockId}`,
+					score: 1 / r.rank,
+				}));
+			}
+		}
+
+		// 2d. Recency boost — articles from recently reformed norms rank higher.
+		// Collect all unique normIds from all retrieval systems
 		const allRetrievedKeys = new Set([
 			...vectorRanked.map((r) => r.key),
 			...bm25Ranked.map((r) => r.key),
+			...namedLawRanked.map((r) => r.key),
 		]);
 		const allNormIds = [
 			...new Set([...allRetrievedKeys].map((k) => k.split(":")[0]!)),
@@ -353,12 +384,14 @@ export class RagPipeline {
 			analyzed.jurisdiction,
 		);
 
-		// 2d. Fuse with RRF (3 systems: vector + BM25 + recency)
+		// 2e. Fuse with RRF (3-4 systems: vector + BM25 + recency [+ named law])
 		const rrfSystems = new Map<string, RankedItem[]>([
 			["vector", vectorRanked],
 			["bm25", bm25Ranked],
 		]);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
+		if (namedLawRanked.length > 0)
+			rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
 
 		// Apply norm rank + jurisdiction multiplier to RRF scores
@@ -919,9 +952,32 @@ export class RagPipeline {
 			score: 1 / r.rank,
 		}));
 
+		// Named-law lookup (same as runPipeline)
+		let namedLawRanked: RankedItem[] = [];
+		if (analyzed.normNameHint) {
+			const matchedNormIds = this.resolveNormsByName(
+				analyzed.normNameHint,
+				embeddingNormIds,
+			);
+			if (matchedNormIds.length > 0 && matchedNormIds.length <= 5) {
+				const nlResults = bm25HybridSearch(
+					this.db,
+					request.question,
+					analyzed.keywords,
+					Math.floor(RERANK_POOL_SIZE / 2),
+					matchedNormIds,
+				);
+				namedLawRanked = nlResults.map((r) => ({
+					key: `${r.normId}:${r.blockId}`,
+					score: 1 / r.rank,
+				}));
+			}
+		}
+
 		const allRetrievedKeys = new Set([
 			...vectorRanked.map((r) => r.key),
 			...bm25Ranked.map((r) => r.key),
+			...namedLawRanked.map((r) => r.key),
 		]);
 		const allNormIds = [
 			...new Set([...allRetrievedKeys].map((k) => k.split(":")[0]!)),
@@ -937,6 +993,8 @@ export class RagPipeline {
 			["bm25", bm25Ranked],
 		]);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
+		if (namedLawRanked.length > 0)
+			rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
 
 		// Apply norm rank + jurisdiction multiplier to RRF scores
@@ -1244,16 +1302,46 @@ export class RagPipeline {
 		embeddingNormIds: string[],
 	): string[] {
 		if (embeddingNormIds.length === 0) return [];
-		const placeholders = embeddingNormIds.map(() => "?").join(",");
 		const eliPattern = `%/eli/${jurisdiction}/%`;
 		const rows = this.db
-			.query<{ id: string }, string[]>(
-				`SELECT id FROM norms
-				 WHERE id IN (${placeholders})
-				   AND source_url LIKE ?`,
+			.query<{ id: string }, [string]>(
+				"SELECT id FROM norms WHERE source_url LIKE ?",
 			)
-			.all(...embeddingNormIds, eliPattern);
-		return rows.map((r) => r.id);
+			.all(eliPattern);
+		const embeddingSet = new Set(embeddingNormIds);
+		return rows.map((r) => r.id).filter((id) => embeddingSet.has(id));
+	}
+
+	/**
+	 * Resolve specific norms by name hint from the query analyzer.
+	 * Searches norms.title using FTS-style matching, scoped to embedded norms.
+	 * Returns norm IDs whose title contains ALL hint words.
+	 */
+	private resolveNormsByName(
+		hint: string,
+		embeddingNormIds: string[],
+	): string[] {
+		if (!hint || embeddingNormIds.length === 0) return [];
+
+		// Split hint into words, build AND-style LIKE conditions
+		const words = hint
+			.split(/\s+/)
+			.map((w) => w.toLowerCase().replace(/[¿?¡!.,;:]/g, ""))
+			.filter((w) => w.length > 2);
+		if (words.length === 0) return [];
+
+		// Search all norms by title (fast, ~12K rows) then filter by embedding set.
+		// Avoids passing 500+ params in a single SQL query.
+		const likeClauses = words.map(() => "LOWER(title) LIKE ?").join(" AND ");
+		const likeParams = words.map((w) => `%${w}%`);
+
+		const sql = `SELECT id FROM norms WHERE ${likeClauses}`;
+		const rows = this.db
+			.query<{ id: string }, string[]>(sql)
+			.all(...likeParams);
+
+		const embeddingSet = new Set(embeddingNormIds);
+		return rows.map((r) => r.id).filter((id) => embeddingSet.has(id));
 	}
 
 	private async analyzeQuery(question: string): Promise<AnalyzedQuery> {
@@ -1264,6 +1352,7 @@ export class RagPipeline {
 				temporal: boolean;
 				non_legal: boolean;
 				jurisdiction: string | null;
+				norm_name_hint: string | null;
 			}>(this.apiKey, {
 				model: ANALYZER_MODEL,
 				messages: [
@@ -1275,19 +1364,21 @@ export class RagPipeline {
 3. "temporal": true si pregunta sobre cambios históricos o evolución de la ley. false si pregunta sobre ley vigente.
 4. "non_legal": true si la pregunta NO es sobre legislación, derechos u obligaciones legales. Ejemplos: clima, deportes, poemas, recetas, opiniones personales, hackear sistemas, preguntas sobre personas concretas. INCLUSO si la pregunta menciona palabras legales (como "Constitución"), si la INTENCIÓN no es obtener información legal (ej: "escribe un poema sobre la Constitución"), pon non_legal=true.
 5. "jurisdiction": código ISO 3166-2 de la comunidad autónoma si la pregunta se refiere ESPECÍFICAMENTE a legislación autonómica. Ejemplos: "en Cataluña" → "es-ct", "ley foral de Navarra" → "es-nc", "Illes Balears" → "es-ib", "País Vasco" / "Euskadi" → "es-pv", "Galicia" → "es-ga", "Andalucía" → "es-an", "Madrid" → "es-md", "Aragón" → "es-ar", "Canarias" → "es-cn", "Castilla y León" → "es-cl", "Castilla-La Mancha" → "es-cm", "Comunitat Valenciana" / "Valencia" → "es-vc", "Extremadura" → "es-ex", "Murcia" → "es-mc", "Cantabria" → "es-cb", "Asturias" → "es-as", "La Rioja" → "es-ri". Si la pregunta es general o no menciona una comunidad concreta, pon null.
+6. "norm_name_hint": si el usuario NOMBRA o DESCRIBE una ley específica, extrae palabras clave para identificarla. Ejemplos: "ley de vivienda de las Illes Balears" → "vivienda Illes Balears", "Código Civil catalán" → "Código Civil Cataluña", "ley de cooperativas del País Vasco" → "cooperativas Euskadi", "Estatuto de los Trabajadores" → "Estatuto Trabajadores", "ley foral sobre vivienda" → "vivienda foral". Si la pregunta NO nombra ninguna ley específica (ej: "¿cuántos días de vacaciones tengo?"), pon null.
 Responde SOLO con JSON.`,
 					},
 					{ role: "user", content: question },
 				],
 				temperature: 0.1,
-				maxTokens: 200,
+				maxTokens: 250,
 			});
 			return {
 				keywords: result.data.keywords ?? [],
 				materias: result.data.materias ?? [],
 				temporal: result.data.temporal ?? false,
 				nonLegal: result.data.non_legal ?? false,
-				jurisdiction: result.data.jurisdiction ?? null,
+				jurisdiction: result.data.jurisdiction?.toLowerCase() ?? null,
+				normNameHint: result.data.norm_name_hint ?? null,
 			};
 		} catch (err) {
 			console.warn(
@@ -1346,6 +1437,7 @@ Responde SOLO con JSON.`,
 				temporal: isTemporal,
 				nonLegal: false,
 				jurisdiction: null,
+				normNameHint: null,
 			};
 		}
 	}
