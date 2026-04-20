@@ -411,6 +411,7 @@ export class RagPipeline {
 			allNormIds,
 			allRetrievedKeys,
 			analyzed.jurisdiction,
+			analyzed.temporal,
 		);
 
 		// 2f. Fuse with RRF (4-5 systems: vector + BM25 + density + recency [+ named law])
@@ -1053,6 +1054,7 @@ export class RagPipeline {
 			allNormIds,
 			allRetrievedKeys,
 			analyzed.jurisdiction,
+			analyzed.temporal,
 		);
 
 		const rrfSystems = new Map<string, RankedItem[]>([
@@ -1291,6 +1293,7 @@ export class RagPipeline {
 		allNormIds: string[],
 		allRetrievedKeys: Set<string>,
 		queryJurisdiction: string | null,
+		isTemporal = false,
 	): {
 		recencyRanked: RankedItem[];
 		normBoostMap: Map<string, number>;
@@ -1307,10 +1310,11 @@ export class RagPipeline {
 					updated_at: string;
 					rank: string;
 					source_url: string;
+					title: string;
 				},
 				string[]
 			>(
-				`SELECT id as norm_id, updated_at, rank, source_url FROM norms WHERE id IN (${placeholders}) ORDER BY updated_at DESC`,
+				`SELECT id as norm_id, updated_at, rank, source_url, title FROM norms WHERE id IN (${placeholders}) ORDER BY updated_at DESC`,
 			)
 			.all(...allNormIds);
 
@@ -1367,7 +1371,23 @@ export class RagPipeline {
 				jurisdictionWeight = jurisdiction === "es" ? 1.0 : 0.5;
 			}
 
-			normBoostMap.set(row.norm_id, rankWeight * jurisdictionWeight);
+			// Omnibus/modifying law penalty: PGE, "medidas urgentes", etc. modify
+			// other laws — their content is already reflected in the consolidated
+			// base law. For non-temporal questions they add noise; for temporal
+			// questions ("how has the law changed?") they're valuable.
+			const titleLower = row.title.toLowerCase();
+			const isOmnibus =
+				titleLower.includes("presupuestos generales") ||
+				titleLower.includes("medidas urgentes") ||
+				titleLower.includes("medidas fiscales") ||
+				titleLower.includes("medidas tributarias") ||
+				titleLower.includes("acompañamiento");
+			const omnibusWeight = isOmnibus && !isTemporal ? 0.15 : 1.0;
+
+			normBoostMap.set(
+				row.norm_id,
+				rankWeight * jurisdictionWeight * omnibusWeight,
+			);
 		}
 
 		return { recencyRanked, normBoostMap };
