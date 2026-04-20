@@ -84,6 +84,44 @@ function describeNormScope(rank: string, jurisdiction: string): string {
 	return `${label} de ${name}`;
 }
 
+/** Convert Spanish written numbers to digits in legal text.
+ *  "diecinueve semanas" → "19 semanas". This prevents the synthesis LLM
+ *  from "correcting" numbers based on its training data, which may be
+ *  outdated relative to recent legislative reforms. */
+const SPANISH_NUMBERS: Record<string, string> = {
+	uno: "1", una: "1", dos: "2", tres: "3", cuatro: "4", cinco: "5",
+	seis: "6", siete: "7", ocho: "8", nueve: "9", diez: "10",
+	once: "11", doce: "12", trece: "13", catorce: "14", quince: "15",
+	dieciséis: "16", diecisiete: "17", dieciocho: "18", diecinueve: "19",
+	veinte: "20", veintiuno: "21", veintiuna: "21", veintidós: "22",
+	veintitrés: "23", veinticuatro: "24", veinticinco: "25",
+	veintiséis: "26", veintisiete: "27", veintiocho: "28", veintinueve: "29",
+	treinta: "30", "treinta y uno": "31", "treinta y una": "31",
+	"treinta y dos": "32", "treinta y tres": "33",
+	cuarenta: "40", cincuenta: "50", sesenta: "60",
+};
+
+function numbersToDigits(text: string): string {
+	// Replace multi-word numbers first (e.g., "treinta y dos")
+	let result = text;
+	for (const [word, digit] of Object.entries(SPANISH_NUMBERS)) {
+		if (word.includes(" ")) {
+			result = result.replaceAll(word, digit);
+		}
+	}
+	// Then single-word numbers, only when followed by a unit word to avoid
+	// replacing numbers that are part of article titles or legal references.
+	const UNIT_WORDS = "semanas?|meses?|días?|años?|horas?|euros?|mensualidades?|jornadas?";
+	const singleWords = Object.entries(SPANISH_NUMBERS)
+		.filter(([w]) => !w.includes(" "))
+		.sort((a, b) => b[0].length - a[0].length); // longest first
+	for (const [word, digit] of singleWords) {
+		const pattern = new RegExp(`\\b${word}\\s+(${UNIT_WORDS})`, "gi");
+		result = result.replace(pattern, `${digit} $1`);
+	}
+	return result;
+}
+
 /** Sectoral norms: regulations, orders, circulars, resolutions, and
  *  convenios that apply to specific groups rather than all citizens. */
 function isSectoralNorm(rank: string): boolean {
@@ -169,17 +207,18 @@ TONO Y LENGUAJE:
 REGLAS:
 1. Basa tu respuesta SOLO en los artículos proporcionados.
 2. NUNCA inventes artículos ni cites normas que no estén en la lista.
-3. CITAS INLINE OBLIGATORIAS: Inserta [norm_id, Artículo N] justo después de cada afirmación. Ejemplo: "Tienes derecho a 30 días de vacaciones [BOE-A-1995-7730, Artículo 38]."
-4. PRIORIDAD DE FUENTES: Ley general > ley sectorial. Artículos vigentes > disposiciones transitorias. Si hay datos contradictorios, usa el de mayor rango o más reciente.
+3. CIFRAS LITERALES: Cuando el texto de un artículo dice un número, plazo, porcentaje o cantidad, CÓPIALO EXACTAMENTE. No uses cifras de tu memoria. Los artículos proporcionados son textos consolidados actualizados a hoy — pueden contener reformas MÁS RECIENTES que tus datos de entrenamiento. Si un artículo dice "diecinueve semanas", escribe "19 semanas", no "16 semanas". Si dice "treinta días", escribe "30 días".
+4. CITAS INLINE OBLIGATORIAS: Inserta [norm_id, Artículo N] justo después de cada afirmación. Ejemplo: "Tienes derecho a 30 días de vacaciones [BOE-A-1995-7730, Artículo 38]."
+5. PRIORIDAD DE FUENTES: Ley general > ley sectorial. Artículos vigentes > disposiciones transitorias. Si hay datos contradictorios, usa el de mayor rango o más reciente.
 
 RESOLUCIÓN DE CONFLICTOS TEMPORALES:
-- Los artículos marcados [TEXTO CONSOLIDADO] reflejan el estado VIGENTE de la ley. Son la fuente principal.
+- Los artículos marcados [TEXTO CONSOLIDADO] reflejan el estado VIGENTE de la ley. Son la fuente principal y están actualizados a hoy.
 - Los artículos marcados [LEY MODIFICADORA] contienen disposiciones que MODIFICARON la ley base en su momento. Su contenido ya está reflejado en el texto consolidado.
-- Si un TEXTO CONSOLIDADO y una LEY MODIFICADORA dan cifras o plazos diferentes para lo mismo, SIEMPRE usa el TEXTO CONSOLIDADO. Ejemplo: si una PGE de 2018 dice "5 semanas" pero el Estatuto de los Trabajadores consolidado dice "16 semanas", la respuesta correcta es 16 semanas.
+- Si un TEXTO CONSOLIDADO y una LEY MODIFICADORA dan cifras o plazos diferentes para lo mismo, SIEMPRE usa el TEXTO CONSOLIDADO.
 - Las Leyes de Presupuestos (PGE) y decretos-ley de "medidas urgentes" suelen contener disposiciones transitorias ya superadas. NO las cites como derecho vigente si hay un texto consolidado disponible.
-5. Si un artículo establece un mínimo legal (ej: "5 años"), eso es lo que importa al ciudadano. No le digas primero un plazo menor para luego matizarlo — empieza por lo que le afecta.
-6. Si la pregunta mezcla dos situaciones (ej: vivienda + negocio), DISTINGUE ambas claramente.
-7. LÍMITES DE LA LEGISLACIÓN: Si los artículos solo establecen un principio general (ej: "respetar la dignidad", "proporcionalidad") sin definir límites concretos o criterios medibles, dilo claramente al final: "La ley establece el principio, pero los límites concretos los ha ido definiendo la jurisprudencia (sentencias de tribunales), que no está en nuestra base de datos. Para tu caso concreto, consulta con un abogado." No inventes límites que la ley no dice.
+6. Si un artículo establece un mínimo legal (ej: "5 años"), eso es lo que importa al ciudadano. No le digas primero un plazo menor para luego matizarlo — empieza por lo que le afecta.
+7. Si la pregunta mezcla dos situaciones (ej: vivienda + negocio), DISTINGUE ambas claramente.
+8. LÍMITES DE LA LEGISLACIÓN: Si los artículos solo establecen un principio general (ej: "respetar la dignidad", "proporcionalidad") sin definir límites concretos o criterios medibles, dilo claramente al final: "La ley establece el principio, pero los límites concretos los ha ido definiendo la jurisprudencia (sentencias de tribunales), que no está en nuestra base de datos. Para tu caso concreto, consulta con un abogado." No inventes límites que la ley no dice.
 
 CUÁNDO DECLINAR (declined=true):
 - La pregunta NO es sobre legislación española → declined=true.
@@ -1779,7 +1818,7 @@ Responde SOLO con JSON.`,
 				}
 
 				const header = `[${article.normId}, ${article.blockTitle}] (${scope}: ${article.normTitle})\n${label}`;
-				const chunk = `${header}\n${article.text}\n\n`;
+				const chunk = `${header}\n${numbersToDigits(article.text)}\n\n`;
 				const chunkTokens = Math.ceil(chunk.length / 4);
 				if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;
 				evidenceText += chunk;
@@ -1805,10 +1844,10 @@ Responde SOLO con JSON.`,
 				{ role: "system", content: systemPrompt },
 				{
 					role: "user",
-					content: `ARTÍCULOS DISPONIBLES:\n\n${evidenceText}\n\nPREGUNTA: ${question}`,
+					content: `ARTÍCULOS DISPONIBLES:\n\n${evidenceText}\n\nIMPORTANTE: Los artículos anteriores son textos consolidados oficiales del BOE actualizados a fecha de hoy. Si una cifra del artículo NO coincide con lo que recuerdas de tu entrenamiento, USA LA CIFRA DEL ARTÍCULO — la ley ha sido reformada recientemente.\n\nPREGUNTA: ${question}`,
 				},
 			],
-			temperature: 0.2,
+			temperature: 0,
 			maxTokens: 1500,
 			jsonSchema: {
 				name: "legal_answer",

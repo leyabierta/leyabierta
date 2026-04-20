@@ -646,8 +646,106 @@ Fase 4 — Refinamiento
 
 **Lo que queda por resolver:**
 - Q608: La Ley 15/2022 (protección por discriminación en IT) no está en las 504 leyes embebidas → se resuelve al escalar a 12K
-- Q2 dice "16 semanas" en vez de "19" → posible problema de datos: verificar si la última reforma del ET está en nuestra DB
 - Q202 (grabar al jefe): sigue diciendo "no" cuando la jurisprudencia dice "sí" → limitación conocida (solo tenemos texto legal, no jurisprudencia)
+
+#### Investigación: Q2 dice "16 semanas" cuando el texto dice "diecinueve" (19)
+
+**Hallazgo:** Es una **alucinación del modelo de síntesis**, no un problema de datos.
+
+- La DB dice "diecinueve semanas" ✓
+- El JSON cache dice "diecinueve semanas" ✓ (última versión: 2025-07-30, BOE-A-2025-15741)
+- El sub-chunk a48__4 contiene el texto correcto ✓
+- El LLM cita correctamente "BOE-A-2015-11430, Artículo 48.4" ✓
+- **Pero escribe "16 semanas"** en vez de "19 semanas"
+
+**Causa:** Gemini 2.5 Flash Lite tiene training data anterior a la reforma de julio 2025 que subió de 16 a 19 semanas. El modelo "sabe" que eran 16 y sobreescribe lo que lee del contexto. Es un conflicto training data vs context — el modelo confía más en su memoria que en la evidencia proporcionada.
+
+**Soluciones posibles:**
+1. **Prompt refuerzo:** Añadir instrucción explícita de que los datos del contexto son MÁS RECIENTES que su training data y debe usarlos literalmente para cifras y plazos.
+2. **Modelo más obediente:** Probar con un modelo que siga instrucciones más literalmente (GPT-4o-mini, Claude Haiku).
+3. **Cita con número:** Modificar evidence format para resaltar cifras clave: "**diecinueve** semanas" con énfasis.
+4. **Post-synthesis check:** Verificar que los números citados coinciden con el texto fuente.
+
+**Prioridad:** Media. El artículo correcto llega, la cita es correcta, pero la cifra está mal.
+
+#### Benchmark de modelos de síntesis (2026-04-20)
+
+Probamos 9 modelos con la misma evidencia (ET art.48.4 con "19 semanas" en dígitos) y el mismo prompt. 3 runs por pregunta, temperature=0.
+
+| Modelo | Q2 (19sem) | Q1 (30d) | Latencia | Coste/query |
+|---|---|---|---|---|
+| **mistralai/ministral-8b-2512** | ✅ 3/3 | ✅ 3/3 | ~1.2s | ~$0.0003 |
+| **google/gemini-2.0-flash-001** | ✅ 3/3 | ✅ 3/3 | ~3.7s | ~$0.0005 |
+| google/gemini-2.5-flash-lite | ✅ 3/3* | ❌ 0/3 | ~1.6s | ~$0.0006 |
+| google/gemini-3.1-flash-lite-preview | ✅ 3/3 | ❌ 0/3 | ~1.3s | ~$0.0015 |
+| mistralai/mistral-small-2603 | ✅ 3/3 | ⚠️ 1/3 | ~1.3s | ~$0.0004 |
+| qwen/qwen3-next-80b-a3b-instruct | ✅ 3/3 | ❌ 0/3 | ~2.0s | ~$0.0006 |
+| qwen/qwen3-vl-32b-instruct | ✅ 3/3 | ❌ 0/3 | ~4.4s | ~$0.0006 |
+| google/gemma-4-31b-it | ✅ 3/3 | ❌ 0/3 | ~16s | ~$0.0004 |
+| openai/gpt-4o-mini | ERROR | ERROR | — | — |
+
+*Gemini 2.5 Flash Lite acierta Q2 **en el benchmark aislado** (solo 1 artículo de evidencia) pero falla con el pipeline completo (15 artículos). Con más contexto, su training data bias domina.
+
+**Nota sobre Q1 (vacaciones):** La mayoría de modelos escribe "treinta días naturales" en palabras en vez de "30 días", lo que no matchea el regex `30\s*días`. La respuesta es correcta pero no la detectamos como tal. Los dos modelos que "aciertan" (ministral-8b y gemini-2.0-flash) son los que escriben "30" en dígitos.
+
+**Ganadores claros:**
+
+1. **mistralai/ministral-8b-2512** — Más rápido (~1.2s), más barato (~$0.0003/query), perfecto en ambas preguntas. Modelo de 8B params, muy obediente al contexto.
+2. **google/gemini-2.0-flash-001** — Perfecto pero 3x más lento (~3.7s). Más caro.
+
+**Decisión:** Considerar **ministral-8b** como modelo de síntesis. Es 50% más rápido que gemini-2.5-flash-lite, ~30% más barato, y no alucina cifras. El trade-off es que necesitamos verificar la calidad general con el eval completo (no solo Q1/Q2).
+
+**Siguiente paso:** Correr eval completo con ministral-8b y comparar con el baseline de gemini-2.5-flash-lite para verificar que la calidad general se mantiene o mejora.
+
+### Full Eval — 5 modelos × 65 preguntas (2026-04-21)
+
+Eval completo con pipeline completo (15 artículos de evidencia, no 1 como en el benchmark aislado).
+
+#### Norm hit rate (retrieval)
+
+| Modelo | Norm hits | Preguntas |
+|---|---|---|
+| gemini-2.5-flash-lite | **98%** (54/55) | 63 |
+| mistral-small | **96%** (54/56) | 64 |
+| qwen3-next-80b | 93% (53/57) | 64 |
+| gemini-2.0-flash | 92% (48/52) | 60 |
+| ministral-8b | 89% (51/57) | 65 |
+
+#### Answer quality — juzgado manualmente por Claude Opus (no regex)
+
+| Q | Pregunta | ministral-8b | mistral-small | qwen3-80b | gemini-2.0-flash | gemini-2.5-lite |
+|---|---|---|---|---|---|---|
+| Q1 | Vacaciones (30d) | ⚠️ incompleto | MISSING | ✅ perfecto | ✅ correcto | ✅ correcto |
+| Q2 | Paternidad (19sem) | ❌ 16sem | ❌ 16sem | ❌ 16sem | MISSING | ❌ 16sem |
+| Q4 | Fianza (1 mes) | ❌ vago | ✅ correcto | ✅ perfecto | ✅ correcto | ⚠️ no lidera |
+| Q7 | Despido (control) | ✅ | ✅ | ✅ sin citas | ✅ | ✅ |
+| Q9 | Alquiler (5/7 años) | ⚠️ | ✅ | ✅ perfecto | ⚠️ cauteloso | ✅ |
+| Q12 | Deducción (eliminada) | ✅ directo | ✅ | ✅ | ✅ | ⚠️ misleading |
+| Q202 | Grabar jefe | ❌ todos | ❌ todos | ❌ todos | ❌ todos | ❌ todos |
+| Q608 | Despido baja | ❌ todos | ❌ todos | ❌ todos | ❌ todos | ❌ todos |
+
+#### Hallazgo principal: la alucinación de "16 semanas" es universal
+
+**TODOS los modelos dicen "16 semanas" con el pipeline completo**, incluyendo los que decían "19 semanas" en el benchmark aislado (1 artículo). Esto descarta que sea un problema del modelo — es un problema de **ruido en la evidencia**.
+
+Con 15 artículos de evidencia, hay suficiente texto de distintas fuentes (EBEP, LGSS, decretos autonómicos) que mencionan cifras históricas o de otros ámbitos. El modelo pierde la señal de "19 semanas" del ET art.48.4 entre todo el ruido.
+
+**Solución real:** Reducir el ruido en la evidencia para Q2. Opciones:
+1. Reducir TOP_K de 15 a 8-10 para preguntas con respuesta clara
+2. Deduplicar artículos que dicen lo mismo de formas diferentes
+3. Poner el artículo más relevante (top-1 del reranker) con formato especial
+
+#### Valoración por modelo
+
+| Modelo | Pros | Contras | Recomendación |
+|---|---|---|---|
+| **gemini-2.5-flash-lite** | Mejor norm hits (98%), rápido, barato | Alucinación 16sem, Q12 misleading | Sigue siendo el mejor balance |
+| **qwen3-next-80b** | Mejor calidad de respuestas, lenguaje natural | Lento (~10s), norm hits 93% | Mejor calidad pero peor retrieval |
+| **gemini-2.0-flash** | Buenas respuestas, cauteloso | Lento, errores 500, norm hits 92% | No justifica el coste extra |
+| **mistral-small** | Buenas respuestas, Q12 excelente | Error Q1, norm hits 96% | Alternativa sólida a gemini-2.5 |
+| **ministral-8b** | Más rápido, Q12 excelente | Norm hits 89%, Q1/Q4 incompletos | Demasiados fallos de retrieval |
+
+**Decisión:** Mantener **gemini-2.5-flash-lite** como modelo principal. Tiene el mejor norm hit rate (98%) y es el más barato. La alucinación de "16 semanas" es un problema del pipeline (ruido en evidencia), no del modelo — cambiar de modelo no lo resuelve. El siguiente fix debe ser reducir el ruido de evidencia.
 
 ### Full Eval — 65 preguntas (2026-04-20)
 
