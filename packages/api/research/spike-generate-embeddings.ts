@@ -249,6 +249,10 @@ const startTime = Date.now();
 // "Estatuto de los Trabajadores — Artículo 48" embeds differently from
 // "EBEP — Artículo 48", helping retrieval distinguish which law applies.
 //
+// Format follows Gemini Embedding 2 recommendation for asymmetric retrieval:
+//   title: {norm_title} | text: {article_title}\n\n{article_text}
+// See: https://ai.google.dev/gemini-api/docs/embeddings
+//
 // Sub-chunking: long articles (>3000 chars) with numbered apartados are
 // split into sub-chunks. Each sub-chunk gets its own embedding with a
 // synthetic title (e.g. "Artículo 48.4 — El nacimiento...").
@@ -270,14 +274,14 @@ for (const a of articles) {
 			preparedArticles.push({
 				normId: a.norm_id,
 				blockId: chunk.blockId,
-				text: `[${a.norm_title}]\n${chunk.title}\n\n${chunk.text}`,
+				text: `title: ${a.norm_title} | text: ${chunk.title}\n\n${chunk.text}`,
 			});
 		}
 	} else {
 		preparedArticles.push({
 			normId: a.norm_id,
 			blockId: a.block_id,
-			text: `[${a.norm_title}]\n${a.title}\n\n${a.current_text}`,
+			text: `title: ${a.norm_title} | text: ${a.title}\n\n${a.current_text}`,
 		});
 	}
 }

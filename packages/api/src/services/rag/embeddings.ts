@@ -149,8 +149,10 @@ export async function generateEmbeddings(
 	for (let i = 0; i < articles.length; i += BATCH_SIZE) {
 		const batch = articles.slice(i, i + BATCH_SIZE);
 		const texts = batch.map((a) => {
-			// Truncate to ~2000 chars (~500 tokens) per article to manage costs
-			const content = a.text.slice(0, 2000);
+			// Gemini Embedding 2 supports 8,192 tokens (~24K chars).
+			// Truncate to 24000 chars to stay safely within limit while using
+			// most of the available context window (previously 2000 chars / 6%).
+			const content = a.text.slice(0, 24000);
 			return content;
 		});
 
@@ -297,7 +299,14 @@ export async function embedQuery(
 	const model = EMBEDDING_MODELS[modelKey];
 	if (!model) throw new Error(`Unknown model: ${modelKey}`);
 
-	const response = await fetchWithRetry(apiKey, model.id, query);
+	// Gemini Embedding 2 requires inline task prefixes for asymmetric retrieval.
+	// See: https://ai.google.dev/gemini-api/docs/embeddings
+	const prefixedQuery =
+		modelKey === "gemini-embedding-2"
+			? `task: question answering | query: ${query}`
+			: query;
+
+	const response = await fetchWithRetry(apiKey, model.id, prefixedQuery);
 	// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
 	const data: any = await response.json();
 	const usage = data.usage ?? {};

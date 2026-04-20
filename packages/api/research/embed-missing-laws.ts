@@ -92,14 +92,14 @@ for (const a of articles) {
 			prepared.push({
 				normId: a.norm_id,
 				blockId: chunk.blockId,
-				text: `[${a.norm_title}]\n${chunk.title}\n\n${chunk.text}`,
+				text: `title: ${a.norm_title} | text: ${chunk.title}\n\n${chunk.text}`,
 			});
 		}
 	} else {
 		prepared.push({
 			normId: a.norm_id,
 			blockId: a.block_id,
-			text: `[${a.norm_title}]\n${a.title}\n\n${a.current_text}`,
+			text: `title: ${a.norm_title} | text: ${a.title}\n\n${a.current_text}`,
 		});
 	}
 }

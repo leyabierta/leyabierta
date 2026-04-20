@@ -84,6 +84,33 @@ function describeNormScope(rank: string, jurisdiction: string): string {
 	return `${label} de ${name}`;
 }
 
+/** Sectoral norms: regulations, orders, circulars, resolutions, and
+ *  convenios that apply to specific groups rather than all citizens. */
+function isSectoralNorm(rank: string): boolean {
+	return (
+		rank === "real_decreto" ||
+		rank === "decreto" ||
+		rank === "orden" ||
+		rank === "circular" ||
+		rank === "instruccion" ||
+		rank === "resolucion" ||
+		rank === "reglamento"
+	);
+}
+
+/** Detect omnibus/modifying norms by title. These laws modify other laws —
+ *  their content is already reflected in the consolidated base law. */
+function isModifierNorm(title: string): boolean {
+	const t = title.toLowerCase();
+	return (
+		t.includes("presupuestos generales") ||
+		t.includes("medidas urgentes") ||
+		t.includes("medidas fiscales") ||
+		t.includes("medidas tributarias") ||
+		t.includes("acompañamiento")
+	);
+}
+
 // ── Types ──
 
 export interface AskRequest {
@@ -144,6 +171,12 @@ REGLAS:
 2. NUNCA inventes artículos ni cites normas que no estén en la lista.
 3. CITAS INLINE OBLIGATORIAS: Inserta [norm_id, Artículo N] justo después de cada afirmación. Ejemplo: "Tienes derecho a 30 días de vacaciones [BOE-A-1995-7730, Artículo 38]."
 4. PRIORIDAD DE FUENTES: Ley general > ley sectorial. Artículos vigentes > disposiciones transitorias. Si hay datos contradictorios, usa el de mayor rango o más reciente.
+
+RESOLUCIÓN DE CONFLICTOS TEMPORALES:
+- Los artículos marcados [TEXTO CONSOLIDADO] reflejan el estado VIGENTE de la ley. Son la fuente principal.
+- Los artículos marcados [LEY MODIFICADORA] contienen disposiciones que MODIFICARON la ley base en su momento. Su contenido ya está reflejado en el texto consolidado.
+- Si un TEXTO CONSOLIDADO y una LEY MODIFICADORA dan cifras o plazos diferentes para lo mismo, SIEMPRE usa el TEXTO CONSOLIDADO. Ejemplo: si una PGE de 2018 dice "5 semanas" pero el Estatuto de los Trabajadores consolidado dice "16 semanas", la respuesta correcta es 16 semanas.
+- Las Leyes de Presupuestos (PGE) y decretos-ley de "medidas urgentes" suelen contener disposiciones transitorias ya superadas. NO las cites como derecho vigente si hay un texto consolidado disponible.
 5. Si un artículo establece un mínimo legal (ej: "5 años"), eso es lo que importa al ciudadano. No le digas primero un plazo menor para luego matizarlo — empieza por lo que le afecta.
 6. Si la pregunta mezcla dos situaciones (ej: vivienda + negocio), DISTINGUE ambas claramente.
 7. LÍMITES DE LA LEGISLACIÓN: Si los artículos solo establecen un principio general (ej: "respetar la dignidad", "proporcionalidad") sin definir límites concretos o criterios medibles, dilo claramente al final: "La ley establece el principio, pero los límites concretos los ha ido definiendo la jurisprudencia (sentencias de tribunales), que no está en nuestra base de datos. Para tu caso concreto, consulta con un abogado." No inventes límites que la ley no dice.
@@ -600,15 +633,7 @@ export class RagPipeline {
 				MAX_EVIDENCE_TOKENS,
 			);
 		} else {
-			evidenceText = "";
-			let approxTokens = 0;
-			for (const article of articles) {
-				const chunk = `[${article.normId}, ${article.blockTitle}] (de: ${article.normTitle})\n${article.text}\n\n`;
-				const chunkTokens = Math.ceil(chunk.length / 4);
-				if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;
-				evidenceText += chunk;
-				approxTokens += chunkTokens;
-			}
+			evidenceText = this.buildStructuredEvidence(articles);
 		}
 
 		// 5. Synthesize
@@ -1183,15 +1208,7 @@ export class RagPipeline {
 				MAX_EVIDENCE_TOKENS,
 			);
 		} else {
-			evidenceText = "";
-			let approxTokens = 0;
-			for (const article of articles) {
-				const chunk = `[${article.normId}, ${article.blockTitle}] (de: ${article.normTitle})\n${article.text}\n\n`;
-				const chunkTokens = Math.ceil(chunk.length / 4);
-				if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;
-				evidenceText += chunk;
-				approxTokens += chunkTokens;
-			}
+			evidenceText = this.buildStructuredEvidence(articles);
 		}
 
 		return {
@@ -1375,14 +1392,25 @@ export class RagPipeline {
 			// other laws — their content is already reflected in the consolidated
 			// base law. For non-temporal questions they add noise; for temporal
 			// questions ("how has the law changed?") they're valuable.
-			const titleLower = row.title.toLowerCase();
-			const isOmnibus =
-				titleLower.includes("presupuestos generales") ||
-				titleLower.includes("medidas urgentes") ||
-				titleLower.includes("medidas fiscales") ||
-				titleLower.includes("medidas tributarias") ||
-				titleLower.includes("acompañamiento");
-			const omnibusWeight = isOmnibus && !isTemporal ? 0.15 : 1.0;
+			//
+			// Temporal scaling: old omnibus norms (>2 years) get near-exclusion
+			// (0.02x) because their content is certainly absorbed into the base
+			// law by now. Recent omnibus (<12 months) keep a milder penalty (0.15x)
+			// because BOE consolidation can lag.
+			const isOmnibus = isModifierNorm(row.title);
+			let omnibusWeight = 1.0;
+			if (isOmnibus && !isTemporal) {
+				const updatedAt = new Date(row.updated_at);
+				const ageMs = Date.now() - updatedAt.getTime();
+				const ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
+				if (ageYears > 2) {
+					omnibusWeight = 0.02; // near-exclusion: certainly absorbed
+				} else if (ageYears > 1) {
+					omnibusWeight = 0.08; // likely absorbed
+				} else {
+					omnibusWeight = 0.15; // recent: may not be consolidated yet
+				}
+			}
 
 			normBoostMap.set(
 				row.norm_id,
@@ -1459,7 +1487,7 @@ export class RagPipeline {
 					{
 						role: "system",
 						content: `Eres un experto en legislación española. Dado una pregunta de un ciudadano, extrae:
-1. "keywords": palabras clave para buscar en el texto legal (sinónimos legales). Máximo 8.
+1. "keywords": palabras clave para buscar en el texto legal. IMPORTANTE: incluye SIEMPRE los sinónimos legales del término coloquial que usa el ciudadano. Ejemplos: "paternidad" → incluir también "nacimiento", "progenitor distinto de la madre biológica"; "alquiler" → incluir también "arrendamiento", "arrendatario"; "paro" → incluir también "desempleo", "prestación contributiva"; "echar del trabajo" → incluir también "despido", "extinción del contrato"; "baja" → incluir también "incapacidad temporal", "suspensión del contrato"; "vacaciones" → incluir también "descanso anual", "periodo vacacional"; "fianza" → incluir también "garantía arrendaticia", "depósito". Máximo 10.
 2. "materias": categorías temáticas BOE. Máximo 3.
 3. "temporal": true si pregunta sobre cambios históricos o evolución de la ley. false si pregunta sobre ley vigente.
 4. "non_legal": true si la pregunta NO es sobre legislación, derechos u obligaciones legales. Ejemplos: clima, deportes, poemas, recetas, opiniones personales, hackear sistemas, preguntas sobre personas concretas. INCLUSO si la pregunta menciona palabras legales (como "Constitución"), si la INTENCIÓN no es obtener información legal (ej: "escribe un poema sobre la Constitución"), pon non_legal=true.
@@ -1580,6 +1608,8 @@ Responde SOLO con JSON.`,
 					title: string;
 					rank: string;
 					source_url: string;
+					updated_at: string;
+					status: string;
 					block_id: string;
 					block_title: string;
 					current_text: string;
@@ -1587,7 +1617,8 @@ Responde SOLO con JSON.`,
 				},
 				string[]
 			>(
-				`SELECT b.norm_id, n.title, n.rank, n.source_url, b.block_id, b.title as block_title,
+				`SELECT b.norm_id, n.title, n.rank, n.source_url, n.updated_at, n.status,
+                b.block_id, b.title as block_title,
                 b.current_text, cas.summary as citizen_summary
          FROM blocks b
          JOIN norms n ON n.id = b.norm_id
@@ -1614,6 +1645,8 @@ Responde SOLO con JSON.`,
 			normTitle: string;
 			rank: string;
 			sourceUrl: string;
+			updatedAt: string;
+			status: string;
 			blockTitle: string;
 			text: string;
 			citizenSummary?: string;
@@ -1654,6 +1687,8 @@ Responde SOLO con JSON.`,
 						normTitle: parent.title,
 						rank: parent.rank,
 						sourceUrl: parent.source_url,
+						updatedAt: parent.updated_at,
+						status: parent.status,
 						blockTitle: chunk.title,
 						text: chunk.text,
 						citizenSummary: parent.citizen_summary ?? undefined,
@@ -1669,6 +1704,8 @@ Responde SOLO con JSON.`,
 						normTitle: a.title,
 						rank: a.rank,
 						sourceUrl: a.source_url,
+						updatedAt: a.updated_at,
+						status: a.status,
 						blockTitle: a.block_title,
 						text: a.current_text,
 						citizenSummary: a.citizen_summary ?? undefined,
@@ -1678,6 +1715,79 @@ Responde SOLO con JSON.`,
 		}
 
 		return articles;
+	}
+
+	/**
+	 * Build evidence text with 3-tier ordering to reduce LLM ambiguity.
+	 *
+	 * Tier 1: General state laws (ET, CC, LAU, LGSS...) — the answer for most citizens
+	 * Tier 2: Sectoral/regulatory state norms (EBEP, convenios, reglamentos...)
+	 * Tier 3: Autonomous community laws
+	 * Tier 4: Modifier/omnibus laws (PGE, medidas urgentes) — last, with warning label
+	 *
+	 * Within each tier, articles keep their reranker order.
+	 * This is the primary mechanism for answer quality — the LLM sees the most
+	 * broadly-applicable law first, reducing ambiguity without extra LLM calls.
+	 */
+	private buildStructuredEvidence(
+		articles: Array<{
+			normId: string;
+			normTitle: string;
+			rank: string;
+			sourceUrl: string;
+			updatedAt: string;
+			blockTitle: string;
+			text: string;
+		}>,
+	): string {
+		// Classify each article into a tier
+		const tiers: [typeof articles, typeof articles, typeof articles, typeof articles] = [[], [], [], []];
+
+		for (const article of articles) {
+			if (isModifierNorm(article.normTitle)) {
+				tiers[3].push(article); // Tier 4: modifiers
+			} else {
+				const jurisdiction = resolveJurisdiction(article.sourceUrl, article.normId);
+				if (jurisdiction !== "es") {
+					tiers[2].push(article); // Tier 3: autonomous
+				} else if (isSectoralNorm(article.rank)) {
+					tiers[1].push(article); // Tier 2: sectoral state
+				} else {
+					tiers[0].push(article); // Tier 1: general state
+				}
+			}
+		}
+
+		let evidenceText = "";
+		let approxTokens = 0;
+
+		for (let tier = 0; tier < 4; tier++) {
+			for (const article of tiers[tier]!) {
+				if (approxTokens >= MAX_EVIDENCE_TOKENS) break;
+
+				const scope = describeNormScope(
+					article.rank,
+					resolveJurisdiction(article.sourceUrl, article.normId),
+				);
+				const dateStr = article.updatedAt?.slice(0, 10) ?? "";
+
+				let label: string;
+				if (tier === 3) {
+					label = `[LEY MODIFICADORA${dateStr ? ` | Publicada: ${dateStr}` : ""} — contenido ya reflejado en textos consolidados]`;
+				} else {
+					label = `[TEXTO CONSOLIDADO${dateStr ? ` | Última actualización: ${dateStr}` : ""}]`;
+				}
+
+				const header = `[${article.normId}, ${article.blockTitle}] (${scope}: ${article.normTitle})\n${label}`;
+				const chunk = `${header}\n${article.text}\n\n`;
+				const chunkTokens = Math.ceil(chunk.length / 4);
+				if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;
+				evidenceText += chunk;
+				approxTokens += chunkTokens;
+			}
+		}
+
+		return evidenceText;
 	}
 
 	private async synthesize(
