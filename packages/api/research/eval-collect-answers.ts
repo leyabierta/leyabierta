@@ -133,11 +133,31 @@ const declinedCount = results.filter((r) => r.ragDeclined).length;
 console.log(`Avg latency: ${avgLatency.toFixed(0)}ms`);
 console.log(`Declined: ${declinedCount}/${results.length}`);
 
-// Norm hit rate
+// Norm hit rate — checks both citations array AND inline mentions in answer text.
+// Also accepts equivalent norm IDs (e.g. old ET consolidation = new ET).
+const EQUIVALENT_NORMS: Record<string, string> = {
+	"BOE-A-1995-7730": "BOE-A-2015-11430", // ET 1995 consolidation = ET 2015
+};
+const NORM_ID_PATTERN = /(?:BOE|BOA|BOJA|DOGC|BOPV|BORM|DOCM|BON|BOC|DOGV)-[A-Za-z]-\d{4}-\d+/g;
+
+function getAllMentionedNorms(r: (typeof results)[0]): Set<string> {
+	const cited = new Set(r.ragCitations.map((c) => c.normId));
+	// Also find norm IDs mentioned inline in the answer text
+	for (const match of r.ragAnswer.matchAll(NORM_ID_PATTERN)) {
+		cited.add(match[0]);
+	}
+	// Expand equivalences
+	const expanded = new Set(cited);
+	for (const n of cited) {
+		if (EQUIVALENT_NORMS[n]) expanded.add(EQUIVALENT_NORMS[n]);
+	}
+	return expanded;
+}
+
 const withExpected = results.filter((r) => r.expectedNorms.length > 0);
 const normHits = withExpected.filter((r) => {
-	const cited = new Set(r.ragCitations.map((c) => c.normId));
-	return r.expectedNorms.some((n) => cited.has(n));
+	const mentioned = getAllMentionedNorms(r);
+	return r.expectedNorms.some((n) => mentioned.has(n));
 });
 console.log(
 	`Norm hits: ${normHits.length}/${withExpected.length} (${((normHits.length / withExpected.length) * 100).toFixed(0)}%)`,
@@ -145,13 +165,15 @@ console.log(
 
 // Show failures
 const failures = withExpected.filter((r) => {
-	const cited = new Set(r.ragCitations.map((c) => c.normId));
-	return !r.expectedNorms.some((n) => cited.has(n));
+	const mentioned = getAllMentionedNorms(r);
+	return !r.expectedNorms.some((n) => mentioned.has(n));
 });
 if (failures.length > 0) {
 	console.log("\nFailing questions:");
 	for (const f of failures) {
-		const cited = f.ragCitations.map((c) => c.normId);
-		console.log(`  Q${f.id}: expected ${f.expectedNorms.join(",")} got ${cited.join(",") || "(none)"}`);
+		const mentioned = [...getAllMentionedNorms(f)];
+		console.log(
+			`  Q${f.id}: expected ${f.expectedNorms.join(",")} got ${mentioned.join(",") || "(none)"}`,
+		);
 	}
 }

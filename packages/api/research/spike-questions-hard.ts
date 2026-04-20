@@ -224,7 +224,7 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 		id: 606,
 		question: "¿Pueden embargarme la nómina entera si tengo una deuda?",
 		category: "cross-law",
-		expectedNorms: ["BOE-A-2015-11430"], // ET art. 27 (SMI inembargable)
+		expectedNorms: ["BOE-A-2015-11430", "BOE-A-2000-323"], // ET art.27 (SMI) or LEC arts.607-609 (garnishment limits)
 		expectedAnswer:
 			"No. El SMI es inembargable. Por encima del SMI se aplican tramos progresivos. ET art. 27 + LEC arts. 607-609.",
 	},
@@ -318,5 +318,83 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 		expectedNorms: ["BOE-A-2021-13605"], // Ley 4/2021 de Infancia y Adolescencia de Andalucía
 		expectedAnswer:
 			"La Ley 4/2021 de Infancia y Adolescencia de Andalucía establece el marco de protección de menores.",
+	},
+
+	// ── Additional coverage: diverse topics to catch retrieval gaps ──
+	{
+		id: 801,
+		question: "¿Cuántas horas extra puedo hacer al año como máximo?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2015-11430"], // ET art. 35
+		expectedAnswer:
+			"Máximo 80 horas extraordinarias al año. Voluntarias salvo pacto en convenio.",
+	},
+	{
+		id: 802,
+		question:
+			"Mi casero quiere hacer obras en mi piso y yo no quiero. ¿Puede obligarme?",
+		category: "clear",
+		expectedNorms: ["BOE-A-1994-26003"], // LAU arts. 22-24
+		expectedAnswer:
+			"Depende del tipo de obras. Obras de conservación: el inquilino debe soportarlas. Obras de mejora: puede rescindir si le afectan mucho.",
+	},
+	{
+		id: 803,
+		question: "¿A qué edad me puedo jubilar?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2015-11724"], // LGSS art. 205
+		expectedAnswer:
+			"La edad ordinaria de jubilación depende de los años cotizados. Mínimo 65-67 años según cotización.",
+	},
+	{
+		id: 804,
+		question: "¿Cuánto dura la garantía de un producto nuevo?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2007-20555"], // RDL Consumidores art. 120
+		expectedAnswer:
+			"3 años para productos nuevos. 1 año para productos de segunda mano.",
+	},
+	{
+		id: 805,
+		question:
+			"¿Qué es una zona de mercado residencial tensionado y qué implica para mi alquiler?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2023-12203"], // Ley Vivienda 2023
+		expectedAnswer:
+			"Zona donde los precios del alquiler están muy por encima de la media. Implica límites a la actualización de renta.",
+	},
+	{
+		id: 806,
+		question: "¿Tengo derecho a que borren mis datos de internet?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2018-16673"], // LOPDGDD art. 93
+		expectedAnswer:
+			"Sí, el derecho al olvido permite pedir la supresión de datos personales en buscadores y otros servicios.",
+	},
+	{
+		id: 807,
+		question:
+			"Quiero darme de alta como autónomo. ¿Qué derechos básicos tengo?",
+		category: "clear",
+		expectedNorms: ["BOE-A-2007-13409"], // LETA
+		expectedAnswer:
+			"Derecho a afiliación, acción colectiva, conciliación, formación profesional, y protección en caso de riesgo laboral.",
+	},
+	{
+		id: 808,
+		question: "¿Pueden obligarme a hacer un test de drogas en el trabajo?",
+		category: "cross-law",
+		expectedNorms: ["BOE-A-2015-11430", "BOE-A-1978-31229"], // ET art. 20 + CE art. 18
+		expectedAnswer:
+			"Solo en casos justificados (seguridad, riesgo). El empresario puede verificar el estado de salud del trabajador (ET art. 20.4) pero respetando la intimidad (CE art. 18).",
+	},
+	{
+		id: 809,
+		question:
+			"He heredado una casa con mis hermanos y no nos ponemos de acuerdo. ¿Qué dice la ley?",
+		category: "clear",
+		expectedNorms: ["BOE-A-1889-4763"], // Código Civil arts. 1051-1087
+		expectedAnswer:
+			"Cualquier coheredero puede pedir la división de la herencia. Si no hay acuerdo, interviene un contador-partidor judicial.",
 	},
 ];

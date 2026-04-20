@@ -425,13 +425,26 @@ export class RagPipeline {
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
 
 		// Apply norm rank + jurisdiction multiplier to RRF scores
-		const fused = rawFused
+		const boosted = rawFused
 			.map((r) => {
 				const normId = r.key.split(":")[0]!;
 				const boost = normBoostMap.get(normId) ?? 1.0;
 				return { ...r, rrfScore: r.rrfScore * boost };
 			})
 			.sort((a, b) => b.rrfScore - a.rrfScore);
+
+		// Diversity penalty: diminishing returns for repeated norms. Walking down
+		// the sorted list, each additional article from the same norm gets a
+		// smaller multiplier: 1st=1.0, 2nd=0.7, 3rd=0.5, 4th+=0.3. This prevents
+		// 30 autonomous housing laws from filling the entire pool.
+		const normSeenCounts = new Map<string, number>();
+		const fused = boosted.map((r) => {
+			const normId = r.key.split(":")[0]!;
+			const seen = normSeenCounts.get(normId) ?? 0;
+			normSeenCounts.set(normId, seen + 1);
+			const diversityPenalty = seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
+			return { ...r, rrfScore: r.rrfScore * diversityPenalty };
+		}).sort((a, b) => b.rrfScore - a.rrfScore);
 
 		// 2d-bis. Deduplicate sub-chunks vs parents: if both a48 (from BM25)
 		// and a48__4 (from vector) appear, drop the parent — the sub-chunk is
@@ -1053,13 +1066,23 @@ export class RagPipeline {
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
 
 		// Apply norm rank + jurisdiction multiplier to RRF scores
-		const fused = rawFused
+		const boosted2 = rawFused
 			.map((r) => {
 				const normId = r.key.split(":")[0]!;
 				const boost = normBoostMap.get(normId) ?? 1.0;
 				return { ...r, rrfScore: r.rrfScore * boost };
 			})
 			.sort((a, b) => b.rrfScore - a.rrfScore);
+
+		// Diversity penalty (same as runPipeline)
+		const normSeenCounts2 = new Map<string, number>();
+		const fused = boosted2.map((r) => {
+			const normId = r.key.split(":")[0]!;
+			const seen = normSeenCounts2.get(normId) ?? 0;
+			normSeenCounts2.set(normId, seen + 1);
+			const dp = seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
+			return { ...r, rrfScore: r.rrfScore * dp };
+		}).sort((a, b) => b.rrfScore - a.rrfScore);
 
 		const subchunkParents = new Set<string>();
 		for (const r of fused) {

@@ -55,9 +55,9 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 		id: 5,
 		question: "¿Cuánto es el salario mínimo interprofesional?",
 		category: "clear",
-		expectedNorms: ["BOE-A-2015-11430"], // ET art. 27
+		expectedNorms: ["BOE-A-2015-11430", "BOE-A-2022-22128"], // ET art.27 or annual SMI RD
 		expectedAnswer:
-			"Lo fija el Gobierno anualmente. El artículo 27 del ET establece el marco.",
+			"Lo fija el Gobierno anualmente. El artículo 27 del ET establece el marco. Los RD anuales fijan la cantidad.",
 	},
 	{
 		id: 6,
