@@ -1274,17 +1274,19 @@ export class RagPipeline {
 			let jurisdictionWeight: number;
 			if (queryJurisdiction) {
 				// User asked about a specific autonomous community — boost norms
-				// from that jurisdiction and slightly penalize others.
+				// from that jurisdiction and penalize others.
 				if (jurisdiction === queryJurisdiction) {
-					jurisdictionWeight = 1.5;
+					jurisdictionWeight = 2.0;
 				} else if (jurisdiction === "es") {
-					jurisdictionWeight = 0.8; // state law still relevant as fallback
+					jurisdictionWeight = 0.6; // state law still relevant as fallback
 				} else {
-					jurisdictionWeight = 0.3; // other autonomous communities
+					jurisdictionWeight = 0.2; // other autonomous communities
 				}
 			} else {
-				// General question — mild boost for state-level laws.
-				jurisdictionWeight = jurisdiction === "es" ? 1.0 : 0.7;
+				// General question — state-level laws get full weight, autonomous
+				// laws get reduced weight. The reranker with jurisdiction-enriched
+				// metadata handles cases where the autonomous law is actually relevant.
+				jurisdictionWeight = jurisdiction === "es" ? 1.0 : 0.5;
 			}
 
 			normBoostMap.set(row.norm_id, rankWeight * jurisdictionWeight);
