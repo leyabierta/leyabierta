@@ -1181,6 +1181,124 @@ Output: eval-judged.json (consolidated, portable)
 
 ---
 
+## Embedding Store Architecture & Operational Plan
+
+### Store format — flat array, not indexed
+
+The embedding store is a flat binary file:
+
+```
+meta.json:
+  { model, dimensions, count, articles: [{normId, blockId}, ...] }
+
+vectors.bin:
+  [float32 × 3072][float32 × 3072][float32 × 3072]...
+   articles[0]     articles[1]     articles[2]
+```
+
+Each embedding is **positionally independent** — `articles[i]` maps to `vectors[i * dims .. (i+1) * dims]`. No shared index, no graph structure, no inter-vector dependencies. Search is brute-force cosine similarity: O(n) scan over all vectors.
+
+### Why flat array is correct for our scale (decision)
+
+We considered HNSW (approximate nearest neighbor) vs flat array:
+
+| | Flat array (current) | HNSW (Pinecone, Qdrant) |
+|---|---|---|
+| Search | ~50ms exact (158K) / ~600ms (520K) | ~5ms approximate |
+| Add norm | Append + rewrite (~2s, $0) | Insert + partial reindex (~30s) |
+| Remove norm | Filter + rewrite (~2s, $0) | Full reindex (~2min) |
+| Correctness | Exact cosine — guaranteed best match | Approximate — may miss relevant articles |
+| Complexity | Trivial: array operations | External library (hnswlib, usearch) |
+| RAM | 1.8GB (158K × 3072 × 4 bytes) | ~2.5GB (graph overhead) |
+| Scaling limit | ~500K before search >1s | Millions |
+
+**Decision:** Keep flat array. At our scale (158K now, ~520K at 12K laws), brute-force search adds ~50-600ms to a pipeline that already takes 5-8s for LLM calls. The simplicity of flat arrays enables trivial add/remove operations — which is exactly what we need for operational maintenance.
+
+**When to reconsider:** If we scale to multi-country (millions of articles) or if vector search latency exceeds 1s. At that point, HNSW with a rebuild-on-update strategy (nightly) would be appropriate.
+
+### Key insight: flat array enables cheap maintenance
+
+Because each embedding is independent:
+
+- **Removing a derogated norm** = filter `articles[]` + copy surviving vectors to new array. No API calls. No cost. ~2 seconds of I/O.
+- **Adding a new norm** = generate embeddings for its articles (~$0.01, 30 seconds), append to arrays, rewrite file. Existing code for this: `embed-missing-laws.ts`.
+- **No index corruption** — unlike HNSW where removing a node leaves graph holes that degrade recall, a flat array is always in a valid state after filtering.
+
+### Current operational gap
+
+The pipeline's data flow has an automation gap at the embedding layer:
+
+```
+AUTOMATED:
+  BOE publishes reform → cron detects → pipeline downloads → ingest to SQLite
+  (norms table updated: new law added, old law marked 'derogada')
+
+NOT AUTOMATED:
+  Embedding store is static. New norms are not embedded. Derogated norms
+  remain in the store. Quality degrades silently as laws change.
+
+SAFETY NET (implemented 2026-04-21):
+  getArticleData() filters status='derogada' at query time.
+  This prevents derogated articles from reaching the LLM, but they still
+  waste embedding store space and vector search time.
+```
+
+### Proposed: sync-embeddings script
+
+A single script that keeps the embedding store in sync with the DB:
+
+```
+sync-embeddings
+═══════════════
+
+  1. Load current store (meta.json + vectors.bin)
+  2. Query DB: which normIds in the store have status='derogada'?
+     → Filter from arrays (local operation, $0, ~2s)
+  3. Query DB: which vigente norms are NOT in the store?
+     → Generate embeddings only for those (~$0.01/norm, ~30s/norm)
+     → Append to arrays
+  4. Rewrite store (meta.json + vectors.bin)
+  5. If API is running, signal hot-reload of store
+
+  Cost per run: $0 for removals + ~$0.01 per new norm
+  Frequency: daily or on-demand after ingest
+  Duration: <5 minutes for typical daily changes (1-3 new norms)
+```
+
+**Hot-reload pattern:** The pipeline caches the store in memory via `getEmbeddingStore()` (pipeline.ts:1342-1356). To reload without restarting, the simplest approach is a file watcher on `meta.json` that clears `this.embeddingStore` and `this.loadingPromise`. Next request reloads from disk.
+
+**Existing code to reuse:**
+- `embed-missing-laws.ts` — already implements "load store + generate missing + append + save"
+- `spike-generate-embeddings.ts --merge` — merges batch files into one store
+- Both need the `n.status != 'derogada'` filter (added in Phase 1)
+
+### Execution priority (revised 2026-04-21)
+
+```
+PRIORITY ORDER — operational before optimization
+═════════════════════════════════════════════════
+
+1. sync-embeddings script (critical)
+   Converts the spike into an operational system.
+   Without this, every BOE update requires manual intervention.
+
+2. Re-embed vigente only (~$1.60, one-time)
+   Clean initial state for the store. Remove the 15K derogated articles.
+   After this, sync-embeddings only handles incremental changes.
+
+3. Q302 bug (vacaciones media jornada) (medium)
+   Only factual error in the eval. Affects real citizen questions.
+
+4. Relative score cutoff — Phase 3 (low)
+   Refinement. The system works well without it.
+
+5. Scale to 12K laws (~$18) (when sync works)
+   Only after the pipeline is automated. 12K static embeddings
+   degrade just as fast as 504 static embeddings.
+```
+
+---
+
 ## References
 
 ### Papers & research
