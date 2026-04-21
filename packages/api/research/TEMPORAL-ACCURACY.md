@@ -1114,8 +1114,70 @@ Phase 1 is complete. Remaining phases from the execution plan:
 | Phase 2 | NEXT | Robust eval (Claude Code as judge, separate retrieval/answer quality) | High |
 | Phase 3 | PLANNED | Relative score cutoff (≥30% of top-1, min 3 articles) + DA penalty tuning | Medium |
 | Phase 4 | FUTURE | Scale embeddings to 12K laws (~$18), two-pass retrieval if needed | When ready |
-- Phase 2: Answer quality score ≥4.0/5.0 average across 65 questions
-- Phase 3: Full eval maintains or improves on Phase 1 metrics
+
+### Phase 2 Results — Robust Eval (2026-04-21)
+
+**All success criteria met.** Answer quality 4.71/5.00 (target was ≥4.0).
+
+#### Eval architecture
+
+Two independent layers, as designed:
+
+```
+Layer 1: RETRIEVAL QUALITY (deterministic, no LLM)
+  Input: eval-phase1-clean-data.json (65 questions + RAG responses)
+  Metrics: norm_hit, citation_count, unique_norms, all_verified, oos_accuracy
+  Result: 96% norm hits, 6/6 OOS correctly declined
+
+Layer 2: ANSWER QUALITY (Claude Code as judge)
+  Input: same JSON + eval-scores.json (human/AI scores per question)
+  Dimensions: correctness, completeness, faithfulness, clarity (1-5 each)
+  Result: 4.71/5.00 overall
+
+Output: eval-judged.json (consolidated, portable)
+```
+
+**Why Claude Code as judge (not OpenRouter):** $0 cost. Claude Code reads the answers in conversation and scores them directly. The scores JSON is portable — anyone can re-judge with the same data. The separation between `eval-phase1-clean-data.json` (answers) and `eval-scores.json` (judgments) means different judges can score independently.
+
+#### Results
+
+| Dimension | Score | ≥4 count | Notes |
+|-----------|-------|----------|-------|
+| Correctness | 4.64 | 55/59 (93%) | 4 low scorers identified |
+| Completeness | 4.49 | 50/59 (85%) | Cross-law questions tend to be incomplete |
+| Faithfulness | **4.97** | **59/59 (100%)** | Never invents data or cites non-existent articles |
+| Clarity | 4.73 | 56/59 (95%) | 3 questions confused by too many norms |
+| **Overall** | **4.71** | — | Target was ≥4.0 |
+
+**Faithfulness 100% is the most important result for a legal service.** The LLM never fabricates citations or claims not in the evidence. This validates the "narrator, not adjudicator" architecture.
+
+#### Low scorers (correctness or completeness <3)
+
+| Q | Problem | Root cause | Fix |
+|---|---------|-----------|-----|
+| Q202 (grabar jefe) | Says "no" — jurisprudence says "yes, your own conversations" | No jurisprudence data, only statute text | Out of scope: would need case law DB |
+| Q302 (vacaciones media jornada) | Says days are proportional — they're not, only pay is | ET art 12.2.d is ambiguous; LLM misinterprets "proporcional" | Prompt improvement or FAQ override |
+| Q603 (reformas CE) | Describes procedure but doesn't say "2 or 3 times" | Reform count isn't in article text; it's in git history | Could count reforms in DB for this norm |
+| Q608 (despido de baja) | Missing nulidad angle from Ley 15/2022 | Law not in 504 embedded norms | Scale to 12K (Phase 4) |
+
+**Q302 is the only actionable bug.** The answer is factually wrong — vacation days for part-time workers are the same count, only the pay is proportional. This is a synthesis error, not a retrieval error (the correct article arrives). Worth investigating as a prompt issue.
+
+#### Eval files produced
+
+| File | Content | Portable? |
+|------|---------|-----------|
+| `data/eval-phase1-clean-data.json` | 65 questions + RAG responses + citations | Yes — input for any judge |
+| `data/eval-scores.json` | 59 answer scores (4 dimensions × 1-5) + notes | Yes — one judge's assessment |
+| `data/eval-judged.json` | Consolidated: retrieval metrics + answer scores + summary | Yes — complete eval snapshot |
+
+#### Updated success criteria status
+
+- Phase 1: Q2 hallucination test 5/5 "19 semanas" with TOP_K=15 ✅
+- Phase 1: No regressions on eval temporal subset (10 questions) ✅
+- Phase 1: Full eval norm hits ≥95% → **96%** ✅
+- Phase 2: Answer quality score ≥4.0/5.0 → **4.71** ✅
+- Phase 3: TBD
+- Phase 4: TBD
 
 ---
 

@@ -59,8 +59,8 @@ async function callRAG(question: string) {
 			body: JSON.stringify({ question }),
 		});
 
-		if (response.status === 429) {
-			console.log(`    429 rate limited, retrying in ${RETRY_DELAY_MS}ms...`);
+		if (response.status === 429 || response.status >= 500) {
+			console.log(`    ${response.status} error, retrying in ${RETRY_DELAY_MS}ms...`);
 			await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
 			continue;
 		}
