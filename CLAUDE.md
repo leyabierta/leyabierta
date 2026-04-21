@@ -152,6 +152,47 @@ Endpoints:
 - `GET /v1/alerts/confirm` — double opt-in confirmation (HMAC)
 - `GET /v1/feed.xml` — RSS feed of recent reforms
 - `GET /health` — status + law count
+- `POST /v1/ask` — RAG Q&A: ask a legal question, get a cited answer
+
+### RAG Pipeline (`packages/api/src/services/rag/`)
+
+Citation-grounded legal Q&A. Citizens ask plain-language questions, the system retrieves relevant articles and synthesizes an answer with verifiable citations.
+
+**Architecture:**
+1. **Query analysis** — LLM extracts keywords, materias, jurisdiction, temporal intent, named-law hints
+2. **Hybrid retrieval** — Vector search (cosine similarity) + BM25 (article-level FTS), fused with Reciprocal Rank Fusion (RRF), plus collection density and recency signals
+3. **Reranking** — Cohere Rerank 4 Pro (fallback: LLM-based) narrows from ~80 candidates to 15
+4. **Temporal enrichment** — Version history headers injected for time-sensitive questions
+5. **Synthesis** — LLM generates answer with inline citations `[BOE-A-XXXX-XXXX, Artículo N]`
+6. **Citation verification** — Post-hoc check that every citation maps to a real article
+
+**Models and costs:**
+- **Embeddings:** `google/gemini-embedding-2-preview` via OpenRouter, 3072 dimensions, $0.20/M tokens
+- **Synthesis:** `google/gemini-2.5-flash` via OpenRouter (configurable)
+- **Reranking:** `cohere/rerank-v4-pro` (free tier, 1000 req/month)
+- **Query analysis:** Same as synthesis model
+
+**Embedding store:**
+- 483,983 embeddings from 9,738 vigente norms (all vigente norms with articles)
+- Stored as BLOBs in SQLite `embeddings` table (crash-safe, incremental add/remove)
+- For search: exported to flat binary file (`data/vectors.bin` + `data/vectors.meta.jsonl`), read in ~1GB chunks to avoid 6GB in-memory allocation
+- Sync script: `bun run packages/api/research/sync-embeddings.ts` (--add-only --all --dry-run --remove-only --migrate)
+
+**Evidence quality controls:**
+- Derogated norms filtered at DB level (`AND n.status != 'derogada'`)
+- Article type penalty: disposiciones transitorias (dt*) 0.3x, adicionales (da*) 0.7x, finales (df*) 0.5x, derogatorias (dd*) 0.1x
+- Diversity penalty: diminishing returns for repeated norms (1st=1.0, 2nd=0.7, 3rd=0.5, 4th+=0.3)
+- Norm rank + jurisdiction boosting (state laws > autonomous, leyes > instrucciones)
+
+**Key files:**
+- `pipeline.ts` — orchestrates all stages
+- `embeddings.ts` — vector search, embedding generation, SQLite store
+- `blocks-fts.ts` — BM25 article-level search
+- `reranker.ts` — Cohere/LLM reranking
+- `temporal.ts` — version history enrichment
+- `subchunk.ts` — article sub-chunking by apartados
+- `research/TEMPORAL-ACCURACY.md` — all decisions, rationales, and eval results
+- `research/sync-embeddings.ts` — embedding generation and sync script
 
 ### Email notifications
 

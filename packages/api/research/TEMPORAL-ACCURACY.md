@@ -1299,6 +1299,44 @@ PRIORITY ORDER — operational before optimization
 
 ---
 
+## Phase 4: Full-Scale Embedding Coverage (2026-04-21)
+
+### Decision: Scale from 500 to 9,738 norms
+- Previous: 500 norms with most reforms (top by reform count)
+- Now: ALL vigente norms with articles embedded (9,738 norms, 483,983 chunks)
+- Model: `google/gemini-embedding-2-preview` via OpenRouter ($0.20/M tokens)
+- Total cost: ~$16 for full corpus
+- Embedding dimensions: 3072 (Float32)
+
+### Decision: SQLite as embedding store (not flat file)
+- **Problem**: Flat binary file (vectors.bin) hit Bun's 2GB write limit (2^31-1 bytes)
+- **Solution**: Store vectors as BLOBs in `embeddings` table (norm_id, block_id, model, vector)
+- **Benefits**: No file size limit (~281TB), atomic inserts, crash-safe per-batch commits, incremental add/remove per norm
+- **Schema**: PRIMARY KEY (norm_id, block_id, model), indexed by model
+- **Script**: `sync-embeddings.ts` with --add-only, --all, --remove-only, --dry-run, --migrate flags
+
+### Decision: Chunked binary file for vector search (not in-memory)
+- **Problem**: Loading 484K vectors x 3072 dims into a single Float32Array = 5.95GB -> OOM (JSC can't allocate)
+- **Solution**: Export vectors from SQLite to flat binary file (`data/vectors.bin` + `data/vectors.meta.jsonl`), then read in ~1GB chunks (80K vectors each) during search
+- **Architecture**: `ensureVectorIndex()` builds the file from SQLite on first request (or if stale). `vectorSearchChunked()` reads chunks, computes cosine similarity with min-heap for top-K
+- **Memory**: ~1GB peak per chunk (freed between chunks) vs 6GB in-memory approach
+- **Latency**: ~13s for 484K vectors in API context (CPU-bound: 1.49B multiply-add operations). This is acceptable for now — LLM synthesis adds 5-8s anyway
+- **Precision**: Exact brute-force cosine similarity. Zero approximation, identical results to in-memory search.
+- **Future optimization**: SIMD/Workers, pre-computed doc norms, or ANN index (sqlite-vec, HNSW)
+
+### Bug fix: Concurrency pool race condition
+- **Problem**: `sync-embeddings.ts` had a Promise pool with `Promise.race` for bounded concurrency. But `Promise.resolve("pending")` always wins against `.then(() => "done")` for already-settled promises (microtask scheduling). Result: settled promises never removed from pool, all batches launched in parallel despite CONCURRENCY=1.
+- **Fix**: Replaced buggy pool with simple sequential `for` loop. Reliability over cleverness.
+
+### Embedding generation reliability
+- Sequential processing (1 batch of 50 at a time), each batch committed to SQLite immediately
+- INSERT OR REPLACE: re-running the script skips already-embedded articles automatically
+- 5 retries per batch with exponential backoff (5s, 10s, 15s, 20s)
+- Skipped batches are recovered by re-running the same command
+- Completed in ~3 runs due to intermittent Google/OpenRouter outages
+
+---
+
 ## References
 
 ### Papers & research

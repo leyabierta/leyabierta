@@ -41,13 +41,10 @@ const gitService = new GitService(REPO_PATH);
 const diffCache = new LruCache<string>(5000);
 const citizenSummaryService = new CitizenSummaryService(db);
 
-// RAG pipeline (optional — only if API key and embeddings are available)
+// RAG pipeline (optional — only if API key is available)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
-const EMBEDDINGS_PATH =
-	process.env.EMBEDDINGS_PATH ??
-	"./data/spike-embeddings-gemini-embedding-2-top500";
 const ragPipeline = OPENROUTER_API_KEY
-	? new RagPipeline(db, OPENROUTER_API_KEY, EMBEDDINGS_PATH)
+	? new RagPipeline(db, OPENROUTER_API_KEY)
 	: null;
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS

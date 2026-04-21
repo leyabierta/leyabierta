@@ -9,11 +9,11 @@ import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
 import { buildArticleAnchor } from "./anchor.ts";
 import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
 import {
-	type EmbeddingStore,
 	embedQuery,
-	loadEmbeddings,
-	loadEmbeddingsFromDb,
-	vectorSearch,
+	ensureVectorIndex,
+	getEmbeddedNormIds,
+	getEmbeddingCount,
+	vectorSearchChunked,
 } from "./embeddings.ts";
 import { JURISDICTION_NAMES, resolveJurisdiction } from "./jurisdiction.ts";
 import { type RerankerCandidate, rerank } from "./reranker.ts";
@@ -293,9 +293,10 @@ const INLINE_CITE_PATTERN =
 // ── Pipeline ──
 
 export class RagPipeline {
-	private embeddingStore: EmbeddingStore | null = null;
-	private loadingPromise: Promise<EmbeddingStore> | null = null;
 	private cohereApiKey: string | null;
+	private embeddedNormIds: string[] | null = null;
+	private vectorIndex: Awaited<ReturnType<typeof ensureVectorIndex>> = null;
+	private vectorIndexPromise: Promise<void> | null = null;
 
 	private insertSummaryStmt: ReturnType<Database["prepare"]>;
 	private insertAskLogStmt: ReturnType<Database["prepare"]>;
@@ -303,7 +304,7 @@ export class RagPipeline {
 	constructor(
 		private db: Database,
 		private apiKey: string,
-		private embeddingsPath: string,
+		private dataDir: string = "./data",
 	) {
 		this.cohereApiKey = process.env.COHERE_API_KEY ?? null;
 
@@ -377,9 +378,6 @@ export class RagPipeline {
 		start: number,
 		trace: RagTrace,
 	): Promise<AskResponse & { _bestScore?: number }> {
-		// Load embedding store before starting spans (disk I/O on first request)
-		const store = await this.getEmbeddingStore();
-
 		// 1. Analyze query + embed query in parallel (independent operations)
 		const analysisSpan = trace.span("query-analysis", "llm", {
 			question: request.question,
@@ -426,28 +424,35 @@ export class RagPipeline {
 		const retrievalSpan = trace.span("retrieval", "tool", {
 			topK: TOP_K,
 			embeddingModel: EMBEDDING_MODEL_KEY,
-			storeSize: store.count,
+			storeSize: this.getEmbeddingCount(),
 			strategy: "hybrid-rrf-reranker",
 		});
 
 		const MIN_SIMILARITY = 0.35;
 
-		// 2a. Vector search (top 50)
-		const vectorResults = vectorSearch(
-			queryResult.embedding,
-			store,
-			RERANK_POOL_SIZE,
-		).filter((r) => r.score >= MIN_SIMILARITY);
+		// 2a. Vector search — reads flat binary file in ~1GB chunks (~2s for 484K vectors)
+		const t0 = Date.now();
+		const vidx = await this.getVectorIndex();
+		const vectorResults = vidx
+			? (
+					await vectorSearchChunked(
+						queryResult.embedding,
+						vidx.meta,
+						vidx.vectorsFile,
+						vidx.dims,
+						RERANK_POOL_SIZE,
+					)
+				).filter((r) => r.score >= MIN_SIMILARITY)
+			: [];
+		const tVector = Date.now() - t0;
 		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
 			key: `${r.normId}:${r.blockId}`,
 			score: r.score,
 		}));
 
 		// 2b. BM25 article-level search (top 50), scoped to embedding store norms
-		// Without this filter, BM25 searches all 435K articles in the DB while
-		// vector search only covers the ~8K in the embedding store — causing
-		// irrelevant laws to dominate via RRF fusion.
-		const embeddingNormIds = [...new Set(store.articles.map((a) => a.normId))];
+		const t1 = Date.now();
+		const embeddingNormIds = this.getEmbeddedNormIdsCached();
 		const bm25Results = bm25HybridSearch(
 			this.db,
 			request.question,
@@ -455,6 +460,7 @@ export class RagPipeline {
 			RERANK_POOL_SIZE,
 			embeddingNormIds,
 		);
+		const tBm25 = Date.now() - t1;
 		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
 			key: `${r.normId}:${r.blockId}`,
 			score: 1 / r.rank,
@@ -602,6 +608,7 @@ export class RagPipeline {
 		let articles: typeof allFusedArticles;
 		let rerankerBackend = "none";
 
+		const t2 = Date.now();
 		if (allFusedArticles.length > TOP_K) {
 			// Enrich candidates with norm metadata so the reranker can distinguish
 			// general state laws from sectoral/autonomous norms with identical text.
@@ -632,7 +639,12 @@ export class RagPipeline {
 			articles = allFusedArticles;
 		}
 
+		const tRerank = Date.now() - t2;
 		const bestScore = vectorResults[0]?.score ?? 0;
+
+		console.log(
+			`[rag-timing] vector=${tVector}ms bm25=${tBm25}ms rerank=${tRerank}ms (${allFusedArticles.length}→${articles.length} articles)`,
+		);
 
 		retrievalSpan.end(
 			{
@@ -1066,7 +1078,6 @@ export class RagPipeline {
 		  }
 	> {
 		const start = Date.now();
-		const store = await this.getEmbeddingStore();
 
 		const [analyzed, queryResult] = await Promise.all([
 			this.analyzeQuery(request.question),
@@ -1092,17 +1103,24 @@ export class RagPipeline {
 		}
 
 		const MIN_SIMILARITY = 0.35;
-		const vectorResults = vectorSearch(
-			queryResult.embedding,
-			store,
-			RERANK_POOL_SIZE,
-		).filter((r) => r.score >= MIN_SIMILARITY);
+		const vidx = await this.getVectorIndex();
+		const vectorResults = vidx
+			? (
+					await vectorSearchChunked(
+						queryResult.embedding,
+						vidx.meta,
+						vidx.vectorsFile,
+						vidx.dims,
+						RERANK_POOL_SIZE,
+					)
+				).filter((r) => r.score >= MIN_SIMILARITY)
+			: [];
 		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
 			key: `${r.normId}:${r.blockId}`,
 			score: r.score,
 		}));
 
-		const embeddingNormIds = [...new Set(store.articles.map((a) => a.normId))];
+		const embeddingNormIds = this.getEmbeddedNormIdsCached();
 		const bm25Results = bm25HybridSearch(
 			this.db,
 			request.question,
@@ -1377,29 +1395,41 @@ export class RagPipeline {
 		return validCitations;
 	}
 
-	private async getEmbeddingStore(): Promise<EmbeddingStore> {
-		if (this.embeddingStore) return this.embeddingStore;
-		if (!this.loadingPromise) {
-			this.loadingPromise = (async () => {
-				// Try SQLite first (scalable, no 2GB limit), fall back to flat file
-				const dbStore = loadEmbeddingsFromDb(this.db, EMBEDDING_MODEL_KEY);
-				if (dbStore && dbStore.count > 0) {
-					console.log(`[rag] Loaded ${dbStore.count} embeddings from SQLite`);
-					this.embeddingStore = dbStore;
-					return dbStore;
-				}
-				const fileStore = await loadEmbeddings(this.embeddingsPath);
-				console.log(
-					`[rag] Loaded ${fileStore.count} embeddings from flat file`,
-				);
-				this.embeddingStore = fileStore;
-				return fileStore;
-			})().catch((err) => {
-				this.loadingPromise = null;
-				throw err;
+	/**
+	 * Ensure the flat binary vector index exists and is up to date.
+	 * Built once from SQLite on first request (~30s), then cached.
+	 */
+	private async getVectorIndex() {
+		if (this.vectorIndex) return this.vectorIndex;
+		if (!this.vectorIndexPromise) {
+			this.vectorIndexPromise = ensureVectorIndex(
+				this.db,
+				EMBEDDING_MODEL_KEY,
+				this.dataDir,
+			).then((idx) => {
+				this.vectorIndex = idx;
 			});
 		}
-		return this.loadingPromise;
+		await this.vectorIndexPromise;
+		return this.vectorIndex;
+	}
+
+	/**
+	 * Cached list of norm IDs with embeddings — used to scope BM25 search.
+	 * Loaded once on first query, then reused. ~10K string IDs = negligible RAM.
+	 */
+	private getEmbeddedNormIdsCached(): string[] {
+		if (!this.embeddedNormIds) {
+			this.embeddedNormIds = getEmbeddedNormIds(this.db, EMBEDDING_MODEL_KEY);
+			console.log(
+				`[rag] ${this.embeddedNormIds.length} norms with embeddings (streaming search, no bulk RAM)`,
+			);
+		}
+		return this.embeddedNormIds;
+	}
+
+	private getEmbeddingCount(): number {
+		return getEmbeddingCount(this.db, EMBEDDING_MODEL_KEY);
 	}
 
 	/**

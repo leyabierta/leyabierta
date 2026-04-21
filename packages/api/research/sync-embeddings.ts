@@ -290,13 +290,11 @@ if (hasAdditions) {
 		`  Estimated cost: ~$${((prepared.length * 250 * 0.2) / 1_000_000).toFixed(2)}`,
 	);
 
-	// Parallel embedding generation with immediate SQLite INSERT.
+	// Sequential embedding generation with immediate SQLite INSERT.
 	// No RAM accumulation — each batch is sent to the API, inserted into SQLite,
-	// and discarded. Concurrency is capped at CONCURRENCY to avoid overwhelming
-	// the API while maximizing throughput.
+	// and discarded.
 	const model = EMBEDDING_MODELS[MODEL_KEY]!;
 	const BATCH_SIZE = 50;
-	const CONCURRENCY = 10;
 	let completed = 0;
 	let inserted = 0;
 	const totalBatches = Math.ceil(prepared.length / BATCH_SIZE);
@@ -368,29 +366,12 @@ if (hasAdditions) {
 		}
 	}
 
-	console.log(`  Concurrency: ${CONCURRENCY} parallel batches`);
-
-	// Process all batches with bounded concurrency
-	const batchIndices = Array.from({ length: totalBatches }, (_, i) => i);
-	const pool: Promise<void>[] = [];
-
-	for (const idx of batchIndices) {
-		const p = processBatch(idx);
-		pool.push(p);
-
-		if (pool.length >= CONCURRENCY) {
-			await Promise.race(pool);
-			// Remove settled promises
-			for (let i = pool.length - 1; i >= 0; i--) {
-				const status = await Promise.race([
-					pool[i]!.then(() => "done" as const),
-					Promise.resolve("pending" as const),
-				]);
-				if (status === "done") pool.splice(i, 1);
-			}
-		}
+	// Process all batches sequentially — one API call at a time for reliability.
+	// Each batch is committed to SQLite immediately, so if the process crashes
+	// re-running resumes from where it left off (INSERT OR REPLACE skips existing).
+	for (let idx = 0; idx < totalBatches; idx++) {
+		await processBatch(idx);
 	}
-	await Promise.all(pool);
 
 	console.log(
 		`\n  Added ${inserted} articles from ${missingVigente.length} norms`,

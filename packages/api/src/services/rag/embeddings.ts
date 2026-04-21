@@ -389,6 +389,234 @@ export function deleteEmbeddingsByNorm(
 
 // ── Vector search (brute-force cosine similarity) ──
 
+/**
+ * Chunked vector search from a flat binary file — fast and memory-efficient.
+ *
+ * Reads the pre-exported vectors.bin file in ~1GB chunks (80K vectors each),
+ * computes cosine similarity per chunk, and maintains a min-heap of top-K.
+ * Each chunk is allocated then GC'd, so peak heap is ~1GB instead of 6GB.
+ *
+ * Performance: ~2s for 484K vectors (vs 12s iterating SQLite row-by-row).
+ * The OS page cache keeps vectors.bin hot after the first query.
+ *
+ * Requires vectors.bin + vectors.meta.jsonl to be exported first via
+ * ensureVectorIndex(). Falls back to SQLite iterate if files don't exist.
+ */
+
+const CHUNK_VECTORS = 80_000; // ~1GB per chunk at 3072 dims
+
+export async function vectorSearchChunked(
+	queryEmbedding: Float32Array,
+	meta: Array<{ normId: string; blockId: string }>,
+	vectorsFile: ReturnType<typeof Bun.file>,
+	dims: number,
+	topK: number = 10,
+): Promise<VectorSearchResult[]> {
+	const count = meta.length;
+	const bytesPerVec = dims * 4;
+	const searchStart = Date.now();
+
+	// Precompute query norm
+	let queryNorm = 0;
+	for (let i = 0; i < dims; i++) {
+		const v = queryEmbedding[i]!;
+		queryNorm += v * v;
+	}
+	queryNorm = Math.sqrt(queryNorm);
+	if (queryNorm === 0) return [];
+
+	// Min-heap for top-K
+	const heap: VectorSearchResult[] = [];
+	let heapMin = -Infinity;
+
+	const numChunks = Math.ceil(count / CHUNK_VECTORS);
+
+	for (let c = 0; c < numChunks; c++) {
+		const startVec = c * CHUNK_VECTORS;
+		const endVec = Math.min(startVec + CHUNK_VECTORS, count);
+		const numVecs = endVec - startVec;
+
+		const buf = await vectorsFile
+			.slice(startVec * bytesPerVec, endVec * bytesPerVec)
+			.arrayBuffer();
+		const vectors = new Float32Array(buf);
+
+		for (let i = 0; i < numVecs; i++) {
+			const offset = i * dims;
+			let dot = 0;
+			let docNorm = 0;
+			for (let j = 0; j < dims; j++) {
+				const v = vectors[offset + j]!;
+				dot += queryEmbedding[j]! * v;
+				docNorm += v * v;
+			}
+			docNorm = Math.sqrt(docNorm);
+			const score = docNorm > 0 ? dot / (queryNorm * docNorm) : 0;
+
+			if (heap.length >= topK && score <= heapMin) continue;
+
+			const article = meta[startVec + i]!;
+			const result: VectorSearchResult = {
+				normId: article.normId,
+				blockId: article.blockId,
+				score,
+			};
+
+			if (heap.length < topK) {
+				heap.push(result);
+				let idx = heap.length - 1;
+				while (idx > 0) {
+					const parent = (idx - 1) >> 1;
+					if (heap[parent]!.score <= heap[idx]!.score) break;
+					[heap[parent]!, heap[idx]!] = [heap[idx]!, heap[parent]!];
+					idx = parent;
+				}
+				heapMin = heap[0]!.score;
+			} else {
+				heap[0] = result;
+				let idx = 0;
+				while (true) {
+					const left = 2 * idx + 1;
+					const right = 2 * idx + 2;
+					let smallest = idx;
+					if (left < topK && heap[left]!.score < heap[smallest]!.score)
+						smallest = left;
+					if (right < topK && heap[right]!.score < heap[smallest]!.score)
+						smallest = right;
+					if (smallest === idx) break;
+					[heap[smallest]!, heap[idx]!] = [heap[idx]!, heap[smallest]!];
+					idx = smallest;
+				}
+				heapMin = heap[0]!.score;
+			}
+		}
+	}
+
+	console.log(
+		`[vector-search] ${count} vectors, ${numChunks} chunks, ${Date.now() - searchStart}ms`,
+	);
+	heap.sort((a, b) => b.score - a.score);
+	return heap;
+}
+
+/**
+ * Export vectors from SQLite to flat binary files for fast chunked search.
+ * Creates vectors.bin (raw Float32 data) and vectors.meta.jsonl (article IDs).
+ * Only re-exports if the count has changed.
+ */
+export async function ensureVectorIndex(
+	db: Database,
+	modelKey: string,
+	dataDir: string,
+): Promise<{
+	meta: Array<{ normId: string; blockId: string }>;
+	vectorsFile: ReturnType<typeof Bun.file>;
+	dims: number;
+} | null> {
+	const model = EMBEDDING_MODELS[modelKey];
+	if (!model) return null;
+
+	const metaPath = `${dataDir}/vectors.meta.jsonl`;
+	const vecPath = `${dataDir}/vectors.bin`;
+	const dims = model.dimensions;
+
+	const dbCount = db
+		.query<{ cnt: number }, [string]>(
+			"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
+		)
+		.get(modelKey)?.cnt ?? 0;
+
+	if (dbCount === 0) return null;
+
+	// Check if files exist and are up to date
+	const metaFile = Bun.file(metaPath);
+	const vecFile = Bun.file(vecPath);
+
+	let meta: Array<{ normId: string; blockId: string }> | null = null;
+
+	if (await metaFile.exists() && await vecFile.exists()) {
+		const lines = (await metaFile.text()).split("\n").filter(Boolean);
+		if (lines.length === dbCount) {
+			meta = lines.map((l) => {
+				const obj = JSON.parse(l);
+				return { normId: obj.n, blockId: obj.b };
+			});
+			return { meta, vectorsFile: vecFile, dims };
+		}
+		console.log(
+			`[rag] Vector index stale (${lines.length} vs ${dbCount}), rebuilding...`,
+		);
+	}
+
+	// Export from SQLite
+	console.log(`[rag] Building vector index: ${dbCount} vectors → ${vecPath}`);
+	const start = Date.now();
+	const metaLines: string[] = [];
+
+	const writer = vecFile.writer();
+	const stmt = db.query<
+		{ norm_id: string; block_id: string; vector: Buffer },
+		[string]
+	>(
+		"SELECT norm_id, block_id, vector FROM embeddings WHERE model = ? ORDER BY norm_id, block_id",
+	);
+
+	let exported = 0;
+	for (const row of stmt.iterate(modelKey)) {
+		metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
+		writer.write(
+			new Uint8Array(row.vector.buffer, row.vector.byteOffset, dims * 4),
+		);
+		exported++;
+		if (exported % 100_000 === 0) {
+			writer.flush();
+		}
+	}
+	writer.end();
+	await Bun.write(metaPath, metaLines.join("\n"));
+
+	meta = metaLines.map((l) => {
+		const obj = JSON.parse(l);
+		return { normId: obj.n, blockId: obj.b };
+	});
+
+	console.log(
+		`[rag] Vector index built: ${exported} vectors in ${((Date.now() - start) / 1000).toFixed(1)}s`,
+	);
+
+	return { meta, vectorsFile: Bun.file(vecPath), dims };
+}
+
+/**
+ * Get distinct norm IDs that have embeddings in SQLite.
+ * Used for scoping BM25 search to norms that are in the embedding store.
+ */
+export function getEmbeddedNormIds(
+	db: Database,
+	modelKey: string,
+): string[] {
+	return db
+		.query<{ norm_id: string }, [string]>(
+			"SELECT DISTINCT norm_id FROM embeddings WHERE model = ?",
+		)
+		.all(modelKey)
+		.map((r) => r.norm_id);
+}
+
+/**
+ * Get the count of embeddings for a model.
+ */
+export function getEmbeddingCount(
+	db: Database,
+	modelKey: string,
+): number {
+	return db
+		.query<{ cnt: number }, [string]>(
+			"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
+		)
+		.get(modelKey)?.cnt ?? 0;
+}
+
 export async function embedQuery(
 	apiKey: string,
 	modelKey: string,
