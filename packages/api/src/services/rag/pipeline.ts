@@ -955,7 +955,7 @@ export class RagPipeline {
 			articleTitle: string;
 		}> = [];
 		for (const match of fullText.matchAll(INLINE_CITE_PATTERN)) {
-			rawCitations.push({ normId: match[1], articleTitle: match[2] });
+			rawCitations.push({ normId: match[1]!, articleTitle: match[2]! });
 		}
 
 		// Deduplicate

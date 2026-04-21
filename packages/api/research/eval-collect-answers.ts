@@ -25,6 +25,14 @@ const repoRoot = join(import.meta.dir, "../../../");
 const outputPath =
 	getArg("output") ?? join(repoRoot, "data", "eval-answers.json");
 
+interface RagResponse {
+	answer?: string;
+	declined?: boolean;
+	citations?: { normId: string; articleTitle: string; verified?: boolean }[];
+	meta?: { model?: string };
+	latencyMs: number;
+}
+
 const RETRY_DELAY_MS = 10_000;
 const MAX_RETRIES = 3;
 
@@ -51,8 +59,8 @@ async function callRAG(question: string) {
 			throw new Error(`API error ${response.status}: ${text.slice(0, 200)}`);
 		}
 
-		const data = await response.json();
-		return { ...data, latencyMs: Date.now() - start };
+		const data = (await response.json()) as Record<string, unknown>;
+		return { ...data, latencyMs: Date.now() - start } as RagResponse;
 	}
 	throw new Error("RAG API: max retries exceeded (429)");
 }

@@ -145,7 +145,7 @@ if (mergeFiles) {
 			allArticles.push({
 				normId: a.normId,
 				blockId: a.blockId,
-				index: offset + a.index,
+				index: offset + (a.index ?? 0),
 			});
 		}
 		allVectors.push(store.vectors);
@@ -383,7 +383,7 @@ if (resumedVectors && resumedMeta.length > 0) {
 		...resumedMeta.map((m, i) => ({ ...m, index: i })),
 		...store.articles.map((a) => ({
 			...a,
-			index: a.index + resumedMeta.length,
+			index: (a.index ?? 0) + resumedMeta.length,
 		})),
 	];
 	store.vectors = mergedVectors;

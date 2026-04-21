@@ -43,7 +43,7 @@ export interface EmbeddingStore {
 	model: string;
 	dimensions: number;
 	count: number;
-	articles: Array<{ normId: string; blockId: string }>;
+	articles: Array<{ normId: string; blockId: string; index?: number }>;
 	vectors: Float32Array; // flattened: count × dimensions
 	norms: Float32Array; // pre-computed L2 norms per document
 }
