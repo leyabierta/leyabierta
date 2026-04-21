@@ -20,6 +20,25 @@ import { dirname, join } from "node:path";
 /** Monotonic counter to avoid temp file collisions across concurrent calls. */
 let tmpSeq = 0;
 
+/**
+ * Git env vars that leak from parent processes (e.g., lefthook hooks)
+ * and must be stripped so child git commands target the correct repo.
+ */
+const GIT_LEAK_VARS = [
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+] as const;
+
+/** Return a copy of process.env with leaked git vars removed. */
+function cleanEnv(extra?: Record<string, string>): Record<string, string> {
+	const env = { ...process.env, ...extra } as Record<string, string>;
+	for (const key of GIT_LEAK_VARS) delete env[key];
+	return env;
+}
+
 import type { CommitInfo } from "../models.ts";
 import { formatCommitMessage } from "./message.ts";
 
@@ -43,7 +62,7 @@ export class GitRepo {
 	): Promise<string> {
 		const proc = Bun.spawn(["git", ...args], {
 			cwd: this.path,
-			env: { ...process.env, ...env },
+			env: cleanEnv(env),
 			stdout: "pipe",
 			stderr: "pipe",
 		});
@@ -101,7 +120,7 @@ export class GitRepo {
 		try {
 			execSync(`${envCmd}git ${quoted} > '${outFile}' 2> '${errFile}'`, {
 				cwd: this.path,
-				env: { ...process.env, ...env },
+				env: cleanEnv(env),
 				shell: "/bin/bash",
 			});
 			return existsSync(outFile) ? readFileSync(outFile, "utf-8").trim() : "";
@@ -127,6 +146,8 @@ export class GitRepo {
 			await this.run(["init"]);
 			await this.run(["config", "user.name", this.committerName]);
 			await this.run(["config", "user.email", this.committerEmail]);
+			// Disable hooks in generated repos to avoid inheriting parent hooks
+			await this.run(["config", "core.hooksPath", "/dev/null"]);
 		}
 	}
 
