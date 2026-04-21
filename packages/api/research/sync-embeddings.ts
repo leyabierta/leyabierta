@@ -19,13 +19,12 @@
 
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
+import { createSchema } from "../../pipeline/src/db/schema.ts";
 import {
-	type EmbeddingStore,
 	generateEmbeddings,
 	loadEmbeddings,
 	saveEmbeddings,
 } from "../src/services/rag/embeddings.ts";
-import { createSchema } from "../../pipeline/src/db/schema.ts";
 import { splitByApartados } from "../src/services/rag/subchunk.ts";
 
 const args = process.argv.slice(2);
@@ -37,13 +36,19 @@ const topN = topNArg >= 0 ? Number(args[topNArg + 1]) : undefined;
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 if (!apiKey && !dryRun && !removeOnly) {
-	console.error("Set OPENROUTER_API_KEY (not needed for --remove-only or --dry-run)");
+	console.error(
+		"Set OPENROUTER_API_KEY (not needed for --remove-only or --dry-run)",
+	);
 	process.exit(1);
 }
 
 const repoRoot = join(import.meta.dir, "../../../");
 const dbPath = join(repoRoot, "data", "leyabierta.db");
-const storePath = join(repoRoot, "data", "spike-embeddings-gemini-embedding-2-top500");
+const storePath = join(
+	repoRoot,
+	"data",
+	"spike-embeddings-gemini-embedding-2-top500",
+);
 
 // ── DB ──
 
@@ -70,9 +75,13 @@ const derogatedInStore = db
 
 const derogatedIds = new Set(derogatedInStore.map((r) => r.id));
 
-console.log(`=== REMOVE: ${derogatedInStore.length} derogated norms in store ===`);
+console.log(
+	`=== REMOVE: ${derogatedInStore.length} derogated norms in store ===`,
+);
 if (derogatedInStore.length > 0) {
-	const articlesToRemove = store.articles.filter((a) => derogatedIds.has(a.normId)).length;
+	const articlesToRemove = store.articles.filter((a) =>
+		derogatedIds.has(a.normId),
+	).length;
 	console.log(`  ${articlesToRemove} articles to remove`);
 	for (const r of derogatedInStore.slice(0, 10)) {
 		const count = store.articles.filter((a) => a.normId === r.id).length;
@@ -257,14 +266,18 @@ if (hasAdditions) {
 	}
 
 	console.log(`  ${articles.length} articles → ${prepared.length} chunks`);
-	console.log(`  Estimated cost: ~$${((prepared.length * 250 * 0.2) / 1_000_000).toFixed(4)}`);
+	console.log(
+		`  Estimated cost: ~$${((prepared.length * 250 * 0.2) / 1_000_000).toFixed(4)}`,
+	);
 
 	const newStore = await generateEmbeddings(
 		apiKey!,
 		"gemini-embedding-2",
 		prepared,
 		(done, total) => {
-			process.stdout.write(`\r  Progress: ${done}/${total} (${((done / total) * 100).toFixed(0)}%)`);
+			process.stdout.write(
+				`\r  Progress: ${done}/${total} (${((done / total) * 100).toFixed(0)}%)`,
+			);
 		},
 	);
 	console.log();
@@ -298,7 +311,9 @@ if (hasAdditions) {
 		norms: mergedNorms,
 	};
 
-	console.log(`  Added ${newStore.count} articles from ${missingVigente.length} norms`);
+	console.log(
+		`  Added ${newStore.count} articles from ${missingVigente.length} norms`,
+	);
 }
 
 // ── Step 5: Save ──
@@ -310,9 +325,13 @@ const finalNorms = new Set(currentStore.articles.map((a) => a.normId));
 const sizeMB = (currentStore.vectors.byteLength / 1024 / 1024).toFixed(1);
 
 console.log(`\n✅ Sync complete!`);
-console.log(`  Store: ${currentStore.count} articles from ${finalNorms.size} norms (${sizeMB} MB)`);
+console.log(
+	`  Store: ${currentStore.count} articles from ${finalNorms.size} norms (${sizeMB} MB)`,
+);
 console.log(`  Saved to: ${storePath}.{meta.json,vectors.bin}`);
 
 if (hasRemovals) {
-	console.log(`  Removed: ${derogatedIds.size} derogated norms (${store.count - (hasAdditions ? currentStore.count - (currentStore.count - store.count) : currentStore.count)} articles)`);
+	console.log(
+		`  Removed: ${derogatedIds.size} derogated norms (${store.count - (hasAdditions ? currentStore.count - (currentStore.count - store.count) : currentStore.count)} articles)`,
+	);
 }

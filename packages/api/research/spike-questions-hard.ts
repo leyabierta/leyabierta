@@ -276,8 +276,7 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 	},
 	{
 		id: 704,
-		question:
-			"¿Qué ley de servicios sociales se aplica en Andalucía?",
+		question: "¿Qué ley de servicios sociales se aplica en Andalucía?",
 		category: "clear",
 		expectedNorms: ["BOE-A-2017-657"], // Ley 9/2016 de Servicios Sociales de Andalucía
 		expectedAnswer:
@@ -294,8 +293,7 @@ export const HARD_QUESTIONS: SpikeQuestion[] = [
 	},
 	{
 		id: 706,
-		question:
-			"¿Qué norma regula la ordenación urbanística en Galicia?",
+		question: "¿Qué norma regula la ordenación urbanística en Galicia?",
 		category: "clear",
 		expectedNorms: ["BOE-A-2016-3191"], // Ley 2/2016 del suelo de Galicia
 		expectedAnswer:

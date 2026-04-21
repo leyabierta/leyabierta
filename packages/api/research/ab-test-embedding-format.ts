@@ -17,8 +17,8 @@ import {
 	EMBEDDING_MODELS,
 	embedQuery,
 	generateEmbeddings,
-	saveEmbeddings,
 	loadEmbeddings,
+	saveEmbeddings,
 	vectorSearch,
 } from "../src/services/rag/embeddings.ts";
 import { splitByApartados } from "../src/services/rag/subchunk.ts";
@@ -126,9 +126,7 @@ console.log(`  Questions: ${TEST_QUESTIONS.length}`);
 
 type PreparedArticle = { normId: string; blockId: string; text: string };
 
-function prepareOldFormat(
-	arts: typeof articles,
-): PreparedArticle[] {
+function prepareOldFormat(arts: typeof articles): PreparedArticle[] {
 	const result: PreparedArticle[] = [];
 	for (const a of arts) {
 		const chunks = splitByApartados(a.block_id, a.title, a.current_text);
@@ -151,9 +149,7 @@ function prepareOldFormat(
 	return result;
 }
 
-function prepareNewFormat(
-	arts: typeof articles,
-): PreparedArticle[] {
+function prepareNewFormat(arts: typeof articles): PreparedArticle[] {
 	const result: PreparedArticle[] = [];
 	for (const a of arts) {
 		const chunks = splitByApartados(a.block_id, a.title, a.current_text);
@@ -212,21 +208,13 @@ if (dryRun) {
 const dataDir = join(repoRoot, "data");
 
 console.log(`\n  Generating OLD format embeddings...`);
-const oldStore = await generateEmbeddings(
-	apiKey!,
-	modelKey,
-	oldFormatArticles,
-);
+const oldStore = await generateEmbeddings(apiKey!, modelKey, oldFormatArticles);
 const oldPath = join(dataDir, "ab-test-old-format");
 await saveEmbeddings(oldStore, oldPath);
 console.log(`  ✓ ${oldStore.count} embeddings saved`);
 
 console.log(`\n  Generating NEW format embeddings...`);
-const newStore = await generateEmbeddings(
-	apiKey!,
-	modelKey,
-	newFormatArticles,
-);
+const newStore = await generateEmbeddings(apiKey!, modelKey, newFormatArticles);
 const newPath = join(dataDir, "ab-test-new-format");
 await saveEmbeddings(newStore, newPath);
 console.log(`  ✓ ${newStore.count} embeddings saved`);
@@ -250,20 +238,17 @@ for (const q of TEST_QUESTIONS) {
 
 	// Note: embedQuery now adds the prefix automatically for gemini-embedding-2,
 	// so we need the raw version for the old format test
-	const rawResponse = await fetch(
-		"https://openrouter.ai/api/v1/embeddings",
-		{
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model: model.id,
-				input: q.question,
-			}),
+	const rawResponse = await fetch("https://openrouter.ai/api/v1/embeddings", {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			"Content-Type": "application/json",
 		},
-	);
+		body: JSON.stringify({
+			model: model.id,
+			input: q.question,
+		}),
+	});
 	const rawData = (await rawResponse.json()) as {
 		data: Array<{ embedding: number[] }>;
 	};
@@ -318,8 +303,12 @@ for (const q of TEST_QUESTIONS) {
 	console.log(`  NEW format: ${newStatus}${improved}`);
 
 	// Show top-3 norms for context
-	const oldTop3 = [...new Set(oldResults.slice(0, 5).map((r) => r.normId))].slice(0, 3);
-	const newTop3 = [...new Set(newResults.slice(0, 5).map((r) => r.normId))].slice(0, 3);
+	const oldTop3 = [
+		...new Set(oldResults.slice(0, 5).map((r) => r.normId)),
+	].slice(0, 3);
+	const newTop3 = [
+		...new Set(newResults.slice(0, 5).map((r) => r.normId)),
+	].slice(0, 3);
 	console.log(`  OLD top norms: ${oldTop3.join(", ")}`);
 	console.log(`  NEW top norms: ${newTop3.join(", ")}`);
 }
@@ -328,8 +317,12 @@ for (const q of TEST_QUESTIONS) {
 console.log(`\n${"=".repeat(70)}`);
 console.log("SUMMARY");
 console.log("=".repeat(70));
-console.log(`  Old format: [norm_title]\\narticle_title\\n\\ntext (truncated 2000 chars)`);
-console.log(`  New format: title: norm_title | text: article_title\\n\\ntext (truncated 24000 chars)`);
+console.log(
+	`  Old format: [norm_title]\\narticle_title\\n\\ntext (truncated 2000 chars)`,
+);
+console.log(
+	`  New format: title: norm_title | text: article_title\\n\\ntext (truncated 24000 chars)`,
+);
 console.log(`  Old query:  raw question text`);
 console.log(`  New query:  task: question answering | query: question text`);
 

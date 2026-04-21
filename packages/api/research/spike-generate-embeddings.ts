@@ -156,21 +156,7 @@ if (mergeFiles) {
 	const seen = new Set<string>();
 	const uniqueArticles: typeof allArticles = [];
 	const uniqueEmbeddings: Float32Array[] = [];
-	const globalIdx = 0;
-	for (let batchIdx = 0; batchIdx < allVectors.length; batchIdx++) {
-		const batchStart =
-			batchIdx === 0
-				? 0
-				: allArticles.findIndex(
-						(a) =>
-							a.index >=
-							allVectors
-								.slice(0, batchIdx)
-								.reduce((s, v) => s + v.length / dims, 0),
-					);
-		// simpler: iterate all articles in order
-	}
-	// Actually simpler approach: iterate allArticles + extract from concatenated vectors
+	// Iterate allArticles + extract from concatenated vectors
 	const totalCount = allArticles.length;
 	const mergedVectors = new Float32Array(totalCount * dims);
 	let vecOffset = 0;

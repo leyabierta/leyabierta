@@ -14,6 +14,7 @@ import {
 	loadEmbeddings,
 	vectorSearch,
 } from "./embeddings.ts";
+import { JURISDICTION_NAMES, resolveJurisdiction } from "./jurisdiction.ts";
 import { type RerankerCandidate, rerank } from "./reranker.ts";
 import { type RankedItem, reciprocalRankFusion } from "./rrf.ts";
 import {
@@ -26,10 +27,6 @@ import {
 	enrichWithTemporalContext,
 } from "./temporal.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
-import {
-	JURISDICTION_NAMES,
-	resolveJurisdiction,
-} from "./jurisdiction.ts";
 
 // ── Config ──
 
@@ -89,16 +86,45 @@ function describeNormScope(rank: string, jurisdiction: string): string {
  *  from "correcting" numbers based on its training data, which may be
  *  outdated relative to recent legislative reforms. */
 const SPANISH_NUMBERS: Record<string, string> = {
-	uno: "1", una: "1", dos: "2", tres: "3", cuatro: "4", cinco: "5",
-	seis: "6", siete: "7", ocho: "8", nueve: "9", diez: "10",
-	once: "11", doce: "12", trece: "13", catorce: "14", quince: "15",
-	dieciséis: "16", diecisiete: "17", dieciocho: "18", diecinueve: "19",
-	veinte: "20", veintiuno: "21", veintiuna: "21", veintidós: "22",
-	veintitrés: "23", veinticuatro: "24", veinticinco: "25",
-	veintiséis: "26", veintisiete: "27", veintiocho: "28", veintinueve: "29",
-	treinta: "30", "treinta y uno": "31", "treinta y una": "31",
-	"treinta y dos": "32", "treinta y tres": "33",
-	cuarenta: "40", cincuenta: "50", sesenta: "60",
+	uno: "1",
+	una: "1",
+	dos: "2",
+	tres: "3",
+	cuatro: "4",
+	cinco: "5",
+	seis: "6",
+	siete: "7",
+	ocho: "8",
+	nueve: "9",
+	diez: "10",
+	once: "11",
+	doce: "12",
+	trece: "13",
+	catorce: "14",
+	quince: "15",
+	dieciséis: "16",
+	diecisiete: "17",
+	dieciocho: "18",
+	diecinueve: "19",
+	veinte: "20",
+	veintiuno: "21",
+	veintiuna: "21",
+	veintidós: "22",
+	veintitrés: "23",
+	veinticuatro: "24",
+	veinticinco: "25",
+	veintiséis: "26",
+	veintisiete: "27",
+	veintiocho: "28",
+	veintinueve: "29",
+	treinta: "30",
+	"treinta y uno": "31",
+	"treinta y una": "31",
+	"treinta y dos": "32",
+	"treinta y tres": "33",
+	cuarenta: "40",
+	cincuenta: "50",
+	sesenta: "60",
 };
 
 function numbersToDigits(text: string): string {
@@ -111,7 +137,8 @@ function numbersToDigits(text: string): string {
 	}
 	// Then single-word numbers, only when followed by a unit word to avoid
 	// replacing numbers that are part of article titles or legal references.
-	const UNIT_WORDS = "semanas?|meses?|días?|años?|horas?|euros?|mensualidades?|jornadas?";
+	const UNIT_WORDS =
+		"semanas?|meses?|días?|años?|horas?|euros?|mensualidades?|jornadas?";
 	const singleWords = Object.entries(SPANISH_NUMBERS)
 		.filter(([w]) => !w.includes(" "))
 		.sort((a, b) => b[0].length - a[0].length); // longest first
@@ -143,7 +170,12 @@ function isSectoralNorm(rank: string): boolean {
 export function articleTypePenalty(blockId: string): number {
 	const id = blockId.toLowerCase();
 	if (id.startsWith("dt") || id.startsWith("disptrans")) return 0.3;
-	if (id.startsWith("dd") || id.startsWith("dder") || id.startsWith("dispderog")) return 0.1;
+	if (
+		id.startsWith("dd") ||
+		id.startsWith("dder") ||
+		id.startsWith("dispderog")
+	)
+		return 0.1;
 	if (id.startsWith("df") || id.startsWith("dispfinal")) return 0.5;
 	if (id.startsWith("da") || id.startsWith("dispad")) return 0.7;
 	return 1.0; // regular articles (a*), preámbulo, etc.
@@ -469,8 +501,9 @@ export class RagPipeline {
 		}
 		// Rank norms by aggregate density, then assign each article a score
 		// based on its norm's density rank
-		const normsByDensity = [...normDensity.entries()]
-			.sort((a, b) => b[1] - a[1]);
+		const normsByDensity = [...normDensity.entries()].sort(
+			(a, b) => b[1] - a[1],
+		);
 		const normDensityRank = new Map(
 			normsByDensity.map(([normId], i) => [normId, i + 1]),
 		);
@@ -506,8 +539,7 @@ export class RagPipeline {
 			["collection-density", densityRanked],
 		]);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
-		if (namedLawRanked.length > 0)
-			rrfSystems.set("named-law", namedLawRanked);
+		if (namedLawRanked.length > 0) rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
 
 		// Apply norm rank + jurisdiction multiplier to RRF scores
@@ -528,15 +560,18 @@ export class RagPipeline {
 		// disposiciones derogatorias (dd*) only repeal. These get demoted so the
 		// LLM sees permanent articles first. See articleTypePenalty().
 		const normSeenCounts = new Map<string, number>();
-		const fused = boosted.map((r) => {
-			const normId = r.key.split(":")[0]!;
-			const blockId = r.key.split(":")[1]!;
-			const seen = normSeenCounts.get(normId) ?? 0;
-			normSeenCounts.set(normId, seen + 1);
-			const diversityPenalty = seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
-			const typePenalty = articleTypePenalty(blockId);
-			return { ...r, rrfScore: r.rrfScore * diversityPenalty * typePenalty };
-		}).sort((a, b) => b.rrfScore - a.rrfScore);
+		const fused = boosted
+			.map((r) => {
+				const normId = r.key.split(":")[0]!;
+				const blockId = r.key.split(":")[1]!;
+				const seen = normSeenCounts.get(normId) ?? 0;
+				normSeenCounts.set(normId, seen + 1);
+				const diversityPenalty =
+					seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
+				const typePenalty = articleTypePenalty(blockId);
+				return { ...r, rrfScore: r.rrfScore * diversityPenalty * typePenalty };
+			})
+			.sort((a, b) => b.rrfScore - a.rrfScore);
 
 		// 2d-bis. Deduplicate sub-chunks vs parents: if both a48 (from BM25)
 		// and a48__4 (from vector) appear, drop the parent — the sub-chunk is
@@ -1111,8 +1146,9 @@ export class RagPipeline {
 			const normId = r.key.split(":")[0]!;
 			normDensity2.set(normId, (normDensity2.get(normId) ?? 0) + r.score);
 		}
-		const normsByDensity2 = [...normDensity2.entries()]
-			.sort((a, b) => b[1] - a[1]);
+		const normsByDensity2 = [...normDensity2.entries()].sort(
+			(a, b) => b[1] - a[1],
+		);
 		const normDensityRank2 = new Map(
 			normsByDensity2.map(([normId], i) => [normId, i + 1]),
 		);
@@ -1146,8 +1182,7 @@ export class RagPipeline {
 			["collection-density", densityRanked],
 		]);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
-		if (namedLawRanked.length > 0)
-			rrfSystems.set("named-law", namedLawRanked);
+		if (namedLawRanked.length > 0) rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
 
 		// Apply norm rank + jurisdiction multiplier to RRF scores
@@ -1161,13 +1196,15 @@ export class RagPipeline {
 
 		// Diversity penalty (same as runPipeline)
 		const normSeenCounts2 = new Map<string, number>();
-		const fused = boosted2.map((r) => {
-			const normId = r.key.split(":")[0]!;
-			const seen = normSeenCounts2.get(normId) ?? 0;
-			normSeenCounts2.set(normId, seen + 1);
-			const dp = seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
-			return { ...r, rrfScore: r.rrfScore * dp };
-		}).sort((a, b) => b.rrfScore - a.rrfScore);
+		const fused = boosted2
+			.map((r) => {
+				const normId = r.key.split(":")[0]!;
+				const seen = normSeenCounts2.get(normId) ?? 0;
+				normSeenCounts2.set(normId, seen + 1);
+				const dp = seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
+				return { ...r, rrfScore: r.rrfScore * dp };
+			})
+			.sort((a, b) => b.rrfScore - a.rrfScore);
 
 		const subchunkParents = new Set<string>();
 		for (const r of fused) {
@@ -1423,10 +1460,7 @@ export class RagPipeline {
 		const normBoostMap = new Map<string, number>();
 		for (const row of normRows) {
 			const rankWeight = RANK_WEIGHTS[row.rank] ?? 0.1;
-			const jurisdiction = resolveJurisdiction(
-				row.source_url,
-				row.norm_id,
-			);
+			const jurisdiction = resolveJurisdiction(row.source_url, row.norm_id);
 
 			let jurisdictionWeight: number;
 			if (queryJurisdiction) {
@@ -1477,25 +1511,6 @@ export class RagPipeline {
 		}
 
 		return { recencyRanked, normBoostMap };
-	}
-
-	/**
-	 * Find norm IDs from a specific jurisdiction that are also in the embedding store.
-	 * Uses the ELI source URL to determine jurisdiction accurately.
-	 */
-	private getNormIdsByJurisdiction(
-		jurisdiction: string,
-		embeddingNormIds: string[],
-	): string[] {
-		if (embeddingNormIds.length === 0) return [];
-		const eliPattern = `%/eli/${jurisdiction}/%`;
-		const rows = this.db
-			.query<{ id: string }, [string]>(
-				"SELECT id FROM norms WHERE source_url LIKE ?",
-			)
-			.all(eliPattern);
-		const embeddingSet = new Set(embeddingNormIds);
-		return rows.map((r) => r.id).filter((id) => embeddingSet.has(id));
 	}
 
 	/**
@@ -1803,18 +1818,24 @@ Responde SOLO con JSON.`,
 		// Filter out derogated norms — their content is superseded by the
 		// current consolidated version. Keeping them creates evidence noise
 		// (e.g., old ET 1995 saying "16 semanas" vs current ET saying "19").
-		const liveArticles = articles.filter(
-			(a) => a.status !== "derogada",
-		);
+		const liveArticles = articles.filter((a) => a.status !== "derogada");
 
 		// Classify each article into a tier
-		const tiers: [typeof liveArticles, typeof liveArticles, typeof liveArticles, typeof liveArticles] = [[], [], [], []];
+		const tiers: [
+			typeof liveArticles,
+			typeof liveArticles,
+			typeof liveArticles,
+			typeof liveArticles,
+		] = [[], [], [], []];
 
 		for (const article of liveArticles) {
 			if (isModifierNorm(article.normTitle)) {
 				tiers[3].push(article); // Tier 4: modifiers
 			} else {
-				const jurisdiction = resolveJurisdiction(article.sourceUrl, article.normId);
+				const jurisdiction = resolveJurisdiction(
+					article.sourceUrl,
+					article.normId,
+				);
 				if (jurisdiction !== "es") {
 					tiers[2].push(article); // Tier 3: autonomous
 				} else if (isSectoralNorm(article.rank)) {

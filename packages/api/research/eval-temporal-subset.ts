@@ -11,7 +11,7 @@
  */
 
 import { join } from "node:path";
-import { SPIKE_QUESTIONS, type SpikeQuestion } from "./spike-questions.ts";
+import { SPIKE_QUESTIONS } from "./spike-questions.ts";
 import { HARD_QUESTIONS } from "./spike-questions-hard.ts";
 
 const args = process.argv.slice(2);
@@ -24,8 +24,7 @@ const apiBaseUrl = getArg("api-url") ?? "http://localhost:3000";
 const apiBypassKey = process.env.API_BYPASS_KEY ?? "";
 const repoRoot = join(import.meta.dir, "../../../");
 const outputPath =
-	getArg("output") ??
-	join(repoRoot, "data", "eval-temporal-subset.json");
+	getArg("output") ?? join(repoRoot, "data", "eval-temporal-subset.json");
 
 interface RagResponse {
 	answer?: string;
@@ -68,7 +67,9 @@ async function callRAG(question: string) {
 		});
 
 		if (response.status === 429 || response.status >= 500) {
-			console.log(`    ${response.status} error, retrying in ${RETRY_DELAY_MS}ms...`);
+			console.log(
+				`    ${response.status} error, retrying in ${RETRY_DELAY_MS}ms...`,
+			);
 			await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
 			continue;
 		}
@@ -86,9 +87,7 @@ async function callRAG(question: string) {
 
 // ── Main ──
 
-console.log(
-	`\n📊 Temporal Accuracy Subset — ${questions.length} questions\n`,
-);
+console.log(`\n📊 Temporal Accuracy Subset — ${questions.length} questions\n`);
 console.log(`API: ${apiBaseUrl}\n`);
 
 type Result = {
@@ -152,7 +151,7 @@ await Bun.write(
 console.log(`\nSaved ${results.length} answers to ${outputPath}`);
 
 // Print answers for quick review
-console.log("\n" + "=".repeat(80));
+console.log(`\n${"=".repeat(80)}`);
 console.log("ANSWERS FOR REVIEW");
 console.log("=".repeat(80));
 

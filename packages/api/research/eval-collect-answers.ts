@@ -49,7 +49,9 @@ async function callRAG(question: string) {
 		});
 
 		if (response.status === 429 || response.status >= 500) {
-			console.log(`    ${response.status} error, retrying in ${RETRY_DELAY_MS}ms...`);
+			console.log(
+				`    ${response.status} error, retrying in ${RETRY_DELAY_MS}ms...`,
+			);
 			await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
 			continue;
 		}
@@ -146,7 +148,8 @@ console.log(`Declined: ${declinedCount}/${results.length}`);
 const EQUIVALENT_NORMS: Record<string, string> = {
 	"BOE-A-1995-7730": "BOE-A-2015-11430", // ET 1995 consolidation = ET 2015
 };
-const NORM_ID_PATTERN = /(?:BOE|BOA|BOJA|DOGC|BOPV|BORM|DOCM|BON|BOC|DOGV)-[A-Za-z]-\d{4}-\d+/g;
+const NORM_ID_PATTERN =
+	/(?:BOE|BOA|BOJA|DOGC|BOPV|BORM|DOCM|BON|BOC|DOGV)-[A-Za-z]-\d{4}-\d+/g;
 
 function getAllMentionedNorms(r: (typeof results)[0]): Set<string> {
 	const cited = new Set(r.ragCitations.map((c) => c.normId));

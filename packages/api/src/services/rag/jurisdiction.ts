@@ -57,10 +57,7 @@ export const JURISDICTION_NAMES: Record<string, string> = {
  *   resolveJurisdiction("https://www.boe.es/eli/es-ct/l/2008/07/10/(1)", "BOE-A-2008-13533") → "es-ct"
  *   resolveJurisdiction("", "DOGC-f-2003-90008") → "es-ct"
  */
-export function resolveJurisdiction(
-	sourceUrl: string,
-	normId: string,
-): string {
+export function resolveJurisdiction(sourceUrl: string, normId: string): string {
 	if (sourceUrl) {
 		const match = sourceUrl.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
 		if (match?.[1]) return match[1];

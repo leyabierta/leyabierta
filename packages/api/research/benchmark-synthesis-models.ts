@@ -245,9 +245,7 @@ for (const model of MODELS) {
 console.log(`\n${"=".repeat(90)}`);
 console.log("SUMMARY");
 console.log("=".repeat(90));
-console.log(
-	`${"Model".padEnd(45)} Q2(19sem) Q1(30d) Avg ms  Cost/q`,
-);
+console.log(`${"Model".padEnd(45)} Q2(19sem) Q1(30d) Avg ms  Cost/q`);
 console.log("-".repeat(90));
 
 // Get pricing
@@ -277,8 +275,7 @@ for (const model of MODELS) {
 	const q1Correct = q1Results.filter((r) => r.correct).length;
 	const avgLatency = modelResults.length
 		? Math.round(
-				modelResults.reduce((s, r) => s + r.latencyMs, 0) /
-					modelResults.length,
+				modelResults.reduce((s, r) => s + r.latencyMs, 0) / modelResults.length,
 			)
 		: 0;
 
@@ -307,10 +304,6 @@ db.close();
 const outputPath = join(repoRoot, "data", "benchmark-synthesis-models.json");
 await Bun.write(
 	outputPath,
-	JSON.stringify(
-		{ timestamp: new Date().toISOString(), results },
-		null,
-		2,
-	),
+	JSON.stringify({ timestamp: new Date().toISOString(), results }, null, 2),
 );
 console.log(`\nRaw results saved to ${outputPath}`);

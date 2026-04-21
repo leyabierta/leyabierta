@@ -148,10 +148,7 @@ mergedVectors.set(existing.vectors);
 mergedVectors.set(newStore.vectors, existing.count * dims);
 
 // Merge article metadata
-const mergedArticles = [
-	...existing.articles,
-	...newStore.articles,
-];
+const mergedArticles = [...existing.articles, ...newStore.articles];
 
 // Compute norms for merged vectors
 const mergedNorms = new Float32Array(totalCount);

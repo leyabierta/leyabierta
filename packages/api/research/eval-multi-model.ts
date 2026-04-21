@@ -81,7 +81,9 @@ async function runEval(outputPath: string) {
 
 // ── Main ──
 
-console.log(`\nRunning eval with ${MODELS.length} models (65 questions each)\n`);
+console.log(
+	`\nRunning eval with ${MODELS.length} models (65 questions each)\n`,
+);
 
 try {
 	for (const model of MODELS) {
@@ -98,7 +100,9 @@ try {
 		if (await existing.exists()) {
 			const data = await existing.json();
 			if (data.results?.length >= 60) {
-				console.log(`  ✓ Already done (${data.results.length} results), skipping`);
+				console.log(
+					`  ✓ Already done (${data.results.length} results), skipping`,
+				);
 				continue;
 			}
 		}

@@ -92,7 +92,9 @@ const raw = await Bun.file(inputPath).text();
 const data = JSON.parse(raw) as { timestamp: string; results: EvalResult[] };
 const results = data.results;
 
-console.log(`\n📊 Eval Judge — ${results.length} questions from ${inputPath}\n`);
+console.log(
+	`\n📊 Eval Judge — ${results.length} questions from ${inputPath}\n`,
+);
 
 const retrievalResults = results.map((r) => ({
 	...r,
@@ -185,7 +187,9 @@ if (scoresPath) {
 			);
 		}, 0) / withScores.length;
 	console.log(`\n  Overall: ${overallAvg.toFixed(2)} / 5.00`);
-	console.log(`  Scored: ${withScores.length}/${answered.length} answered questions`);
+	console.log(
+		`  Scored: ${withScores.length}/${answered.length} answered questions`,
+	);
 
 	// Low scorers
 	const lowScorers = withScores.filter((r) =>
@@ -221,16 +225,12 @@ if (scoresPath) {
 					withScores.length
 				).toFixed(2),
 				completeness: +(
-					withScores.reduce(
-						(s, r) => s + (r.scores!.completeness ?? 0),
-						0,
-					) / withScores.length
+					withScores.reduce((s, r) => s + (r.scores!.completeness ?? 0), 0) /
+					withScores.length
 				).toFixed(2),
 				faithfulness: +(
-					withScores.reduce(
-						(s, r) => s + (r.scores!.faithfulness ?? 0),
-						0,
-					) / withScores.length
+					withScores.reduce((s, r) => s + (r.scores!.faithfulness ?? 0), 0) /
+					withScores.length
 				).toFixed(2),
 				clarity: +(
 					withScores.reduce((s, r) => s + (r.scores!.clarity ?? 0), 0) /
@@ -259,7 +259,9 @@ if (scoresPath) {
 	// ── Review report mode ──
 	console.log("\n=== REVIEW REPORT (for Claude Code to judge) ===\n");
 	console.log("Score each answered question on 4 dimensions (1-5):");
-	console.log("  1=wrong/missing  2=mostly wrong  3=partially correct  4=good  5=excellent\n");
+	console.log(
+		"  1=wrong/missing  2=mostly wrong  3=partially correct  4=good  5=excellent\n",
+	);
 
 	for (const r of answered) {
 		console.log(
@@ -278,9 +280,7 @@ if (scoresPath) {
 
 	console.log("Declined questions (should be out-of-scope):");
 	for (const r of declined) {
-		console.log(
-			`  Q${r.id} [${r.category}]: ${r.question.slice(0, 80)}`,
-		);
+		console.log(`  Q${r.id} [${r.category}]: ${r.question.slice(0, 80)}`);
 	}
 
 	console.log(

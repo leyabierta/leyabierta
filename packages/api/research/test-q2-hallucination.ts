@@ -45,7 +45,9 @@ for (const q of QUESTIONS) {
 				? `${daysMatch[1]} días ${daysMatch[2] ?? ""}`
 				: "no number found";
 
-		console.log(`  Run ${i + 1}: ${firstNumber} — "${answer.slice(0, 120)}..."`);
+		console.log(
+			`  Run ${i + 1}: ${firstNumber} — "${answer.slice(0, 120)}..."`,
+		);
 		await new Promise((r) => setTimeout(r, 500));
 	}
 }
