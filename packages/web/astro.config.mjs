@@ -12,6 +12,7 @@ export default defineConfig({
 	},
 	server: { port: Number(process.env.PORT) || 3000 },
 	output: "static",
+	trailingSlash: "never",
 	build: {
 		concurrency: 4,
 		format: "file",
