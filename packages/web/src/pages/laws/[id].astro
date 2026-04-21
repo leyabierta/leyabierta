@@ -137,11 +137,37 @@ const notas = law.notas ?? [];
 const refsAnt = law.referencias_anteriores ?? [];
 const refsPost = law.referencias_posteriores ?? [];
 const articleCount = law.articulos ?? 0;
+
+// ── SEO: generate abbreviation variants (e.g. "RD 769/87") ──
+const RANK_ABBREVS: Record<string, string> = {
+	real_decreto: "RD", ley_organica: "LO", ley: "L",
+	real_decreto_ley: "RDL", real_decreto_legislativo: "RDLeg",
+	orden: "O", decreto: "D", resolucion: "Res",
+};
+const abbrev = RANK_ABBREVS[law.rango] ?? "";
+let seoAbbreviations: string[] = [];
+if (abbrev) {
+	// Extract "769/1987" from title like "Real Decreto 769/1987, de 19 de junio..."
+	const numMatch = law.titulo.match(/(\d+\/\d{4})/);
+	if (numMatch) {
+		const full = numMatch[1]!; // "769/1987"
+		const short2 = full.replace(/\/(\d{2})\d{2}$/, "/$1"); // "769/19" — wrong
+		const short2digit = full.replace(/\/\d{2}(\d{2})$/, "/$1"); // "769/87"
+		seoAbbreviations.push(`${abbrev} ${full}`); // "RD 769/1987"
+		if (short2digit !== full) seoAbbreviations.push(`${abbrev} ${short2digit}`); // "RD 769/87"
+	}
+}
+const seoDescription = [
+	seoAbbreviations[0],
+	citizenSummary || (RANK_LABELS[law.rango] ?? law.rango),
+	law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
+	law.departamento,
+].filter(Boolean).join(" · ");
 ---
 
 <Base
-	title={law.titulo}
-	description={`${RANK_LABELS[law.rango] ?? law.rango} · ${law.estado} · Publicada ${law.fecha_publicacion} · ${law.departamento}`}
+	title={seoAbbreviations[0] ? `${seoAbbreviations[0]} — ${law.titulo}` : law.titulo}
+	description={seoDescription}
 	ogTitle={law.titulo}
 	ogType="article"
 	ogImage={`${import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es"}/og/${id}`}
@@ -164,6 +190,7 @@ const articleCount = law.articulos ?? 0;
 		"inLanguage": "es",
 		"url": `https://leyabierta.es/laws/${id}`,
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
+		...(seoAbbreviations.length > 0 ? { "alternateName": seoAbbreviations } : {}),
 		...(law.fuente ? { "sameAs": law.fuente } : {})
 	})} />
 	<script type="application/ld+json" set:html={JSON.stringify({
@@ -550,6 +577,7 @@ const articleCount = law.articulos ?? 0;
 				<span class="badge" style="background: var(--accent-bg); color: var(--accent);">{RANK_LABELS[law.rango] ?? law.rango}</span>
 			</div>
 			<h1 class="law-title">{law.titulo}</h1>
+			{seoAbbreviations.length > 0 && <span class="sr-only">También conocida como: {seoAbbreviations.join(", ")}</span>}
 		</div>
 		<a href={`https://www.boe.es/buscar/act.php?id=${law.identificador}`} target="_blank" rel="noopener" class="boe-btn">
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
