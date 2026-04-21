@@ -148,3 +148,60 @@ export function buildTemporalEvidence(
 
 	return evidence;
 }
+
+/**
+ * Build a reform history header for each norm in the evidence.
+ * Queries the `reforms` table and returns a structured preamble.
+ * Only includes norms that have been reformed (>1 version).
+ */
+export function buildReformHistoryHeader(
+	db: Database,
+	normIds: string[],
+): string {
+	const unique = [...new Set(normIds)];
+	if (unique.length === 0) return "";
+
+	const ph = unique.map(() => "?").join(",");
+	const reforms = db
+		.query<{ norm_id: string; date: string; source_id: string }, string[]>(
+			`SELECT norm_id, date, source_id FROM reforms
+			 WHERE norm_id IN (${ph}) ORDER BY norm_id, date ASC`,
+		)
+		.all(...unique);
+
+	const titles = db
+		.query<{ id: string; title: string }, string[]>(
+			`SELECT id, title FROM norms WHERE id IN (${ph})`,
+		)
+		.all(...unique);
+	const titleMap = new Map(titles.map((t) => [t.id, t.title]));
+
+	const byNorm = new Map<string, Array<{ date: string; sourceId: string }>>();
+	for (const r of reforms) {
+		let arr = byNorm.get(r.norm_id);
+		if (!arr) {
+			arr = [];
+			byNorm.set(r.norm_id, arr);
+		}
+		arr.push({ date: r.date, sourceId: r.source_id });
+	}
+
+	let header = "";
+	for (const normId of unique) {
+		const entries = byNorm.get(normId);
+		if (!entries || entries.length <= 1) continue;
+
+		const title = titleMap.get(normId) ?? normId;
+		const reformCount = entries.length - 1;
+		header += `[HISTORIAL DE REFORMAS — ${normId} — ${title}]\n`;
+		header += `Esta norma tiene ${entries.length} versiones (1 original + ${reformCount} reforma${reformCount !== 1 ? "s" : ""}):\n`;
+		for (let i = 0; i < entries.length; i++) {
+			const e = entries[i]!;
+			const label = i === 0 ? "versión original" : "reforma";
+			header += `- ${e.date} (${label}, ${e.sourceId})\n`;
+		}
+		header += "\n";
+	}
+
+	return header;
+}
