@@ -71,6 +71,7 @@ if (mergeFiles) {
 	const topLaws = db
 		.query<{ id: string }, [number, number]>(
 			`SELECT n.id FROM norms n
+			 WHERE n.status != 'derogada'
 			 ORDER BY (SELECT COUNT(*) FROM reforms r WHERE r.norm_id = n.id) * 2
 			        + (SELECT COUNT(*) FROM blocks b WHERE b.norm_id = n.id) DESC
 			 LIMIT ? OFFSET ?`,
@@ -81,6 +82,7 @@ if (mergeFiles) {
 	const topLaws = db
 		.query<{ id: string }, [number]>(
 			`SELECT n.id FROM norms n
+			 WHERE n.status != 'derogada'
 			 ORDER BY (SELECT COUNT(*) FROM reforms r WHERE r.norm_id = n.id) * 2
 			        + (SELECT COUNT(*) FROM blocks b WHERE b.norm_id = n.id) DESC
 			 LIMIT ?`,
@@ -109,6 +111,7 @@ const articles = db
      WHERE b.norm_id IN (${placeholders})
        AND b.block_type = 'precepto'
        AND b.current_text != ''
+       AND n.status != 'derogada'
      ORDER BY b.norm_id, b.position`,
 	)
 	.all(...lawIds);

@@ -136,6 +136,19 @@ function isSectoralNorm(rank: string): boolean {
 	);
 }
 
+/** Penalty for article type based on block_id prefix.
+ *  Disposiciones transitorias are time-limited by definition — they describe
+ *  transitional rollout periods that expire. Disposiciones derogatorias only
+ *  repeal other provisions. Regular artículos (a*) get no penalty. */
+export function articleTypePenalty(blockId: string): number {
+	const id = blockId.toLowerCase();
+	if (id.startsWith("dt") || id.startsWith("disptrans")) return 0.3;
+	if (id.startsWith("dd") || id.startsWith("dder") || id.startsWith("dispderog")) return 0.1;
+	if (id.startsWith("df") || id.startsWith("dispfinal")) return 0.5;
+	if (id.startsWith("da") || id.startsWith("dispad")) return 0.7;
+	return 1.0; // regular articles (a*), preámbulo, etc.
+}
+
 /** Detect omnibus/modifying norms by title. These laws modify other laws —
  *  their content is already reflected in the consolidated base law. */
 function isModifierNorm(title: string): boolean {
@@ -510,13 +523,19 @@ export class RagPipeline {
 		// the sorted list, each additional article from the same norm gets a
 		// smaller multiplier: 1st=1.0, 2nd=0.7, 3rd=0.5, 4th+=0.3. This prevents
 		// 30 autonomous housing laws from filling the entire pool.
+		//
+		// Article type penalty: disposiciones transitorias (dt*) are time-limited,
+		// disposiciones derogatorias (dd*) only repeal. These get demoted so the
+		// LLM sees permanent articles first. See articleTypePenalty().
 		const normSeenCounts = new Map<string, number>();
 		const fused = boosted.map((r) => {
 			const normId = r.key.split(":")[0]!;
+			const blockId = r.key.split(":")[1]!;
 			const seen = normSeenCounts.get(normId) ?? 0;
 			normSeenCounts.set(normId, seen + 1);
 			const diversityPenalty = seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
-			return { ...r, rrfScore: r.rrfScore * diversityPenalty };
+			const typePenalty = articleTypePenalty(blockId);
+			return { ...r, rrfScore: r.rrfScore * diversityPenalty * typePenalty };
 		}).sort((a, b) => b.rrfScore - a.rrfScore);
 
 		// 2d-bis. Deduplicate sub-chunks vs parents: if both a48 (from BM25)
@@ -1665,7 +1684,8 @@ Responde SOLO con JSON.`,
            ON cas.norm_id = b.norm_id AND cas.block_id = b.block_id
          WHERE b.norm_id IN (${placeholders})
            AND b.block_type = 'precepto'
-           AND b.current_text != ''`,
+           AND b.current_text != ''
+           AND n.status != 'derogada'`,
 			)
 			.all(...normIds)
 			.filter((a) => blockKeys.has(`${a.norm_id}:${a.block_id}`));
@@ -1775,14 +1795,22 @@ Responde SOLO con JSON.`,
 			rank: string;
 			sourceUrl: string;
 			updatedAt: string;
+			status: string;
 			blockTitle: string;
 			text: string;
 		}>,
 	): string {
-		// Classify each article into a tier
-		const tiers: [typeof articles, typeof articles, typeof articles, typeof articles] = [[], [], [], []];
+		// Filter out derogated norms — their content is superseded by the
+		// current consolidated version. Keeping them creates evidence noise
+		// (e.g., old ET 1995 saying "16 semanas" vs current ET saying "19").
+		const liveArticles = articles.filter(
+			(a) => a.status !== "derogada",
+		);
 
-		for (const article of articles) {
+		// Classify each article into a tier
+		const tiers: [typeof liveArticles, typeof liveArticles, typeof liveArticles, typeof liveArticles] = [[], [], [], []];
+
+		for (const article of liveArticles) {
 			if (isModifierNorm(article.normTitle)) {
 				tiers[3].push(article); // Tier 4: modifiers
 			} else {
@@ -1799,6 +1827,7 @@ Responde SOLO con JSON.`,
 
 		let evidenceText = "";
 		let approxTokens = 0;
+		let isFirstArticle = true;
 
 		for (let tier = 0; tier < 4; tier++) {
 			for (const article of tiers[tier]!) {
@@ -1817,7 +1846,18 @@ Responde SOLO con JSON.`,
 					label = `[TEXTO CONSOLIDADO${dateStr ? ` | Última actualización: ${dateStr}` : ""}]`;
 				}
 
-				const header = `[${article.normId}, ${article.blockTitle}] (${scope}: ${article.normTitle})\n${label}`;
+				// Highlight the top-ranked article so the LLM prioritizes it
+				// for factual answers (numbers, dates, durations). Research shows
+				// LLMs exhibit strong primacy bias — making the first article
+				// visually distinct reinforces this effect.
+				let header: string;
+				if (isFirstArticle) {
+					header = `>>> ARTÍCULO PRINCIPAL — Fuente de mayor relevancia <<<\n[${article.normId}, ${article.blockTitle}] (${scope}: ${article.normTitle})\n${label}`;
+					isFirstArticle = false;
+				} else {
+					header = `[${article.normId}, ${article.blockTitle}] (${scope}: ${article.normTitle})\n${label}`;
+				}
+
 				const chunk = `${header}\n${numbersToDigits(article.text)}\n\n`;
 				const chunkTokens = Math.ceil(chunk.length / 4);
 				if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;

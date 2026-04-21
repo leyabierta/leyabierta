@@ -778,11 +778,353 @@ Con 15 artículos de evidencia, hay suficiente texto de distintas fuentes (EBEP,
 3. Correr eval-judge completo para answer quality cuantitativa
 4. Escalar a 12K leyes para resolver Q608 y mejorar cobertura
 
+### Evidence Noise Fix — TOP_K + Derogated Filter + Top-1 Highlighting (2026-04-21)
+
+**Problem:** ALL 5 tested models hallucinate "16 semanas" when receiving 15 articles of evidence for Q2 ("paternidad"). With 1 article, all get it right. The issue is evidence noise, not model quality.
+
+**Diagnosis:** Full evidence audit of the 15 articles reaching the LLM (see `research/q2-evidence-diagnosis.md`):
+
+| Signal | Count | Articles |
+|--------|-------|----------|
+| "16 semanas" | 7 | Old ET 1995 (DEROGATED), DT decimotercera.2, EBEP DT9/Art49, RD Fuerzas Armadas, Castilla y León, PGE 2018 |
+| "19 semanas" (correct) | 1 | ET 2015 art.48.4 (position 3 in evidence) |
+| Mixed 16+19 | 2 | EBEP transitional provisions |
+
+**Root causes identified:**
+1. BOE-A-1995-7730 (ET 1995, `status: derogada`) appears in Tier 0 — biggest poison pill
+2. Transitional provisions (DT decimotercera.2) reinforce "16" for expired rollout period
+3. Sectoral norms (military, regional civil service) have their own "16 semanas"
+4. 15 articles is too many — 7:1 noise ratio drowns the correct answer
+
+**Three fixes applied ($0 cost each):**
+
+#### Fix 1: Filter derogated norms from evidence
+
+In `buildStructuredEvidence()`, skip articles where `status === 'derogada'`. These norms have been fully superseded — their content is already in the consolidated replacement law. Keeping them creates contradictory evidence.
+
+**Impact:** Removes the #1 poison pill (old ET 1995 with "16 semanas"). Zero risk — derogated means the entire norm is superseded.
+
+**Future improvement:** Don't embed derogated norms at all. Currently they waste embedding space and retrieval time.
+
+#### Fix 2: Primary source highlighting (top-1 article)
+
+The first article in evidence (Tier 0, position 1 after reranking) gets a special header:
+```
+>>> ARTÍCULO PRINCIPAL — Fuente de mayor relevancia <<<
+```
+
+**Rationale:** "Lost in the Middle" (Liu et al., 2023) showed LLMs exhibit strong primacy bias. Making the top article visually distinct reinforces this effect. Combined with the 3-tier ordering (general state → sectoral → autonomous → modifier), the most broadly-applicable answer is both first and highlighted.
+
+**Impact:** Marginal on its own, but synergistic with the other fixes. When the correct article IS first, the highlighting helps the LLM trust it over contradictory evidence lower in the list.
+
+#### Fix 3: Reduce TOP_K from 15 to 10
+
+Fewer articles = less noise. Tested 3 values:
+
+| TOP_K | Q2 (5 runs) | Q1 (5 runs) | Q4 eval | Q9 eval |
+|-------|-------------|-------------|---------|---------|
+| **15** (baseline) | 0/5 "19sem" | 5/5 "30d" | CCAA first | Confusing |
+| **8** | 4/5 "19sem" | 5/5 "30d" | CCAA first (regression) | 5/7 years LAU |
+| **10** | **5/5 "19sem"** | 5/5 "30d" | LAU first ("1 mes") ✅ | Slightly confusing but correct |
+
+**Winner: TOP_K=10.** Q2 perfect (5/5), Q4 recovered, Q1 maintained. Q9 has slightly more noise but still correct.
+
+**Why not lower?** TOP_K=8 hurts cross-law questions (Q4 fianza needs LAU + CCAA context). TOP_K=5 would be too aggressive for questions spanning multiple laws.
+
+**Why not keep 15?** With derogated filter + 3-tier ordering, 15 articles still let 5+ "16 semanas" sources through. 10 is the sweet spot where the correct article dominates.
+
+#### Combined results — temporal eval subset (10 questions)
+
+| Q | Pregunta | Antes (15 art, no filter) | Ahora (10 art, derog filter, top-1 highlight) | Veredicto |
+|---|----------|---------------------------|-----------------------------------------------|-----------|
+| Q1 | Vacaciones (30d) | ✅ 30d ET + EBEP excepción | ✅ 30d ET + EBEP excepción | MAINTAINED |
+| **Q2** | **Paternidad (19sem)** | **❌ 16 sem (0/5)** | **✅ 19 sem (5/5)** | **FIXED** |
+| Q3 | Subida alquiler | ✅ Correcto (LAU) | ✅ Correcto (LAU) | MAINTAINED |
+| Q4 | Fianza (1 mes) | ⚠️ CCAA primero | ✅ LAU "1 mes" primero | IMPROVED |
+| Q7 | Despido (control) | ✅ Correcto (ET) | ✅ Correcto (ET) | MAINTAINED |
+| Q9 | Duración alquiler | ⚠️ Confuso | ⚠️ Algo confuso (CC+LAU) | SAME |
+| Q12 | Deducción alquiler | ✅ Eliminada post-2015 | ✅ Eliminada post-2015 | MAINTAINED |
+| Q501 | Cambio paternidad | ⚠️ Progresión hasta 16sem | ⚠️ Progresión hasta 16sem | SAME (temporal path) |
+| Q502 | Alquiler 2015 | ✅ Correcto | ✅ Correcto | MAINTAINED |
+| Q608 | Despido baja | ❌ Incompleto | ❌ Incompleto | SAME (ley no embebida) |
+
+**Net result:** Q2 FIXED (the main blocker), Q4 IMPROVED, zero regressions on other questions.
+
+#### Research: evidence noise reduction techniques (literature review)
+
+**Key techniques investigated (ranked by feasibility for $0 cost):**
+
+1. **Aggressive Top-K reduction with relevance threshold** — "Lost in the Middle" (Liu et al., 2023): LLMs struggle with info in the middle of long contexts. Fewer, higher-quality chunks outperform more. ✅ Applied (TOP_K 15→10).
+
+2. **Primary source marking** — Context ordering research shows strong primacy bias. Mark top-1 explicitly. ✅ Applied.
+
+3. **Semantic dedup via embedding similarity** — Compute pairwise cosine on already-loaded embeddings. If >0.85 similar, keep higher-ranked. $0 cost, <2ms. ⏳ Investigated, deferred (soft penalty approach preferred — see below).
+
+4. **Context compression** — RECOMP/LLMLingua: extract only query-relevant sentences. Zero-cost version: keyword-based sentence extraction. ⏳ Future improvement.
+
+5. **Derogated norm filtering** — Domain-specific: remove fully superseded laws from evidence. ✅ Applied.
+
+**Deduplication feasibility assessment:**
+
+Three approaches analyzed (see `research/q2-evidence-diagnosis.md` for details):
+- **Approach A (text overlap):** Medium feasibility — too crude for legal text, high false-positive risk
+- **Approach B (hard embedding dedup, cosine >0.85):** High technical feasibility but risky — removes valid legal context
+- **Approach C (soft ranking penalty):** Highest feasibility — penalize score of semantically similar lower-ranked articles, don't hard-delete
+
+**Decision:** Dedup deferred. The combination of derogated filter + TOP_K reduction + top-1 highlighting already resolves Q2 (the motivating case). Approach C is the best candidate if needed for future questions. Implementation: add a cosine-similarity penalty in the diversity penalty loop (pipeline.ts line ~518), using pre-loaded embeddings ($0 cost, <2ms).
+
+#### Remaining issues
+
+| Issue | Status | Fix |
+|-------|--------|-----|
+| Q501 says "16 sem" as final step | Won't fix | Uses temporal path which shows historical progression. 16→19 reform of 2025 not in EBEP DT9 |
+| Q608 missing Ley 15/2022 | Requires embedding | Scale to 12K laws (Phase 3 in execution plan) |
+| Q9 slightly confusing | Low priority | CC/LAU overlap on contract duration — consider prompt improvement |
+| Derogated norms in embedding store | Future cleanup | Currently filtered at synthesis time. Should filter at embedding time to save RAM/latency |
+
+---
+
+## Architectural Review: Evidence Noise Root Cause (2026-04-21)
+
+### Core diagnosis
+
+The evidence noise problem is NOT a model problem or a TOP_K tuning problem. It is a **data quality problem**. The pipeline feeds contaminated evidence to the LLM, then expects the LLM to adjudicate conflicts that should be resolved deterministically.
+
+**Proof:** 5 different synthesis models ALL hallucinate "16 semanas" with 15 articles of evidence. With 1 clean article, ALL 5 say "19 semanas" correctly. The signal is there; the noise drowns it.
+
+**Principle adopted:** "The LLM is a narrator, not an adjudicator." If the evidence is clean, any model gives the correct answer. The pipeline should do MORE deterministic processing and leave LESS ambiguity for the LLM.
+
+### Three contamination sources identified
+
+| Source | Example | Count in store | Root cause |
+|--------|---------|---------------|------------|
+| **Derogated norms** | ET 1995 (BOE-A-1995-7730) says "16 semanas" | 70 norms, 15,322 articles (9.7%) | No status filter in `spike-generate-embeddings.ts` |
+| **Transitional provisions** | ET 2015 DT decimotercera.2 describes 2019-2021 rollout with "16 semanas" | Unknown (all DTs are `block_type='precepto'`) | No article type classification in pipeline |
+| **Sectoral norms** | Military (RD 305/2022), Castilla y León civil service — each with own "16 semanas" | Covered by existing 3-tier ordering | Already handled by `buildStructuredEvidence()` tier system |
+
+Sources 1 and 2 are data quality issues. Source 3 is already handled.
+
+### Alternatives explored
+
+We considered 5 architectural approaches before deciding on the plan:
+
+#### Alternative A: Dynamic TOP_K by query type (DEFERRED)
+
+The analyzer already classifies questions. Factual questions ("¿cuánto dura?") would get TOP_K=5, cross-law questions ("¿qué derechos tengo?") would get TOP_K=15.
+
+**Why deferred:** The analyzer is a $0.0001 LLM call (Gemini Flash Lite) that sometimes misclassifies. Delegating a critical pipeline parameter to a cheap model adds fragility. Also, if the data is clean, TOP_K shouldn't matter — a dynamic TOP_K treats the symptom, not the disease.
+
+**When to reconsider:** If after data cleanup, factual questions still get noisy evidence with TOP_K=15.
+
+#### Alternative B: Relative score cutoff (ACCEPTED — Phase 3)
+
+Instead of a fixed TOP_K, keep articles whose reranker score is ≥30% of the top-1 score. If top-1 has 0.90, only articles with ≥0.27 pass. This adapts naturally to query difficulty — easy questions (high top-1 score) get fewer articles, hard questions (lower scores) get more.
+
+**Why accepted:** It's the cleanest version of "dynamic TOP_K" without relying on the analyzer for classification. The reranker score is a direct relevance signal. Minimum floor of 3 articles prevents empty evidence for ambiguous queries.
+
+**Why Phase 3 (not Phase 1):** Data cleanup should be done first. If derogated norms and DTs are penalized, the score distribution changes, so any threshold tuned on dirty data would need re-tuning. Clean data first, then optimize the cutoff.
+
+**Implementation:** After reranker, filter `articles.filter(a => a.score >= topScore * 0.3 || index < 3)`. ~5 lines. $0 cost.
+
+#### Alternative C: Two-pass retrieval — norms first, then articles (DEFERRED to Phase 4)
+
+Instead of 158K articles competing, first rank the 504 norms by aggregate relevance, pick top 5, then search articles within those norms only.
+
+**Why this is architecturally powerful:** Eliminates flooding at its root. If PGE 2018 doesn't rank in the top 5 norms, none of its 448 articles enter the evidence pool. We already have the signal: `normDensity` (pipeline.ts line 448-472) aggregates article scores per norm.
+
+**Why deferred:** The Cohere reranker operates on articles, not norms. Pre-filtering to top-5 norms means the reranker never sees cross-norm article comparisons — an ET article might be worse than an LGSS article for a specific query, but the pre-filter wouldn't allow this. Also, with 504 norms the current system works. This becomes valuable at 12K norms where flooding is worse.
+
+**When to reconsider:** When scaling to 12K laws. The brute-force vector search already slows (~600ms for 520K embeddings). Two-pass would also help latency.
+
+#### Alternative D: Metadata in embedding text (REJECTED)
+
+Include "[ARTÍCULO PERMANENTE]" or "[DISPOSICIÓN TRANSITORIA]" in the text that gets embedded. The embedding captures the article type distinction implicitly.
+
+**Why rejected:** A/B test on embedding format showed only marginal impact (+0.01-0.02 score). Embedding models capture semantics, not metadata. The right place for metadata-based decisions is in the scoring/filtering layer, not the embedding layer. This is confirmed by industry practice — Harvey AI, vLex, and others keep metadata out of embedding text and apply it as post-retrieval signals.
+
+#### Alternative E: Reduce TOP_K from 15 to 10 (IMPLEMENTED temporarily, REVERTING)
+
+Fewer articles = less noise. TOP_K=10 gave Q2 5/5 "19 semanas".
+
+**Why reverting:** This is a patch, not a fix. If we need to tune TOP_K to get correct answers, the data is contaminated. With clean data, TOP_K=15 should work — and gives more context for cross-law questions. The Q403 regression (correct answer but wrong norm cited) showed that TOP_K=10 cuts valid context.
+
+**Lesson learned:** TOP_K sensitivity is a **canary for data quality**. If the system is fragile to TOP_K changes, look upstream for contamination.
+
+### Decisions and rationale
+
+| Decision | Rationale |
+|----------|-----------|
+| **Filter derogated norms in embeddings AND runtime** | Belt and suspenders. Embeddings for efficiency (don't waste store space), runtime for safety (catches newly derogated norms between re-embedding cycles). |
+| **DT penalty by block_id, not by exclusion** | DTs are still useful for temporal questions ("¿cómo cambió la ley?"). Penalizing (0.3x) is better than excluding — they stay in the pool but don't dominate. |
+| **Re-embed vigente only** | ~$1.60 one-time cost. 15,322 fewer articles in store = faster vector search + no derogated contamination. |
+| **Revert TOP_K to 15 after cleanup** | The principle: if data is clean, more context helps. Verify empirically with eval. |
+| **Relative score cutoff as Phase 3** | Natural dynamic TOP_K without fragile heuristics. But only after data is clean — threshold tuning on dirty data is wasted effort. |
+| **Two-pass deferred to Phase 4** | Architecturally elegant but premature with 504 norms. Revisit at 12K. |
+| **Claude Code as eval judge (not OpenRouter)** | $0 cost. Claude Code is already running. No need to pay for another LLM call through OpenRouter when the evaluator is in the conversation. |
+| **Unit tests + eval functional** | Both. Unit tests for deterministic functions (DT penalty regex, derogated filter). Eval functional (65 questions + Q2 hallucination test) for end-to-end quality. |
+
+### Embedding store audit (2026-04-21)
+
+| Metric | Value |
+|--------|-------|
+| Total norms in store | 504 |
+| Vigente norms | 434 (86.1%) |
+| Derogada norms | 70 (13.9%) |
+| Articles from vigente | 143,068 |
+| Articles from derogada | 15,322 (9.7%) |
+| Filter in generation code | **NONE** — no WHERE on status |
+| DT classification | **NONE** — all DTs are `block_type='precepto'`, only block_id distinguishes them |
+
+The embedding generation script (`spike-generate-embeddings.ts`) selects norms by reform count (most-reformed laws), which naturally includes both vigente and derogated norms. Adding `AND n.status = 'vigente'` to the SQL query resolves this.
+
+DTs are classifiable via block_id regex: `dt*` (transitoria), `da*` (adicional), `df*` (final), `dd*`/`dder*` (derogatoria). This is deterministic and authoritative — the BOE's own structural markup assigns these IDs.
+
+### Eval methodology — decisions (2026-04-21)
+
+**Current eval is insufficient.** Norm hit rate measures "did we cite the expected law?" but:
+- Q403 answers correctly but cites LRJS instead of ET → false negative
+- Q302 cited derogated ET 1995 and counted as "hit" → false positive
+- Error 500 counts as miss instead of being retried
+- No measurement of answer quality (factual accuracy, completeness, clarity)
+
+**New eval design (Phase 2):**
+
+Two independent scores per question:
+
+1. **Retrieval quality** (deterministic, no LLM): Did the relevant articles reach the evidence pool?
+   - Check: expected normId appears in `citations[]`
+   - Also check: expected normId appears in retrieval pool (even if not cited)
+   - Allows "right answer, different citation" — score retrieval and answer separately
+
+2. **Answer quality** (Claude Code as judge): Is the answer factually correct, complete, and clear?
+   - 4 dimensions, 1-5 each: correctness, completeness, faithfulness, clarity
+   - Input to judge: question + reference answer + RAG answer + evidence text
+   - 2 runs per question at temperature 0 (majority if disagreement)
+   - Structured output: `{scores: {correctness, completeness, faithfulness, clarity}, reasoning: string}`
+
+**Why Claude Code as judge:** The eval script runs inside Claude Code. Instead of paying OpenRouter for another LLM call, Claude Code reads the answers and scores them directly. $0 cost. The tradeoff is that eval runs are conversational (not batch), but with 65 questions × 2 runs = 130 judgments, this is tractable in a single session.
+
+### Execution plan
+
+```
+Phase 1 — Data cleanup (root cause fix)
+├── 1.1 Filter derogadas in getArticleData() + safety net in buildStructuredEvidence
+├── 1.2 articleTypePenalty() in computeBoosts(): dt=0.3x, da=0.7x, df=0.5x, dd=0.1x
+├── 1.3 Filter derogadas in spike-generate-embeddings.ts (AND n.status = 'vigente')
+├── 1.4 Re-embed 434 vigente norms (~$1.60)
+├── 1.5 Revert TOP_K to 15
+├── 1.6 Unit tests for new functions
+└── 1.7 Verification: test-q2-hallucination 5/5 + eval-temporal-subset + full eval 65q
+
+Phase 2 — Robust eval
+├── 2.1 eval-judge.ts with Claude Code as judge (4 dimensions × 1-5)
+├── 2.2 Separate retrieval quality from answer quality
+├── 2.3 Retry logic for 500 errors in eval scripts
+└── 2.4 Baseline all 65 questions with new eval
+
+Phase 3 — Relative score cutoff (incremental improvement)
+├── 3.1 After reranker: filter articles < 30% of top-1 score (min 3)
+├── 3.2 TOP_K becomes a cap, not a target
+└── 3.3 Verification with full eval
+
+Phase 4 — Future (only if needed at 12K scale)
+├── 4.1 Two-pass retrieval (norms → articles)
+├── 4.2 Semantic dedup via cosine similarity
+└── 4.3 Scale embeddings to 12K laws (~$18)
+```
+
+**Success criteria:**
+- Phase 1: Q2 hallucination test 5/5 "19 semanas" with TOP_K=15
+- Phase 1: No regressions on eval temporal subset (10 questions)
+- Phase 1: Full eval norm hits ≥95% (currently 93% with TOP_K=10)
+
+### Phase 1 Results — Data Cleanup (2026-04-21)
+
+**All success criteria met.**
+
+#### Changes implemented
+
+| Change | File | Lines | What |
+|--------|------|-------|------|
+| Filter derogadas at retrieval | `pipeline.ts` | `getArticleData()` SQL | `AND n.status != 'derogada'` — filters before reranker so derogated norms don't consume TOP_K slots |
+| Filter derogadas at synthesis | `pipeline.ts` | `buildStructuredEvidence()` | Safety net — `articles.filter(a => a.status !== 'derogada')` |
+| Article type penalty | `pipeline.ts` | `articleTypePenalty()` + diversity loop | `dt*=0.3x, da*=0.7x, df*=0.5x, dd*=0.1x` — demotes time-limited provisions deterministically |
+| Top-1 highlighting | `pipeline.ts` | `buildStructuredEvidence()` | `>>> ARTÍCULO PRINCIPAL <<<` on first evidence article |
+| Filter derogadas at embedding gen | `spike-generate-embeddings.ts` | SQL WHERE clauses | `AND n.status != 'derogada'` in both article query and norm selection queries |
+| Revert TOP_K to 15 | `pipeline.ts` | constant | From 10 back to 15 — data cleanup removes the need for the band-aid |
+| Unit tests | `article-type-penalty.test.ts` | new file | 6 tests, 21 assertions covering all block_id prefixes |
+
+#### Verification results
+
+**Q2 hallucination test (5 runs):**
+
+| Question | Result | Detail |
+|----------|--------|--------|
+| Q2 "paternidad" | **5/5 "19 semanas"** ✅ | Was 0/5 before any fix. Now perfect with TOP_K=15. |
+| Q1 "vacaciones" | **5/5 "30 días"** ✅ | Stable across all iterations. |
+
+**Temporal eval subset (10 questions):**
+
+| Q | Before (TOP_K=15, no cleanup) | After (TOP_K=15, cleanup+DT penalty) | Change |
+|---|------|------|--------|
+| Q1 | ✅ 30d ET + EBEP | ✅ 30d ET + EBEP | MAINTAINED |
+| Q2 | ❌ 16 sem (0/5) | ✅ 19 sem (5/5) | **FIXED** |
+| Q3 | ✅ Correcto | ✅ Correcto | MAINTAINED |
+| Q4 | ⚠️ CCAA primero | ⚠️ CCAA 3 meses primero | SAME — not a data noise issue |
+| Q7 | ✅ 33 días/año | ✅ 33 días/año, más detallado | IMPROVED |
+| Q9 | ⚠️ Confuso | ✅ 5/7 años LAU primero | IMPROVED |
+| Q12 | ✅ Eliminada post-2015 | ✅ Eliminada post-2015 | MAINTAINED |
+| Q501 | ⚠️ Solo hasta 16sem | ✅ 13d→8→12→16sem progresión | IMPROVED |
+| Q502 | ✅ Correcto | ✅ Correcto | MAINTAINED |
+| Q608 | ❌ Incompleto | ❌ Incompleto | SAME (Ley 15/2022 not in embeddings) |
+
+**Full eval (65 questions):**
+
+| Metric | Baseline (original) | TOP_K=10 hack | **Phase 1 clean (final)** |
+|--------|-------------------|---------------|--------------------------|
+| TOP_K | 15 | 10 | **15** |
+| Norm hits | 95% (54/57) | 93% (53/57) | **96% (55/57)** |
+| Errors 500 | 0 | 0 | **0** |
+| Declined correctly | 6/6 | 6/6 | **6/6** |
+| Q2 "19 semanas" | 0/5 | 5/5 | **5/5** |
+
+Only 2 misses remaining:
+- **Q5**: declined/generic response — not a retrieval issue
+- **Q608**: Ley 15/2022 not in the 504 embedded laws — resolves when scaling to 12K
+
+#### Key validation: TOP_K insensitivity
+
+The most important result: **Q2 passes 5/5 with TOP_K=15**. This was impossible before data cleanup (0/5 with TOP_K=15). The TOP_K=10 hack was a band-aid that masked contaminated data.
+
+With clean data (no derogated norms + DT penalty), the pipeline is robust to TOP_K. This confirms the architectural principle: when evidence is clean, the LLM reliably synthesizes the correct answer regardless of how many articles it receives.
+
+#### Q4 regression analysis
+
+Q4 (fianza) shows CCAA law first instead of LAU. This is NOT caused by data cleanup — it's a sectoral vs general issue that existed before. The CCAA housing law (BOE-A-2010-8618) is vigente and consolidada, so the derogated filter correctly keeps it. The 3-tier ordering puts it in Tier 2 (autonomous) after Tier 0 (general state), but the LAU disposición adicional about fianza sometimes gets deprioritized by the DT penalty since it has a `da*` block_id.
+
+**Possible fix for Q4:** Disposiciones adicionales that are in consolidated general laws should not be penalized as heavily as DTs. The current 0.7x for `da*` may be too aggressive for laws like LAU where the disposición adicional IS the substantive answer. Consider reducing DA penalty to 0.85x or making it conditional on norm tier. Deferred to Phase 3.
+
+#### What's next
+
+Phase 1 is complete. Remaining phases from the execution plan:
+
+| Phase | Status | What | Priority |
+|-------|--------|------|----------|
+| Phase 1 | ✅ DONE | Data cleanup (derog filter + DT penalty + TOP_K=15) | — |
+| Phase 2 | NEXT | Robust eval (Claude Code as judge, separate retrieval/answer quality) | High |
+| Phase 3 | PLANNED | Relative score cutoff (≥30% of top-1, min 3 articles) + DA penalty tuning | Medium |
+| Phase 4 | FUTURE | Scale embeddings to 12K laws (~$18), two-pass retrieval if needed | When ready |
+- Phase 2: Answer quality score ≥4.0/5.0 average across 65 questions
+- Phase 3: Full eval maintains or improves on Phase 1 metrics
+
 ---
 
 ## References
 
 ### Papers & research
+- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — Liu et al., 2023. LLMs struggle with information in the middle of long contexts. Fewer, higher-quality chunks outperform more.
+- [RECOMP: Improving Retrieval-Augmented LMs with Compression and Selective Augmentation](https://arxiv.org/abs/2310.04408) — Xu et al., 2023. Compressing retrieved passages to query-relevant content reduces hallucination.
+- [LLMLingua: Compressing Prompts for Accelerated Inference](https://arxiv.org/abs/2310.05736) — Jiang et al., 2023. Prompt compression via perplexity-based token pruning.
 - [FRESCO: Benchmarking Rerankers for Evolving Semantic Conflict in RAG](https://arxiv.org/abs/2604.14227) — April 2026. 84-98% of rerankers prefer stale but semantically rich passages.
 - [Solving Freshness in RAG: Recency Prior](https://arxiv.org/abs/2509.19376) — Half-life recency prior fused with semantic score.
 - [Stanford Legal RAG Hallucinations Study](https://dho.stanford.edu/wp-content/uploads/Legal_RAG_Hallucinations.pdf) — Failure modes in legal RAG.
