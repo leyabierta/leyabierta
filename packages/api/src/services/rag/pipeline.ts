@@ -165,6 +165,87 @@ function isSectoralNorm(rank: string): boolean {
 	);
 }
 
+/** Fundamental state law ranks — these form the legal hierarchy backbone.
+ *  In Spanish law, ley > real_decreto > orden, and state law > autonomous law
+ *  for general citizen questions. */
+function isFundamentalRank(rank: string): boolean {
+	return (
+		rank === "ley" ||
+		rank === "ley_organica" ||
+		rank === "real_decreto_legislativo" ||
+		rank === "codigo" ||
+		rank === "constitucion"
+	);
+}
+
+/**
+ * Post-rerank legal hierarchy boost.
+ *
+ * After Cohere reranking, check if fundamental state law articles from the
+ * full candidate pool were dropped in favor of sectoral/autonomous norms.
+ * If so, swap the lowest-ranked sectoral/autonomous article for the missing
+ * fundamental one.
+ *
+ * This fixes vocabulary mismatch: e.g., ET uses "nacimiento y cuidado del menor"
+ * instead of "paternidad", causing Cohere to prefer sectoral norms that literally
+ * say "paternidad". The ET (real_decreto_legislativo, state) always takes
+ * precedence over an autonomous community regulation.
+ *
+ * Cost: ZERO (deterministic reordering, no API calls).
+ * Latency: negligible (iterates ~80 articles with simple string checks).
+ */
+function applyLegalHierarchyBoost<
+	T extends {
+		normId: string;
+		blockId: string;
+		rank: string;
+		sourceUrl: string;
+	},
+>(reranked: T[], fullPool: T[]): T[] {
+	const rerankedKeys = new Set(reranked.map((a) => `${a.normId}:${a.blockId}`));
+
+	// Find fundamental state law articles in the full pool that were dropped
+	const droppedFundamental = fullPool.filter((a) => {
+		if (rerankedKeys.has(`${a.normId}:${a.blockId}`)) return false;
+		const juris = resolveJurisdiction(a.sourceUrl, a.normId);
+		// Only boost regular articles (a*), not disposiciones transitorias/etc.
+		if (articleTypePenalty(a.blockId) < 1.0) return false;
+		return isFundamentalRank(a.rank) && juris === "es";
+	});
+
+	if (droppedFundamental.length === 0) return reranked;
+
+	const result = [...reranked];
+	let swapCount = 0;
+
+	for (const fundamental of droppedFundamental) {
+		// Find the lowest-ranked (last) sectoral/autonomous article to swap
+		let swapIdx = -1;
+		for (let i = result.length - 1; i >= 0; i--) {
+			const a = result[i]!;
+			const juris = resolveJurisdiction(a.sourceUrl, a.normId);
+			if (isSectoralNorm(a.rank) || juris !== "es") {
+				swapIdx = i;
+				break;
+			}
+		}
+
+		if (swapIdx === -1) break; // No more sectoral articles to swap
+
+		const swapped = result[swapIdx]!;
+		console.log(
+			`[hierarchy-boost] Swapping out ${swapped.normId}:${swapped.blockId} (${swapped.rank}) for ${fundamental.normId}:${fundamental.blockId} (${fundamental.rank})`,
+		);
+		result[swapIdx] = fundamental;
+		swapCount++;
+
+		// Limit to 3 swaps max to avoid over-correction
+		if (swapCount >= 3) break;
+	}
+
+	return result;
+}
+
 /** Penalty for article type based on block_id prefix.
  *  Disposiciones transitorias are time-limited by definition — they describe
  *  transitional rollout periods that expire. Disposiciones derogatorias only
@@ -267,6 +348,7 @@ RESOLUCIÓN DE CONFLICTOS TEMPORALES:
 - Si un TEXTO CONSOLIDADO y una LEY MODIFICADORA dan cifras o plazos diferentes para lo mismo, SIEMPRE usa el TEXTO CONSOLIDADO.
 - Las Leyes de Presupuestos (PGE) y decretos-ley de "medidas urgentes" suelen contener disposiciones transitorias ya superadas. NO las cites como derecho vigente si hay un texto consolidado disponible.
 6. Si un artículo establece un mínimo legal (ej: "5 años"), eso es lo que importa al ciudadano. No le digas primero un plazo menor para luego matizarlo — empieza por lo que le afecta.
+9. DERECHOS UNIVERSALES Y PROPORCIONALIDAD: Si un artículo establece un derecho para TODOS los trabajadores sin distinguir por tipo de jornada o contrato (ej: "30 días naturales de vacaciones"), ese derecho aplica igual a tiempo parcial. Cuando la ley dice que los trabajadores a tiempo parcial tienen "los mismos derechos de manera proporcional", la proporcionalidad se refiere a la RETRIBUCIÓN (cobras menos), no a la cantidad de días u horas del derecho. No inventes restricciones que la ley no dice.
 7. Si la pregunta mezcla dos situaciones (ej: vivienda + negocio), DISTINGUE ambas claramente.
 8. LÍMITES DE LA LEGISLACIÓN: Si los artículos solo establecen un principio general (ej: "respetar la dignidad", "proporcionalidad") sin definir límites concretos o criterios medibles, dilo claramente al final: "La ley establece el principio, pero los límites concretos los ha ido definiendo la jurisprudencia (sentencias de tribunales), que no está en nuestra base de datos. Para tu caso concreto, consulta con un abogado." No inventes límites que la ley no dice.
 
@@ -505,16 +587,39 @@ export class RagPipeline {
 		// semantically similar articles from other laws.
 		let namedLawRanked: RankedItem[] = [];
 		if (analyzed.normNameHint) {
-			const matchedNormIds = this.resolveNormsByName(
+			let matchedNormIds = this.resolveNormsByName(
 				analyzed.normNameHint,
 				embeddingNormIds,
 			);
+			// If too many matches, narrow down to fundamental state laws first.
+			// E.g. "Estatuto de los Trabajadores" matches 12 norms (the ET itself
+			// + many laws that amend it), but we want to search within the ET.
+			if (matchedNormIds.length > 5) {
+				const fundamentalMatches = matchedNormIds.filter((id) => {
+					const norm = this.db
+						.query<{ rank: string; source_url: string }, [string]>(
+							"SELECT rank, source_url FROM norms WHERE id = ?",
+						)
+						.get(id);
+					if (!norm) return false;
+					const juris = resolveJurisdiction(norm.source_url, id);
+					return isFundamentalRank(norm.rank) && juris === "es";
+				});
+				if (fundamentalMatches.length > 0 && fundamentalMatches.length <= 5) {
+					matchedNormIds = fundamentalMatches;
+				}
+			}
 			if (matchedNormIds.length > 0 && matchedNormIds.length <= 5) {
-				// BM25 search within just the named norm(s)
+				// BM25 search within just the named norm(s), using BOTH keywords
+				// AND legal synonyms. The synonyms are crucial because colloquial
+				// terms (e.g. "paternidad") may not appear in law text — the law
+				// uses formal terms (e.g. "nacimiento y cuidado del menor").
+				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
+				const searchQuery = allTerms.join(" ");
 				const nlResults = bm25HybridSearch(
 					this.db,
-					request.question,
-					analyzed.keywords,
+					searchQuery,
+					allTerms,
 					Math.floor(RERANK_POOL_SIZE / 2),
 					matchedNormIds,
 				);
@@ -530,11 +635,7 @@ export class RagPipeline {
 		// when their vocabulary doesn't match the citizen's colloquial terms.
 		// E.g. "paternidad" → synonym "nacimiento" → BM25 within ET → art. 48.
 		let coreLawRanked: RankedItem[] = [];
-		if (
-			analyzed.legalSynonyms.length > 0 &&
-			!analyzed.normNameHint &&
-			!analyzed.jurisdiction
-		) {
+		if (analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction) {
 			// Fundamental state laws — covers 90%+ of citizen questions
 			const CORE_NORMS = [
 				"BOE-A-2015-11430", // Estatuto de los Trabajadores
@@ -620,8 +721,7 @@ export class RagPipeline {
 		]);
 		if (synonymBm25Ranked.length > 0)
 			rrfSystems.set("legal-synonyms", synonymBm25Ranked);
-		if (coreLawRanked.length > 0)
-			rrfSystems.set("core-law", coreLawRanked);
+		if (coreLawRanked.length > 0) rrfSystems.set("core-law", coreLawRanked);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
 		if (namedLawRanked.length > 0) rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
@@ -694,9 +794,7 @@ export class RagPipeline {
 			.slice(0, 20);
 
 		if (anchorCandidates.length > 0) {
-			const anchorNormIds = [
-				...new Set(anchorCandidates.map((r) => r.normId)),
-			];
+			const anchorNormIds = [...new Set(anchorCandidates.map((r) => r.normId))];
 			const ph = anchorNormIds.map(() => "?").join(",");
 			const normRanks = this.db
 				.query<{ id: string; rank: string; source_url: string }, string[]>(
@@ -719,9 +817,7 @@ export class RagPipeline {
 			for (const a of anchors) {
 				deduped.push({
 					key: `${a.normId}:${a.blockId}`,
-					sources: [
-						{ system: "anchor-norm", rank: 1, originalScore: a.score },
-					],
+					sources: [{ system: "anchor-norm", rank: 1, originalScore: a.score }],
 					rrfScore: deduped[deduped.length - 1]?.rrfScore ?? 0,
 				});
 			}
@@ -767,6 +863,10 @@ export class RagPipeline {
 						(rerankedOrder.get(`${a.normId}:${a.blockId}`) ?? 999) -
 						(rerankedOrder.get(`${b.normId}:${b.blockId}`) ?? 999),
 				);
+
+			// Post-rerank legal hierarchy boost: ensure fundamental state laws
+			// aren't dropped in favor of sectoral/autonomous norms
+			articles = applyLegalHierarchyBoost(articles, allFusedArticles);
 		} else {
 			articles = allFusedArticles;
 		}
@@ -777,7 +877,6 @@ export class RagPipeline {
 		console.log(
 			`[rag-timing] vector=${tVector}ms bm25=${tBm25}ms rerank=${tRerank}ms (${allFusedArticles.length}→${articles.length} articles)`,
 		);
-
 		retrievalSpan.end(
 			{
 				vectorResults: vectorResults.length,
@@ -1268,18 +1367,36 @@ export class RagPipeline {
 			score: 1 / r.rank,
 		}));
 
-		// Named-law lookup (same as runPipeline)
+		// Named-law lookup (same as runPipeline) — uses BOTH keywords AND
+		// legal synonyms to bridge vocabulary mismatch
 		let namedLawRanked: RankedItem[] = [];
 		if (analyzed.normNameHint) {
-			const matchedNormIds = this.resolveNormsByName(
+			let matchedNormIds = this.resolveNormsByName(
 				analyzed.normNameHint,
 				embeddingNormIds,
 			);
+			if (matchedNormIds.length > 5) {
+				const fundamentalMatches = matchedNormIds.filter((id) => {
+					const norm = this.db
+						.query<{ rank: string; source_url: string }, [string]>(
+							"SELECT rank, source_url FROM norms WHERE id = ?",
+						)
+						.get(id);
+					if (!norm) return false;
+					const juris = resolveJurisdiction(norm.source_url, id);
+					return isFundamentalRank(norm.rank) && juris === "es";
+				});
+				if (fundamentalMatches.length > 0 && fundamentalMatches.length <= 5) {
+					matchedNormIds = fundamentalMatches;
+				}
+			}
 			if (matchedNormIds.length > 0 && matchedNormIds.length <= 5) {
+				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
+				const searchQuery = allTerms.join(" ");
 				const nlResults = bm25HybridSearch(
 					this.db,
-					request.question,
-					analyzed.keywords,
+					searchQuery,
+					allTerms,
 					Math.floor(RERANK_POOL_SIZE / 2),
 					matchedNormIds,
 				);
@@ -1399,6 +1516,9 @@ export class RagPipeline {
 						(rerankedOrder.get(`${b.normId}:${b.blockId}`) ?? 999),
 				);
 
+			// Post-rerank legal hierarchy boost: ensure fundamental state laws
+			// aren't dropped in favor of sectoral/autonomous norms
+			articles = applyLegalHierarchyBoost(articles, allFusedArticles);
 		} else {
 			articles = allFusedArticles;
 		}
