@@ -12,6 +12,7 @@ import {
 	type EmbeddingStore,
 	embedQuery,
 	loadEmbeddings,
+	loadEmbeddingsFromDb,
 	vectorSearch,
 } from "./embeddings.ts";
 import { JURISDICTION_NAMES, resolveJurisdiction } from "./jurisdiction.ts";
@@ -1379,15 +1380,24 @@ export class RagPipeline {
 	private async getEmbeddingStore(): Promise<EmbeddingStore> {
 		if (this.embeddingStore) return this.embeddingStore;
 		if (!this.loadingPromise) {
-			this.loadingPromise = loadEmbeddings(this.embeddingsPath)
-				.then((store) => {
-					this.embeddingStore = store;
-					return store;
-				})
-				.catch((err) => {
-					this.loadingPromise = null;
-					throw err;
-				});
+			this.loadingPromise = (async () => {
+				// Try SQLite first (scalable, no 2GB limit), fall back to flat file
+				const dbStore = loadEmbeddingsFromDb(this.db, EMBEDDING_MODEL_KEY);
+				if (dbStore && dbStore.count > 0) {
+					console.log(`[rag] Loaded ${dbStore.count} embeddings from SQLite`);
+					this.embeddingStore = dbStore;
+					return dbStore;
+				}
+				const fileStore = await loadEmbeddings(this.embeddingsPath);
+				console.log(
+					`[rag] Loaded ${fileStore.count} embeddings from flat file`,
+				);
+				this.embeddingStore = fileStore;
+				return fileStore;
+			})().catch((err) => {
+				this.loadingPromise = null;
+				throw err;
+			});
 		}
 		return this.loadingPromise;
 	}

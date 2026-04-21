@@ -255,7 +255,6 @@ export async function generateEmbeddings(
 		articles: articleMeta,
 		vectors,
 		norms,
-		skippedBatches,
 	};
 }
 
@@ -287,6 +286,105 @@ export async function loadEmbeddings(path: string): Promise<EmbeddingStore> {
 	const vectors = new Float32Array(vectorsBuffer);
 	const norms = computeNorms(vectors, meta.count, meta.dimensions);
 	return { ...meta, vectors, norms };
+}
+
+// ── SQLite-backed embeddings ──
+// Stores vectors as BLOBs in the embeddings table. No file size limit,
+// atomic inserts, incremental add/remove per norm.
+
+import type { Database } from "bun:sqlite";
+
+/**
+ * Load all embeddings from SQLite into the same EmbeddingStore format
+ * used by vectorSearch(). Falls back to flat file if the DB has no embeddings.
+ */
+export function loadEmbeddingsFromDb(
+	db: Database,
+	modelKey: string,
+): EmbeddingStore | null {
+	const model = EMBEDDING_MODELS[modelKey];
+	if (!model) return null;
+
+	const rows = db
+		.query<{ norm_id: string; block_id: string; vector: Buffer }, [string]>(
+			"SELECT norm_id, block_id, vector FROM embeddings WHERE model = ? ORDER BY norm_id, block_id",
+		)
+		.all(modelKey);
+
+	if (rows.length === 0) return null;
+
+	const dims = model.dimensions;
+	const count = rows.length;
+	const articles: Array<{ normId: string; blockId: string }> = [];
+	const vectors = new Float32Array(count * dims);
+
+	for (let i = 0; i < count; i++) {
+		const row = rows[i]!;
+		articles.push({ normId: row.norm_id, blockId: row.block_id });
+		const rowVector = new Float32Array(
+			row.vector.buffer,
+			row.vector.byteOffset,
+			dims,
+		);
+		vectors.set(rowVector, i * dims);
+	}
+
+	const norms = computeNorms(vectors, count, dims);
+	return { model: modelKey, dimensions: dims, count, articles, vectors, norms };
+}
+
+/**
+ * Insert embeddings into SQLite in batches. Each batch is wrapped in a
+ * transaction for atomicity. If the process crashes mid-batch, all
+ * previously committed batches are safe.
+ */
+export function insertEmbeddingsBatch(
+	db: Database,
+	modelKey: string,
+	articles: Array<{ normId: string; blockId: string }>,
+	vectors: Float32Array,
+	dims: number,
+): void {
+	const stmt = db.prepare(
+		"INSERT OR REPLACE INTO embeddings (norm_id, block_id, model, vector) VALUES (?, ?, ?, ?)",
+	);
+
+	const BATCH = 500;
+	for (let i = 0; i < articles.length; i += BATCH) {
+		const end = Math.min(i + BATCH, articles.length);
+		db.exec("BEGIN");
+		try {
+			for (let j = i; j < end; j++) {
+				const a = articles[j]!;
+				const offset = j * dims;
+				const vec = vectors.subarray(offset, offset + dims);
+				stmt.run(
+					a.normId,
+					a.blockId,
+					modelKey,
+					Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength),
+				);
+			}
+			db.exec("COMMIT");
+		} catch (err) {
+			db.exec("ROLLBACK");
+			throw err;
+		}
+	}
+}
+
+/**
+ * Delete all embeddings for a norm from SQLite.
+ */
+export function deleteEmbeddingsByNorm(
+	db: Database,
+	normId: string,
+	modelKey: string,
+): number {
+	const result = db
+		.query("DELETE FROM embeddings WHERE norm_id = ? AND model = ?")
+		.run(normId, modelKey);
+	return result.changes;
 }
 
 // ── Vector search (brute-force cosine similarity) ──

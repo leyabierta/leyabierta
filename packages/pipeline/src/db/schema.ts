@@ -185,6 +185,20 @@ const SCHEMA_SQL = /* sql */ `
     FOREIGN KEY (norm_id) REFERENCES norms(id)
   );
 
+  -- Embedding vectors for RAG (stored as BLOBs, loaded into Float32Array at runtime)
+  -- Each row is one article/sub-chunk embedding. The flat array format used previously
+  -- (vectors.bin) hit a 2GB file size limit. SQLite has no practical size limit (~281TB),
+  -- supports atomic inserts (crash-safe), and allows incremental add/remove per norm.
+  CREATE TABLE IF NOT EXISTS embeddings (
+    norm_id     TEXT NOT NULL,
+    block_id    TEXT NOT NULL,
+    model       TEXT NOT NULL,
+    vector      BLOB NOT NULL,
+    PRIMARY KEY (norm_id, block_id, model)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_embeddings_model ON embeddings(model);
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,
