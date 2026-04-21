@@ -227,6 +227,9 @@ export interface Citation {
 
 interface AnalyzedQuery {
 	keywords: string[];
+	/** Legal synonyms — how colloquial terms appear in law text.
+	 *  E.g. "paternidad" → ["nacimiento", "cuidado del menor"]. */
+	legalSynonyms: string[];
 	materias: string[];
 	temporal: boolean;
 	/** True if the question is clearly not about legislation (poems, sports, etc.) */
@@ -406,6 +409,12 @@ export class RagPipeline {
 			},
 		);
 
+		if (analyzed.legalSynonyms.length > 0) {
+			console.log(
+				`[rag] keywords=${JSON.stringify(analyzed.keywords)} synonyms=${JSON.stringify(analyzed.legalSynonyms)}`,
+			);
+		}
+
 		// 1b. Non-legal gate: if the analyzer detects the question isn't about
 		// law (poems, sports, etc.), decline immediately without wasting retrieval.
 		if (analyzed.nonLegal) {
@@ -471,6 +480,25 @@ export class RagPipeline {
 			score: 1 / r.rank,
 		}));
 
+		// 2b-bis. Legal synonym BM25 — separate RRF system using only the formal
+		// legal terms. This ensures ET art. 48 ("nacimiento, cuidado del menor")
+		// enters the pool even when the citizen asked about "paternidad".
+		let synonymBm25Ranked: RankedItem[] = [];
+		if (analyzed.legalSynonyms.length > 0) {
+			const synonymQuery = analyzed.legalSynonyms.join(" ");
+			const synonymResults = bm25HybridSearch(
+				this.db,
+				synonymQuery,
+				analyzed.legalSynonyms,
+				RERANK_POOL_SIZE,
+				embeddingNormIds,
+			);
+			synonymBm25Ranked = synonymResults.map((r) => ({
+				key: `${r.normId}:${r.blockId}`,
+				score: 1 / r.rank,
+			}));
+		}
+
 		// 2c. Named-law lookup — when the user names a specific law, find its
 		// articles and add them as a dedicated RRF system. This ensures the
 		// named law's articles enter the pool even if they'd be outranked by
@@ -491,6 +519,46 @@ export class RagPipeline {
 					matchedNormIds,
 				);
 				namedLawRanked = nlResults.map((r) => ({
+					key: `${r.normId}:${r.blockId}`,
+					score: 1 / r.rank,
+				}));
+			}
+		}
+
+		// 2c-bis. Core law lookup — BM25 search within fundamental state laws
+		// using legal synonyms. This ensures foundational laws enter the pool even
+		// when their vocabulary doesn't match the citizen's colloquial terms.
+		// E.g. "paternidad" → synonym "nacimiento" → BM25 within ET → art. 48.
+		let coreLawRanked: RankedItem[] = [];
+		if (
+			analyzed.legalSynonyms.length > 0 &&
+			!analyzed.normNameHint &&
+			!analyzed.jurisdiction
+		) {
+			// Fundamental state laws — covers 90%+ of citizen questions
+			const CORE_NORMS = [
+				"BOE-A-2015-11430", // Estatuto de los Trabajadores
+				"BOE-A-1994-26003", // LAU (Ley de Arrendamientos Urbanos)
+				"BOE-A-1978-31229", // Constitución Española
+				"BOE-A-2015-11724", // LGSS (Ley General de la Seguridad Social)
+				"BOE-A-2007-20555", // TRLGDCU (consumidores y usuarios)
+				"BOE-A-2018-16673", // LOPDGDD (protección de datos)
+				"BOE-A-1889-4763", // Código Civil
+			];
+			// Only include norms that are in the embedding store
+			const coreInStore = CORE_NORMS.filter((id) =>
+				embeddingNormIds.includes(id),
+			);
+
+			if (coreInStore.length > 0) {
+				const clResults = bm25HybridSearch(
+					this.db,
+					analyzed.legalSynonyms.join(" "),
+					analyzed.legalSynonyms,
+					Math.floor(RERANK_POOL_SIZE / 2),
+					coreInStore,
+				);
+				coreLawRanked = clResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
 				}));
@@ -544,12 +612,16 @@ export class RagPipeline {
 			analyzed.temporal,
 		);
 
-		// 2f. Fuse with RRF (4-5 systems: vector + BM25 + density + recency [+ named law])
+		// 2f. Fuse with RRF (4-7 systems)
 		const rrfSystems = new Map<string, RankedItem[]>([
 			["vector", vectorRanked],
 			["bm25", bm25Ranked],
 			["collection-density", densityRanked],
 		]);
+		if (synonymBm25Ranked.length > 0)
+			rrfSystems.set("legal-synonyms", synonymBm25Ranked);
+		if (coreLawRanked.length > 0)
+			rrfSystems.set("core-law", coreLawRanked);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
 		if (namedLawRanked.length > 0) rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
@@ -1326,6 +1398,7 @@ export class RagPipeline {
 						(rerankedOrder.get(`${a.normId}:${a.blockId}`) ?? 999) -
 						(rerankedOrder.get(`${b.normId}:${b.blockId}`) ?? 999),
 				);
+
 		} else {
 			articles = allFusedArticles;
 		}
@@ -1655,6 +1728,7 @@ export class RagPipeline {
 		try {
 			const result = await callOpenRouter<{
 				keywords: string[];
+				legal_synonyms?: string[];
 				materias: string[];
 				temporal: boolean;
 				non_legal: boolean;
@@ -1666,7 +1740,8 @@ export class RagPipeline {
 					{
 						role: "system",
 						content: `Eres un experto en legislación española. Dado una pregunta de un ciudadano, extrae:
-1. "keywords": palabras clave para buscar en el texto legal. IMPORTANTE: incluye SIEMPRE los sinónimos legales del término coloquial que usa el ciudadano. Ejemplos: "paternidad" → incluir también "nacimiento", "progenitor distinto de la madre biológica"; "alquiler" → incluir también "arrendamiento", "arrendatario"; "paro" → incluir también "desempleo", "prestación contributiva"; "echar del trabajo" → incluir también "despido", "extinción del contrato"; "baja" → incluir también "incapacidad temporal", "suspensión del contrato"; "vacaciones" → incluir también "descanso anual", "periodo vacacional"; "fianza" → incluir también "garantía arrendaticia", "depósito". Máximo 10.
+1. "keywords": palabras clave COLOQUIALES del ciudadano para buscar. Máximo 5.
+1b. "legal_synonyms": sinónimos LEGALES de los términos coloquiales, es decir, cómo aparecerían en el texto de la ley. Ejemplos: "paternidad" → ["nacimiento", "progenitor distinto de la madre biológica", "cuidado del menor"]; "alquiler" → ["arrendamiento", "arrendatario"]; "paro" → ["desempleo", "prestación contributiva"]; "echar del trabajo" → ["despido", "extinción del contrato"]; "baja" → ["incapacidad temporal", "suspensión del contrato"]; "vacaciones" → ["descanso anual", "periodo vacacional"]; "fianza" → ["garantía arrendaticia", "depósito"]; "media jornada" → ["tiempo parcial", "reducción de jornada"]. Máximo 8.
 2. "materias": categorías temáticas BOE. Máximo 3.
 3. "temporal": true si pregunta sobre cambios históricos o evolución de la ley. false si pregunta sobre ley vigente.
 4. "non_legal": true si la pregunta NO es sobre legislación, derechos u obligaciones legales. Ejemplos: clima, deportes, poemas, recetas, opiniones personales, hackear sistemas, preguntas sobre personas concretas. INCLUSO si la pregunta menciona palabras legales (como "Constitución"), si la INTENCIÓN no es obtener información legal (ej: "escribe un poema sobre la Constitución"), pon non_legal=true.
@@ -1681,6 +1756,7 @@ Responde SOLO con JSON.`,
 			});
 			return {
 				keywords: result.data.keywords ?? [],
+				legalSynonyms: result.data.legal_synonyms ?? [],
 				materias: result.data.materias ?? [],
 				temporal: result.data.temporal ?? false,
 				nonLegal: result.data.non_legal ?? false,
@@ -1740,6 +1816,7 @@ Responde SOLO con JSON.`,
 					.split(/\s+/)
 					.map((t) => t.toLowerCase().replace(/[¿?¡!.,;:]/g, ""))
 					.filter((t) => t.length > 2 && !STOP_WORDS.has(t)),
+				legalSynonyms: [],
 				materias: [],
 				temporal: isTemporal,
 				nonLegal: false,
