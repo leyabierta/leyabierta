@@ -25,13 +25,14 @@ md.renderer.rules.heading_close = (tokens, idx, options, _env, self) => {
 
 export async function getStaticPaths() {
 	const laws = await getCollection("laws");
+	const allIds = new Set(laws.map((e) => e.data.identificador));
 	return laws.map((entry) => ({
 		params: { id: entry.data.identificador },
-		props: { entry },
+		props: { entry, allIds },
 	}));
 }
 
-const { entry } = Astro.props;
+const { entry, allIds } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
 
@@ -684,7 +685,7 @@ const articleCount = law.articulos ?? 0;
 						{refsAnt.map((ref) => (
 							<li>
 								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-								{ref.norma && <> <a href={`/laws/${ref.norma}/`}>{ref.norma}</a></>}
+								{ref.norma && (allIds.has(ref.norma) ? <> <a href={`/laws/${ref.norma}/`}>{ref.norma}</a></> : <> <span class="ref-id">{ref.norma}</span></>)}
 							</li>
 						))}
 					</ul>
@@ -698,7 +699,7 @@ const articleCount = law.articulos ?? 0;
 						{refsPost.map((ref) => (
 							<li>
 								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-								{ref.norma && <> <a href={`/laws/${ref.norma}/`}>{ref.norma}</a></>}
+								{ref.norma && (allIds.has(ref.norma) ? <> <a href={`/laws/${ref.norma}/`}>{ref.norma}</a></> : <> <span class="ref-id">{ref.norma}</span></>)}
 							</li>
 						))}
 					</ul>
