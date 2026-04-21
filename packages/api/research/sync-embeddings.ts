@@ -220,6 +220,64 @@ if (hasRemovals) {
 if (hasAdditions) {
 	console.log("\nGenerating embeddings for new norms...");
 
+	// Check for checkpoint from a previous crashed run.
+	// If found, merge it into currentStore first — those norms are already done.
+	const checkpointMetaPath = `${storePath}-checkpoint.meta.json`;
+	const checkpointFile = Bun.file(checkpointMetaPath);
+	if (await checkpointFile.exists()) {
+		console.log("  📂 Found checkpoint from previous run, recovering...");
+		const recovered = await loadEmbeddings(`${storePath}-checkpoint`);
+		const recoveredNorms = new Set(recovered.articles.map((a) => a.normId));
+
+		// Merge recovered into currentStore
+		const dims = currentStore.dimensions;
+		const totalCount = currentStore.count + recovered.count;
+		const mergedVectors = new Float32Array(totalCount * dims);
+		mergedVectors.set(currentStore.vectors);
+		mergedVectors.set(recovered.vectors, currentStore.count * dims);
+
+		const mergedNorms = new Float32Array(totalCount);
+		for (let i = 0; i < totalCount; i++) {
+			const offset = i * dims;
+			let sum = 0;
+			for (let j = 0; j < dims; j++) {
+				const v = mergedVectors[offset + j] ?? 0;
+				sum += v * v;
+			}
+			mergedNorms[i] = Math.sqrt(sum);
+		}
+
+		currentStore = {
+			model: currentStore.model,
+			dimensions: dims,
+			count: totalCount,
+			articles: [...currentStore.articles, ...recovered.articles],
+			vectors: mergedVectors,
+			norms: mergedNorms,
+		};
+
+		// Remove recovered norms from the "to add" list
+		missingVigente = missingVigente.filter((r) => !recoveredNorms.has(r.id));
+		console.log(
+			`  Recovered ${recovered.count} articles from ${recoveredNorms.size} norms`,
+		);
+		console.log(`  Remaining to embed: ${missingVigente.length} norms`);
+
+		if (missingVigente.length === 0) {
+			console.log("  All norms recovered from checkpoint!");
+			// Save and clean up
+			await saveEmbeddings(currentStore, storePath);
+			const { unlink } = await import("node:fs/promises");
+			await unlink(`${storePath}-checkpoint.meta.json`).catch(() => {});
+			await unlink(`${storePath}-checkpoint.vectors.bin`).catch(() => {});
+			const finalNorms = new Set(currentStore.articles.map((a) => a.normId));
+			console.log(
+				`\n✅ Sync complete (from checkpoint)! ${currentStore.count} articles from ${finalNorms.size} norms`,
+			);
+			process.exit(0);
+		}
+	}
+
 	const addIds = missingVigente.map((r) => r.id);
 	const ph = addIds.map(() => "?").join(",");
 	const articles = db
@@ -270,6 +328,11 @@ if (hasAdditions) {
 		`  Estimated cost: ~$${((prepared.length * 250 * 0.2) / 1_000_000).toFixed(4)}`,
 	);
 
+	// Checkpoint path for crash recovery. Every 1,000 articles, the partial
+	// store is saved to disk. If the process crashes, re-running sync-embeddings
+	// will detect that these norms are already in the store and skip them.
+	const checkpointPath = `${storePath}-checkpoint`;
+
 	const newStore = await generateEmbeddings(
 		apiKey!,
 		"gemini-embedding-2",
@@ -279,8 +342,35 @@ if (hasAdditions) {
 				`\r  Progress: ${done}/${total} (${((done / total) * 100).toFixed(0)}%)`,
 			);
 		},
+		async (checkpoint) => {
+			// Save partial results to checkpoint file every 1,000 articles.
+			// On crash, the main store stays intact (we only merge at the end),
+			// and the checkpoint can be merged manually if needed.
+			const partialStore = {
+				model: "gemini-embedding-2",
+				dimensions: checkpoint.dims,
+				count: checkpoint.meta.length,
+				articles: checkpoint.meta,
+				vectors: checkpoint.vectors,
+				norms: new Float32Array(0), // recomputed on load
+			};
+			await saveEmbeddings(partialStore, checkpointPath);
+			lastCheckpoint = checkpoint.completedArticles;
+			console.log(
+				`\n  💾 Checkpoint saved: ${checkpoint.completedArticles}/${prepared.length} articles`,
+			);
+		},
 	);
 	console.log();
+
+	// Clean up checkpoint file after successful completion
+	try {
+		const { unlink } = await import("node:fs/promises");
+		await unlink(`${checkpointPath}.meta.json`);
+		await unlink(`${checkpointPath}.vectors.bin`);
+	} catch {
+		// Checkpoint files may not exist if generation was very small
+	}
 
 	// Merge
 	const dims = currentStore.dimensions;
