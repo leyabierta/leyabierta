@@ -355,7 +355,6 @@ if (hasAdditions) {
 				norms: new Float32Array(0), // recomputed on load
 			};
 			await saveEmbeddings(partialStore, checkpointPath);
-			lastCheckpoint = checkpoint.completedArticles;
 			console.log(
 				`\n  💾 Checkpoint saved: ${checkpoint.completedArticles}/${prepared.length} articles`,
 			);
