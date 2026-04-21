@@ -684,7 +684,7 @@ const articleCount = law.articulos ?? 0;
 						{refsAnt.map((ref) => (
 							<li>
 								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-								{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
+								{ref.norma && <> <a href={`/laws/${ref.norma}/`}>{ref.norma}</a></>}
 							</li>
 						))}
 					</ul>
@@ -698,7 +698,7 @@ const articleCount = law.articulos ?? 0;
 						{refsPost.map((ref) => (
 							<li>
 								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-								{ref.norma && <> <a href={`/laws/${ref.norma}`}>{ref.norma}</a></>}
+								{ref.norma && <> <a href={`/laws/${ref.norma}/`}>{ref.norma}</a></>}
 							</li>
 						))}
 					</ul>

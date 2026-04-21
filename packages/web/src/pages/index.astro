@@ -1391,13 +1391,13 @@ const JURISDICTION_LABELS: Record<string, string> = {
 							var law = result.data[i];
 							html += '<article class="law-card">';
 							if (law.citizen_summary) {
-								html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
+								html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
 								html += '<p class="law-card-official-title">' + esc(law.title) + '</p>';
 							} else {
 								if (law.short_title && law.short_title !== law.title && law.short_title.length > 25) {
 									html += '<span class="law-card-short-title">' + esc(law.short_title) + '</span>';
 								}
-								html += '<a href="/laws/' + encodeURIComponent(law.id) + '" class="law-card-title">' + esc(law.title) + '</a>';
+								html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.title) + '</a>';
 							}
 							html += '<div class="law-card-meta">';
 							html += '<span class="badge badge-' + esc(law.status) + '" style="text-transform:none">' + esc(STATUS_LABELS[law.status] || law.status) + '</span>';
@@ -1519,7 +1519,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 				var limit = Math.min(data.data.length, 4);
 				for (var i = 0; i < limit; i++) {
 					var law = data.data[i];
-					html += '<li class="fact-item"><a href="/laws/' + encodeURIComponent(law.id) + '" class="fact-link">' + buildFact(law) + '</a></li>';
+					html += '<li class="fact-item"><a href="/laws/' + encodeURIComponent(law.id) + '/" class="fact-link">' + buildFact(law) + '</a></li>';
 				}
 				html += '</ul>';
 				document.getElementById("most-reformed").innerHTML = html;
@@ -1543,7 +1543,7 @@ const JURISDICTION_LABELS: Record<string, string> = {
 					var r = data.data[i];
 					var displayText = r.citizen_summary || r.title;
 					html += '<li class="recent-item"><span class="recent-date">' + formatDate(r.last_reform) + '</span>';
-					html += '<div><a href="/laws/' + encodeURIComponent(r.id) + '" class="recent-title">' + esc(displayText) + '</a>';
+					html += '<div><a href="/laws/' + encodeURIComponent(r.id) + '/" class="recent-title">' + esc(displayText) + '</a>';
 					if (r.citizen_summary) {
 						html += '<div class="recent-official">' + esc(r.title) + '</div>';
 					}
