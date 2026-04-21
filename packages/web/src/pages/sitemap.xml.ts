@@ -30,7 +30,7 @@ export const GET: APIRoute = async () => {
 				? `\n    <lastmod>${d.ultima_actualizacion}</lastmod>`
 				: "";
 		urls.push(`  <url>
-    <loc>${SITE_URL}/laws/${d.identificador}</loc>${lastmod}
+    <loc>${SITE_URL}/laws/${d.identificador}/</loc>${lastmod}
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`);
