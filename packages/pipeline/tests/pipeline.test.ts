@@ -11,6 +11,20 @@ let gitSeq = 0;
  * Bun.spawn pipe capture returns empty in bun test runner,
  * so we use execSync with shell-level file redirection.
  */
+/** Strip parent git env vars so child git reads the target repo, not a worktree. */
+const GIT_LEAK_VARS = [
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+];
+function cleanEnv(): Record<string, string> {
+	const env = { ...process.env } as Record<string, string>;
+	for (const key of GIT_LEAK_VARS) delete env[key];
+	return env;
+}
+
 function gitOutput(args: string[], cwd: string): string {
 	const quoted = args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
 	const outFile = join(tmpdir(), `.git-test-out-${process.pid}-${++gitSeq}`);
@@ -18,6 +32,7 @@ function gitOutput(args: string[], cwd: string): string {
 		execSync(`git ${quoted} > '${outFile}' 2>/dev/null`, {
 			cwd,
 			shell: "/bin/bash",
+			env: cleanEnv(),
 		});
 		return existsSync(outFile) ? readFileSync(outFile, "utf-8") : "";
 	} catch {

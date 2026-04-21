@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "astro dev",
-		"build": "astro build && bash scripts/flatten-index.sh",
+		"build": "astro build",
 		"preview": "astro preview"
 	},
 	"dependencies": {

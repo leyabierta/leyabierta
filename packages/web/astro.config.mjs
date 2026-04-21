@@ -14,6 +14,7 @@ export default defineConfig({
 	output: "static",
 	build: {
 		concurrency: 4,
+		format: "file",
 	},
 	experimental: {
 		queuedRendering: {
