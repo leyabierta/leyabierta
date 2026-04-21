@@ -68,7 +68,7 @@ function computeNorms(
 
 // ── Shared fetch with retry ──
 
-async function fetchWithRetry(
+export async function fetchWithRetry(
 	apiKey: string,
 	modelId: string,
 	input: string | string[],

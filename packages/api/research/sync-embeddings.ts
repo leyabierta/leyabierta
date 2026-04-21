@@ -24,7 +24,7 @@ import { createSchema } from "../../pipeline/src/db/schema.ts";
 import {
 	deleteEmbeddingsByNorm,
 	EMBEDDING_MODELS,
-	generateEmbeddings,
+	fetchWithRetry,
 	insertEmbeddingsBatch,
 	loadEmbeddings,
 } from "../src/services/rag/embeddings.ts";
@@ -290,73 +290,110 @@ if (hasAdditions) {
 		`  Estimated cost: ~$${((prepared.length * 250 * 0.2) / 1_000_000).toFixed(2)}`,
 	);
 
-	// Generate in batches and INSERT into SQLite after each API batch.
-	// This means each batch of 50 articles is committed immediately.
-	// If the process crashes, we lose at most 50 articles (~$0.0025).
-	const dims = EMBEDDING_MODELS[MODEL_KEY]!.dimensions;
-	let totalInserted = 0;
+	// Parallel embedding generation with immediate SQLite INSERT.
+	// No RAM accumulation — each batch is sent to the API, inserted into SQLite,
+	// and discarded. Concurrency is capped at CONCURRENCY to avoid overwhelming
+	// the API while maximizing throughput.
+	const model = EMBEDDING_MODELS[MODEL_KEY]!;
+	const BATCH_SIZE = 50;
+	const CONCURRENCY = 10;
+	let completed = 0;
+	let inserted = 0;
+	const totalBatches = Math.ceil(prepared.length / BATCH_SIZE);
 
 	const insertStmt = db.prepare(
 		"INSERT OR REPLACE INTO embeddings (norm_id, block_id, model, vector) VALUES (?, ?, ?, ?)",
 	);
 
-	const store = await generateEmbeddings(
-		apiKey!,
-		MODEL_KEY,
-		prepared,
-		(done, total) => {
-			process.stdout.write(
-				`\r  Progress: ${done}/${total} (${((done / total) * 100).toFixed(0)}%)`,
-			);
-		},
-		async (checkpoint) => {
-			// Insert new articles from this checkpoint into SQLite.
-			// We insert everything from the checkpoint (which accumulates),
-			// using INSERT OR REPLACE to handle re-runs safely.
-			const newArticles = checkpoint.meta.slice(totalInserted);
-			const newStart = totalInserted;
+	async function processBatch(batchIdx: number): Promise<void> {
+		const start = batchIdx * BATCH_SIZE;
+		const batch = prepared.slice(start, start + BATCH_SIZE);
+		const texts = batch.map((a) => a.text.slice(0, 24000));
 
-			if (newArticles.length > 0) {
-				db.exec("BEGIN");
-				try {
-					for (let j = 0; j < newArticles.length; j++) {
-						const a = newArticles[j]!;
-						const vecIdx = newStart + j;
-						const offset = vecIdx * checkpoint.dims;
-						const vec = checkpoint.vectors.subarray(
-							offset,
-							offset + checkpoint.dims,
-						);
-						insertStmt.run(
-							a.normId,
-							a.blockId,
-							MODEL_KEY,
-							Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength),
-						);
-					}
-					db.exec("COMMIT");
-					totalInserted = checkpoint.meta.length;
-					console.log(
-						`\n  💾 Committed to SQLite: ${totalInserted}/${prepared.length} articles`,
-					);
-				} catch (err) {
-					db.exec("ROLLBACK");
-					throw err;
-				}
+		// Call OpenRouter API with retry
+		// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response
+		let data: any = null;
+		for (let attempt = 0; attempt < 5; attempt++) {
+			if (attempt > 0) {
+				const delay = 5000 * attempt;
+				console.warn(
+					`\n  Batch ${batchIdx + 1}: retry ${attempt}/4 after ${delay / 1000}s...`,
+				);
+				await new Promise((r) => setTimeout(r, delay));
 			}
-		},
-	);
+			const response = await fetchWithRetry(apiKey!, model.id, texts);
+			data = await response.json();
+			if (data.data && Array.isArray(data.data)) break;
+			console.warn(
+				`\n  Batch ${batchIdx + 1}: API returned no embeddings (${JSON.stringify(data).slice(0, 100)})`,
+			);
+			data = null;
+		}
 
-	// Insert any remaining articles after the last checkpoint
-	if (store.count > totalInserted) {
-		const remaining = store.articles.slice(totalInserted);
-		const remainingVectors = store.vectors.subarray(totalInserted * dims);
-		insertEmbeddingsBatch(db, MODEL_KEY, remaining, remainingVectors, dims);
-		totalInserted = store.count;
+		if (!data) {
+			console.warn(
+				`\n  ⚠ Batch ${batchIdx + 1}: SKIPPED after 5 failed attempts`,
+			);
+			completed++;
+			return;
+		}
+
+		// INSERT into SQLite immediately (no RAM accumulation)
+		db.exec("BEGIN");
+		try {
+			for (const item of data.data) {
+				const article = batch[item.index]!;
+				const vec = new Float32Array(item.embedding);
+				insertStmt.run(
+					article.normId,
+					article.blockId,
+					MODEL_KEY,
+					Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength),
+				);
+				inserted++;
+			}
+			db.exec("COMMIT");
+		} catch (err) {
+			db.exec("ROLLBACK");
+			throw err;
+		}
+
+		completed++;
+		if (completed % 20 === 0 || completed === totalBatches) {
+			const pct = ((completed / totalBatches) * 100).toFixed(0);
+			const articles = completed * BATCH_SIZE;
+			process.stdout.write(
+				`\r  Progress: ${articles}/${prepared.length} (${pct}%) — ${inserted} inserted`,
+			);
+		}
 	}
 
+	console.log(`  Concurrency: ${CONCURRENCY} parallel batches`);
+
+	// Process all batches with bounded concurrency
+	const batchIndices = Array.from({ length: totalBatches }, (_, i) => i);
+	const pool: Promise<void>[] = [];
+
+	for (const idx of batchIndices) {
+		const p = processBatch(idx);
+		pool.push(p);
+
+		if (pool.length >= CONCURRENCY) {
+			await Promise.race(pool);
+			// Remove settled promises
+			for (let i = pool.length - 1; i >= 0; i--) {
+				const status = await Promise.race([
+					pool[i]!.then(() => "done" as const),
+					Promise.resolve("pending" as const),
+				]);
+				if (status === "done") pool.splice(i, 1);
+			}
+		}
+	}
+	await Promise.all(pool);
+
 	console.log(
-		`\n  Added ${totalInserted} articles from ${missingVigente.length} norms`,
+		`\n  Added ${inserted} articles from ${missingVigente.length} norms`,
 	);
 }
 
