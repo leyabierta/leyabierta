@@ -1343,6 +1343,79 @@ PRIORITY ORDER — operational before optimization
 - [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — Liu et al., 2023. LLMs struggle with information in the middle of long contexts. Fewer, higher-quality chunks outperform more.
 - [RECOMP: Improving Retrieval-Augmented LMs with Compression and Selective Augmentation](https://arxiv.org/abs/2310.04408) — Xu et al., 2023. Compressing retrieved passages to query-relevant content reduces hallucination.
 - [LLMLingua: Compressing Prompts for Accelerated Inference](https://arxiv.org/abs/2310.05736) — Jiang et al., 2023. Prompt compression via perplexity-based token pruning.
+## Phase 5: Eval v2 Results (2026-04-22)
+
+### Fixes applied
+1. **Legal hierarchy post-rerank boost** — after Cohere reranking, swap lowest sectoral/autonomous articles for dropped fundamental state law articles. Deterministic, zero cost. `applyLegalHierarchyBoost()`.
+2. **Named-law synonym search** — narrow >5 matches to fundamental ranks, use both keywords + legalSynonyms in BM25 within named norms.
+3. **Prompt: PREMISAS FALSAS** — when user cites non-existent law/article, correct and answer instead of declining.
+4. **Prompt: DERECHOS UNIVERSALES Y PROPORCIONALIDAD** — "proporcional" for part-time means proportional pay, not fewer days/hours.
+5. **Reform history header** — `buildReformHistoryHeader()` injects norm-level reform dates into temporal evidence.
+6. **Core-law BM25 lookup** — BM25 within 7 fundamental state laws using legal synonyms as separate RRF system.
+7. **Synonym BM25 as RRF system** — analyzer now separates `keywords` (colloquial) from `legalSynonyms` (formal), each gets its own BM25 pass.
+
+### Results: v1 → v2
+
+|  | v1 | v2 | Δ |
+|--|----|----|---|
+| Correctness | 4.28 | 4.46 | +0.18 |
+| Completeness | 4.20 | 4.23 | +0.03 |
+| Faithfulness | 4.23 | 4.43 | +0.20 |
+| Clarity | 4.48 | 4.62 | +0.14 |
+| **Overall** | **4.30** | **4.43** | **+0.14** |
+| Perfect 5/5 | 25 | 27 | +2 |
+| Norm hits | 77% | 88% | +11pp |
+
+### Key improvements
+- Q2 (paternidad): 2→5. "19 semanas" + ET art. 48. Legal hierarchy boost.
+- Q302 (vacaciones media jornada): 2→5. "Mismos 30 días, pago proporcional". Prompt fix.
+- Q401 (premisa falsa): 2→5. Corrige "Código Laboral" → ET art. 35. Prompt fix.
+- Q603 (reformas Constitución): 1→5. "3 veces: 1992, 2011, 2024". Reform history header.
+
+### New regression: Q5 (SMI)
+- v1: 5/5 (correct 1,221€/month from 2026 decree)
+- v2: 2/5 (cites 2004 decree with 490€/month — 20 years outdated)
+- Root cause: with 484K vectors, older SMI decrees compete with the current one. The recency boost is not strong enough for periodically-published norms (SMI, IPREM, PGE).
+
+### Remaining problems (correctness ≤ 3)
+- Q4 (fianza): doesn't state 1 month per LAU art. 36.4 clearly
+- Q5 (SMI): retrieves 2004 decree instead of 2026
+- Q11 (embarazada): misses 19w maternity, dismissal protection
+- Q101 (despido+paro): only covers unemployment, misses ET indemnización
+- Q104 (descanso semanal): misses ET art. 37
+- Q202 (grabar al jefe): too categorical, misses jurisprudence nuance
+- Q301 (autónomo alquiler): confuses lease types
+- Q404 (impuestos): too narrow, misses IRPF/IVA/IS
+- Q608 (despido baja): misses Ley 15/2022 nulidad
+- Q808 (reconocimientos médicos): misses ET art. 20.4 general rule
+
+## Phase 6: Next Steps (planned, not implemented)
+
+### P1: Temporal recency for periodic norms
+**Problem:** Norms that are published periodically (SMI decrees, IPREM, PGE) are all "vigente" in the DB. Retrieval picks older ones because they match keywords well. The recency boost is not enough.
+
+**Two sub-problems:**
+1. **Periodic norms** (SMI, IPREM): each year publishes a new decree. Older decrees are technically still vigente but their *content* is superseded. Fix: detect periodic norm clusters (same title pattern, different years) and heavily penalize all but the most recent.
+2. **Modifying laws** (Ley 9/2009 modified ET art. 48 to say "4 semanas"): these contain outdated values that the consolidated text has already absorbed. Fix: after retrieval, for each article from a ley modificadora, check if the `referencias` table shows the target norm is in the evidence. If so, drop the modifier or annotate it as "[HISTÓRICO — ya reflejado en el texto consolidado]".
+
+**Implementation ideas:**
+- Post-retrieval filter: check `referencias.direction = 'posterior'` for each retrieved norm. If the reformed norm is also in the evidence, annotate the modifier.
+- Periodic norm detection: query `SELECT norm_id, title FROM norms WHERE title LIKE '%salario mínimo%' ORDER BY published_at DESC LIMIT 1` and prefer the most recent.
+- Evidence header: "⚠ Este artículo es de una ley de 2004. Puede haber sido superado por normas posteriores."
+
+### P2: Vocabulary gap for general state laws
+**Problem:** ET art. 48 says "nacimiento y cuidado del menor" (modern legal term since 2019 reform), citizens ask about "paternidad" (old term). The legal hierarchy boost fixes this for the ET but the pattern applies to any law that modernized its vocabulary.
+
+**Options (not yet decided):**
+- **Embedding-time synonym injection**: prepend common colloquial terms to article text before generating embeddings. E.g., ET art. 48: "paternidad, permiso parental, baja por nacimiento | title: Estatuto de los Trabajadores | text: ..." Cost: one-time re-embed of affected articles.
+- **HyPE-RAG**: generate hypothetical questions for each article at embedding time. See [HyPE-RAG paper](https://www.researchgate.net/publication/389032824).
+- **Multi-query expansion**: embed 2-3 reformulated queries. Tested in worktree A — works for Q2 but adds ~15s latency (double vector search). Not viable until vector search is faster.
+
+### P3: Retrieval of ET for general labor questions
+**Problem:** Several questions (Q11, Q101, Q104, Q808) fail because the ET doesn't enter the evidence despite being the correct source. The core-law BM25 and legal hierarchy boost help but don't catch all cases.
+
+**Fix:** When the analyzer detects labor-related materias AND no specific norm is named, force-include the ET's top-matching articles in the evidence (similar to normNameHint but triggered by materia detection). Requires fuzzy materia matching (analyzer generates "Derecho laboral" but BOE materias are specific like "Contratos de trabajo").
+
 - [FRESCO: Benchmarking Rerankers for Evolving Semantic Conflict in RAG](https://arxiv.org/abs/2604.14227) — April 2026. 84-98% of rerankers prefer stale but semantically rich passages.
 - [Solving Freshness in RAG: Recency Prior](https://arxiv.org/abs/2509.19376) — Half-life recency prior fused with semantic score.
 - [Stanford Legal RAG Hallucinations Study](https://dho.stanford.edu/wp-content/uploads/Legal_RAG_Hallucinations.pdf) — Failure modes in legal RAG.
