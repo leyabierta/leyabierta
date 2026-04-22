@@ -2,6 +2,6 @@ pre-push:
   parallel: true
   commands:
     test:
-      run: bun test
+      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES -u GIT_QUARANTINE_PATH bun test
     lint:
       run: bun run check

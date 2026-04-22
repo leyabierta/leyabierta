@@ -1,196 +1,26 @@
 # Ley Abierta
 
-**Open legislation for everyone.** Every law is a Markdown file. Every reform is a Git commit.
-
-Ley Abierta downloads official legislation, turns it into version-controlled, machine-readable data, and makes it available through a website and open API so anyone can search, compare versions, and understand how laws change over time.
-
-> 🇪🇸 [Versión en español más abajo](#ley-abierta-es)
-
-## Why
-
-Laws change constantly, but tracking those changes is nearly impossible. Official sources publish consolidated texts with no way to compare versions. Commercial services like Westlaw or Aranzadi charge hundreds of euros per month for version history.
-
-Laws are public domain. Access to them should be free.
-
-## Screenshots
-
-| Homepage | Law detail |
-|----------|------------|
-| ![Homepage](branding/screenshots/homepage.png) | ![Law detail](branding/screenshots/law-detail.png) |
-
-**[Try it live at leyabierta.es](https://leyabierta.es)**
-
-## How it works
-
-1. **Downloads** legislation from official sources (BOE for Spain)
-2. **Transforms** official XML into structured Markdown with YAML metadata
-3. **Versions** each reform as a Git commit with the official publication date
-4. **Serves** the data through a REST API and a public website
-
-## Repos
-
-| Repo | Content |
-|------|---------|
-| **leyabierta** (this) | Source code: pipeline, API, web |
-| **[leyes](https://github.com/leyabierta/leyes)** | Spanish legislation as Markdown + Git history |
-
-The leyes repo is generated automatically by the pipeline. Each file is a law, each commit is a reform:
-
-```bash
-# Clone Spanish legislation
-git clone https://github.com/leyabierta/leyes.git
-
-# Read the Constitution
-cat es/BOE-A-1978-31229.md
-
-# When did a law change?
-git log --oneline -- es/BOE-A-1978-31229.md
-
-# See the exact diff of a reform
-git show <commit-sha> -- es/BOE-A-1978-31229.md
-```
-
-### ELI structure
-
-Folders follow the [ELI](https://eur-lex.europa.eu/eli-register/about.html) (European Legislation Identifier) standard:
-
-```
-leyes/
-├── es/                    ← State-level legislation (8,636 laws)
-│   ├── BOE-A-1978-31229.md   # Spanish Constitution
-│   ├── BOE-A-1995-25444.md   # Criminal Code
-│   └── ...
-├── es-pv/                 ← Basque Country (209 laws)
-├── es-ct/                 ← Catalonia (356 laws)
-├── es-an/                 ← Andalusia (181 laws)
-└── ...                    ← 17 autonomous communities
-```
-
-One folder = one jurisdiction. One file = one law. Metadata goes in YAML frontmatter:
-
-```yaml
----
-titulo: "Ley 11/2019, de 20 de diciembre, de Cooperativas de Euskadi"
-identificador: "BOE-A-2020-615"
-pais: "es"
-jurisdiccion: "es-pv"
-rango: "ley"
-fecha_publicacion: "2020-01-16"
-ultima_actualizacion: "2025-01-14"
-estado: "vigente"
-departamento: "Comunidad Autonoma del Pais Vasco"
-fuente: "https://www.boe.es/eli/es-pv/l/2019/12/20/11"
-articulos: 164
-reformas:
-  - fecha: "2020-01-16"
-    fuente: "BOE-A-2020-615"
-  - fecha: "2025-01-14"
-    fuente: "BOE-A-2024-26853"
-materias:
-  - "Cooperativas"
-  - "Comunidad Autonoma del Pais Vasco"
----
-```
-
-Each file is self-contained: frontmatter includes metadata, reform history, subject categories, and cross-references. The body is the full legal text in Markdown.
-
-### Pre-1970 dates
-
-Git doesn't support dates before January 1, 1970 (Unix epoch). This affects ~334 laws published between 1835 and 1969, including the Civil Code (1889) and the Mortgage Law (1946).
-
-For these laws, the commit date shows as `1970-01-02` (the minimum allowed), but the real publication date is in the YAML frontmatter (`fecha_publicacion`) and in the `Source-Date` commit trailer. The website and API use the real date.
-
-## Spain in numbers
-
-| | |
-|------|-------|
-| Consolidated laws | 12,231 |
-| State-level | 8,646 |
-| Autonomous communities | 3,589 |
-| Jurisdictions | 18 (state + 17 regions) |
-| Oldest law | 1835 |
-| Most reformed | General Social Security Law (107 reforms) |
-| Active | 9,876 |
-| Repealed | 2,355 |
-
-## Daily updates
-
-A daily pipeline (GitHub Actions) keeps legislation up to date:
-
-- **Monday to Saturday (06:00 UTC):** Checks for new laws published in the BOE
-- **Sundays (04:00 UTC):** Full sync of all laws to detect reforms to existing legislation
-
-The pipeline is idempotent: reprocessing a law never creates duplicate commits.
-
-## Countries
-
-| Country | Source | Laws | Status |
-|---------|--------|------|--------|
-| Spain | [BOE](https://www.boe.es/) | 12,231 | Deployed |
-| France | [Legifrance](https://www.legifrance.gouv.fr/) | — | Planned |
-| Germany | [BGBL](https://www.bgbl.de/) | — | Planned |
-| Portugal | [DRE](https://dre.pt/) | — | Planned |
-
-## Stack
-
-TypeScript + Bun monorepo:
-
-- **pipeline** — download, parse, transform, and generate commits
-- **api** — REST API (Elysia) with SQLite + FTS5 for full-text search
-- **web** — public website (Astro, 100% static) with dark mode, SEO, diff viewer, personal changelog (/mis-cambios), and email notifications for law changes
-
-## Development
-
-```bash
-bun install
-bun test
-bun run check
-
-# Pipeline
-bun run pipeline bootstrap --country es
-bun run ingest
-bun run ingest-analisis
-
-# Servers
-bun run api   # http://localhost:3000
-bun run web   # http://localhost:4321
-```
-
-## Contributing
-
-Ley Abierta is an open project. You can help by:
-
-- Reporting errors in a law's text (include the law, article, and official source)
-- Adding support for a new country
-- Improving the web or API
-- Suggesting features
-
-## Acknowledgments
-
-Inspired by:
-- [ALEF](https://www.lavozdegalicia.es/noticia/reto-digital/ocio/2024/01/30/leyexe/00031706632270589450575.htm) — Agile Law Execution Factory, the Dutch Tax Authority's formal language for executable law
-- [Legalize](https://github.com/legalize-dev) — pioneering legislation-as-code project
-
-## License
-
-Legislative content: public domain (sourced from official publications).
-Code and tooling: [MIT](LICENSE).
-
----
-
-<a id="ley-abierta-es"></a>
-
-# Ley Abierta 🇪🇸
-
 **Legislación abierta para todos.** Cada ley es un archivo Markdown. Cada reforma es un commit de Git.
 
 Ley Abierta descarga legislación oficial, la convierte en datos versionados y legibles por máquina, y los pone a disposición de cualquier ciudadano a través de una web y una API abierta.
+
+> [Read this in English](#ley-abierta-en)
 
 ## Por qué
 
 Las leyes cambian constantemente, pero seguir esos cambios es casi imposible. Las fuentes oficiales publican textos consolidados sin forma de comparar versiones. Los servicios comerciales cobran cientos de euros al mes por historial de versiones.
 
 Las leyes son de todos. Su evolución debería ser visible, accesible y gratuita.
+
+Lee nuestro [manifiesto](VISION.md) para entender la visión completa del proyecto.
+
+## Capturas
+
+| Inicio | Detalle de ley |
+|--------|---------------|
+| ![Inicio](branding/screenshots/homepage.png) | ![Detalle de ley](branding/screenshots/law-detail.png) |
+
+**[Pruébalo en leyabierta.es](https://leyabierta.es)**
 
 ## Cómo funciona
 
@@ -243,7 +73,33 @@ leyes/
 └── ...                    ← 17 comunidades autónomas
 ```
 
-Una carpeta = una jurisdicción. Un archivo = una norma. El rango y los metadatos van en el frontmatter YAML.
+Una carpeta = una jurisdicción. Un archivo = una norma. El rango y los metadatos van en el frontmatter YAML:
+
+```yaml
+---
+titulo: "Ley 11/2019, de 20 de diciembre, de Cooperativas de Euskadi"
+identificador: "BOE-A-2020-615"
+pais: "es"
+jurisdiccion: "es-pv"
+rango: "ley"
+fecha_publicacion: "2020-01-16"
+ultima_actualizacion: "2025-01-14"
+estado: "vigente"
+departamento: "Comunidad Autonoma del Pais Vasco"
+fuente: "https://www.boe.es/eli/es-pv/l/2019/12/20/11"
+articulos: 164
+reformas:
+  - fecha: "2020-01-16"
+    fuente: "BOE-A-2020-615"
+  - fecha: "2025-01-14"
+    fuente: "BOE-A-2024-26853"
+materias:
+  - "Cooperativas"
+  - "Comunidad Autonoma del Pais Vasco"
+---
+```
+
+Cada archivo es autocontenido: el frontmatter incluye metadatos, historial de reformas, categorías temáticas y referencias cruzadas. El cuerpo es el texto legal completo en Markdown.
 
 ### Fechas anteriores a 1970
 
@@ -298,7 +154,8 @@ TypeScript + Bun. Monorepo con tres paquetes:
 ```bash
 bun install
 bun test
-bun run check
+bun run check    # Biome (no ESLint)
+bun run format
 
 # Pipeline
 bun run pipeline bootstrap --country es
@@ -312,12 +169,15 @@ bun run web   # http://localhost:4321
 
 ## Contribuir
 
-Ley Abierta es un proyecto abierto. Si quieres ayudar:
+Ley Abierta es un proyecto abierto. No hace falta ser desarrollador para contribuir:
 
-- Reporta errores en el texto de una ley (incluye la ley, artículo y fuente oficial)
-- Añade soporte para un nuevo país
-- Mejora la web o la API
-- Sugiere funcionalidades
+- **Reporta errores** en el texto de una ley (incluye la ley, artículo y fuente oficial)
+- **Sugiere mejoras** en cómo se presenta la información
+- **Añade soporte** para un nuevo país
+- **Mejora el código**, la web o la API
+- **Reporta bugs** o sugiere funcionalidades
+
+Lee [CONTRIBUTING.md](CONTRIBUTING.md) para más detalles.
 
 ## Agradecimientos
 
@@ -328,4 +188,38 @@ Inspirado por:
 ## Licencia
 
 Contenido legislativo: dominio público (procedente de publicaciones oficiales).
-Código y herramientas: [MIT](LICENSE).
+Código y herramientas: [AGPL-3.0](LICENSE).
+
+---
+
+<a id="ley-abierta-en"></a>
+
+# Ley Abierta (English)
+
+**Open legislation for everyone.** Every law is a Markdown file. Every reform is a Git commit.
+
+Ley Abierta downloads official legislation, turns it into version-controlled, machine-readable data, and makes it available through a website and open API so anyone can search, compare versions, and understand how laws change over time.
+
+## Why
+
+Laws change constantly, but tracking those changes is nearly impossible. Official sources publish consolidated texts with no way to compare versions. Commercial services like Westlaw or Aranzadi charge hundreds of euros per month for version history.
+
+Laws are public domain. Access to them should be free.
+
+Read our [manifesto](VISION.md) to understand the project's full vision.
+
+## How it works
+
+1. **Downloads** legislation from official sources (BOE for Spain)
+2. **Transforms** official XML into structured Markdown with YAML metadata
+3. **Versions** each reform as a Git commit with the official publication date
+4. **Serves** the data through a REST API and a public website
+
+## Contributing
+
+Ley Abierta is an open project. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## License
+
+Legislative content: public domain (sourced from official publications).
+Code and tooling: [AGPL-3.0](LICENSE).

@@ -1,25 +1,25 @@
 ---
-name: Data Error
-about: Report an error in law text (incorrect, missing, or outdated content)
-title: "[Data] "
-labels: data-error
+name: Error en datos legislativos
+about: Reportar un error en el texto de una ley (contenido incorrecto, ausente o desactualizado)
+title: "[Datos] "
+labels: datos legislativos
 assignees: ""
 ---
 
-## Law ID
+## Identificador de la ley
 
-e.g. `BOE-A-1978-31229`
+Ej. `BOE-A-1978-31229`
 
-## Article or section affected
+## Artículo o sección afectada
 
-e.g. Article 49, Disposicion adicional tercera
+Ej. Artículo 49, Disposición adicional tercera
 
-## Description of the error
+## Descripción del error
 
-What is wrong with the text? (Missing content, incorrect wording, wrong version, etc.)
+¿Qué está mal en el texto? (Contenido que falta, redacción incorrecta, versión equivocada, etc.)
 
-## Link to official BOE source
+## Enlace a la fuente oficial del BOE
 
-Paste the BOE URL showing the correct text:
+Pega la URL del BOE que muestra el texto correcto:
 
-e.g. `https://www.boe.es/buscar/act.php?id=BOE-A-1978-31229`
+Ej. `https://www.boe.es/buscar/act.php?id=BOE-A-1978-31229`
