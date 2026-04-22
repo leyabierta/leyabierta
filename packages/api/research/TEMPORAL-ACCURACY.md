@@ -1532,6 +1532,20 @@ The LLM performs better when we don't ask it to adjudicate — it focuses on syn
 
 ---
 
+### REJECTED: State-law BM25 expansion (P3, 2026-04-22)
+
+**Hypothesis:** Expand core-law BM25 from 7 hardcoded norms to all 974 state laws of higher rank (`ley`, `ley_organica`, `rdl`, `codigo`, `constitucion`). Also search with keywords+legalSynonyms instead of only legalSynonyms.
+
+**Result:** -5pp norm hits (89% → 84%), 4 regressions, 2 improvements. **Reverted.**
+
+**Why it failed:** BM25 across 974 norms returns 40 extra articles that compete in RRF fusion and displace articles that previously entered the pool. The broader search adds more noise than signal — many state laws mention generic terms like "trabajador" or "contrato" without being relevant to the specific question. The 7-norm hardcoded list was actually well-curated.
+
+**Lesson:** More retrieval lanes ≠ better results. Each RRF system adds candidates that compete for limited slots. A broader search is only useful if its results are consistently MORE relevant than what the existing systems find. In this case, BM25 across 974 norms returns too many mediocre matches that crowd out good ones.
+
+**What would actually fix P3:** The root problem is vocabulary mismatch between citizen language and legal text. The remaining 6 misses need better EMBEDDING-level matching (P2: embedding-time synonym injection or HyPE-RAG), not more BM25 search lanes. The embeddings themselves need to understand that "test de drogas" ≈ "vigilancia de la salud" — no amount of keyword search bridges this gap for all possible phrasings.
+
+---
+
 ## Phase 8: Next Steps (planned, not implemented)
 
 ### P2: Vocabulary gap for general state laws
