@@ -41,12 +41,15 @@ Este proyecto no busca beneficio monetario. Busca hacer un bien a la comunidad. 
 
 ## Hacia dónde vamos
 
-Estas son ideas en las que trabajamos o que nos gustaría explorar:
+Lo que ya existe:
+
+- **Detector de ómnibus** — Identificamos leyes que incluyen artículos no relacionados con su objeto principal y desglosamos sus temas
+- **Changelog personalizado** — Cada usuario elige sus temas de interés y recibe notificaciones de los cambios que le afectan
+
+Lo que nos gustaría explorar:
 
 - **Flujo legislativo completo** — Seguir una ley desde su propuesta hasta su aprobación, con todo el proceso parlamentario visible
 - **PRs de leyes** — Visualizar las reformas pendientes como si fueran pull requests: qué cambia, qué se añade, qué se elimina
-- **Detector de ómnibus** — Identificar artículos dentro de una reforma que no guardan relación con su objeto principal
-- **Changelog personalizado** — Que cada usuario elija sus temas de interés y reciba un resumen periódico de lo que le afecta
 - **Más jurisdicciones** — El foco actual es España, pero la arquitectura está diseñada para que cualquiera pueda adaptarla a su país
 
 ## Cómo contribuir
