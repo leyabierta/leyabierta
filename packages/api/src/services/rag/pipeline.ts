@@ -1026,7 +1026,7 @@ export class RagPipeline {
 			const normArticles = evidenceByNorm.get(c.normId);
 			const normMatch = !!normArticles;
 			// Prefix match: "Artículo 116" matches "Artículo 116. Vacaciones."
-			const citeLower = c.articleTitle.toLowerCase();
+			const citeLower = (c.articleTitle ?? "").toLowerCase();
 			const strictMatch =
 				normMatch &&
 				normArticles.some((a) => {
@@ -1622,7 +1622,7 @@ export class RagPipeline {
 			const normArticles = evidenceByNorm.get(c.normId);
 			if (!normArticles) continue;
 
-			const citeLower = c.articleTitle.toLowerCase();
+			const citeLower = (c.articleTitle ?? "").toLowerCase();
 			const matchedArticle =
 				normArticles.find((a) => {
 					const b = a.blockTitle.toLowerCase();
