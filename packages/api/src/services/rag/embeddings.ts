@@ -520,11 +520,12 @@ export async function ensureVectorIndex(
 	const vecPath = `${dataDir}/vectors.bin`;
 	const dims = model.dimensions;
 
-	const dbCount = db
-		.query<{ cnt: number }, [string]>(
-			"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
-		)
-		.get(modelKey)?.cnt ?? 0;
+	const dbCount =
+		db
+			.query<{ cnt: number }, [string]>(
+				"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
+			)
+			.get(modelKey)?.cnt ?? 0;
 
 	if (dbCount === 0) return null;
 
@@ -534,7 +535,7 @@ export async function ensureVectorIndex(
 
 	let meta: Array<{ normId: string; blockId: string }> | null = null;
 
-	if (await metaFile.exists() && await vecFile.exists()) {
+	if ((await metaFile.exists()) && (await vecFile.exists())) {
 		const lines = (await metaFile.text()).split("\n").filter(Boolean);
 		if (lines.length === dbCount) {
 			meta = lines.map((l) => {
@@ -591,10 +592,7 @@ export async function ensureVectorIndex(
  * Get distinct norm IDs that have embeddings in SQLite.
  * Used for scoping BM25 search to norms that are in the embedding store.
  */
-export function getEmbeddedNormIds(
-	db: Database,
-	modelKey: string,
-): string[] {
+export function getEmbeddedNormIds(db: Database, modelKey: string): string[] {
 	return db
 		.query<{ norm_id: string }, [string]>(
 			"SELECT DISTINCT norm_id FROM embeddings WHERE model = ?",
@@ -606,15 +604,14 @@ export function getEmbeddedNormIds(
 /**
  * Get the count of embeddings for a model.
  */
-export function getEmbeddingCount(
-	db: Database,
-	modelKey: string,
-): number {
-	return db
-		.query<{ cnt: number }, [string]>(
-			"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
-		)
-		.get(modelKey)?.cnt ?? 0;
+export function getEmbeddingCount(db: Database, modelKey: string): number {
+	return (
+		db
+			.query<{ cnt: number }, [string]>(
+				"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
+			)
+			.get(modelKey)?.cnt ?? 0
+	);
 }
 
 export async function embedQuery(
