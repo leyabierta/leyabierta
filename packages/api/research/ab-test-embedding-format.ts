@@ -17,7 +17,6 @@ import {
 	EMBEDDING_MODELS,
 	embedQuery,
 	generateEmbeddings,
-	loadEmbeddings,
 	saveEmbeddings,
 	vectorSearch,
 } from "../src/services/rag/embeddings.ts";
@@ -231,7 +230,7 @@ for (const q of TEST_QUESTIONS) {
 	console.log(`Expected: ${q.expectedNorm} | ${q.why}`);
 
 	// Query WITHOUT task prefix (old behavior)
-	const oldQueryResult = await embedQuery(apiKey!, modelKey, q.question);
+	const _oldQueryResult = await embedQuery(apiKey!, modelKey, q.question);
 	// Manually create query WITH task prefix for fair comparison
 	const newQueryText = `task: question answering | query: ${q.question}`;
 	const newQueryResult = await embedQuery(apiKey!, modelKey, newQueryText);
