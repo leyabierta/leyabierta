@@ -9,6 +9,7 @@ import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
 import { buildArticleAnchor } from "./anchor.ts";
 import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
 import {
+	type VectorSearchResult,
 	embedQuery,
 	ensureVectorIndex,
 	getEmbeddedNormIds,
@@ -374,11 +375,40 @@ export interface Citation {
 	verified: boolean;
 }
 
+/**
+ * Merge vector search results from multiple embeddings (original + legal rewrite).
+ * For each article appearing in any result set, takes the higher score.
+ */
+function mergeVectorResults(
+	resultSets: VectorSearchResult[][],
+	minSimilarity: number,
+): VectorSearchResult[] {
+	if (resultSets.length === 0) return [];
+	if (resultSets.length === 1)
+		return resultSets[0]!.filter((r) => r.score >= minSimilarity);
+
+	const merged = new Map<string, VectorSearchResult>();
+	for (const results of resultSets) {
+		for (const r of results) {
+			if (r.score < minSimilarity) continue;
+			const key = `${r.normId}:${r.blockId}`;
+			const existing = merged.get(key);
+			if (!existing || r.score > existing.score) {
+				merged.set(key, r);
+			}
+		}
+	}
+	return Array.from(merged.values()).sort((a, b) => b.score - a.score);
+}
+
 interface AnalyzedQuery {
 	keywords: string[];
 	/** Legal synonyms — how colloquial terms appear in law text.
 	 *  E.g. "paternidad" → ["nacimiento", "cuidado del menor"]. */
 	legalSynonyms: string[];
+	/** The citizen's question rewritten in formal legal terminology.
+	 *  Used for conditional dual-embedding when original search confidence is low. */
+	legalRewrite: string | null;
 	materias: string[];
 	temporal: boolean;
 	/** True if the question is clearly not about legislation (poems, sports, etc.) */
@@ -551,6 +581,7 @@ export class RagPipeline {
 				temporal: analyzed.temporal,
 				nonLegal: analyzed.nonLegal,
 				jurisdiction: analyzed.jurisdiction,
+				legalRewrite: analyzed.legalRewrite,
 			},
 			{
 				embeddingCost: `$${queryResult.cost.toFixed(8)}`,
@@ -562,6 +593,9 @@ export class RagPipeline {
 			console.log(
 				`[rag] keywords=${JSON.stringify(analyzed.keywords)} synonyms=${JSON.stringify(analyzed.legalSynonyms)}`,
 			);
+		}
+		if (analyzed.legalRewrite) {
+			console.log(`[rag] legalRewrite="${analyzed.legalRewrite}"`);
 		}
 
 		// 1b. Non-legal gate: if the analyzer detects the question isn't about
@@ -594,19 +628,49 @@ export class RagPipeline {
 		const MIN_SIMILARITY = 0.35;
 
 		// 2a. Vector search — reads flat binary file in ~1GB chunks (~2s for 484K vectors)
+		// Conditional dual-embedding: only use legalRewrite when original search
+		// confidence is low (top score < 0.55), to avoid flooding the pool with
+		// extra candidates that displace correct articles in RRF.
+		const REWRITE_THRESHOLD = 0.55;
 		const t0 = Date.now();
 		const vidx = await this.getVectorIndex();
-		const vectorResults = vidx
-			? (
-					await vectorSearchChunked(
-						queryResult.embedding,
-						vidx.meta,
-						vidx.vectorsFile,
-						vidx.dims,
-						RERANK_POOL_SIZE,
-					)
-				).filter((r) => r.score >= MIN_SIMILARITY)
-			: [];
+		let vectorResults: VectorSearchResult[] = [];
+		if (vidx) {
+			const originalResults = await vectorSearchChunked(
+				queryResult.embedding,
+				vidx.meta,
+				vidx.vectorsFile,
+				vidx.dims,
+				RERANK_POOL_SIZE,
+			);
+			const topScore = originalResults[0]?.score ?? 0;
+
+			if (analyzed.legalRewrite && topScore < REWRITE_THRESHOLD) {
+				console.log(
+					`[rag] vector top=${topScore.toFixed(3)} < ${REWRITE_THRESHOLD} → dual-embedding with legalRewrite`,
+				);
+				const rewriteResult = await embedQuery(
+					this.apiKey,
+					EMBEDDING_MODEL_KEY,
+					analyzed.legalRewrite,
+				);
+				const rewriteResults = await vectorSearchChunked(
+					rewriteResult.embedding,
+					vidx.meta,
+					vidx.vectorsFile,
+					vidx.dims,
+					RERANK_POOL_SIZE,
+				);
+				vectorResults = mergeVectorResults(
+					[originalResults, rewriteResults],
+					MIN_SIMILARITY,
+				);
+			} else {
+				vectorResults = originalResults.filter(
+					(r) => r.score >= MIN_SIMILARITY,
+				);
+			}
+		}
 		const tVector = Date.now() - t0;
 		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
 			key: `${r.normId}:${r.blockId}`,
@@ -1446,18 +1510,42 @@ export class RagPipeline {
 		}
 
 		const MIN_SIMILARITY = 0.35;
+		const REWRITE_THRESHOLD = 0.55;
 		const vidx = await this.getVectorIndex();
-		const vectorResults = vidx
-			? (
-					await vectorSearchChunked(
-						queryResult.embedding,
-						vidx.meta,
-						vidx.vectorsFile,
-						vidx.dims,
-						RERANK_POOL_SIZE,
-					)
-				).filter((r) => r.score >= MIN_SIMILARITY)
-			: [];
+		let vectorResults: VectorSearchResult[] = [];
+		if (vidx) {
+			const originalResults = await vectorSearchChunked(
+				queryResult.embedding,
+				vidx.meta,
+				vidx.vectorsFile,
+				vidx.dims,
+				RERANK_POOL_SIZE,
+			);
+			const topScore = originalResults[0]?.score ?? 0;
+
+			if (analyzed.legalRewrite && topScore < REWRITE_THRESHOLD) {
+				const rewriteResult = await embedQuery(
+					this.apiKey,
+					EMBEDDING_MODEL_KEY,
+					analyzed.legalRewrite,
+				);
+				const rewriteResults = await vectorSearchChunked(
+					rewriteResult.embedding,
+					vidx.meta,
+					vidx.vectorsFile,
+					vidx.dims,
+					RERANK_POOL_SIZE,
+				);
+				vectorResults = mergeVectorResults(
+					[originalResults, rewriteResults],
+					MIN_SIMILARITY,
+				);
+			} else {
+				vectorResults = originalResults.filter(
+					(r) => r.score >= MIN_SIMILARITY,
+				);
+			}
+		}
 		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
 			key: `${r.normId}:${r.blockId}`,
 			score: r.score,
@@ -2084,6 +2172,7 @@ export class RagPipeline {
 			const result = await callOpenRouter<{
 				keywords: string[];
 				legal_synonyms?: string[];
+				legal_rewrite?: string;
 				materias: string[];
 				temporal: boolean;
 				non_legal: boolean;
@@ -2096,7 +2185,8 @@ export class RagPipeline {
 						role: "system",
 						content: `Eres un experto en legislación española. Dado una pregunta de un ciudadano, extrae:
 1. "keywords": palabras clave COLOQUIALES del ciudadano para buscar. Máximo 5.
-1b. "legal_synonyms": sinónimos LEGALES de los términos coloquiales, es decir, cómo aparecerían en el texto de la ley. Ejemplos: "paternidad" → ["nacimiento", "progenitor distinto de la madre biológica", "cuidado del menor"]; "alquiler" → ["arrendamiento", "arrendatario"]; "paro" → ["desempleo", "prestación contributiva"]; "echar del trabajo" → ["despido", "extinción del contrato"]; "baja" → ["incapacidad temporal", "suspensión del contrato"]; "vacaciones" → ["descanso anual", "periodo vacacional"]; "fianza" → ["garantía arrendaticia", "depósito"]; "media jornada" → ["tiempo parcial", "reducción de jornada"]. Máximo 8.
+1b. "legal_synonyms": sinónimos LEGALES de los t��rminos coloquiales, es decir, cómo aparecerían en el texto de la ley. Ejemplos: "paternidad" → ["nacimiento", "progenitor distinto de la madre biológica", "cuidado del menor"]; "alquiler" → ["arrendamiento", "arrendatario"]; "paro" → ["desempleo", "prestación contributiva"]; "echar del trabajo" → ["despido", "extinción del contrato"]; "baja" → ["incapacidad temporal", "suspensi��n del contrato"]; "vacaciones" → ["descanso anual", "periodo vacacional"]; "fianza" → ["garantía arrendaticia", "depósito"]; "media jornada" → ["tiempo parcial", "reducción de jornada"]. Máximo 8.
+1c. "legal_rewrite": reescribe la pregunta del ciudadano usando terminología jurídica formal tal como aparecería en la legislación consolidada española. Usa los términos exactos que usan las leyes. Ejemplos: "¿cuánto dura la baja por paternidad?" → "Duración de la suspensión del contrato de trabajo por nacimiento y cuidado del menor para el progenitor distinto de la madre biológica"; "¿puedo cobrar paro siendo autónomo?" → "Prestación por cese de actividad del trabajador autónomo"; "¿me pueden hacer un test de drogas en el trabajo?" → "Vigilancia de la salud y reconocimientos médicos del trabajador en el ámbito laboral"; "¿puede la policía mirar mi móvil?" → "Inviolabilidad de las comunicaciones y secreto de las comunicaciones electrónicas"; "¿puede mi casero entrar en mi piso?" → "Inviolabilidad del domicilio y derechos del arrendatario frente al arrendador"; "¿qué derechos tiene una embarazada en el trabajo?" → "Riesgo durante el embarazo y protección de la maternidad en la relación laboral".
 2. "materias": categorías temáticas BOE. Máximo 3.
 3. "temporal": true si pregunta sobre cambios históricos o evolución de la ley. false si pregunta sobre ley vigente.
 4. "non_legal": true si la pregunta NO es sobre legislación, derechos u obligaciones legales. Ejemplos: clima, deportes, poemas, recetas, opiniones personales, hackear sistemas, preguntas sobre personas concretas. INCLUSO si la pregunta menciona palabras legales (como "Constitución"), si la INTENCIÓN no es obtener información legal (ej: "escribe un poema sobre la Constitución"), pon non_legal=true.
@@ -2107,11 +2197,12 @@ Responde SOLO con JSON.`,
 					{ role: "user", content: question },
 				],
 				temperature: 0.1,
-				maxTokens: 250,
+				maxTokens: 400,
 			});
 			return {
 				keywords: result.data.keywords ?? [],
 				legalSynonyms: result.data.legal_synonyms ?? [],
+				legalRewrite: result.data.legal_rewrite ?? null,
 				materias: result.data.materias ?? [],
 				temporal: result.data.temporal ?? false,
 				nonLegal: result.data.non_legal ?? false,
@@ -2172,6 +2263,7 @@ Responde SOLO con JSON.`,
 					.map((t) => t.toLowerCase().replace(/[¿?¡!.,;:]/g, ""))
 					.filter((t) => t.length > 2 && !STOP_WORDS.has(t)),
 				legalSynonyms: [],
+				legalRewrite: null,
 				materias: [],
 				temporal: isTemporal,
 				nonLegal: false,
