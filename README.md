@@ -4,8 +4,6 @@
 
 Ley Abierta descarga legislación oficial, la convierte en datos versionados y legibles por máquina, y los pone a disposición de cualquier ciudadano a través de una web y una API abierta.
 
-> [Read this in English](#ley-abierta-en)
-
 ## Por qué
 
 Las leyes cambian constantemente, pero seguir esos cambios es casi imposible. Las fuentes oficiales publican textos consolidados sin forma de comparar versiones. Los servicios comerciales cobran cientos de euros al mes por historial de versiones.
@@ -189,37 +187,3 @@ Inspirado por:
 
 Contenido legislativo: dominio público (procedente de publicaciones oficiales).
 Código y herramientas: [AGPL-3.0](LICENSE).
-
----
-
-<a id="ley-abierta-en"></a>
-
-# Ley Abierta (English)
-
-**Open legislation for everyone.** Every law is a Markdown file. Every reform is a Git commit.
-
-Ley Abierta downloads official legislation, turns it into version-controlled, machine-readable data, and makes it available through a website and open API so anyone can search, compare versions, and understand how laws change over time.
-
-## Why
-
-Laws change constantly, but tracking those changes is nearly impossible. Official sources publish consolidated texts with no way to compare versions. Commercial services like Westlaw or Aranzadi charge hundreds of euros per month for version history.
-
-Laws are public domain. Access to them should be free.
-
-Read our [manifesto](VISION.md) to understand the project's full vision.
-
-## How it works
-
-1. **Downloads** legislation from official sources (BOE for Spain)
-2. **Transforms** official XML into structured Markdown with YAML metadata
-3. **Versions** each reform as a Git commit with the official publication date
-4. **Serves** the data through a REST API and a public website
-
-## Contributing
-
-Ley Abierta is an open project. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## License
-
-Legislative content: public domain (sourced from official publications).
-Code and tooling: [AGPL-3.0](LICENSE).
