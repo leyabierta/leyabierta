@@ -1480,25 +1480,28 @@ The boost was designed to ensure fundamental laws (ET, CC) don't get dropped. Bu
 
 ## Phase 7: Next Steps (planned, not implemented)
 
-### P4: Prompt rewrite — "synthesizer, not adjudicator"
+### P4: Prompt rewrite — "synthesizer, not adjudicator" (DONE 2026-04-22)
 
-**Problem:** The SYSTEM_PROMPT still contains instructions that ask the LLM to make judgments it shouldn't:
-- Rule 5: "PRIORIDAD DE FUENTES: Ley general > ley sectorial" — asks LLM to judge hierarchy. The pipeline already handles this with tier ordering.
-- "RESOLUCIÓN DE CONFLICTOS TEMPORALES" — asks LLM to choose between TEXTO CONSOLIDADO and LEY MODIFICADORA. If contradictory sources reach the LLM, it's a pipeline bug.
-- Rule 8: "LÍMITES DE LA LEGISLACIÓN" — asks LLM to judge when articles are "too vague".
+**Changes:**
+- Role: "sintetizador de información legal" (not "asistente legal informativo")
+- Explicit ban: "NO uses NUNCA tu conocimiento de entrenamiento para cifras, plazos, porcentajes, cuantías"
+- Removed: "RESOLUCIÓN DE CONFLICTOS TEMPORALES" block — pipeline handles this with tier ordering + age decay
+- Removed: "PRIORIDAD DE FUENTES" adjudication rule
+- Added: "ORDEN DE PRESENTACIÓN" — present ARTÍCULO PRINCIPAL first, then sectoral/autonomous as exceptions (follows pipeline ordering, no judgment needed)
+- Removed: user message "si no coincide con lo que recuerdas de tu entrenamiento"
+- Kept: plain language rules, citations, proporcionalidad, premisas falsas, decline rules
 
 **Principle:** If the evidence is clean (no contradictions, no outdated data), the LLM's job is simple: explain the articles in plain language. Every rule that says "if X contradicts Y, prefer X" is a symptom of evidence quality problems that should be fixed upstream.
 
-**Proposed changes:**
-1. Reframe role: "Eres un sintetizador de información legal" instead of "asistente legal informativo"
-2. Remove conflict resolution rules (pipeline handles this)
-3. Remove priority rules (tier ordering handles this)
-4. Strengthen: "Tu ÚNICA fuente de información son los artículos proporcionados. NO uses conocimiento de tu entrenamiento para cifras, plazos, porcentajes ni cuantías."
-5. Keep: plain language rules, citation requirements, decline rules
+**Eval results (A/B test vs P1 Robust):**
 
-**Risk:** If the pipeline ever delivers contradictory evidence (e.g., two articles with different amounts), the LLM without conflict resolution rules may present both without indicating which is correct. Mitigation: fix the pipeline, not the prompt. Each conflict rule removed should correspond to a pipeline fix that prevents that conflict.
+|  | P1 Robust | P4 Prompt | Delta |
+|--|-----------|-----------|-------|
+| Norm hits | 47/56 (84%) | **50/56 (89%)** | **+5pp** |
+| Regressions | — | **0** | |
+| Improvements | — | **+3** (Q5, Q22, Q501) | |
 
-**Approach:** Separate A/B test after Phase 6 eval results confirm no regressions.
+The LLM performs better when we don't ask it to adjudicate — it focuses on synthesizing the evidence faithfully instead of second-guessing which source to prefer.
 
 ### P2: Vocabulary gap for general state laws
 **Problem:** ET art. 48 says "nacimiento y cuidado del menor" (modern legal term since 2019 reform), citizens ask about "paternidad" (old term). The legal hierarchy boost fixes this for the ET but the pattern applies to any law that modernized its vocabulary.
