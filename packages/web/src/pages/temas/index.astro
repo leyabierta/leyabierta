@@ -1,6 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import { safeJsonLd } from "../../lib/escape";
 import sectorData from "../../../../shared/data/sector-materias.json";
 
 const laws = await getCollection("laws");
@@ -43,7 +44,7 @@ const totalLaws = laws.length;
 	description={`Explora la legislación española por temas: ${sectors.slice(0, 4).map(s => s.label.toLowerCase()).join(", ")} y más. Más de ${totalLaws.toLocaleString("es")} leyes organizadas por categoría.`}
 	canonicalUrl="/temas"
 >
-	<script type="application/ld+json" set:html={JSON.stringify({
+	<script type="application/ld+json" set:html={safeJsonLd({
 		"@context": "https://schema.org",
 		"@type": "CollectionPage",
 		"name": "Temas legislativos de España",

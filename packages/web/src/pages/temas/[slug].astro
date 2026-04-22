@@ -1,6 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import { safeJsonLd } from "../../lib/escape";
 import sectorData from "../../../../shared/data/sector-materias.json";
 
 const RANK_LABELS: Record<string, string> = {
@@ -41,7 +42,8 @@ const sectorLaws = allLaws
 	.filter(law => (law.data.materias ?? []).some(m => sectorMaterias.has(m)))
 	.sort((a, b) => {
 		// Sort by rank importance, then by date (newest first)
-		const rankDiff = RANK_ORDER.indexOf(a.data.rango) - RANK_ORDER.indexOf(b.data.rango);
+		const rankIdx = (r: string) => { const i = RANK_ORDER.indexOf(r); return i === -1 ? 99 : i; };
+		const rankDiff = rankIdx(a.data.rango) - rankIdx(b.data.rango);
 		if (rankDiff !== 0) return rankDiff;
 		return b.data.fecha_publicacion.localeCompare(a.data.fecha_publicacion);
 	});
@@ -77,7 +79,7 @@ const seoDescription = `${sectorLaws.length.toLocaleString("es")} leyes sobre ${
 	description={seoDescription}
 	canonicalUrl={`/temas/${slug}`}
 >
-	<script type="application/ld+json" set:html={JSON.stringify({
+	<script type="application/ld+json" set:html={safeJsonLd({
 		"@context": "https://schema.org",
 		"@type": "CollectionPage",
 		"name": `Legislación sobre ${sectorLabel.toLowerCase()} en España`,
@@ -262,8 +264,8 @@ const seoDescription = `${sectorLaws.length.toLocaleString("es")} leyes sobre ${
 	</div>
 
 	{hasMore && (
-		<a href={`/?materia=${encodeURIComponent((sector.materias as string[])[0])}`} class="more-link">
-			Ver las {sectorLaws.length.toLocaleString("es")} leyes &rarr;
+		<a href={`/?q=${encodeURIComponent(sectorLabel.toLowerCase())}`} class="more-link">
+			Buscar más leyes sobre {sectorLabel.toLowerCase()} &rarr;
 		</a>
 	)}
 
