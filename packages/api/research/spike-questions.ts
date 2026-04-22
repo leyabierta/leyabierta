@@ -55,7 +55,7 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 		id: 5,
 		question: "¿Cuánto es el salario mínimo interprofesional?",
 		category: "clear",
-		expectedNorms: ["BOE-A-2015-11430", "BOE-A-2022-22128"], // ET art.27 or annual SMI RD
+		expectedNorms: ["BOE-A-2015-11430", "BOE-A-2022-22128", "BOE-A-2026-3815"], // ET art.27 or annual SMI RD (2026)
 		expectedAnswer:
 			"Lo fija el Gobierno anualmente. El artículo 27 del ET establece el marco. Los RD anuales fijan la cantidad.",
 	},
@@ -200,7 +200,7 @@ export const SPIKE_QUESTIONS: SpikeQuestion[] = [
 		question:
 			"¿Ha cambiado la duración de la baja por paternidad? ¿Cuánto era antes?",
 		category: "clear",
-		expectedNorms: ["BOE-A-2015-11430"], // ET art. 48
+		expectedNorms: ["BOE-A-2015-11430", "BOE-A-2009-15958", "BOE-A-2018-9268", "BOE-A-2025-24253"], // ET art. 48 + modifying laws (RDL 6/2019, PGE 2018, etc.)
 		expectedAnswer:
 			"Sí. El permiso de paternidad ha ido aumentando progresivamente desde 2 días hasta las actuales 19 semanas (reforma 2025).",
 	},

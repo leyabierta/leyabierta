@@ -200,8 +200,9 @@ function applyLegalHierarchyBoost<
 		blockId: string;
 		rank: string;
 		sourceUrl: string;
+		publishedAt?: string;
 	},
->(reranked: T[], fullPool: T[]): T[] {
+>(reranked: T[], fullPool: T[], db?: import("bun:sqlite").Database): T[] {
 	const rerankedKeys = new Set(reranked.map((a) => `${a.normId}:${a.blockId}`));
 
 	// Find fundamental state law articles in the full pool that were dropped
@@ -218,11 +219,37 @@ function applyLegalHierarchyBoost<
 	const result = [...reranked];
 	let swapCount = 0;
 
+	// Build a set of recently-published norm IDs to protect from swapping.
+	// Recent norms (< 3 years) may contain current regulatory values (SMI,
+	// IPREM) that are MORE relevant than fundamental laws for "how much is X?"
+	// questions. The hierarchy boost should not sacrifice them.
+	const recentNormIds = new Set<string>();
+	if (db) {
+		const RECENT_YEARS = 3;
+		const cutoff = new Date();
+		cutoff.setFullYear(cutoff.getFullYear() - RECENT_YEARS);
+		const cutoffStr = cutoff.toISOString().slice(0, 10);
+		for (const a of reranked) {
+			// Lazy: query DB per norm in the reranked list (15 articles, ~5 norms)
+			const norm = db
+				.query<{ published_at: string }, [string]>(
+					"SELECT published_at FROM norms WHERE id = ?",
+				)
+				.get(a.normId);
+			if (norm && norm.published_at >= cutoffStr) {
+				recentNormIds.add(a.normId);
+			}
+		}
+	}
+
 	for (const fundamental of droppedFundamental) {
-		// Find the lowest-ranked (last) sectoral/autonomous article to swap
+		// Find the lowest-ranked (last) sectoral/autonomous article to swap.
+		// Protect recently-published norms — they may contain current values
+		// that should not be sacrificed for fundamental law articles.
 		let swapIdx = -1;
 		for (let i = result.length - 1; i >= 0; i--) {
 			const a = result[i]!;
+			if (recentNormIds.has(a.normId)) continue; // protect recent norms
 			const juris = resolveJurisdiction(a.sourceUrl, a.normId);
 			if (isSectoralNorm(a.rank) || juris !== "es") {
 				swapIdx = i;
@@ -275,6 +302,47 @@ function isModifierNorm(title: string): boolean {
 		t.includes("medidas tributarias") ||
 		t.includes("acompañamiento")
 	);
+}
+
+/**
+ * Normalize a norm title for periodic family detection.
+ * Strips decree type+number, year suffixes, and normalizes whitespace.
+ * Returns null if the title doesn't look like a periodic norm.
+ *
+ * Examples:
+ *   "Real Decreto 126/2026, de 18 de febrero, por el que se fija el
+ *    salario mínimo interprofesional para 2026"
+ *   → "fija el salario mínimo interprofesional"
+ *
+ *   "Real Decreto 87/2025, de 11 de febrero, por el que se fija el
+ *    salario mínimo interprofesional para 2025"
+ *   → "fija el salario mínimo interprofesional"  (same family!)
+ */
+export function normalizePeriodicTitle(title: string): string | null {
+	let t = title.toLowerCase();
+
+	// Strip decree type + number prefix:
+	// "Real Decreto 126/2026, de 18 de febrero, por el que se"
+	// → "por el que se fija..."
+	t = t.replace(
+		/^(?:real\s+decreto(?:-ley)?|decreto(?:-ley)?|orden|resolución)\s+\S+,\s*de\s+\d+\s+de\s+\w+,?\s*/i,
+		"",
+	);
+
+	// Strip "por el que se" / "por la que se" / "sobre" prefix
+	t = t.replace(/^por (?:el|la) que se\s+/i, "");
+
+	// Strip trailing "para YYYY" / "del año YYYY" / "en YYYY"
+	t = t.replace(/\s+(?:para|del año|en)\s+\d{4}\.?$/i, "");
+
+	// Normalize whitespace
+	t = t.replace(/\s+/g, " ").trim();
+
+	// Only consider it "periodic" if the normalized title is non-trivial
+	// (at least 15 chars) — avoids matching very short generic titles
+	if (t.length < 15) return null;
+
+	return t;
 }
 
 // ── Types ──
@@ -666,6 +734,46 @@ export class RagPipeline {
 			}
 		}
 
+		// 2c-ter. Recent norms BM25 — search within norms published in the
+		// last 3 years to ensure recently-enacted regulations enter the pool.
+		// Non-fundamental norms (real_decreto, orden, etc.) get superseded by
+		// newer versions over time. Without this, a 2004 SMI decree with 18
+		// chunks can dominate over a 2026 SMI decree with 8 chunks in vector
+		// search, simply because it has more embedding mass.
+		// Cost: one BM25 query scoped to recent norm IDs (~0.5ms).
+		let recentBm25Ranked: RankedItem[] = [];
+		if (analyzed.keywords.length > 0) {
+			const RECENT_YEARS = 3;
+			const cutoff = new Date();
+			cutoff.setFullYear(cutoff.getFullYear() - RECENT_YEARS);
+			const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+			const recentNormIds = this.db
+				.query<{ id: string }, [string]>(
+					`SELECT id FROM norms
+				 WHERE status = 'vigente'
+				   AND published_at >= ?
+				   AND id IN (SELECT DISTINCT norm_id FROM embeddings)`,
+				)
+				.all(cutoffStr)
+				.map((r) => r.id);
+
+			if (recentNormIds.length > 0) {
+				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
+				const recentResults = bm25HybridSearch(
+					this.db,
+					allTerms.join(" "),
+					allTerms,
+					Math.floor(RERANK_POOL_SIZE / 2),
+					recentNormIds,
+				);
+				recentBm25Ranked = recentResults.map((r) => ({
+					key: `${r.normId}:${r.blockId}`,
+					score: 1 / r.rank,
+				}));
+			}
+		}
+
 		// 2d. Collection density signal — aggregate article scores by norm to
 		// detect which LAWS (not articles) are most relevant. A law with 10
 		// articles in the retrieval pool is a stronger match than one with 1,
@@ -722,6 +830,8 @@ export class RagPipeline {
 		if (synonymBm25Ranked.length > 0)
 			rrfSystems.set("legal-synonyms", synonymBm25Ranked);
 		if (coreLawRanked.length > 0) rrfSystems.set("core-law", coreLawRanked);
+		if (recentBm25Ranked.length > 0)
+			rrfSystems.set("recent-bm25", recentBm25Ranked);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
 		if (namedLawRanked.length > 0) rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
@@ -866,7 +976,7 @@ export class RagPipeline {
 
 			// Post-rerank legal hierarchy boost: ensure fundamental state laws
 			// aren't dropped in favor of sectoral/autonomous norms
-			articles = applyLegalHierarchyBoost(articles, allFusedArticles);
+			articles = applyLegalHierarchyBoost(articles, allFusedArticles, this.db);
 		} else {
 			articles = allFusedArticles;
 		}
@@ -1407,6 +1517,41 @@ export class RagPipeline {
 			}
 		}
 
+		// Recent norms BM25 (same as runPipeline) — ensures recently-enacted
+		// regulations enter the pool even when older norms dominate vector search.
+		let recentBm25Ranked2: RankedItem[] = [];
+		if (analyzed.keywords.length > 0) {
+			const RECENT_YEARS = 3;
+			const cutoff = new Date();
+			cutoff.setFullYear(cutoff.getFullYear() - RECENT_YEARS);
+			const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+			const recentNormIds = this.db
+				.query<{ id: string }, [string]>(
+					`SELECT id FROM norms
+				 WHERE status = 'vigente'
+				   AND published_at >= ?
+				   AND id IN (SELECT DISTINCT norm_id FROM embeddings)`,
+				)
+				.all(cutoffStr)
+				.map((r) => r.id);
+
+			if (recentNormIds.length > 0) {
+				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
+				const recentResults = bm25HybridSearch(
+					this.db,
+					allTerms.join(" "),
+					allTerms,
+					Math.floor(RERANK_POOL_SIZE / 2),
+					recentNormIds,
+				);
+				recentBm25Ranked2 = recentResults.map((r) => ({
+					key: `${r.normId}:${r.blockId}`,
+					score: 1 / r.rank,
+				}));
+			}
+		}
+
 		// Collection density signal (same as runPipeline)
 		const normDensity2 = new Map<string, number>();
 		for (const r of vectorRanked) {
@@ -1436,6 +1581,7 @@ export class RagPipeline {
 		const allRetrievedKeys = new Set([
 			...allArticleKeys2,
 			...namedLawRanked.map((r) => r.key),
+			...recentBm25Ranked2.map((r) => r.key),
 		]);
 		const allNormIds = [
 			...new Set([...allRetrievedKeys].map((k) => k.split(":")[0]!)),
@@ -1452,6 +1598,8 @@ export class RagPipeline {
 			["bm25", bm25Ranked],
 			["collection-density", densityRanked],
 		]);
+		if (recentBm25Ranked2.length > 0)
+			rrfSystems.set("recent-bm25", recentBm25Ranked2);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
 		if (namedLawRanked.length > 0) rrfSystems.set("named-law", namedLawRanked);
 		const rawFused = reciprocalRankFusion(rrfSystems, RRF_K, RERANK_POOL_SIZE);
@@ -1518,7 +1666,7 @@ export class RagPipeline {
 
 			// Post-rerank legal hierarchy boost: ensure fundamental state laws
 			// aren't dropped in favor of sectoral/autonomous norms
-			articles = applyLegalHierarchyBoost(articles, allFusedArticles);
+			articles = applyLegalHierarchyBoost(articles, allFusedArticles, this.db);
 		} else {
 			articles = allFusedArticles;
 		}
@@ -1718,6 +1866,7 @@ export class RagPipeline {
 			.query<
 				{
 					norm_id: string;
+					published_at: string;
 					updated_at: string;
 					rank: string;
 					source_url: string;
@@ -1725,7 +1874,7 @@ export class RagPipeline {
 				},
 				string[]
 			>(
-				`SELECT id as norm_id, updated_at, rank, source_url, title FROM norms WHERE id IN (${placeholders}) ORDER BY updated_at DESC`,
+				`SELECT id as norm_id, published_at, updated_at, rank, source_url, title FROM norms WHERE id IN (${placeholders}) ORDER BY updated_at DESC`,
 			)
 			.all(...allNormIds);
 
@@ -1803,10 +1952,97 @@ export class RagPipeline {
 				}
 			}
 
+			// Publication age decay for non-fundamental norms.
+			//
+			// Fundamental laws (ley, ley_organica, codigo, constitucion, rdl)
+			// are continuously consolidated by BOE — their text IS current
+			// even if published in 1889 (Código Civil). No decay.
+			//
+			// Non-fundamental norms (real_decreto, orden, circular, etc.) are
+			// regulatory/implementing measures that get superseded by newer
+			// versions. A 2004 real_decreto about SMI is almost certainly
+			// superseded by a 2026 one. Apply a smooth decay so older norms
+			// gradually lose relevance.
+			//
+			// Formula: 1 / (1 + ageYears / 5)
+			//   1 year old: 0.83    (mild)
+			//   3 years:    0.63
+			//   5 years:    0.50
+			//   10 years:   0.33
+			//   22 years:   0.19    (2004 SMI)
+			let ageDecay = 1.0;
+			if (!isFundamentalRank(row.rank) && !isTemporal) {
+				const pubDate = new Date(row.published_at);
+				const ageMs = Date.now() - pubDate.getTime();
+				const ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
+				if (ageYears > 1) {
+					ageDecay = 1 / (1 + ageYears / 5);
+				}
+			}
+
 			normBoostMap.set(
 				row.norm_id,
-				rankWeight * jurisdictionWeight * omnibusWeight,
+				rankWeight * jurisdictionWeight * omnibusWeight * ageDecay,
 			);
+		}
+
+		// --- Absorbed modifier penalty via `referencias` table ---
+		// If a norm explicitly MODIFICA another norm, and that target norm
+		// has been updated after the modifier was published, the modifier's
+		// content is already reflected in the consolidated text → near-exclude.
+		// This catches non-obvious modifiers that isModifierNorm() misses
+		// (e.g., RDL 3/2004 that modified LGSS arts. 211/217).
+		if (allNormIds.length > 0 && !isTemporal) {
+			const absorbedNorms = new Set(
+				this.db
+					.query<{ norm_id: string }, string[]>(
+						`SELECT DISTINCT r.norm_id
+					 FROM referencias r
+					 JOIN norms n_target ON r.target_id = n_target.id
+					 JOIN norms n_mod ON r.norm_id = n_mod.id
+					 WHERE r.norm_id IN (${placeholders})
+					   AND r.direction = 'anterior'
+					   AND r.relation = 'MODIFICA'
+					   AND n_target.updated_at > n_mod.published_at`,
+					)
+					.all(...allNormIds)
+					.map((r) => r.norm_id),
+			);
+
+			for (const normId of absorbedNorms) {
+				const current = normBoostMap.get(normId) ?? 1;
+				normBoostMap.set(normId, current * 0.05);
+			}
+		}
+
+		// --- Periodic norm family detection ---
+		// Annual decrees on the same topic (SMI, IPREM) are technically all
+		// vigente but only the most recent has current values. Detect families
+		// by title similarity and penalize all but the most recent.
+		if (normRows.length > 1 && !isTemporal) {
+			const normsByFamily = new Map<string, typeof normRows>();
+			for (const row of normRows) {
+				const familyKey = normalizePeriodicTitle(row.title);
+				if (!familyKey) continue;
+				const group = normsByFamily.get(familyKey) ?? [];
+				group.push(row);
+				normsByFamily.set(familyKey, group);
+			}
+
+			for (const [, family] of normsByFamily) {
+				if (family.length < 2) continue;
+				// Sort by published_at descending — most recent first
+				family.sort(
+					(a, b) =>
+						new Date(b.published_at).getTime() -
+						new Date(a.published_at).getTime(),
+				);
+				// Penalize all but the most recent
+				for (let i = 1; i < family.length; i++) {
+					const current = normBoostMap.get(family[i]!.norm_id) ?? 1;
+					normBoostMap.set(family[i]!.norm_id, current * 0.02);
+				}
+			}
 		}
 
 		return { recencyRanked, normBoostMap };
@@ -1984,6 +2220,7 @@ Responde SOLO con JSON.`,
 					title: string;
 					rank: string;
 					source_url: string;
+					published_at: string;
 					updated_at: string;
 					status: string;
 					block_id: string;
@@ -1993,7 +2230,7 @@ Responde SOLO con JSON.`,
 				},
 				string[]
 			>(
-				`SELECT b.norm_id, n.title, n.rank, n.source_url, n.updated_at, n.status,
+				`SELECT b.norm_id, n.title, n.rank, n.source_url, n.published_at, n.updated_at, n.status,
                 b.block_id, b.title as block_title,
                 b.current_text, cas.summary as citizen_summary
          FROM blocks b
@@ -2022,6 +2259,7 @@ Responde SOLO con JSON.`,
 			normTitle: string;
 			rank: string;
 			sourceUrl: string;
+			publishedAt: string;
 			updatedAt: string;
 			status: string;
 			blockTitle: string;
@@ -2064,6 +2302,7 @@ Responde SOLO con JSON.`,
 						normTitle: parent.title,
 						rank: parent.rank,
 						sourceUrl: parent.source_url,
+						publishedAt: parent.published_at,
 						updatedAt: parent.updated_at,
 						status: parent.status,
 						blockTitle: chunk.title,
@@ -2081,6 +2320,7 @@ Responde SOLO con JSON.`,
 						normTitle: a.title,
 						rank: a.rank,
 						sourceUrl: a.source_url,
+						publishedAt: a.published_at,
 						updatedAt: a.updated_at,
 						status: a.status,
 						blockTitle: a.block_title,
@@ -2112,6 +2352,7 @@ Responde SOLO con JSON.`,
 			normTitle: string;
 			rank: string;
 			sourceUrl: string;
+			publishedAt: string;
 			updatedAt: string;
 			status: string;
 			blockTitle: string;
@@ -2161,13 +2402,14 @@ Responde SOLO con JSON.`,
 					article.rank,
 					resolveJurisdiction(article.sourceUrl, article.normId),
 				);
-				const dateStr = article.updatedAt?.slice(0, 10) ?? "";
+				const pubDateStr = article.publishedAt?.slice(0, 10) ?? "";
+				const updDateStr = article.updatedAt?.slice(0, 10) ?? "";
 
 				let label: string;
 				if (tier === 3) {
-					label = `[LEY MODIFICADORA${dateStr ? ` | Publicada: ${dateStr}` : ""} — contenido ya reflejado en textos consolidados]`;
+					label = `[LEY MODIFICADORA${pubDateStr ? ` | Publicada: ${pubDateStr}` : ""} — contenido ya reflejado en textos consolidados]`;
 				} else {
-					label = `[TEXTO CONSOLIDADO${dateStr ? ` | Última actualización: ${dateStr}` : ""}]`;
+					label = `[TEXTO CONSOLIDADO${pubDateStr ? ` | Publicada: ${pubDateStr}` : ""}${updDateStr && updDateStr !== pubDateStr ? ` | Última actualización: ${updDateStr}` : ""}]`;
 				}
 
 				// Highlight the top-ranked article so the LLM prioritizes it
