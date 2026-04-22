@@ -12,12 +12,29 @@ const SITE_URL = "https://leyabierta.es";
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
 
+	const secondaryPages = [
+		{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
+		{ path: "/sobre-leyabierta/", changefreq: "monthly", priority: "0.4" },
+		{ path: "/alertas/", changefreq: "monthly", priority: "0.5" },
+		{ path: "/mi-situacion/", changefreq: "monthly", priority: "0.5" },
+		{ path: "/privacidad/", changefreq: "yearly", priority: "0.2" },
+		{ path: "/cookies/", changefreq: "yearly", priority: "0.2" },
+		{ path: "/aviso-legal/", changefreq: "yearly", priority: "0.2" },
+	];
+
 	const urls = [
 		`  <url>
     <loc>${SITE_URL}/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>`,
+		...secondaryPages.map(
+			(p) => `  <url>
+    <loc>${SITE_URL}${p.path}</loc>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`,
+		),
 	];
 
 	for (const law of laws) {

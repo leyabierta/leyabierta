@@ -8,6 +8,7 @@ interface Props {
 	ogImage?: string;
 	canonicalUrl?: string;
 	fullWidth?: boolean;
+	noindex?: boolean;
 }
 
 const SITE_URL = "https://leyabierta.es";
@@ -23,6 +24,7 @@ const {
 	ogImage,
 	canonicalUrl,
 	fullWidth = false,
+	noindex = false,
 } = Astro.props;
 
 const fullTitle = `${title} — Ley Abierta`;
@@ -53,6 +55,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta name="description" content={description} />
+	{noindex && <meta name="robots" content="noindex, follow" />}
 	{resolvedCanonicalUrl && <link rel="canonical" href={resolvedCanonicalUrl} />}
 	<link rel="icon" type="image/png" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
 	<link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
