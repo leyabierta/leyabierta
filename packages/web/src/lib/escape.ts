@@ -8,7 +8,7 @@ export function escapeHtml(s: string): string {
 }
 
 /** Safely serialize an object for use in `<script type="application/ld+json">`.
- *  Escapes `<`, `>`, and `/` to prevent `</script>` injection. */
+ *  Escapes `<` and `>` to prevent `</script>` injection. */
 export function safeJsonLd(obj: unknown): string {
 	return JSON.stringify(obj).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 }

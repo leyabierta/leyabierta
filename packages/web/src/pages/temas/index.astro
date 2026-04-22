@@ -42,7 +42,7 @@ const totalLaws = laws.length;
 <Base
 	title="Temas legislativos"
 	description={`Explora la legislación española por temas: ${sectors.slice(0, 4).map(s => s.label.toLowerCase()).join(", ")} y más. Más de ${totalLaws.toLocaleString("es")} leyes organizadas por categoría.`}
-	canonicalUrl="/temas"
+	canonicalUrl="/temas/"
 >
 	<script type="application/ld+json" set:html={safeJsonLd({
 		"@context": "https://schema.org",
