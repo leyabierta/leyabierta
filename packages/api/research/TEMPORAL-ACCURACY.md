@@ -1478,11 +1478,9 @@ The boost was designed to ensure fundamental laws (ET, CC) don't get dropped. Bu
 - `periodic-norm-detection.test.ts`: 6 tests, 10 assertions — `normalizePeriodicTitle()` correctly groups annual decrees by family and separates different norm types
 - `article-type-penalty.test.ts`: 6 tests, 21 assertions — existing tests pass, no regressions
 
-## Phase 7: Next Steps (planned, not implemented)
+## Phase 7: Prompt Rewrite (2026-04-22)
 
-### P4: Prompt rewrite — "synthesizer, not adjudicator" (DONE 2026-04-22)
-
-**Changes:**
+### Changes
 - Role: "sintetizador de información legal" (not "asistente legal informativo")
 - Explicit ban: "NO uses NUNCA tu conocimiento de entrenamiento para cifras, plazos, porcentajes, cuantías"
 - Removed: "RESOLUCIÓN DE CONFLICTOS TEMPORALES" block — pipeline handles this with tier ordering + age decay
@@ -1491,9 +1489,7 @@ The boost was designed to ensure fundamental laws (ET, CC) don't get dropped. Bu
 - Removed: user message "si no coincide con lo que recuerdas de tu entrenamiento"
 - Kept: plain language rules, citations, proporcionalidad, premisas falsas, decline rules
 
-**Principle:** If the evidence is clean (no contradictions, no outdated data), the LLM's job is simple: explain the articles in plain language. Every rule that says "if X contradicts Y, prefer X" is a symptom of evidence quality problems that should be fixed upstream.
-
-**Eval results (A/B test vs P1 Robust):**
+### Eval results
 
 |  | P1 Robust | P4 Prompt | Delta |
 |--|-----------|-----------|-------|
@@ -1502,6 +1498,41 @@ The boost was designed to ensure fundamental laws (ET, CC) don't get dropped. Bu
 | Improvements | — | **+3** (Q5, Q22, Q501) | |
 
 The LLM performs better when we don't ask it to adjudicate — it focuses on synthesizing the evidence faithfully instead of second-guessing which source to prefer.
+
+---
+
+## Current State (2026-04-22)
+
+### Cumulative progress
+
+| Phase | Norm hits | Delta | Key fix |
+|-------|-----------|-------|---------|
+| Baseline (pre-work) | 72% | — | — |
+| Phase 1-2: Data cleanup + derog filter | 96% (504 norms) | +24pp | Q2 "19 semanas" |
+| Phase 5: Eval v2 (484K embeddings) | 88% (9,738 norms) | -8pp (scale) | Legal hierarchy boost |
+| **Phase 6: Staleness detection** | **89%** | **+1pp** | **Q5 "1,221€" SMI** |
+| **Phase 7: Prompt rewrite** | **89%** | **+0pp** | **0 regressions, cleaner arch** |
+
+### Remaining misses (6 questions)
+
+| Q | Question | Expected | Issue |
+|---|----------|----------|-------|
+| Q2 | Paternidad | ET art. 48 | Cites other norms (RDL 6/2019, convenio AGE) instead of ET — answer likely correct but wrong citation. LLM variance. |
+| Q10 | Paro autónomo | LETA, LGSS | Cites related but not primary norms. Retrieval issue. |
+| Q11 | Embarazada derechos | ET, LGSS | ET doesn't enter evidence. P3 (materia-based retrieval) would fix. |
+| Q13 | Registro móvil | CE, LOPDGDD | Cites procedural laws instead of CE art. 18. Retrieval issue. |
+| Q304 | Casero entrar piso | CE, LAU | Cites Código Penal/procedural instead of CE art. 18 + LAU. Retrieval issue. |
+| Q808 | Test drogas trabajo | ET, CE | Cites prevención de riesgos instead of ET art. 20.4. P3 would fix. |
+
+### Pattern: most misses are retrieval problems, not synthesis
+
+5 of 6 misses are because the correct norm (ET, CE, LGSS) doesn't reach the evidence pool. The LLM faithfully synthesizes what it receives — it just receives the wrong articles. This validates the "synthesizer, not adjudicator" architecture.
+
+**Next fix with highest impact: P3 (materia-based retrieval for fundamental laws).** When the question is about labor rights and the ET isn't in the evidence, force-include it. Same for CE + constitutional rights questions.
+
+---
+
+## Phase 8: Next Steps (planned, not implemented)
 
 ### P2: Vocabulary gap for general state laws
 **Problem:** ET art. 48 says "nacimiento y cuidado del menor" (modern legal term since 2019 reform), citizens ask about "paternidad" (old term). The legal hierarchy boost fixes this for the ET but the pattern applies to any law that modernized its vocabulary.
