@@ -1,17 +1,17 @@
-## What does this PR do?
+## ¿Qué hace este PR?
 
-Brief description of the changes.
+Descripción breve de los cambios.
 
-## Type of change
+## Tipo de cambio
 
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation
-- [ ] Refactoring
-- [ ] Other: ___
+- [ ] Corrección de bug
+- [ ] Nueva funcionalidad
+- [ ] Documentación
+- [ ] Refactorización
+- [ ] Otro: ___
 
 ## Checklist
 
-- [ ] `bun test` passes
-- [ ] `bun run check` passes (Biome)
-- [ ] No unrelated changes included
+- [ ] `bun test` pasa correctamente
+- [ ] `bun run check` pasa correctamente (Biome)
+- [ ] No incluye cambios no relacionados

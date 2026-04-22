@@ -1,35 +1,35 @@
 ---
-name: Bug Report
-about: Report a bug in the web, API, or pipeline
+name: Reporte de bug
+about: Reportar un error en la web, API o pipeline
 title: "[Bug] "
 labels: bug
 assignees: ""
 ---
 
-## Description
+## Descripción
 
-A clear description of the bug.
+Descripción clara del error.
 
-## Steps to reproduce
+## Pasos para reproducir
 
-1. Go to ...
-2. Click on ...
-3. See error
+1. Ir a ...
+2. Hacer clic en ...
+3. Ver el error
 
-## Expected behavior
+## Comportamiento esperado
 
-What you expected to happen.
+Qué esperabas que pasara.
 
-## Actual behavior
+## Comportamiento actual
 
-What actually happened.
+Qué pasó realmente.
 
-## Environment
+## Entorno
 
-- Browser (if web): 
-- OS: 
-- Relevant URL or endpoint: 
+- Navegador (si es web): 
+- Sistema operativo: 
+- URL o endpoint relevante: 
 
-## Additional context
+## Contexto adicional
 
-Screenshots, error messages, or logs if available.
+Capturas de pantalla, mensajes de error o logs si los tienes.

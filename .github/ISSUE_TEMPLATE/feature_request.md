@@ -1,19 +1,19 @@
 ---
-name: Feature Request
-about: Suggest a new feature or improvement
-title: "[Feature] "
+name: Propuesta de mejora
+about: Sugerir una nueva funcionalidad o mejora
+title: "[Mejora] "
 labels: enhancement
 assignees: ""
 ---
 
-## Description
+## Descripción
 
-A clear description of the feature you'd like.
+Descripción clara de la funcionalidad que te gustaría.
 
-## Use case
+## Caso de uso
 
-Why is this feature needed? What problem does it solve?
+¿Por qué es necesaria esta funcionalidad? ¿Qué problema resuelve?
 
-## Proposed solution
+## Solución propuesta
 
-How do you think this could work? (Optional — we welcome ideas at any level of detail.)
+¿Cómo crees que podría funcionar? (Opcional — cualquier nivel de detalle es bienvenido.)
