@@ -468,6 +468,22 @@ import Base from "../layouts/Base.astro";
 					contentDiv.innerHTML = html;
 					document.title = (hasHeadline ? reform.headline : law.title) + ' — Ley Abierta';
 
+					// Inject NewsArticle JSON-LD for SEO (Google Discover / News)
+					var jsonLd = document.createElement("script");
+					jsonLd.type = "application/ld+json";
+					jsonLd.textContent = JSON.stringify({
+						"@context": "https://schema.org",
+						"@type": "NewsArticle",
+						"headline": hasHeadline ? reform.headline : ("Reforma: " + law.title),
+						"datePublished": reform.date,
+						"dateModified": reform.date,
+						"author": { "@type": "Organization", "name": "Ley Abierta", "url": "https://leyabierta.es" },
+						"publisher": { "@type": "Organization", "@id": "https://leyabierta.es/#org" },
+						"mainEntityOfPage": window.location.href,
+						"description": reform.summary || ("Cambios en " + law.title + " publicados el " + formatDate(reform.date))
+					});
+					document.head.appendChild(jsonLd);
+
 					// ── Toggles ──
 					contentDiv.querySelectorAll('.block-change-header').forEach(function (hdr) {
 						hdr.addEventListener('click', function () {

@@ -1,0 +1,281 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import sectorData from "../../../../shared/data/sector-materias.json";
+
+const RANK_LABELS: Record<string, string> = {
+	constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
+	real_decreto_ley: "Decreto urgente", real_decreto_legislativo: "Decreto legislativo",
+	real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
+	acuerdo_internacional: "Acuerdo internacional", circular: "Circular",
+	instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+	vigente: "En vigor",
+	derogada: "Ya no está en vigor",
+	parcialmente_derogada: "Parcialmente en vigor",
+};
+
+const RANK_ORDER = [
+	"constitucion", "ley_organica", "ley", "real_decreto_ley",
+	"real_decreto_legislativo", "real_decreto", "orden", "decreto",
+	"circular", "resolucion", "acuerdo_internacional", "instruccion", "reglamento",
+];
+
+export function getStaticPaths() {
+	return Object.entries(sectorData.sectors)
+		.filter(([key]) => key !== "otro")
+		.map(([slug]) => ({ params: { slug } }));
+}
+
+const { slug } = Astro.params;
+const sector = (sectorData.sectors as Record<string, any>)[slug!];
+const sectorLabel = sector.label as string;
+const sectorMaterias = new Set<string>(sector.materias as string[]);
+
+const allLaws = await getCollection("laws");
+
+// Filter laws that match this sector's materias
+const sectorLaws = allLaws
+	.filter(law => (law.data.materias ?? []).some(m => sectorMaterias.has(m)))
+	.sort((a, b) => {
+		// Sort by rank importance, then by date (newest first)
+		const rankDiff = RANK_ORDER.indexOf(a.data.rango) - RANK_ORDER.indexOf(b.data.rango);
+		if (rankDiff !== 0) return rankDiff;
+		return b.data.fecha_publicacion.localeCompare(a.data.fecha_publicacion);
+	});
+
+// Compute rank distribution for this sector
+const rankCounts = new Map<string, number>();
+let vigenteCount = 0;
+for (const law of sectorLaws) {
+	rankCounts.set(law.data.rango, (rankCounts.get(law.data.rango) ?? 0) + 1);
+	if (law.data.estado === "vigente") vigenteCount++;
+}
+const topRanks = [...rankCounts.entries()]
+	.sort((a, b) => b[1] - a[1])
+	.slice(0, 5);
+
+// Show first 100 laws, link to search for the rest
+const DISPLAY_LIMIT = 100;
+const displayLaws = sectorLaws.slice(0, DISPLAY_LIMIT);
+const hasMore = sectorLaws.length > DISPLAY_LIMIT;
+
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function formatDate(iso: string): string {
+	if (!iso) return '';
+	const [y, m, d] = iso.split('-');
+	return `${parseInt(d!, 10)} de ${MONTHS[parseInt(m!, 10) - 1]} de ${y}`;
+}
+
+const seoDescription = `${sectorLaws.length.toLocaleString("es")} leyes sobre ${sectorLabel.toLowerCase()} en España. ${vigenteCount.toLocaleString("es")} en vigor. Consulta, compara versiones y entiende cada norma.`;
+---
+
+<Base
+	title={`Leyes sobre ${sectorLabel.toLowerCase()}`}
+	description={seoDescription}
+	canonicalUrl={`/temas/${slug}`}
+>
+	<script type="application/ld+json" set:html={JSON.stringify({
+		"@context": "https://schema.org",
+		"@type": "CollectionPage",
+		"name": `Legislación sobre ${sectorLabel.toLowerCase()} en España`,
+		"description": seoDescription,
+		"url": `https://leyabierta.es/temas/${slug}`,
+		"numberOfItems": sectorLaws.length,
+		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
+		"breadcrumb": {
+			"@type": "BreadcrumbList",
+			"itemListElement": [
+				{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
+				{ "@type": "ListItem", "position": 2, "name": "Temas", "item": "https://leyabierta.es/temas" },
+				{ "@type": "ListItem", "position": 3, "name": sectorLabel, "item": `https://leyabierta.es/temas/${slug}` }
+			]
+		}
+	})} />
+
+	<style>
+		.back-link { font-size: 0.8125rem; color: var(--text-muted); }
+		.back-link:hover { color: var(--text-secondary); }
+
+		.tema-header { margin: 0.75rem 0 1.5rem; }
+		.tema-title {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			font-weight: 700;
+			line-height: 1.3;
+			margin-bottom: 0.5rem;
+		}
+		.tema-description {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.6;
+			max-width: 42rem;
+		}
+
+		.tema-stats {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			margin-bottom: 2rem;
+		}
+		.stat-pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			padding: 0.375rem 0.875rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 100px;
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+		}
+		.stat-pill strong {
+			color: var(--accent);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.law-list {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+		.law-row {
+			display: flex;
+			gap: 0.75rem;
+			align-items: baseline;
+			padding: 0.875rem 1rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 8px;
+			transition: border-color 0.15s;
+		}
+		.law-row:hover {
+			border-color: var(--accent);
+			text-decoration: none;
+		}
+		.law-row-rank {
+			font-size: 0.6875rem;
+			font-weight: 600;
+			color: var(--accent);
+			background: var(--accent-bg);
+			padding: 0.15rem 0.5rem;
+			border-radius: 4px;
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+		.law-row-title {
+			font-size: 0.875rem;
+			color: var(--text);
+			line-height: 1.4;
+			flex: 1;
+			min-width: 0;
+		}
+		.law-row-meta {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+
+		.more-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			margin-top: 1.5rem;
+			padding: 0.625rem 1.25rem;
+			background: var(--accent-bg);
+			color: var(--accent);
+			border-radius: 8px;
+			font-size: 0.875rem;
+			font-weight: 500;
+		}
+		.more-link:hover { text-decoration: none; background: var(--accent); color: #fff; }
+
+		.other-temas {
+			margin-top: 3rem;
+			padding-top: 2rem;
+			border-top: 1px solid var(--border-light);
+		}
+		.other-temas-heading {
+			font-size: 1rem;
+			font-weight: 600;
+			margin-bottom: 0.75rem;
+		}
+		.other-temas-list {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+		}
+		.other-tema-tag {
+			display: inline-block;
+			padding: 0.3rem 0.75rem;
+			border: 1px solid var(--border);
+			border-radius: 100px;
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+		}
+		.other-tema-tag:hover {
+			background: var(--accent-bg);
+			color: var(--accent);
+			border-color: var(--accent);
+			text-decoration: none;
+		}
+
+		@media (max-width: 640px) {
+			.law-row { flex-direction: column; gap: 0.25rem; }
+			.law-row-meta { white-space: normal; }
+		}
+	</style>
+
+	<a href="/temas/" class="back-link">&larr; Todos los temas</a>
+
+	<div class="tema-header">
+		<h1 class="tema-title">Leyes sobre {sectorLabel.toLowerCase()}</h1>
+		<p class="tema-description">
+			{sectorLaws.length.toLocaleString("es")} normas relacionadas con {sectorLabel.toLowerCase()} en la legislación española.
+			{vigenteCount > 0 && <>{vigenteCount.toLocaleString("es")} están actualmente en vigor.</>}
+		</p>
+	</div>
+
+	<div class="tema-stats">
+		<span class="stat-pill"><strong>{sectorLaws.length.toLocaleString("es")}</strong> leyes</span>
+		<span class="stat-pill"><strong>{vigenteCount.toLocaleString("es")}</strong> en vigor</span>
+		{topRanks.slice(0, 3).map(([rank, count]) => (
+			<span class="stat-pill"><strong>{count}</strong> {RANK_LABELS[rank] ?? rank}</span>
+		))}
+	</div>
+
+	<div class="law-list">
+		{displayLaws.map(law => (
+			<a href={`/laws/${law.data.identificador}/`} class="law-row">
+				<span class="law-row-rank">{RANK_LABELS[law.data.rango] ?? law.data.rango}</span>
+				<span class="law-row-title">{law.data.titulo}</span>
+				<span class="law-row-meta">
+					<span class={`badge badge-${law.data.estado}`} style="font-size:0.625rem;padding:0.1rem 0.4rem">
+						{STATUS_LABELS[law.data.estado] ?? law.data.estado}
+					</span>
+				</span>
+			</a>
+		))}
+	</div>
+
+	{hasMore && (
+		<a href={`/?materia=${encodeURIComponent((sector.materias as string[])[0])}`} class="more-link">
+			Ver las {sectorLaws.length.toLocaleString("es")} leyes &rarr;
+		</a>
+	)}
+
+	<div class="other-temas">
+		<h2 class="other-temas-heading">Otros temas</h2>
+		<div class="other-temas-list">
+			{Object.entries(sectorData.sectors)
+				.filter(([key]) => key !== "otro" && key !== slug)
+				.map(([key, val]) => (
+					<a href={`/temas/${key}/`} class="other-tema-tag">{(val as any).shortLabel}</a>
+				))
+			}
+		</div>
+	</div>
+</Base>

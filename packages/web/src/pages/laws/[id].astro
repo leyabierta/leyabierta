@@ -114,6 +114,23 @@ const RANK_LABELS: Record<string, string> = {
 	reglamento: "Reglamento",
 };
 
+// ELI legislation types for JSON-LD (schema.org/legislationType)
+const RANK_LEGISLATION_TYPES: Record<string, string> = {
+	constitucion: "Constitution",
+	ley_organica: "OrganicLaw",
+	ley: "Law",
+	real_decreto_ley: "RoyalDecreeLaw",
+	real_decreto_legislativo: "RoyalLegislativeDecree",
+	real_decreto: "RoyalDecree",
+	orden: "MinisterialOrder",
+	decreto: "Decree",
+	circular: "Circular",
+	resolucion: "Resolution",
+	acuerdo_internacional: "InternationalAgreement",
+	instruccion: "Instruction",
+	reglamento: "Regulation",
+};
+
 const STATUS_LABELS: Record<string, string> = {
 	vigente: "En vigor",
 	derogada: "Ya no está en vigor",
@@ -187,6 +204,8 @@ const seoDescription = [
 		...(law.estado === "vigente" || law.estado?.startsWith("derogad")
 			? { "legislationLegalForce": law.estado === "vigente" ? "InForce" : "NotInForce" }
 			: {}),
+		...(RANK_LEGISLATION_TYPES[law.rango] ? { "legislationType": RANK_LEGISLATION_TYPES[law.rango] } : {}),
+		...(materias.length > 0 ? { "about": materias.map(m => ({ "@type": "Thing", "name": m })) } : {}),
 		"inLanguage": "es",
 		"url": `https://leyabierta.es/laws/${id}`,
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
@@ -201,6 +220,20 @@ const seoDescription = [
 			{ "@type": "ListItem", "position": 2, "name": law.titulo, "item": `https://leyabierta.es/laws/${id}` }
 		]
 	})} />
+	{citizenSummary && (
+		<script type="application/ld+json" set:html={JSON.stringify({
+			"@context": "https://schema.org",
+			"@type": "FAQPage",
+			"mainEntity": [{
+				"@type": "Question",
+				"name": `¿Qué dice la ${law.titulo}?`,
+				"acceptedAnswer": {
+					"@type": "Answer",
+					"text": citizenSummary
+				}
+			}]
+		})} />
+	)}
 	<style>
 		.back-link { font-size: 0.8125rem; color: var(--text-muted); }
 		.back-link:hover { color: var(--text-secondary); }

@@ -1,0 +1,137 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import sectorData from "../../../../shared/data/sector-materias.json";
+
+const laws = await getCollection("laws");
+
+// Build a set of all materias across all laws for quick lookup
+const materiaToLawCount = new Map<string, number>();
+for (const law of laws) {
+	for (const m of law.data.materias ?? []) {
+		materiaToLawCount.set(m, (materiaToLawCount.get(m) ?? 0) + 1);
+	}
+}
+
+// Build sector stats
+const sectors = Object.entries(sectorData.sectors)
+	.filter(([key]) => key !== "otro")
+	.map(([slug, sector]) => {
+		const sectorMaterias = new Set((sector as any).materias as string[]);
+		// Count unique laws that have at least one materia in this sector
+		let lawCount = 0;
+		for (const law of laws) {
+			if ((law.data.materias ?? []).some(m => sectorMaterias.has(m))) {
+				lawCount++;
+			}
+		}
+		return {
+			slug,
+			label: (sector as any).label as string,
+			shortLabel: (sector as any).shortLabel as string,
+			lawCount,
+		};
+	})
+	.filter(s => s.lawCount > 0)
+	.sort((a, b) => b.lawCount - a.lawCount);
+
+const totalLaws = laws.length;
+---
+
+<Base
+	title="Temas legislativos"
+	description={`Explora la legislación española por temas: ${sectors.slice(0, 4).map(s => s.label.toLowerCase()).join(", ")} y más. Más de ${totalLaws.toLocaleString("es")} leyes organizadas por categoría.`}
+	canonicalUrl="/temas"
+>
+	<script type="application/ld+json" set:html={JSON.stringify({
+		"@context": "https://schema.org",
+		"@type": "CollectionPage",
+		"name": "Temas legislativos de España",
+		"description": `Índice de categorías temáticas de la legislación española. ${sectors.length} áreas con más de ${totalLaws.toLocaleString("es")} leyes.`,
+		"url": "https://leyabierta.es/temas",
+		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
+		"breadcrumb": {
+			"@type": "BreadcrumbList",
+			"itemListElement": [
+				{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
+				{ "@type": "ListItem", "position": 2, "name": "Temas", "item": "https://leyabierta.es/temas" }
+			]
+		}
+	})} />
+
+	<style>
+		.temas-header {
+			margin-bottom: 2rem;
+		}
+		.temas-title {
+			font-family: var(--font-serif);
+			font-size: 1.75rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+		.temas-subtitle {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.6;
+		}
+
+		.temas-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+			gap: 1rem;
+		}
+
+		.tema-card {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+			padding: 1.25rem 1.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			transition: border-color 0.15s, box-shadow 0.15s;
+		}
+		.tema-card:hover {
+			border-color: var(--accent);
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+			text-decoration: none;
+		}
+
+		.tema-label {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 600;
+			color: var(--text);
+			line-height: 1.3;
+		}
+
+		.tema-count {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+
+		@media (max-width: 640px) {
+			.temas-grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+
+	<a href="/" style="font-size: 0.8125rem; color: var(--text-muted);">&larr; Inicio</a>
+	<div class="temas-header">
+		<h1 class="temas-title">Temas legislativos</h1>
+		<p class="temas-subtitle">
+			Explora las leyes de España organizadas por área temática.
+			Cada categoría agrupa las normas que regulan un sector concreto.
+		</p>
+	</div>
+
+	<div class="temas-grid">
+		{sectors.map(sector => (
+			<a href={`/temas/${sector.slug}/`} class="tema-card">
+				<span class="tema-label">{sector.label}</span>
+				<span class="tema-count">{sector.lawCount.toLocaleString("es")} leyes</span>
+			</a>
+		))}
+	</div>
+</Base>

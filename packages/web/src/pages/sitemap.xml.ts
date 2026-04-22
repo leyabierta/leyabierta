@@ -4,6 +4,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import sectorData from "../../../shared/data/sector-materias.json";
 
 export const prerender = true;
 
@@ -18,7 +19,22 @@ export const GET: APIRoute = async () => {
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>`,
+		`  <url>
+    <loc>${SITE_URL}/temas</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>`,
 	];
+
+	// Topic hub pages
+	for (const slug of Object.keys(sectorData.sectors)) {
+		if (slug === "otro") continue;
+		urls.push(`  <url>
+    <loc>${SITE_URL}/temas/${slug}/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>`);
+	}
 
 	for (const law of laws) {
 		const d = law.data;
