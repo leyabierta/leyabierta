@@ -9,11 +9,11 @@ import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
 import { buildArticleAnchor } from "./anchor.ts";
 import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
 import {
-	type VectorSearchResult,
 	embedQuery,
 	ensureVectorIndex,
 	getEmbeddedNormIds,
 	getEmbeddingCount,
+	type VectorSearchResult,
 	vectorSearchChunked,
 } from "./embeddings.ts";
 import { JURISDICTION_NAMES, resolveJurisdiction } from "./jurisdiction.ts";
