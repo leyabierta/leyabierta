@@ -41,12 +41,7 @@ Este proyecto no busca beneficio monetario. Busca hacer un bien a la comunidad. 
 
 ## Hacia dónde vamos
 
-Lo que ya existe:
-
-- **Detector de ómnibus** — Identificamos leyes que incluyen artículos no relacionados con su objeto principal y desglosamos sus temas
-- **Changelog personalizado** — Cada usuario elige sus temas de interés y recibe notificaciones de los cambios que le afectan
-
-Lo que nos gustaría explorar:
+Estas son ideas que nos gustaría explorar:
 
 - **Flujo legislativo completo** — Seguir una ley desde su propuesta hasta su aprobación, con todo el proceso parlamentario visible
 - **PRs de leyes** — Visualizar las reformas pendientes como si fueran pull requests: qué cambia, qué se añade, qué se elimina
