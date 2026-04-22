@@ -103,8 +103,7 @@ const QUESTIONS: Array<{
 	},
 	{
 		id: "Q808",
-		question:
-			"¿Me pueden obligar a hacerme un test de drogas en el trabajo?",
+		question: "¿Me pueden obligar a hacerme un test de drogas en el trabajo?",
 		targetArticles: [{ normId: "BOE-A-2015-11430", blockId: "a20" }],
 	},
 	{
@@ -260,10 +259,7 @@ for (let qi = 0; qi < QUESTIONS.length; qi++) {
 		totalEnriched += enrichScore;
 		comparisons++;
 
-		const deltaStr =
-			delta > 0
-				? `+${delta.toFixed(4)}`
-				: delta.toFixed(4);
+		const deltaStr = delta > 0 ? `+${delta.toFixed(4)}` : delta.toFixed(4);
 		const indicator = delta > 0.01 ? " ✓" : delta < -0.01 ? " ✗" : "";
 
 		console.log(
@@ -274,7 +270,7 @@ for (let qi = 0; qi < QUESTIONS.length; qi++) {
 
 console.log("-".repeat(120));
 console.log(
-	`${"AVERAGE".padEnd(80)}${(totalOriginal / comparisons).toFixed(4).padEnd(12)}${(totalEnriched / comparisons).toFixed(4).padEnd(12)}${((totalEnriched - totalOriginal) / comparisons > 0 ? "+" : "")}${((totalEnriched - totalOriginal) / comparisons).toFixed(4)}`,
+	`${"AVERAGE".padEnd(80)}${(totalOriginal / comparisons).toFixed(4).padEnd(12)}${(totalEnriched / comparisons).toFixed(4).padEnd(12)}${(totalEnriched - totalOriginal) / comparisons > 0 ? "+" : ""}${((totalEnriched - totalOriginal) / comparisons).toFixed(4)}`,
 );
 
 console.log("\nDone. No files were modified.");

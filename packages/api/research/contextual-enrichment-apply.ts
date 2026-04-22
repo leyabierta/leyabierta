@@ -144,10 +144,7 @@ const targetChunks: TargetChunk[] = [];
 
 for (const e of ENRICHMENTS) {
 	const chunks = db
-		.query<
-			{ norm_id: string; block_id: string },
-			[string, string, string]
-		>(
+		.query<{ norm_id: string; block_id: string }, [string, string, string]>(
 			"SELECT norm_id, block_id FROM embeddings WHERE norm_id = ? AND block_id LIKE ? AND model = ?",
 		)
 		.all(e.normId, `${e.blockId}%`, MODEL_KEY);
@@ -159,9 +156,7 @@ for (const e of ENRICHMENTS) {
 			enrichment: e.context,
 		});
 	}
-	console.log(
-		`  ${e.desc}: ${chunks.length} chunks`,
-	);
+	console.log(`  ${e.desc}: ${chunks.length} chunks`);
 }
 
 console.log(`\nTotal: ${targetChunks.length} chunks to re-embed\n`);
