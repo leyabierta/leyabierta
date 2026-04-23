@@ -552,6 +552,11 @@ export class RagPipeline {
 			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
 		]);
 
+		// Allow explicit jurisdiction from request to override LLM-analyzed one
+		if (request.jurisdiction && !analyzed.jurisdiction) {
+			analyzed.jurisdiction = request.jurisdiction;
+		}
+
 		analysisSpan.end(
 			{
 				keywords: analyzed.keywords,
@@ -1438,6 +1443,11 @@ export class RagPipeline {
 			this.analyzeQuery(request.question),
 			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
 		]);
+
+		// Allow explicit jurisdiction from request to override LLM-analyzed one
+		if (request.jurisdiction && !analyzed.jurisdiction) {
+			analyzed.jurisdiction = request.jurisdiction;
+		}
 
 		if (analyzed.nonLegal) {
 			return {
