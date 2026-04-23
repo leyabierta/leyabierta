@@ -217,7 +217,7 @@ const seoDescription = [
 	ogTitle={law.titulo}
 	ogType="article"
 	ogImage={`${import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es"}/og/${id}`}
-	canonicalUrl={`/laws/${id}`}
+	canonicalUrl={`/laws/${id}/`}
 >
 	<!-- JSON-LD: Legislation -->
 	<script type="application/ld+json" set:html={safeJsonLd({
@@ -236,7 +236,7 @@ const seoDescription = [
 		...(RANK_LEGISLATION_TYPES[law.rango] ? { "legislationType": RANK_LEGISLATION_TYPES[law.rango] } : {}),
 		...(materias.length > 0 ? { "about": materias.map(m => ({ "@type": "Thing", "name": m })) } : {}),
 		"inLanguage": "es",
-		"url": `https://leyabierta.es/laws/${id}`,
+		"url": `https://leyabierta.es/laws/${id}/`,
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
 		...(seoAbbreviations.length > 0 ? { "alternateName": seoAbbreviations } : {}),
 		...(law.fuente ? { "sameAs": law.fuente } : {})
@@ -246,7 +246,7 @@ const seoDescription = [
 		"@type": "BreadcrumbList",
 		"itemListElement": [
 			{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
-			{ "@type": "ListItem", "position": 2, "name": law.titulo, "item": `https://leyabierta.es/laws/${id}` }
+			{ "@type": "ListItem", "position": 2, "name": law.titulo, "item": `https://leyabierta.es/laws/${id}/` }
 		]
 	})} />
 	<style>

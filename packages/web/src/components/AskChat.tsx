@@ -97,7 +97,7 @@ function renderAnswerWithCitations(
 						className="ask-cite-wrapper"
 					>
 						<a
-							href={`/laws/${normId}${citation.anchor ? `#${citation.anchor}` : ""}`}
+							href={`/laws/${normId}/${citation.anchor ? `#${citation.anchor}` : ""}`}
 							target="_blank"
 							rel="noopener noreferrer"
 							className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}
@@ -490,7 +490,7 @@ export default function AskChat() {
 																className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
 															>
 																<a
-																	href={`/laws/${c.normId}${c.anchor ? `#${c.anchor}` : ""}`}
+																	href={`/laws/${c.normId}/${c.anchor ? `#${c.anchor}` : ""}`}
 																	target="_blank"
 																	rel="noopener noreferrer"
 																	className="ask-citation-link"

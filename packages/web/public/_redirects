@@ -15,3 +15,6 @@
 /omnibus/detalle /omnibus/detalle/ 301
 /reforma /reforma/ 301
 /situaciones /situaciones/ 301
+
+# Dynamic law detail pages — preserve hash fragment (#articulo-N)
+/laws/:id /laws/:id/ 301

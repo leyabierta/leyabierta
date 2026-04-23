@@ -491,12 +491,32 @@ export class RagPipeline {
 			latency_ms INTEGER NOT NULL DEFAULT 0,
 			model TEXT,
 			best_score REAL,
+			tokens_in INTEGER,
+			tokens_out INTEGER,
+			cost_usd REAL,
 			created_at TEXT NOT NULL DEFAULT (datetime('now'))
 		)`);
 
+		// Idempotent migration for pre-existing DBs that lack the cost columns.
+		const existingCols = new Set(
+			this.db
+				.query<{ name: string }, []>(`PRAGMA table_info(ask_log)`)
+				.all()
+				.map((r) => r.name),
+		);
+		for (const [col, ddl] of [
+			["tokens_in", "INTEGER"],
+			["tokens_out", "INTEGER"],
+			["cost_usd", "REAL"],
+		] as const) {
+			if (!existingCols.has(col)) {
+				this.db.run(`ALTER TABLE ask_log ADD COLUMN ${col} ${ddl}`);
+			}
+		}
+
 		this.insertAskLogStmt = this.db.prepare(
-			`INSERT INTO ask_log (question, jurisdiction, answer, declined, citations_count, articles_retrieved, latency_ms, model, best_score)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO ask_log (question, jurisdiction, answer, declined, citations_count, articles_retrieved, latency_ms, model, best_score, tokens_in, tokens_out, cost_usd)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		);
 	}
 
@@ -520,6 +540,9 @@ export class RagPipeline {
 					result.meta.latencyMs,
 					result.meta.model,
 					result._bestScore ?? null,
+					result._tokensIn ?? null,
+					result._tokensOut ?? null,
+					result._cost ?? null,
 				);
 			} catch (logErr) {
 				console.warn(
@@ -527,7 +550,13 @@ export class RagPipeline {
 					logErr instanceof Error ? logErr.message : "unknown",
 				);
 			}
-			const { _bestScore: _, ...response } = result;
+			const {
+				_bestScore: _bs,
+				_cost: _c,
+				_tokensIn: _ti,
+				_tokensOut: _to,
+				...response
+			} = result;
 			return response;
 		} catch (err) {
 			trace.end({
@@ -542,15 +571,26 @@ export class RagPipeline {
 		request: AskRequest,
 		start: number,
 		trace: RagTrace,
-	): Promise<AskResponse & { _bestScore?: number }> {
+	): Promise<
+		AskResponse & {
+			_bestScore?: number;
+			_cost?: number;
+			_tokensIn?: number;
+			_tokensOut?: number;
+		}
+	> {
 		// 1. Analyze query + embed query in parallel (independent operations)
 		const analysisSpan = trace.span("query-analysis", "llm", {
 			question: request.question,
 		});
-		const [analyzed, queryResult] = await Promise.all([
+		const [analysisResult, queryResult] = await Promise.all([
 			this.analyzeQuery(request.question),
 			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
 		]);
+		const analyzed = analysisResult.query;
+		const analyzeCost = analysisResult.cost;
+		const analyzeTokensIn = analysisResult.tokensIn;
+		const analyzeTokensOut = analysisResult.tokensOut;
 
 		// Allow explicit jurisdiction from request to override LLM-analyzed one
 		if (request.jurisdiction && !analyzed.jurisdiction) {
@@ -566,6 +606,9 @@ export class RagPipeline {
 				jurisdiction: analyzed.jurisdiction,
 			},
 			{
+				analyzerCost: `$${analyzeCost.toFixed(8)}`,
+				analyzerTokensIn: analyzeTokensIn,
+				analyzerTokensOut: analyzeTokensOut,
 				embeddingCost: `$${queryResult.cost.toFixed(8)}`,
 				embeddingTokens: queryResult.tokens,
 			},
@@ -580,7 +623,11 @@ export class RagPipeline {
 		// 1b. Non-legal gate: if the analyzer detects the question isn't about
 		// law (poems, sports, etc.), decline immediately without wasting retrieval.
 		if (analyzed.nonLegal) {
-			const result: AskResponse = {
+			const result: AskResponse & {
+				_cost?: number;
+				_tokensIn?: number;
+				_tokensOut?: number;
+			} = {
 				answer:
 					"Solo puedo ayudarte con preguntas sobre legislación y derechos en España. Tu pregunta no parece estar relacionada con temas legales.",
 				citations: [],
@@ -591,6 +638,9 @@ export class RagPipeline {
 					latencyMs: Date.now() - start,
 					model: SYNTHESIS_MODEL,
 				},
+				_cost: analyzeCost + queryResult.cost,
+				_tokensIn: analyzeTokensIn + queryResult.tokens,
+				_tokensOut: analyzeTokensOut,
 			};
 			trace.end({ ...result, reason: "non_legal_intent" });
 			return result;
@@ -1024,7 +1074,11 @@ export class RagPipeline {
 		);
 
 		if (articles.length === 0) {
-			const result: AskResponse = {
+			const result: AskResponse & {
+				_cost?: number;
+				_tokensIn?: number;
+				_tokensOut?: number;
+			} = {
 				answer:
 					"No he encontrado artículos relevantes en la legislación española consolidada para responder a tu pregunta.",
 				citations: [],
@@ -1035,6 +1089,9 @@ export class RagPipeline {
 					latencyMs: Date.now() - start,
 					model: SYNTHESIS_MODEL,
 				},
+				_cost: analyzeCost + queryResult.cost,
+				_tokensIn: analyzeTokensIn + queryResult.tokens,
+				_tokensOut: analyzeTokensOut,
 			};
 			trace.end({ ...result, reason: "no_articles_found" });
 			return result;
@@ -1055,7 +1112,11 @@ export class RagPipeline {
 			// Always decline when no evidence — never return uncited legal advice.
 			// The LLM may claim it can answer from training data, but without
 			// grounded citations, the answer violates our core promise.
-			const result: AskResponse = {
+			const result: AskResponse & {
+				_cost?: number;
+				_tokensIn?: number;
+				_tokensOut?: number;
+			} = {
 				answer:
 					"No he encontrado legislación relevante para responder a tu pregunta. Solo puedo ayudarte con preguntas sobre leyes y derechos en España.",
 				citations: [],
@@ -1066,6 +1127,9 @@ export class RagPipeline {
 					latencyMs: Date.now() - start,
 					model: SYNTHESIS_MODEL,
 				},
+				_cost: analyzeCost + queryResult.cost,
+				_tokensIn: analyzeTokensIn + queryResult.tokens,
+				_tokensOut: analyzeTokensOut,
 			};
 			trace.score(
 				"citation_accuracy",
@@ -1224,7 +1288,17 @@ export class RagPipeline {
 				"\n\n(Nota: Parte de la información no ha podido ser verificada con las fuentes disponibles.)";
 		}
 
-		const result: AskResponse & { _bestScore?: number } = {
+		const totalCost = analyzeCost + queryResult.cost + synthesis.cost;
+		const totalTokensIn =
+			analyzeTokensIn + queryResult.tokens + synthesis.tokensIn;
+		const totalTokensOut = analyzeTokensOut + synthesis.tokensOut;
+
+		const result: AskResponse & {
+			_bestScore?: number;
+			_cost?: number;
+			_tokensIn?: number;
+			_tokensOut?: number;
+		} = {
 			answer: finalAnswer,
 			citations: validCitations,
 			declined: synthesis.declined,
@@ -1235,6 +1309,9 @@ export class RagPipeline {
 				model: SYNTHESIS_MODEL,
 			},
 			_bestScore: bestScore,
+			_cost: totalCost,
+			_tokensIn: totalTokensIn,
+			_tokensOut: totalTokensOut,
 		};
 
 		// 8. Citation completeness — verify inline citations in the answer
@@ -1297,131 +1374,209 @@ export class RagPipeline {
 		  }
 	> {
 		const start = Date.now();
-		// Note: no Opik tracing in stream path. ask_log covers coarse metrics
-		// (latency, citation count, declined rate). Add per-stage spans if needed.
+		const trace = startTrace(request.question, {
+			jurisdiction: request.jurisdiction,
+			model: SYNTHESIS_MODEL,
+			stream: true,
+		});
 
-		// Reuse the same retrieval pipeline as ask()
-		const retrieval = await this.runRetrieval(request);
+		try {
+			const retrieval = await this.runRetrieval(request, trace);
 
-		if (retrieval.type === "early") {
-			// Declined or no articles — yield the full answer as a single chunk
-			yield { type: "chunk", text: retrieval.response.answer };
-			yield {
-				type: "done",
-				citations: retrieval.response.citations,
-				meta: retrieval.response.meta,
-				declined: retrieval.response.declined,
-			};
+			if (retrieval.type === "early") {
+				yield { type: "chunk", text: retrieval.response.answer };
+				yield {
+					type: "done",
+					citations: retrieval.response.citations,
+					meta: retrieval.response.meta,
+					declined: retrieval.response.declined,
+				};
+				const totalCost = retrieval.cost.analyze + retrieval.cost.embedding;
+				const totalIn = retrieval.tokens.analyzeIn + retrieval.tokens.embedding;
+				const totalOut = retrieval.tokens.analyzeOut;
+				try {
+					this.insertAskLogStmt.run(
+						request.question,
+						request.jurisdiction ?? null,
+						retrieval.response.answer,
+						retrieval.response.declined ? 1 : 0,
+						0,
+						0,
+						retrieval.response.meta.latencyMs,
+						SYNTHESIS_MODEL,
+						null,
+						totalIn,
+						totalOut,
+						totalCost,
+					);
+				} catch {
+					/* ignore */
+				}
+				trace.end({
+					answer: retrieval.response.answer.slice(0, 500),
+					declined: retrieval.response.declined,
+					reason: "retrieval_early_exit",
+					latencyMs: retrieval.response.meta.latencyMs,
+					totalCostUsd: totalCost,
+					totalTokensIn: totalIn,
+					totalTokensOut: totalOut,
+				});
+				return;
+			}
+
+			const { evidenceText, articles, useTemporal, bestScore } = retrieval;
+
+			const synthesisSpan = trace.span("synthesis", "llm", {
+				question: request.question,
+				evidenceChars: evidenceText.length,
+				evidenceApproxTokens: Math.ceil(evidenceText.length / 4),
+				temporal: useTemporal,
+				streaming: true,
+			});
+
+			const systemPrompt = useTemporal
+				? SYSTEM_PROMPT_STREAM + TEMPORAL_ADDENDUM
+				: SYSTEM_PROMPT_STREAM;
+
+			// Stream synthesis — capture tokens/cost from the final "done" event
+			let fullText = "";
+			let synthesisTokensIn = 0;
+			let synthesisTokensOut = 0;
+			let synthesisCost = 0;
+			for await (const event of callOpenRouterStream(this.apiKey, {
+				model: SYNTHESIS_MODEL,
+				messages: [
+					{ role: "system", content: systemPrompt },
+					{
+						role: "user",
+						content: `ARTÍCULOS DISPONIBLES:\n\n${evidenceText}\n\nPREGUNTA: ${request.question}`,
+					},
+				],
+				temperature: 0.2,
+				maxTokens: 1500,
+			})) {
+				if (event.type === "delta") {
+					fullText += event.text;
+					yield { type: "chunk", text: event.text };
+				} else if (event.type === "done") {
+					synthesisTokensIn = event.tokensIn;
+					synthesisTokensOut = event.tokensOut;
+					synthesisCost = event.cost;
+				}
+			}
+
+			// Parse citations from the accumulated text
+			const rawCitations: Array<{
+				normId: string;
+				articleTitle: string;
+			}> = [];
+			for (const match of fullText.matchAll(INLINE_CITE_PATTERN)) {
+				rawCitations.push({ normId: match[1]!, articleTitle: match[2]! });
+			}
+
+			const seen = new Set<string>();
+			const uniqueCitations = rawCitations.filter((c) => {
+				const key = `${c.normId}:${c.articleTitle}`;
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+
+			const validCitations = this.verifyCitations(uniqueCitations, articles);
+
+			const declined =
+				fullText.includes("Solo puedo ayudarte con preguntas") ||
+				fullText.includes("No he encontrado legislación");
+
+			synthesisSpan.end(
+				{
+					declined,
+					answerLength: fullText.length,
+					rawCitationCount: uniqueCitations.length,
+					validCitationCount: validCitations.length,
+				},
+				{
+					synthesisCost: `$${synthesisCost.toFixed(8)}`,
+					synthesisTokensIn,
+					synthesisTokensOut,
+				},
+			);
+
+			this.generateMissingSummaries(validCitations, articles);
+
+			const latencyMs = Date.now() - start;
+			const totalCost =
+				retrieval.cost.analyze + retrieval.cost.embedding + synthesisCost;
+			const totalTokensIn =
+				retrieval.tokens.analyzeIn +
+				retrieval.tokens.embedding +
+				synthesisTokensIn;
+			const totalTokensOut = retrieval.tokens.analyzeOut + synthesisTokensOut;
+
 			try {
 				this.insertAskLogStmt.run(
 					request.question,
 					request.jurisdiction ?? null,
-					retrieval.response.answer,
-					retrieval.response.declined ? 1 : 0,
-					0,
-					0,
-					retrieval.response.meta.latencyMs,
+					fullText,
+					declined ? 1 : 0,
+					validCitations.length,
+					articles.length,
+					latencyMs,
 					SYNTHESIS_MODEL,
-					null,
+					bestScore,
+					totalTokensIn,
+					totalTokensOut,
+					totalCost,
 				);
 			} catch {
 				/* ignore */
 			}
-			return;
-		}
 
-		const { evidenceText, articles, useTemporal, bestScore } = retrieval;
-
-		const systemPrompt = useTemporal
-			? SYSTEM_PROMPT_STREAM + TEMPORAL_ADDENDUM
-			: SYSTEM_PROMPT_STREAM;
-
-		// Stream synthesis
-		let fullText = "";
-		for await (const event of callOpenRouterStream(this.apiKey, {
-			model: SYNTHESIS_MODEL,
-			messages: [
-				{ role: "system", content: systemPrompt },
-				{
-					role: "user",
-					content: `ARTÍCULOS DISPONIBLES:\n\n${evidenceText}\n\nPREGUNTA: ${request.question}`,
-				},
-			],
-			temperature: 0.2,
-			maxTokens: 1500,
-		})) {
-			if (event.type === "delta") {
-				fullText += event.text;
-				yield { type: "chunk", text: event.text };
-			}
-		}
-
-		// Parse citations from the accumulated text
-		const rawCitations: Array<{
-			normId: string;
-			articleTitle: string;
-		}> = [];
-		for (const match of fullText.matchAll(INLINE_CITE_PATTERN)) {
-			rawCitations.push({ normId: match[1]!, articleTitle: match[2]! });
-		}
-
-		// Deduplicate
-		const seen = new Set<string>();
-		const uniqueCitations = rawCitations.filter((c) => {
-			const key = `${c.normId}:${c.articleTitle}`;
-			if (seen.has(key)) return false;
-			seen.add(key);
-			return true;
-		});
-
-		// Verify citations against evidence
-		const validCitations = this.verifyCitations(uniqueCitations, articles);
-
-		// Decline detection: early-gate returns from runRetrieval already set
-		// declined=true correctly. For the synthesis path, detect from accumulated text.
-		const declined =
-			fullText.includes("Solo puedo ayudarte con preguntas") ||
-			fullText.includes("No he encontrado legislación");
-
-		// Fire-and-forget: generate missing citizen summaries
-		this.generateMissingSummaries(validCitations, articles);
-
-		// Log to ask_log
-		const latencyMs = Date.now() - start;
-		try {
-			this.insertAskLogStmt.run(
-				request.question,
-				request.jurisdiction ?? null,
-				fullText,
-				declined ? 1 : 0,
-				validCitations.length,
-				articles.length,
-				latencyMs,
-				SYNTHESIS_MODEL,
-				bestScore,
-			);
-		} catch {
-			/* ignore */
-		}
-
-		yield {
-			type: "done",
-			citations: validCitations,
-			meta: {
+			trace.end({
+				answer: fullText.slice(0, 500),
+				declined,
 				articlesRetrieved: articles.length,
-				temporalEnriched: useTemporal,
+				citationsVerified: validCitations.filter((c) => c.verified).length,
+				citationsTotal: validCitations.length,
 				latencyMs,
-				model: SYNTHESIS_MODEL,
-			},
-			declined,
-		};
+				totalCostUsd: totalCost,
+				totalTokensIn,
+				totalTokensOut,
+			});
+
+			yield {
+				type: "done",
+				citations: validCitations,
+				meta: {
+					articlesRetrieved: articles.length,
+					temporalEnriched: useTemporal,
+					latencyMs,
+					model: SYNTHESIS_MODEL,
+				},
+				declined,
+			};
+		} catch (err) {
+			trace.end({
+				error: err instanceof Error ? err.message : String(err),
+				latencyMs: Date.now() - start,
+			});
+			throw err;
+		}
 	}
 
 	// ── Private methods ──
 
 	/** Shared retrieval logic used by both ask() and askStream(). */
-	private async runRetrieval(request: AskRequest): Promise<
-		| { type: "early"; response: AskResponse }
+	private async runRetrieval(
+		request: AskRequest,
+		trace?: RagTrace,
+	): Promise<
+		| {
+				type: "early";
+				response: AskResponse;
+				cost: { analyze: number; embedding: number };
+				tokens: { analyzeIn: number; analyzeOut: number; embedding: number };
+		  }
 		| {
 				type: "ready";
 				evidenceText: string;
@@ -1435,19 +1590,54 @@ export class RagPipeline {
 				}>;
 				useTemporal: boolean;
 				bestScore: number;
+				cost: { analyze: number; embedding: number };
+				tokens: { analyzeIn: number; analyzeOut: number; embedding: number };
 		  }
 	> {
 		const start = Date.now();
 
-		const [analyzed, queryResult] = await Promise.all([
+		const analysisSpan = trace?.span("query-analysis", "llm", {
+			question: request.question,
+		});
+		const [analysisResult, queryResult] = await Promise.all([
 			this.analyzeQuery(request.question),
 			embedQuery(this.apiKey, EMBEDDING_MODEL_KEY, request.question),
 		]);
+		const analyzed = analysisResult.query;
+		const analyzeCost = analysisResult.cost;
+		const analyzeTokensIn = analysisResult.tokensIn;
+		const analyzeTokensOut = analysisResult.tokensOut;
 
 		// Allow explicit jurisdiction from request to override LLM-analyzed one
 		if (request.jurisdiction && !analyzed.jurisdiction) {
 			analyzed.jurisdiction = request.jurisdiction;
 		}
+
+		analysisSpan?.end(
+			{
+				keywords: analyzed.keywords,
+				materias: analyzed.materias,
+				temporal: analyzed.temporal,
+				nonLegal: analyzed.nonLegal,
+				jurisdiction: analyzed.jurisdiction,
+			},
+			{
+				analyzerCost: `$${analyzeCost.toFixed(8)}`,
+				analyzerTokensIn: analyzeTokensIn,
+				analyzerTokensOut: analyzeTokensOut,
+				embeddingCost: `$${queryResult.cost.toFixed(8)}`,
+				embeddingTokens: queryResult.tokens,
+			},
+		);
+
+		const costInfo = {
+			cost: { analyze: analyzeCost, embedding: queryResult.cost },
+			tokens: {
+				analyzeIn: analyzeTokensIn,
+				analyzeOut: analyzeTokensOut,
+				embedding: queryResult.tokens,
+			},
+		};
 
 		if (analyzed.nonLegal) {
 			return {
@@ -1464,6 +1654,7 @@ export class RagPipeline {
 						model: SYNTHESIS_MODEL,
 					},
 				},
+				...costInfo,
 			};
 		}
 
@@ -1816,6 +2007,7 @@ export class RagPipeline {
 						model: SYNTHESIS_MODEL,
 					},
 				},
+				...costInfo,
 			};
 		}
 
@@ -1834,6 +2026,7 @@ export class RagPipeline {
 						model: SYNTHESIS_MODEL,
 					},
 				},
+				...costInfo,
 			};
 		}
 
@@ -1866,6 +2059,7 @@ export class RagPipeline {
 			articles,
 			useTemporal,
 			bestScore,
+			...costInfo,
 		};
 	}
 
@@ -2213,7 +2407,12 @@ export class RagPipeline {
 		return rows.map((r) => r.id).filter((id) => embeddingSet.has(id));
 	}
 
-	private async analyzeQuery(question: string): Promise<AnalyzedQuery> {
+	private async analyzeQuery(question: string): Promise<{
+		query: AnalyzedQuery;
+		cost: number;
+		tokensIn: number;
+		tokensOut: number;
+	}> {
 		try {
 			const result = await callOpenRouter<{
 				keywords: string[];
@@ -2244,13 +2443,18 @@ Responde SOLO con JSON.`,
 				maxTokens: 250,
 			});
 			return {
-				keywords: result.data.keywords ?? [],
-				legalSynonyms: result.data.legal_synonyms ?? [],
-				materias: result.data.materias ?? [],
-				temporal: result.data.temporal ?? false,
-				nonLegal: result.data.non_legal ?? false,
-				jurisdiction: result.data.jurisdiction?.toLowerCase() ?? null,
-				normNameHint: result.data.norm_name_hint ?? null,
+				query: {
+					keywords: result.data.keywords ?? [],
+					legalSynonyms: result.data.legal_synonyms ?? [],
+					materias: result.data.materias ?? [],
+					temporal: result.data.temporal ?? false,
+					nonLegal: result.data.non_legal ?? false,
+					jurisdiction: result.data.jurisdiction?.toLowerCase() ?? null,
+					normNameHint: result.data.norm_name_hint ?? null,
+				},
+				cost: result.cost,
+				tokensIn: result.tokensIn,
+				tokensOut: result.tokensOut,
 			};
 		} catch (err) {
 			console.warn(
@@ -2301,16 +2505,21 @@ Responde SOLO con JSON.`,
 				"cuántos",
 			]);
 			return {
-				keywords: question
-					.split(/\s+/)
-					.map((t) => t.toLowerCase().replace(/[¿?¡!.,;:]/g, ""))
-					.filter((t) => t.length > 2 && !STOP_WORDS.has(t)),
-				legalSynonyms: [],
-				materias: [],
-				temporal: isTemporal,
-				nonLegal: false,
-				jurisdiction: null,
-				normNameHint: null,
+				query: {
+					keywords: question
+						.split(/\s+/)
+						.map((t) => t.toLowerCase().replace(/[¿?¡!.,;:]/g, ""))
+						.filter((t) => t.length > 2 && !STOP_WORDS.has(t)),
+					legalSynonyms: [],
+					materias: [],
+					temporal: isTemporal,
+					nonLegal: false,
+					jurisdiction: null,
+					normNameHint: null,
+				},
+				cost: 0,
+				tokensIn: 0,
+				tokensOut: 0,
 			};
 		}
 	}
@@ -2624,6 +2833,9 @@ Responde SOLO con JSON.`,
 				articleTitle: c.article_title,
 			})),
 			declined: result.data.declined ?? false,
+			cost: result.cost,
+			tokensIn: result.tokensIn,
+			tokensOut: result.tokensOut,
 		};
 	}
 
