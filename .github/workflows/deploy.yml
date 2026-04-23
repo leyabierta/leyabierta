@@ -183,7 +183,7 @@ jobs:
         run: |
           cd /opt/leyabierta/code
           docker compose pull api
-          docker compose up -d api
+          flock /tmp/leyabierta-deploy.lock docker compose up -d api
           echo "Container restarted, waiting for health check..."
           for i in $(seq 1 24); do
             VERSION=$(curl -sf http://localhost:3000/health | jq -r '.version // empty' 2>/dev/null || echo "")
