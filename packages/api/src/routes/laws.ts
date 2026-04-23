@@ -43,7 +43,7 @@ export function lawRoutes(
 				({ query }) => {
 					const limit = Math.min(query.limit ?? 20, 100);
 					const offset = query.offset ?? 0;
-					const { laws, total } = dbService.searchLaws(
+					const { laws, total, capped } = dbService.searchLaws(
 						query.q,
 						{
 							country: query.country,
@@ -61,6 +61,7 @@ export function lawRoutes(
 						total,
 						limit,
 						offset,
+						...(capped ? { capped: true } : {}),
 					};
 				},
 				{

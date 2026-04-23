@@ -1005,8 +1005,16 @@ const TOPICS = [
 			if (searchHints) searchHints.style.display = "none";
 
 			var params = new URLSearchParams();
-			if (q) params.set("q", q);
-			if (currentCountry) params.set("country", currentCountry);
+			// Jurisdiction filter: until the DB has a jurisdiction column,
+			// append the community name to the search query for filtering
+			var effectiveQ = q;
+			if (currentCountry && currentCountry !== "es") {
+				var regionName = REGION_NAMES[currentCountry] || "";
+				if (regionName) {
+					effectiveQ = effectiveQ ? effectiveQ + " " + regionName : regionName;
+				}
+			}
+			if (effectiveQ) params.set("q", effectiveQ);
 			if (currentSort) params.set("sort", currentSort);
 			params.set("limit", String(LIMIT));
 			params.set("offset", String((currentPage - 1) * LIMIT));
@@ -1046,7 +1054,8 @@ const TOPICS = [
 
 					var hasQuery = searchInput.value.trim();
 					html += '<div class="results-header">';
-					html += '<span class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</span>';
+					var totalLabel = result.capped ? 'más de ' + result.total.toLocaleString("es") : result.total.toLocaleString("es");
+					html += '<span class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + totalLabel + '</span>';
 					html += '<select class="sort-select" id="sort-select">';
 					html += '<option value=""' + (currentSort === "" ? ' selected' : '') + '>' + (hasQuery ? 'Más relevantes' : 'Más recientes') + '</option>';
 					if (hasQuery) html += '<option value="recent"' + (currentSort === "recent" ? ' selected' : '') + '>Más recientes</option>';
