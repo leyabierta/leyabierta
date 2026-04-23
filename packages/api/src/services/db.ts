@@ -53,6 +53,7 @@ export class DbService {
 		query: string | undefined,
 		filters: {
 			country?: string;
+			jurisdiction?: string;
 			rank?: string;
 			status?: string;
 			materia?: string;
@@ -61,7 +62,7 @@ export class DbService {
 		limit: number,
 		offset: number,
 		sort?: string,
-	): { laws: LawRow[]; total: number } {
+	): { laws: LawRow[]; total: number; capped?: boolean } {
 		if (query) {
 			// If the query looks like a norm ID (e.g. BOE-A-2018-6405), search by ID directly
 			const isNormId = /^[A-Z]+-[A-Z]+-\d{4}-\d+$/i.test(query.trim());
@@ -149,11 +150,24 @@ export class DbService {
 				}
 			}
 
-			// Default: FTS relevance order — two-pass: title matches first (fast),
-			// then content matches for additional results. Cap at 2000.
+			// Default: FTS relevance order — three-pass: exact title matches first,
+			// then FTS title matches, then content matches. Cap at 2000.
 			const FTS_CAP = 2000;
 			try {
-				// Pass 1: title matches (very fast, most relevant)
+				// Pass 0: exact/prefix title matches (highest relevance)
+				// These go first regardless of BM25 score
+				const exactIds = this.db
+					.query<{ id: string }, [string, string]>(
+						`SELECT id FROM norms
+						 WHERE title LIKE ? OR title LIKE ?
+						 ORDER BY length(title) ASC
+						 LIMIT 20`,
+					)
+					.all(`${query}%`, `% ${query}%`)
+					.map((r) => r.id);
+
+				// Pass 1: FTS title matches (fast, most relevant)
+				const exactSet = new Set(exactIds);
 				const titleIds = this.db
 					.query<{ norm_id: string }, [string]>(
 						`SELECT DISTINCT norm_id FROM norms_fts
@@ -162,13 +176,14 @@ export class DbService {
 						 LIMIT ${FTS_CAP}`,
 					)
 					.all(safeQuery)
-					.map((r) => r.norm_id);
+					.map((r) => r.norm_id)
+					.filter((id) => !exactSet.has(id));
 
-				let allIds = titleIds;
+				let allIds = [...exactIds, ...titleIds];
 
 				// Pass 2: content matches if we need more results
-				if (titleIds.length < FTS_CAP) {
-					const titleSet = new Set(titleIds);
+				if (allIds.length < FTS_CAP) {
+					const seen = new Set(allIds);
 					const contentIds = this.db
 						.query<{ norm_id: string }, [string]>(
 							`SELECT DISTINCT norm_id FROM norms_fts
@@ -176,13 +191,14 @@ export class DbService {
 						)
 						.all(safeQuery)
 						.map((r) => r.norm_id)
-						.filter((id) => !titleSet.has(id));
-					allIds = [...titleIds, ...contentIds].slice(0, FTS_CAP);
+						.filter((id) => !seen.has(id));
+					allIds = [...allIds, ...contentIds].slice(0, FTS_CAP);
 				}
 
 				// Apply filters in the norms table
 				const hasFilters =
 					filters.country ||
+					filters.jurisdiction ||
 					filters.rank ||
 					filters.status ||
 					filters.materia ||
@@ -214,7 +230,8 @@ export class DbService {
 					.map((id) => rowMap.get(id))
 					.filter((r): r is LawRow => r != null);
 
-				return { laws, total };
+				const capped = allIds.length >= FTS_CAP;
+				return { laws, total, capped };
 			} catch {
 				// FTS failed, fallback to LIKE on title
 				const conditions2: string[] = ["title LIKE ?"];
@@ -313,13 +330,17 @@ export class DbService {
 		params: unknown[],
 		filters: {
 			country?: string;
+			jurisdiction?: string;
 			rank?: string;
 			status?: string;
 			materia?: string;
 			citizen_tag?: string;
 		},
 	): void {
-		if (filters.country) {
+		if (filters.jurisdiction) {
+			conditions.push("jurisdiction = ?");
+			params.push(filters.jurisdiction);
+		} else if (filters.country) {
 			conditions.push("country = ?");
 			params.push(filters.country);
 		}

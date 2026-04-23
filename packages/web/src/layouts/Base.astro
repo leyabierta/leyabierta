@@ -244,7 +244,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 		}
 		.theme-toggle:active { transform: scale(0.95); transition-duration: 0.1s; }
 		header nav {
-			max-width: var(--max-w);
+			max-width: 72rem;
 			margin: 0 auto;
 			padding: 0.875rem 1.25rem;
 			display: flex;
@@ -573,7 +573,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 	</main>
 
 	<footer style="contain:layout style">
-		<div class="container">
+		<div style="max-width:72rem;margin:0 auto;padding:0 1.25rem">
 			<div class="footer-grid">
 				<div>
 					<p>Fuente: <a href="https://www.boe.es" target="_blank" rel="noopener">Agencia Estatal Boletín Oficial del Estado</a></p>

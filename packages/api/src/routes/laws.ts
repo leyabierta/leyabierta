@@ -43,10 +43,11 @@ export function lawRoutes(
 				({ query }) => {
 					const limit = Math.min(query.limit ?? 20, 100);
 					const offset = query.offset ?? 0;
-					const { laws, total } = dbService.searchLaws(
+					const { laws, total, capped } = dbService.searchLaws(
 						query.q,
 						{
 							country: query.country,
+							jurisdiction: query.jurisdiction,
 							rank: query.rank,
 							status: query.status,
 							materia: query.materia,
@@ -61,12 +62,14 @@ export function lawRoutes(
 						total,
 						limit,
 						offset,
+						...(capped ? { capped: true } : {}),
 					};
 				},
 				{
 					query: t.Object({
 						q: t.Optional(t.String()),
 						country: t.Optional(t.String()),
+						jurisdiction: t.Optional(t.String()),
 						rank: t.Optional(t.String()),
 						status: t.Optional(t.String()),
 						materia: t.Optional(t.String()),

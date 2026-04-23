@@ -13,7 +13,8 @@ const SCHEMA_SQL = /* sql */ `
     id          TEXT PRIMARY KEY,  -- e.g. BOE-A-1978-31229
     title       TEXT NOT NULL,
     short_title TEXT NOT NULL DEFAULT '',
-    country     TEXT NOT NULL,     -- ISO 3166-1 alpha-2
+    country     TEXT NOT NULL,     -- ISO 3166-1 alpha-2 (always "es" for Spain)
+    jurisdiction TEXT NOT NULL DEFAULT 'es', -- ELI jurisdiction: es, es-vc, es-ct, etc.
     rank        TEXT NOT NULL,
     published_at TEXT NOT NULL,    -- ISO date
     updated_at  TEXT,              -- ISO date
@@ -205,6 +206,17 @@ export function createSchema(db: Database): void {
 	try {
 		db.exec(
 			"ALTER TABLE norms ADD COLUMN citizen_summary TEXT NOT NULL DEFAULT ''",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec(
+			"ALTER TABLE norms ADD COLUMN jurisdiction TEXT NOT NULL DEFAULT 'es'",
+		);
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_norms_jurisdiction ON norms(jurisdiction)",
 		);
 	} catch {
 		// Column already exists
