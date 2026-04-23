@@ -43,6 +43,7 @@ export const GET: APIRoute = async () => {
 - [Repo de leyes](https://github.com/leyabierta/leyes): Legislación como Markdown + historial Git
 
 ## Optional
+- [Documentación completa para LLMs](https://leyabierta.es/llms-full.txt): API reference completa con cobertura de jurisdicciones y rangos
 - [RSS](https://leyabierta.es/feed.xml): Feed de reformas recientes
 - [Sitemap](https://leyabierta.es/sitemap.xml): Mapa del sitio
 - [Privacidad](https://leyabierta.es/privacidad/): Política de privacidad
