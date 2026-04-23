@@ -525,9 +525,12 @@ describe("ingestJsonDir", () => {
 		await ingestJsonDir(db, tempDir);
 
 		const row = db
-			.query("SELECT country FROM norms WHERE id = 'BOE-A-2024-ANDA'")
-			.get() as { country: string };
-		expect(row.country).toBe("es-an");
+			.query(
+				"SELECT country, jurisdiction FROM norms WHERE id = 'BOE-A-2024-ANDA'",
+			)
+			.get() as { country: string; jurisdiction: string };
+		expect(row.country).toBe("es");
+		expect(row.jurisdiction).toBe("es-an");
 	});
 
 	test("resolves jurisdiction from regional bulletin ID prefix", async () => {
@@ -544,9 +547,12 @@ describe("ingestJsonDir", () => {
 		await ingestJsonDir(db, tempDir);
 
 		const row = db
-			.query("SELECT country FROM norms WHERE id = 'BOJA-2024-0001'")
-			.get() as { country: string };
-		expect(row.country).toBe("es-an");
+			.query(
+				"SELECT country, jurisdiction FROM norms WHERE id = 'BOJA-2024-0001'",
+			)
+			.get() as { country: string; jurisdiction: string };
+		expect(row.country).toBe("es");
+		expect(row.jurisdiction).toBe("es-an");
 	});
 });
 

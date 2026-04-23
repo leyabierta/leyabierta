@@ -1005,16 +1005,8 @@ const TOPICS = [
 			if (searchHints) searchHints.style.display = "none";
 
 			var params = new URLSearchParams();
-			// Jurisdiction filter: until the DB has a jurisdiction column,
-			// append the community name to the search query for filtering
-			var effectiveQ = q;
-			if (currentCountry && currentCountry !== "es") {
-				var regionName = REGION_NAMES[currentCountry] || "";
-				if (regionName) {
-					effectiveQ = effectiveQ ? effectiveQ + " " + regionName : regionName;
-				}
-			}
-			if (effectiveQ) params.set("q", effectiveQ);
+			if (q) params.set("q", q);
+			if (currentCountry) params.set("jurisdiction", currentCountry);
 			if (currentSort) params.set("sort", currentSort);
 			params.set("limit", String(LIMIT));
 			params.set("offset", String((currentPage - 1) * LIMIT));
@@ -1027,7 +1019,7 @@ const TOPICS = [
 			// Update URL
 			var urlParams = new URLSearchParams();
 			if (q) urlParams.set("q", q);
-			if (currentCountry) urlParams.set("country", currentCountry);
+			if (currentCountry) urlParams.set("jurisdiction", currentCountry);
 			if (currentSort) urlParams.set("sort", currentSort);
 			if (currentPage > 1) urlParams.set("page", String(currentPage));
 			history.replaceState(null, "", "/?" + urlParams.toString());
@@ -1137,9 +1129,9 @@ const TOPICS = [
 
 		// Restore from URL params
 		var urlParams = new URLSearchParams(window.location.search);
-		if (urlParams.get("q") || urlParams.get("country")) {
+		if (urlParams.get("q") || urlParams.get("jurisdiction")) {
 			searchInput.value = urlParams.get("q") || "";
-			currentCountry = urlParams.get("country") || "";
+			currentCountry = urlParams.get("jurisdiction") || "";
 			currentSort = urlParams.get("sort") || "";
 			doSearch(Number(urlParams.get("page") || "1"));
 		}

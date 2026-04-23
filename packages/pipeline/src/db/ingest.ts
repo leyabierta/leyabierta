@@ -206,8 +206,8 @@ export async function ingestJsonDir(
 
 	// Prepare statements
 	const insertNorm = db.prepare(/* sql */ `
-		INSERT OR REPLACE INTO norms (id, title, short_title, country, rank, published_at, updated_at, status, department, source_url, citizen_summary)
-		VALUES ($id, $title, $shortTitle, $country, $rank, $publishedAt, $updatedAt, $status, $department, $sourceUrl, $citizenSummary)
+		INSERT OR REPLACE INTO norms (id, title, short_title, country, jurisdiction, rank, published_at, updated_at, status, department, source_url, citizen_summary)
+		VALUES ($id, $title, $shortTitle, $country, $jurisdiction, $rank, $publishedAt, $updatedAt, $status, $department, $sourceUrl, $citizenSummary)
 	`);
 
 	const insertBlock = db.prepare(/* sql */ `
@@ -280,7 +280,7 @@ export async function ingestJsonDir(
 							)
 							.get(metadata.id)?.citizen_summary ?? "";
 
-					const country = resolveJurisdiction(
+					const jurisdiction = resolveJurisdiction(
 						metadata.source ?? "",
 						metadata.id,
 					);
@@ -289,7 +289,8 @@ export async function ingestJsonDir(
 						$id: metadata.id,
 						$title: metadata.title,
 						$shortTitle: metadata.shortTitle ?? "",
-						$country: country,
+						$country: metadata.country ?? "es",
+						$jurisdiction: jurisdiction,
 						$rank: metadata.rank,
 						$publishedAt: metadata.published,
 						$updatedAt: metadata.updated ?? "",

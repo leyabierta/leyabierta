@@ -53,6 +53,7 @@ export class DbService {
 		query: string | undefined,
 		filters: {
 			country?: string;
+			jurisdiction?: string;
 			rank?: string;
 			status?: string;
 			materia?: string;
@@ -197,6 +198,7 @@ export class DbService {
 				// Apply filters in the norms table
 				const hasFilters =
 					filters.country ||
+					filters.jurisdiction ||
 					filters.rank ||
 					filters.status ||
 					filters.materia ||
@@ -328,13 +330,17 @@ export class DbService {
 		params: unknown[],
 		filters: {
 			country?: string;
+			jurisdiction?: string;
 			rank?: string;
 			status?: string;
 			materia?: string;
 			citizen_tag?: string;
 		},
 	): void {
-		if (filters.country) {
+		if (filters.jurisdiction) {
+			conditions.push("jurisdiction = ?");
+			params.push(filters.jurisdiction);
+		} else if (filters.country) {
 			conditions.push("country = ?");
 			params.push(filters.country);
 		}

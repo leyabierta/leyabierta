@@ -47,6 +47,7 @@ export function lawRoutes(
 						query.q,
 						{
 							country: query.country,
+							jurisdiction: query.jurisdiction,
 							rank: query.rank,
 							status: query.status,
 							materia: query.materia,
@@ -68,6 +69,7 @@ export function lawRoutes(
 					query: t.Object({
 						q: t.Optional(t.String()),
 						country: t.Optional(t.String()),
+						jurisdiction: t.Optional(t.String()),
 						rank: t.Optional(t.String()),
 						status: t.Optional(t.String()),
 						materia: t.Optional(t.String()),
