@@ -48,7 +48,7 @@ export class CitizenSummaryService {
 	// Track in-flight requests to avoid duplicate LLM calls for the same article
 	private pending = new Map<string, Promise<GeneratedSummary | null>>();
 
-	constructor(private db: Database) {
+	constructor(db: Database) {
 		this.apiKey = process.env.OPENROUTER_API_KEY ?? null;
 
 		this.stmtGet = db.prepare(

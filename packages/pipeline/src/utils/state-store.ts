@@ -92,11 +92,29 @@ export class StateStore {
 		this.dirty = true;
 	}
 
-	markSkipped(normId: string): void {
+	/** Get stored fecha_actualizacion for a norm (used for change detection). */
+	getFechaActualizacion(normId: string): string | undefined {
+		return this.data.norms[normId]?.fechaActualizacion;
+	}
+
+	/**
+	 * Seed fecha_actualizacion for an already-processed norm without re-fetching.
+	 * Used during migration from pre-change-detection state files.
+	 */
+	seedFechaActualizacion(normId: string, fecha?: string): void {
+		const norm = this.data.norms[normId];
+		if (norm && !norm.fechaActualizacion && fecha) {
+			norm.fechaActualizacion = fecha;
+			this.dirty = true;
+		}
+	}
+
+	markSkipped(normId: string, fechaActualizacion?: string): void {
 		this.data.norms[normId] = {
 			id: normId,
 			status: "skipped",
 			processedAt: new Date().toISOString(),
+			fechaActualizacion,
 		};
 		this.dirty = true;
 	}
