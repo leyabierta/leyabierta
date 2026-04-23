@@ -28,7 +28,7 @@ jobs:
       web: ${{ steps.web.outputs.deploy }}
       msg_id: ${{ steps.notify.outputs.message-id }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
@@ -100,13 +100,13 @@ jobs:
     needs: detect-changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
@@ -120,20 +120,20 @@ jobs:
         run: bun test || true # Some tests require data files not in CI
 
   # ============================================
-  # API: Build Docker image and push to GHCR
-  # (Watchtower on the server picks it up)
+  # API: Build Docker image, push to GHCR,
+  # then deploy locally on self-hosted runner
   # ============================================
 
   deploy-api:
     name: Deploy API
     needs: [detect-changes, lint]
     if: needs.detect-changes.outputs.api == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, deploy]
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Record start time
         id: timer
@@ -151,7 +151,7 @@ jobs:
           new-status: "⏳ **api** — Building Docker image..."
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -159,7 +159,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -167,7 +167,7 @@ jobs:
             type=sha,prefix=sha-,format=short
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           push: true
@@ -176,23 +176,21 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
 
-      - name: Wait for new API version
+      - name: Deploy locally
         run: |
-          EXPECTED="${{ github.sha }}"
-          echo "Image pushed. Waiting for Watchtower to deploy $EXPECTED..."
-          echo "Watchtower polls every 30s + pull + restart ≈ up to 2 minutes."
-          for i in $(seq 1 36); do
-            VERSION=$(curl -sf https://api.leyabierta.es/health | jq -r '.version // empty' 2>/dev/null || echo "")
-            if [ "$VERSION" = "$EXPECTED" ]; then
+          cd /opt/leyabierta/code
+          docker compose pull api
+          docker compose up -d api
+          echo "Container restarted, waiting for health check..."
+          for i in $(seq 1 24); do
+            VERSION=$(curl -sf http://localhost:3000/health | jq -r '.version // empty' 2>/dev/null || echo "")
+            if [ "$VERSION" = "${{ github.sha }}" ]; then
               echo "✅ API is live with correct version after $((i * 5))s"
               exit 0
             fi
-            if [ $((i % 6)) -eq 0 ]; then
-              echo "Still waiting... ($((i * 5))s elapsed, got '${VERSION:-unreachable}')"
-            fi
             sleep 5
           done
-          echo "::error::API did not report expected version after 3 minutes"
+          echo "::error::API did not report expected version after 2 minutes"
           exit 1
 
       - name: Calculate duration
@@ -229,19 +227,19 @@ jobs:
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           repository: leyabierta/leyes
           path: content/laws
           fetch-depth: 1
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
@@ -261,7 +259,7 @@ jobs:
           new-status: "⏳ **web** — Installing..."
 
       - name: Cache bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.bun/install/cache
@@ -274,7 +272,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Cache Astro content store
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: packages/web/.astro
           key: astro-data-${{ hashFiles('content/laws/**/*.md') }}
