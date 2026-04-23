@@ -200,6 +200,21 @@ const SCHEMA_SQL = /* sql */ `
 
   CREATE INDEX IF NOT EXISTS idx_embeddings_model ON embeddings(model);
 
+  -- RAG ask log: tracks user questions, answers, and quality metrics
+  CREATE TABLE IF NOT EXISTS ask_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT NOT NULL,
+    jurisdiction TEXT,
+    answer TEXT,
+    declined INTEGER NOT NULL DEFAULT 0,
+    citations_count INTEGER NOT NULL DEFAULT 0,
+    articles_retrieved INTEGER NOT NULL DEFAULT 0,
+    latency_ms INTEGER NOT NULL DEFAULT 0,
+    model TEXT,
+    best_score REAL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,

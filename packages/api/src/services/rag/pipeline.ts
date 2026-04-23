@@ -479,6 +479,7 @@ export class RagPipeline {
 			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
 		);
 
+		// ask_log table is defined in schema.ts — ensure it exists for standalone API usage
 		this.db.run(`CREATE TABLE IF NOT EXISTS ask_log (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			question TEXT NOT NULL,
@@ -1372,9 +1373,10 @@ export class RagPipeline {
 		const validCitations = this.verifyCitations(uniqueCitations, articles);
 
 		// Decline detection: early-gate returns from runRetrieval already set
-		// declined=true correctly. For the synthesis path, the LLM's plain-text
-		// decline messages are self-explanatory and render fine as normal answers.
-		const declined = false;
+		// declined=true correctly. For the synthesis path, detect from accumulated text.
+		const declined =
+			fullText.includes("Solo puedo ayudarte con preguntas") ||
+			fullText.includes("No he encontrado legislación");
 
 		// Fire-and-forget: generate missing citizen summaries
 		this.generateMissingSummaries(validCitations, articles);

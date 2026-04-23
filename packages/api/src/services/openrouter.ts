@@ -65,6 +65,7 @@ export async function* callOpenRouterStream(
 		}
 		const res = await fetch(OPENROUTER_URL, {
 			method: "POST",
+			signal: AbortSignal.timeout(120_000),
 			headers: {
 				Authorization: `Bearer ${apiKey}`,
 				"Content-Type": "application/json",
@@ -175,6 +176,7 @@ export async function callOpenRouter<T>(
 		try {
 			response = await fetch(OPENROUTER_URL, {
 				method: "POST",
+				signal: AbortSignal.timeout(60_000),
 				headers: {
 					Authorization: `Bearer ${apiKey}`,
 					"Content-Type": "application/json",

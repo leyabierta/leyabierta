@@ -55,10 +55,13 @@ const EXAMPLE_QUESTIONS = [
 const CITE_PATTERN =
 	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
 
-function buildCitationMap(citations: Citation[]): Map<string, Citation> {
-	const map = new Map<string, Citation>();
+function buildCitationMap(
+	citations: Citation[],
+): Map<string, Map<string, Citation>> {
+	const map = new Map<string, Map<string, Citation>>();
 	for (const c of citations) {
-		map.set(c.normId, c);
+		if (!map.has(c.normId)) map.set(c.normId, new Map());
+		map.get(c.normId)!.set(c.articleTitle.toLowerCase(), c);
 	}
 	return map;
 }
@@ -82,7 +85,10 @@ function renderAnswerWithCitations(
 			const normId = match[1];
 			const articleRef = match[2];
 			const fullMatch = match[0];
-			const citation = citationMap.get(normId);
+			const citationByArticle = citationMap.get(normId);
+			const citation =
+				citationByArticle?.get(articleRef.toLowerCase()) ??
+				[...(citationByArticle?.values() ?? [])][0];
 
 			if (citation) {
 				parts.push(
