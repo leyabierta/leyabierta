@@ -11,6 +11,9 @@ on:
         default: "all"
         type: string
 
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-main
   cancel-in-progress: true

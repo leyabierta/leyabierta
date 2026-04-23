@@ -293,7 +293,7 @@ function tableToMarkdown(tableChildren: XmlNode[]): string {
 			if (!cell.td && !cell.th) continue;
 			const cellChildren: XmlNode[] = (cell.td ?? cell.th) as XmlNode[];
 			const text = extractCellText(cellChildren);
-			cells.push(text.replace(/\n/g, " ").replace(/\|/g, "\\|"));
+			cells.push(text.replaceAll("\n", " ").replaceAll("|", "\\|"));
 		}
 
 		if (cells.length > 0) rows.push(cells);
@@ -401,20 +401,25 @@ export function getBlockAtDate(
 	return applicable[0];
 }
 
-/** Decode HTML entities to characters. */
+const NAMED_ENTITIES: Record<string, string> = {
+	"&amp;": "&",
+	"&lt;": "<",
+	"&gt;": ">",
+	"&quot;": '"',
+	"&#39;": "'",
+	"&nbsp;": " ",
+};
+
+/** Decode HTML entities to characters in a single pass (prevents double-decoding). */
 function decodeEntities(text: string): string {
 	return text
-		.replace(/&amp;/g, "&")
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.replace(/&nbsp;/g, " ")
-		.replace(/&#(\d+);/g, (_, code: string) =>
-			String.fromCharCode(Number.parseInt(code, 10)),
-		)
-		.replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
-			String.fromCharCode(Number.parseInt(hex, 16)),
+		.replace(
+			/&(?:#x([0-9a-fA-F]+)|#(\d+)|[a-z]+);/gi,
+			(match, hex?: string, dec?: string) => {
+				if (hex) return String.fromCharCode(Number.parseInt(hex, 16));
+				if (dec) return String.fromCharCode(Number.parseInt(dec, 10));
+				return NAMED_ENTITIES[match] ?? match;
+			},
 		)
 		.replace(/[\u2002\u2003\u202F\u00A0]/g, " ")
 		.trim();

@@ -100,6 +100,17 @@ export function renderFrontmatter(
 	return `---\n${yamlStr}---\n\n`;
 }
 
-function cleanTitle(title: string): string {
-	return title.replace(/[\s.]+$/, "").trim();
+export function cleanTitle(title: string): string {
+	let end = title.length;
+	while (
+		end > 0 &&
+		(title[end - 1] === " " ||
+			title[end - 1] === "." ||
+			title[end - 1] === "\t" ||
+			title[end - 1] === "\n" ||
+			title[end - 1] === "\r")
+	) {
+		end--;
+	}
+	return title.slice(0, end);
 }

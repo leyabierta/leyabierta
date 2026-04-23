@@ -6,7 +6,11 @@
  */
 
 import type { Block, NormMetadata, Paragraph, Reform } from "../models.ts";
-import { type AnalisisData, renderFrontmatter } from "./frontmatter.ts";
+import {
+	type AnalisisData,
+	cleanTitle,
+	renderFrontmatter,
+} from "./frontmatter.ts";
 import { getBlockAtDate } from "./xml-parser.ts";
 
 // ─── CSS class -> Markdown mapping ───
@@ -113,7 +117,7 @@ export function renderNormAtDate(
 		renderFrontmatter(metadata, targetDate, reforms, blocks, analisis),
 	);
 
-	const title = metadata.title.replace(/[\s.]+$/, "").trim();
+	const title = cleanTitle(metadata.title);
 	parts.push(`# ${title}\n\n`);
 
 	for (const block of blocks) {
