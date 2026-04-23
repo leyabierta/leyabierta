@@ -1,4 +1,17 @@
 User-agent: *
 Allow: /
 
+# AI crawlers — legislative content is public domain, all welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
 Sitemap: https://leyabierta.es/sitemap.xml
