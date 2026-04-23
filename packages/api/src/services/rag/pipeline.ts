@@ -2674,16 +2674,14 @@ Responde SOLO con JSON.`,
 				.then((result) => {
 					const summary = result.data.summary?.trim();
 					if (!summary || summary.length > 300) return;
-					// Sanitize: strip HTML tags (loop to handle nested/malformed like
-					// "<scr<script>ipt>"), control chars, and suspicious patterns
-					let sanitized = summary;
-					let prev: string;
-					do {
-						prev = sanitized;
-						sanitized = sanitized.replace(/<[^>]*>/g, "");
-					} while (sanitized !== prev);
-					// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of control chars
-					sanitized = sanitized.replace(/[\x00-\x1f]/g, "").trim();
+					// Sanitize: strip anything that looks like HTML markup
+					// (remove all < and > characters individually to avoid
+					// incomplete multi-character sanitization with /<[^>]*>/g)
+					const sanitized = summary
+						.replace(/[<>]/g, "")
+						// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of control chars
+						.replace(/[\x00-\x1f]/g, "")
+						.trim();
 					if (sanitized) {
 						this.insertSummaryStmt.run(
 							article.normId,
