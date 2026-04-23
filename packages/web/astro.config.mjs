@@ -4,6 +4,7 @@ import { defineConfig } from "astro/config";
 
 export default defineConfig({
 	integrations: [react()],
+	site: "https://leyabierta.es",
 	vite: {
 		envDir: "../..",
 		resolve: {
@@ -14,6 +15,7 @@ export default defineConfig({
 	},
 	server: { port: Number(process.env.PORT) || 3000 },
 	output: "static",
+	trailingSlash: "always",
 	build: {
 		concurrency: 4,
 	},

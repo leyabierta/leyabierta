@@ -136,6 +136,31 @@ function checkBrokenEmphasis(lines: string[], issues: LintIssue[]) {
 	}
 }
 
+/** Strip markdown image syntax ![...](...) using linear scan (no regex backtracking). */
+function stripMarkdownImages(line: string): string {
+	let result = "";
+	let i = 0;
+	while (i < line.length) {
+		if (line[i] === "!" && line[i + 1] === "[") {
+			// Find closing ]
+			let j = i + 2;
+			while (j < line.length && line[j] !== "]") j++;
+			if (j < line.length && line[j + 1] === "(") {
+				// Find closing )
+				let k = j + 2;
+				while (k < line.length && line[k] !== ")") k++;
+				if (k < line.length) {
+					i = k + 1; // Skip entire ![...](...)
+					continue;
+				}
+			}
+		}
+		result += line[i];
+		i++;
+	}
+	return result;
+}
+
 /** Known HTML tags to detect. Avoids false positives on literal < > in legal text. */
 const HTML_TAG_NAMES =
 	"a|b|br|blockquote|code|div|em|h[1-6]|i|img|ins|li|ol|p|pre|span|strong|sub|sup|table|tbody|td|tfoot|th|thead|tr|u|ul";
@@ -147,7 +172,7 @@ function checkHtmlTags(lines: string[], issues: LintIssue[]) {
 		const line = lines[i]!;
 		// Skip frontmatter and Markdown image syntax
 		if (line === "---") continue;
-		const cleaned = line.replace(/!\[[^\]]*\]\([^)]*\)/g, "");
+		const cleaned = stripMarkdownImages(line);
 		const match = cleaned.match(tagRegex);
 		if (match) {
 			issues.push({

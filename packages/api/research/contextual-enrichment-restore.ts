@@ -13,9 +13,9 @@ import { EMBEDDING_MODELS } from "../src/services/rag/embeddings.ts";
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const DATA_DIR = process.env.VECTORS_DIR ?? "./data";
 const MODEL_KEY = "gemini-embedding-2";
-const model = EMBEDDING_MODELS[MODEL_KEY]!;
+const _model = EMBEDDING_MODELS[MODEL_KEY]!;
 const db = new Database(DB_PATH);
-const fs = require("fs");
+const fs = require("node:fs");
 
 const backupPath = `${DATA_DIR}/enrichment-backup.json`;
 

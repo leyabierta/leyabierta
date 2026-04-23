@@ -14,7 +14,6 @@ import {
 	EMBEDDING_MODELS,
 	fetchWithRetry,
 } from "../src/services/rag/embeddings.ts";
-import { splitByApartados } from "../src/services/rag/subchunk.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const MODEL_KEY = "gemini-embedding-2";
@@ -244,9 +243,9 @@ for (let qi = 0; qi < QUESTIONS.length; qi++) {
 		);
 		if (artIdx === -1) {
 			console.log(
-				`  ${q.question.slice(0, 48).padEnd(50)}${target.normId}:${target.blockId}`.padEnd(
+				`${`  ${q.question.slice(0, 48).padEnd(50)}${target.normId}:${target.blockId}`.padEnd(
 					80,
-				) + "  NOT FOUND",
+				)}  NOT FOUND`,
 			);
 			continue;
 		}

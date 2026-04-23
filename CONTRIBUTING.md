@@ -1,99 +1,66 @@
-# Contributing to Ley Abierta
-
-Ley Abierta is a civic tech project that turns official legislation into version-controlled Markdown so anyone can search, compare, and understand how laws change over time. Contributions are welcome.
-
-## Ways to contribute
-
-### Report errors in law text
-
-If you find incorrect text in a law, [open a data error issue](../../issues/new?template=data_error.md) with:
-
-- The law ID (e.g. `BOE-A-1978-31229`)
-- The article or section affected
-- A link to the official BOE source showing the correct text
-
-### Add support for a new country
-
-The pipeline architecture is country-agnostic. Each country implements:
-
-- `LegislativeClient` — fetch raw text and metadata
-- `NormDiscovery` — discover norms and updates
-- `TextParser` — parse source format into structured blocks
-- `MetadataParser` — normalize metadata
-
-See `packages/pipeline/` for the Spain implementation as reference.
-
-### Improve the web or API
-
-The web frontend uses Astro (server-rendered, no JS frameworks). The API uses Elysia with SQLite + FTS5. See `packages/web/` and `packages/api/`.
-
-### Report bugs or suggest features
-
-Use [GitHub Issues](../../issues). Pick the appropriate template.
-
-## Development setup
-
-```bash
-bun install
-bun test
-bun run check    # Biome linter + formatter (not ESLint)
-bun run format   # Auto-format with Biome
-```
-
-## Conventions
-
-- **Code and comments** in English
-- **User-facing content** (web UI, API responses) in Spanish
-- Use `bun` not `npm`, `bunx` not `npx`
-- Biome for linting and formatting
-- Dates as ISO 8601 strings at boundaries
-
-## Submitting a PR
-
-1. Fork the repo and create a branch
-2. Make your changes
-3. Run `bun test` and `bun run check`
-4. Open a PR with a clear description
-
----
-
 # Contribuir a Ley Abierta
 
 Ley Abierta es un proyecto cívico de código abierto que convierte la legislación oficial en archivos Markdown con control de versiones, para que cualquier persona pueda buscar, comparar y entender cómo cambian las leyes.
 
+Antes de contribuir, lee la [visión del proyecto](VISION.md) para entender los principios que guían las decisiones.
+
 ## Formas de contribuir
 
-### Reportar errores en el texto de una ley
+### Para cualquier persona
 
-Si encuentras texto incorrecto en una ley, abre un issue con:
+- **Reportar errores en el texto de una ley**: Si encuentras texto incorrecto, [abre un issue](../../issues/new?template=data_error.md) indicando el identificador de la ley (ej. `BOE-A-1978-31229`), el artículo afectado y un enlace a la fuente oficial del BOE
+- **Sugerir mejoras de accesibilidad**: ¿Algo no se entiende? ¿La información podría presentarse mejor? Cuéntanoslo en [Discussions](../../discussions)
+- **Proponer funcionalidades**: Abre una discusión con tu idea. Toda propuesta es bienvenida
 
-- El identificador de la ley (ej. `BOE-A-1978-31229`)
-- El artículo o sección afectada
-- Un enlace a la fuente oficial del BOE con el texto correcto
+### Para juristas
 
-### Añadir soporte para un nuevo país
+- **Revisar resúmenes ciudadanos**: Los resúmenes se generan con IA. Si detectas imprecisiones o mejores formas de explicar un concepto legal, abre un issue
+- **Validar datos legislativos**: Comprobar que los metadatos (estado, fecha, reformas) son correctos
 
-La arquitectura del pipeline es independiente del país. Consulta `packages/pipeline/` para ver la implementación de España como referencia.
+### Para periodistas e investigadores
 
-### Mejorar la web o la API
+- **Documentar casos de uso**: ¿Cómo usarías Ley Abierta en tu trabajo? Compártelo en Discussions
+- **Señalar qué información falta**: ¿Qué datos serían útiles para tu investigación?
 
-La web usa Astro (renderizado en servidor). La API usa Elysia con SQLite + FTS5. Consulta `packages/web/` y `packages/api/`.
+### Para desarrolladores
 
-### Reportar bugs o sugerir funcionalidades
-
-Usa [GitHub Issues](../../issues) con la plantilla adecuada.
+- **Mejorar la web o la API**: La web usa Astro (100% estática). La API usa Elysia con SQLite + FTS5. Consulta `packages/web/` y `packages/api/`
+- **Añadir soporte para un nuevo país**: La arquitectura del pipeline es independiente del país. Consulta `packages/pipeline/` para ver la implementación de España como referencia
+- **Reportar bugs**: Usa [GitHub Issues](../../issues) con la plantilla adecuada
 
 ## Configuración de desarrollo
 
 ```bash
+# Clonar y arrancar
+git clone https://github.com/leyabierta/leyabierta.git
+cd leyabierta
 bun install
+
+# Comprobar que todo funciona
 bun test
 bun run check    # Biome (no ESLint)
 bun run format
+
+# Arrancar servidores
+bun run api      # http://localhost:3000
+bun run web      # http://localhost:4321
 ```
 
 ## Convenciones
 
 - **Código y comentarios** en inglés
-- **Contenido para el usuario** (web, API) en castellano
+- **Contenido para el usuario** (web, API) en castellano, con acentos y caracteres correctos (ñ, á, é, í, ó, ú, ¿, ¡)
 - Usar `bun` en lugar de `npm`, `bunx` en lugar de `npx`
+- Biome para linting y formateo
+- Fechas en formato ISO 8601 en las interfaces
+
+## Enviar un PR
+
+1. Haz fork del repo y crea una rama
+2. Haz tus cambios
+3. Ejecuta `bun test` y `bun run check`
+4. Abre un PR con una descripción clara de qué cambia y por qué
+
+## Código de conducta
+
+Este proyecto se adhiere al [Contributor Covenant](CODE_OF_CONDUCT.md). Al participar, te comprometes a respetar sus términos.

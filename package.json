@@ -1,6 +1,7 @@
 {
 	"name": "leyabierta",
 	"type": "module",
+	"license": "AGPL-3.0-only",
 	"private": true,
 	"workspaces": [
 		"packages/*"
@@ -30,6 +31,6 @@
 		"unpdf": "^1.4.0"
 	},
 	"dependencies": {
-		"fast-xml-parser": "5.5.9"
+		"fast-xml-parser": "5.7.1"
 	}
 }

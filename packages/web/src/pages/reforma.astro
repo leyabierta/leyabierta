@@ -6,7 +6,7 @@ import Base from "../layouts/Base.astro";
 	title="Detalle de reforma"
 	description="Qué ha cambiado en esta ley y por qué te importa."
 	ogTitle="Detalle de reforma — Ley Abierta"
-	canonicalUrl="/reforma"
+	noindex
 >
 	<style is:global>
 		.reforma-wrap {
@@ -244,7 +244,7 @@ import Base from "../layouts/Base.astro";
 				} else if (from === "cambios") {
 					backLink.href = "/cambios";
 				} else if ((from === "omnibus" || from === "law") && normId) {
-					backLink.href = "/laws/" + encodeURIComponent(normId);
+					backLink.href = "/laws/" + encodeURIComponent(normId) + "/";
 				}
 			}
 
@@ -407,7 +407,7 @@ import Base from "../layouts/Base.astro";
 					html += '<h1 class="reforma-headline">' + esc(hasHeadline ? reform.headline : law.title) + '</h1>';
 					html += '<div class="reforma-law-info">';
 					html += esc(rankLabel) + ' · ' + esc(STATUS_LABELS[law.status] || law.status);
-					html += ' · <a href="/laws/' + encodeURIComponent(law.id) + '">' + esc(law.title) + '</a>';
+					html += ' · <a href="/laws/' + encodeURIComponent(law.id) + '/">' + esc(law.title) + '</a>';
 					html += '</div></div>';
 
 					// ── Topic tag in date row (when filtering by omnibus topic) ──
@@ -461,7 +461,7 @@ import Base from "../layouts/Base.astro";
 
 					// ── Nav ──
 					html += '<nav class="reforma-nav">';
-					html += '<a href="/laws/' + encodeURIComponent(law.id) + '?from=reforma">Ver ley completa &rarr;</a>';
+					html += '<a href="/laws/' + encodeURIComponent(law.id) + '/?from=reforma">Ver ley completa &rarr;</a>';
 					html += '<a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">Ver en BOE &rarr;</a>';
 					html += '</nav>';
 

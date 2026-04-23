@@ -196,7 +196,7 @@ console.log("=== Renaming vector files to .bak ===\n");
 
 const vecBin = `${DATA_DIR}/vectors.bin`;
 const vecMeta = `${DATA_DIR}/vectors.meta.jsonl`;
-const fs = require("fs");
+const fs = require("node:fs");
 
 if (fs.existsSync(vecBin)) {
 	fs.renameSync(vecBin, `${vecBin}.bak`);

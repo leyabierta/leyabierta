@@ -10,7 +10,7 @@
 - Transparency: laws belong to the people, and their evolution should be visible.
 - Freedom: no single person controls the project's direction arbitrarily.
 
-**License:** MIT (tooling) + public domain (legislative content).
+**License:** AGPL-3.0 (tooling) + public domain (legislative content). See [VISION.md](VISION.md) for the project manifesto and principles.
 
 **Inspired by:**
 - [ALEF (Agile Law Execution Factory)](https://www.lavozdegalicia.es/noticia/reto-digital/ocio/2024/01/30/leyexe/00031706632270589450575.htm) — Dutch Tax Authority's formal language for executable law
@@ -396,6 +396,22 @@ bun run ingest                 # 3. Rebuild DB from enriched JSON cache (~2 min)
 - Prefer Bun APIs over Node.js equivalents
 - Use Biome for linting and formatting (not ESLint/Prettier)
 - Use bunx over npx, bun over npm
+
+## Task & Community Management (GitHub)
+
+All project management is public on GitHub:
+
+- **Issues** — bugs, feature requests, data errors. Use templates in `.github/ISSUE_TEMPLATE/`
+- **Discussions** — ideas, questions, general conversation
+- **GitHub Project** — public roadmap/kanban: https://github.com/orgs/leyabierta/projects/1
+
+### Labels
+
+Project-specific labels: `datos legislativos`, `accesibilidad`, `IA/resúmenes`, `diseño/UX`, `infraestructura`, `pipeline`, `API`. Plus GitHub defaults (`bug`, `enhancement`, `good first issue`, `help wanted`, etc.).
+
+### Issue References
+
+When the user mentions `#123` or similar, they are referring to a GitHub issue. Use `gh issue view 123 --repo leyabierta/leyabierta` to look it up.
 
 ## gstack
 
