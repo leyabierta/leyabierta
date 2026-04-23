@@ -45,8 +45,8 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 		// Migrate old localStorage key → redirect to re-onboard
 		if (localStorage.getItem("leyabierta_situaciones") && !localStorage.getItem("leyabierta_perfil")) {
 			localStorage.removeItem("leyabierta_situaciones");
-			if (window.location.pathname !== "/mi-situacion") {
-				window.location.href = "/mi-situacion";
+			if (window.location.pathname !== "/mi-situacion/") {
+				window.location.href = "/mi-situacion/";
 			}
 		}
 	})();
@@ -584,11 +584,11 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			</button>
 			<div class="nav-links" id="nav-links">
 				<a href="/" class={Astro.url.pathname === "/" ? "nav-active" : ""}>Leyes</a>
-				<a href="/pregunta" class={Astro.url.pathname === "/pregunta" ? "nav-active" : ""}>Pregunta</a>
-				<a href="/cambios" class={Astro.url.pathname === "/cambios" ? "nav-active" : ""}>Actualidad</a>
-				<a href="/omnibus" class={Astro.url.pathname.startsWith("/omnibus") ? "nav-active" : ""}>Ómnibus</a>
+				<a href="/pregunta/" class={Astro.url.pathname === "/pregunta/" ? "nav-active" : ""}>Pregunta</a>
+				<a href="/cambios/" class={Astro.url.pathname === "/cambios/" ? "nav-active" : ""}>Actualidad</a>
+				<a href="/omnibus/" class={Astro.url.pathname.startsWith("/omnibus") ? "nav-active" : ""}>Ómnibus</a>
 				<span class="nav-sep" aria-hidden="true"></span>
-				<a href="/mi-situacion" id="nav-mis-cambios" class={Astro.url.pathname.startsWith("/mi-situacion") || Astro.url.pathname.startsWith("/mis-cambios") ? "nav-active" : ""}>Mi perfil</a>
+				<a href="/mi-situacion/" id="nav-mis-cambios" class={Astro.url.pathname.startsWith("/mi-situacion") || Astro.url.pathname.startsWith("/mis-cambios") ? "nav-active" : ""}>Mi perfil</a>
 				<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
 			</div>
 		</nav>
@@ -615,13 +615,13 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 				</div>
 			</div>
 			<div class="footer-legal">
-				<a href="/sobre-leyabierta">Sobre nosotros</a>
+				<a href="/sobre-leyabierta/">Sobre nosotros</a>
 				<span class="footer-sep">·</span>
-				<a href="/aviso-legal">Aviso legal</a>
+				<a href="/aviso-legal/">Aviso legal</a>
 				<span class="footer-sep">·</span>
-				<a href="/privacidad">Privacidad</a>
+				<a href="/privacidad/">Privacidad</a>
 				<span class="footer-sep">·</span>
-				<a href="/cookies">Cookies</a>
+				<a href="/cookies/">Cookies</a>
 				<span class="footer-sep">·</span>
 				<a href="mailto:contacto@leyabierta.es">Contacto</a>
 			</div>
@@ -644,7 +644,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 				try {
 					var saved = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
 					if (saved && saved.materias && saved.materias.length > 0) {
-						navLink.href = "/mis-cambios";
+						navLink.href = "/mis-cambios/";
 					}
 				} catch (e) {}
 			}

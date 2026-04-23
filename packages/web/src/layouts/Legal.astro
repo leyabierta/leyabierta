@@ -15,14 +15,18 @@ const { title, description, canonicalUrl } = Astro.props;
 		.legal-page {
 			max-width: 42rem;
 		}
-		.legal-page h1 {
+		.legal-page :global(h1) {
 			font-family: var(--font-serif);
-			font-size: 1.75rem;
+			font-size: 2rem;
 			font-weight: 700;
+			line-height: 1.2;
 			color: var(--text);
 			margin: 0 0 0.25rem;
 		}
-		.legal-updated {
+		@media (max-width: 640px) {
+			.legal-page :global(h1) { font-size: 1.625rem; }
+		}
+		.legal-page :global(.legal-updated) {
 			font-size: 0.8125rem;
 			color: var(--text-muted);
 			margin: 0.25rem 0 0;

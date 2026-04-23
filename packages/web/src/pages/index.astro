@@ -625,7 +625,7 @@ const TOPICS = [
 					{TOPICS.map(t => (
 						<a data-topic={t}>{t}</a>
 					))}
-					<a href="/mi-situacion" class="dashed">Todos los temas &rarr;</a>
+					<a href="/mi-situacion/" class="dashed">Todos los temas &rarr;</a>
 				</div>
 			</div>
 
@@ -747,8 +747,8 @@ const TOPICS = [
 						<li><span class="check">✓</span> Con avisos si la ley cambió recientemente.</li>
 					</ul>
 					<div class="explicame-actions">
-						<a href="/pregunta" class="explicame-btn">Describir mi situación &rarr;</a>
-						<a href="/pregunta" class="explicame-alt">Ver ejemplos</a>
+						<a href="/pregunta/" class="explicame-btn">Describir mi situación &rarr;</a>
+						<a href="/pregunta/" class="explicame-alt">Ver ejemplos</a>
 					</div>
 				</div>
 				<div>
@@ -769,9 +769,9 @@ const TOPICS = [
 						</p>
 						<div class="explicame-sources">
 							<div class="explicame-sources-h">Basado en</div>
-							<a href="/laws/BOE-A-2023-10522/" class="explicame-source">
+							<a href="/laws/BOE-A-2023-12203/" class="explicame-source">
 								<span class="explicame-source-title">Ley 12/2023 por el derecho a la vivienda</span>
-								<span class="explicame-source-ref">Art. 18 · BOE-A-2023-10522</span>
+								<span class="explicame-source-ref">Art. 18 · BOE-A-2023-12203</span>
 							</a>
 							<a href="/laws/BOE-A-1994-26003/" class="explicame-source">
 								<span class="explicame-source-title">Ley de Arrendamientos Urbanos</span>
@@ -789,7 +789,7 @@ const TOPICS = [
 				<div>
 					<div class="section-header">
 						<h2>Cambios recientes</h2>
-						<a href="/cambios" class="see-all">Historial completo &rarr;</a>
+						<a href="/cambios/" class="see-all">Historial completo &rarr;</a>
 					</div>
 					<div id="recent-reforms">
 						<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.875rem">
@@ -866,11 +866,11 @@ const TOPICS = [
 					<button type="button" id="cta-search-btn">Buscar</button>
 				</div>
 				<div class="cta-links">
-					<a href="/pregunta">Pregunta por tu situación</a>
+					<a href="/pregunta/">Pregunta por tu situación</a>
 					<span class="sep">·</span>
-					<a href="/cambios">Cambios recientes</a>
+					<a href="/cambios/">Cambios recientes</a>
 					<span class="sep">·</span>
-					<a href="/omnibus">Ómnibus</a>
+					<a href="/omnibus/">Ómnibus</a>
 				</div>
 			</div>
 		</section>
@@ -1143,7 +1143,7 @@ const TOPICS = [
 		fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
 			var currentYear = new Date().getFullYear();
 			var html = '<ol class="rank-list">';
-			var limit = Math.min(data.data.length, 5);
+			var limit = Math.min(data.data.length, 10);
 			for (var i = 0; i < limit; i++) {
 				var law = data.data[i];
 				var pubYear = law.published_at ? parseInt(law.published_at.slice(0, 4), 10) : null;

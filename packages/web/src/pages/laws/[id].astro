@@ -804,9 +804,9 @@ const seoDescription = [
 				var refPath = new URL(document.referrer).pathname;
 				if (refPath === "/" || refPath.indexOf("/?") === 0) {
 					link.textContent = "\u2190 Volver a resultados";
-				} else if (refPath === "/cambios") {
+				} else if (refPath === "/cambios/") {
 					link.textContent = "\u2190 Volver a cambios recientes";
-				} else if (refPath === "/mis-cambios") {
+				} else if (refPath === "/mis-cambios/") {
 					link.textContent = "\u2190 Volver a mis cambios";
 				}
 			}

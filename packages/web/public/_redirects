@@ -1,0 +1,17 @@
+# Force trailing slash on internal routes (Astro trailingSlash: "always")
+/pregunta /pregunta/ 301
+/cambios /cambios/ 301
+/mis-cambios /mis-cambios/ 301
+/mi-situacion /mi-situacion/ 301
+/alertas /alertas/ 301
+/alertas/gestionar /alertas/gestionar/ 301
+/alertas/cancelar /alertas/cancelar/ 301
+/alertas/confirmar /alertas/confirmar/ 301
+/sobre-leyabierta /sobre-leyabierta/ 301
+/aviso-legal /aviso-legal/ 301
+/cookies /cookies/ 301
+/privacidad /privacidad/ 301
+/omnibus /omnibus/ 301
+/omnibus/detalle /omnibus/detalle/ 301
+/reforma /reforma/ 301
+/situaciones /situaciones/ 301

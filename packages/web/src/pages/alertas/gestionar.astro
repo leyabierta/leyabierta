@@ -5,7 +5,7 @@ import Base from "../../layouts/Base.astro";
 <Base
 	title="Gestionar suscripción"
 	description="Gestiona tus preferencias de alertas legislativas en Ley Abierta."
-	canonicalUrl="/alertas/gestionar"
+	canonicalUrl="/alertas/gestionar/"
 >
 	<style>
 		.manage-page { max-width: 40rem; margin: 4rem auto; }
@@ -23,11 +23,16 @@ import Base from "../../layouts/Base.astro";
 			text-align: center;
 		}
 		.manage-icon.error { color: var(--danger); }
-		.manage-page h1 {
+		.manage-page :global(h1) {
 			font-family: var(--font-serif);
-			font-size: 1.5rem;
+			font-size: 2rem;
 			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
 			margin-bottom: 0.5rem;
+		}
+		@media (max-width: 640px) {
+			.manage-page :global(h1) { font-size: 1.625rem; }
 		}
 		.manage-page .subtitle {
 			color: var(--text-secondary);
@@ -222,7 +227,7 @@ import Base from "../../layouts/Base.astro";
 					'<div class="manage-icon error">&#10007;</div>' +
 					'<h1>Enlace no válido o expirado</h1>' +
 					'<div class="error-msg">' + esc(msg) + '</div>' +
-					'<a href="/alertas" class="btn">Volver a suscribirme</a>';
+					'<a href="/alertas/" class="btn">Volver a suscribirme</a>';
 			}
 
 			if (!userEmail || !userCode) {
@@ -398,7 +403,7 @@ import Base from "../../layouts/Base.astro";
 									'<div style="font-size:3rem;margin-bottom:1rem;line-height:1;">&#128075;</div>' +
 									'<h1>Te has dado de baja correctamente</h1>' +
 									'<p style="color:var(--text-secondary);line-height:1.7;margin-bottom:1.5rem;font-size:0.9375rem;">No recibirás más emails de alertas legislativas.</p>' +
-									'<a href="/alertas" class="btn btn-primary">Volver a suscribirme</a>';
+									'<a href="/alertas/" class="btn btn-primary">Volver a suscribirme</a>';
 							} else {
 								unsubBtn.disabled = false;
 								unsubBtn.textContent = "Darme de baja";
