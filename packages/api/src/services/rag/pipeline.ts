@@ -129,6 +129,18 @@ const SPANISH_NUMBERS: Record<string, string> = {
 	sesenta: "60",
 };
 
+const UNIT_WORDS =
+	"semanas?|meses?|días?|años?|horas?|euros?|mensualidades?|jornadas?";
+const SINGLE_NUMBER_PATTERNS: Array<[RegExp, string]> = Object.entries(
+	SPANISH_NUMBERS,
+)
+	.filter(([w]) => !w.includes(" "))
+	.sort((a, b) => b[0].length - a[0].length)
+	.map(([word, digit]) => [
+		new RegExp(`\\b${word}\\s+(${UNIT_WORDS})`, "gi"),
+		`${digit} $1`,
+	]);
+
 function numbersToDigits(text: string): string {
 	// Replace multi-word numbers first (e.g., "treinta y dos")
 	let result = text;
@@ -139,14 +151,9 @@ function numbersToDigits(text: string): string {
 	}
 	// Then single-word numbers, only when followed by a unit word to avoid
 	// replacing numbers that are part of article titles or legal references.
-	const UNIT_WORDS =
-		"semanas?|meses?|días?|años?|horas?|euros?|mensualidades?|jornadas?";
-	const singleWords = Object.entries(SPANISH_NUMBERS)
-		.filter(([w]) => !w.includes(" "))
-		.sort((a, b) => b[0].length - a[0].length); // longest first
-	for (const [word, digit] of singleWords) {
-		const pattern = new RegExp(`\\b${word}\\s+(${UNIT_WORDS})`, "gi");
-		result = result.replace(pattern, `${digit} $1`);
+	for (const [pattern, replacement] of SINGLE_NUMBER_PATTERNS) {
+		pattern.lastIndex = 0;
+		result = result.replace(pattern, replacement);
 	}
 	return result;
 }
@@ -662,12 +669,15 @@ export class RagPipeline {
 			// E.g. "Estatuto de los Trabajadores" matches 12 norms (the ET itself
 			// + many laws that amend it), but we want to search within the ET.
 			if (matchedNormIds.length > 5) {
+				const ph = matchedNormIds.map(() => "?").join(",");
+				const normInfos = this.db
+					.query<{ id: string; rank: string; source_url: string }, string[]>(
+						`SELECT id, rank, source_url FROM norms WHERE id IN (${ph})`,
+					)
+					.all(...matchedNormIds);
+				const normInfoMap = new Map(normInfos.map((n) => [n.id, n]));
 				const fundamentalMatches = matchedNormIds.filter((id) => {
-					const norm = this.db
-						.query<{ rank: string; source_url: string }, [string]>(
-							"SELECT rank, source_url FROM norms WHERE id = ?",
-						)
-						.get(id);
+					const norm = normInfoMap.get(id);
 					if (!norm) return false;
 					const juris = resolveJurisdiction(norm.source_url, id);
 					return isFundamentalRank(norm.rank) && juris === "es";
@@ -1485,12 +1495,15 @@ export class RagPipeline {
 				embeddingNormIds,
 			);
 			if (matchedNormIds.length > 5) {
+				const ph = matchedNormIds.map(() => "?").join(",");
+				const normInfos = this.db
+					.query<{ id: string; rank: string; source_url: string }, string[]>(
+						`SELECT id, rank, source_url FROM norms WHERE id IN (${ph})`,
+					)
+					.all(...matchedNormIds);
+				const normInfoMap = new Map(normInfos.map((n) => [n.id, n]));
 				const fundamentalMatches = matchedNormIds.filter((id) => {
-					const norm = this.db
-						.query<{ rank: string; source_url: string }, [string]>(
-							"SELECT rank, source_url FROM norms WHERE id = ?",
-						)
-						.get(id);
+					const norm = normInfoMap.get(id);
 					if (!norm) return false;
 					const juris = resolveJurisdiction(norm.source_url, id);
 					return isFundamentalRank(norm.rank) && juris === "es";
@@ -1510,6 +1523,55 @@ export class RagPipeline {
 					matchedNormIds,
 				);
 				namedLawRanked = nlResults.map((r) => ({
+					key: `${r.normId}:${r.blockId}`,
+					score: 1 / r.rank,
+				}));
+			}
+		}
+
+		// Legal synonym BM25 (same as runPipeline) — separate RRF system using
+		// formal legal terms to bridge vocabulary gap
+		let synonymBm25Ranked: RankedItem[] = [];
+		if (analyzed.legalSynonyms.length > 0) {
+			const synonymQuery = analyzed.legalSynonyms.join(" ");
+			const synonymResults = bm25HybridSearch(
+				this.db,
+				synonymQuery,
+				analyzed.legalSynonyms,
+				RERANK_POOL_SIZE,
+				embeddingNormIds,
+			);
+			synonymBm25Ranked = synonymResults.map((r) => ({
+				key: `${r.normId}:${r.blockId}`,
+				score: 1 / r.rank,
+			}));
+		}
+
+		// Core law lookup (same as runPipeline) — BM25 within fundamental
+		// state laws using legal synonyms
+		let coreLawRanked: RankedItem[] = [];
+		if (analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction) {
+			const CORE_NORMS = [
+				"BOE-A-2015-11430", // Estatuto de los Trabajadores
+				"BOE-A-1994-26003", // LAU
+				"BOE-A-1978-31229", // Constitución Española
+				"BOE-A-2015-11724", // LGSS
+				"BOE-A-2007-20555", // TRLGDCU
+				"BOE-A-2018-16673", // LOPDGDD
+				"BOE-A-1889-4763", // Código Civil
+			];
+			const coreInStore = CORE_NORMS.filter((id) =>
+				embeddingNormIds.includes(id),
+			);
+			if (coreInStore.length > 0) {
+				const clResults = bm25HybridSearch(
+					this.db,
+					analyzed.legalSynonyms.join(" "),
+					analyzed.legalSynonyms,
+					Math.floor(RERANK_POOL_SIZE / 2),
+					coreInStore,
+				);
+				coreLawRanked = clResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
 				}));
@@ -1580,6 +1642,8 @@ export class RagPipeline {
 		const allRetrievedKeys = new Set([
 			...allArticleKeys2,
 			...namedLawRanked.map((r) => r.key),
+			...synonymBm25Ranked.map((r) => r.key),
+			...coreLawRanked.map((r) => r.key),
 			...recentBm25Ranked2.map((r) => r.key),
 		]);
 		const allNormIds = [
@@ -1597,6 +1661,9 @@ export class RagPipeline {
 			["bm25", bm25Ranked],
 			["collection-density", densityRanked],
 		]);
+		if (synonymBm25Ranked.length > 0)
+			rrfSystems.set("legal-synonyms", synonymBm25Ranked);
+		if (coreLawRanked.length > 0) rrfSystems.set("core-law", coreLawRanked);
 		if (recentBm25Ranked2.length > 0)
 			rrfSystems.set("recent-bm25", recentBm25Ranked2);
 		if (recencyRanked.length > 0) rrfSystems.set("recency", recencyRanked);
@@ -1612,15 +1679,17 @@ export class RagPipeline {
 			})
 			.sort((a, b) => b.rrfScore - a.rrfScore);
 
-		// Diversity penalty (same as runPipeline)
+		// Diversity penalty + article type penalty (same as runPipeline)
 		const normSeenCounts2 = new Map<string, number>();
 		const fused = boosted2
 			.map((r) => {
 				const normId = r.key.split(":")[0]!;
+				const blockId = r.key.split(":")[1]!;
 				const seen = normSeenCounts2.get(normId) ?? 0;
 				normSeenCounts2.set(normId, seen + 1);
 				const dp = seen === 0 ? 1.0 : seen === 1 ? 0.7 : seen === 2 ? 0.5 : 0.3;
-				return { ...r, rrfScore: r.rrfScore * dp };
+				const typePenalty = articleTypePenalty(blockId);
+				return { ...r, rrfScore: r.rrfScore * dp * typePenalty };
 			})
 			.sort((a, b) => b.rrfScore - a.rrfScore);
 
@@ -1631,6 +1700,54 @@ export class RagPipeline {
 			if (parsed) subchunkParents.add(`${parts[0]}:${parsed.parentBlockId}`);
 		}
 		const deduped = fused.filter((r) => !subchunkParents.has(r.key));
+
+		// Anchor norm injection (same as runPipeline): re-inject foundational
+		// laws that scored above MIN_SIMILARITY but fell out of the fused pool
+		const fusedKeySet = new Set(deduped.map((r) => r.key));
+		const ANCHOR_RANKS = new Set([
+			"ley",
+			"ley_organica",
+			"real_decreto_legislativo",
+			"codigo",
+			"constitucion",
+		]);
+		const anchorCandidates = vectorResults
+			.filter(
+				(r) =>
+					!fusedKeySet.has(`${r.normId}:${r.blockId}`) &&
+					r.score >= MIN_SIMILARITY,
+			)
+			.slice(0, 20);
+
+		if (anchorCandidates.length > 0) {
+			const anchorNormIds = [...new Set(anchorCandidates.map((r) => r.normId))];
+			const ph = anchorNormIds.map(() => "?").join(",");
+			const normRanks = this.db
+				.query<{ id: string; rank: string; source_url: string }, string[]>(
+					`SELECT id, rank, source_url FROM norms WHERE id IN (${ph})`,
+				)
+				.all(...anchorNormIds);
+			const stateGeneralNorms = new Set(
+				normRanks
+					.filter((n) => {
+						const juris = resolveJurisdiction(n.source_url, n.id);
+						return ANCHOR_RANKS.has(n.rank) && juris === "es";
+					})
+					.map((n) => n.id),
+			);
+
+			const anchors = anchorCandidates
+				.filter((r) => stateGeneralNorms.has(r.normId))
+				.slice(0, 3);
+
+			for (const a of anchors) {
+				deduped.push({
+					key: `${a.normId}:${a.blockId}`,
+					sources: [{ system: "anchor-norm", rank: 1, originalScore: a.score }],
+					rrfScore: deduped[deduped.length - 1]?.rrfScore ?? 0,
+				});
+			}
+		}
 
 		const fusedKeys = new Set(deduped.map((r) => r.key));
 		const allFusedArticles = this.getArticleData(
@@ -1812,9 +1929,14 @@ export class RagPipeline {
 				this.db,
 				EMBEDDING_MODEL_KEY,
 				this.dataDir,
-			).then((idx) => {
-				this.vectorIndex = idx;
-			});
+			)
+				.then((idx) => {
+					this.vectorIndex = idx;
+				})
+				.catch((err) => {
+					this.vectorIndexPromise = null;
+					throw err;
+				});
 		}
 		await this.vectorIndexPromise;
 		return this.vectorIndex;
@@ -2552,12 +2674,16 @@ Responde SOLO con JSON.`,
 				.then((result) => {
 					const summary = result.data.summary?.trim();
 					if (!summary || summary.length > 300) return;
-					// Sanitize: strip HTML tags, control chars, and suspicious patterns
-					const sanitized = summary
-						.replace(/<[^>]*>/g, "")
-						// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of control chars
-						.replace(/[\x00-\x1f]/g, "")
-						.trim();
+					// Sanitize: strip HTML tags (loop to handle nested/malformed like
+					// "<scr<script>ipt>"), control chars, and suspicious patterns
+					let sanitized = summary;
+					let prev: string;
+					do {
+						prev = sanitized;
+						sanitized = sanitized.replace(/<[^>]*>/g, "");
+					} while (sanitized !== prev);
+					// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of control chars
+					sanitized = sanitized.replace(/[\x00-\x1f]/g, "").trim();
 					if (sanitized) {
 						this.insertSummaryStmt.run(
 							article.normId,

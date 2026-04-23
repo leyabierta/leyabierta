@@ -24,6 +24,9 @@ export const BULLETIN_JURISDICTION: Record<string, string> = {
 	DOG: "es-ga",
 	DOGC: "es-ct",
 	DOGV: "es-vc",
+	BOPA: "es-as", // Principado de Asturias
+	BOR: "es-ri", // La Rioja
+	BOLR: "es-ri", // La Rioja (alternative prefix)
 };
 
 /** Map jurisdiction code → human-readable name in Spanish. */
