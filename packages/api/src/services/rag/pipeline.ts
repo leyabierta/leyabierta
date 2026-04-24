@@ -1659,6 +1659,13 @@ export class RagPipeline {
 		}
 
 		const MIN_SIMILARITY = 0.35;
+
+		const vectorSpan = trace?.span("vector-search", "tool", {
+			poolSize: RERANK_POOL_SIZE,
+			minSimilarity: MIN_SIMILARITY,
+			embeddingDims: queryResult.embedding.length,
+		});
+		const vectorStart = Date.now();
 		const vidx = await this.getVectorIndex();
 		const vectorResults = vidx
 			? (
@@ -1675,7 +1682,21 @@ export class RagPipeline {
 			key: `${r.normId}:${r.blockId}`,
 			score: r.score,
 		}));
+		vectorSpan?.end(
+			{
+				hits: vectorResults.length,
+				topScore: vectorResults[0]?.score ?? 0,
+			},
+			{ durationMs: Date.now() - vectorStart },
+		);
 
+		const bm25Span = trace?.span("bm25-search", "tool", {
+			mainKeywords: analyzed.keywords,
+			hasSynonyms: analyzed.legalSynonyms.length > 0,
+			hasNormNameHint: !!analyzed.normNameHint,
+			poolSize: RERANK_POOL_SIZE,
+		});
+		const bm25Start = Date.now();
 		const embeddingNormIds = this.getEmbeddedNormIdsCached();
 		const bm25Results = bm25HybridSearch(
 			this.db,
@@ -1815,6 +1836,27 @@ export class RagPipeline {
 				}));
 			}
 		}
+
+		bm25Span?.end(
+			{
+				mainHits: bm25Results.length,
+				synonymHits: synonymBm25Ranked.length,
+				namedLawHits: namedLawRanked.length,
+				coreLawHits: coreLawRanked.length,
+				recentHits: recentBm25Ranked2.length,
+			},
+			{ durationMs: Date.now() - bm25Start },
+		);
+
+		const fusionSpan = trace?.span("rrf-fusion", "tool", {
+			rrfK: RRF_K,
+			systemCount:
+				3 +
+				(synonymBm25Ranked.length > 0 ? 1 : 0) +
+				(namedLawRanked.length > 0 ? 1 : 0) +
+				0,
+		});
+		const fusionStart = Date.now();
 
 		// Collection density signal (same as runPipeline)
 		const normDensity2 = new Map<string, number>();
@@ -1959,6 +2001,21 @@ export class RagPipeline {
 				return { normId: parts[0]!, blockId: parts[1]!, score: r.rrfScore };
 			}),
 		).filter((a) => fusedKeys.has(`${a.normId}:${a.blockId}`));
+		fusionSpan?.end(
+			{
+				fusedCandidates: deduped.length,
+				articlesAfterGetData: allFusedArticles.length,
+				anchorsInjected: deduped.length - fused.length,
+			},
+			{ durationMs: Date.now() - fusionStart },
+		);
+
+		const rerankSpan = trace?.span("rerank", "tool", {
+			inputCandidates: allFusedArticles.length,
+			topK: TOP_K,
+			backend: this.cohereApiKey ? "cohere" : "llm",
+		});
+		const rerankStart = Date.now();
 
 		let articles: typeof allFusedArticles;
 		if (allFusedArticles.length > TOP_K) {
@@ -1989,6 +2046,10 @@ export class RagPipeline {
 		} else {
 			articles = allFusedArticles;
 		}
+		rerankSpan?.end(
+			{ finalArticleCount: articles.length },
+			{ durationMs: Date.now() - rerankStart },
+		);
 
 		const bestScore = vectorResults[0]?.score ?? 0;
 
@@ -2031,6 +2092,11 @@ export class RagPipeline {
 		}
 
 		const useTemporal = analyzed.temporal;
+		const evidenceSpan = trace?.span("build-evidence", "tool", {
+			articleCount: articles.length,
+			temporal: useTemporal,
+		});
+		const evidenceStart = Date.now();
 		let evidenceText: string;
 		if (useTemporal) {
 			const reformHeader = buildReformHistoryHeader(
@@ -2052,6 +2118,13 @@ export class RagPipeline {
 		} else {
 			evidenceText = this.buildStructuredEvidence(articles);
 		}
+		evidenceSpan?.end(
+			{
+				evidenceChars: evidenceText.length,
+				approxTokens: Math.ceil(evidenceText.length / 4),
+			},
+			{ durationMs: Date.now() - evidenceStart },
+		);
 
 		return {
 			type: "ready",
