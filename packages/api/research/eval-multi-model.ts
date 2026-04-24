@@ -21,7 +21,7 @@ const MODELS = [
 	"mistralai/mistral-small-2603",
 	"qwen/qwen3-next-80b-a3b-instruct",
 	"google/gemini-2.0-flash-001",
-	"google/gemini-2.5-flash-lite",
+	"deepseek/deepseek-v4-flash",
 ];
 
 // Save original file content

@@ -70,7 +70,12 @@ async function callRAG(question: string) {
 // ── Main ──
 
 const allQuestions = [...SPIKE_QUESTIONS, ...HARD_QUESTIONS];
-const questions: SpikeQuestion[] = hardOnly ? HARD_QUESTIONS : allQuestions;
+const limitArg = getArg("limit");
+const limit = limitArg ? Number.parseInt(limitArg, 10) : undefined;
+const baseQuestions: SpikeQuestion[] = hardOnly ? HARD_QUESTIONS : allQuestions;
+const questions: SpikeQuestion[] = limit
+	? baseQuestions.slice(0, limit)
+	: baseQuestions;
 
 console.log(`Collecting RAG answers for ${questions.length} questions...`);
 console.log(`API: ${apiBaseUrl}\n`);

@@ -36,7 +36,7 @@ import { type RagTrace, startTrace } from "./tracing.ts";
  * For maximum legal precision (cross-law, ambiguous), openai/gpt-5.4 with
  * STRONG_PROMPT is superior but ~30x more expensive (~$0.02/query vs $0.0006).
  * See data/eval-model-comparison.md for the full benchmark. */
-const SYNTHESIS_MODEL = "google/gemini-2.5-flash-lite";
+const SYNTHESIS_MODEL = "deepseek/deepseek-v4-flash";
 /** Analyzer model — cheap and fast, only extracts keywords/materias/flags */
 const ANALYZER_MODEL = "google/gemini-2.5-flash-lite";
 const TOP_K = 15;
@@ -1848,15 +1848,13 @@ export class RagPipeline {
 			{ durationMs: Date.now() - bm25Start },
 		);
 
+		// systemCount is reported as a span input; it is computed AFTER the
+		// rrfSystems map is built below, so we declare it here and fill it later.
 		const fusionSpan = trace?.span("rrf-fusion", "tool", {
 			rrfK: RRF_K,
-			systemCount:
-				3 +
-				(synonymBm25Ranked.length > 0 ? 1 : 0) +
-				(namedLawRanked.length > 0 ? 1 : 0) +
-				0,
 		});
 		const fusionStart = Date.now();
+		let anchorsInjected = 0;
 
 		// Collection density signal (same as runPipeline)
 		const normDensity2 = new Map<string, number>();
@@ -1991,6 +1989,7 @@ export class RagPipeline {
 					sources: [{ system: "anchor-norm", rank: 1, originalScore: a.score }],
 					rrfScore: deduped[deduped.length - 1]?.rrfScore ?? 0,
 				});
+				anchorsInjected++;
 			}
 		}
 
@@ -2005,7 +2004,10 @@ export class RagPipeline {
 			{
 				fusedCandidates: deduped.length,
 				articlesAfterGetData: allFusedArticles.length,
-				anchorsInjected: deduped.length - fused.length,
+				subchunksRemoved: fused.length - (deduped.length - anchorsInjected),
+				anchorsInjected,
+				systemCount: rrfSystems.size,
+				systems: [...rrfSystems.keys()],
 			},
 			{ durationMs: Date.now() - fusionStart },
 		);
@@ -2870,33 +2872,6 @@ Responde SOLO con JSON.`,
 			],
 			temperature: 0,
 			maxTokens: 1500,
-			jsonSchema: {
-				name: "legal_answer",
-				schema: {
-					type: "object",
-					properties: {
-						answer: {
-							type: "string",
-							description: "Respuesta con citas inline [norm_id, Artículo N]",
-						},
-						citations: {
-							type: "array",
-							items: {
-								type: "object",
-								properties: {
-									norm_id: { type: "string" },
-									article_title: { type: "string" },
-								},
-								required: ["norm_id", "article_title"],
-								additionalProperties: false,
-							},
-						},
-						declined: { type: "boolean" },
-					},
-					required: ["answer", "citations", "declined"],
-					additionalProperties: false,
-				},
-			},
 		});
 
 		return {
@@ -2956,17 +2931,6 @@ Responde SOLO con JSON.`,
 				],
 				temperature: 0.1,
 				maxTokens: 150,
-				jsonSchema: {
-					name: "citizen_summary",
-					schema: {
-						type: "object",
-						properties: {
-							summary: { type: "string" },
-						},
-						required: ["summary"],
-						additionalProperties: false,
-					},
-				},
 			})
 				.then((result) => {
 					const summary = result.data.summary?.trim();

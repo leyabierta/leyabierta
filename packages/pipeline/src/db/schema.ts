@@ -212,6 +212,9 @@ const SCHEMA_SQL = /* sql */ `
     latency_ms INTEGER NOT NULL DEFAULT 0,
     model TEXT,
     best_score REAL,
+    tokens_in INTEGER,
+    tokens_out INTEGER,
+    cost_usd REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
