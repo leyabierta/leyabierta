@@ -403,17 +403,24 @@ export function deleteEmbeddingsByNorm(
  * ensureVectorIndex(). Falls back to SQLite iterate if files don't exist.
  */
 
-const CHUNK_VECTORS = 80_000; // ~1GB per chunk at 3072 dims
+/**
+ * In-memory vector index. vectors.bin is split into multiple Float32Array
+ * chunks because V8/Bun ArrayBuffer is capped at ~4GB and our full data is ~6GB.
+ */
+export interface InMemoryVectorIndex {
+	chunks: Float32Array[];
+	/** vectorsPerChunk[i] = number of vectors in chunks[i] */
+	vectorsPerChunk: number[];
+	totalVectors: number;
+}
 
-export async function vectorSearchChunked(
+export function vectorSearchInMemory(
 	queryEmbedding: Float32Array,
 	meta: Array<{ normId: string; blockId: string }>,
-	vectorsFile: ReturnType<typeof Bun.file>,
+	index: InMemoryVectorIndex,
 	dims: number,
 	topK: number = 10,
-): Promise<VectorSearchResult[]> {
-	const count = meta.length;
-	const bytesPerVec = dims * 4;
+): VectorSearchResult[] {
 	const searchStart = Date.now();
 
 	// Precompute query norm
@@ -429,18 +436,11 @@ export async function vectorSearchChunked(
 	const heap: VectorSearchResult[] = [];
 	let heapMin = -Infinity;
 
-	const numChunks = Math.ceil(count / CHUNK_VECTORS);
-
-	for (let c = 0; c < numChunks; c++) {
-		const startVec = c * CHUNK_VECTORS;
-		const endVec = Math.min(startVec + CHUNK_VECTORS, count);
-		const numVecs = endVec - startVec;
-
-		const buf = await vectorsFile
-			.slice(startVec * bytesPerVec, endVec * bytesPerVec)
-			.arrayBuffer();
-		const vectors = new Float32Array(buf);
-
+	const cpuStart = performance.now();
+	let globalIdx = 0;
+	for (let c = 0; c < index.chunks.length; c++) {
+		const vectors = index.chunks[c]!;
+		const numVecs = index.vectorsPerChunk[c]!;
 		for (let i = 0; i < numVecs; i++) {
 			const offset = i * dims;
 			let dot = 0;
@@ -453,9 +453,12 @@ export async function vectorSearchChunked(
 			docNorm = Math.sqrt(docNorm);
 			const score = docNorm > 0 ? dot / (queryNorm * docNorm) : 0;
 
-			if (heap.length >= topK && score <= heapMin) continue;
+			if (heap.length >= topK && score <= heapMin) {
+				globalIdx++;
+				continue;
+			}
 
-			const article = meta[startVec + i]!;
+			const article = meta[globalIdx]!;
 			const result: VectorSearchResult = {
 				normId: article.normId,
 				blockId: article.blockId,
@@ -489,14 +492,59 @@ export async function vectorSearchChunked(
 				}
 				heapMin = heap[0]!.score;
 			}
+			globalIdx++;
 		}
 	}
-
+	const totalCpuMs = performance.now() - cpuStart;
+	const totalMs = Date.now() - searchStart;
 	console.log(
-		`[vector-search] ${count} vectors, ${numChunks} chunks, ${Date.now() - searchStart}ms`,
+		`[vector-search] ${index.totalVectors} vectors in-memory (${index.chunks.length} chunks), ${totalMs}ms (CPU ${totalCpuMs.toFixed(0)}ms)`,
 	);
 	heap.sort((a, b) => b.score - a.score);
 	return heap;
+}
+
+/**
+ * Load vectors.bin into memory as multiple Float32Array chunks (one file,
+ * N arrays). Works around the ~4GB ArrayBuffer limit in V8/Bun.
+ */
+async function loadVectorsToMemory(
+	vecPath: string,
+	totalVectors: number,
+	dims: number,
+): Promise<InMemoryVectorIndex> {
+	const vecFile = Bun.file(vecPath);
+	const totalBytes = vecFile.size;
+	const bytesPerVec = dims * 4;
+	// Max ~2.5GB per chunk to stay well under ArrayBuffer 4GB ceiling.
+	const MAX_CHUNK_BYTES = 2_500_000_000;
+	const vectorsPerChunk = Math.floor(MAX_CHUNK_BYTES / bytesPerVec);
+	const chunks: Float32Array[] = [];
+	const vpc: number[] = [];
+	let loaded = 0;
+	while (loaded < totalVectors) {
+		const startVec = loaded;
+		const endVec = Math.min(startVec + vectorsPerChunk, totalVectors);
+		const numVecs = endVec - startVec;
+		const startByte = startVec * bytesPerVec;
+		const endByte = endVec * bytesPerVec;
+		const buf = await vecFile.slice(startByte, endByte).arrayBuffer();
+		const wanted = endByte - startByte;
+		if (buf.byteLength < wanted) {
+			throw new Error(
+				`vectors.bin chunk short: expected ${wanted} got ${buf.byteLength}`,
+			);
+		}
+		// Bun.file().slice() may return slightly more than requested; trim.
+		const trimmed = buf.byteLength === wanted ? buf : buf.slice(0, wanted);
+		chunks.push(new Float32Array(trimmed));
+		vpc.push(numVecs);
+		loaded = endVec;
+	}
+	console.log(
+		`[rag] Loaded vectors.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${chunks.length} chunks (${totalVectors} vectors)`,
+	);
+	return { chunks, vectorsPerChunk: vpc, totalVectors };
 }
 
 /**
@@ -510,7 +558,7 @@ export async function ensureVectorIndex(
 	dataDir: string,
 ): Promise<{
 	meta: Array<{ normId: string; blockId: string }>;
-	vectorsFile: ReturnType<typeof Bun.file>;
+	vectors: InMemoryVectorIndex;
 	dims: number;
 } | null> {
 	const model = EMBEDDING_MODELS[modelKey];
@@ -542,7 +590,8 @@ export async function ensureVectorIndex(
 				const obj = JSON.parse(l);
 				return { normId: obj.n, blockId: obj.b };
 			});
-			return { meta, vectorsFile: vecFile, dims };
+			const vectors = await loadVectorsToMemory(vecPath, lines.length, dims);
+			return { meta, vectors, dims };
 		}
 		console.log(
 			`[rag] Vector index stale (${lines.length} vs ${dbCount}), rebuilding...`,
@@ -585,7 +634,8 @@ export async function ensureVectorIndex(
 		`[rag] Vector index built: ${exported} vectors in ${((Date.now() - start) / 1000).toFixed(1)}s`,
 	);
 
-	return { meta, vectorsFile: Bun.file(vecPath), dims };
+	const vectors = await loadVectorsToMemory(vecPath, exported, dims);
+	return { meta, vectors, dims };
 }
 
 /**

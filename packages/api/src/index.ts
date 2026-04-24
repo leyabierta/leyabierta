@@ -31,8 +31,11 @@ const PORT = Number(process.env.PORT ?? 3000);
 const db = new Database(DB_PATH);
 db.exec("PRAGMA journal_mode = WAL");
 db.exec("PRAGMA foreign_keys = ON");
-db.exec("PRAGMA cache_size = -64000"); // 64MB page cache
-db.exec("PRAGMA mmap_size = 268435456"); // 256MB memory-mapped I/O
+// Larger caches keep blocks_fts pages warm between BM25 queries.
+// vectors.bin is preloaded into process memory (see embeddings.ts) so it
+// no longer evicts OS page cache on every request.
+db.exec("PRAGMA cache_size = -256000"); // 256MB SQLite own cache
+db.exec("PRAGMA mmap_size = 2147483648"); // 2GB mmap
 db.exec("PRAGMA temp_store = MEMORY"); // temp tables in RAM
 createSchema(db);
 

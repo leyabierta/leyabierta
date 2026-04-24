@@ -13,7 +13,7 @@ import {
 	ensureVectorIndex,
 	getEmbeddedNormIds,
 	getEmbeddingCount,
-	vectorSearchChunked,
+	vectorSearchInMemory,
 } from "./embeddings.ts";
 import { JURISDICTION_NAMES, resolveJurisdiction } from "./jurisdiction.ts";
 import { type RerankerCandidate, rerank } from "./reranker.ts";
@@ -36,7 +36,7 @@ import { type RagTrace, startTrace } from "./tracing.ts";
  * For maximum legal precision (cross-law, ambiguous), openai/gpt-5.4 with
  * STRONG_PROMPT is superior but ~30x more expensive (~$0.02/query vs $0.0006).
  * See data/eval-model-comparison.md for the full benchmark. */
-const SYNTHESIS_MODEL = "deepseek/deepseek-v4-flash";
+const SYNTHESIS_MODEL = "google/gemini-2.5-flash-lite";
 /** Analyzer model — cheap and fast, only extracts keywords/materias/flags */
 const ANALYZER_MODEL = "google/gemini-2.5-flash-lite";
 const TOP_K = 15;
@@ -656,29 +656,14 @@ export class RagPipeline {
 
 		const MIN_SIMILARITY = 0.35;
 
-		// 2a. Vector search — reads flat binary file in ~1GB chunks (~2s for 484K vectors)
-		const t0 = Date.now();
-		const vidx = await this.getVectorIndex();
-		const vectorResults = vidx
-			? (
-					await vectorSearchChunked(
-						queryResult.embedding,
-						vidx.meta,
-						vidx.vectorsFile,
-						vidx.dims,
-						RERANK_POOL_SIZE,
-					)
-				).filter((r) => r.score >= MIN_SIMILARITY)
-			: [];
-		const tVector = Date.now() - t0;
-		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
-			key: `${r.normId}:${r.blockId}`,
-			score: r.score,
-		}));
-
-		// 2b. BM25 article-level search (top 50), scoped to embedding store norms
+		// 2a. BM25 first — runs with warm SQLite page cache.
+		// Vector search (below) reads ~6GB from vectors.bin and evicts blocks_fts
+		// pages from the OS page cache, making BM25 ~17x slower if it ran after.
+		// See issue #20 for measurements.
 		const t1 = Date.now();
+		const bm25Timings: Record<string, number> = {};
 		const embeddingNormIds = this.getEmbeddedNormIdsCached();
+		const bm25MainT = performance.now();
 		const bm25Results = bm25HybridSearch(
 			this.db,
 			request.question,
@@ -686,6 +671,7 @@ export class RagPipeline {
 			RERANK_POOL_SIZE,
 			embeddingNormIds,
 		);
+		bm25Timings.main = performance.now() - bm25MainT;
 		const tBm25 = Date.now() - t1;
 		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
 			key: `${r.normId}:${r.blockId}`,
@@ -698,6 +684,7 @@ export class RagPipeline {
 		let synonymBm25Ranked: RankedItem[] = [];
 		if (analyzed.legalSynonyms.length > 0) {
 			const synonymQuery = analyzed.legalSynonyms.join(" ");
+			const synT = performance.now();
 			const synonymResults = bm25HybridSearch(
 				this.db,
 				synonymQuery,
@@ -705,6 +692,7 @@ export class RagPipeline {
 				RERANK_POOL_SIZE,
 				embeddingNormIds,
 			);
+			bm25Timings.synonym = performance.now() - synT;
 			synonymBm25Ranked = synonymResults.map((r) => ({
 				key: `${r.normId}:${r.blockId}`,
 				score: 1 / r.rank,
@@ -749,6 +737,7 @@ export class RagPipeline {
 				// uses formal terms (e.g. "nacimiento y cuidado del menor").
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
 				const searchQuery = allTerms.join(" ");
+				const nlT = performance.now();
 				const nlResults = bm25HybridSearch(
 					this.db,
 					searchQuery,
@@ -756,6 +745,7 @@ export class RagPipeline {
 					Math.floor(RERANK_POOL_SIZE / 2),
 					matchedNormIds,
 				);
+				bm25Timings.namedLaw = performance.now() - nlT;
 				namedLawRanked = nlResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
@@ -785,6 +775,7 @@ export class RagPipeline {
 			);
 
 			if (coreInStore.length > 0) {
+				const clT = performance.now();
 				const clResults = bm25HybridSearch(
 					this.db,
 					analyzed.legalSynonyms.join(" "),
@@ -792,6 +783,7 @@ export class RagPipeline {
 					Math.floor(RERANK_POOL_SIZE / 2),
 					coreInStore,
 				);
+				bm25Timings.coreLaw = performance.now() - clT;
 				coreLawRanked = clResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
@@ -825,6 +817,7 @@ export class RagPipeline {
 
 			if (recentNormIds.length > 0) {
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
+				const rT = performance.now();
 				const recentResults = bm25HybridSearch(
 					this.db,
 					allTerms.join(" "),
@@ -832,12 +825,38 @@ export class RagPipeline {
 					Math.floor(RERANK_POOL_SIZE / 2),
 					recentNormIds,
 				);
+				bm25Timings.recent = performance.now() - rT;
 				recentBm25Ranked = recentResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
 				}));
 			}
 		}
+
+		console.log(
+			`[bm25-breakdown] total=${Date.now() - t1}ms ${Object.entries(bm25Timings)
+				.map(([k, v]) => `${k}=${v.toFixed(0)}ms`)
+				.join(" ")}`,
+		);
+
+		// 2b. Vector search — runs AFTER BM25 (blocks_fts cache), pure in-memory.
+		// vectors.bin is preloaded into a Float32Array at startup so no disk I/O.
+		const t0 = Date.now();
+		const vidx = await this.getVectorIndex();
+		const vectorResults = vidx
+			? vectorSearchInMemory(
+					queryResult.embedding,
+					vidx.meta,
+					vidx.vectors,
+					vidx.dims,
+					RERANK_POOL_SIZE,
+				).filter((r) => r.score >= MIN_SIMILARITY)
+			: [];
+		const tVector = Date.now() - t0;
+		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: r.score,
+		}));
 
 		// 2d. Collection density signal — aggregate article scores by norm to
 		// detect which LAWS (not articles) are most relevant. A law with 10
@@ -1660,36 +1679,8 @@ export class RagPipeline {
 
 		const MIN_SIMILARITY = 0.35;
 
-		const vectorSpan = trace?.span("vector-search", "tool", {
-			poolSize: RERANK_POOL_SIZE,
-			minSimilarity: MIN_SIMILARITY,
-			embeddingDims: queryResult.embedding.length,
-		});
-		const vectorStart = Date.now();
-		const vidx = await this.getVectorIndex();
-		const vectorResults = vidx
-			? (
-					await vectorSearchChunked(
-						queryResult.embedding,
-						vidx.meta,
-						vidx.vectorsFile,
-						vidx.dims,
-						RERANK_POOL_SIZE,
-					)
-				).filter((r) => r.score >= MIN_SIMILARITY)
-			: [];
-		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
-			key: `${r.normId}:${r.blockId}`,
-			score: r.score,
-		}));
-		vectorSpan?.end(
-			{
-				hits: vectorResults.length,
-				topScore: vectorResults[0]?.score ?? 0,
-			},
-			{ durationMs: Date.now() - vectorStart },
-		);
-
+		// BM25 first — avoids having blocks_fts cache evicted by vector.bin reads.
+		// See issue #20 for measurements.
 		const bm25Span = trace?.span("bm25-search", "tool", {
 			mainKeywords: analyzed.keywords,
 			hasSynonyms: analyzed.legalSynonyms.length > 0,
@@ -1697,7 +1688,9 @@ export class RagPipeline {
 			poolSize: RERANK_POOL_SIZE,
 		});
 		const bm25Start = Date.now();
+		const bm25Timings: Record<string, number> = {};
 		const embeddingNormIds = this.getEmbeddedNormIdsCached();
+		const bm25MainT = performance.now();
 		const bm25Results = bm25HybridSearch(
 			this.db,
 			request.question,
@@ -1705,6 +1698,7 @@ export class RagPipeline {
 			RERANK_POOL_SIZE,
 			embeddingNormIds,
 		);
+		bm25Timings.main = performance.now() - bm25MainT;
 		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
 			key: `${r.normId}:${r.blockId}`,
 			score: 1 / r.rank,
@@ -1739,6 +1733,7 @@ export class RagPipeline {
 			if (matchedNormIds.length > 0 && matchedNormIds.length <= 5) {
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
 				const searchQuery = allTerms.join(" ");
+				const nlT = performance.now();
 				const nlResults = bm25HybridSearch(
 					this.db,
 					searchQuery,
@@ -1746,6 +1741,7 @@ export class RagPipeline {
 					Math.floor(RERANK_POOL_SIZE / 2),
 					matchedNormIds,
 				);
+				bm25Timings.namedLaw = performance.now() - nlT;
 				namedLawRanked = nlResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
@@ -1758,6 +1754,7 @@ export class RagPipeline {
 		let synonymBm25Ranked: RankedItem[] = [];
 		if (analyzed.legalSynonyms.length > 0) {
 			const synonymQuery = analyzed.legalSynonyms.join(" ");
+			const synT = performance.now();
 			const synonymResults = bm25HybridSearch(
 				this.db,
 				synonymQuery,
@@ -1765,6 +1762,7 @@ export class RagPipeline {
 				RERANK_POOL_SIZE,
 				embeddingNormIds,
 			);
+			bm25Timings.synonym = performance.now() - synT;
 			synonymBm25Ranked = synonymResults.map((r) => ({
 				key: `${r.normId}:${r.blockId}`,
 				score: 1 / r.rank,
@@ -1788,6 +1786,7 @@ export class RagPipeline {
 				embeddingNormIds.includes(id),
 			);
 			if (coreInStore.length > 0) {
+				const clT = performance.now();
 				const clResults = bm25HybridSearch(
 					this.db,
 					analyzed.legalSynonyms.join(" "),
@@ -1795,6 +1794,7 @@ export class RagPipeline {
 					Math.floor(RERANK_POOL_SIZE / 2),
 					coreInStore,
 				);
+				bm25Timings.coreLaw = performance.now() - clT;
 				coreLawRanked = clResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
@@ -1823,6 +1823,7 @@ export class RagPipeline {
 
 			if (recentNormIds.length > 0) {
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
+				const rT = performance.now();
 				const recentResults = bm25HybridSearch(
 					this.db,
 					allTerms.join(" "),
@@ -1830,6 +1831,7 @@ export class RagPipeline {
 					Math.floor(RERANK_POOL_SIZE / 2),
 					recentNormIds,
 				);
+				bm25Timings.recent = performance.now() - rT;
 				recentBm25Ranked2 = recentResults.map((r) => ({
 					key: `${r.normId}:${r.blockId}`,
 					score: 1 / r.rank,
@@ -1837,6 +1839,13 @@ export class RagPipeline {
 			}
 		}
 
+		console.log(
+			`[bm25-breakdown] total=${Date.now() - bm25Start}ms ${Object.entries(
+				bm25Timings,
+			)
+				.map(([k, v]) => `${k}=${v.toFixed(0)}ms`)
+				.join(" ")}`,
+		);
 		bm25Span?.end(
 			{
 				mainHits: bm25Results.length,
@@ -1846,6 +1855,35 @@ export class RagPipeline {
 				recentHits: recentBm25Ranked2.length,
 			},
 			{ durationMs: Date.now() - bm25Start },
+		);
+
+		// Vector search runs AFTER BM25, pure in-memory (vectors preloaded).
+		const vectorSpan = trace?.span("vector-search", "tool", {
+			poolSize: RERANK_POOL_SIZE,
+			minSimilarity: MIN_SIMILARITY,
+			embeddingDims: queryResult.embedding.length,
+		});
+		const vectorStart = Date.now();
+		const vidx = await this.getVectorIndex();
+		const vectorResults = vidx
+			? vectorSearchInMemory(
+					queryResult.embedding,
+					vidx.meta,
+					vidx.vectors,
+					vidx.dims,
+					RERANK_POOL_SIZE,
+				).filter((r) => r.score >= MIN_SIMILARITY)
+			: [];
+		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: r.score,
+		}));
+		vectorSpan?.end(
+			{
+				hits: vectorResults.length,
+				topScore: vectorResults[0]?.score ?? 0,
+			},
+			{ durationMs: Date.now() - vectorStart },
 		);
 
 		// systemCount is reported as a span input; it is computed AFTER the
@@ -2871,7 +2909,34 @@ Responde SOLO con JSON.`,
 				},
 			],
 			temperature: 0,
-			maxTokens: 1500,
+			maxTokens: 2500,
+			jsonSchema: {
+				name: "legal_answer",
+				schema: {
+					type: "object",
+					properties: {
+						answer: {
+							type: "string",
+							description: "Respuesta con citas inline [norm_id, Artículo N]",
+						},
+						citations: {
+							type: "array",
+							items: {
+								type: "object",
+								properties: {
+									norm_id: { type: "string" },
+									article_title: { type: "string" },
+								},
+								required: ["norm_id", "article_title"],
+								additionalProperties: false,
+							},
+						},
+						declined: { type: "boolean" },
+					},
+					required: ["answer", "citations", "declined"],
+					additionalProperties: false,
+				},
+			},
 		});
 
 		return {
@@ -2931,6 +2996,17 @@ Responde SOLO con JSON.`,
 				],
 				temperature: 0.1,
 				maxTokens: 150,
+				jsonSchema: {
+					name: "citizen_summary",
+					schema: {
+						type: "object",
+						properties: {
+							summary: { type: "string" },
+						},
+						required: ["summary"],
+						additionalProperties: false,
+					},
+				},
 			})
 				.then((result) => {
 					const summary = result.data.summary?.trim();
