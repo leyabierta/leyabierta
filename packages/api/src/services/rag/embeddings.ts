@@ -543,35 +543,24 @@ async function loadVectorsToMemory(
 		const endByte = endVec * bytesPerVec;
 		const wanted = endByte - startByte;
 
+		// Read into an ArrayBuffer first (Bun has a fast path for this) and
+		// then, when the pool needs SAB-backed chunks, memcpy across. Per-
+		// chunk peak is 2× chunk size during the copy, but each ArrayBuffer
+		// becomes garbage immediately and is reclaimed before the next
+		// chunk allocates. Streaming via for-await proved CPU-bound at
+		// ~80x slower in practice — see bench-pool history.
+		const buf = await vecFile.slice(startByte, endByte).arrayBuffer();
+		if (buf.byteLength < wanted) {
+			throw new Error(
+				`vectors.bin chunk short: expected ${wanted} got ${buf.byteLength}`,
+			);
+		}
 		let vectors: Float32Array;
 		if (useShared) {
-			// Stream into a SAB directly to avoid a transient 2nd copy.
 			const sab = new SharedArrayBuffer(wanted);
+			new Uint8Array(sab).set(new Uint8Array(buf, 0, wanted));
 			vectors = new Float32Array(sab);
-			const stream = vecFile.slice(startByte, endByte).stream();
-			let offset = 0;
-			for await (const part of stream) {
-				const u8 = part as Uint8Array;
-				new Uint8Array(sab, offset, u8.byteLength).set(u8);
-				offset += u8.byteLength;
-				if (offset > wanted) {
-					throw new Error(
-						`vectors.bin chunk too long: expected ${wanted} got ${offset}`,
-					);
-				}
-			}
-			if (offset < wanted) {
-				throw new Error(
-					`vectors.bin chunk short: expected ${wanted} got ${offset}`,
-				);
-			}
 		} else {
-			const buf = await vecFile.slice(startByte, endByte).arrayBuffer();
-			if (buf.byteLength < wanted) {
-				throw new Error(
-					`vectors.bin chunk short: expected ${wanted} got ${buf.byteLength}`,
-				);
-			}
 			// Bun.file().slice() may return slightly more than requested; trim.
 			const trimmed = buf.byteLength === wanted ? buf : buf.slice(0, wanted);
 			vectors = new Float32Array(trimmed);
