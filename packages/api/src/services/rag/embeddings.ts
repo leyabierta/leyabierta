@@ -517,13 +517,9 @@ async function loadVectorsToMemory(
 	totalVectors: number,
 	dims: number,
 ): Promise<InMemoryVectorIndex> {
-	// When the worker pool is enabled, allocate chunks as SharedArrayBuffer
-	// directly so they can be referenced by workers without a 5.6 GB copy
-	// at boot. The pool checks the chunk's underlying buffer type and skips
-	// the toShared() copy path when the buffer is already a SAB.
-	const useShared =
-		(process.env.RAG_VECTOR_BACKEND ?? "").toLowerCase() === "pool";
-
+	// Vector chunks are always SAB-backed so the worker pool can reference
+	// them without a 5.6 GB copy at boot. The pool detects the underlying
+	// buffer type and reuses SABs directly in toShared().
 	const vecFile = Bun.file(vecPath);
 	const totalBytes = vecFile.size;
 	const bytesPerVec = dims * 4;
@@ -543,36 +539,24 @@ async function loadVectorsToMemory(
 		const endByte = endVec * bytesPerVec;
 		const wanted = endByte - startByte;
 
-		// Read into an ArrayBuffer first (Bun has a fast path for this) and
-		// then, when the pool needs SAB-backed chunks, memcpy across. Per-
-		// chunk peak is 2× chunk size during the copy, but each ArrayBuffer
-		// becomes garbage immediately and is reclaimed before the next
-		// chunk allocates. Streaming via for-await proved CPU-bound at
-		// ~80x slower in practice — see bench-pool history.
+		// Read into an ArrayBuffer first (Bun's fast path) and then memcpy
+		// into a SAB. Per-chunk peak is 2× chunk size during the copy, but
+		// each ArrayBuffer is reclaimed before the next chunk allocates.
+		// Streaming via for-await proved CPU-bound at ~80x slower in
+		// practice — see bench-pool history.
 		const buf = await vecFile.slice(startByte, endByte).arrayBuffer();
 		if (buf.byteLength < wanted) {
 			throw new Error(
 				`vectors.bin chunk short: expected ${wanted} got ${buf.byteLength}`,
 			);
 		}
-		let vectors: Float32Array;
-		if (useShared) {
-			const sab = new SharedArrayBuffer(wanted);
-			new Uint8Array(sab).set(new Uint8Array(buf, 0, wanted));
-			vectors = new Float32Array(sab);
-		} else {
-			// Bun.file().slice() may return slightly more than requested; trim.
-			const trimmed = buf.byteLength === wanted ? buf : buf.slice(0, wanted);
-			vectors = new Float32Array(trimmed);
-		}
+		const sab = new SharedArrayBuffer(wanted);
+		new Uint8Array(sab).set(new Uint8Array(buf, 0, wanted));
+		const vectors = new Float32Array(sab);
 
-		// Precompute L2 norm per vector — paid once at load, reused per query.
-		// Norms are cheap (~2 MB total) — use SAB-backed too when shared so
-		// workers get them in the init message without a copy step.
-		const normsBytes = numVecs * 4;
-		const norms = useShared
-			? new Float32Array(new SharedArrayBuffer(normsBytes))
-			: new Float32Array(numVecs);
+		// Norms are cheap (~2 MB total) but live in a SAB too so workers
+		// receive them via the init message without a copy step.
+		const norms = new Float32Array(new SharedArrayBuffer(numVecs * 4));
 		for (let i = 0; i < numVecs; i++) {
 			const offset = i * dims;
 			let sum = 0;
