@@ -560,9 +560,9 @@ async function loadVectorsToMemory(
 		vpc.push(numVecs);
 		loaded = endVec;
 	}
-	const normMs = performance.now() - normStart;
+	const totalMs = performance.now() - normStart;
 	console.log(
-		`[rag] Loaded vectors.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${chunks.length} chunks (${totalVectors} vectors, norms precomputed in ${normMs.toFixed(0)}ms)`,
+		`[rag] Loaded vectors.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${chunks.length} chunks (${totalVectors} vectors, load + norms in ${totalMs.toFixed(0)}ms)`,
 	);
 	return { chunks, vectorsPerChunk: vpc, normsPerChunk, totalVectors };
 }
