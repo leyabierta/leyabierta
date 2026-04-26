@@ -179,21 +179,21 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
 
-      - name: Deploy locally
+      - name: Wait for watchtower to roll
         run: |
-          cd /opt/leyabierta/code
-          docker compose pull api
-          flock /tmp/leyabierta-deploy.lock docker compose up -d api
-          echo "Container restarted, waiting for health check..."
-          for i in $(seq 1 24); do
+          # Watchtower polls every 30s, pulls latest, and recreates the
+          # container. CI does NOT touch docker directly — that used to
+          # race with watchtower and fail with "container name in use".
+          # We only observe /health and gate the job on the SHA matching.
+          for i in $(seq 1 36); do
             VERSION=$(curl -sf http://localhost:3000/health | jq -r '.version // empty' 2>/dev/null || echo "")
             if [ "$VERSION" = "${{ github.sha }}" ]; then
-              echo "✅ API is live with correct version after $((i * 5))s"
+              echo "✅ Watchtower rolled to sha-${{ github.sha }} after $((i * 5))s"
               exit 0
             fi
             sleep 5
           done
-          echo "::error::API did not report expected version after 2 minutes"
+          echo "::error::API did not roll to ${{ github.sha }} within 3 minutes"
           exit 1
 
       - name: Calculate duration
