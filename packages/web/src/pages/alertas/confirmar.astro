@@ -5,7 +5,7 @@ import Base from "../../layouts/Base.astro";
 <Base
 	title="Confirmar suscripción"
 	description="Confirma tu suscripción a las alertas legislativas de Ley Abierta."
-	canonicalUrl="/alertas/confirmar"
+	canonicalUrl="/alertas/confirmar/"
 >
 	<style>
 		.confirm-page { max-width: 40rem; margin: 4rem auto; text-align: center; }
@@ -22,11 +22,16 @@ import Base from "../../layouts/Base.astro";
 		}
 		.confirm-icon.success { color: var(--success); }
 		.confirm-icon.error { color: var(--danger); }
-		.confirm-page h1 {
+		.confirm-page :global(h1) {
 			font-family: var(--font-serif);
-			font-size: 1.5rem;
+			font-size: 2rem;
 			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
 			margin-bottom: 0.75rem;
+		}
+		@media (max-width: 640px) {
+			.confirm-page :global(h1) { font-size: 1.625rem; }
 		}
 		.confirm-page p {
 			color: var(--text-secondary);
@@ -66,7 +71,7 @@ import Base from "../../layouts/Base.astro";
 					'<div class="confirm-icon error">&#10007;</div>' +
 					'<h1>Enlace no válido</h1>' +
 					'<div class="error-msg">Faltan parámetros de confirmación.</div>' +
-					'<a href="/alertas" class="btn">Volver a suscribirme</a>';
+					'<a href="/alertas/" class="btn">Volver a suscribirme</a>';
 				return;
 			}
 
@@ -78,13 +83,13 @@ import Base from "../../layouts/Base.astro";
 							'<div class="confirm-icon success">&#10003;</div>' +
 							'<h1>Suscripción confirmada</h1>' +
 							'<p>Tu alerta legislativa está activa. Recibirás una notificación cuando se publiquen cambios que te afecten.</p>' +
-							'<a href="/mis-cambios" class="btn btn-primary">Ver mis cambios</a>';
+							'<a href="/mis-cambios/" class="btn btn-primary">Ver mis cambios</a>';
 					} else {
 						el.innerHTML =
 							'<div class="confirm-icon error">&#10007;</div>' +
 							'<h1>Enlace no válido o expirado</h1>' +
 							'<div class="error-msg">' + esc(data.error || "No se pudo confirmar la suscripción.") + '</div>' +
-							'<a href="/alertas" class="btn">Volver a suscribirme</a>';
+							'<a href="/alertas/" class="btn">Volver a suscribirme</a>';
 					}
 				})
 				.catch(function () {
@@ -92,7 +97,7 @@ import Base from "../../layouts/Base.astro";
 						'<div class="confirm-icon error">&#10007;</div>' +
 						'<h1>Error de conexión</h1>' +
 						'<div class="error-msg">No se pudo conectar con el servidor. Inténtalo más tarde.</div>' +
-						'<a href="/alertas" class="btn">Volver a alertas</a>';
+						'<a href="/alertas/" class="btn">Volver a alertas</a>';
 				});
 		})();
 	</script>

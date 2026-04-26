@@ -44,9 +44,9 @@ import Base from "../layouts/Base.astro";
 			font-size: 0.6875rem; font-weight: 600; color: var(--accent);
 			background: var(--accent-faint); padding: 0.125rem 0.5rem; border-radius: 4px;
 		}
-		.reforma-headline {
-			font-family: var(--font-serif); font-size: 1.75rem; font-weight: 700;
-			line-height: 1.25; color: var(--text); margin-bottom: 0.5rem;
+		:global(.reforma-headline) {
+			font-family: var(--font-serif); font-size: 2rem; font-weight: 700;
+			line-height: 1.2; color: var(--text); margin-bottom: 0.5rem;
 		}
 		.reforma-law-info { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5; }
 		.reforma-law-info a { color: var(--accent-light); }
@@ -193,12 +193,12 @@ import Base from "../layouts/Base.astro";
 		}
 
 		@media (max-width: 640px) {
-			.reforma-headline { font-size: 1.375rem; }
+			:global(.reforma-headline) { font-size: 1.625rem; }
 		}
 	</style>
 
 	<div class="reforma-wrap">
-		<a href="/mis-cambios" class="reforma-back" id="reforma-back">&larr; Volver</a>
+		<a href="/mis-cambios/" class="reforma-back" id="reforma-back">&larr; Volver</a>
 		<div id="reforma-content">
 			<div class="reforma-header">
 				<div class="skeleton-line" style="width:30%"></div>
@@ -228,7 +228,7 @@ import Base from "../layouts/Base.astro";
 					backLink.innerHTML = "&larr; Volver a la ley";
 				} else if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
 					var refPath = new URL(document.referrer).pathname;
-					if (refPath === "/cambios") {
+					if (refPath === "/cambios/") {
 						backLink.innerHTML = "&larr; Volver a cambios recientes";
 					} else if (refPath.indexOf("/laws/") === 0) {
 						backLink.innerHTML = "&larr; Volver a la ley";
@@ -242,7 +242,7 @@ import Base from "../layouts/Base.astro";
 						history.back();
 					});
 				} else if (from === "cambios") {
-					backLink.href = "/cambios";
+					backLink.href = "/cambios/";
 				} else if ((from === "omnibus" || from === "law") && normId) {
 					backLink.href = "/laws/" + encodeURIComponent(normId) + "/";
 				}
@@ -545,11 +545,11 @@ import Base from "../layouts/Base.astro";
 				.catch(function () {
 					var params2 = new URLSearchParams(window.location.search);
 					var from2 = params2.get("from") || "";
-					var errorBackHref = "/mis-cambios";
+					var errorBackHref = "/mis-cambios/";
 					var errorBackLabel = "Volver a mis cambios";
-					if (from2 === "cambios") { errorBackHref = "/cambios"; errorBackLabel = "Volver a cambios recientes"; }
-					else if (from2 === "omnibus") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || ""); errorBackLabel = "Volver a la ley"; }
-					else if (from2 === "law") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || ""); errorBackLabel = "Volver a la ley"; }
+					if (from2 === "cambios") { errorBackHref = "/cambios/"; errorBackLabel = "Volver a cambios recientes"; }
+					else if (from2 === "omnibus") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
+					else if (from2 === "law") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
 					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="' + errorBackHref + '" style="color:var(--accent)">' + errorBackLabel + '</a></div>';
 				});
 		})();

@@ -40,6 +40,115 @@ export class OpenRouterError extends Error {
 	}
 }
 
+export interface StreamDelta {
+	type: "delta";
+	text: string;
+}
+
+export interface StreamDone {
+	type: "done";
+	tokensIn: number;
+	tokensOut: number;
+	cost: number;
+}
+
+export async function* callOpenRouterStream(
+	apiKey: string,
+	options: Omit<OpenRouterOptions, "jsonResponse" | "jsonSchema">,
+): AsyncGenerator<StreamDelta | StreamDone> {
+	const { model, messages, temperature = 0.2, maxTokens = 4000 } = options;
+
+	let response: Response | null = null;
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		if (attempt > 0) {
+			await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
+		}
+		const res = await fetch(OPENROUTER_URL, {
+			method: "POST",
+			signal: AbortSignal.timeout(120_000),
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+				"HTTP-Referer": "https://leyabierta.es",
+				"X-Title": "Ley Abierta",
+			},
+			body: JSON.stringify({
+				model,
+				messages,
+				temperature,
+				max_tokens: maxTokens,
+				stream: true,
+				stream_options: { include_usage: true },
+			}),
+		});
+		if (res.status === 429) continue;
+		if (!res.ok) {
+			const errorText = await res.text();
+			throw new OpenRouterError(
+				`http_${res.status}`,
+				`API error ${res.status}: ${errorText.slice(0, 200)}`,
+			);
+		}
+		response = res;
+		break;
+	}
+
+	if (!response) {
+		throw new OpenRouterError("rate_limit", "Rate limited after retries");
+	}
+
+	if (!response.body) {
+		throw new OpenRouterError("no_body", "Response has no body");
+	}
+
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let tokensIn = 0;
+	let tokensOut = 0;
+	let cost = 0;
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+
+		const lines = buffer.split("\n");
+		buffer = lines.pop()!;
+
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed?.startsWith("data: ")) continue;
+			const payload = trimmed.slice(6);
+			if (payload === "[DONE]") continue;
+
+			try {
+				const parsed = JSON.parse(payload) as {
+					choices?: Array<{ delta?: { content?: string } }>;
+					usage?: {
+						prompt_tokens?: number;
+						completion_tokens?: number;
+						cost?: number;
+					};
+				};
+				const content = parsed.choices?.[0]?.delta?.content;
+				if (content) {
+					yield { type: "delta", text: content };
+				}
+				if (parsed.usage) {
+					tokensIn = parsed.usage.prompt_tokens ?? 0;
+					tokensOut = parsed.usage.completion_tokens ?? 0;
+					cost = parsed.usage.cost ?? 0;
+				}
+			} catch {
+				// skip unparseable lines
+			}
+		}
+	}
+
+	yield { type: "done", tokensIn, tokensOut, cost };
+}
+
 export async function callOpenRouter<T>(
 	apiKey: string,
 	options: OpenRouterOptions,
@@ -67,6 +176,7 @@ export async function callOpenRouter<T>(
 		try {
 			response = await fetch(OPENROUTER_URL, {
 				method: "POST",
+				signal: AbortSignal.timeout(60_000),
 				headers: {
 					Authorization: `Bearer ${apiKey}`,
 					"Content-Type": "application/json",
@@ -119,8 +229,18 @@ export async function callOpenRouter<T>(
 			continue;
 		}
 
-		const rawData = await response.json();
+		const rawData = (await response.json()) as {
+			usage?: {
+				cost?: number;
+				prompt_tokens?: number;
+				completion_tokens?: number;
+			};
+			choices?: Array<{ message?: { content?: string } }>;
+		};
 		const usage = rawData.usage ?? {};
+		if (process.env.DEBUG_OPENROUTER) {
+			console.log("    DEBUG openrouter usage:", JSON.stringify(usage));
+		}
 		const resultText = rawData.choices?.[0]?.message?.content ?? "";
 
 		if (!resultText) {

@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
+import react from "@astrojs/react";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
+	integrations: [react()],
 	site: "https://leyabierta.es",
 	vite: {
 		envDir: "../..",

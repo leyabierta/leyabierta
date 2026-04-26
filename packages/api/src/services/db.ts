@@ -2,8 +2,10 @@
  * SQLite query service for the API.
  */
 
-import type { Database } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import { BASE_MATERIAS } from "../data/materia-mappings.ts";
+
+type SqlParams = SQLQueryBindings[];
 
 export interface LawRow {
 	id: string;
@@ -26,6 +28,7 @@ export interface BlockRow {
 	title: string;
 	position: number;
 	current_text: string;
+	citizen_summary: string | null;
 }
 
 export interface ReformRow {
@@ -53,6 +56,7 @@ export class DbService {
 		query: string | undefined,
 		filters: {
 			country?: string;
+			jurisdiction?: string;
 			rank?: string;
 			status?: string;
 			materia?: string;
@@ -61,7 +65,7 @@ export class DbService {
 		limit: number,
 		offset: number,
 		sort?: string,
-	): { laws: LawRow[]; total: number } {
+	): { laws: LawRow[]; total: number; capped?: boolean } {
 		if (query) {
 			// If the query looks like a norm ID (e.g. BOE-A-2018-6405), search by ID directly
 			const isNormId = /^[A-Z]+-[A-Z]+-\d{4}-\d+$/i.test(query.trim());
@@ -84,7 +88,7 @@ export class DbService {
 
 			// Build filter conditions for the JOIN
 			const conditions: string[] = [];
-			const filterParams: unknown[] = [];
+			const filterParams: SqlParams = [];
 			this.applyFilters(conditions, filterParams, filters);
 			// For non-relevance sorts: use a single efficient JOIN query
 			if (sort === "recent" || sort === "oldest" || sort === "title") {
@@ -138,7 +142,7 @@ export class DbService {
 					const pageIds = sortedIds.slice(0, Math.min(sortedIds.length, 5000));
 					const placeholders = pageIds.map(() => "?").join(",");
 					const laws = this.db
-						.query<LawRow, unknown[]>(
+						.query<LawRow, SqlParams>(
 							`SELECT * FROM norms WHERE id IN (${placeholders})
 							 ${orderMap[sort]} LIMIT ? OFFSET ?`,
 						)
@@ -149,11 +153,24 @@ export class DbService {
 				}
 			}
 
-			// Default: FTS relevance order — two-pass: title matches first (fast),
-			// then content matches for additional results. Cap at 2000.
+			// Default: FTS relevance order — three-pass: exact title matches first,
+			// then FTS title matches, then content matches. Cap at 2000.
 			const FTS_CAP = 2000;
 			try {
-				// Pass 1: title matches (very fast, most relevant)
+				// Pass 0: exact/prefix title matches (highest relevance)
+				// These go first regardless of BM25 score
+				const exactIds = this.db
+					.query<{ id: string }, [string, string]>(
+						`SELECT id FROM norms
+						 WHERE title LIKE ? OR title LIKE ?
+						 ORDER BY length(title) ASC
+						 LIMIT 20`,
+					)
+					.all(`${query}%`, `% ${query}%`)
+					.map((r) => r.id);
+
+				// Pass 1: FTS title matches (fast, most relevant)
+				const exactSet = new Set(exactIds);
 				const titleIds = this.db
 					.query<{ norm_id: string }, [string]>(
 						`SELECT DISTINCT norm_id FROM norms_fts
@@ -162,13 +179,14 @@ export class DbService {
 						 LIMIT ${FTS_CAP}`,
 					)
 					.all(safeQuery)
-					.map((r) => r.norm_id);
+					.map((r) => r.norm_id)
+					.filter((id) => !exactSet.has(id));
 
-				let allIds = titleIds;
+				let allIds = [...exactIds, ...titleIds];
 
 				// Pass 2: content matches if we need more results
-				if (titleIds.length < FTS_CAP) {
-					const titleSet = new Set(titleIds);
+				if (allIds.length < FTS_CAP) {
+					const seen = new Set(allIds);
 					const contentIds = this.db
 						.query<{ norm_id: string }, [string]>(
 							`SELECT DISTINCT norm_id FROM norms_fts
@@ -176,13 +194,14 @@ export class DbService {
 						)
 						.all(safeQuery)
 						.map((r) => r.norm_id)
-						.filter((id) => !titleSet.has(id));
-					allIds = [...titleIds, ...contentIds].slice(0, FTS_CAP);
+						.filter((id) => !seen.has(id));
+					allIds = [...allIds, ...contentIds].slice(0, FTS_CAP);
 				}
 
 				// Apply filters in the norms table
 				const hasFilters =
 					filters.country ||
+					filters.jurisdiction ||
 					filters.rank ||
 					filters.status ||
 					filters.materia ||
@@ -203,7 +222,7 @@ export class DbService {
 				// Fetch only the page-worth of rows
 				const placeholders = pageIds.map(() => "?").join(",");
 				const rows = this.db
-					.query<LawRow, unknown[]>(
+					.query<LawRow, SqlParams>(
 						`SELECT * FROM norms WHERE id IN (${placeholders})`,
 					)
 					.all(...pageIds);
@@ -214,22 +233,23 @@ export class DbService {
 					.map((id) => rowMap.get(id))
 					.filter((r): r is LawRow => r != null);
 
-				return { laws, total };
+				const capped = allIds.length >= FTS_CAP;
+				return { laws, total, capped };
 			} catch {
 				// FTS failed, fallback to LIKE on title
 				const conditions2: string[] = ["title LIKE ?"];
-				const params2: unknown[] = [`%${query}%`];
+				const params2: SqlParams = [`%${query}%`];
 				this.applyFilters(conditions2, params2, filters);
 				const where = conditions2.join(" AND ");
 
 				const total = this.db
-					.query<{ c: number }, unknown[]>(
+					.query<{ c: number }, SqlParams>(
 						`SELECT count(*) as c FROM norms WHERE ${where}`,
 					)
 					.get(...params2)!.c;
 
 				const laws = this.db
-					.query<LawRow, unknown[]>(
+					.query<LawRow, SqlParams>(
 						`SELECT * FROM norms WHERE ${where} ORDER BY published_at DESC LIMIT ? OFFSET ?`,
 					)
 					.all(...params2, limit, offset);
@@ -239,7 +259,7 @@ export class DbService {
 
 		// No query — filter + paginate
 		const conditions: string[] = [];
-		const params: unknown[] = [];
+		const params: SqlParams = [];
 
 		this.applyFilters(conditions, params, filters);
 
@@ -247,7 +267,7 @@ export class DbService {
 			conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
 		const total = this.db
-			.query<{ c: number }, unknown[]>(
+			.query<{ c: number }, SqlParams>(
 				`SELECT count(*) as c FROM norms ${where}`,
 			)
 			.get(...params)!.c;
@@ -257,7 +277,7 @@ export class DbService {
 		else if (sort === "title") noQueryOrder = "ORDER BY title ASC";
 
 		const laws = this.db
-			.query<LawRow, unknown[]>(
+			.query<LawRow, SqlParams>(
 				`SELECT * FROM norms ${where} ${noQueryOrder} LIMIT ? OFFSET ?`,
 			)
 			.all(...params, limit, offset);
@@ -296,10 +316,10 @@ export class DbService {
 		for (let i = 0; i < ids.length; i += CHUNK) {
 			const chunk = ids.slice(i, i + CHUNK);
 			const conds: string[] = [`id IN (${chunk.map(() => "?").join(",")})`];
-			const params: unknown[] = [...chunk];
+			const params: SqlParams = [...chunk];
 			this.applyFilters(conds, params, filters);
 			const filtered = this.db
-				.query<{ id: string }, unknown[]>(
+				.query<{ id: string }, SqlParams>(
 					`SELECT id FROM norms WHERE ${conds.join(" AND ")}`,
 				)
 				.all(...params);
@@ -310,16 +330,20 @@ export class DbService {
 
 	private applyFilters(
 		conditions: string[],
-		params: unknown[],
+		params: SqlParams,
 		filters: {
 			country?: string;
+			jurisdiction?: string;
 			rank?: string;
 			status?: string;
 			materia?: string;
 			citizen_tag?: string;
 		},
 	): void {
-		if (filters.country) {
+		if (filters.jurisdiction) {
+			conditions.push("jurisdiction = ?");
+			params.push(filters.jurisdiction);
+		} else if (filters.country) {
 			conditions.push("country = ?");
 			params.push(filters.country);
 		}
@@ -344,7 +368,11 @@ export class DbService {
 	getBlocks(normId: string): BlockRow[] {
 		return this.db
 			.query<BlockRow, [string]>(
-				"SELECT * FROM blocks WHERE norm_id = ? ORDER BY position",
+				`SELECT b.*, cas.summary as citizen_summary
+				 FROM blocks b
+				 LEFT JOIN citizen_article_summaries cas
+				   ON cas.norm_id = b.norm_id AND cas.block_id = b.block_id
+				 WHERE b.norm_id = ? ORDER BY b.position`,
 			)
 			.all(normId);
 	}
@@ -758,7 +786,7 @@ export class DbService {
 					match_ratio: number;
 					omnibus_topic_count: number;
 				},
-				unknown[]
+				SqlParams
 			>(sql)
 			.all(...effectiveMaterias, since, ...jurisdictionParams, limit, offset);
 	}
@@ -836,7 +864,7 @@ export class DbService {
 					materia_count: number;
 					omnibus_topic_count: number;
 				},
-				unknown[]
+				SqlParams
 			>(sql)
 			.all(since, ...jurisdictionParams, limit);
 	}
@@ -885,7 +913,7 @@ export class DbService {
 		source_id: string;
 	}> {
 		const whereClause = since ? "AND r.date >= ?" : "";
-		const params: unknown[] = since ? [since, limit] : [limit];
+		const params: SqlParams = since ? [since, limit] : [limit];
 
 		const sql = `
 			SELECT r.norm_id, n.title, n.rank, r.date, r.source_id
@@ -908,7 +936,7 @@ export class DbService {
 					date: string;
 					source_id: string;
 				},
-				unknown[]
+				SqlParams
 			>(sql)
 			.all(...params);
 	}
@@ -1179,7 +1207,7 @@ export class DbService {
 		latest_reform_date: string;
 	}> {
 		const sinceClause = since ? "AND r.date >= ?" : "";
-		const params: unknown[] = since ? [since, limit] : [limit];
+		const params: SqlParams = since ? [since, limit] : [limit];
 
 		return this.db
 			.query<
@@ -1192,7 +1220,7 @@ export class DbService {
 					sneaked_count: number;
 					latest_reform_date: string;
 				},
-				unknown[]
+				SqlParams
 			>(
 				`SELECT n.id, n.title, n.rank,
 					(SELECT COUNT(*) FROM materias WHERE norm_id = n.id) as materia_count,
@@ -1315,7 +1343,7 @@ export class DbService {
 			if (!citizens[row.norm_id]) {
 				citizens[row.norm_id] = { summary: "", tags: [] };
 			}
-			citizens[row.norm_id].tags.push(row.tag);
+			citizens[row.norm_id]!.tags.push(row.tag);
 		}
 
 		// Assemble omnibus map
@@ -1338,7 +1366,7 @@ export class DbService {
 			try {
 				if (row.block_ids) blockIds = JSON.parse(row.block_ids);
 			} catch {}
-			omnibus[row.norm_id].push({
+			omnibus[row.norm_id]!.push({
 				topic_label: row.topic_label,
 				article_count: row.article_count,
 				headline: row.headline,
@@ -1365,7 +1393,7 @@ export class DbService {
 		const materiaPlaceholders = userMaterias.map(() => "?").join(",");
 
 		const rows = this.db
-			.query<{ norm_id: string; topic_label: string }, unknown[]>(
+			.query<{ norm_id: string; topic_label: string }, SqlParams>(
 				`SELECT ot.norm_id, ot.topic_label
 				 FROM omnibus_topics ot
 				 WHERE ot.norm_id IN (${normPlaceholders})

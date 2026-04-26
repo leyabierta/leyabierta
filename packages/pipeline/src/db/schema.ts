@@ -13,7 +13,8 @@ const SCHEMA_SQL = /* sql */ `
     id          TEXT PRIMARY KEY,  -- e.g. BOE-A-1978-31229
     title       TEXT NOT NULL,
     short_title TEXT NOT NULL DEFAULT '',
-    country     TEXT NOT NULL,     -- ISO 3166-1 alpha-2
+    country     TEXT NOT NULL,     -- ISO 3166-1 alpha-2 (always "es" for Spain)
+    jurisdiction TEXT NOT NULL DEFAULT 'es', -- ELI jurisdiction: es, es-vc, es-ct, etc.
     rank        TEXT NOT NULL,
     published_at TEXT NOT NULL,    -- ISO date
     updated_at  TEXT,              -- ISO date
@@ -185,6 +186,38 @@ const SCHEMA_SQL = /* sql */ `
     FOREIGN KEY (norm_id) REFERENCES norms(id)
   );
 
+  -- Embedding vectors for RAG (stored as BLOBs, loaded into Float32Array at runtime)
+  -- Each row is one article/sub-chunk embedding. The flat array format used previously
+  -- (vectors.bin) hit a 2GB file size limit. SQLite has no practical size limit (~281TB),
+  -- supports atomic inserts (crash-safe), and allows incremental add/remove per norm.
+  CREATE TABLE IF NOT EXISTS embeddings (
+    norm_id     TEXT NOT NULL,
+    block_id    TEXT NOT NULL,
+    model       TEXT NOT NULL,
+    vector      BLOB NOT NULL,
+    PRIMARY KEY (norm_id, block_id, model)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_embeddings_model ON embeddings(model);
+
+  -- RAG ask log: tracks user questions, answers, and quality metrics
+  CREATE TABLE IF NOT EXISTS ask_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT NOT NULL,
+    jurisdiction TEXT,
+    answer TEXT,
+    declined INTEGER NOT NULL DEFAULT 0,
+    citations_count INTEGER NOT NULL DEFAULT 0,
+    articles_retrieved INTEGER NOT NULL DEFAULT 0,
+    latency_ms INTEGER NOT NULL DEFAULT 0,
+    model TEXT,
+    best_score REAL,
+    tokens_in INTEGER,
+    tokens_out INTEGER,
+    cost_usd REAL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,
@@ -205,6 +238,17 @@ export function createSchema(db: Database): void {
 	try {
 		db.exec(
 			"ALTER TABLE norms ADD COLUMN citizen_summary TEXT NOT NULL DEFAULT ''",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec(
+			"ALTER TABLE norms ADD COLUMN jurisdiction TEXT NOT NULL DEFAULT 'es'",
+		);
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_norms_jurisdiction ON norms(jurisdiction)",
 		);
 	} catch {
 		// Column already exists

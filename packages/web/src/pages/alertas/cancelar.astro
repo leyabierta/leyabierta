@@ -22,11 +22,16 @@ import Base from "../../layouts/Base.astro";
 		}
 		.cancel-icon.success { color: var(--text-muted); }
 		.cancel-icon.error { color: var(--danger); }
-		.cancel-page h1 {
+		.cancel-page :global(h1) {
 			font-family: var(--font-serif);
-			font-size: 1.5rem;
+			font-size: 2rem;
 			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
 			margin-bottom: 0.75rem;
+		}
+		@media (max-width: 640px) {
+			.cancel-page :global(h1) { font-size: 1.625rem; }
 		}
 		.cancel-page p {
 			color: var(--text-secondary);
@@ -66,7 +71,7 @@ import Base from "../../layouts/Base.astro";
 					'<div class="cancel-icon error">&#10007;</div>' +
 					'<h1>Enlace no válido</h1>' +
 					'<div class="error-msg">Faltan parámetros.</div>' +
-					'<a href="/alertas" class="btn">Volver a alertas</a>';
+					'<a href="/alertas/" class="btn">Volver a alertas</a>';
 				return;
 			}
 
@@ -78,13 +83,13 @@ import Base from "../../layouts/Base.astro";
 							'<div class="cancel-icon success">&#128075;</div>' +
 							'<h1>Te has dado de baja correctamente</h1>' +
 							'<p>No recibirás más emails de alertas legislativas. Esperamos haberte sido útil.</p>' +
-							'<a href="/alertas" class="btn btn-primary">Volver a suscribirme</a>';
+							'<a href="/alertas/" class="btn btn-primary">Volver a suscribirme</a>';
 					} else {
 						el.innerHTML =
 							'<div class="cancel-icon error">&#10007;</div>' +
 							'<h1>No se pudo cancelar la suscripción</h1>' +
 							'<div class="error-msg">' + esc(data.error || "Enlace no válido o expirado.") + '</div>' +
-							'<a href="/alertas" class="btn">Volver a alertas</a>';
+							'<a href="/alertas/" class="btn">Volver a alertas</a>';
 					}
 				})
 				.catch(function () {
@@ -92,7 +97,7 @@ import Base from "../../layouts/Base.astro";
 						'<div class="cancel-icon error">&#10007;</div>' +
 						'<h1>Error de conexión</h1>' +
 						'<div class="error-msg">No se pudo conectar con el servidor. Inténtalo más tarde.</div>' +
-						'<a href="/alertas" class="btn">Volver a alertas</a>';
+						'<a href="/alertas/" class="btn">Volver a alertas</a>';
 				});
 		})();
 	</script>

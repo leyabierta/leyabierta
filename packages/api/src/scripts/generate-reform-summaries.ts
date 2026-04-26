@@ -142,15 +142,15 @@ function queryBlockDiffs(
 				title: block.title,
 				change_type: "new",
 				previous_text: "",
-				current_text: truncate(versions[0].text),
+				current_text: truncate(versions[0]!.text),
 			});
 		} else {
 			diffs.push({
 				block_id: block.block_id,
 				title: block.title,
 				change_type: "modified",
-				previous_text: truncate(versions[1].text),
-				current_text: truncate(versions[0].text),
+				previous_text: truncate(versions[1]!.text),
+				current_text: truncate(versions[0]!.text),
 			});
 		}
 	}

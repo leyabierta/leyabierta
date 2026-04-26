@@ -6,7 +6,7 @@ import Base from "../layouts/Base.astro";
 	title="Mis cambios legislativos"
 	description="Los cambios legislativos que afectan a tu situación personal."
 	ogTitle="Mis cambios — Ley Abierta"
-	canonicalUrl="/mis-cambios"
+	canonicalUrl="/mis-cambios/"
 >
 	<style is:global>
 		.cambios-wrap {
@@ -330,7 +330,7 @@ import Base from "../layouts/Base.astro";
 				<input type="email" placeholder="tu@email.com" required autocomplete="email" id="email-input" />
 				<div class="consent-row">
 					<input type="checkbox" id="email-consent" />
-					<label for="email-consent">He leído la <a href="/privacidad">política de privacidad</a></label>
+					<label for="email-consent">He leído la <a href="/privacidad/">política de privacidad</a></label>
 				</div>
 				<button type="submit" class="btn btn-primary" id="email-submit" disabled>Suscribirme</button>
 				<p class="email-hint" id="email-hint">Marca la casilla de privacidad para continuar</p>
@@ -409,7 +409,7 @@ import Base from "../layouts/Base.astro";
 
 			var answersObj = perfil ? (perfil.answers || {}) : {};
 			if (!perfil || !answersObj.workStatus) {
-				window.location.href = "/mi-situacion";
+				window.location.href = "/mi-situacion/";
 				return;
 			}
 
@@ -432,7 +432,7 @@ import Base from "../layouts/Base.astro";
 				pillsHtml += '<span class="situation-tag">' + esc(label) + '</span>';
 			}
 			metaDiv.innerHTML = pillsHtml;
-			infoDiv.innerHTML = esc(JURISDICTION_NAMES[jurisdiccion] || jurisdiccion) + ' · Últimos cambios · <a href="/mi-situacion">Cambiar situación</a>';
+			infoDiv.innerHTML = esc(JURISDICTION_NAMES[jurisdiccion] || jurisdiccion) + ' · Últimos cambios · <a href="/mi-situacion/">Cambiar situación</a>';
 
 			var PAGE_SIZE = 20;
 			var currentOffset = 0;
@@ -494,7 +494,7 @@ import Base from "../layouts/Base.astro";
 				var cards = timelineEl.querySelectorAll(".reform-card .reform-date");
 				if (cards.length === 0) return;
 				var oldest = cards[cards.length - 1].textContent;
-				infoDiv.innerHTML = esc(JURISDICTION_NAMES[jurisdiccion] || jurisdiccion) + ' · Desde ' + esc(oldest) + ' · <a href="/mi-situacion">Cambiar situación</a>';
+				infoDiv.innerHTML = esc(JURISDICTION_NAMES[jurisdiccion] || jurisdiccion) + ' · Desde ' + esc(oldest) + ' · <a href="/mi-situacion/">Cambiar situación</a>';
 			}
 
 			function fetchPage(offset, isInitial) {

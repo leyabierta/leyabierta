@@ -13,8 +13,35 @@ import { loadManifest } from "../../lib/manifest.ts";
 const md = new MarkdownIt();
 md.renderer.rules.heading_open = (tokens, idx, options, _env, self) => {
 	const token = tokens[idx];
-	const level = Math.min(Number(token.tag.slice(1)) + 1, 6);
+	const origLevel = Number(token.tag.slice(1));
+	const level = Math.min(origLevel + 1, 6);
 	token.tag = `h${level}`;
+	// Add id to headings for linking.
+	// Articles get predictable IDs: "articulo-90", "articulo-1-bis"
+	// Other headings (titles, chapters, sections) get slugified IDs.
+	if (origLevel >= 2) {
+		const contentToken = tokens[idx + 1];
+		if (contentToken?.content) {
+			const text = contentToken.content;
+			// Try to extract a predictable article ID first
+			const artMatch = text.match(/^Art[ií]culo\s+(\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?)/i);
+			if (artMatch) {
+				const artId = artMatch[1]
+					.toLowerCase()
+					.replace(/\s+/g, "-")
+					.replace(/\./g, "-");
+				token.attrSet("id", `articulo-${artId}`);
+			} else {
+				const slug = text
+					.toLowerCase()
+					.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+					.replace(/[^a-z0-9]+/g, "-")
+					.replace(/^-|-$/g, "")
+					.slice(0, 60);
+				token.attrSet("id", slug);
+			}
+		}
+	}
 	return self.renderToken(tokens, idx, options);
 };
 md.renderer.rules.heading_close = (tokens, idx, options, _env, self) => {
@@ -94,6 +121,7 @@ if (entry.body) {
 			td: ["colspan", "rowspan"],
 			span: ["class"],
 			div: ["class"],
+			h2: ["id"], h3: ["id"], h4: ["id"], h5: ["id"], h6: ["id"],
 		},
 		allowedSchemes: ["https", "http"],
 	});
@@ -189,7 +217,7 @@ const seoDescription = [
 	ogTitle={law.titulo}
 	ogType="article"
 	ogImage={`${import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es"}/og/${id}`}
-	canonicalUrl={`/laws/${id}`}
+	canonicalUrl={`/laws/${id}/`}
 >
 	<!-- JSON-LD: Legislation -->
 	<script type="application/ld+json" set:html={safeJsonLd({
@@ -208,7 +236,7 @@ const seoDescription = [
 		...(RANK_LEGISLATION_TYPES[law.rango] ? { "legislationType": RANK_LEGISLATION_TYPES[law.rango] } : {}),
 		...(materias.length > 0 ? { "about": materias.map(m => ({ "@type": "Thing", "name": m })) } : {}),
 		"inLanguage": "es",
-		"url": `https://leyabierta.es/laws/${id}`,
+		"url": `https://leyabierta.es/laws/${id}/`,
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
 		...(seoAbbreviations.length > 0 ? { "alternateName": seoAbbreviations } : {}),
 		...(law.fuente ? { "sameAs": law.fuente } : {})
@@ -218,7 +246,7 @@ const seoDescription = [
 		"@type": "BreadcrumbList",
 		"itemListElement": [
 			{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
-			{ "@type": "ListItem", "position": 2, "name": law.titulo, "item": `https://leyabierta.es/laws/${id}` }
+			{ "@type": "ListItem", "position": 2, "name": law.titulo, "item": `https://leyabierta.es/laws/${id}/` }
 		]
 	})} />
 	<style>
@@ -304,6 +332,7 @@ const seoDescription = [
 		}
 		.tab-panel { display: none; padding-top: 1.5rem; }
 		.tab-panel.active { display: block; }
+		.tab-panel-texto.active { display: flex; }
 
 		/* ── Content ── */
 		.law-content {
@@ -313,12 +342,94 @@ const seoDescription = [
 			overflow-wrap: break-word;
 			word-break: break-word;
 		}
-		.law-content :global(h2) { font-size: 1.25rem; font-weight: 700; margin: 2rem 0 0.75rem; text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
-		.law-content :global(h3) { font-size: 1.0625rem; font-weight: 700; color: var(--accent); margin: 2rem 0 0.5rem; font-family: var(--font-sans); text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
-		.law-content :global(h4) { font-size: 0.9375rem; font-weight: 600; margin: 1.5rem 0 0.5rem; text-align: center; color: var(--text-secondary); }
-		.law-content :global(h6) { font-size: 0.9375rem; font-weight: 700; margin: 0.75rem 0 0.5rem; color: var(--text); }
+		.law-content :global(h2) { font-size: 1.125rem; font-weight: 700; margin: 2.5rem 0 0.75rem; text-align: center; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text); padding: 0.5rem 0; border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border-light); }
+		.law-content :global(h3) { font-size: 1rem; font-weight: 700; color: var(--accent); margin: 2rem 0 0.5rem; font-family: var(--font-sans); text-align: center; text-transform: uppercase; letter-spacing: 0.03em; }
+		.law-content :global(h4) { font-size: 0.875rem; font-weight: 600; margin: 1.5rem 0 0.5rem; text-align: center; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.02em; }
+		.law-content :global(h5) { font-size: 0.8125rem; font-weight: 600; margin: 1.25rem 0 0.375rem; text-align: center; color: var(--text-muted); font-style: italic; }
+		.law-content :global(h6) { font-size: 0.9375rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: var(--text); padding-bottom: 0.25rem; border-bottom: 1px solid var(--border-light); }
 		.law-content :global(p) { margin-bottom: 0.75rem; }
+		:global(.law-rubric) { text-align: center; font-weight: 700; color: var(--text); margin-top: -0.25rem; font-family: var(--font-sans); font-size: 0.875rem; }
+		/* Offset for scroll-to with sticky header */
+		.law-content :global([id]) { scroll-margin-top: 4rem; }
 		.law-content :global(hr) { border: none; border-top: 1px solid var(--border-light); margin: 1.5rem 0 0.75rem; }
+
+		/* ── Text tab layout with TOC ── */
+		.tab-panel-texto {
+			gap: 0;
+			align-items: flex-start;
+			/* Break out of container to use full viewport width */
+			margin-left: calc(-50vw + 50%);
+			margin-right: calc(-50vw + 50%);
+			padding-left: max(1.25rem, calc(50vw - 36rem));
+			padding-right: max(1.25rem, calc(50vw - 36rem));
+		}
+		.tab-panel-texto .law-content {
+			flex: 1;
+			min-width: 0;
+			max-width: 52rem;
+		}
+		.toc {
+			position: sticky;
+			top: 4rem;
+			width: 240px;
+			flex-shrink: 0;
+			max-height: calc(100vh - 5rem);
+			overflow-y: auto;
+			font-size: 0.8125rem;
+			margin-right: 1.5rem;
+			padding-right: 1rem;
+			border-right: 1px solid var(--border-light);
+			scrollbar-width: thin;
+			scrollbar-color: var(--border-light) transparent;
+		}
+		.toc-header {
+			font-size: 0.6875rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: var(--text-muted);
+			margin-bottom: 0.5rem;
+			padding-bottom: 0.375rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.toc-list :global(.toc-item) {
+			display: block;
+			padding: 0.2rem 0.375rem;
+			color: var(--text-muted);
+			text-decoration: none;
+			border-radius: 3px;
+			line-height: 1.35;
+			margin-bottom: 0.0625rem;
+			transition: color 0.1s, background 0.1s;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.toc-list :global(.toc-item:hover) {
+			color: var(--accent);
+			background: var(--accent-faint);
+			text-decoration: none;
+		}
+		.toc-list :global(.toc-item.toc-active) {
+			color: var(--accent);
+			font-weight: 600;
+			background: var(--accent-bg);
+		}
+		.toc-list :global(.toc-level-2) { font-weight: 600; color: var(--text); margin-top: 0.625rem; }
+		.toc-list :global(.toc-level-3) { padding-left: 0.625rem; margin-top: 0.375rem; font-weight: 600; color: var(--text-secondary); }
+		.toc-list :global(.toc-level-4) { padding-left: 1.125rem; }
+		.toc-list :global(.toc-level-5) { padding-left: 1.5rem; }
+		.toc-list :global(.toc-level-6) { padding-left: 1.875rem; color: var(--text-muted); }
+
+		@media (max-width: 960px) {
+			.tab-panel-texto {
+				margin-left: 0;
+				margin-right: 0;
+				padding-left: 0;
+				padding-right: 0;
+			}
+			.toc { display: none; }
+		}
 
 		/* ── Resumen components ── */
 		/* ── Omnibus notice ── */
@@ -362,6 +473,27 @@ const seoDescription = [
 			border: 1px solid var(--border-light);
 			border-radius: 10px;
 			padding: 1rem 1.25rem;
+			width: 100%;
+			text-align: left;
+			font-family: var(--font-sans);
+			cursor: pointer;
+			transition: border-color 0.15s, background 0.15s;
+		}
+		.omnibus-topic-card:hover {
+			border-color: var(--accent);
+			background: var(--accent-faint);
+		}
+		.omnibus-topic-action {
+			display: block;
+			margin-top: 0.5rem;
+			font-size: 0.75rem;
+			font-weight: 600;
+			color: var(--accent);
+			opacity: 0;
+			transition: opacity 0.15s;
+		}
+		.omnibus-topic-card:hover .omnibus-topic-action {
+			opacity: 1;
 		}
 		.omnibus-topic-label {
 			display: flex;
@@ -449,18 +581,109 @@ const seoDescription = [
 			margin: 0;
 		}
 		.citizen-tags {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 0.375rem;
-			margin-bottom: 0.5rem;
+			margin-top: 2rem;
+			padding-top: 1.25rem;
+			border-top: 1px solid var(--border-light);
 		}
 		.citizen-tag {
 			display: inline-block;
-			padding: 0.2rem 0.625rem;
-			font-size: 0.75rem;
-			background: var(--accent-bg);
-			color: var(--accent);
+			padding: 0.25rem 0.625rem;
+			font-size: 0.6875rem;
+			color: var(--text-muted);
+			border: 1px solid var(--border-light);
 			border-radius: 100px;
+			margin: 0.1875rem 0.125rem;
+		}
+
+		/* ── Topic highlight in full text ── */
+		:global(.topic-highlight) {
+			background: var(--warning-bg);
+			border-left: 3px solid var(--warning);
+			padding-left: 0.75rem;
+			margin-left: -0.75rem;
+			border-radius: 0 4px 4px 0;
+		}
+
+		/* ── Article annotation markers (JS-created, needs :global) ── */
+		:global(.article-annotation) {
+			position: relative;
+			display: inline-flex;
+			margin-left: 0.5rem;
+			vertical-align: middle;
+		}
+		:global(.article-annotation-marker) {
+			background: var(--accent-bg);
+			border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+			border-radius: 4px;
+			color: var(--accent);
+			cursor: pointer;
+			padding: 0.15rem 0.25rem;
+			display: inline-flex;
+			align-items: center;
+			line-height: 1;
+			transition: background 0.15s, color 0.15s;
+		}
+		:global(.article-annotation-marker:hover) {
+			background: var(--accent);
+			color: #fff;
+		}
+		:global(.article-annotation-tooltip) {
+			display: none;
+			position: absolute;
+			left: calc(100% + 4px);
+			top: 50%;
+			transform: translateY(-50%);
+			z-index: 50;
+			width: max-content;
+			max-width: 300px;
+			padding: 0.625rem 0.75rem;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+			font-size: 0.8125rem;
+			font-weight: 400;
+			color: var(--text-secondary);
+			line-height: 1.5;
+			cursor: text;
+			user-select: text;
+		}
+		/* Bridge the gap between marker and tooltip so mouse can travel */
+		:global(.article-annotation-tooltip::before) {
+			content: "";
+			position: absolute;
+			right: 100%;
+			top: 0;
+			bottom: 0;
+			width: 8px;
+		}
+		:global(.article-annotation:hover .article-annotation-tooltip),
+		:global(.article-annotation:focus-within .article-annotation-tooltip) {
+			display: block;
+		}
+		:global(.article-annotation-label) {
+			display: block;
+			font-size: 0.625rem;
+			font-weight: 600;
+			color: var(--accent);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			margin-bottom: 0.25rem;
+		}
+		@media (max-width: 640px) {
+			:global(.article-annotation-tooltip) {
+				left: 0;
+				top: calc(100% + 4px);
+				transform: none;
+			}
+			:global(.article-annotation-tooltip::before) {
+				right: auto;
+				left: 0;
+				top: auto;
+				bottom: 100%;
+				width: 100%;
+				height: 8px;
+			}
 		}
 
 		.section { margin-bottom: 2rem; }
@@ -581,9 +804,9 @@ const seoDescription = [
 				var refPath = new URL(document.referrer).pathname;
 				if (refPath === "/" || refPath.indexOf("/?") === 0) {
 					link.textContent = "\u2190 Volver a resultados";
-				} else if (refPath === "/cambios") {
+				} else if (refPath === "/cambios/") {
 					link.textContent = "\u2190 Volver a cambios recientes";
-				} else if (refPath === "/mis-cambios") {
+				} else if (refPath === "/mis-cambios/") {
 					link.textContent = "\u2190 Volver a mis cambios";
 				}
 			}
@@ -667,35 +890,27 @@ const seoDescription = [
 			<div class="omnibus-breakdown" id="omnibus-breakdown">
 				<h2 class="section-heading">Desglose por temas</h2>
 				<div class="omnibus-topics-list">
-					{omnibusTopics.map((topic, i) => (
-						<div class="omnibus-topic-card">
+					{omnibusTopics.map((topic) => (
+						<button
+							type="button"
+							class="omnibus-topic-card"
+							data-block-ids={JSON.stringify(topic.block_ids)}
+						>
 							<div class="omnibus-topic-label">
 								<h3>{topic.topic_label}</h3>
-								<span class="omnibus-topic-articles">({topic.article_count} artículo{topic.article_count !== 1 ? 's' : ''})</span>
+								<span class="omnibus-topic-articles">{topic.article_count} artículo{topic.article_count !== 1 ? 's' : ''}</span>
 							</div>
 							{topic.headline && <p class="omnibus-topic-headline">{topic.headline}</p>}
 							{topic.summary && <p class="omnibus-topic-summary">{topic.summary}</p>}
-						</div>
+							<span class="omnibus-topic-action">Ver artículos →</span>
+						</button>
 					))}
 				</div>
 			</div>
 		)}
 
-		{citizenTags.length > 0 && (
-			<div class="citizen-tags">
-				{citizenTags.map((tag) => (
-					<span class="citizen-tag">{tag}</span>
-				))}
-			</div>
-		)}
-
-		<!-- Toggle for technical details -->
-		<button type="button" class="view-toggle" id="view-toggle" aria-expanded={citizenSummary ? "false" : "true"}>
-			{citizenSummary ? 'Ver información completa ▸' : 'Ocultar información completa ▾'}
-		</button>
-
-		<!-- Technical view (shown by default when no citizen summary) -->
-		<div class="technical-details" id="technical-details" style={citizenSummary ? "display:none;" : ""}>
+		<!-- Technical details (always visible) -->
+		<div class="technical-details" id="technical-details">
 			<div class="card">
 				<h2 class="card-heading">Información general</h2>
 				<div class="meta-grid">
@@ -779,6 +994,14 @@ const seoDescription = [
 				<p class="follow-msg" id="follow-msg" style="display: none;"></p>
 			</div>
 		</div>
+
+		{citizenTags.length > 0 && (
+			<div class="citizen-tags">
+				{citizenTags.map((tag) => (
+					<span class="citizen-tag">{tag}</span>
+				))}
+			</div>
+		)}
 	</div>
 
 	<!-- Tab: Reformas (static) -->
@@ -807,32 +1030,50 @@ const seoDescription = [
 	</div>
 
 	<!-- Tab: Texto completo (static, pre-rendered from Markdown) -->
-	<div class="tab-panel" id="tab-texto">
+	<div class="tab-panel tab-panel-texto" id="tab-texto">
+		<nav class="toc" id="toc" aria-label="Índice del texto">
+			<div class="toc-header">Índice</div>
+			<div class="toc-list" id="toc-list"></div>
+		</nav>
 		<div class="law-content" set:html={htmlContent} />
 	</div>
 
-	<!-- Tab switching (no API needed) -->
+	<!-- Tab switching with URL hash persistence -->
 	<script is:inline>
-		document.querySelectorAll('.tab').forEach(function(tab) {
-			tab.addEventListener('click', function() {
-				document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+		(function() {
+			var tabs = document.querySelectorAll('.tab');
+			function activateTab(name) {
+				tabs.forEach(function(t) { t.classList.remove('active'); });
 				document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-				tab.classList.add('active');
-				document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
+				var target = document.querySelector('.tab[data-tab="' + name + '"]');
+				var panel = document.getElementById('tab-' + name);
+				if (target && panel) {
+					target.classList.add('active');
+					panel.classList.add('active');
+				}
+			}
+			tabs.forEach(function(tab) {
+				tab.addEventListener('click', function() {
+					activateTab(tab.dataset.tab);
+					history.replaceState(null, '', '#' + tab.dataset.tab);
+				});
 			});
-		});
-		// View toggle: citizen (default) vs technical details
-		var toggleBtn = document.getElementById('view-toggle');
-		var techDetails = document.getElementById('technical-details');
-		if (toggleBtn && techDetails) {
-			toggleBtn.addEventListener('click', function() {
-				var isOpen = techDetails.style.display !== 'none';
-				techDetails.style.display = isOpen ? 'none' : 'block';
-				toggleBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-				toggleBtn.textContent = isOpen ? 'Ver información completa \u25B8' : 'Ocultar información completa \u25BE';
-			});
-		}
-
+			// Restore tab from URL hash on load
+			var hash = location.hash.replace('#', '');
+			if (hash && document.getElementById('tab-' + hash)) {
+				activateTab(hash);
+			} else if (hash && hash.indexOf('articulo-') === 0) {
+				// Deep-link to an article: switch to texto tab and scroll to it
+				activateTab('texto');
+				var target = document.getElementById(hash);
+				if (target) {
+					setTimeout(function() {
+						var top = target.getBoundingClientRect().top + window.scrollY - 80;
+						window.scrollTo({ top: top, behavior: 'smooth' });
+					}, 100);
+				}
+			}
+		})();
 	</script>
 
 	<!-- Follow form handler -->
@@ -883,6 +1124,249 @@ const seoDescription = [
 				});
 			});
 		})();
+	</script>
+
+	<!-- Style rubric paragraphs (subtitles after structural headings) -->
+	<script is:inline>
+	(function() {
+		var lawContent = document.querySelector('.law-content');
+		if (!lawContent) return;
+		// Find paragraphs that immediately follow h2/h3/h4 (structural headings)
+		var headings = lawContent.querySelectorAll('h2, h3, h4');
+		headings.forEach(function(h) {
+			var next = h.nextElementSibling;
+			// Skip <hr> elements between heading and rubric
+			while (next && next.tagName === 'HR') { next = next.nextElementSibling; }
+			if (!next || next.tagName !== 'P') return;
+			var text = next.textContent.trim();
+			// Rubrics: short text (< 120 chars), no period at end, not a sentence
+			if (text.length > 0 && text.length < 120 && !text.endsWith('.') && !text.includes('. ')) {
+				next.classList.add('law-rubric');
+			}
+		});
+	})();
+	</script>
+
+	<!-- Build table of contents from headings in law content -->
+	<script is:inline>
+	(function() {
+		var tocList = document.getElementById('toc-list');
+		var lawContent = document.querySelector('.law-content');
+		if (!tocList || !lawContent) return;
+
+		var headings = lawContent.querySelectorAll('h2, h3, h4, h5, h6');
+		if (headings.length === 0) {
+			document.getElementById('toc')?.remove();
+			return;
+		}
+
+		var frag = document.createDocumentFragment();
+		var tocHeadings = [];
+		headings.forEach(function(h, i) {
+			if (!h.id) { h.id = 'sec-' + i; }
+			var level = parseInt(h.tagName.charAt(1));
+			var text = h.textContent.replace(/\s+/g, ' ').trim();
+			if (text.length < 2) return;
+
+			// For articles (h5/h6), shorten to just "Art. N"
+			var label = text;
+			if (level >= 5) {
+				var artMatch = text.match(/^Art[ií]culo\s+(\d+[-\d]*)/i);
+				if (artMatch) {
+					label = 'Art. ' + artMatch[1];
+				}
+			}
+
+			tocHeadings.push(h);
+			var link = document.createElement('a');
+			link.href = '#' + h.id;
+			link.className = 'toc-item toc-level-' + level;
+			link.textContent = label;
+			link.title = text;
+			link.addEventListener('click', function(e) {
+				e.preventDefault();
+				var top = h.getBoundingClientRect().top + window.scrollY - 80;
+				window.scrollTo({ top: top, behavior: 'smooth' });
+				history.replaceState(null, '', '#' + h.id);
+			});
+			frag.appendChild(link);
+		});
+
+		if (tocHeadings.length < 2) {
+			document.getElementById('toc')?.remove();
+			return;
+		}
+
+		tocList.appendChild(frag);
+
+		// Highlight current section: find the last heading above the viewport top
+		var tocItems = tocList.querySelectorAll('.toc-item');
+		var ticking = false;
+		function updateTocHighlight() {
+			var scrollTop = window.scrollY + 100;
+			var activeIdx = 0;
+			for (var i = 0; i < tocHeadings.length; i++) {
+				if (tocHeadings[i].offsetTop <= scrollTop) {
+					activeIdx = i;
+				} else {
+					break;
+				}
+			}
+			tocItems.forEach(function(item, j) {
+				item.classList.toggle('toc-active', j === activeIdx);
+			});
+			// Scroll active TOC item into view within the sidebar
+			var activeItem = tocItems[activeIdx];
+			if (activeItem) {
+				var tocEl = document.getElementById('toc');
+				if (tocEl) {
+					var itemTop = activeItem.offsetTop - tocEl.offsetTop;
+					var tocScroll = tocEl.scrollTop;
+					var tocHeight = tocEl.clientHeight;
+					if (itemTop < tocScroll + 40 || itemTop > tocScroll + tocHeight - 40) {
+						tocEl.scrollTop = itemTop - tocHeight / 3;
+					}
+				}
+			}
+			ticking = false;
+		}
+		window.addEventListener('scroll', function() {
+			if (!ticking) {
+				requestAnimationFrame(updateTocHighlight);
+				ticking = true;
+			}
+		}, { passive: true });
+		updateTocHighlight();
+	})();
+	</script>
+
+	<!-- Omnibus topic → scroll to matching articles in full text -->
+	<script is:inline>
+	(function() {
+		var topicCards = document.querySelectorAll('.omnibus-topic-card[data-block-ids]');
+		if (!topicCards.length) return;
+
+		topicCards.forEach(function(card) {
+			card.addEventListener('click', function() {
+				// Switch to "Texto completo" tab
+				document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+				document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+				var textoTab = document.querySelector('.tab[data-tab="texto"]');
+				var textoPanel = document.getElementById('tab-texto');
+				if (textoTab) textoTab.classList.add('active');
+				if (textoPanel) textoPanel.classList.add('active');
+
+				// Parse block IDs and build match strings
+				var blockIds = [];
+				try { blockIds = JSON.parse(card.dataset.blockIds || '[]'); } catch(e) {}
+				if (!blockIds.length) return;
+
+				// Clear previous highlights
+				document.querySelectorAll('.law-content .topic-highlight').forEach(function(el) {
+					el.classList.remove('topic-highlight');
+				});
+
+				// Find and highlight matching headings
+				var lawContent = document.querySelector('.law-content');
+				if (!lawContent) return;
+				var headings = lawContent.querySelectorAll('h2, h3, h4, h5, h6');
+				var firstMatch = null;
+
+				headings.forEach(function(h) {
+					var text = h.textContent || '';
+					var matched = blockIds.some(function(bid) {
+						// block_id format: "articulo_1", "disposicion_adicional_primera" etc.
+						// heading text: "Artículo 1. Naturaleza."
+						var label = bid.replace(/_/g, ' ');
+						return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+							.includes(label.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+					});
+					if (matched) {
+						h.classList.add('topic-highlight');
+						if (!firstMatch) firstMatch = h;
+					}
+				});
+
+				if (firstMatch) {
+					setTimeout(function() {
+						firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+					}, 100);
+				}
+			});
+		});
+	})();
+	</script>
+
+	<!-- Citizen article summaries as inline annotations -->
+	<script is:inline define:vars={{ normId: id }}>
+	(function() {
+		var apiBase = document.documentElement.dataset.api || 'https://api.leyabierta.es';
+
+		function norm(s) {
+			return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+				.replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, ' ').trim();
+		}
+
+		var injected = false;
+		function loadAndInject() {
+			if (injected) return;
+			injected = true;
+
+			fetch(apiBase + '/v1/laws/' + normId + '/summaries')
+				.then(function(r) { return r.json(); })
+				.then(function(summaries) {
+					// summaries is { "Artículo 1. Título.": "Resumen...", ... }
+					var entries = [];
+					for (var title in summaries) {
+						entries.push({ key: norm(title), summary: summaries[title] });
+					}
+					if (!entries.length) return;
+					entries.sort(function(a, b) { return b.key.length - a.key.length; });
+
+					var lawContent = document.querySelector('.law-content');
+					if (!lawContent) return;
+
+					lawContent.querySelectorAll('h5, h6').forEach(function(h) {
+						var hNorm = norm(h.textContent || '');
+						var matched = null;
+						for (var i = 0; i < entries.length; i++) {
+							if (hNorm.indexOf(entries[i].key) !== 0) continue;
+							var next = hNorm.charAt(entries[i].key.length);
+							if (!next || next === ' ' || next === '-') {
+								matched = entries[i];
+								break;
+							}
+						}
+						if (!matched) return;
+
+						var marker = document.createElement('button');
+						marker.className = 'article-annotation-marker';
+						marker.type = 'button';
+						marker.setAttribute('aria-label', 'Ver resumen ciudadano');
+						marker.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+
+						var tip = document.createElement('div');
+						tip.className = 'article-annotation-tooltip';
+						tip.setAttribute('role', 'tooltip');
+						var safe = matched.summary.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+						tip.innerHTML = '<span class="article-annotation-label">Resumen ciudadano</span>' + safe;
+
+						var wrap = document.createElement('span');
+						wrap.className = 'article-annotation';
+						wrap.appendChild(marker);
+						wrap.appendChild(tip);
+						h.appendChild(wrap);
+					});
+				})
+				.catch(function() { /* silently fail */ });
+		}
+
+		var textoTab = document.querySelector('.tab[data-tab="texto"]');
+		if (textoTab) {
+			textoTab.addEventListener('click', loadAndInject);
+			if (textoTab.classList.contains('active')) loadAndInject();
+		}
+	})();
 	</script>
 
 </Base>

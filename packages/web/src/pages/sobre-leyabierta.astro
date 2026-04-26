@@ -5,16 +5,20 @@ import Base from "../layouts/Base.astro";
 <Base
 	title="Sobre nosotros"
 	description="Quién está detrás de Ley Abierta, por qué existe y dónde encontrarme."
-	canonicalUrl="/sobre-leyabierta"
+	canonicalUrl="/sobre-leyabierta/"
 >
 	<style>
 		.about-page { max-width: 40rem; margin: 0 auto; }
 		.about-page h1 {
 			font-family: var(--font-serif);
-			font-size: 1.75rem;
+			font-size: 2rem;
 			font-weight: 700;
+			line-height: 1.2;
 			color: var(--text);
 			margin: 0 0 0.25rem;
+		}
+		@media (max-width: 640px) {
+			.about-page h1 { font-size: 1.625rem; }
 		}
 		.about-subtitle {
 			font-size: 1rem;

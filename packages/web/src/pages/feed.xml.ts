@@ -24,8 +24,8 @@ export const GET: APIRoute = async () => {
 		const d = law.data;
 		return `    <item>
       <title>${escapeHtml(d.titulo)}</title>
-      <link>${SITE_URL}/laws/${d.identificador}</link>
-      <guid>${SITE_URL}/laws/${d.identificador}</guid>
+      <link>${SITE_URL}/laws/${d.identificador}/</link>
+      <guid>${SITE_URL}/laws/${d.identificador}/</guid>
       <pubDate>${new Date(d.ultima_actualizacion).toUTCString()}</pubDate>
       <description>${escapeHtml(d.rango)} · ${d.estado} · ${d.departamento}</description>
     </item>`;

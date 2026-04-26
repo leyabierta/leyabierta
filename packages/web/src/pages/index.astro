@@ -1,26 +1,6 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
-import sectorData from "../../../shared/data/sector-materias.json";
-
-const SECTOR_OPTIONS = Object.entries(sectorData.sectors).map(([key, val]) => ({
-	value: key,
-	shortLabel: (val as any).shortLabel,
-	label: (val as any).label,
-}));
-
-const WIZARD_JURISDICTIONS = [
-	{ value: "es", label: "Estatal (toda España)" },
-	{ value: "es-an", label: "Andalucía" }, { value: "es-ar", label: "Aragón" },
-	{ value: "es-as", label: "Asturias" }, { value: "es-cb", label: "Cantabria" },
-	{ value: "es-cl", label: "Castilla y León" }, { value: "es-cm", label: "Castilla-La Mancha" },
-	{ value: "es-cn", label: "Canarias" }, { value: "es-ct", label: "Cataluña" },
-	{ value: "es-ex", label: "Extremadura" }, { value: "es-ga", label: "Galicia" },
-	{ value: "es-ib", label: "Illes Balears" }, { value: "es-mc", label: "Murcia" },
-	{ value: "es-md", label: "Madrid" }, { value: "es-nc", label: "Navarra" },
-	{ value: "es-pv", label: "País Vasco" }, { value: "es-ri", label: "La Rioja" },
-	{ value: "es-vc", label: "C. Valenciana" },
-];
 
 const laws = await getCollection("laws");
 
@@ -46,10 +26,7 @@ const ranks = [...rankCounts.entries()]
 const dates = laws.map(l => l.data.fecha_publicacion).filter(Boolean).sort();
 const earliest = dates[0] ?? "1835";
 const earliestYear = earliest.slice(0, 4);
-const yearsSpan = new Date().getFullYear() - Number(earliestYear);
-// Use actual count if available, otherwise approximate from number of norms
-const effectiveReforms = totalReforms > 0 ? totalReforms : totalNorms * 3;
-const reformsDisplay = (Math.floor(effectiveReforms / 1000) * 1000).toLocaleString("es");
+const vigentes = laws.filter(l => l.data.estado === "vigente").length;
 
 const RANK_LABELS: Record<string, string> = {
 	constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
@@ -72,6 +49,11 @@ const JURISDICTION_LABELS: Record<string, string> = {
 	"es-ib": "Illes Balears", "es-mc": "Murcia", "es-md": "Madrid", "es-nc": "Navarra",
 	"es-pv": "País Vasco", "es-ri": "La Rioja", "es-vc": "C. Valenciana",
 };
+
+const TOPICS = [
+	"Vivienda", "Trabajo", "Salud", "Educación", "Impuestos",
+	"Extranjería", "Familia", "Pensiones", "Consumidor",
+];
 ---
 
 <Base
@@ -82,416 +64,464 @@ const JURISDICTION_LABELS: Record<string, string> = {
 	canonicalUrl="/"
 >
 	<style>
-		/* ── Hero Section ── */
-		.hero-section { padding: 3.5rem 0 3rem; background: var(--accent-faint); border-bottom: 1px solid var(--border-light); }
-		.hero-container { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
-
-		.hero-content {
-			animation: fadeInUp 0.7s var(--ease-out-quart) both;
-			text-align: center;
-			max-width: 48rem;
-			margin: 0 auto;
+		/* ── Hero ── */
+		.hero { background: var(--surface); border-bottom: 1px solid var(--border-light); padding: 4.5rem 3rem 3.5rem; }
+		.hero-inner { max-width: 65rem; margin: 0 auto; text-align: center; }
+		.hero-eyebrow {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			letter-spacing: 0.15em;
+			text-transform: uppercase;
+			color: var(--accent);
+			font-weight: 500;
 		}
-		.hero-content h1 {
+		.hero h1 {
+			font-family: var(--font-serif);
+			font-size: 4rem;
+			line-height: 1.06;
+			font-weight: 700;
+			color: var(--text);
+			margin: 0.875rem 0 1.25rem;
+			letter-spacing: -0.02em;
+		}
+		.hero h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
+		.hero-lede {
+			font-size: 1.125rem;
+			line-height: 1.55;
+			color: var(--text-secondary);
+			max-width: 40rem;
+			margin: 0 auto 2.25rem;
+		}
+
+		/* Search */
+		.search-wrap { max-width: 45rem; margin: 0 auto; }
+		.search-box {
+			display: flex;
+			align-items: center;
+			gap: 0.625rem;
+			background: var(--bg);
+			border: 1.5px solid var(--text);
+			border-radius: 6px;
+			padding: 0.375rem 0.375rem 0.375rem 1.125rem;
+		}
+		.search-box svg { width: 18px; height: 18px; color: var(--text-muted); flex: 0 0 auto; }
+		.search-box input {
+			flex: 1;
+			border: none;
+			background: transparent;
+			padding: 0.875rem 0.25rem;
+			font-size: 1rem;
+			font-family: var(--font-sans);
+			outline: none;
+			color: var(--text);
+		}
+		.search-box input::placeholder { color: var(--text-muted); }
+		.search-box .search-btn {
+			background: var(--accent);
+			color: #fff;
+			border: none;
+			padding: 0.75rem 1.375rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			font-family: var(--font-sans);
+			border-radius: 4px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			transition: background 0.15s;
+		}
+		.search-box .search-btn:hover { background: var(--accent-light); }
+		.search-box .search-btn svg { width: 14px; height: 14px; color: #fff; }
+
+		/* Topic chips */
+		.search-hints {
+			display: flex;
+			align-items: center;
+			gap: 0.625rem;
+			margin-top: 0.875rem;
+			justify-content: center;
+			flex-wrap: wrap;
+		}
+		.search-hints .hint-label { font-size: 0.8125rem; color: var(--text-muted); }
+		.search-hints a {
+			font-size: 0.8125rem;
+			padding: 0.25rem 0.625rem;
+			border: 1px solid var(--border-light);
+			border-radius: 999px;
+			color: var(--accent);
+			background: var(--surface);
+			cursor: pointer;
+			transition: all 0.15s;
+		}
+		.search-hints a:hover { background: var(--accent-bg); border-color: var(--accent); text-decoration: none; }
+		.search-hints a.dashed { border-style: dashed; }
+
+		/* Stats rail */
+		.stats-rail {
+			display: flex;
+			justify-content: center;
+			margin-top: 3rem;
+			border-top: 1px solid var(--border-light);
+			border-bottom: 1px solid var(--border-light);
+			padding: 1.5rem 0;
+		}
+		.stat { flex: 1; text-align: center; padding: 0 1.25rem; }
+		.stat-num {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			color: var(--text);
+			font-variant-numeric: tabular-nums;
+		}
+		.stat-label { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.125rem; }
+		.stat-divider { width: 1px; background: var(--border-light); }
+
+		/* ── Sections ── */
+		.la-section { max-width: 77.5rem; margin: 0 auto; padding: 5rem 3rem 0; }
+		.section-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-end;
+			margin-bottom: 1.75rem;
+			padding-bottom: 1rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.section-header h2 {
+			font-family: var(--font-serif);
+			font-size: 1.75rem;
+			font-weight: 700;
+			color: var(--text);
+			margin: 0.375rem 0 0;
+			letter-spacing: -0.01em;
+		}
+		.section-header .see-all { font-size: 0.8125rem; color: var(--accent); font-weight: 500; }
+		.section-header .see-all:hover { text-decoration: underline; }
+
+		/* ── Regions ── */
+		.region-layout { display: grid; grid-template-columns: 1.15fr 1fr; gap: 2.5rem; align-items: start; }
+		.region-map-wrap {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 8px;
+			padding: 1.5rem;
+		}
+		.region-map-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			margin-bottom: 1rem;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px dotted var(--tierra-deep);
+		}
+		.region-map-kicker {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			letter-spacing: 0.15em;
+			text-transform: uppercase;
+			color: var(--accent);
+		}
+		.region-map-hint { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
+		.region-map-frame { padding: 0.5rem 0; min-height: 300px; }
+		.region-map-frame svg { width: 100%; height: auto; display: block; }
+		.region-map-footer {
+			border-top: 1px dotted var(--tierra-deep);
+			margin-top: 0.75rem;
+			padding-top: 1rem;
+			min-height: 78px;
+		}
+		.region-peek-name { font-family: var(--font-serif); font-size: 1.375rem; font-weight: 700; color: var(--text); }
+		.region-peek-count { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem; }
+		.region-peek-link {
+			display: inline-block;
+			font-size: 0.8125rem;
+			color: var(--accent);
+			font-weight: 600;
+			margin-top: 0.625rem;
+			border-bottom: 1px solid var(--accent);
+			padding-bottom: 1px;
+		}
+		.region-peek-link:hover { text-decoration: none; opacity: 0.8; }
+		.region-peek-empty { font-size: 0.84375rem; color: var(--text-muted); font-style: italic; padding-top: 0.5rem; }
+
+		.region-list-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px solid var(--text);
+			margin-bottom: 0.25rem;
+		}
+		.region-list-header span:first-child { font-family: var(--font-serif); font-size: 0.9375rem; font-weight: 600; color: var(--text); }
+		.region-list-header span:last-child { font-size: 0.75rem; color: var(--text-muted); }
+		.region-list { list-style: none; margin: 0; padding: 0; }
+		.region-list li {
+			display: grid;
+			grid-template-columns: 11.25rem 1fr 3.75rem;
+			gap: 0.75rem;
+			align-items: center;
+			padding: 0.625rem 0.5rem;
+			border-bottom: 1px dotted var(--tierra-deep);
+			cursor: pointer;
+			transition: background 0.1s;
+		}
+		.region-list li:hover, .region-list li.active { background: var(--accent-bg); }
+		.region-list .name { font-size: 0.875rem; color: var(--text); }
+		.region-list .bar-wrap { height: 4px; background: var(--border-light); border-radius: 2px; overflow: hidden; }
+		.region-list .bar { height: 100%; background: var(--accent); }
+		.region-list .count {
+			font-family: var(--font-mono);
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			text-align: right;
+			font-variant-numeric: tabular-nums;
+		}
+
+		/* ── Explícame ── */
+		.explicame { background: var(--tierra-warm); padding: 5rem 3rem; margin-top: 5rem; border-top: 1px solid var(--tierra-deep); border-bottom: 1px solid var(--tierra-deep); }
+		.explicame-inner {
+			max-width: 77.5rem;
+			margin: 0 auto;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 3.5rem;
+			align-items: center;
+		}
+		.explicame h2 {
+			font-family: var(--font-serif);
+			font-size: 2.75rem;
+			font-weight: 700;
+			color: var(--text);
+			margin: 0.75rem 0 1.25rem;
+			line-height: 1.1;
+			letter-spacing: -0.02em;
+		}
+		.explicame h2 em { font-style: italic; font-weight: 400; color: var(--accent); }
+		.explicame-copy { font-size: 1.0625rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem; }
+		.explicame-bullets { list-style: none; margin: 0; padding: 0; margin-bottom: 1.75rem; }
+		.explicame-bullets li { display: flex; gap: 0.75rem; padding: 0.5rem 0; font-size: 0.9375rem; color: var(--text); }
+		.explicame-bullets .check { color: var(--success); font-weight: 700; flex: 0 0 auto; }
+		.explicame-actions { display: flex; gap: 1rem; align-items: center; }
+		.explicame-btn {
+			background: var(--text);
+			color: var(--bg);
+			border: none;
+			padding: 0.875rem 1.375rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			font-family: var(--font-sans);
+			border-radius: 4px;
+			cursor: pointer;
+			transition: opacity 0.15s;
+		}
+		.explicame-btn:hover { opacity: 0.85; }
+		.explicame-alt { font-size: 0.84375rem; color: var(--accent); font-weight: 500; }
+		.explicame-alt:hover { text-decoration: underline; }
+
+		/* Example card */
+		.explicame-card {
+			background: var(--surface);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1.5rem 1.625rem;
+		}
+		.explicame-card-head {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			padding-bottom: 0.625rem;
+			border-bottom: 1px dotted var(--tierra-deep);
+			margin-bottom: 0.875rem;
+		}
+		.explicame-card-kicker {
+			font-family: var(--font-mono);
+			font-size: 0.65625rem;
+			letter-spacing: 0.15em;
+			text-transform: uppercase;
+			color: var(--accent);
+		}
+		.explicame-card-meta { font-family: var(--font-mono); font-size: 0.71875rem; color: var(--text-muted); }
+		.explicame-q {
+			font-family: var(--font-serif);
+			font-size: 1.25rem;
+			font-weight: 600;
+			color: var(--text);
+			line-height: 1.35;
+			font-style: italic;
+		}
+		.explicame-divider { height: 1px; background: var(--border-light); margin: 1.125rem 0; }
+		.explicame-a-label {
+			font-family: var(--font-mono);
+			font-size: 0.65625rem;
+			letter-spacing: 0.15em;
+			text-transform: uppercase;
+			color: var(--text-muted);
+			margin-bottom: 0.5rem;
+		}
+		.explicame-a { font-size: 0.9375rem; color: var(--text); line-height: 1.6; margin: 0; }
+		.explicame-a strong { font-weight: 600; }
+		.explicame-sources { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dotted var(--tierra-deep); }
+		.explicame-sources-h {
+			font-family: var(--font-mono);
+			font-size: 0.65625rem;
+			letter-spacing: 0.15em;
+			text-transform: uppercase;
+			color: var(--text-muted);
+			margin-bottom: 0.625rem;
+		}
+		.explicame-source {
+			display: flex;
+			flex-direction: column;
+			padding: 0.5rem 0;
+			border-bottom: 1px dotted var(--border-light);
+		}
+		.explicame-source:last-child { border-bottom: none; }
+		.explicame-source-title { font-family: var(--font-serif); font-size: 0.875rem; font-weight: 600; color: var(--text); }
+		.explicame-source-ref { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.125rem; }
+
+		/* ── Two columns ── */
+		.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; }
+
+		/* ── FAQ ── */
+		.faq-list { border-top: 1px solid var(--border-light); }
+		.faq-item { border-bottom: 1px solid var(--border-light); }
+		.faq-item summary {
+			list-style: none;
+			cursor: pointer;
+			padding: 1.375rem 0;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 1rem;
+		}
+		.faq-item summary::-webkit-details-marker { display: none; }
+		.faq-item summary::marker { display: none; content: ""; }
+		.faq-q {
+			font-family: var(--font-serif);
+			font-size: 1.25rem;
+			font-weight: 600;
+			color: var(--text);
+		}
+		.faq-icon {
+			font-family: var(--font-serif);
+			font-size: 1.5rem;
+			color: var(--accent);
+			font-weight: 400;
+			flex: 0 0 auto;
+			transition: transform 0.2s;
+		}
+		.faq-item[open] .faq-icon { transform: rotate(45deg); }
+		.faq-answer { font-size: 0.96875rem; color: var(--text-secondary); line-height: 1.65; padding: 0 3.75rem 1.375rem 0; }
+
+		/* ── CTA ── */
+		.cta-section { background: var(--text); color: var(--bg); margin-top: 5rem; padding: 5rem 3rem; margin-bottom: -4rem; }
+		.cta-inner { max-width: 57.5rem; margin: 0 auto; text-align: center; }
+		.cta-eyebrow {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			letter-spacing: 0.15em;
+			text-transform: uppercase;
+			color: var(--text-muted);
+		}
+		:root[data-theme="dark"] .cta-eyebrow { color: #8fa3bf; }
+		.cta-section h2 {
 			font-family: var(--font-serif);
 			font-size: 3rem;
 			font-weight: 700;
-			line-height: 1.15;
+			color: var(--bg);
+			margin: 0.875rem 0 1.125rem;
 			letter-spacing: -0.02em;
-			color: var(--accent);
+			line-height: 1.1;
 		}
-		.hero-sub {
-			color: var(--text-secondary);
+		:root[data-theme="dark"] .cta-section h2 { color: var(--text); }
+		.cta-copy {
 			font-size: 1.0625rem;
-			margin-top: 0.75rem;
-			line-height: 1.7;
-			max-width: 36rem;
-			margin-left: auto;
-			margin-right: auto;
-		}
-
-		/* ── Category Cards ── */
-		.category-grid {
-			display: grid;
-			grid-template-columns: repeat(4, 1fr);
-			gap: 0.75rem;
-			margin-top: 2rem;
-		}
-		.cat-card {
-			background: var(--surface);
-			border: 1px solid var(--border-light);
-			border-radius: 12px;
-			padding: 1.25rem;
-			text-align: left;
-			cursor: pointer;
-			transition: border-color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart);
-			text-decoration: none;
-			color: inherit;
-			display: block;
-		}
-		.cat-card:hover {
-			border-color: var(--accent);
-			background: var(--accent-faint);
-			text-decoration: none;
-		}
-		.cat-card:active { opacity: 0.85; transition-duration: 0.1s; }
-		.cat-icon { margin-bottom: 0.5rem; display: block; color: var(--accent); }
-		.cat-icon svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-		.cat-name {
-			font-family: var(--font-serif);
-			font-weight: 700;
-			font-size: 0.9375rem;
-			color: var(--text);
-			margin-bottom: 0.125rem;
-		}
-		.cat-examples {
-			font-size: 0.75rem;
 			color: var(--text-muted);
-			line-height: 1.5;
+			line-height: 1.55;
+			max-width: 38.75rem;
+			margin: 0 auto 2rem;
 		}
-		.hero-cta {
-			margin-top: 1.5rem;
-			text-align: center;
-		}
-		.hero-cta-btn {
-			font-size: 1.0625rem;
-			padding: 0.75rem 1.75rem;
-			border-radius: 8px;
-			letter-spacing: 0.01em;
-		}
-		.hero-stat-line {
-			margin-top: 0.75rem;
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			text-align: center;
-		}
-
-		/* ── Welcome back banner ── */
-		.welcome-back {
-			text-align: center;
-			max-width: 48rem;
-			margin: 0 auto;
-			animation: fadeInUp 0.7s var(--ease-out-quart) both;
-		}
-		.welcome-back h1 {
-			font-family: var(--font-serif);
-			font-size: 2.25rem;
-			font-weight: 700;
-			line-height: 1.2;
-			color: var(--accent);
-			margin-bottom: 0.75rem;
-		}
-		.wb-situations {
-			font-size: 0.9375rem;
-			color: var(--text-secondary);
-			margin-bottom: 1.5rem;
-		}
-		.wb-actions {
+		:root[data-theme="dark"] .cta-copy { color: #c7d3e0; }
+		.cta-box {
 			display: flex;
-			gap: 0.75rem;
-			justify-content: center;
-			flex-wrap: wrap;
-		}
-
-		/* ── Search Section ── */
-		.search-section {
-			padding: 2rem 0 1.5rem;
-			border-bottom: 1px solid var(--border-light);
-		}
-		.search-section h2 {
-			font-family: var(--font-serif);
-			font-size: 1.25rem;
-			font-weight: 700;
-			text-align: center;
-			margin-bottom: 1rem;
-			color: var(--text-secondary);
-		}
-		.search-section-inner {
+			align-items: center;
+			gap: 0.625rem;
+			background: #1a2842;
+			border: 1px solid #2a3548;
+			border-radius: 6px;
+			padding: 0.375rem 0.375rem 0.375rem 1.125rem;
 			max-width: 40rem;
 			margin: 0 auto;
 		}
-
-		/* ── Search Form ── */
-		.search-form { margin-top: 0; }
-		.search-row { display: flex; gap: 0.5rem; }
-		.search-input {
+		.cta-box svg { width: 20px; height: 20px; color: #c7d3e0; flex: 0 0 auto; }
+		.cta-box input {
 			flex: 1;
-			padding: 0.75rem 1rem;
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			background: var(--surface);
+			border: none;
+			background: transparent;
+			padding: 0.875rem 0.25rem;
+			font-size: 1rem;
+			font-family: var(--font-sans);
+			outline: none;
+			color: #fff;
+		}
+		.cta-box input::placeholder { color: #6b8299; }
+		.cta-box button {
+			background: var(--bg);
 			color: var(--text);
-			font-size: 0.9375rem;
-			font-family: var(--font-sans);
-		}
-		.search-input:focus { outline: none; border-color: var(--accent); border-width: 2px; padding: calc(0.75rem - 1px) calc(1rem - 1px); transition: border-color 0.2s var(--ease-out-quart); }
-
-		.filter-bar {
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-			margin-top: 0.5rem;
-			flex-wrap: wrap;
-		}
-		.filter-bar .filter-select {
-			padding: 0.35rem 0.625rem;
-			font-size: 0.8125rem;
-		}
-		.filter-toggle {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.375rem;
-			background: var(--surface);
-			border: 1px solid var(--border);
-			border-radius: 6px;
-			color: var(--text-muted);
-			font-size: 0.8125rem;
-			font-family: var(--font-sans);
-			font-weight: 500;
-			cursor: pointer;
-			padding: 0.35rem 0.75rem;
-			transition: all 0.15s;
-		}
-		.filter-toggle:hover { color: var(--text-secondary); border-color: var(--accent); }
-		.filter-toggle span { display: inline-block; transition: transform 0.25s var(--ease-out-quart); }
-		.filter-toggle.open span { transform: rotate(180deg); }
-		.filter-panel { display: none; margin-top: 0.5rem; }
-		.filter-panel.open { display: block; }
-		.filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-		.filter-select {
-			padding: 0.5rem 0.625rem;
-			border: 1px solid var(--border);
-			border-radius: 6px;
-			background: var(--surface);
-			color: var(--text-secondary);
+			border: none;
+			padding: 0.75rem 1.375rem;
 			font-size: 0.875rem;
-			font-family: var(--font-sans);
-		}
-
-		/* ── Search Suggestions ── */
-		.search-suggestions {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 0.375rem;
-			margin-top: 0.75rem;
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			align-items: center;
-		}
-		.search-suggestions span { margin-right: 0.125rem; }
-		.search-chip {
-			display: inline-block;
-			padding: 0.25rem 0.625rem;
-			border: 1px solid var(--border);
-			border-radius: 100px;
-			font-size: 0.8125rem;
-			color: var(--text-secondary);
-			background: var(--surface);
-			cursor: pointer;
-			transition: all 0.15s;
-			font-family: var(--font-sans);
-			text-decoration: none;
-		}
-		.search-chip:hover { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
-
-		/* ── Results Section ── */
-		.results-section { padding: 2rem 0; }
-
-		/* ── Sections ── */
-		.section-alt {
-			background: var(--tierra-warm);
-			border-top: 1px solid var(--tierra-deep);
-			border-bottom: 1px solid var(--tierra-deep);
-			padding: 2.5rem 0;
-		}
-		.section-default { padding: 2.5rem 0; }
-		.section-title {
-			font-family: var(--font-serif);
-			font-size: 1.25rem;
-			font-weight: 700;
-			margin-bottom: 1.25rem;
-		}
-
-		/* ── Jurisdiction Grid ── */
-		.juri-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
-		.juri-card {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 0.125rem;
-			padding: 0.75rem 0.5rem;
-			background: var(--surface);
-			border: 1px solid var(--border-light);
-			border-radius: 8px;
-			font-size: 0.8125rem;
-			font-family: var(--font-sans);
-			color: var(--text);
-			font-weight: 500;
-			cursor: pointer;
-			text-align: center;
-			min-width: 0;
-			transition: border-color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart);
-		}
-		.juri-card:hover { border-color: var(--accent); background: var(--accent-faint); }
-		.juri-card:active { opacity: 0.85; transition-duration: 0.1s; }
-		.juri-card.juri-estatal {
-			grid-column: 1 / -1;
-			flex-direction: row;
-			background: var(--accent-bg, #eef3f8);
-			border-color: var(--accent);
-			color: var(--accent);
 			font-weight: 600;
-			font-size: 0.9375rem;
+			font-family: var(--font-sans);
+			border-radius: 4px;
+			cursor: pointer;
+		}
+		.cta-links {
+			margin-top: 1.375rem;
+			display: flex;
 			justify-content: center;
 			gap: 0.5rem;
-			padding: 0.875rem 1rem;
+			align-items: center;
+			flex-wrap: wrap;
 		}
-		.juri-count { font-variant-numeric: tabular-nums; font-size: 0.6875rem; color: var(--text-muted); }
-		.juri-estatal .juri-count { color: var(--accent); font-size: 0.8125rem; }
-
-		/* ── Two Col ── */
-		.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-		.two-col > * { min-width: 0; }
-
-		/* ── Loading ── */
-		.loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
-		.loading-spinner {
-			display: inline-block;
-			width: 1.25rem;
-			height: 1.25rem;
-			border: 2px solid var(--border);
-			border-top-color: var(--accent);
-			border-radius: 50%;
-			animation: spin 0.6s linear infinite;
-			margin-right: 0.5rem;
-			vertical-align: middle;
+		.cta-links a {
+			font-size: 0.84375rem;
+			color: #c7d3e0;
+			text-decoration: underline;
+			text-underline-offset: 3px;
 		}
-		@keyframes spin { to { transform: rotate(360deg); } }
+		.cta-links .sep { color: var(--text-muted); }
 
-		/* ── Search Skeleton ── */
-		.search-skeleton { display: flex; flex-direction: column; gap: 1rem; padding: 1rem 0; }
-		.skeleton-card {
-			padding: 1.25rem;
-			background: var(--surface);
-			border: 1px solid var(--border);
-			border-radius: 8px;
-		}
-		.skeleton-line {
-			height: 0.875rem;
-			background: linear-gradient(90deg, var(--border) 25%, var(--surface-alt, var(--surface)) 50%, var(--border) 75%);
-			background-size: 200% 100%;
-			animation: skeleton-pulse 1.5s ease-in-out infinite;
-			border-radius: 4px;
-			margin-bottom: 0.625rem;
-		}
-		.skeleton-line:last-child { margin-bottom: 0; }
-		@keyframes skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-		/* ── Inline Wizard ── */
-		#wizard-inline { max-width: 680px; margin: 0 auto; }
-		#wizard-inline[hidden] { display: none; }
-
-		.wiz-progress { margin-bottom: 1rem; }
-		.wiz-progress-text { font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.5rem; }
-		.wiz-progress-track { width: 100%; height: 6px; background: var(--border-light); border-radius: 3px; overflow: hidden; }
-		.wiz-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
-
-		.wiz-step { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 1.5rem; }
-		.wiz-step[hidden] { display: none; }
-		.wiz-step-heading { font-family: var(--font-serif); font-size: 1.375rem; font-weight: 700; line-height: 1.2; margin-bottom: 0.25rem; }
-		.wiz-step-sub { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem; }
-
-		.wiz-radio-group, .wiz-checkbox-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-		.wiz-pill {
-			border: none; border-radius: 10px; padding: 0.6rem 0.75rem 0.6rem 2rem;
-			background: var(--accent-faint, #edf2f7); font-size: 0.8125rem; font-family: var(--font-sans);
-			cursor: pointer; text-align: left; color: var(--text); position: relative;
-			min-height: 44px; display: flex; align-items: center; transition: background 0.15s, color 0.15s, font-weight 0.15s;
-		}
-		.wiz-pill::before {
-			content: ""; position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%);
-			width: 14px; height: 14px; border: 2px solid var(--border); background: var(--surface); transition: background 0.15s, border-color 0.15s;
-		}
-		.wiz-pill[data-type="radio"]::before { border-radius: 50%; }
-		.wiz-pill[data-type="checkbox"]::before { border-radius: 3px; }
-		.wiz-pill:hover { background: var(--accent-bg); }
-		.wiz-pill[aria-checked="true"] { background: var(--accent-faint); color: var(--accent); font-weight: 500; }
-		.wiz-pill[aria-checked="true"]::before { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--surface); }
-
-		.wiz-sector-grid { grid-template-columns: repeat(3, 1fr); }
-		.wiz-jur-grid { grid-template-columns: repeat(3, 1fr); }
-		.wiz-jur-pill {
-			border: none; border-radius: 10px; padding: 0.75rem 0.5rem;
-			background: var(--accent-faint, #edf2f7); font-size: 0.8125rem; font-family: var(--font-sans);
-			cursor: pointer; text-align: center; color: var(--text); min-height: 44px; transition: background 0.15s, color 0.15s;
-		}
-		.wiz-jur-pill:hover { background: var(--accent-bg); }
-		.wiz-jur-pill[aria-checked="true"] { background: var(--accent); color: white; }
-		.wiz-jur-pill.highlight { font-weight: 600; }
-
-		.wiz-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; gap: 0.75rem; }
-		.wiz-btn-back {
-			background: none; border: 1.5px solid var(--border-light); border-radius: 8px;
-			padding: 0.625rem 1rem; font-size: 0.875rem; font-family: var(--font-sans);
-			color: var(--text-muted); cursor: pointer; transition: all 0.15s;
-		}
-		.wiz-btn-back:hover { color: var(--text); border-color: var(--border); }
-		.wiz-btn-next {
-			flex: 1; max-width: 240px; margin-left: auto; padding: 0.625rem 1.25rem;
-			font-size: 0.875rem; font-weight: 600; font-family: var(--font-sans);
-			border-radius: 8px; border: none; background: var(--accent); color: white;
-			cursor: pointer; transition: all 0.15s;
-		}
-		.wiz-btn-next:hover:not(:disabled) { background: var(--accent-light); }
-		.wiz-btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
-		.wiz-btn-skip {
-			background: none; border: none; color: var(--text-muted); font-size: 0.8125rem;
-			font-family: var(--font-sans); cursor: pointer; padding: 0.5rem;
-		}
-		.wiz-btn-skip:hover { color: var(--text-secondary); text-decoration: underline; }
-
-		/* Done state */
-		#wizard-done { text-align: center; }
-		#wizard-done[hidden] { display: none; }
-		#wizard-done h2 { font-family: var(--font-serif); font-size: 1.75rem; font-weight: 700; color: var(--accent); margin-bottom: 0.5rem; }
-		#wizard-done .done-tags { font-size: 0.9375rem; color: var(--text-secondary); margin-bottom: 1.5rem; }
-		#wizard-done .done-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+		/* ── Search Results (reused from before) ── */
+		.results-section { padding: 2rem 0; }
+		.search-section-compact { display: none; padding: 1.5rem 0 1rem; border-bottom: 1px solid var(--border-light); }
 
 		/* ── Responsive ── */
 		@media (max-width: 768px) {
-			.hero-section { padding: 2.5rem 0 2rem; }
-			.hero-content h1 { font-size: 2rem; }
-			.category-grid { grid-template-columns: repeat(2, 1fr); }
-			.hero-section.has-results { padding-bottom: 1.5rem; }
-			.juri-grid { grid-template-columns: repeat(4, 1fr); }
+			.hero { padding: 3rem 1.25rem 2.5rem; }
+			.hero h1 { font-size: 2.25rem; }
+			.hero-lede { font-size: 1rem; }
+			.stats-rail { flex-wrap: wrap; gap: 1rem; }
+			.stat { flex: 0 0 45%; }
+			.stat-divider { display: none; }
+			.la-section { padding: 3rem 1.25rem 0; }
+			.region-layout { grid-template-columns: 1fr; gap: 1.5rem; }
+			.explicame { padding: 3rem 1.25rem; margin-top: 3rem; }
+			.explicame-inner { grid-template-columns: 1fr; gap: 2rem; }
+			.explicame h2 { font-size: 2rem; }
+			.two-col { grid-template-columns: 1fr; gap: 2rem; }
+			.cta-section { padding: 3rem 1.25rem; margin-top: 3rem; }
+			.cta-section h2 { font-size: 2rem; }
+			.region-list li { grid-template-columns: 8rem 1fr 3rem; }
 		}
-		@media (max-width: 640px) {
-			.hero-section { padding: 2rem 0 1.5rem; }
-			.hero-container { padding: 0 1rem; }
-			.hero-content h1 { font-size: 1.625rem; }
-			.hero-sub { font-size: 0.9375rem; }
-			.category-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-			.cat-card { padding: 1rem; }
-			.cat-icon svg { width: 20px; height: 20px; }
-			.cat-name { font-size: 0.875rem; }
-			.cat-examples { font-size: 0.6875rem; }
-			.search-row { flex-direction: column; }
-			.search-row .btn-primary { font-size: 0.875rem; padding: 0.625rem 1rem; }
-			.filter-toggle { min-height: 2.75rem; }
-			.filter-row { flex-direction: column; }
-			.filter-select { width: 100%; min-height: 2.75rem; }
-			.two-col { grid-template-columns: 1fr; }
-			.juri-grid { grid-template-columns: repeat(3, 1fr); }
-			.juri-card { font-size: 0.75rem; padding: 0.625rem 0.375rem; }
-			.welcome-back h1 { font-size: 1.625rem; }
-			/* Tighter hero when searching */
-			.hero-section.has-results .hero-sub { display: none; }
-			.hero-section.has-results .hero-content h1 { font-size: 1.375rem; margin-bottom: 0.5rem; }
-			.hero-section.has-results { padding: 1.5rem 0 1rem; }
-			/* Wizard responsive */
-			.wiz-radio-group, .wiz-checkbox-group { grid-template-columns: 1fr; }
-			.wiz-sector-grid, .wiz-jur-grid { grid-template-columns: 1fr; }
-			.wiz-btn-next { max-width: none; flex: 1; }
+		@media (max-width: 480px) {
+			.hero h1 { font-size: 1.75rem; }
+			.search-box { flex-direction: column; padding: 0.75rem; }
+			.search-box .search-btn { width: 100%; justify-content: center; }
+			.stats-rail { flex-direction: column; gap: 0.75rem; padding: 1rem 0; }
+			.stat { flex: 1; }
+			.region-list li { grid-template-columns: 1fr 2.5rem; }
+			.region-list .bar-wrap { display: none; }
 		}
 	</style>
 
@@ -501,122 +531,63 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		.law-card { padding: 1rem 0; transition: background 0.15s; }
 		.law-card:hover { background: var(--surface); margin: 0 -1rem; padding: 1rem; border-radius: 8px; }
 		.law-card + .law-card { border-top: 1px solid var(--border-light); }
-		.law-card-short-title {
-			display: block;
-			font-size: 0.8125rem;
-			font-weight: 600;
-			color: var(--accent);
-			margin-bottom: 0.125rem;
-		}
+		.law-card-short-title { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--accent); margin-bottom: 0.125rem; }
 		.law-card-title {
-			font-family: var(--font-serif);
-			font-weight: 600;
-			font-size: 1.0625rem;
-			line-height: 1.45;
-			color: var(--text);
-			display: -webkit-box;
-			-webkit-line-clamp: 3;
-			-webkit-box-orient: vertical;
-			overflow: hidden;
+			font-family: var(--font-serif); font-weight: 600; font-size: 1.0625rem; line-height: 1.45;
+			color: var(--text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 		}
 		.law-card-title:hover { color: var(--accent); text-decoration: none; }
-		.law-card-official-title {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-			margin-top: 0.25rem;
-			line-height: 1.4;
-			display: -webkit-box;
-			-webkit-line-clamp: 2;
-			-webkit-box-orient: vertical;
-			overflow: hidden;
-		}
-		.law-card-summary {
-			font-size: 0.875rem;
-			color: var(--text-secondary);
-			margin-top: 0.25rem;
-			line-height: 1.55;
-			display: -webkit-box;
-			-webkit-line-clamp: 2;
-			-webkit-box-orient: vertical;
-			overflow: hidden;
-		}
-		.law-card-meta {
-			margin-top: 0.5rem;
-			display: flex;
-			gap: 0.5rem 0.75rem;
-			flex-wrap: wrap;
-			align-items: center;
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-		}
+		.law-card-official-title { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+		.law-card-meta { margin-top: 0.5rem; display: flex; gap: 0.5rem 0.75rem; flex-wrap: wrap; align-items: center; font-size: 0.8125rem; color: var(--text-muted); }
 		.law-card-meta .meta-sep { color: var(--border); font-size: 0.5rem; }
-		.law-card-id {
-			font-family: var(--font-mono);
-			font-size: 0.6875rem;
-			color: var(--text-muted);
-			opacity: 0.7;
-		}
-		.results-header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			margin-bottom: 1rem;
-			padding-bottom: 0.75rem;
-			border-bottom: 1px solid var(--border-light);
-		}
-		.results-info {
-			font-size: 0.8125rem;
-			color: var(--text-muted);
-		}
-		.sort-select {
-			padding: 0.3rem 0.5rem;
-			border: 1px solid var(--border);
-			border-radius: 6px;
-			background: var(--surface);
-			color: var(--text-secondary);
-			font-size: 0.8125rem;
-			font-family: var(--font-sans);
-			cursor: pointer;
-		}
-		.results-filter-badge {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.375rem;
-			background: var(--accent-bg);
-			color: var(--accent);
-			font-size: 0.8125rem;
-			font-weight: 500;
-			padding: 0.25rem 0.625rem;
-			border-radius: 4px;
-			margin-bottom: 1rem;
-		}
-		.results-filter-clear {
-			background: none;
-			border: none;
-			color: var(--accent);
-			cursor: pointer;
-			font-size: 1rem;
-			line-height: 1;
-			padding: 0 0.125rem;
-			opacity: 0.6;
-		}
+		.law-card-id { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text-muted); opacity: 0.7; }
+		.results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); }
+		.results-info { font-size: 0.8125rem; color: var(--text-muted); }
+		.sort-select { padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-secondary); font-size: 0.8125rem; font-family: var(--font-sans); cursor: pointer; }
+		.results-filter-badge { display: inline-flex; align-items: center; gap: 0.375rem; background: var(--accent-bg); color: var(--accent); font-size: 0.8125rem; font-weight: 500; padding: 0.25rem 0.625rem; border-radius: 4px; margin-bottom: 1rem; }
+		.results-filter-clear { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.125rem; opacity: 0.6; }
 		.results-filter-clear:hover { opacity: 1; }
-		@media (max-width: 768px) {
-			.law-card-title { -webkit-line-clamp: 2; font-size: 1rem; }
-		}
 
-		.reformed-list, .recent-list, .fact-list { list-style: none; padding: 0; }
-		.reformed-item { display: flex; gap: 1rem; align-items: baseline; padding: 0.75rem 0; border-bottom: 1px solid var(--border-light); }
-		.reformed-item:last-child { border-bottom: none; }
-		.reformed-count { font-variant-numeric: tabular-nums; font-size: 1.125rem; font-weight: 700; color: var(--accent); min-width: 2.5rem; text-align: right; flex-shrink: 0; }
-		.reformed-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; }
-		.reformed-title:hover { color: var(--accent); text-decoration: none; }
-		.reformed-rank { font-size: 0.6875rem; color: var(--text-muted); }
-		.fact-item { padding: 0.625rem 0; border-bottom: 1px solid var(--border-light); font-size: 0.875rem; line-height: 1.6; color: var(--text-secondary); }
-		.fact-item:last-child { border-bottom: none; }
-		.fact-link { color: var(--text-secondary); }
-		.fact-link:hover { color: var(--accent); text-decoration: none; }
-		.fact-link strong { color: var(--accent); font-weight: 700; }
+		/* ── Dynamic landing sections (JS-injected) ── */
+		.change-list { list-style: none; margin: 0; padding: 0; }
+		.change-item { padding: 1.25rem 0; border-bottom: 1px solid var(--border-light); }
+		.change-head { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.5rem; }
+		.badge-new {
+			background: var(--accent); color: #fff; font-size: 0.6875rem; padding: 0.1875rem 0.5rem;
+			border-radius: 3px; font-weight: 500; letter-spacing: 0.01em;
+		}
+		.badge-reform {
+			background: var(--warning-bg); color: var(--warning-text); font-size: 0.6875rem; padding: 0.1875rem 0.5rem;
+			border-radius: 3px; font-weight: 500; border: 1px solid #f0e2b5;
+		}
+		.change-date { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); }
+		.change-title {
+			font-family: var(--font-serif); font-size: 1.0625rem; color: var(--text);
+			font-weight: 600; line-height: 1.35; display: block;
+		}
+		.change-title:hover { color: var(--accent); text-decoration: none; }
+		.change-id { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.375rem; letter-spacing: 0.02em; }
+
+		.rank-list { list-style: none; margin: 0; padding: 0; }
+		.rank-item {
+			display: flex; gap: 1.125rem; padding: 1.125rem 0;
+			border-bottom: 1px solid var(--border-light); align-items: flex-start;
+		}
+		.rank-num {
+			font-family: var(--font-serif); font-size: 1.625rem; font-weight: 700;
+			color: var(--accent); font-style: italic; width: 2.625rem; flex: 0 0 auto;
+			line-height: 1; padding-top: 0.125rem;
+		}
+		.rank-title {
+			font-family: var(--font-serif); font-size: 1.0625rem; font-weight: 600;
+			color: var(--text); line-height: 1.35; display: block;
+		}
+		.rank-title:hover { color: var(--accent); text-decoration: none; }
+		.rank-meta { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem; }
+		.rank-reforms { color: var(--accent); font-weight: 500; }
+		.rank-sep { margin: 0 0.375rem; }
+
+		.reformed-list, .recent-list { list-style: none; padding: 0; }
 		.recent-item { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.625rem 0; border-bottom: 1px solid var(--border-light); min-width: 0; }
 		.recent-item > div { min-width: 0; }
 		.recent-item:last-child { border-bottom: none; }
@@ -624,231 +595,59 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		.recent-title { font-size: 0.875rem; color: var(--text); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 		.recent-title:hover { color: var(--accent); text-decoration: none; }
 		.recent-official { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+		@media (max-width: 768px) {
+			.law-card-title { -webkit-line-clamp: 2; font-size: 1rem; }
+		}
 	</style>
 
 	<!-- ── Hero ── -->
-	<section class="hero-section">
-		<div class="hero-container">
-			<!-- Welcome back (hidden by default, shown via JS for returning users) -->
-			<div id="welcome-back" style="display:none" class="welcome-back">
-				<h1>Bienvenido/a de vuelta</h1>
-				<p class="wb-situations" id="wb-situations"></p>
-				<div class="wb-actions">
-					<a href="/mis-cambios" class="btn btn-primary" id="wb-link">Ver mis cambios &rarr;</a>
-					<button type="button" class="btn" id="wb-change-btn" onclick="startWizard()">Cambiar situación</button>
+	<section class="hero" id="hero-section">
+		<div class="hero-inner">
+			<div class="hero-eyebrow">Legislación española · Acceso libre</div>
+			<h1>Las leyes de España,<br><em>accesibles para todos.</em></h1>
+			<p class="hero-lede">
+				Más de {totalNorms.toLocaleString("es")} leyes desde {earliestYear}, actualizadas cada día. Busca cualquier ley,
+				consulta su texto completo y mira cómo ha cambiado con el tiempo.
+			</p>
+
+			<div class="search-wrap">
+				<div class="search-box">
+					<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
+					<input type="search" id="search-input" placeholder="Busca una ley, un artículo o una materia…" aria-label="Buscar leyes" />
+					<button type="button" class="search-btn" id="search-btn">
+						Buscar
+						<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 10h12m-4-4 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					</button>
+				</div>
+				<div class="search-hints" id="search-hints">
+					<span class="hint-label">Temas frecuentes:</span>
+					{TOPICS.map(t => (
+						<a data-topic={t}>{t}</a>
+					))}
+					<a href="/mi-situacion/" class="dashed">Todos los temas &rarr;</a>
 				</div>
 			</div>
 
-			<!-- Default hero for new visitors -->
-			<div id="default-hero">
-				<div class="hero-content">
-					<h1>¿Quieres saber qué leyes te afectan?</h1>
-					<p class="hero-sub">
-						Cuéntanos tu situación y te mostramos los cambios legislativos que te importan.
-					</p>
-
-					<div class="category-grid">
-						<button type="button" class="cat-card" onclick="startWizard()">
-							<span class="cat-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg></span>
-							<div class="cat-name">Trabajo</div>
-							<div class="cat-examples">Autónomo · Empleo · Empresa</div>
-						</button>
-						<button type="button" class="cat-card" onclick="startWizard()">
-							<span class="cat-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" /><path d="M21 21v-1.5a3 3 0 0 0-3-3h-1" /></svg></span>
-							<div class="cat-name">Familia</div>
-							<div class="cat-examples">Hijos · Embarazo · Divorcio</div>
-						</button>
-						<button type="button" class="cat-card" onclick="startWizard()">
-							<span class="cat-icon"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" /><path d="M10 20v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" /></svg></span>
-							<div class="cat-name">Vivienda</div>
-							<div class="cat-examples">Alquiler · Hipoteca · Compra</div>
-						</button>
-						<button type="button" class="cat-card" onclick="startWizard()">
-							<span class="cat-icon"><svg viewBox="0 0 24 24"><path d="M11 2a2 2 0 0 1 2 2v4h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-4H3a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2h2z" /></svg></span>
-							<div class="cat-name">Salud</div>
-							<div class="cat-examples">Jubilación · Discapacidad · Inmigración</div>
-						</button>
-					</div>
-
-					<div class="hero-cta">
-						<button type="button" class="btn btn-primary hero-cta-btn" onclick="startWizard()">Descubre qué leyes te afectan &rarr;</button>
-					</div>
-					<p class="hero-stat-line">Más de {totalNorms.toLocaleString("es")} leyes desde {earliestYear} · Fuente: BOE</p>
+			<div class="stats-rail">
+				<div class="stat">
+					<div class="stat-num">{totalNorms.toLocaleString("es")}</div>
+					<div class="stat-label">leyes consolidadas</div>
 				</div>
-			</div>
-
-				<!-- Inline wizard (hidden by default, shown when user clicks a card or CTA) -->
-				<div id="wizard-inline" hidden>
-					<div class="wiz-progress" aria-live="polite">
-						<span class="wiz-progress-text" id="wiz-progress-text">Paso 1 de 6</span>
-						<div class="wiz-progress-track">
-							<div class="wiz-progress-fill" id="wiz-progress-fill" style="width: 17%"></div>
-						</div>
-					</div>
-
-					<!-- Step 1: Work status -->
-					<section class="wiz-step" aria-label="Situación laboral" id="wiz-step-work">
-						<h2 class="wiz-step-heading" tabindex="-1">¿Cuál es tu situación laboral?</h2>
-						<p class="wiz-step-sub">Elige la que mejor te describa</p>
-						<div class="wiz-radio-group" role="radiogroup" aria-label="Situación laboral" data-wiz-key="workStatus">
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="cuenta_ajena">Trabajo por cuenta ajena</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="autonomo">Soy autónomo/a</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="empresa">Tengo una empresa</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="jubilado">Estoy jubilado/a</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="busco_empleo">Busco empleo</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="estudiante">Soy estudiante</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="no_trabajo">No trabajo (ni busco)</button>
-						</div>
-						<div class="wiz-nav">
-							<button type="button" class="wiz-btn-next" id="wiz-btn-next-work" disabled>Siguiente &rarr;</button>
-						</div>
-					</section>
-
-					<!-- Step 2: Sector (conditional) -->
-					<section class="wiz-step" aria-label="Sector laboral" id="wiz-step-sector" hidden>
-						<h2 class="wiz-step-heading" tabindex="-1">¿En qué sector trabajas?</h2>
-						<p class="wiz-step-sub">Nos ayuda a filtrar los cambios que te importan</p>
-						<div class="wiz-radio-group wiz-sector-grid" role="radiogroup" aria-label="Sector laboral" data-wiz-key="sector">
-							{SECTOR_OPTIONS.map((s) => (
-								<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" aria-label={s.label} tabindex="0" data-value={s.value}>{s.shortLabel}</button>
-							))}
-						</div>
-						<div class="wiz-nav">
-							<button type="button" class="wiz-btn-back" id="wiz-btn-back-sector">&larr; Atrás</button>
-							<button type="button" class="wiz-btn-next" id="wiz-btn-next-sector" disabled>Siguiente &rarr;</button>
-						</div>
-					</section>
-
-					<!-- Step 3: Housing -->
-					<section class="wiz-step" aria-label="Vivienda" id="wiz-step-housing" hidden>
-						<h2 class="wiz-step-heading" tabindex="-1">¿Tu vivienda?</h2>
-						<p class="wiz-step-sub">Las leyes de vivienda cambian a menudo</p>
-						<div class="wiz-radio-group" role="radiogroup" aria-label="Vivienda" data-wiz-key="housing">
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="alquilo">Alquilo</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="hipoteca">Tengo hipoteca</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="propietario">Soy propietario/a (sin hipoteca)</button>
-							<button type="button" class="wiz-pill" role="radio" data-type="radio" aria-checked="false" tabindex="0" data-value="familiares">Vivo con familiares</button>
-						</div>
-						<div class="wiz-nav">
-							<button type="button" class="wiz-btn-back" id="wiz-btn-back-housing">&larr; Atrás</button>
-							<button type="button" class="wiz-btn-next" id="wiz-btn-next-housing" disabled>Siguiente &rarr;</button>
-						</div>
-					</section>
-
-					<!-- Step 4: Jurisdiction -->
-					<section class="wiz-step" aria-label="Comunidad autónoma" id="wiz-step-jurisdiction" hidden>
-						<h2 class="wiz-step-heading" tabindex="-1">¿Dónde vives?</h2>
-						<p class="wiz-step-sub">Las leyes que te afectan dependen de tu comunidad autónoma</p>
-						<div class="wiz-radio-group wiz-jur-grid" role="radiogroup" aria-label="Comunidad autónoma" data-wiz-key="jurisdiccion">
-							{WIZARD_JURISDICTIONS.map((j, i) => (
-								<button type="button" class={`wiz-jur-pill${i === 0 ? " highlight" : ""}`} data-value={j.value} role="radio" aria-checked="false" tabindex="0">{j.label}</button>
-							))}
-						</div>
-						<div class="wiz-nav">
-							<button type="button" class="wiz-btn-back" id="wiz-btn-back-jurisdiction">&larr; Atrás</button>
-							<button type="button" class="wiz-btn-next" id="wiz-btn-next-jurisdiction" disabled>Siguiente &rarr;</button>
-						</div>
-					</section>
-
-					<!-- Step 5: Family -->
-					<section class="wiz-step" aria-label="Familia" id="wiz-step-family" hidden>
-						<h2 class="wiz-step-heading" tabindex="-1">¿Tu familia?</h2>
-						<p class="wiz-step-sub">Marca todas las que apliquen</p>
-						<div class="wiz-checkbox-group" role="group" aria-label="Situación familiar" data-wiz-key="family">
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="hijos_menores">Tengo hijos menores</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="dependiente">Cuido a un familiar dependiente</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="embarazo_baja">Estoy embarazada / baja parental</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="ninguno">Ninguno</button>
-						</div>
-						<div class="wiz-nav">
-							<button type="button" class="wiz-btn-back" id="wiz-btn-back-family">&larr; Atrás</button>
-							<button type="button" class="wiz-btn-next" id="wiz-btn-next-family">Siguiente &rarr;</button>
-						</div>
-					</section>
-
-					<!-- Step 6: Extras -->
-					<section class="wiz-step" aria-label="Más sobre tu día a día" id="wiz-step-extras" hidden>
-						<h2 class="wiz-step-heading" tabindex="-1">¿Algo más en tu día a día?</h2>
-						<p class="wiz-step-sub">Marca lo que aplique. Puedes saltar este paso.</p>
-						<div class="wiz-checkbox-group" role="group" aria-label="Extras" data-wiz-key="extras">
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="coche">&#x1F697; Conduzco / tengo coche</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="inversiones">&#x1F4B0; Invierto (bolsa, fondos, cripto)</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="mascotas">&#x1F415; Tengo mascotas</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="casero">&#x1F3E0; Alquilo un piso a alguien (soy casero/a)</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="divorcio">&#x1F494; Divorcio o separación</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="discapacidad">&#x267F; Discapacidad reconocida</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="extranjeria">&#x1F30D; Trámites de extranjería</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="ecommerce">&#x1F4E6; Vendo online / e-commerce</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="herencia">&#x1F3D7;&#xFE0F; Herencia o sucesiones</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="medioambiente">&#x1F331; Me interesa el medio ambiente</button>
-							<button type="button" class="wiz-pill" role="checkbox" data-type="checkbox" aria-checked="false" tabindex="0" data-value="deporte">&#x26BD; Deporte profesional o federado</button>
-						</div>
-						<div class="wiz-nav">
-							<button type="button" class="wiz-btn-back" id="wiz-btn-back-extras">&larr; Atrás</button>
-							<button type="button" class="wiz-btn-skip" id="wiz-btn-skip-extras">Saltar este paso</button>
-							<button type="button" class="wiz-btn-next" id="wiz-btn-next-extras">Ver mis cambios &rarr;</button>
-						</div>
-					</section>
-
-					<!-- Done state -->
-					<div id="wizard-done" hidden>
-						<h2>¡Listo!</h2>
-						<p class="done-tags" id="wiz-done-tags"></p>
-						<div class="done-actions">
-							<a href="/mis-cambios" class="btn btn-primary">Ver los cambios que te afectan &rarr;</a>
-							<button type="button" class="btn" id="wiz-restart-btn">Cambiar respuestas</button>
-						</div>
-					</div>
+				<div class="stat-divider"></div>
+				<div class="stat">
+					<div class="stat-num">{jurisdictions.length}</div>
+					<div class="stat-label">jurisdicciones</div>
 				</div>
-		</div>
-	</section>
-
-	<!-- ── Search Section ── -->
-	<section class="search-section" id="search-section">
-		<div class="container">
-			<h2>Buscar leyes</h2>
-			<div class="search-section-inner">
-				<div class="search-form" role="search" aria-label="Buscar leyes">
-					<div class="search-row">
-						<label for="search-input" class="sr-only">Buscar leyes</label>
-						<input type="search" id="search-input" placeholder="Buscar leyes..." class="search-input" aria-label="Buscar leyes" />
-						<button type="button" id="search-btn" class="btn btn-primary">Buscar</button>
-					</div>
-					<div class="filter-bar">
-						<select id="filter-jurisdiction" class="filter-select" aria-label="Jurisdicción">
-							<option value="">Todas las jurisdicciones</option>
-							{jurisdictions.map(j => (
-								<option value={j.jurisdiction}>{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}</option>
-							))}
-						</select>
-						<button type="button" class="filter-toggle" id="filter-toggle">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-							Más filtros <span style="font-size:0.625rem">&#9660;</span>
-						</button>
-					</div>
-					<div class="filter-panel" id="filter-panel">
-						<div class="filter-row">
-							<select id="filter-rank" class="filter-select">
-								<option value="">Tipo de ley</option>
-								{ranks.map((r) => (
-									<option value={r.rank}>{RANK_LABELS[r.rank] ?? r.rank} ({r.count})</option>
-								))}
-							</select>
-							<select id="filter-status" class="filter-select">
-								<option value="">Vigencia</option>
-								<option value="vigente">En vigor</option>
-								<option value="derogada">Ya no está en vigor</option>
-							</select>
-						</div>
-					</div>
+				<div class="stat-divider"></div>
+				<div class="stat">
+					<div class="stat-num">{vigentes.toLocaleString("es")}</div>
+					<div class="stat-label">vigentes</div>
 				</div>
-
-				<div class="search-suggestions" id="search-suggestions">
-					<span>Prueba:</span>
-					<button type="button" class="search-chip" data-query="Constitución">Constitución</button>
-					<button type="button" class="search-chip" data-query="Código Penal">Código Penal</button>
-					<button type="button" class="search-chip" data-query="alquileres">Alquileres</button>
-					<button type="button" class="search-chip" data-query="tráfico">Tráfico</button>
+				<div class="stat-divider"></div>
+				<div class="stat">
+					<div class="stat-num">{earliestYear}</div>
+					<div class="stat-label">la más antigua</div>
 				</div>
 			</div>
 		</div>
@@ -859,706 +658,545 @@ const JURISDICTION_LABELS: Record<string, string> = {
 		<div class="container" id="search-results"></div>
 	</section>
 
-	<!-- ── Landing Sections (hidden when searching) ── -->
+	<!-- ── Landing Content (hidden when searching) ── -->
 	<div id="landing-content">
-		<section class="section-alt animate-on-scroll">
-			<div class="container">
-				<h2 class="section-title">Explora por comunidad autónoma</h2>
-				<div class="juri-grid">
-					{jurisdictions.map(j => (
-						<button type="button" class={`juri-card${j.jurisdiction === "es" ? " juri-estatal" : ""}`} data-jurisdiction={j.jurisdiction}>
-							{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}
-							<span class="juri-count">{j.count.toLocaleString("es")} leyes</span>
-						</button>
-					))}
+
+		<!-- ── Regions ── -->
+		<section class="la-section animate-on-scroll">
+			<div class="section-header">
+				<div>
+					<div class="hero-eyebrow">Legislación autonómica</div>
+					<h2>Explora por territorio</h2>
+				</div>
+				<a href="/?country=es" class="see-all">Ver las {jurisdictions.length} jurisdicciones &rarr;</a>
+			</div>
+
+			<div class="region-layout">
+				<div class="region-map-wrap">
+					<div class="region-map-header">
+						<span class="region-map-kicker">Mapa</span>
+						<span class="region-map-hint">Pasa el cursor por un territorio para verlo resaltado.</span>
+					</div>
+					<div class="region-map-frame">
+						<!-- SVG map of Spain — GeoJSON source (click_that_hood), Douglas-Peucker simplified -->
+						<svg viewBox="0 0 800 600" id="spain-map" aria-label="Mapa de España">
+							<rect width="800" height="600" fill="transparent"/>
+							<rect x="-8" y="481" width="289" height="113" fill="var(--surface)" stroke="var(--tierra-deep)" stroke-dasharray="2 2" stroke-width="0.5"/>
+							<text x="0" y="495" font-family="var(--font-mono)" font-size="10" fill="var(--text-muted)" letter-spacing="1">CANARIAS</text>
+							<path data-region="es-an" d="M319.5,322.4L325.5,324.4L324.7,328.1L332.9,329.2L334.4,333.2L339.8,334.3L342.2,331.6L352.4,338.5L362.6,335.6L364.6,328.4L367.9,325.6L374.6,325.3L374.2,330.8L381.3,326.1L380,311.2L387,306.3L388.7,302.8L403.1,294.7L410.5,297.1L411.2,300.9L417.9,303.4L429.3,313L437.4,315.9L438,312.9L449,314.6L455.5,314.1L457.7,311.4L466,312.7L467.6,309.5L472.5,312.4L476.7,307.9L487.6,309.6L490.3,307.2L493.1,310.7L503.5,303.7L512.3,305.7L512.2,310L516.1,310.8L518.3,322.7L513.9,328.6L523.5,331.4L531.4,338.8L540.2,339.5L539.1,350.7L547.3,362.6L552.2,363L557.3,366.5L550.3,375.2L546.7,391.5L536.9,404.4L533.8,405.2L527.8,399L516.7,400.6L512.9,407.4L508,408.7L497.8,405.8L485.5,405.3L477.7,408.9L469.3,406.4L452.9,407.8L447.9,406.6L439.6,408.8L432.8,408.3L421.7,420.7L411.8,420.7L396.9,426L390.4,436.7L389.3,441L388.7,441.1L385.3,439.7L385,445.7L376.8,449.2L368.1,445.2L362.6,438.9L357.1,439L348.8,426.7L348.8,416.6L342.8,413.8L338.9,406.6L342.7,404.1L336.4,393.5L327.1,386.5L313.7,379.5L295.8,379.7L294,362.4L291.6,358.5L296.5,347.2L301.3,343.8L304.3,334.9L316,332.8Z"/>
+							<path data-region="es-ar" d="M527.1,157.1L523.1,155.2L521.7,147.9L524.2,140.8L526.8,143.8L531,142.5L528.2,132.1L531.1,132.1L536.7,124.9L532.6,111.8L532.9,109.5L543.3,113.4L550.5,113.7L554.8,106.3L550.7,102L550.1,93L551.9,85.7L558.6,73.1L563.2,72.7L570.3,64.7L569.7,61.4L574.4,57.1L582.8,63.5L588.1,62.6L591.2,59.7L604.4,67.4L611.1,64L616.1,67L630.5,64.7L635.2,68.5L632.9,75.6L636.8,82.6L634.2,101.9L630.7,106.1L632.9,109.2L622.6,120.6L623.8,125L628.1,127.8L623.7,136.3L626.1,138.5L626.4,145.3L620.7,150.9L624,157.1L623,164.6L625,167.9L621,173.2L615.8,176L605.5,171.8L603.6,177L598.2,179.1L602.1,181.5L603.4,193.7L595.5,203.3L593.3,202.2L591.1,212.5L585,214.7L581.9,220L584.1,223.5L579.4,224.6L576.6,218.9L569.2,219.6L568.1,217.5L571.8,214.5L565.8,212.1L561.1,207.2L559.6,211.4L555.6,210.8L551.5,208.5L539.6,197.8L544.1,192.6L544.5,186.8L547.8,188.2L550,181.1L549.2,174.1L546.2,168.1L537.5,159.7L530.9,155.5Z"/>
+							<path data-region="es-as" d="M325.7,28.3L367.6,27.6L372.2,23.5L379.8,29.7L388.9,29.1L396.7,33.5L407.6,34.3L424.2,37.8L423.9,43.9L415.7,45.3L415.6,49L411.3,49.4L407.3,47L396.4,54.7L389.9,54.4L385.5,57.9L376.3,56.7L371.7,60.9L366.6,55.3L362.4,54.6L356.5,58.2L351.4,55.4L343.9,63.1L332.7,62.6L327.3,56.4L332.9,51.3L331.2,47.9L327.8,50.6L327.4,46.8L319.7,36.9L325,31.9Z"/>
+							<path data-region="es-ib" d="M684.2,269.4L684.3,272.7L675.6,270.1L676,266L680.8,259.5L687.9,256.2L692.1,260.2L689,265.8ZM730.5,226.6L728,232L724.4,228.1L721.7,229.3L719.7,224.8L728.7,217.4L734.4,210.1L742.6,204.1L749.6,202.4L752.3,211.2L756.9,212.7L760.3,208.8L765.3,210.5L766,215.5L760.5,225L758.6,233.3L752,239.5L747.6,234.8L740.1,235.7L737.3,228.1ZM793.8,199.8L784.6,196.6L779.1,198.3L778,191.4L792.3,188.6L796.8,191.4L800,197.5L799,201.5Z"/>
+							<path data-region="es-cb" d="M411.3,49.4L415.6,49L415.7,45.3L423.9,43.9L424.2,37.8L433.4,38L451.6,31.9L454.7,33.8L460,30.8L466.5,33.3L466.9,36L474.9,36.8L477.6,38.9L475.5,42.7L470.2,42.3L466.1,45.5L467.5,51.1L458.3,48.8L454.2,54L450.6,54.1L446,59.6L447.7,64L451.5,62.5L451.9,69.6L441.7,71.8L437.5,68.9L435.3,61.5L431,60.6L426.4,55.8L422.6,58.1L415.3,57.7L411.7,53.6Z"/>
+							<path data-region="es-cl" d="M324.5,113.7L322.8,108L326.8,102.6L332.4,99.3L335.4,92.9L331,90.2L332.6,86.8L328.3,84.4L322,84.5L324.7,75.9L331.9,67.6L332.7,62.6L343.9,63.1L351.4,55.4L356.5,58.2L362.4,54.6L366.6,55.3L371.7,60.9L376.3,56.7L385.5,57.9L389.9,54.4L396.4,54.7L407.3,47L411.3,49.4L411.7,53.6L415.3,57.7L422.6,58.1L426.4,55.8L431,60.6L435.3,61.5L437.5,68.9L441.7,71.8L451.9,69.6L451.5,62.5L447.7,64L446,59.6L450.6,54.1L454.2,54L458.3,48.8L467.5,51.1L473.9,47.3L478.4,49L478.6,57.6L485.1,61L480.9,63.4L475.5,60.8L475.2,66.9L480.1,65.4L478.9,71.2L482.9,70.6L490.7,77.2L481.7,77.4L479.8,82.8L483.5,88L481.2,91.2L482.2,98.8L480.7,101.3L484.7,107.5L488.7,107.1L491,111.5L494.5,105.9L497.9,107L496.5,111.3L503.3,111.7L508.7,103.7L513.5,103.1L520,107L522.2,112.6L527.8,114.7L532.6,111.8L536.7,124.9L531.1,132.1L528.2,132.1L531,142.5L526.8,143.8L524.2,140.8L521.7,147.9L523.1,155.2L527.1,157.1L512.1,162.8L502.3,153.2L493.1,151.6L492.6,149L485,152L479.1,150.5L477.2,153L471.2,153.5L465.5,158.5L463,159.1L455.8,167.8L451.7,169.3L447.7,179.9L443.9,179.4L439.7,188.5L433.5,193L433.3,200.9L429.8,200.9L428.1,205.9L424.2,204.8L422.9,211.6L418.4,212L417.9,208L404.8,217.6L404.4,214.9L399,218.6L390.8,217.2L390.6,209L382.6,212.8L371.5,204L365.5,207.7L358.8,203.5L360.1,201.2L354.6,196.3L340.3,203.5L338,207.7L330.8,208.9L326.3,207.4L330,202.3L327.2,197.4L330,185.9L328.6,181.4L329.7,173.6L324.9,165.4L330,165.2L331.9,159.8L337,153.8L345.3,151.1L356.4,136.3L351.9,131.5L341.8,129.9L343.3,119.6L342.2,115.8L336,116.2Z"/>
+							<path data-region="es-cm" d="M403.1,294.7L406.3,292.8L408.9,285.8L412.2,283.3L408,280.8L406.7,276.2L411.2,277.7L413.3,268.3L420.3,270.2L415.4,261.5L418.4,254.2L410.7,258.8L407.3,257.5L396.2,245.9L399.2,239.5L397.9,234.9L391.8,237L391.2,229.6L387.8,230.4L390.8,217.2L399,218.6L404.4,214.9L404.8,217.6L417.9,208L418.4,212L422.9,211.6L428.4,210.6L432.3,206.4L434.9,211.4L439.7,207.2L449.5,212.7L455.9,213.4L464.2,216.9L463.6,220L453,227.1L456,229.4L468.6,220.1L474,218.5L479.7,219.5L487.7,216.3L484.8,206.5L482.4,209.4L483.9,199.9L480.7,194L476.6,192.8L475.1,187.2L469.2,184.6L467.6,179.2L470.9,168.8L470.3,162.9L465.5,158.5L471.2,153.5L477.2,153L479.1,150.5L485,152L492.6,149L493.1,151.6L502.3,153.2L512.1,162.8L527.1,157.1L530.9,155.5L537.5,159.7L546.2,168.1L549.2,174.1L550,181.1L547.8,188.2L544.5,186.8L544.1,192.6L539.6,197.8L551.5,208.5L555.6,210.8L559.1,217.8L568.1,217.5L569.2,219.6L566.6,221L566.7,228.8L563,236.7L560.5,235.8L555.2,243.2L555.6,251.3L563.3,255.6L570.8,256.6L567.5,271.4L573,277.6L581,276.2L582.8,279L584,289.9L579.4,292.5L572,287.5L560.9,294.1L559,300.9L560.5,309.5L555.9,313.6L550.6,310.2L538.6,316.2L535.6,315L528.7,321.2L523.5,331.4L513.9,328.6L518.3,322.7L516.1,310.8L512.2,310L512.3,305.7L503.5,303.7L493.1,310.7L490.3,307.2L487.6,309.6L476.7,307.9L472.5,312.4L467.6,309.5L466,312.7L457.7,311.4L455.5,314.1L449,314.6L438,312.9L437.4,315.9L429.3,313L417.9,303.4L411.2,300.9L410.5,297.1Z"/>
+							<path data-region="es-ct" d="M636.4,183.3L626.2,175.2L621,173.2L625,167.9L623,164.6L624,157.1L620.7,150.9L626.4,145.3L626.1,138.5L623.7,136.3L628.1,127.8L623.8,125L622.6,120.6L632.9,109.2L630.7,106.1L634.2,101.9L636.8,82.6L632.9,75.6L635.2,68.5L630.5,64.7L629.7,56.8L631.5,55.2L640.7,58.3L647.9,58.5L650.5,61.6L658,60.2L663.7,71L663.1,74.8L667.5,74.8L671.5,71L682.5,71.8L686.5,77.2L695.5,71L703.8,73.6L712.8,74L711.7,71.6L719.6,66.2L726.4,64.8L732,67.2L732.1,70.2L738.3,71.7L737.6,75.4L733.1,75.4L732.2,82.8L736.1,85.6L737.4,95.3L731.8,102.3L721.8,111L702.8,123.9L698.8,133.2L665.2,146.8L660.6,151.3L652.9,153L642.5,167.3L650.1,170.4L645.3,176.1L639.4,177.5Z"/>
+							<path data-region="es-vc" d="M594.4,337.1L586.9,332.2L581,321.6L583.5,314.8L578,310.1L577.8,304.7L580.5,301.4L579.4,292.5L584,289.9L582.8,279L581,276.2L573,277.6L567.5,271.4L570.8,256.6L563.3,255.6L555.6,251.3L555.2,243.2L560.5,235.8L563,236.7L566.7,228.8L566.6,221L569.2,219.6L576.6,218.9L579.4,224.6L584.1,223.5L581.9,220L585,214.7L591.1,212.5L593.3,202.2L595.5,203.3L603.4,193.7L602.1,181.5L598.2,179.1L603.6,177L605.5,171.8L615.8,176L621,173.2L626.2,175.2L636.4,183.3L632.5,192.9L622.2,210.3L619.4,212L617.7,218.8L613.2,224.9L606.1,243L606.1,248.1L612,260.1L612.9,266.1L622.1,276.7L632.1,279.9L632.4,284L624,290.3L620.6,296.6L618.2,296.2L608.8,302.2L607.7,307L603.4,309.3L604,316.2L599.6,318L598.6,328.9Z"/>
+							<path data-region="es-ex" d="M319.5,322.4L312.5,324.4L303,308.8L306.6,298.6L306.1,292.9L316.4,284.7L320.2,276.7L319,273L312,271.6L312.7,268.4L308,265.8L308.6,261.9L305.3,258.3L306.3,251.9L297.8,244.1L296.5,239.7L305.1,241.5L318.8,240.4L320.2,232.7L323.9,229.4L325.4,222.6L319.1,211.9L326.3,207.4L330.8,208.9L338,207.7L340.3,203.5L354.6,196.3L360.1,201.2L358.8,203.5L365.5,207.7L371.5,204L382.6,212.8L390.6,209L390.8,217.2L387.8,230.4L391.2,229.6L391.8,237L397.9,234.9L399.2,239.5L396.2,245.9L407.3,257.5L410.7,258.8L418.4,254.2L415.4,261.5L420.3,270.2L413.3,268.3L411.2,277.7L406.7,276.2L408,280.8L412.2,283.3L408.9,285.8L406.3,292.8L403.1,294.7L388.7,302.8L387,306.3L380,311.2L381.3,326.1L374.2,330.8L374.6,325.3L367.9,325.6L364.6,328.4L362.6,335.6L352.4,338.5L342.2,331.6L339.8,334.3L334.4,333.2L332.9,329.2L324.7,328.1L325.5,324.4Z"/>
+							<path data-region="es-ga" d="M325.7,28.3L325,31.9L319.7,36.9L327.4,46.8L327.8,50.6L331.2,47.9L332.9,51.3L327.3,56.4L332.7,62.6L331.9,67.6L324.7,75.9L322,84.5L328.3,84.4L332.6,86.8L331,90.2L335.4,92.9L332.4,99.3L326.8,102.6L322.8,108L324.5,113.7L316.4,113.5L315.7,118.4L306.1,122L305.3,118.8L298.6,120.3L299.9,117.6L295.1,116L282.4,119.6L276.2,119.9L274.4,114.6L280,109.2L276.3,106.4L275.9,101.5L270.2,105L262.5,104.8L247.6,115.3L247.4,102L258.3,93L252.4,94.9L252.6,90.6L258.4,85.6L250.9,87.4L252,77L253.6,73.8L243.9,77.8L242.1,75.1L244.7,69.3L250,64.8L240,64L241.4,58.3L234.7,57L235.6,50.4L240.7,42.8L250,41.5L248.2,38.8L254.9,36.3L259.2,38.7L266.4,37.7L270.1,34.5L273.7,36.6L275.5,33.5L279.1,37.8L279.8,32.6L274.9,29.3L277.8,25.4L292.3,14.8L293.5,18.6L301.7,14.8L303.3,20.4L305.6,17.6L313.3,21L315.6,25.3Z"/>
+							<path data-region="es-md" d="M465.5,158.5L470.3,162.9L470.9,168.8L467.6,179.2L469.2,184.6L475.1,187.2L476.6,192.8L480.7,194L483.9,199.9L482.4,209.4L484.8,206.5L487.7,216.3L479.7,219.5L474,218.5L468.6,220.1L456,229.4L453,227.1L463.6,220L464.2,216.9L455.9,213.4L449.5,212.7L439.7,207.2L434.9,211.4L432.3,206.4L428.4,210.6L422.9,211.6L424.2,204.8L428.1,205.9L429.8,200.9L433.3,200.9L433.5,193L439.7,188.5L443.9,179.4L447.7,179.9L451.7,169.3L455.8,167.8L463,159.1Z"/>
+							<path data-region="es-mc" d="M557.3,366.5L552.2,363L547.3,362.6L539.1,350.7L540.2,339.5L531.4,338.8L523.5,331.4L528.7,321.2L535.6,315L538.6,316.2L550.6,310.2L555.9,313.6L560.5,309.5L559,300.9L560.9,294.1L572,287.5L579.4,292.5L580.5,301.4L577.8,304.7L578,310.1L583.5,314.8L581,321.6L586.9,332.2L594.4,337.1L590.6,344.8L598.1,349L588.6,354.2L585.3,351.9L577.6,355.7L570.4,354.9Z"/>
+							<path data-region="es-nc" d="M508.5,84.6L509.2,78.6L506.9,76L513.3,75.3L511.8,71.6L515,65.5L514.7,60.8L522.4,57.1L523.2,52.1L527.3,48.5L527.1,44.4L533.7,39.5L546.1,39.9L547.6,42.2L544.5,49.9L549.3,53L549.4,49.6L565.8,55.9L573.4,54.7L574.4,57.1L569.7,61.4L570.3,64.7L563.2,72.7L558.6,73.1L551.9,85.7L550.1,93L550.7,102L554.8,106.3L550.5,113.7L543.3,113.4L532.9,109.5L530.3,106.9L533.5,101.5L539.2,101.4L529.1,92.3L522.2,91.7L518.6,88.5Z"/>
+							<path data-region="es-pv" d="M467.5,51.1L466.1,45.5L470.2,42.3L475.5,42.7L477.6,38.9L485.6,34.2L493.1,32.8L495.4,35.4L502.8,36.6L504.9,38.8L516.1,40.8L526.2,37.7L530.9,34.4L533.7,39.5L527.1,44.4L527.3,48.5L523.2,52.1L522.4,57.1L514.7,60.8L515,65.5L511.8,71.6L513.3,75.3L506.9,76L509.2,78.6L508.5,84.6L499.4,85.2L497.8,79.3L494.5,77.9L492.2,81.7L490.7,77.2L482.9,70.6L478.9,71.2L480.1,65.4L475.2,66.9L475.5,60.8L480.9,63.4L485.1,61L478.6,57.6L478.4,49L473.9,47.3Z"/>
+							<path data-region="es-ri" d="M490.7,77.2L492.2,81.7L494.5,77.9L497.8,79.3L499.4,85.2L508.5,84.6L518.6,88.5L522.2,91.7L529.1,92.3L539.2,101.4L533.5,101.5L530.3,106.9L532.9,109.5L532.6,111.8L527.8,114.7L522.2,112.6L520,107L513.5,103.1L508.7,103.7L503.3,111.7L496.5,111.3L497.9,107L494.5,105.9L491,111.5L488.7,107.1L484.7,107.5L480.7,101.3L482.2,98.8L481.2,91.2L483.5,88L479.8,82.8L481.7,77.4Z"/>
+							<path data-region="es-cn" d="M10.4,558.3L7,560.2L0,554L15.1,549.4L16.5,552.1ZM27.5,507.3L24.6,492.2L30.3,488.5L37.5,491.6L38.9,498L35.8,505L28.9,513.7ZM56.8,548L49.3,541.8L55.9,535.7L62.5,541.5L62.7,545.2ZM81.9,551.5L76.2,531.4L98.1,532.7L110.5,525.4L119.9,526.6L121.3,529.3L114.3,532L105.4,538.4L99.7,550.1L90.8,555.7L83.9,556.4ZM153.7,569.3L152,580.1L138.9,585.2L132.7,580.5L128.4,571.8L130.3,565.6L137.5,562.2L138.9,558.6L155,560.4ZM210.1,579.1L203.3,575.6L213.7,573.5L219.5,570.1L221.8,563.3L228.9,555.2L236,543.8L243.3,540L245.2,550.7L241.5,562.6L235.9,571.3L218.9,573.3ZM260.4,531.2L249.5,534.9L245.1,533.8L250.3,523.7L262.5,519.4L266.9,519.7L270.7,514.3L273,517L267,529.1Z"/>
+						</svg>
+					</div>
+					<div class="region-map-footer" id="region-peek">
+						<div class="region-peek-empty">Selecciona un territorio o elige de la lista.</div>
+					</div>
+				</div>
+
+				<div>
+					<div class="region-list-header">
+						<span>Todas las jurisdicciones</span>
+						<span>Ordenar por: <strong>nº de leyes</strong></span>
+					</div>
+					<ul class="region-list" id="region-list">
+						{jurisdictions.map(j => {
+							const maxCount = jurisdictions[0]?.count ?? 1;
+							const pct = (j.count / maxCount) * 100;
+							return (
+								<li data-jurisdiction={j.jurisdiction}>
+									<span class="name">{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}</span>
+									<div class="bar-wrap"><div class="bar" style={`width:${pct}%`}></div></div>
+									<span class="count">{j.count.toLocaleString("es")}</span>
+								</li>
+							);
+						})}
+					</ul>
 				</div>
 			</div>
 		</section>
 
-		<section class="section-default animate-on-scroll">
-			<div class="container">
-				<div class="two-col">
-					<div>
-						<h2 class="section-title">Cambios recientes</h2>
-						<div id="recent-reforms"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
+		<!-- ── Explícame una ley ── -->
+		<section class="explicame animate-on-scroll">
+			<div class="explicame-inner">
+				<div>
+					<div class="hero-eyebrow">Lenguaje claro</div>
+					<h2>Cuéntanos qué te pasa.<br><em>Te explicamos qué ley te afecta.</em></h2>
+					<p class="explicame-copy">
+						¿Te suben el alquiler? ¿Te despidieron estando de baja? ¿Tu madre
+						no cobra la pensión a tiempo? Describe la situación en palabras
+						normales. Buscamos la ley que se aplica y te resumimos lo que
+						dice en un castellano que cualquiera puede entender.
+					</p>
+					<ul class="explicame-bullets">
+						<li><span class="check">✓</span> Sin jerga jurídica. Sin «preceptos», «diligencias» ni «estatuto».</li>
+						<li><span class="check">✓</span> Con enlaces al texto original, por si quieres verificarlo.</li>
+						<li><span class="check">✓</span> Con avisos si la ley cambió recientemente.</li>
+					</ul>
+					<div class="explicame-actions">
+						<a href="/pregunta/" class="explicame-btn">Describir mi situación &rarr;</a>
+						<a href="/pregunta/" class="explicame-alt">Ver ejemplos</a>
 					</div>
-					<div>
-						<h2 class="section-title">¿Sabías que...?</h2>
-						<div id="most-reformed"><div class="loading"><span class="loading-spinner"></span> Cargando...</div></div>
+				</div>
+				<div>
+					<div class="explicame-card">
+						<div class="explicame-card-head">
+							<span class="explicame-card-kicker">Caso de ejemplo</span>
+							<span class="explicame-card-meta">12 ago 2025</span>
+						</div>
+						<div class="explicame-q">«Mi casero quiere subirme el alquiler un 15%. ¿Puede?»</div>
+						<div class="explicame-divider"></div>
+						<div class="explicame-a-label">Respuesta</div>
+						<p class="explicame-a">
+							Desde 2023, la subida anual de alquileres vigentes está
+							<strong>limitada por ley</strong>. El Índice de Referencia para
+							la Actualización de Rentas (IRAV) establece un tope anual que
+							en 2026 no supera el <strong>3%</strong>. Una subida del 15% no
+							sería legal en un contrato vigente.
+						</p>
+						<div class="explicame-sources">
+							<div class="explicame-sources-h">Basado en</div>
+							<a href="/laws/BOE-A-2023-12203/" class="explicame-source">
+								<span class="explicame-source-title">Ley 12/2023 por el derecho a la vivienda</span>
+								<span class="explicame-source-ref">Art. 18 · BOE-A-2023-12203</span>
+							</a>
+							<a href="/laws/BOE-A-1994-26003/" class="explicame-source">
+								<span class="explicame-source-title">Ley de Arrendamientos Urbanos</span>
+								<span class="explicame-source-ref">Art. 18 · BOE-A-1994-26003</span>
+							</a>
+						</div>
 					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ── Cambios recientes + Ranking ── -->
+		<section class="la-section animate-on-scroll">
+			<div class="two-col">
+				<div>
+					<div class="section-header">
+						<h2>Cambios recientes</h2>
+						<a href="/cambios/" class="see-all">Historial completo &rarr;</a>
+					</div>
+					<div id="recent-reforms">
+						<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.875rem">
+							<span class="loading-spinner"></span> Cargando...
+						</div>
+					</div>
+				</div>
+				<div>
+					<div class="section-header">
+						<h2>Leyes que más han cambiado</h2>
+						<a href="/?sort=reforms" class="see-all">Ranking &rarr;</a>
+					</div>
+					<div id="most-reformed">
+						<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.875rem">
+							<span class="loading-spinner"></span> Cargando...
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ── FAQ ── -->
+		<section class="la-section animate-on-scroll">
+			<div class="section-header">
+				<div>
+					<div class="hero-eyebrow">Preguntas habituales</div>
+					<h2>Lo que la gente suele preguntar</h2>
+				</div>
+			</div>
+			<div class="faq-list">
+				<details class="faq-item">
+					<summary>
+						<span class="faq-q">¿De dónde vienen los datos?</span>
+						<span class="faq-icon">+</span>
+					</summary>
+					<div class="faq-answer">Directamente del BOE (Boletín Oficial del Estado). Descargamos las publicaciones oficiales cada mañana y las procesamos. No modificamos el texto legal: solo lo hacemos más legible y enlazable.</div>
+				</details>
+				<details class="faq-item">
+					<summary>
+						<span class="faq-q">¿Es de pago?</span>
+						<span class="faq-icon">+</span>
+					</summary>
+					<div class="faq-answer">No. Ley Abierta es gratis, sin registro obligatorio y sin anuncios. Las leyes son públicas; su acceso también debería serlo.</div>
+				</details>
+				<details class="faq-item">
+					<summary>
+						<span class="faq-q">¿Puedo confiar en lo que veo aquí?</span>
+						<span class="faq-icon">+</span>
+					</summary>
+					<div class="faq-answer">Sí, siempre con la salvedad de que no somos una fuente oficial. Cada ley enlaza al texto original en el BOE, y el historial de cambios es verificable. Ante una duda jurídica seria, consulta con un profesional.</div>
+				</details>
+				<details class="faq-item">
+					<summary>
+						<span class="faq-q">¿Cubre leyes autonómicas?</span>
+						<span class="faq-icon">+</span>
+					</summary>
+					<div class="faq-answer">Sí. 17 comunidades autónomas más Ceuta y Melilla. En total, 18 jurisdicciones con su legislación propia, además de la estatal.</div>
+				</details>
+			</div>
+		</section>
+
+		<!-- ── CTA ── -->
+		<section class="cta-section">
+			<div class="cta-inner">
+				<div class="cta-eyebrow">La ley pertenece al pueblo</div>
+				<h2>Empieza por la ley que siempre quisiste entender.</h2>
+				<p class="cta-copy">
+					Escribe un tema, un nombre o un número de BOE. O describe tu
+					situación y te decimos qué ley se aplica.
+				</p>
+				<div class="cta-box">
+					<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
+					<input type="search" id="cta-search-input" placeholder="Busca una ley…" aria-label="Buscar leyes" />
+					<button type="button" id="cta-search-btn">Buscar</button>
+				</div>
+				<div class="cta-links">
+					<a href="/pregunta/">Pregunta por tu situación</a>
+					<span class="sep">·</span>
+					<a href="/cambios/">Cambios recientes</a>
+					<span class="sep">·</span>
+					<a href="/omnibus/">Ómnibus</a>
 				</div>
 			</div>
 		</section>
 	</div>
 
-	<script is:inline>
+	<script is:inline define:vars={{ RANK_LABELS, STATUS_LABELS, JURISDICTION_LABELS }}>
 	(function () {
-		var SKIP_SECTOR_STATUSES = ["jubilado", "estudiante", "no_trabajo"];
-		var ALL_WIZ_STEP_IDS = ["wiz-step-work", "wiz-step-sector", "wiz-step-housing", "wiz-step-jurisdiction", "wiz-step-family", "wiz-step-extras"];
+		function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+		var API = document.documentElement.dataset.api;
+		var searchInput = document.getElementById("search-input");
+		var searchBtn = document.getElementById("search-btn");
+		var resultsSection = document.getElementById("search-results-section");
+		var resultsDiv = document.getElementById("search-results");
+		var landingDiv = document.getElementById("landing-content");
+		var heroSection = document.getElementById("hero-section");
+		var searchHints = document.getElementById("search-hints");
+		var currentPage = 1;
+		var currentCountry = "";
+		var currentSort = "";
+		var LIMIT = 20;
 
-		var wizAnswers = {
-			workStatus: null,
-			sector: null,
-			housing: null,
-			jurisdiccion: null,
-			family: [],
-			extras: []
-		};
+		// Topic chips
+		document.querySelectorAll(".search-hints a[data-topic]").forEach(function (chip) {
+			chip.addEventListener("click", function (e) {
+				e.preventDefault();
+				searchInput.value = this.dataset.topic;
+				doSearch(1);
+			});
+		});
 
-		var wizCurrentIdx = 0;
-
-		var ANSWER_LABELS = {
-			cuenta_ajena: "Empleado/a", autonomo: "Autónomo/a", empresa: "Empresario/a",
-			jubilado: "Jubilado/a", busco_empleo: "Busco empleo", estudiante: "Estudiante",
-			no_trabajo: "No trabajo",
-			campo: "Agricultura", industria: "Industria", energia: "Energía",
-			construccion: "Construcción", comercio: "Comercio", transporte: "Transporte",
-			hosteleria: "Hostelería", tecnologia: "Tecnología", finanzas: "Finanzas",
-			servicios_profesionales: "Serv. profesionales", admin_publica: "Admin. pública",
-			educacion: "Educación", sanidad: "Sanidad", cultura_deporte: "Cultura y deporte",
-			otro: "Otro sector",
-			alquilo: "Alquiler", hipoteca: "Hipoteca", propietario: "Propietario/a",
-			familiares: "Vivo con familiares"
-		};
-		var JNAMES = {
-			es: "Estatal", "es-an": "Andalucía", "es-ar": "Aragón", "es-as": "Asturias",
-			"es-cb": "Cantabria", "es-cl": "Castilla y León", "es-cm": "Castilla-La Mancha",
-			"es-cn": "Canarias", "es-ct": "Cataluña", "es-ex": "Extremadura", "es-ga": "Galicia",
-			"es-ib": "Illes Balears", "es-mc": "Murcia", "es-md": "Madrid", "es-nc": "Navarra",
-			"es-pv": "País Vasco", "es-ri": "La Rioja", "es-vc": "C. Valenciana"
-		};
-
-		function wizShouldSkipSector() {
-			return SKIP_SECTOR_STATUSES.indexOf(wizAnswers.workStatus) !== -1;
-		}
-
-		function wizGetVisibleStepIds() {
-			var steps = ALL_WIZ_STEP_IDS.slice();
-			if (wizShouldSkipSector()) {
-				var idx = steps.indexOf("wiz-step-sector");
-				if (idx !== -1) steps.splice(idx, 1);
-			}
-			return steps;
-		}
-
-		function wizUpdateProgress() {
-			var total = wizGetVisibleStepIds().length;
-			var pct = Math.round((wizCurrentIdx + 1) / total * 100);
-			var pt = document.getElementById("wiz-progress-text");
-			var pf = document.getElementById("wiz-progress-fill");
-			if (pt) pt.textContent = "Paso " + (wizCurrentIdx + 1) + " de " + total;
-			if (pf) pf.style.width = pct + "%";
-		}
-
-		function wizGoToStep(visIdx) {
-			var visibleIds = wizGetVisibleStepIds();
-			if (visIdx < 0 || visIdx >= visibleIds.length) return;
-			wizCurrentIdx = visIdx;
-			for (var i = 0; i < ALL_WIZ_STEP_IDS.length; i++) {
-				var el = document.getElementById(ALL_WIZ_STEP_IDS[i]);
-				if (el) el.hidden = true;
-			}
-			// Hide done state too
-			var doneEl = document.getElementById("wizard-done");
-			if (doneEl) doneEl.hidden = true;
-
-			var activeId = visibleIds[wizCurrentIdx];
-			var activeEl = document.getElementById(activeId);
-			if (activeEl) {
-				activeEl.hidden = false;
-				var heading = activeEl.querySelector(".wiz-step-heading");
-				if (heading) heading.focus();
-			}
-			wizUpdateProgress();
-			// Show progress bar
-			var progressEl = document.querySelector(".wiz-progress");
-			if (progressEl) progressEl.style.display = "";
-		}
-
-		function wizNextStep() {
-			var visibleIds = wizGetVisibleStepIds();
-			if (wizCurrentIdx < visibleIds.length - 1) {
-				wizGoToStep(wizCurrentIdx + 1);
-			}
-		}
-		function wizPrevStep() {
-			if (wizCurrentIdx > 0) {
-				wizGoToStep(wizCurrentIdx - 1);
-			}
-		}
-
-		// Radio group setup (single select)
-		function wizSetupRadioGroup(stepId, btnId, answerKey) {
-			var container = document.getElementById(stepId);
-			if (!container) return;
-			var group = container.querySelector("[role='radiogroup']");
-			if (!group) return;
-			var pills = group.querySelectorAll("[role='radio']");
-			var nextBtn = document.getElementById(btnId);
-
-			function selectPill(pill) {
-				for (var i = 0; i < pills.length; i++) {
-					pills[i].setAttribute("aria-checked", "false");
+		// CTA search
+		var ctaInput = document.getElementById("cta-search-input");
+		var ctaBtn = document.getElementById("cta-search-btn");
+		if (ctaBtn) {
+			ctaBtn.addEventListener("click", function () {
+				if (ctaInput.value.trim()) {
+					searchInput.value = ctaInput.value.trim();
+					doSearch(1);
+					window.scrollTo({ top: 0, behavior: "smooth" });
 				}
-				pill.setAttribute("aria-checked", "true");
-				wizAnswers[answerKey] = pill.dataset.value;
-				if (nextBtn) nextBtn.disabled = false;
-			}
-
-			for (var i = 0; i < pills.length; i++) {
-				pills[i].addEventListener("click", function () { selectPill(this); });
-				pills[i].addEventListener("keydown", function (e) {
-					if (e.key === " " || e.key === "Enter") { e.preventDefault(); selectPill(this); }
-				});
-			}
+			});
+			ctaInput.addEventListener("keydown", function (e) {
+				if (e.key === "Enter" && ctaInput.value.trim()) {
+					searchInput.value = ctaInput.value.trim();
+					doSearch(1);
+					window.scrollTo({ top: 0, behavior: "smooth" });
+				}
+			});
 		}
 
-		// Jurisdiction setup (single select, uses wiz-jur-pill class)
-		function wizSetupJurisdiction() {
-			var grid = document.querySelector("#wiz-step-jurisdiction .wiz-jur-grid");
-			if (!grid) return;
-			var pills = grid.querySelectorAll(".wiz-jur-pill");
-			var nextBtn = document.getElementById("wiz-btn-next-jurisdiction");
-
-			function selectJur(pill) {
-				for (var i = 0; i < pills.length; i++) {
-					pills[i].setAttribute("aria-checked", "false");
-				}
-				pill.setAttribute("aria-checked", "true");
-				wizAnswers.jurisdiccion = pill.dataset.value;
-				if (nextBtn) nextBtn.disabled = false;
-			}
-
-			for (var i = 0; i < pills.length; i++) {
-				pills[i].addEventListener("click", function () { selectJur(this); });
-				pills[i].addEventListener("keydown", function (e) {
-					if (e.key === " " || e.key === "Enter") { e.preventDefault(); selectJur(this); }
-				});
-			}
-		}
-
-		// Checkbox group setup (multi-select)
-		function wizSetupCheckboxGroup(stepId, answerKey, hasNinguno) {
-			var container = document.getElementById(stepId);
-			if (!container) return;
-			var group = container.querySelector("[role='group']");
-			if (!group) return;
-			var pills = group.querySelectorAll("[role='checkbox']");
-
-			function togglePill(pill) {
-				var val = pill.dataset.value;
-				var isChecked = pill.getAttribute("aria-checked") === "true";
-
-				if (hasNinguno && val === "ninguno") {
-					if (!isChecked) {
-						for (var i = 0; i < pills.length; i++) {
-							pills[i].setAttribute("aria-checked", "false");
-						}
-						pill.setAttribute("aria-checked", "true");
-						wizAnswers[answerKey] = [];
-					} else {
-						pill.setAttribute("aria-checked", "false");
-					}
-					return;
-				}
-
-				if (hasNinguno) {
-					var ningunoPill = group.querySelector("[data-value='ninguno']");
-					if (ningunoPill) ningunoPill.setAttribute("aria-checked", "false");
-				}
-
-				if (isChecked) {
-					pill.setAttribute("aria-checked", "false");
-					var idx = wizAnswers[answerKey].indexOf(val);
-					if (idx !== -1) wizAnswers[answerKey].splice(idx, 1);
-				} else {
-					pill.setAttribute("aria-checked", "true");
-					wizAnswers[answerKey].push(val);
-				}
-			}
-
-			for (var i = 0; i < pills.length; i++) {
-				pills[i].addEventListener("click", function () { togglePill(this); });
-				pills[i].addEventListener("keydown", function (e) {
-					if (e.key === " " || e.key === "Enter") { e.preventDefault(); togglePill(this); }
-				});
-			}
-		}
-
-		function wizBuildSummary() {
-			var tagKeys = [];
-			if (wizAnswers.workStatus) tagKeys.push(wizAnswers.workStatus);
-			if (wizAnswers.sector) tagKeys.push(wizAnswers.sector);
-			var pills = tagKeys.map(function(id) { return ANSWER_LABELS[id] || id; }).join(" · ");
-			var jur = JNAMES[wizAnswers.jurisdiccion] || wizAnswers.jurisdiccion || "";
-			return pills + (jur ? " · " + jur : "");
-		}
-
-		function wizFinish() {
-			var data = {
-				answers: {
-					workStatus: wizAnswers.workStatus,
-					sector: wizAnswers.sector,
-					housing: wizAnswers.housing,
-					family: wizAnswers.family.slice(),
-					extras: wizAnswers.extras.slice()
-				},
-				jurisdiccion: wizAnswers.jurisdiccion || "es"
+		// Region list + map interaction
+		var regionData = {};
+		var REGION_NAMES = JURISDICTION_LABELS;
+		document.querySelectorAll("#region-list li").forEach(function (li) {
+			var jur = li.dataset.jurisdiction;
+			regionData[jur] = {
+				name: REGION_NAMES[jur] || jur,
+				count: li.querySelector(".count").textContent
 			};
-			try {
-				localStorage.setItem("leyabierta_perfil", JSON.stringify(data));
-			} catch (err) {}
+			li.addEventListener("mouseenter", function () { highlightRegion(jur); });
+			li.addEventListener("mouseleave", function () { highlightRegion(null); });
+			li.addEventListener("click", function () {
+				currentCountry = jur;
+				doSearch(1);
+			});
+		});
 
-			// Show done state
-			for (var i = 0; i < ALL_WIZ_STEP_IDS.length; i++) {
-				var el = document.getElementById(ALL_WIZ_STEP_IDS[i]);
-				if (el) el.hidden = true;
-			}
-			// Hide progress bar
-			var progressEl = document.querySelector(".wiz-progress");
-			if (progressEl) progressEl.style.display = "none";
+		// SVG map hover
+		var initSurface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+		var mapStroke = "#9ba8b5";
+		document.querySelectorAll("#spain-map [data-region]").forEach(function (path) {
+			path.setAttribute("fill", initSurface);
+			path.setAttribute("stroke", mapStroke);
+			path.setAttribute("stroke-width", "1");
+			path.style.cursor = "pointer";
+			path.style.transition = "fill 100ms";
+			path.addEventListener("mouseenter", function () { highlightRegion(this.dataset.region); });
+			path.addEventListener("mouseleave", function () { highlightRegion(null); });
+			path.addEventListener("click", function () {
+				currentCountry = this.dataset.region;
+				doSearch(1);
+			});
+		});
 
-			var doneEl = document.getElementById("wizard-done");
-			if (doneEl) {
-				doneEl.hidden = false;
-				var tagsEl = document.getElementById("wiz-done-tags");
-				if (tagsEl) tagsEl.textContent = wizBuildSummary();
+		function highlightRegion(jur) {
+			// Update map
+			var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+			var surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+			document.querySelectorAll("#spain-map [data-region]").forEach(function (p) {
+				var isActive = p.dataset.region === jur;
+				p.setAttribute("fill", isActive ? accent : surface);
+				p.setAttribute("stroke", isActive ? accent : "#9ba8b5");
+				p.setAttribute("stroke-width", isActive ? "1.5" : "1");
+			});
+
+			// Update list
+			document.querySelectorAll("#region-list li").forEach(function (li) {
+				li.classList.toggle("active", li.dataset.jurisdiction === jur);
+			});
+
+			// Update peek
+			var peek = document.getElementById("region-peek");
+			if (jur && regionData[jur]) {
+				var r = regionData[jur];
+				peek.innerHTML = '<div class="region-peek-name">' + esc(r.name) + '</div>' +
+					'<div class="region-peek-count">' + r.count + ' leyes consolidadas</div>' +
+					'<a class="region-peek-link" style="cursor:pointer">Ver legislación de ' + esc(r.name) + ' →</a>';
+				peek.querySelector(".region-peek-link").addEventListener("click", function () {
+					currentCountry = jur;
+					doSearch(1);
+				});
+			} else {
+				peek.innerHTML = '<div class="region-peek-empty">Selecciona un territorio o elige de la lista.</div>';
 			}
 		}
 
-		function wizRestart() {
-			// Reset answers
-			wizAnswers.workStatus = null;
-			wizAnswers.sector = null;
-			wizAnswers.housing = null;
-			wizAnswers.jurisdiccion = null;
-			wizAnswers.family = [];
-			wizAnswers.extras = [];
+		// Initialize map default colors
+		highlightRegion(null);
 
-			// Reset all pill states
-			var allPills = document.querySelectorAll("#wizard-inline [aria-checked]");
-			for (var i = 0; i < allPills.length; i++) {
-				allPills[i].setAttribute("aria-checked", "false");
+		function doSearch(page) {
+			currentPage = page || 1;
+			var q = searchInput.value.trim();
+
+			if (!q && !currentCountry) {
+				resultsSection.style.display = "none";
+				landingDiv.style.display = "block";
+				if (searchHints) searchHints.style.display = "";
+				history.replaceState(null, "", "/");
+				return;
 			}
 
-			// Disable next buttons
-			var nextBtns = ["wiz-btn-next-work", "wiz-btn-next-sector", "wiz-btn-next-housing", "wiz-btn-next-jurisdiction"];
-			for (var i = 0; i < nextBtns.length; i++) {
-				var btn = document.getElementById(nextBtns[i]);
-				if (btn) btn.disabled = true;
-			}
+			if (searchHints) searchHints.style.display = "none";
 
-			wizGoToStep(0);
+			var params = new URLSearchParams();
+			if (q) params.set("q", q);
+			if (currentCountry) params.set("jurisdiction", currentCountry);
+			if (currentSort) params.set("sort", currentSort);
+			params.set("limit", String(LIMIT));
+			params.set("offset", String((currentPage - 1) * LIMIT));
+
+			resultsDiv.innerHTML = '<div style="display:flex;flex-direction:column;gap:1rem;padding:1rem 0">' +
+				'<div style="padding:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:8px"><div style="height:0.875rem;background:linear-gradient(90deg,var(--border) 25%,var(--surface) 50%,var(--border) 75%);background-size:200% 100%;animation:skeleton-pulse 1.5s ease-in-out infinite;border-radius:4px;width:70%;margin-bottom:0.625rem"></div><div style="height:0.875rem;background:linear-gradient(90deg,var(--border) 25%,var(--surface) 50%,var(--border) 75%);background-size:200% 100%;animation:skeleton-pulse 1.5s ease-in-out infinite;border-radius:4px;width:90%;margin-bottom:0.625rem"></div><div style="height:0.875rem;background:linear-gradient(90deg,var(--border) 25%,var(--surface) 50%,var(--border) 75%);background-size:200% 100%;animation:skeleton-pulse 1.5s ease-in-out infinite;border-radius:4px;width:40%"></div></div></div>';
+			resultsSection.style.display = "block";
+			landingDiv.style.display = "none";
+
+			// Update URL
+			var urlParams = new URLSearchParams();
+			if (q) urlParams.set("q", q);
+			if (currentCountry) urlParams.set("jurisdiction", currentCountry);
+			if (currentSort) urlParams.set("sort", currentSort);
+			if (currentPage > 1) urlParams.set("page", String(currentPage));
+			history.replaceState(null, "", "/?" + urlParams.toString());
+
+			var fetchUrl = API + "/v1/laws?" + params.toString();
+			requestAnimationFrame(function () { setTimeout(doFetch, 0); });
+			function doFetch() {
+			fetch(fetchUrl)
+				.then(function (r) { return r.json(); })
+				.then(function (result) {
+					if (result.data.length === 0) {
+						resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">No se encontraron resultados. Prueba con otro término.</div>';
+						return;
+					}
+
+					var offset = (currentPage - 1) * LIMIT;
+					var totalPages = Math.ceil(result.total / LIMIT);
+					var html = "";
+
+					if (currentCountry) {
+						var countryName = JURISDICTION_LABELS[currentCountry] || currentCountry;
+						html += '<div class="results-filter-badge">' + esc(countryName) + ' <button type="button" class="results-filter-clear" id="clear-country" aria-label="Quitar filtro">&times;</button></div>';
+					}
+
+					var hasQuery = searchInput.value.trim();
+					html += '<div class="results-header">';
+					var totalLabel = result.capped ? 'más de ' + result.total.toLocaleString("es") : result.total.toLocaleString("es");
+					html += '<span class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + totalLabel + '</span>';
+					html += '<select class="sort-select" id="sort-select">';
+					html += '<option value=""' + (currentSort === "" ? ' selected' : '') + '>' + (hasQuery ? 'Más relevantes' : 'Más recientes') + '</option>';
+					if (hasQuery) html += '<option value="recent"' + (currentSort === "recent" ? ' selected' : '') + '>Más recientes</option>';
+					html += '<option value="oldest"' + (currentSort === "oldest" ? ' selected' : '') + '>Más antiguas</option>';
+					html += '<option value="title"' + (currentSort === "title" ? ' selected' : '') + '>Alfabético</option>';
+					html += '</select></div>';
+
+					for (var i = 0; i < result.data.length; i++) {
+						var law = result.data[i];
+						html += '<article class="law-card">';
+						if (law.citizen_summary) {
+							html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
+							html += '<p class="law-card-official-title">' + esc(law.title) + '</p>';
+						} else {
+							if (law.short_title && law.short_title !== law.title && law.short_title.length > 25) {
+								html += '<span class="law-card-short-title">' + esc(law.short_title) + '</span>';
+							}
+							html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.title) + '</a>';
+						}
+						html += '<div class="law-card-meta">';
+						html += '<span class="badge badge-' + esc(law.status) + '" style="text-transform:none">' + esc(STATUS_LABELS[law.status] || law.status) + '</span>';
+						html += '<span class="meta-sep">&middot;</span>';
+						html += '<span>' + esc(RANK_LABELS[law.rank] || law.rank) + '</span>';
+						html += '<span class="meta-sep">&middot;</span>';
+						html += '<span>' + law.published_at + '</span>';
+						html += '<span class="law-card-id">' + esc(law.id) + '</span>';
+						html += '</div></article>';
+					}
+
+					if (window.innerWidth <= 768) {
+						resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+					}
+
+					if (totalPages > 1) {
+						html += '<nav class="pagination">';
+						if (currentPage > 1) html += '<span class="page-num" data-page="' + (currentPage - 1) + '">&larr;</span>';
+						var startPage = Math.max(1, currentPage - 4);
+						var endPage = Math.min(totalPages, startPage + 9);
+						if (startPage > 1) html += '<span class="page-num" data-page="1">1</span><span class="page-ellipsis">&hellip;</span>';
+						for (var p = startPage; p <= endPage; p++) {
+							html += '<span class="page-num' + (p === currentPage ? ' current' : '') + '" data-page="' + p + '">' + p + '</span>';
+						}
+						if (endPage < totalPages) html += '<span class="page-ellipsis">&hellip;</span><span class="page-num" data-page="' + totalPages + '">' + totalPages + '</span>';
+						if (currentPage < totalPages) html += '<span class="page-num" data-page="' + (currentPage + 1) + '">&rarr;</span>';
+						html += '</nav>';
+					}
+
+					resultsDiv.innerHTML = html;
+
+					resultsDiv.querySelectorAll(".page-num").forEach(function (el) {
+						el.style.cursor = "pointer";
+						el.addEventListener("click", function () { doSearch(Number(this.dataset.page)); });
+					});
+
+					var sortSelect = document.getElementById("sort-select");
+					if (sortSelect) {
+						sortSelect.addEventListener("change", function () {
+							currentSort = this.value;
+							doSearch(1);
+						});
+					}
+
+					var clearBtn = document.getElementById("clear-country");
+					if (clearBtn) {
+						clearBtn.addEventListener("click", function () {
+							currentCountry = "";
+							doSearch(1);
+						});
+					}
+				})
+				.catch(function () {
+					resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">Error al buscar. La API no está disponible.</div>';
+				});
+			}
 		}
 
-		// Initialize wizard
-		wizSetupRadioGroup("wiz-step-work", "wiz-btn-next-work", "workStatus");
-		wizSetupRadioGroup("wiz-step-sector", "wiz-btn-next-sector", "sector");
-		wizSetupRadioGroup("wiz-step-housing", "wiz-btn-next-housing", "housing");
-		wizSetupJurisdiction();
-		wizSetupCheckboxGroup("wiz-step-family", "family", true);
-		wizSetupCheckboxGroup("wiz-step-extras", "extras", false);
+		searchBtn.addEventListener("click", function () { doSearch(1); });
+		searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") doSearch(1); });
 
-		// Navigation wiring
-		var wizNavMap = {
-			"wiz-btn-next-work": wizNextStep,
-			"wiz-btn-back-sector": wizPrevStep,
-			"wiz-btn-next-sector": wizNextStep,
-			"wiz-btn-back-housing": wizPrevStep,
-			"wiz-btn-next-housing": wizNextStep,
-			"wiz-btn-back-jurisdiction": wizPrevStep,
-			"wiz-btn-next-jurisdiction": wizNextStep,
-			"wiz-btn-back-family": wizPrevStep,
-			"wiz-btn-next-family": wizNextStep,
-			"wiz-btn-back-extras": wizPrevStep,
-			"wiz-btn-next-extras": wizFinish,
-			"wiz-btn-skip-extras": wizFinish,
-			"wiz-restart-btn": wizRestart
-		};
-		for (var btnId in wizNavMap) {
-			var el = document.getElementById(btnId);
-			if (el) el.addEventListener("click", wizNavMap[btnId]);
+		// Restore from URL params
+		var urlParams = new URLSearchParams(window.location.search);
+		if (urlParams.get("q") || urlParams.get("jurisdiction")) {
+			searchInput.value = urlParams.get("q") || "";
+			currentCountry = urlParams.get("jurisdiction") || "";
+			currentSort = urlParams.get("sort") || "";
+			doSearch(Number(urlParams.get("page") || "1"));
 		}
 
-		// Global function to start the wizard
-		window.startWizard = function () {
-			var defaultHero = document.getElementById("default-hero");
-			var welcomeBack = document.getElementById("welcome-back");
-			var wizardInline = document.getElementById("wizard-inline");
+		// Load dynamic landing data
+		var ric = window.requestIdleCallback || function (cb) { setTimeout(cb, 1); };
+		ric(function () {
 
-			if (defaultHero) defaultHero.style.display = "none";
-			if (welcomeBack) welcomeBack.style.display = "none";
-			if (wizardInline) {
-				wizardInline.hidden = false;
-				wizGoToStep(0);
+		fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
+			var currentYear = new Date().getFullYear();
+			var html = '<ol class="rank-list">';
+			var limit = Math.min(data.data.length, 10);
+			for (var i = 0; i < limit; i++) {
+				var law = data.data[i];
+				var pubYear = law.published_at ? parseInt(law.published_at.slice(0, 4), 10) : null;
+				var years = pubYear ? currentYear - pubYear : null;
+				html += '<li class="rank-item"><div class="rank-num">' + String(i + 1).padStart(2, "0") + '</div><div style="flex:1">';
+				html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="rank-title">' + esc(law.title.length > 60 ? law.title.slice(0, 57) + "..." : law.title) + '</a>';
+				html += '<div class="rank-meta"><span class="rank-reforms">' + law.reform_count + ' reformas</span>';
+				if (years) html += '<span class="rank-sep">·</span><span>desde ' + pubYear + '</span>';
+				html += '</div></div></li>';
 			}
-		};
+			html += '</ol>';
+			document.getElementById("most-reformed").innerHTML = html;
+		}).catch(function () {
+			document.getElementById("most-reformed").parentElement.style.display = "none";
+		});
+
+		fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
+			function formatDate(iso) {
+				if (!iso) return "";
+				var d = new Date(iso + "T00:00:00");
+				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+				return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+			}
+			var html = '<ul class="change-list">';
+			var recentLimit = Math.min(data.data.length, 5);
+			for (var i = 0; i < recentLimit; i++) {
+				var r = data.data[i];
+				var isNew = r.reform_count <= 1;
+				var displayText = r.citizen_summary || r.title;
+				html += '<li class="change-item"><div class="change-head">';
+				html += '<span class="' + (isNew ? 'badge-new' : 'badge-reform') + '">' + (isNew ? 'Nueva ley' : 'Reforma') + '</span>';
+				html += '<span class="change-date">' + formatDate(r.last_reform) + '</span></div>';
+				html += '<a href="/laws/' + encodeURIComponent(r.id) + '/" class="change-title">' + esc(displayText) + '</a>';
+				html += '<div class="change-id">' + esc(r.id) + '</div></li>';
+			}
+			html += '</ul>';
+			document.getElementById("recent-reforms").innerHTML = html;
+		}).catch(function () {
+			document.getElementById("recent-reforms").parentElement.style.display = "none";
+		});
+
+		}); // end requestIdleCallback
 	})();
 	</script>
 
-	<script is:inline define:vars={{ RANK_LABELS, STATUS_LABELS, JURISDICTION_LABELS }}>
-		(function () {
-			// Check for returning user
-			try {
-				var saved = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
-				if (saved && saved.answers && saved.answers.workStatus) {
-					var wb = document.getElementById("welcome-back");
-					var defaultHero = document.getElementById("default-hero");
-					if (wb && defaultHero) {
-						var ANSWER_LABELS = {
-							cuenta_ajena: "Empleado/a",
-							autonomo: "Autónomo/a",
-							empresa: "Empresario/a",
-							jubilado: "Jubilado/a",
-							busco_empleo: "Busco empleo",
-							estudiante: "Estudiante",
-							no_trabajo: "No trabajo",
-							campo: "Agricultura",
-							industria: "Industria",
-							energia: "Energía",
-							construccion: "Construcción",
-							comercio: "Comercio",
-							transporte: "Transporte",
-							hosteleria: "Hostelería",
-							tecnologia: "Tecnología",
-							finanzas: "Finanzas",
-							servicios_profesionales: "Serv. profesionales",
-							admin_publica: "Admin. pública",
-							educacion: "Educación",
-							sanidad: "Sanidad",
-							cultura_deporte: "Cultura y deporte",
-							otro: "Otro sector",
-							alquilo: "Alquiler",
-							hipoteca: "Hipoteca",
-							propietario: "Propietario/a",
-							familiares: "Vivo con familiares",
-							hijos_menores: "Hijos menores",
-							dependiente: "Familiar dependiente",
-							embarazo_baja: "Embarazo/baja"
-						};
-						var JNAMES = {
-							es: "Estatal", "es-an": "Andalucía", "es-ar": "Aragón", "es-as": "Asturias",
-							"es-cb": "Cantabria", "es-cl": "Castilla y León", "es-cm": "Castilla-La Mancha",
-							"es-cn": "Canarias", "es-ct": "Cataluña", "es-ex": "Extremadura", "es-ga": "Galicia",
-							"es-ib": "Illes Balears", "es-mc": "Murcia", "es-md": "Madrid", "es-nc": "Navarra",
-							"es-pv": "País Vasco", "es-ri": "La Rioja", "es-vc": "C. Valenciana"
-						};
-						var a = saved.answers || {};
-						var tagKeys = [];
-						if (a.workStatus) tagKeys.push(a.workStatus);
-						if (a.sector) tagKeys.push(a.sector);
-						if (a.housing) tagKeys.push(a.housing);
-						var pills = tagKeys.map(function(id) { return ANSWER_LABELS[id] || id; }).join(" · ");
-						var jur = JNAMES[saved.jurisdiccion] || saved.jurisdiccion || "";
-						document.getElementById("wb-situations").textContent = pills + (jur ? " · " + jur : "");
-						var wbLink = document.getElementById("wb-link");
-						if (wbLink) {
-							wbLink.href = "/mis-cambios";
-						}
-						wb.style.display = "block";
-						defaultHero.style.display = "none";
-					}
-				}
-			} catch(e) {}
-
-			function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-			var API = document.documentElement.dataset.api;
-			var searchInput = document.getElementById("search-input");
-			var searchBtn = document.getElementById("search-btn");
-			var resultsSection = document.getElementById("search-results-section");
-			var resultsDiv = document.getElementById("search-results");
-			var landingDiv = document.getElementById("landing-content");
-			var filterRank = document.getElementById("filter-rank");
-			var filterStatus = document.getElementById("filter-status");
-			var filterJurisdiction = document.getElementById("filter-jurisdiction");
-			var currentPage = 1;
-			var currentCountry = "";
-			var currentSort = "";
-			var LIMIT = 20;
-
-			var heroSection = document.querySelector(".hero-section");
-			var searchSection = document.getElementById("search-section");
-			var suggestions = document.getElementById("search-suggestions");
-
-			// Toggle filters
-			var filterToggle = document.getElementById("filter-toggle");
-			filterToggle.addEventListener("click", function () {
-				document.getElementById("filter-panel").classList.toggle("open");
-				filterToggle.classList.toggle("open");
-			});
-
-			// Search suggestion chips
-			document.querySelectorAll("button.search-chip").forEach(function (chip) {
-				chip.addEventListener("click", function () {
-					searchInput.value = this.dataset.query;
-					currentCountry = "";
-					doSearch(1);
-				});
-			});
-
-			// Jurisdiction card clicks
-			document.querySelectorAll(".juri-card").forEach(function (card) {
-				card.addEventListener("click", function () {
-					currentCountry = this.dataset.jurisdiction;
-					filterJurisdiction.value = currentCountry;
-					doSearch(1);
-				});
-			});
-
-			function doSearch(page) {
-				currentPage = page || 1;
-				var q = searchInput.value.trim();
-				var rank = filterRank.value;
-				var status = filterStatus.value;
-
-				if (!q && !rank && !status && !currentCountry) {
-					resultsSection.style.display = "none";
-					landingDiv.style.display = "block";
-					heroSection.classList.remove("has-results");
-					if (suggestions) suggestions.style.display = "";
-					history.replaceState(null, "", "/");
-					return;
-				}
-
-				// Compact hero on search
-				heroSection.classList.add("has-results");
-				if (suggestions) suggestions.style.display = "none";
-
-				var params = new URLSearchParams();
-				if (q) params.set("q", q);
-				if (rank) params.set("rank", rank);
-				if (status) params.set("status", status);
-				if (currentCountry) params.set("country", currentCountry);
-				if (currentSort) params.set("sort", currentSort);
-				params.set("limit", String(LIMIT));
-				params.set("offset", String((currentPage - 1) * LIMIT));
-
-				resultsDiv.innerHTML = '<div class="search-skeleton">' +
-					'<div class="skeleton-card"><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line" style="width:90%"></div><div class="skeleton-line" style="width:40%"></div></div>' +
-					'<div class="skeleton-card"><div class="skeleton-line" style="width:55%"></div><div class="skeleton-line" style="width:85%"></div><div class="skeleton-line" style="width:50%"></div></div>' +
-					'<div class="skeleton-card"><div class="skeleton-line" style="width:65%"></div><div class="skeleton-line" style="width:75%"></div><div class="skeleton-line" style="width:35%"></div></div>' +
-					'</div>';
-				resultsSection.style.display = "block";
-				landingDiv.style.display = "none";
-
-				// Update URL
-				var urlParams = new URLSearchParams();
-				if (q) urlParams.set("q", q);
-				if (rank) urlParams.set("rank", rank);
-				if (status) urlParams.set("status", status);
-				if (currentCountry) urlParams.set("country", currentCountry);
-				if (currentSort) urlParams.set("sort", currentSort);
-				if (currentPage > 1) urlParams.set("page", String(currentPage));
-				history.replaceState(null, "", "/?" + urlParams.toString());
-
-				// Yield to the browser so it can paint the skeleton before fetch starts.
-				// This prevents the interaction (Enter key) from being blocked until
-				// the fetch completes, which was causing 800ms+ INP scores.
-				var fetchUrl = API + "/v1/laws?" + params.toString();
-				requestAnimationFrame(function () { setTimeout(doFetch, 0); });
-				function doFetch() {
-				fetch(fetchUrl)
-					.then(function (r) { return r.json(); })
-					.then(function (result) {
-						if (result.data.length === 0) {
-							resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">No se encontraron resultados. Prueba con otro término.</div>';
-							return;
-						}
-
-						var offset = (currentPage - 1) * LIMIT;
-						var totalPages = Math.ceil(result.total / LIMIT);
-
-						var html = "";
-
-						// Show active jurisdiction filter badge
-						if (currentCountry) {
-							var countryName = JURISDICTION_LABELS[currentCountry] || currentCountry;
-							html += '<div class="results-filter-badge">' + esc(countryName) + ' <button type="button" class="results-filter-clear" id="clear-country" aria-label="Quitar filtro de ' + esc(countryName) + '">&times;</button></div>';
-						}
-
-						var hasQuery = searchInput.value.trim();
-						html += '<div class="results-header">';
-						html += '<span class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + result.total.toLocaleString("es") + '</span>';
-						html += '<select class="sort-select" id="sort-select">';
-						html += '<option value=""' + (currentSort === "" ? ' selected' : '') + '>' + (hasQuery ? 'Más relevantes' : 'Más recientes') + '</option>';
-						if (hasQuery) html += '<option value="recent"' + (currentSort === "recent" ? ' selected' : '') + '>Más recientes</option>';
-						html += '<option value="oldest"' + (currentSort === "oldest" ? ' selected' : '') + '>Más antiguas</option>';
-						html += '<option value="title"' + (currentSort === "title" ? ' selected' : '') + '>Alfabético</option>';
-						html += '</select>';
-						html += '</div>';
-
-						for (var i = 0; i < result.data.length; i++) {
-							var law = result.data[i];
-							html += '<article class="law-card">';
-							if (law.citizen_summary) {
-								html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
-								html += '<p class="law-card-official-title">' + esc(law.title) + '</p>';
-							} else {
-								if (law.short_title && law.short_title !== law.title && law.short_title.length > 25) {
-									html += '<span class="law-card-short-title">' + esc(law.short_title) + '</span>';
-								}
-								html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.title) + '</a>';
-							}
-							html += '<div class="law-card-meta">';
-							html += '<span class="badge badge-' + esc(law.status) + '" style="text-transform:none">' + esc(STATUS_LABELS[law.status] || law.status) + '</span>';
-							html += '<span class="meta-sep">&middot;</span>';
-							html += '<span>' + esc(RANK_LABELS[law.rank] || law.rank) + '</span>';
-							html += '<span class="meta-sep">&middot;</span>';
-							html += '<span>' + law.published_at + '</span>';
-							html += '<span class="law-card-id">' + esc(law.id) + '</span>';
-							html += '</div></article>';
-						}
-
-						// Auto-scroll to results on mobile
-						if (window.innerWidth <= 768) {
-							resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-						}
-
-						// Pagination
-						if (totalPages > 1) {
-							html += '<nav class="pagination">';
-							if (currentPage > 1) html += '<span class="page-num" data-page="' + (currentPage - 1) + '">&larr;</span>';
-							var startPage = Math.max(1, currentPage - 4);
-							var endPage = Math.min(totalPages, startPage + 9);
-							if (startPage > 1) html += '<span class="page-num" data-page="1">1</span><span class="page-ellipsis">&hellip;</span>';
-							for (var p = startPage; p <= endPage; p++) {
-								html += '<span class="page-num' + (p === currentPage ? ' current' : '') + '" data-page="' + p + '">' + p + '</span>';
-							}
-							if (endPage < totalPages) html += '<span class="page-ellipsis">&hellip;</span><span class="page-num" data-page="' + totalPages + '">' + totalPages + '</span>';
-							if (currentPage < totalPages) html += '<span class="page-num" data-page="' + (currentPage + 1) + '">&rarr;</span>';
-							html += '</nav>';
-						}
-
-						resultsDiv.innerHTML = html;
-
-						// Bind pagination
-						resultsDiv.querySelectorAll(".page-num").forEach(function (el) {
-							el.style.cursor = "pointer";
-							el.addEventListener("click", function () { doSearch(Number(this.dataset.page)); });
-						});
-
-						// Bind sort dropdown
-						var sortSelect = document.getElementById("sort-select");
-						if (sortSelect) {
-							sortSelect.addEventListener("change", function () {
-								currentSort = this.value;
-								doSearch(1);
-							});
-						}
-
-						// Bind clear country filter
-						var clearBtn = document.getElementById("clear-country");
-						if (clearBtn) {
-							clearBtn.addEventListener("click", function () {
-								currentCountry = "";
-								doSearch(1);
-							});
-						}
-					})
-					.catch(function () {
-						resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">Error al buscar. La API no está disponible.</div>';
-					});
-				} // end doFetch
-			}
-
-			searchBtn.addEventListener("click", function () { currentCountry = filterJurisdiction.value; doSearch(1); });
-			searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { currentCountry = filterJurisdiction.value; doSearch(1); } });
-			filterRank.addEventListener("change", function () { doSearch(1); });
-			filterStatus.addEventListener("change", function () { doSearch(1); });
-			filterJurisdiction.addEventListener("change", function () { currentCountry = this.value; doSearch(1); });
-
-			// Restore from URL params
-			var urlParams = new URLSearchParams(window.location.search);
-			if (urlParams.get("q") || urlParams.get("rank") || urlParams.get("status") || urlParams.get("country")) {
-				searchInput.value = urlParams.get("q") || "";
-				filterRank.value = urlParams.get("rank") || "";
-				filterStatus.value = urlParams.get("status") || "";
-				currentCountry = urlParams.get("country") || "";
-				currentSort = urlParams.get("sort") || "";
-				if (urlParams.get("rank") || urlParams.get("status")) {
-					document.getElementById("filter-panel").classList.add("open");
-				}
-				doSearch(Number(urlParams.get("page") || "1"));
-			}
-
-			// Load dynamic landing data from API
-			var dynamicSection = document.querySelector(".section-default.animate-on-scroll");
-			var loadResults = { reformed: false, recent: false };
-
-			function checkHideDynamic() {
-				if (loadResults.reformed === "fail" && loadResults.recent === "fail" && dynamicSection) {
-					dynamicSection.style.display = "none";
-				}
-			}
-
-			var ric = window.requestIdleCallback || function (cb) { setTimeout(cb, 1); };
-			ric(function () {
-
-			fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
-				loadResults.reformed = "ok";
-				var currentYear = new Date().getFullYear();
-				function buildFact(law) {
-					var pubYear = law.published_at ? parseInt(law.published_at.slice(0, 4), 10) : null;
-					var years = pubYear ? currentYear - pubYear : null;
-					// Short display name — strip common prefixes for readability
-					var name = law.title
-						.replace(/^(Real Decreto Legislativo|Real Decreto-ley|Real Decreto|Ley Orgánica|Ley)\s+\d+\/\d{4},\s*de\s+\d+\s+de\s+\w+,\s*/i, "")
-						.replace(/^(por el que se aprueba el texto refundido de la |por la que se aprueba la |por el que se aprueba el )/i, "");
-					// Fallback if regex stripped everything
-					if (!name) name = law.title;
-					// Capitalize first letter
-					name = name.charAt(0).toUpperCase() + name.slice(1);
-					// Truncate if still long
-					if (name.length > 60) name = name.slice(0, 57) + "...";
-					if (years && years > 0) {
-						return esc(name) + " se ha modificado <strong>" + law.reform_count + " veces</strong> en " + years + " años";
-					}
-					return esc(name) + " se ha modificado <strong>" + law.reform_count + " veces</strong>";
-				}
-				var html = '<ul class="fact-list">';
-				var limit = Math.min(data.data.length, 4);
-				for (var i = 0; i < limit; i++) {
-					var law = data.data[i];
-					html += '<li class="fact-item"><a href="/laws/' + encodeURIComponent(law.id) + '/" class="fact-link">' + buildFact(law) + '</a></li>';
-				}
-				html += '</ul>';
-				document.getElementById("most-reformed").innerHTML = html;
-			}).catch(function () {
-				loadResults.reformed = "fail";
-				document.getElementById("most-reformed").parentElement.style.display = "none";
-				checkHideDynamic();
-			});
-
-			fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
-				loadResults.recent = "ok";
-				function formatDate(iso) {
-					if (!iso) return "";
-					var d = new Date(iso + "T00:00:00");
-					var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-					return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
-				}
-				var html = '<ul class="recent-list">';
-				var recentLimit = Math.min(data.data.length, 5);
-				for (var i = 0; i < recentLimit; i++) {
-					var r = data.data[i];
-					var displayText = r.citizen_summary || r.title;
-					html += '<li class="recent-item"><span class="recent-date">' + formatDate(r.last_reform) + '</span>';
-					html += '<div><a href="/laws/' + encodeURIComponent(r.id) + '/" class="recent-title">' + esc(displayText) + '</a>';
-					if (r.citizen_summary) {
-						html += '<div class="recent-official">' + esc(r.title) + '</div>';
-					}
-					html += '</div></li>';
-				}
-				html += '</ul>';
-				document.getElementById("recent-reforms").innerHTML = html;
-			}).catch(function () {
-				loadResults.recent = "fail";
-				document.getElementById("recent-reforms").parentElement.style.display = "none";
-				checkHideDynamic();
-			});
-
-			}); // end requestIdleCallback
-		})();
-	</script>
-
+	<style is:global>
+		@keyframes skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+		.loading-spinner {
+			display: inline-block; width: 1.25rem; height: 1.25rem;
+			border: 2px solid var(--border); border-top-color: var(--accent);
+			border-radius: 50%; animation: spin 0.6s linear infinite;
+			margin-right: 0.5rem; vertical-align: middle;
+		}
+		@keyframes spin { to { transform: rotate(360deg); } }
+	</style>
 </Base>

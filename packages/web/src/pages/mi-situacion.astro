@@ -34,7 +34,7 @@ const JURISDICTION_OPTIONS = [
 	title="Mi situación"
 	description="Cuéntanos tu situación y te mostramos los cambios legislativos que te afectan."
 	ogTitle="Mi situación — Ley Abierta"
-	canonicalUrl="/mi-situacion"
+	canonicalUrl="/mi-situacion/"
 >
 	<style>
 		/* ── Hero ── */
@@ -727,7 +727,7 @@ const JURISDICTION_OPTIONS = [
 				try {
 					localStorage.setItem("leyabierta_perfil", JSON.stringify(data));
 				} catch (err) {}
-				window.location.href = "/mis-cambios";
+				window.location.href = "/mis-cambios/";
 			}
 
 			document.getElementById("btn-next-extras").addEventListener("click", finishWizard);
