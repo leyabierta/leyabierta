@@ -406,11 +406,17 @@ export function deleteEmbeddingsByNorm(
 /**
  * In-memory vector index. vectors.bin is split into multiple Float32Array
  * chunks because V8/Bun ArrayBuffer is capped at ~4GB and our full data is ~6GB.
+ *
+ * `normsPerChunk[c][i]` holds the precomputed L2 norm of vector `i` in chunk
+ * `c`. Computing the norm once at load time (instead of inside every query)
+ * roughly halves the per-query CPU cost.
  */
 export interface InMemoryVectorIndex {
 	chunks: Float32Array[];
 	/** vectorsPerChunk[i] = number of vectors in chunks[i] */
 	vectorsPerChunk: number[];
+	/** normsPerChunk[i] = L2 norms of vectors in chunks[i] (one float per vector) */
+	normsPerChunk: Float32Array[];
 	totalVectors: number;
 }
 
@@ -440,17 +446,15 @@ export function vectorSearchInMemory(
 	let globalIdx = 0;
 	for (let c = 0; c < index.chunks.length; c++) {
 		const vectors = index.chunks[c]!;
+		const norms = index.normsPerChunk[c]!;
 		const numVecs = index.vectorsPerChunk[c]!;
 		for (let i = 0; i < numVecs; i++) {
 			const offset = i * dims;
 			let dot = 0;
-			let docNorm = 0;
 			for (let j = 0; j < dims; j++) {
-				const v = vectors[offset + j]!;
-				dot += queryEmbedding[j]! * v;
-				docNorm += v * v;
+				dot += queryEmbedding[j]! * vectors[offset + j]!;
 			}
-			docNorm = Math.sqrt(docNorm);
+			const docNorm = norms[i]!;
 			const score = docNorm > 0 ? dot / (queryNorm * docNorm) : 0;
 
 			if (heap.length >= topK && score <= heapMin) {
@@ -520,8 +524,10 @@ async function loadVectorsToMemory(
 	const MAX_CHUNK_BYTES = 2_500_000_000;
 	const vectorsPerChunk = Math.floor(MAX_CHUNK_BYTES / bytesPerVec);
 	const chunks: Float32Array[] = [];
+	const normsPerChunk: Float32Array[] = [];
 	const vpc: number[] = [];
 	let loaded = 0;
+	const normStart = performance.now();
 	while (loaded < totalVectors) {
 		const startVec = loaded;
 		const endVec = Math.min(startVec + vectorsPerChunk, totalVectors);
@@ -537,14 +543,28 @@ async function loadVectorsToMemory(
 		}
 		// Bun.file().slice() may return slightly more than requested; trim.
 		const trimmed = buf.byteLength === wanted ? buf : buf.slice(0, wanted);
-		chunks.push(new Float32Array(trimmed));
+		const vectors = new Float32Array(trimmed);
+		// Precompute L2 norm per vector — paid once at load, reused per query.
+		const norms = new Float32Array(numVecs);
+		for (let i = 0; i < numVecs; i++) {
+			const offset = i * dims;
+			let sum = 0;
+			for (let j = 0; j < dims; j++) {
+				const v = vectors[offset + j]!;
+				sum += v * v;
+			}
+			norms[i] = Math.sqrt(sum);
+		}
+		chunks.push(vectors);
+		normsPerChunk.push(norms);
 		vpc.push(numVecs);
 		loaded = endVec;
 	}
+	const totalMs = performance.now() - normStart;
 	console.log(
-		`[rag] Loaded vectors.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${chunks.length} chunks (${totalVectors} vectors)`,
+		`[rag] Loaded vectors.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${chunks.length} chunks (${totalVectors} vectors, load + norms in ${totalMs.toFixed(0)}ms)`,
 	);
-	return { chunks, vectorsPerChunk: vpc, totalVectors };
+	return { chunks, vectorsPerChunk: vpc, normsPerChunk, totalVectors };
 }
 
 /**
