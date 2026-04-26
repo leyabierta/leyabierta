@@ -88,10 +88,19 @@ export function askRoutes(pipeline: RagPipeline | null) {
 				}
 
 				set.headers["Content-Type"] = "text/event-stream";
-				set.headers["Cache-Control"] = "no-store";
+				set.headers["Cache-Control"] = "no-cache, no-transform";
 				set.headers.Connection = "keep-alive";
+				// Hint to nginx-style proxies to disable response buffering. Cloudflare
+				// reads this and (mostly) flushes immediately. Without it CF Tunnel
+				// can hold the response until Content-Length / certain buffer fills.
+				set.headers["X-Accel-Buffering"] = "no";
 
 				try {
+					// Emit an immediate stage event so the response status + first byte
+					// reach Cloudflare well within its 100s origin-timeout window.
+					// Without this, CF returns 524 even though the server is still
+					// working on retrieval.
+					yield `event: stage\ndata: "retrieval_started"\n\n`;
 					for await (const event of pipeline.askStream({
 						question: validated,
 						jurisdiction: body.jurisdiction,
@@ -99,10 +108,10 @@ export function askRoutes(pipeline: RagPipeline | null) {
 						if (event.type === "chunk") {
 							yield `event: chunk\ndata: ${JSON.stringify(event.text)}\n\n`;
 						} else if (event.type === "keepalive") {
-							// SSE comment — clients ignore it, but proxies (Cloudflare
-							// Tunnel) see the bytes and keep the connection open during
-							// the long retrieval phase.
-							yield `: keepalive\n\n`;
+							// Real event (not SSE comment) so proxies that filter
+							// comments still see byte traffic. Clients ignore unknown
+							// event types per the SSE spec.
+							yield `event: keepalive\ndata: {}\n\n`;
 						} else {
 							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined })}\n\n`;
 						}
