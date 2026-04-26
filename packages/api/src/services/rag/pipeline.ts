@@ -13,7 +13,6 @@ import {
 	ensureVectorIndex,
 	getEmbeddedNormIds,
 	getEmbeddingCount,
-	vectorSearchInMemory,
 } from "./embeddings.ts";
 import { JURISDICTION_NAMES, resolveJurisdiction } from "./jurisdiction.ts";
 import { type RerankerCandidate, rerank } from "./reranker.ts";
@@ -29,6 +28,18 @@ import {
 	enrichWithTemporalContext,
 } from "./temporal.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
+import { vectorSearchPooled } from "./vector-pool.ts";
+
+/**
+ * Vector pool sizing — env-tunable but the defaults match the prod
+ * KonarServer layout (8 vCPU, 4 workers leave 4 cores for the rest).
+ * If the .so or worker spawn fail, the API will not boot — the orchestrator
+ * (watchtower / docker restart) keeps the previous container running.
+ */
+const VECTOR_POOL_WORKERS = Number(process.env.RAG_VECTOR_POOL_WORKERS ?? "4");
+const VECTOR_POOL_MAX_PENDING = Number(
+	process.env.RAG_VECTOR_POOL_MAX_PENDING ?? "20",
+);
 
 // ── Config ──
 
@@ -847,12 +858,18 @@ export class RagPipeline {
 		const t0 = Date.now();
 		const vidx = await this.getVectorIndex();
 		const vectorResults = vidx
-			? vectorSearchInMemory(
-					queryResult.embedding,
-					vidx.meta,
-					vidx.vectors,
-					vidx.dims,
-					RERANK_POOL_SIZE,
+			? (
+					await vectorSearchPooled(
+						queryResult.embedding,
+						vidx.meta,
+						vidx.vectors,
+						vidx.dims,
+						RERANK_POOL_SIZE,
+						{
+							workerCount: VECTOR_POOL_WORKERS,
+							maxPending: VECTOR_POOL_MAX_PENDING,
+						},
+					)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];
 		const tVector = Date.now() - t0;
@@ -1892,12 +1909,18 @@ export class RagPipeline {
 		const vectorStart = Date.now();
 		const vidx = await this.getVectorIndex();
 		const vectorResults = vidx
-			? vectorSearchInMemory(
-					queryResult.embedding,
-					vidx.meta,
-					vidx.vectors,
-					vidx.dims,
-					RERANK_POOL_SIZE,
+			? (
+					await vectorSearchPooled(
+						queryResult.embedding,
+						vidx.meta,
+						vidx.vectors,
+						vidx.dims,
+						RERANK_POOL_SIZE,
+						{
+							workerCount: VECTOR_POOL_WORKERS,
+							maxPending: VECTOR_POOL_MAX_PENDING,
+						},
+					)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];
 		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({
