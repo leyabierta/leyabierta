@@ -13,7 +13,11 @@
 
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { bm25ArticleSearch } from "../services/rag/blocks-fts.ts";
+import {
+	bm25ArticleSearch,
+	ensureBlocksFtsVocab,
+	resetBlocksFtsCaches,
+} from "../services/rag/blocks-fts.ts";
 
 let db: Database;
 
@@ -36,6 +40,10 @@ function seed(blocks: Array<{ id: string; norm: string; content: string }>) {
 
 beforeEach(() => {
 	db = new Database(":memory:");
+	// Cross-test isolation — module-level docfreq cache is keyed on token
+	// string, not on DB instance, so a previous test's vocab counts could
+	// leak into this one's pruning decisions.
+	resetBlocksFtsCaches();
 });
 
 afterEach(() => {
@@ -129,7 +137,6 @@ describe("bm25ArticleSearch AND adaptive", () => {
 		seed(blocks);
 
 		// Build the vocab table (main thread role).
-		const { ensureBlocksFtsVocab } = require("../services/rag/blocks-fts.ts");
 		ensureBlocksFtsVocab(db);
 
 		// AND of "raro" and "comun" yields 5 (<20) → triggers OR fallback.

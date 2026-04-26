@@ -19,7 +19,7 @@
 
 import { dlopen, FFIType, ptr } from "bun:ffi";
 import { Database } from "bun:sqlite";
-import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
+import { bm25HybridSearch } from "./blocks-fts.ts";
 
 declare const self: {
 	postMessage: (message: unknown) => void;
@@ -97,9 +97,10 @@ self.onmessage = (event: MessageEvent) => {
 			// SQLite WAL supports concurrent readers — every worker opens its
 			// own readonly handle so each has an independent statement cache.
 			const db = new Database(msg.dbPath, { readonly: true });
-			ensureBlocksFts(db); // no-op when already populated; vocab table
-			// (blocks_fts_vocab) is created by the main thread before workers
-			// boot — readonly handles can't CREATE VIRTUAL TABLE.
+			// blocks_fts and blocks_fts_vocab are created by the main thread
+			// before workers boot. Readonly handles can't CREATE TABLE, and
+			// running ensureBlocksFts here would fail on a fresh DB rather
+			// than gracefully bail — main thread is the single owner.
 			state = {
 				chunks,
 				norms,

@@ -62,6 +62,9 @@ export function ensureBlocksFts(db: Database): void {
 		.query<{ cnt: number }, []>("SELECT count(*) as cnt FROM blocks_fts")
 		.get();
 	console.log(`  blocks_fts ready: ${count?.cnt ?? 0} articles indexed`);
+	// Index just rebuilt — any docfreq numbers cached from the old index
+	// are now stale.
+	resetBlocksFtsCaches();
 }
 
 /**
@@ -115,6 +118,16 @@ const OR_DOCFREQ_PRUNE_RATIO = 0.3;
  */
 const docfreqCache = new Map<string, number>();
 let totalDocsCache: number | null = null;
+
+/**
+ * Drop the cached docfreq entries — call after the FTS index is rebuilt
+ * (schema migration, batch reingest) so the next query re-reads from the
+ * fresh vocab table. Safe to call eagerly; cost is constant.
+ */
+export function resetBlocksFtsCaches(): void {
+	docfreqCache.clear();
+	totalDocsCache = null;
+}
 
 function getTotalDocs(db: Database): number {
 	if (totalDocsCache !== null) return totalDocsCache;

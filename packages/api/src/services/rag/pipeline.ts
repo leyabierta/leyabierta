@@ -64,6 +64,23 @@ const RERANK_POOL_SIZE = 80;
 const LOW_CONFIDENCE_THRESHOLD = 0.38;
 
 /**
+ * Fundamental state laws — covers 90%+ of citizen questions. Used by the
+ * "core law" BM25 stage to ensure foundational laws enter the pool when
+ * the citizen's colloquial vocabulary doesn't match the formal legal text.
+ * Add an entry only when a new law is genuinely fundamental at the state
+ * level (not an autonomous community variant).
+ */
+const CORE_NORMS = [
+	"BOE-A-2015-11430", // Estatuto de los Trabajadores
+	"BOE-A-1994-26003", // LAU
+	"BOE-A-1978-31229", // Constitución Española
+	"BOE-A-2015-11724", // LGSS
+	"BOE-A-2007-20555", // TRLGDCU
+	"BOE-A-2018-16673", // LOPDGDD
+	"BOE-A-1889-4763", // Código Civil
+];
+
+/**
  * Build a human-readable scope description combining norm rank and jurisdiction.
  * Used to enrich the reranker input so it can distinguish general state laws
  * from sectoral/autonomous norms with semantically identical text.
@@ -732,16 +749,6 @@ export class RagPipeline {
 			}
 		}
 
-		// Core fundamental state laws — covers 90%+ of citizen questions.
-		const CORE_NORMS = [
-			"BOE-A-2015-11430", // Estatuto de los Trabajadores
-			"BOE-A-1994-26003", // LAU
-			"BOE-A-1978-31229", // Constitución Española
-			"BOE-A-2015-11724", // LGSS
-			"BOE-A-2007-20555", // TRLGDCU
-			"BOE-A-2018-16673", // LOPDGDD
-			"BOE-A-1889-4763", // Código Civil
-		];
 		const coreLawInputs =
 			analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction
 				? (() => {
@@ -788,11 +795,12 @@ export class RagPipeline {
 			}
 		}
 
-		// Dispatch all five BM25 stages to the pool concurrently. The pool
-		// has 4 workers by default, so 4 run in parallel and one queues —
-		// total wall ≈ 2 × max(stage_i) in the worst case, vs the previous
-		// sum which dominated retrieval latency.
-		const useBm25Pool = vidx !== null;
+		// Dispatch all five BM25 stages concurrently. Each stage tries the
+		// worker pool first; on ANY pool failure (lib missing on this
+		// platform, all workers busy, FFI crash) we fall back to the sync
+		// in-process bm25HybridSearch so retrieval never breaks. This per-
+		// stage fallback also keeps Promise.all resilient — one busy stage
+		// degrading to sync doesn't sink the other four.
 		const bm25Stages: Record<string, number> = {};
 		const stageT = (k: string) => {
 			const start = performance.now();
@@ -801,17 +809,30 @@ export class RagPipeline {
 			};
 		};
 
-		const runBm25 = (
+		const runBm25 = async (
 			query: string,
 			keywords: string[],
 			topK: number,
 			filter?: string[],
-		) =>
-			useBm25Pool && vidx
-				? bm25SearchPooled(vidx.vectors, query, keywords, topK, filter)
-				: Promise.resolve(
-						bm25HybridSearch(this.db, query, keywords, topK, filter),
+		) => {
+			if (vidx) {
+				try {
+					return await bm25SearchPooled(
+						vidx.vectors,
+						query,
+						keywords,
+						topK,
+						filter,
 					);
+				} catch (err) {
+					const msg = (err as Error).message;
+					if (msg !== "VECTOR_POOL_BUSY") {
+						console.warn(`[bm25-pool] fallback to sync: ${msg}`);
+					}
+				}
+			}
+			return bm25HybridSearch(this.db, query, keywords, topK, filter);
+		};
 
 		const mainStop = stageT("main");
 		const synonymStop = synonymInputs ? stageT("synonym") : () => {};
@@ -1844,19 +1865,10 @@ export class RagPipeline {
 			}
 		}
 
-		const CORE_NORMS_2 = [
-			"BOE-A-2015-11430",
-			"BOE-A-1994-26003",
-			"BOE-A-1978-31229",
-			"BOE-A-2015-11724",
-			"BOE-A-2007-20555",
-			"BOE-A-2018-16673",
-			"BOE-A-1889-4763",
-		];
 		const coreLawInputs2 =
 			analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction
 				? (() => {
-						const coreInStore = CORE_NORMS_2.filter((id) =>
+						const coreInStore = CORE_NORMS.filter((id) =>
 							embeddingNormIds.includes(id),
 						);
 						return coreInStore.length > 0
@@ -1898,24 +1910,37 @@ export class RagPipeline {
 			}
 		}
 
-		const usePool2 = vidx2 !== null;
 		const stageT2 = (k: string) => {
 			const start = performance.now();
 			return () => {
 				bm25Stages[k] = performance.now() - start;
 			};
 		};
-		const runBm252 = (
+		// Same per-stage fallback semantics as runPipeline.runBm25 above.
+		const runBm252 = async (
 			query: string,
 			keywords: string[],
 			topK: number,
 			filter?: string[],
-		) =>
-			usePool2 && vidx2
-				? bm25SearchPooled(vidx2.vectors, query, keywords, topK, filter)
-				: Promise.resolve(
-						bm25HybridSearch(this.db, query, keywords, topK, filter),
+		) => {
+			if (vidx2) {
+				try {
+					return await bm25SearchPooled(
+						vidx2.vectors,
+						query,
+						keywords,
+						topK,
+						filter,
 					);
+				} catch (err) {
+					const msg = (err as Error).message;
+					if (msg !== "VECTOR_POOL_BUSY") {
+						console.warn(`[bm25-pool] fallback to sync: ${msg}`);
+					}
+				}
+			}
+			return bm25HybridSearch(this.db, query, keywords, topK, filter);
+		};
 
 		const stop2Main = stageT2("main");
 		const stop2Syn = synonymInputs2 ? stageT2("synonym") : () => {};
