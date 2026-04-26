@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0.0] - 2026-04-26
+
+### Performance — Sprint 1: RAG retrieval ~5× faster end-to-end
+
+- **Adaptive AND/OR FTS5 in `bm25ArticleSearch`** — multi-token queries try AND first; fall back to OR only when the intersection is below the cardinality threshold. Kills the OR-explosion that produced 49 s BM25 timings on prod traces with generic-token questions.
+- **SIMD brute-force cosine top-K** — `vector-simd.c` (AVX2 + FMA, 2-way unrolled FMA accumulator, in-loop min-heap) loaded via `Bun.dlopen`. Single-thread vector search drops from ~50 s to ~870 ms on the 484 k × 3072 prod corpus (~70× speedup, top-10 parity 5/5).
+- **Worker pool sharing vectors via `SharedArrayBuffer`** — 4 Bun Workers reference one in-memory copy of the 5.6 GB index, no replication. 5 concurrent queries finish in ~1.7 s wall vs ~4.8 s sequential SIMD (2.9× concurrency speedup). Pool init failures fail boot loud, so watchtower keeps the previous container.
+- **Pool-only production path** — `RAG_VECTOR_BACKEND` flag retired after validation; the in-process SIMD and pure-JS fallbacks are no longer in the production code path. `vectorSearchInMemory` and `vectorSearchSIMD` remain as parity-test fixtures only.
+- **Multi-stage Dockerfile** — `gcc` + `libc6-dev` only in the `simd-builder` stage; runtime image stays slim and copies just the precompiled `.so`.
+
+### Recall
+
+- End-to-end on the 57-question omnibus gold set: R@5 = 96.5% (matches the prior baseline R@1 measured at vector top-1), R@10 = 100%, MRR 0.848, 0 declined, 0 errors.
+
+### Infrastructure
+
+- **CI deploy step rewritten** — the old `docker compose up -d api` step on the self-hosted runner raced with watchtower's 30 s poll and failed with "container name in use" when watchtower won. The job now does zero docker mutations: it polls `/health` and gates on the SHA matching `${{ github.sha }}`. Single-owner deploy lifecycle (watchtower).
+
+### Closed
+
+- Issue #20 (Optimizar latencia de retrieval <5s).
+
 ## [0.1.0.0] - 2026-04-05
 
 ### Added
