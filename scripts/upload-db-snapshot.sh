@@ -76,7 +76,10 @@ for arg in "$@"; do
 		--skip-ia) SKIP_IA=1 ;;
 		--keep-local) KEEP_LOCAL=1 ;;
 		-h|--help)
-			grep '^#' "$0" | sed 's/^# \?//' | head -n 40
+			# Print the leading comment block (everything up to the first
+			# blank line that is followed by a non-comment line — i.e. the
+			# header). Won't truncate as the script grows.
+			awk '/^#/{print; next} {exit}' "$0" | sed 's/^# \?//'
 			exit 0
 			;;
 		*)
@@ -106,6 +109,15 @@ require_cmd sha256sum
 require_cmd jq
 require_cmd sqlite3
 
+# Always clean up the remote tmp dir on exit, success or failure.
+# Without this, a crash in steps 1-6 leaves up to 13 GB of snapshot files
+# on the production server in REMOTE_TMP_DIR until the operator notices.
+# `2>/dev/null || true` keeps the trap from masking the real exit code.
+cleanup_remote() {
+	ssh "$SSH_TARGET" "rm -rf ${REMOTE_TMP_DIR}" 2>/dev/null || true
+}
+trap cleanup_remote EXIT
+
 # ─── Step 1. Online .backup on the production server ────────────────────────
 # sqlite3 .backup is online and non-blocking. We run it inside the container
 # because the volume mount path is `/data/leyabierta.db`. The host path
@@ -119,61 +131,52 @@ log "Step 1/7  online .backup on ${SSH_TARGET}:${REMOTE_DB_PATH}"
 
 ssh "$SSH_TARGET" "mkdir -p ${REMOTE_TMP_DIR}"
 
+# Online backup. We invoke `bun` inside the container because the runtime
+# image does not ship the sqlite3 CLI but does ship bun:sqlite, which
+# implements VACUUM INTO. We write the snapshot directly to the bind-mount
+# (`/data/...` in the container == `/opt/leyabierta/code/data/...` on the
+# host), which lets us move it to REMOTE_TMP_DIR with a host-side mv
+# instead of `docker cp` (avoids copying 13 GB twice).
 ssh "$SSH_TARGET" "docker exec ${REMOTE_CONTAINER} bun -e \"
 import { Database } from 'bun:sqlite';
 const src = new Database('${REMOTE_DB_PATH}', { readonly: true });
-const dst = '/data/snapshot-${DATE_TAG}.db';
-src.exec('VACUUM INTO \\\\'\${dst}\\\\'');
-console.log('backup done', dst);
+src.exec(\\\"VACUUM INTO '/data/snapshot-${DATE_TAG}.db'\\\");
+console.log('backup done /data/snapshot-${DATE_TAG}.db');
 \""
 
-# Move the snapshot from the container/data volume to the host tmp dir
-# (still on the server). We use a host-side mv via the volume mount so we
-# don't have to docker cp 13 GB.
 ssh "$SSH_TARGET" "mv /opt/leyabierta/code/data/snapshot-${DATE_TAG}.db ${REMOTE_TMP_DIR}/${MAIN_NAME}"
 
 log "  backup done on remote: ${REMOTE_TMP_DIR}/${MAIN_NAME}"
 
-# ─── Step 2. Strip private tables on the remote (the file is huge) ─────────
-# We run sqlite3 on the host side via apt's libsqlite3 — but since the host
-# may not have sqlite3 CLI, we again use bun inside the container.
+# Steps 2-3 mutate the snapshot copies on the host filesystem. We use the
+# host's `sqlite3` CLI (auto-installed once) instead of bun-in-container,
+# because REMOTE_TMP_DIR is not bind-mounted into the container — there is
+# no clean container path to the snapshot, and adding a mount just for
+# this script would change the prod docker-compose.yml.
+ssh "$SSH_TARGET" "command -v sqlite3 >/dev/null 2>&1 || sudo apt-get install -qq -y sqlite3"
 
-log "Step 2/7  drop private tables on remote snapshot"
+# ─── Step 2. Strip private tables on the main snapshot ──────────────────────
+
+log "Step 2/7  drop private tables on main snapshot"
 
 DROP_SQL=""
 for t in "${PRIVATE_TABLES[@]}"; do
 	DROP_SQL="${DROP_SQL}DROP TABLE IF EXISTS ${t}; "
 done
 
-ssh "$SSH_TARGET" "docker exec ${REMOTE_CONTAINER} bun -e \"
-import { Database } from 'bun:sqlite';
-const db = new Database('${REMOTE_TMP_DIR}/${MAIN_NAME}'.replace('${REMOTE_TMP_DIR}', '/data/_snap'));
-db.exec('${DROP_SQL}');
-db.exec('VACUUM');
-db.close();
-console.log('private tables dropped + VACUUM');
-\"" || {
-	# The path mapping above is wrong if /tmp is not mounted into the container.
-	# Fallback: stream the snapshot to the host (sqlite3 CLI on host) — but
-	# host has libsqlite3 only, not sqlite3. So we install sqlite3 ad-hoc on
-	# the host via apt (idempotent) and operate locally.
-	log "  container path not mounted; falling back to host-side sqlite3"
-	ssh "$SSH_TARGET" "command -v sqlite3 >/dev/null 2>&1 || sudo apt-get install -qq -y sqlite3"
-	ssh "$SSH_TARGET" "sqlite3 ${REMOTE_TMP_DIR}/${MAIN_NAME} '${DROP_SQL}'"
-	ssh "$SSH_TARGET" "sqlite3 ${REMOTE_TMP_DIR}/${MAIN_NAME} 'VACUUM'"
-}
+ssh "$SSH_TARGET" "sqlite3 ${REMOTE_TMP_DIR}/${MAIN_NAME} '${DROP_SQL}'"
 
 # ─── Step 3. Build embeddings-only snapshot from the same source ───────────
-# Cheapest path: copy the just-cleaned snapshot, then drop everything except
-# `embeddings`, then VACUUM. We do NOT take a second .backup against prod.
+# Cheapest path: copy the just-cleaned snapshot (private tables already
+# removed), then drop everything except `embeddings`, then VACUUM. We do
+# NOT take a second .backup against prod.
 
 log "Step 3/7  build embeddings-only snapshot"
 
 ssh "$SSH_TARGET" "cp ${REMOTE_TMP_DIR}/${MAIN_NAME} ${REMOTE_TMP_DIR}/${EMB_NAME}.tmp"
 
-# Get list of tables in the cleaned main snapshot, drop everything except
-# embeddings (and SQLite internals starting with sqlite_), then VACUUM.
-ssh "$SSH_TARGET" "command -v sqlite3 >/dev/null 2>&1 || sudo apt-get install -qq -y sqlite3"
+# Pipe a generated DROP-list into sqlite3, drop everything except embeddings,
+# VACUUM, rename. `sqlite_%` tables are SQLite internals and skip themselves.
 ssh "$SSH_TARGET" "sqlite3 ${REMOTE_TMP_DIR}/${EMB_NAME}.tmp \"
 SELECT 'DROP TABLE IF EXISTS \\\"' || name || '\\\";'
 FROM sqlite_master WHERE type='table'
@@ -183,7 +186,7 @@ FROM sqlite_master WHERE type='table'
 ssh "$SSH_TARGET" "sqlite3 ${REMOTE_TMP_DIR}/${EMB_NAME}.tmp 'VACUUM'"
 ssh "$SSH_TARGET" "mv ${REMOTE_TMP_DIR}/${EMB_NAME}.tmp ${REMOTE_TMP_DIR}/${EMB_NAME}"
 
-# And drop `embeddings` from the main snapshot (it's the heavy table).
+# Drop `embeddings` from the main snapshot (it's the heavy table) + VACUUM.
 ssh "$SSH_TARGET" "sqlite3 ${REMOTE_TMP_DIR}/${MAIN_NAME} 'DROP TABLE IF EXISTS embeddings; VACUUM'"
 
 # ─── Step 4. Verify private tables are gone (assertion) ─────────────────────
@@ -356,9 +359,8 @@ if [ "$SKIP_HF" = "0" ]; then
 fi
 
 # ─── Cleanup ────────────────────────────────────────────────────────────────
-
-ssh "$SSH_TARGET" "rm -rf ${REMOTE_TMP_DIR}"
-log "  remote tmp cleaned"
+# Remote tmp dir cleanup is handled by the EXIT trap installed near the top
+# of the script — runs on success and on failure both.
 
 if [ "$KEEP_LOCAL" = "0" ]; then
 	rm -f "${LOCAL_OUT_DIR}/${MAIN_NAME}.gz" "${LOCAL_OUT_DIR}/${EMB_NAME}.gz"

@@ -389,14 +389,14 @@ function formatDate(iso: string): string {
 			Go, Java…). Verifica siempre el SHA-256 antes de usarlo.
 		</p>
 
-		<div class="code-block"><code>{`# Verificar checksum
-sha256sum leyes-snapshot-2026-04-26.db.gz
+		<div class="code-block"><code>{`# Verificar checksum (sustituye FECHA por la del snapshot que descargaste)
+sha256sum leyes-snapshot-${latest?.date ?? "YYYY-MM-DD"}.db.gz
 
 # Descomprimir
-gunzip leyes-snapshot-2026-04-26.db.gz
+gunzip leyes-snapshot-${latest?.date ?? "YYYY-MM-DD"}.db.gz
 
 # Abrir
-sqlite3 leyes-snapshot-2026-04-26.db`}</code></div>
+sqlite3 leyes-snapshot-${latest?.date ?? "YYYY-MM-DD"}.db`}</code></div>
 
 		<h3>Consultas de ejemplo</h3>
 
