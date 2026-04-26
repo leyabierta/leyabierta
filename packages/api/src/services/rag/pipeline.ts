@@ -35,15 +35,24 @@ import { type RagTrace, startTrace } from "./tracing.ts";
 import { bm25SearchPooled, vectorSearchPooled } from "./vector-pool.ts";
 
 /**
- * Vector pool sizing — env-tunable but the defaults match the prod
- * KonarServer layout (8 vCPU, 4 workers leave 4 cores for the rest).
- * If the .so or worker spawn fail, the API will not boot — the orchestrator
- * (watchtower / docker restart) keeps the previous container running.
+ * Pool saturation counter. Every BM25 stage that gets `VECTOR_POOL_BUSY`
+ * back from the pool falls through to the sync `bm25HybridSearch` (so
+ * the request still succeeds), but the parallelism win disappears
+ * silently. Logging every event would be noisy under load; instead we
+ * count here and emit one summary log per BUSY_LOG_EVERY events plus
+ * a warning whenever a stage actually falls back. Watchtower-friendly:
+ * the counter resets whenever the process restarts, no external sink.
  */
-const VECTOR_POOL_WORKERS = Number(process.env.RAG_VECTOR_POOL_WORKERS ?? "4");
-const VECTOR_POOL_MAX_PENDING = Number(
-	process.env.RAG_VECTOR_POOL_MAX_PENDING ?? "20",
-);
+let bm25PoolBusyCount = 0;
+const BUSY_LOG_EVERY = 100;
+function recordBm25PoolBusy() {
+	bm25PoolBusyCount++;
+	if (bm25PoolBusyCount % BUSY_LOG_EVERY === 0) {
+		console.warn(
+			`[bm25-pool] saturation: ${bm25PoolBusyCount} BUSY events since boot — pool may be undersized for current load`,
+		);
+	}
+}
 
 // ── Config ──
 
@@ -826,7 +835,9 @@ export class RagPipeline {
 					);
 				} catch (err) {
 					const msg = (err as Error).message;
-					if (msg !== "VECTOR_POOL_BUSY") {
+					if (msg === "VECTOR_POOL_BUSY") {
+						recordBm25PoolBusy();
+					} else {
 						console.warn(`[bm25-pool] fallback to sync: ${msg}`);
 					}
 				}
@@ -946,10 +957,6 @@ export class RagPipeline {
 						vidx.vectors,
 						vidx.dims,
 						RERANK_POOL_SIZE,
-						{
-							workerCount: VECTOR_POOL_WORKERS,
-							maxPending: VECTOR_POOL_MAX_PENDING,
-						},
 					)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];
@@ -1934,7 +1941,9 @@ export class RagPipeline {
 					);
 				} catch (err) {
 					const msg = (err as Error).message;
-					if (msg !== "VECTOR_POOL_BUSY") {
+					if (msg === "VECTOR_POOL_BUSY") {
+						recordBm25PoolBusy();
+					} else {
 						console.warn(`[bm25-pool] fallback to sync: ${msg}`);
 					}
 				}
@@ -2064,10 +2073,6 @@ export class RagPipeline {
 						vidx2.vectors,
 						vidx2.dims,
 						RERANK_POOL_SIZE,
-						{
-							workerCount: VECTOR_POOL_WORKERS,
-							maxPending: VECTOR_POOL_MAX_PENDING,
-						},
 					)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];

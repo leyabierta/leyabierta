@@ -140,12 +140,16 @@ describe("bm25ArticleSearch AND adaptive", () => {
 		ensureBlocksFtsVocab(db);
 
 		// AND of "raro" and "comun" yields 5 (<20) → triggers OR fallback.
-		// Without pruning, OR matches 95 docs. With pruning ("comun" hits >30%
-		// of 95 docs = 85.5% of corpus → drop), OR is just on "raro" → 5 docs.
+		// Without pruning, OR matches 95 docs. With pruning ("comun" hits
+		// >30% of the corpus → dropped), OR runs only on "raro" → 5 docs.
 		const results = bm25ArticleSearch(db, "raro comun", 50);
-		// We accept either: pruned OR returns ≤ 10 (just rare matches), or
-		// full OR returns up to 95 — but the docfreq path should kick in.
-		// Strong assertion: the rare docs ARE present (recall preserved).
+
+		// Strong assertion: pruning actually fired. If the vocab table or
+		// the lookup misbehaved, getDocfreq returns 0 → no pruning → full
+		// OR returns ~95 results, and this assertion fails loudly.
+		expect(results.length).toBeLessThanOrEqual(10);
+
+		// Recall preserved: the 5 rare docs are still present.
 		const ids = new Set(results.map((r) => r.blockId));
 		for (let i = 0; i < 5; i++) expect(ids.has(`r${i}`)).toBe(true);
 	});
