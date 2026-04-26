@@ -1,28 +1,25 @@
 /**
- * Vector worker — runs SIMD cosine top-K on the shared vector index.
+ * RAG worker — runs the two CPU-bound stages on behalf of the main thread:
+ *
+ *   1. SIMD cosine top-K over the shared vector index (5.6 GB SAB).
+ *   2. BM25 article search via SQLite FTS5 against a readonly DB handle.
  *
  * Spawned by `vector-pool.ts` via `new Worker(new URL("./vector-worker.ts",
- * import.meta.url))`. Receives one `init` message at boot with:
- *   - sharedChunks: SharedArrayBuffer[] — vectors per chunk (read-only).
- *   - sharedNorms:  SharedArrayBuffer[] — precomputed L2 norms per chunk.
- *   - vectorsPerChunk: number[]
- *   - dim: number
- *   - libPath: string — path to vector-simd.{so,dylib}
- *
- * Then any number of `query` messages with `{ id, query: Float32Array,
- * topK: number }`. The worker replies with `{ id, results: { idx, score }[] }`.
+ * import.meta.url))`. Receives one `init` message at boot with the SAB
+ * refs, the .so path and the SQLite path; opens its own DB handle in
+ * readonly mode (SQLite WAL supports concurrent readers without lock
+ * contention). Then any number of `vector` or `bm25` messages, each
+ * tagged with an id; replies as `{ type: 'result' | 'error', id, ... }`.
  *
  * Memory: the SharedArrayBuffer is referenced (not copied) into the
  * worker's address space. With N workers all viewing the same SABs, the
- * physical RAM cost stays at the single 5.6 GB index.
- *
- * The worker does not load SQLite or BM25 here — those stay in the main
- * thread for now (BM25 is synchronous + already cheap with AND adaptive,
- * and adding a second worker concern multiplies the surface). When BM25
- * becomes a bottleneck under sustained concurrency we can revisit.
+ * physical RAM cost stays at the single 5.6 GB index. Each worker holds
+ * its own SQLite statement cache (small).
  */
 
 import { dlopen, FFIType, ptr } from "bun:ffi";
+import { Database } from "bun:sqlite";
+import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
 
 declare const self: {
 	postMessage: (message: unknown) => void;
@@ -36,16 +33,26 @@ interface InitMessage {
 	vectorsPerChunk: number[];
 	dim: number;
 	libPath: string;
+	dbPath: string;
 }
 
-interface QueryMessage {
-	type: "query";
+interface VectorQueryMessage {
+	type: "vector";
 	id: number;
 	query: Float32Array;
 	topK: number;
 }
 
-type InMessage = InitMessage | QueryMessage;
+interface Bm25QueryMessage {
+	type: "bm25";
+	id: number;
+	originalQuery: string;
+	expandedKeywords: string[];
+	topK: number;
+	normFilter?: string[];
+}
+
+type InMessage = InitMessage | VectorQueryMessage | Bm25QueryMessage;
 
 // biome-ignore lint/suspicious/noExplicitAny: bun:ffi symbol types are dynamic.
 type CosineTopk = (...args: any[]) => number;
@@ -56,6 +63,7 @@ interface State {
 	vpc: number[];
 	dim: number;
 	cosine_topk: CosineTopk;
+	db: Database;
 }
 
 let state: State | null = null;
@@ -86,12 +94,17 @@ self.onmessage = (event: MessageEvent) => {
 					returns: FFIType.i32,
 				},
 			});
+			// SQLite WAL supports concurrent readers — every worker opens its
+			// own readonly handle so each has an independent statement cache.
+			const db = new Database(msg.dbPath, { readonly: true });
+			ensureBlocksFts(db); // no-op when already populated
 			state = {
 				chunks,
 				norms,
 				vpc: msg.vectorsPerChunk,
 				dim: msg.dim,
 				cosine_topk: lib.symbols.cosine_topk as unknown as CosineTopk,
+				db,
 			};
 			self.postMessage({ type: "ready" });
 		} catch (err) {
@@ -103,7 +116,7 @@ self.onmessage = (event: MessageEvent) => {
 		return;
 	}
 
-	if (msg.type === "query") {
+	if (msg.type === "vector") {
 		if (!state) {
 			self.postMessage({
 				type: "error",
@@ -165,7 +178,35 @@ self.onmessage = (event: MessageEvent) => {
 			self.postMessage({
 				type: "error",
 				id: msg.id,
-				message: `query failed: ${(err as Error).message}`,
+				message: `vector query failed: ${(err as Error).message}`,
+			});
+		}
+		return;
+	}
+
+	if (msg.type === "bm25") {
+		if (!state) {
+			self.postMessage({
+				type: "error",
+				id: msg.id,
+				message: "not initialized",
+			});
+			return;
+		}
+		try {
+			const results = bm25HybridSearch(
+				state.db,
+				msg.originalQuery,
+				msg.expandedKeywords,
+				msg.topK,
+				msg.normFilter,
+			);
+			self.postMessage({ type: "result", id: msg.id, results });
+		} catch (err) {
+			self.postMessage({
+				type: "error",
+				id: msg.id,
+				message: `bm25 query failed: ${(err as Error).message}`,
 			});
 		}
 	}
