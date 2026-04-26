@@ -3024,11 +3024,12 @@ Responde SOLO con JSON.`,
 						.replace(/[\x00-\x1f]/g, "")
 						.trim();
 					if (sanitized) {
-						this.insertSummaryStmt.run(
-							article.normId,
-							article.blockId,
-							sanitized,
-						);
+						// blocks.block_id is the article-level id (e.g. "a10"); embeddings
+						// may carry sub-chunk ids (e.g. "a10__1") which would fail the FK.
+						const rootBlockId =
+							parseSubchunkId(article.blockId)?.parentBlockId ??
+							article.blockId;
+						this.insertSummaryStmt.run(article.normId, rootBlockId, sanitized);
 					}
 				})
 				.catch((err) => {
