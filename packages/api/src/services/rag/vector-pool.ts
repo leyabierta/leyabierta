@@ -183,14 +183,25 @@ function toShared(index: InMemoryVectorIndex): SharedIndex {
 	const sharedNorms: SharedArrayBuffer[] = [];
 	for (let c = 0; c < index.chunks.length; c++) {
 		const v = index.chunks[c]!;
-		const sab = new SharedArrayBuffer(v.byteLength);
-		new Float32Array(sab).set(v);
-		sharedChunks.push(sab);
+		// If embeddings.ts allocated the chunk on a SharedArrayBuffer
+		// (RAG_VECTOR_BACKEND=pool path), reuse it. Otherwise copy once —
+		// peak memory during init temporarily doubles, ~5.6 GB extra on prod.
+		if (v.buffer instanceof SharedArrayBuffer) {
+			sharedChunks.push(v.buffer);
+		} else {
+			const sab = new SharedArrayBuffer(v.byteLength);
+			new Float32Array(sab).set(v);
+			sharedChunks.push(sab);
+		}
 
 		const n = index.normsPerChunk[c]!;
-		const sabN = new SharedArrayBuffer(n.byteLength);
-		new Float32Array(sabN).set(n);
-		sharedNorms.push(sabN);
+		if (n.buffer instanceof SharedArrayBuffer) {
+			sharedNorms.push(n.buffer);
+		} else {
+			const sabN = new SharedArrayBuffer(n.byteLength);
+			new Float32Array(sabN).set(n);
+			sharedNorms.push(sabN);
+		}
 	}
 	return {
 		sharedChunks,
