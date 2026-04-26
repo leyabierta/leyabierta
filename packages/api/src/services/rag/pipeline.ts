@@ -29,6 +29,8 @@ import {
 	enrichWithTemporalContext,
 } from "./temporal.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
+// Native SIMD backend (gated by RAG_VECTOR_BACKEND, falls back when unavailable).
+import { simdAvailable, vectorSearchSIMD } from "./vector-simd.ts";
 
 // ── Config ──
 
@@ -846,13 +848,23 @@ export class RagPipeline {
 		// and cached on the instance, so subsequent requests have no disk I/O.
 		const t0 = Date.now();
 		const vidx = await this.getVectorIndex();
+		const useSimd = simdAvailable();
 		const vectorResults = vidx
-			? vectorSearchInMemory(
-					queryResult.embedding,
-					vidx.meta,
-					vidx.vectors,
-					vidx.dims,
-					RERANK_POOL_SIZE,
+			? (useSimd
+					? vectorSearchSIMD(
+							queryResult.embedding,
+							vidx.meta,
+							vidx.vectors,
+							vidx.dims,
+							RERANK_POOL_SIZE,
+						)
+					: vectorSearchInMemory(
+							queryResult.embedding,
+							vidx.meta,
+							vidx.vectors,
+							vidx.dims,
+							RERANK_POOL_SIZE,
+						)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];
 		const tVector = Date.now() - t0;
@@ -1891,13 +1903,23 @@ export class RagPipeline {
 		});
 		const vectorStart = Date.now();
 		const vidx = await this.getVectorIndex();
+		const useSimd = simdAvailable();
 		const vectorResults = vidx
-			? vectorSearchInMemory(
-					queryResult.embedding,
-					vidx.meta,
-					vidx.vectors,
-					vidx.dims,
-					RERANK_POOL_SIZE,
+			? (useSimd
+					? vectorSearchSIMD(
+							queryResult.embedding,
+							vidx.meta,
+							vidx.vectors,
+							vidx.dims,
+							RERANK_POOL_SIZE,
+						)
+					: vectorSearchInMemory(
+							queryResult.embedding,
+							vidx.meta,
+							vidx.vectors,
+							vidx.dims,
+							RERANK_POOL_SIZE,
+						)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];
 		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({

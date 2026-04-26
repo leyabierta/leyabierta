@@ -2,8 +2,11 @@ FROM oven/bun:1-slim
 
 WORKDIR /app
 
-# Git is needed by GitService for diff operations
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# Git is needed by GitService for diff operations.
+# gcc is needed to compile the SIMD shared library used by the RAG vector
+# search backend. We keep it after the build so on-host rebuilds (e.g.
+# during incident response) work without rebuilding the image.
+RUN apt-get update && apt-get install -y git gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace config + package files for dependency install
 COPY package.json bun.lock ./
@@ -19,6 +22,13 @@ COPY packages/api/ packages/api/
 COPY packages/pipeline/ packages/pipeline/
 COPY packages/shared/ packages/shared/
 COPY tsconfig.json ./
+
+# Build the SIMD shared lib for linux/amd64 (AVX2 + FMA).
+# The RAG vector search loads this via Bun.dlopen at runtime; if missing,
+# pipeline.ts falls back to the JS implementation transparently.
+RUN gcc -O3 -mavx2 -mfma -shared -fPIC \
+    -o packages/api/src/services/rag/vector-simd.linux-amd64.so \
+    packages/api/src/services/rag/vector-simd.c
 
 EXPOSE 3000
 

@@ -1,6 +1,10 @@
 # dependencies
 node_modules
 
+# native SIMD shared libs (built per-platform from vector-simd.c)
+packages/api/src/services/rag/vector-simd.*.so
+packages/api/src/services/rag/vector-simd.*.dylib
+
 # output
 out
 dist
