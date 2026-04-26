@@ -7,7 +7,11 @@
 import type { Database } from "bun:sqlite";
 import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
 import { buildArticleAnchor } from "./anchor.ts";
-import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
+import {
+	bm25HybridSearch,
+	ensureBlocksFts,
+	ensureBlocksFtsVocab,
+} from "./blocks-fts.ts";
 import {
 	embedQuery,
 	ensureVectorIndex,
@@ -28,7 +32,7 @@ import {
 	enrichWithTemporalContext,
 } from "./temporal.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
-import { vectorSearchPooled } from "./vector-pool.ts";
+import { bm25SearchPooled, vectorSearchPooled } from "./vector-pool.ts";
 
 /**
  * Vector pool sizing — env-tunable but the defaults match the prod
@@ -58,6 +62,23 @@ const RERANK_POOL_SIZE = 80;
  * Set conservatively low (0.38) — the nonLegal analyzer flag handles most OOS questions.
  * This gate only catches queries where retrieval is truly noise (e.g. "mejor abogado"). */
 const LOW_CONFIDENCE_THRESHOLD = 0.38;
+
+/**
+ * Fundamental state laws — covers 90%+ of citizen questions. Used by the
+ * "core law" BM25 stage to ensure foundational laws enter the pool when
+ * the citizen's colloquial vocabulary doesn't match the formal legal text.
+ * Add an entry only when a new law is genuinely fundamental at the state
+ * level (not an autonomous community variant).
+ */
+const CORE_NORMS = [
+	"BOE-A-2015-11430", // Estatuto de los Trabajadores
+	"BOE-A-1994-26003", // LAU
+	"BOE-A-1978-31229", // Constitución Española
+	"BOE-A-2015-11724", // LGSS
+	"BOE-A-2007-20555", // TRLGDCU
+	"BOE-A-2018-16673", // LOPDGDD
+	"BOE-A-1889-4763", // Código Civil
+];
 
 /**
  * Build a human-readable scope description combining norm rank and jurisdiction.
@@ -484,6 +505,9 @@ export class RagPipeline {
 
 		// Initialize article-level BM25 index for hybrid search
 		ensureBlocksFts(this.db);
+		// Vocab table powers the OR-fallback token pruning in bm25ArticleSearch.
+		// Main thread owns the schema; workers only SELECT.
+		ensureBlocksFtsVocab(this.db);
 
 		this.insertSummaryStmt = this.db.prepare(
 			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
@@ -666,63 +690,37 @@ export class RagPipeline {
 
 		const MIN_SIMILARITY = 0.35;
 
-		// 2a. BM25 first — runs with warm SQLite page cache.
-		// Vector search (below) reads ~6GB from vectors.bin and evicts blocks_fts
-		// pages from the OS page cache, making BM25 ~17x slower if it ran after.
-		// See issue #20 for measurements.
+		// 2a. BM25 — five independent FTS5 queries dispatched to the pool in
+		// parallel. Each worker owns its own readonly SQLite handle, so the
+		// wall time is max(stage_i) instead of sum(stage_i). The cache-locality
+		// argument that previously demanded BM25-before-vector ordering is
+		// gone now: workers and main thread no longer share a page cache.
+		const vidx = await this.getVectorIndex();
 		const t1 = Date.now();
 		const bm25BreakT = performance.now();
-		const bm25Timings: Record<string, number> = {};
 		const embeddingNormIds = this.getEmbeddedNormIdsCached();
-		const bm25MainT = performance.now();
-		const bm25Results = bm25HybridSearch(
-			this.db,
-			request.question,
-			analyzed.keywords,
-			RERANK_POOL_SIZE,
-			embeddingNormIds,
-		);
-		bm25Timings.main = performance.now() - bm25MainT;
-		const tBm25 = Date.now() - t1;
-		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
-			key: `${r.normId}:${r.blockId}`,
-			score: 1 / r.rank,
-		}));
 
-		// 2b-bis. Legal synonym BM25 — separate RRF system using only the formal
-		// legal terms. This ensures ET art. 48 ("nacimiento, cuidado del menor")
-		// enters the pool even when the citizen asked about "paternidad".
-		let synonymBm25Ranked: RankedItem[] = [];
-		if (analyzed.legalSynonyms.length > 0) {
-			const synonymQuery = analyzed.legalSynonyms.join(" ");
-			const synT = performance.now();
-			const synonymResults = bm25HybridSearch(
-				this.db,
-				synonymQuery,
-				analyzed.legalSynonyms,
-				RERANK_POOL_SIZE,
-				embeddingNormIds,
-			);
-			bm25Timings.synonym = performance.now() - synT;
-			synonymBm25Ranked = synonymResults.map((r) => ({
-				key: `${r.normId}:${r.blockId}`,
-				score: 1 / r.rank,
-			}));
-		}
+		// Pre-compute the metadata each BM25 stage needs (norm filters,
+		// keyword sets). All cheap; stays on the main thread.
+		const corpusForMain = embeddingNormIds;
+		const synonymInputs =
+			analyzed.legalSynonyms.length > 0
+				? {
+						query: analyzed.legalSynonyms.join(" "),
+						keywords: analyzed.legalSynonyms,
+					}
+				: null;
 
-		// 2c. Named-law lookup — when the user names a specific law, find its
-		// articles and add them as a dedicated RRF system. This ensures the
-		// named law's articles enter the pool even if they'd be outranked by
-		// semantically similar articles from other laws.
-		let namedLawRanked: RankedItem[] = [];
+		let namedLawInputs: {
+			query: string;
+			keywords: string[];
+			filter: string[];
+		} | null = null;
 		if (analyzed.normNameHint) {
 			let matchedNormIds = this.resolveNormsByName(
 				analyzed.normNameHint,
 				embeddingNormIds,
 			);
-			// If too many matches, narrow down to fundamental state laws first.
-			// E.g. "Estatuto de los Trabajadores" matches 12 norms (the ET itself
-			// + many laws that amend it), but we want to search within the ET.
 			if (matchedNormIds.length > 5) {
 				const ph = matchedNormIds.map(() => "?").join(",");
 				const normInfos = this.db
@@ -742,121 +740,204 @@ export class RagPipeline {
 				}
 			}
 			if (matchedNormIds.length > 0 && matchedNormIds.length <= 5) {
-				// BM25 search within just the named norm(s), using BOTH keywords
-				// AND legal synonyms. The synonyms are crucial because colloquial
-				// terms (e.g. "paternidad") may not appear in law text — the law
-				// uses formal terms (e.g. "nacimiento y cuidado del menor").
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
-				const searchQuery = allTerms.join(" ");
-				const nlT = performance.now();
-				const nlResults = bm25HybridSearch(
-					this.db,
-					searchQuery,
-					allTerms,
-					Math.floor(RERANK_POOL_SIZE / 2),
-					matchedNormIds,
-				);
-				bm25Timings.namedLaw = performance.now() - nlT;
-				namedLawRanked = nlResults.map((r) => ({
-					key: `${r.normId}:${r.blockId}`,
-					score: 1 / r.rank,
-				}));
+				namedLawInputs = {
+					query: allTerms.join(" "),
+					keywords: allTerms,
+					filter: matchedNormIds,
+				};
 			}
 		}
 
-		// 2c-bis. Core law lookup — BM25 search within fundamental state laws
-		// using legal synonyms. This ensures foundational laws enter the pool even
-		// when their vocabulary doesn't match the citizen's colloquial terms.
-		// E.g. "paternidad" → synonym "nacimiento" → BM25 within ET → art. 48.
-		let coreLawRanked: RankedItem[] = [];
-		if (analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction) {
-			// Fundamental state laws — covers 90%+ of citizen questions
-			const CORE_NORMS = [
-				"BOE-A-2015-11430", // Estatuto de los Trabajadores
-				"BOE-A-1994-26003", // LAU (Ley de Arrendamientos Urbanos)
-				"BOE-A-1978-31229", // Constitución Española
-				"BOE-A-2015-11724", // LGSS (Ley General de la Seguridad Social)
-				"BOE-A-2007-20555", // TRLGDCU (consumidores y usuarios)
-				"BOE-A-2018-16673", // LOPDGDD (protección de datos)
-				"BOE-A-1889-4763", // Código Civil
-			];
-			// Only include norms that are in the embedding store
-			const coreInStore = CORE_NORMS.filter((id) =>
-				embeddingNormIds.includes(id),
-			);
+		const coreLawInputs =
+			analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction
+				? (() => {
+						const coreInStore = CORE_NORMS.filter((id) =>
+							embeddingNormIds.includes(id),
+						);
+						return coreInStore.length > 0
+							? {
+									query: analyzed.legalSynonyms.join(" "),
+									keywords: analyzed.legalSynonyms,
+									filter: coreInStore,
+								}
+							: null;
+					})()
+				: null;
 
-			if (coreInStore.length > 0) {
-				const clT = performance.now();
-				const clResults = bm25HybridSearch(
-					this.db,
-					analyzed.legalSynonyms.join(" "),
-					analyzed.legalSynonyms,
-					Math.floor(RERANK_POOL_SIZE / 2),
-					coreInStore,
-				);
-				bm25Timings.coreLaw = performance.now() - clT;
-				coreLawRanked = clResults.map((r) => ({
-					key: `${r.normId}:${r.blockId}`,
-					score: 1 / r.rank,
-				}));
-			}
-		}
-
-		// 2c-ter. Recent norms BM25 — search within norms published in the
-		// last 3 years to ensure recently-enacted regulations enter the pool.
-		// Non-fundamental norms (real_decreto, orden, etc.) get superseded by
-		// newer versions over time. Without this, a 2004 SMI decree with 18
-		// chunks can dominate over a 2026 SMI decree with 8 chunks in vector
-		// search, simply because it has more embedding mass.
-		// Cost: one BM25 query scoped to recent norm IDs (~0.5ms).
-		let recentBm25Ranked: RankedItem[] = [];
+		// Recent (last 3 years vigente) — captures freshly enacted regulations.
+		let recentInputs: {
+			query: string;
+			keywords: string[];
+			filter: string[];
+		} | null = null;
 		if (analyzed.keywords.length > 0) {
 			const RECENT_YEARS = 3;
 			const cutoff = new Date();
 			cutoff.setFullYear(cutoff.getFullYear() - RECENT_YEARS);
 			const cutoffStr = cutoff.toISOString().slice(0, 10);
-
 			const recentNormIds = this.db
 				.query<{ id: string }, [string]>(
 					`SELECT id FROM norms
-				 WHERE status = 'vigente'
-				   AND published_at >= ?
-				   AND id IN (SELECT DISTINCT norm_id FROM embeddings)`,
+					 WHERE status = 'vigente'
+					   AND published_at >= ?
+					   AND id IN (SELECT DISTINCT norm_id FROM embeddings)`,
 				)
 				.all(cutoffStr)
 				.map((r) => r.id);
-
 			if (recentNormIds.length > 0) {
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
-				const rT = performance.now();
-				const recentResults = bm25HybridSearch(
-					this.db,
-					allTerms.join(" "),
-					allTerms,
-					Math.floor(RERANK_POOL_SIZE / 2),
-					recentNormIds,
-				);
-				bm25Timings.recent = performance.now() - rT;
-				recentBm25Ranked = recentResults.map((r) => ({
-					key: `${r.normId}:${r.blockId}`,
-					score: 1 / r.rank,
-				}));
+				recentInputs = {
+					query: allTerms.join(" "),
+					keywords: allTerms,
+					filter: recentNormIds,
+				};
 			}
 		}
 
+		// Dispatch all five BM25 stages concurrently. Each stage tries the
+		// worker pool first; on ANY pool failure (lib missing on this
+		// platform, all workers busy, FFI crash) we fall back to the sync
+		// in-process bm25HybridSearch so retrieval never breaks. This per-
+		// stage fallback also keeps Promise.all resilient — one busy stage
+		// degrading to sync doesn't sink the other four.
+		const bm25Stages: Record<string, number> = {};
+		const stageT = (k: string) => {
+			const start = performance.now();
+			return () => {
+				bm25Stages[k] = performance.now() - start;
+			};
+		};
+
+		const runBm25 = async (
+			query: string,
+			keywords: string[],
+			topK: number,
+			filter?: string[],
+		) => {
+			if (vidx) {
+				try {
+					return await bm25SearchPooled(
+						vidx.vectors,
+						query,
+						keywords,
+						topK,
+						filter,
+					);
+				} catch (err) {
+					const msg = (err as Error).message;
+					if (msg !== "VECTOR_POOL_BUSY") {
+						console.warn(`[bm25-pool] fallback to sync: ${msg}`);
+					}
+				}
+			}
+			return bm25HybridSearch(this.db, query, keywords, topK, filter);
+		};
+
+		const mainStop = stageT("main");
+		const synonymStop = synonymInputs ? stageT("synonym") : () => {};
+		const namedLawStop = namedLawInputs ? stageT("namedLaw") : () => {};
+		const coreLawStop = coreLawInputs ? stageT("coreLaw") : () => {};
+		const recentStop = recentInputs ? stageT("recent") : () => {};
+
+		const [
+			bm25Results,
+			synonymResults,
+			namedLawResults,
+			coreLawResults,
+			recentResults,
+		] = await Promise.all([
+			runBm25(
+				request.question,
+				analyzed.keywords,
+				RERANK_POOL_SIZE,
+				corpusForMain,
+			).then((r) => {
+				mainStop();
+				return r;
+			}),
+			synonymInputs
+				? runBm25(
+						synonymInputs.query,
+						synonymInputs.keywords,
+						RERANK_POOL_SIZE,
+						embeddingNormIds,
+					).then((r) => {
+						synonymStop();
+						return r;
+					})
+				: Promise.resolve([]),
+			namedLawInputs
+				? runBm25(
+						namedLawInputs.query,
+						namedLawInputs.keywords,
+						Math.floor(RERANK_POOL_SIZE / 2),
+						namedLawInputs.filter,
+					).then((r) => {
+						namedLawStop();
+						return r;
+					})
+				: Promise.resolve([]),
+			coreLawInputs
+				? runBm25(
+						coreLawInputs.query,
+						coreLawInputs.keywords,
+						Math.floor(RERANK_POOL_SIZE / 2),
+						coreLawInputs.filter,
+					).then((r) => {
+						coreLawStop();
+						return r;
+					})
+				: Promise.resolve([]),
+			recentInputs
+				? runBm25(
+						recentInputs.query,
+						recentInputs.keywords,
+						Math.floor(RERANK_POOL_SIZE / 2),
+						recentInputs.filter,
+					).then((r) => {
+						recentStop();
+						return r;
+					})
+				: Promise.resolve([]),
+		]);
+
+		const tBm25 = Date.now() - t1;
+		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const synonymBm25Ranked: RankedItem[] = synonymResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const namedLawRanked: RankedItem[] = namedLawResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const coreLawRanked: RankedItem[] = coreLawResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const recentBm25Ranked: RankedItem[] = recentResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+
 		console.log(
-			`[bm25-breakdown] total=${(performance.now() - bm25BreakT).toFixed(0)}ms ${Object.entries(
-				bm25Timings,
+			`[bm25-breakdown] wall=${(performance.now() - bm25BreakT).toFixed(0)}ms (parallel) ${Object.entries(
+				bm25Stages,
 			)
 				.map(([k, v]) => `${k}=${v.toFixed(0)}ms`)
 				.join(" ")}`,
 		);
 
-		// 2b. Vector search — runs AFTER BM25 (blocks_fts cache), pure in-memory.
-		// vectors.bin is loaded into Float32Array chunks on the first request
-		// and cached on the instance, so subsequent requests have no disk I/O.
+		// 2b. Vector search — pool of workers, SAB-shared corpus. Runs after
+		// the parallel BM25 above; on cold boot the SAB load also happens
+		// once here. The workers no longer share a page cache with main, so
+		// any ordering would work, but keeping vector second preserves the
+		// trace shape used by Opik dashboards.
 		const t0 = Date.now();
-		const vidx = await this.getVectorIndex();
 		const vectorResults = vidx
 			? (
 					await vectorSearchPooled(
@@ -1729,27 +1810,28 @@ export class RagPipeline {
 			hasNormNameHint: !!analyzed.normNameHint,
 			poolSize: RERANK_POOL_SIZE,
 		});
+		// Streaming retrieval — same parallelised BM25 dispatch as runPipeline.
+		// Five FTS5 queries dispatched to the worker pool concurrently; total
+		// wall ≈ max(stage_i) instead of sum.
+		const vidx2 = await this.getVectorIndex();
 		const bm25Start = Date.now();
 		const bm25BreakT = performance.now();
-		const bm25Timings: Record<string, number> = {};
+		const bm25Stages: Record<string, number> = {};
 		const embeddingNormIds = this.getEmbeddedNormIdsCached();
-		const bm25MainT = performance.now();
-		const bm25Results = bm25HybridSearch(
-			this.db,
-			request.question,
-			analyzed.keywords,
-			RERANK_POOL_SIZE,
-			embeddingNormIds,
-		);
-		bm25Timings.main = performance.now() - bm25MainT;
-		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
-			key: `${r.normId}:${r.blockId}`,
-			score: 1 / r.rank,
-		}));
 
-		// Named-law lookup (same as runPipeline) — uses BOTH keywords AND
-		// legal synonyms to bridge vocabulary mismatch
-		let namedLawRanked: RankedItem[] = [];
+		const synonymInputs2 =
+			analyzed.legalSynonyms.length > 0
+				? {
+						query: analyzed.legalSynonyms.join(" "),
+						keywords: analyzed.legalSynonyms,
+					}
+				: null;
+
+		let namedLawInputs2: {
+			query: string;
+			keywords: string[];
+			filter: string[];
+		} | null = null;
 		if (analyzed.normNameHint) {
 			let matchedNormIds = this.resolveNormsByName(
 				analyzed.normNameHint,
@@ -1775,116 +1857,183 @@ export class RagPipeline {
 			}
 			if (matchedNormIds.length > 0 && matchedNormIds.length <= 5) {
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
-				const searchQuery = allTerms.join(" ");
-				const nlT = performance.now();
-				const nlResults = bm25HybridSearch(
-					this.db,
-					searchQuery,
-					allTerms,
-					Math.floor(RERANK_POOL_SIZE / 2),
-					matchedNormIds,
-				);
-				bm25Timings.namedLaw = performance.now() - nlT;
-				namedLawRanked = nlResults.map((r) => ({
-					key: `${r.normId}:${r.blockId}`,
-					score: 1 / r.rank,
-				}));
+				namedLawInputs2 = {
+					query: allTerms.join(" "),
+					keywords: allTerms,
+					filter: matchedNormIds,
+				};
 			}
 		}
 
-		// Legal synonym BM25 (same as runPipeline) — separate RRF system using
-		// formal legal terms to bridge vocabulary gap
-		let synonymBm25Ranked: RankedItem[] = [];
-		if (analyzed.legalSynonyms.length > 0) {
-			const synonymQuery = analyzed.legalSynonyms.join(" ");
-			const synT = performance.now();
-			const synonymResults = bm25HybridSearch(
-				this.db,
-				synonymQuery,
-				analyzed.legalSynonyms,
-				RERANK_POOL_SIZE,
-				embeddingNormIds,
-			);
-			bm25Timings.synonym = performance.now() - synT;
-			synonymBm25Ranked = synonymResults.map((r) => ({
-				key: `${r.normId}:${r.blockId}`,
-				score: 1 / r.rank,
-			}));
-		}
+		const coreLawInputs2 =
+			analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction
+				? (() => {
+						const coreInStore = CORE_NORMS.filter((id) =>
+							embeddingNormIds.includes(id),
+						);
+						return coreInStore.length > 0
+							? {
+									query: analyzed.legalSynonyms.join(" "),
+									keywords: analyzed.legalSynonyms,
+									filter: coreInStore,
+								}
+							: null;
+					})()
+				: null;
 
-		// Core law lookup (same as runPipeline) — BM25 within fundamental
-		// state laws using legal synonyms
-		let coreLawRanked: RankedItem[] = [];
-		if (analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction) {
-			const CORE_NORMS = [
-				"BOE-A-2015-11430", // Estatuto de los Trabajadores
-				"BOE-A-1994-26003", // LAU
-				"BOE-A-1978-31229", // Constitución Española
-				"BOE-A-2015-11724", // LGSS
-				"BOE-A-2007-20555", // TRLGDCU
-				"BOE-A-2018-16673", // LOPDGDD
-				"BOE-A-1889-4763", // Código Civil
-			];
-			const coreInStore = CORE_NORMS.filter((id) =>
-				embeddingNormIds.includes(id),
-			);
-			if (coreInStore.length > 0) {
-				const clT = performance.now();
-				const clResults = bm25HybridSearch(
-					this.db,
-					analyzed.legalSynonyms.join(" "),
-					analyzed.legalSynonyms,
-					Math.floor(RERANK_POOL_SIZE / 2),
-					coreInStore,
-				);
-				bm25Timings.coreLaw = performance.now() - clT;
-				coreLawRanked = clResults.map((r) => ({
-					key: `${r.normId}:${r.blockId}`,
-					score: 1 / r.rank,
-				}));
-			}
-		}
-
-		// Recent norms BM25 (same as runPipeline) — ensures recently-enacted
-		// regulations enter the pool even when older norms dominate vector search.
-		let recentBm25Ranked2: RankedItem[] = [];
+		let recentInputs2: {
+			query: string;
+			keywords: string[];
+			filter: string[];
+		} | null = null;
 		if (analyzed.keywords.length > 0) {
 			const RECENT_YEARS = 3;
 			const cutoff = new Date();
 			cutoff.setFullYear(cutoff.getFullYear() - RECENT_YEARS);
 			const cutoffStr = cutoff.toISOString().slice(0, 10);
-
 			const recentNormIds = this.db
 				.query<{ id: string }, [string]>(
 					`SELECT id FROM norms
-				 WHERE status = 'vigente'
-				   AND published_at >= ?
-				   AND id IN (SELECT DISTINCT norm_id FROM embeddings)`,
+					 WHERE status = 'vigente'
+					   AND published_at >= ?
+					   AND id IN (SELECT DISTINCT norm_id FROM embeddings)`,
 				)
 				.all(cutoffStr)
 				.map((r) => r.id);
-
 			if (recentNormIds.length > 0) {
 				const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
-				const rT = performance.now();
-				const recentResults = bm25HybridSearch(
-					this.db,
-					allTerms.join(" "),
-					allTerms,
-					Math.floor(RERANK_POOL_SIZE / 2),
-					recentNormIds,
-				);
-				bm25Timings.recent = performance.now() - rT;
-				recentBm25Ranked2 = recentResults.map((r) => ({
-					key: `${r.normId}:${r.blockId}`,
-					score: 1 / r.rank,
-				}));
+				recentInputs2 = {
+					query: allTerms.join(" "),
+					keywords: allTerms,
+					filter: recentNormIds,
+				};
 			}
 		}
 
+		const stageT2 = (k: string) => {
+			const start = performance.now();
+			return () => {
+				bm25Stages[k] = performance.now() - start;
+			};
+		};
+		// Same per-stage fallback semantics as runPipeline.runBm25 above.
+		const runBm252 = async (
+			query: string,
+			keywords: string[],
+			topK: number,
+			filter?: string[],
+		) => {
+			if (vidx2) {
+				try {
+					return await bm25SearchPooled(
+						vidx2.vectors,
+						query,
+						keywords,
+						topK,
+						filter,
+					);
+				} catch (err) {
+					const msg = (err as Error).message;
+					if (msg !== "VECTOR_POOL_BUSY") {
+						console.warn(`[bm25-pool] fallback to sync: ${msg}`);
+					}
+				}
+			}
+			return bm25HybridSearch(this.db, query, keywords, topK, filter);
+		};
+
+		const stop2Main = stageT2("main");
+		const stop2Syn = synonymInputs2 ? stageT2("synonym") : () => {};
+		const stop2Named = namedLawInputs2 ? stageT2("namedLaw") : () => {};
+		const stop2Core = coreLawInputs2 ? stageT2("coreLaw") : () => {};
+		const stop2Recent = recentInputs2 ? stageT2("recent") : () => {};
+
+		const [
+			bm25Results,
+			synonymResults,
+			namedLawResults,
+			coreLawResults,
+			recentResults,
+		] = await Promise.all([
+			runBm252(
+				request.question,
+				analyzed.keywords,
+				RERANK_POOL_SIZE,
+				embeddingNormIds,
+			).then((r) => {
+				stop2Main();
+				return r;
+			}),
+			synonymInputs2
+				? runBm252(
+						synonymInputs2.query,
+						synonymInputs2.keywords,
+						RERANK_POOL_SIZE,
+						embeddingNormIds,
+					).then((r) => {
+						stop2Syn();
+						return r;
+					})
+				: Promise.resolve([]),
+			namedLawInputs2
+				? runBm252(
+						namedLawInputs2.query,
+						namedLawInputs2.keywords,
+						Math.floor(RERANK_POOL_SIZE / 2),
+						namedLawInputs2.filter,
+					).then((r) => {
+						stop2Named();
+						return r;
+					})
+				: Promise.resolve([]),
+			coreLawInputs2
+				? runBm252(
+						coreLawInputs2.query,
+						coreLawInputs2.keywords,
+						Math.floor(RERANK_POOL_SIZE / 2),
+						coreLawInputs2.filter,
+					).then((r) => {
+						stop2Core();
+						return r;
+					})
+				: Promise.resolve([]),
+			recentInputs2
+				? runBm252(
+						recentInputs2.query,
+						recentInputs2.keywords,
+						Math.floor(RERANK_POOL_SIZE / 2),
+						recentInputs2.filter,
+					).then((r) => {
+						stop2Recent();
+						return r;
+					})
+				: Promise.resolve([]),
+		]);
+
+		const bm25Ranked: RankedItem[] = bm25Results.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const synonymBm25Ranked: RankedItem[] = synonymResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const namedLawRanked: RankedItem[] = namedLawResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const coreLawRanked: RankedItem[] = coreLawResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+		const recentBm25Ranked2: RankedItem[] = recentResults.map((r) => ({
+			key: `${r.normId}:${r.blockId}`,
+			score: 1 / r.rank,
+		}));
+
 		console.log(
-			`[bm25-breakdown] total=${(performance.now() - bm25BreakT).toFixed(0)}ms ${Object.entries(
-				bm25Timings,
+			`[bm25-breakdown] wall=${(performance.now() - bm25BreakT).toFixed(0)}ms (parallel) ${Object.entries(
+				bm25Stages,
 			)
 				.map(([k, v]) => `${k}=${v.toFixed(0)}ms`)
 				.join(" ")}`,
@@ -1907,14 +2056,13 @@ export class RagPipeline {
 			embeddingDims: queryResult.embedding.length,
 		});
 		const vectorStart = Date.now();
-		const vidx = await this.getVectorIndex();
-		const vectorResults = vidx
+		const vectorResults = vidx2
 			? (
 					await vectorSearchPooled(
 						queryResult.embedding,
-						vidx.meta,
-						vidx.vectors,
-						vidx.dims,
+						vidx2.meta,
+						vidx2.vectors,
+						vidx2.dims,
 						RERANK_POOL_SIZE,
 						{
 							workerCount: VECTOR_POOL_WORKERS,

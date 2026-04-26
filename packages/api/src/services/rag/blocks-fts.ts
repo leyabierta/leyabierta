@@ -62,6 +62,27 @@ export function ensureBlocksFts(db: Database): void {
 		.query<{ cnt: number }, []>("SELECT count(*) as cnt FROM blocks_fts")
 		.get();
 	console.log(`  blocks_fts ready: ${count?.cnt ?? 0} articles indexed`);
+	// Index just rebuilt — any docfreq numbers cached from the old index
+	// are now stale.
+	resetBlocksFtsCaches();
+}
+
+/**
+ * Vocab table for blocks_fts — exposes term/doc/cnt rows so we can ask
+ * "how many docs contain token T?" without scanning. Used by the OR
+ * fallback to drop high-frequency tokens. FTS5 builtin, cheap to create.
+ */
+const CREATE_VOCAB = `
+CREATE VIRTUAL TABLE IF NOT EXISTS blocks_fts_vocab USING fts5vocab(blocks_fts, 'row')`;
+
+export function ensureBlocksFtsVocab(db: Database): void {
+	try {
+		db.exec(CREATE_VOCAB);
+	} catch (err) {
+		console.warn(
+			`[bm25] failed to create blocks_fts_vocab: ${(err as Error).message}`,
+		);
+	}
 }
 
 export interface BM25ArticleResult {
@@ -78,6 +99,82 @@ export interface BM25ArticleResult {
  * ("días tengo caso") where OR alone took 49s in prod.
  */
 const AND_FALLBACK_THRESHOLD = 20;
+
+/**
+ * Tokens whose document frequency exceeds this fraction of the corpus
+ * are dropped from the OR fallback. Generic Spanish words ("dura",
+ * "tengo", "casa") hit a sizeable share of articles and dominate the
+ * postings traversal without contributing useful signal — every doc
+ * matches them. With a 484k corpus and threshold 0.3, we cut tokens
+ * present in >145k articles. Empirically reduces "paternidad" /
+ * "despido" tail latencies from ~50s to ~5s.
+ */
+const OR_DOCFREQ_PRUNE_RATIO = 0.3;
+
+/**
+ * Lookup table populated lazily on first query. Maps a quoted token to
+ * its document frequency in blocks_fts. We cache because vocab lookups
+ * cost ~ms each and queries reuse a small vocabulary.
+ */
+const docfreqCache = new Map<string, number>();
+let totalDocsCache: number | null = null;
+
+/**
+ * Drop the cached docfreq entries — call after the FTS index is rebuilt
+ * (schema migration, batch reingest) so the next query re-reads from the
+ * fresh vocab table. Safe to call eagerly; cost is constant.
+ */
+export function resetBlocksFtsCaches(): void {
+	docfreqCache.clear();
+	totalDocsCache = null;
+}
+
+function getTotalDocs(db: Database): number {
+	if (totalDocsCache !== null) return totalDocsCache;
+	try {
+		const row = db
+			.query<{ cnt: number }, []>("SELECT count(*) as cnt FROM blocks_fts")
+			.get();
+		totalDocsCache = row?.cnt ?? 0;
+	} catch {
+		totalDocsCache = 0;
+	}
+	return totalDocsCache;
+}
+
+function getDocfreq(db: Database, quotedToken: string): number {
+	const cached = docfreqCache.get(quotedToken);
+	if (cached !== undefined) return cached;
+	// quotedToken is `"foo"` — strip quotes for vocab lookup
+	const term = quotedToken.replace(/^"|"$/g, "").toLowerCase();
+	try {
+		const row = db
+			.query<{ doc: number }, [string]>(
+				"SELECT doc FROM blocks_fts_vocab WHERE term = ?",
+			)
+			.get(term);
+		const docs = row?.doc ?? 0;
+		docfreqCache.set(quotedToken, docs);
+		return docs;
+	} catch {
+		// vocab table not built yet — treat as unknown (don't prune)
+		return 0;
+	}
+}
+
+/**
+ * Drop tokens whose document frequency is above OR_DOCFREQ_PRUNE_RATIO of
+ * the corpus. If pruning would leave no tokens, we keep the original list
+ * (recall trumps speed in that edge case). FTS5 vocab lookup is cached.
+ */
+function pruneCommonTokens(db: Database, tokens: string[]): string[] {
+	if (tokens.length <= 1) return tokens;
+	const total = getTotalDocs(db);
+	if (total <= 0) return tokens;
+	const cutoff = total * OR_DOCFREQ_PRUNE_RATIO;
+	const kept = tokens.filter((t) => getDocfreq(db, t) < cutoff);
+	return kept.length === 0 ? tokens : kept;
+}
 
 /**
  * Search articles using BM25 via FTS5.
@@ -160,7 +257,14 @@ export function bm25ArticleSearch(
 	// Multi-token: try AND first, fall back to OR if too sparse.
 	const andResults = runMatch(tokens.join(" AND "));
 	if (andResults.length >= AND_FALLBACK_THRESHOLD) return andResults;
-	return runMatch(tokens.join(" OR "));
+
+	// OR fallback — prune tokens that hit a large share of the corpus to
+	// keep the postings traversal bounded. Without this, common Spanish
+	// words ("dura", "tengo", "días") dominate the BM25 main on prod and
+	// produce 50s+ outliers; with it, the worst-case OR matches a much
+	// smaller candidate set.
+	const orTokens = pruneCommonTokens(db, tokens);
+	return runMatch(orTokens.join(" OR "));
 }
 
 /**

@@ -26,14 +26,31 @@ import type { InMemoryVectorIndex, VectorSearchResult } from "./embeddings.ts";
 interface PoolConfig {
 	workerCount: number;
 	libPath: string;
+	dbPath: string;
 	maxPending: number;
 }
 
-interface Pending {
-	resolve: (r: Array<{ globalIdx: number; score: number }>) => void;
-	reject: (e: Error) => void;
+type VectorJob = {
+	type: "vector";
+	id: number;
 	query: Float32Array;
 	topK: number;
+};
+type Bm25Job = {
+	type: "bm25";
+	id: number;
+	originalQuery: string;
+	expandedKeywords: string[];
+	topK: number;
+	normFilter?: string[];
+};
+type JobMessage = VectorJob | Bm25Job;
+
+interface Pending {
+	// biome-ignore lint/suspicious/noExplicitAny: pool is type-erased at the boundary
+	resolve: (r: any) => void;
+	reject: (e: Error) => void;
+	message: JobMessage;
 }
 
 interface SharedIndex {
@@ -100,6 +117,7 @@ class VectorPool {
 				vectorsPerChunk: this.shared.vectorsPerChunk,
 				dim: this.shared.dim,
 				libPath: config.libPath,
+				dbPath: config.dbPath,
 			});
 		}
 
@@ -140,28 +158,48 @@ class VectorPool {
 			const p = this.pending.get(id);
 			if (!p) continue;
 			const w = this.idle.shift()!;
-			w.postMessage({
-				type: "query",
-				id,
-				query: p.query,
-				topK: p.topK,
-			});
+			w.postMessage(p.message);
 		}
+	}
+
+	private enqueue<T>(buildMessage: (id: number) => JobMessage): Promise<T> {
+		if (this.pending.size >= this.maxPending) {
+			return Promise.reject(new Error("VECTOR_POOL_BUSY"));
+		}
+		const id = this.nextId++;
+		const message = buildMessage(id);
+		return new Promise<T>((resolve, reject) => {
+			this.pending.set(id, {
+				resolve: resolve as Pending["resolve"],
+				reject,
+				message,
+			});
+			this.queue.push(id);
+			this.drain();
+		});
 	}
 
 	search(
 		query: Float32Array,
 		topK: number,
 	): Promise<Array<{ globalIdx: number; score: number }>> {
-		if (this.pending.size >= this.maxPending) {
-			return Promise.reject(new Error("VECTOR_POOL_BUSY"));
-		}
-		const id = this.nextId++;
-		return new Promise((resolve, reject) => {
-			this.pending.set(id, { resolve, reject, query, topK });
-			this.queue.push(id);
-			this.drain();
-		});
+		return this.enqueue((id) => ({ type: "vector", id, query, topK }));
+	}
+
+	bm25(
+		originalQuery: string,
+		expandedKeywords: string[],
+		topK: number,
+		normFilter?: string[],
+	): Promise<Array<{ normId: string; blockId: string; rank: number }>> {
+		return this.enqueue((id) => ({
+			type: "bm25",
+			id,
+			originalQuery,
+			expandedKeywords,
+			topK,
+			normFilter,
+		}));
 	}
 
 	terminate() {
@@ -254,7 +292,11 @@ function defaultLibPath(): string | null {
  */
 export async function getVectorPool(
 	index: InMemoryVectorIndex,
-	options: { workerCount?: number; maxPending?: number } = {},
+	options: {
+		workerCount?: number;
+		maxPending?: number;
+		dbPath?: string;
+	} = {},
 ): Promise<VectorPool | null> {
 	if (pool) return pool;
 	if (initPromise) return initPromise;
@@ -268,10 +310,14 @@ export async function getVectorPool(
 			: 0;
 		if (!dim) return null;
 
+		const dbPath =
+			options.dbPath ?? process.env.DB_PATH ?? "./data/leyabierta.db";
+
 		const shared = toShared(index);
 		const candidate = new VectorPool(shared, {
 			workerCount: options.workerCount ?? 4,
 			libPath,
+			dbPath,
 			maxPending: options.maxPending ?? 20,
 		});
 		try {
@@ -320,6 +366,32 @@ export async function vectorSearchPooled(
 			score: r.score,
 		};
 	});
+}
+
+/**
+ * BM25 article search via the same worker pool used for vector search.
+ *
+ * The five BM25 systems in the retrieval pipeline (main, synonym,
+ * namedLaw, coreLaw, recent) are independent in data, so dispatching
+ * them to the pool concurrently turns sequential sum-of-stages into
+ * parallel max-of-stages — that's the whole Sprint 2 P0 win.
+ *
+ * Each worker owns its own SQLite readonly handle, so contention is
+ * limited to whatever the SQLite WAL gives us (concurrent reads OK).
+ */
+export async function bm25SearchPooled(
+	index: InMemoryVectorIndex,
+	originalQuery: string,
+	expandedKeywords: string[],
+	topK: number,
+	normFilter?: string[],
+	options: { workerCount?: number; maxPending?: number; dbPath?: string } = {},
+): Promise<Array<{ normId: string; blockId: string; rank: number }>> {
+	const p = await getVectorPool(index, options);
+	if (!p) {
+		throw new Error("vector pool unavailable on this platform");
+	}
+	return p.bm25(originalQuery, expandedKeywords, topK, normFilter);
 }
 
 export function shutdownVectorPool() {
