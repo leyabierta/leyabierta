@@ -74,6 +74,16 @@ export function askRoutes(pipeline: RagPipeline | null) {
 		.post(
 			"/ask/stream",
 			async function* ({ body, set }) {
+				// Set SSE headers up front so error yields below also carry the
+				// correct Content-Type and no-buffering hints.
+				set.headers["Content-Type"] = "text/event-stream";
+				set.headers["Cache-Control"] = "no-cache, no-transform";
+				set.headers.Connection = "keep-alive";
+				// Hint to nginx-style proxies to disable response buffering. Cloudflare
+				// reads this and (mostly) flushes immediately. Without it CF Tunnel
+				// can hold the response until Content-Length / certain buffer fills.
+				set.headers["X-Accel-Buffering"] = "no";
+
 				if (!pipeline) {
 					set.status = 503;
 					yield `event: error\ndata: ${JSON.stringify({ error: "El servicio de preguntas no está disponible." })}\n\n`;
@@ -87,20 +97,12 @@ export function askRoutes(pipeline: RagPipeline | null) {
 					return;
 				}
 
-				set.headers["Content-Type"] = "text/event-stream";
-				set.headers["Cache-Control"] = "no-cache, no-transform";
-				set.headers.Connection = "keep-alive";
-				// Hint to nginx-style proxies to disable response buffering. Cloudflare
-				// reads this and (mostly) flushes immediately. Without it CF Tunnel
-				// can hold the response until Content-Length / certain buffer fills.
-				set.headers["X-Accel-Buffering"] = "no";
-
 				try {
 					// Emit an immediate stage event so the response status + first byte
 					// reach Cloudflare well within its 100s origin-timeout window.
 					// Without this, CF returns 524 even though the server is still
 					// working on retrieval.
-					yield `event: stage\ndata: "retrieval_started"\n\n`;
+					yield `event: stage\ndata: ${JSON.stringify({ stage: "retrieval_started" })}\n\n`;
 					for await (const event of pipeline.askStream({
 						question: validated,
 						jurisdiction: body.jurisdiction,
@@ -111,7 +113,7 @@ export function askRoutes(pipeline: RagPipeline | null) {
 							// Real event (not SSE comment) so proxies that filter
 							// comments still see byte traffic. Clients ignore unknown
 							// event types per the SSE spec.
-							yield `event: keepalive\ndata: {}\n\n`;
+							yield `event: keepalive\ndata: ${JSON.stringify({})}\n\n`;
 						} else {
 							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined })}\n\n`;
 						}
