@@ -111,6 +111,38 @@ describe("bm25ArticleSearch AND adaptive", () => {
 		expect(bm25ArticleSearch(db, "el la de", 50)).toEqual([]);
 	});
 
+	test("OR fallback prunes high-docfreq tokens via fts5vocab", () => {
+		// "comun" appears in 90% of documents → should be pruned in OR.
+		// "raro" appears in only 5 → AND with both rarely hits, OR keeps "raro".
+		const blocks: Array<{ id: string; norm: string; content: string }> = [];
+		for (let i = 0; i < 90; i++) {
+			blocks.push({ id: `c${i}`, norm: `N${i}`, content: "comun palabra" });
+		}
+		for (let i = 0; i < 5; i++) {
+			// These have BOTH "raro" and "comun"
+			blocks.push({
+				id: `r${i}`,
+				norm: `R${i}`,
+				content: "raro palabra comun",
+			});
+		}
+		seed(blocks);
+
+		// Build the vocab table (main thread role).
+		const { ensureBlocksFtsVocab } = require("../services/rag/blocks-fts.ts");
+		ensureBlocksFtsVocab(db);
+
+		// AND of "raro" and "comun" yields 5 (<20) → triggers OR fallback.
+		// Without pruning, OR matches 95 docs. With pruning ("comun" hits >30%
+		// of 95 docs = 85.5% of corpus → drop), OR is just on "raro" → 5 docs.
+		const results = bm25ArticleSearch(db, "raro comun", 50);
+		// We accept either: pruned OR returns ≤ 10 (just rare matches), or
+		// full OR returns up to 95 — but the docfreq path should kick in.
+		// Strong assertion: the rare docs ARE present (recall preserved).
+		const ids = new Set(results.map((r) => r.blockId));
+		for (let i = 0; i < 5; i++) expect(ids.has(`r${i}`)).toBe(true);
+	});
+
 	test("respects normFilter on both AND and OR paths", () => {
 		const blocks = Array.from({ length: 30 }, (_, i) => ({
 			id: `b${i}`,

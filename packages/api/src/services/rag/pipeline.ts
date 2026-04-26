@@ -7,7 +7,11 @@
 import type { Database } from "bun:sqlite";
 import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
 import { buildArticleAnchor } from "./anchor.ts";
-import { bm25HybridSearch, ensureBlocksFts } from "./blocks-fts.ts";
+import {
+	bm25HybridSearch,
+	ensureBlocksFts,
+	ensureBlocksFtsVocab,
+} from "./blocks-fts.ts";
 import {
 	embedQuery,
 	ensureVectorIndex,
@@ -484,6 +488,9 @@ export class RagPipeline {
 
 		// Initialize article-level BM25 index for hybrid search
 		ensureBlocksFts(this.db);
+		// Vocab table powers the OR-fallback token pruning in bm25ArticleSearch.
+		// Main thread owns the schema; workers only SELECT.
+		ensureBlocksFtsVocab(this.db);
 
 		this.insertSummaryStmt = this.db.prepare(
 			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",

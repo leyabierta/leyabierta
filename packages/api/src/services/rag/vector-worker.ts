@@ -97,7 +97,9 @@ self.onmessage = (event: MessageEvent) => {
 			// SQLite WAL supports concurrent readers — every worker opens its
 			// own readonly handle so each has an independent statement cache.
 			const db = new Database(msg.dbPath, { readonly: true });
-			ensureBlocksFts(db); // no-op when already populated
+			ensureBlocksFts(db); // no-op when already populated; vocab table
+			// (blocks_fts_vocab) is created by the main thread before workers
+			// boot — readonly handles can't CREATE VIRTUAL TABLE.
 			state = {
 				chunks,
 				norms,
