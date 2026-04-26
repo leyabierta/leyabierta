@@ -32,10 +32,9 @@ import { type RagTrace, startTrace } from "./tracing.ts";
 
 // ── Config ──
 
-/** Synthesis model — gemini-2.5-flash-lite is the best cost/quality balance.
- * For maximum legal precision (cross-law, ambiguous), openai/gpt-5.4 with
- * STRONG_PROMPT is superior but ~30x more expensive (~$0.02/query vs $0.0006).
- * See data/eval-model-comparison.md for the full benchmark. */
+/** Synthesis model — gemini-2.5-flash-lite is the best cost/quality balance
+ * for citizen Q&A at ~$0.0006/query. Stronger models (e.g. openai/gpt-5.4)
+ * give marginally better legal precision but cost ~30x more per query. */
 const SYNTHESIS_MODEL = "google/gemini-2.5-flash-lite";
 /** Analyzer model — cheap and fast, only extracts keywords/materias/flags */
 const ANALYZER_MODEL = "google/gemini-2.5-flash-lite";
@@ -661,6 +660,7 @@ export class RagPipeline {
 		// pages from the OS page cache, making BM25 ~17x slower if it ran after.
 		// See issue #20 for measurements.
 		const t1 = Date.now();
+		const bm25BreakT = performance.now();
 		const bm25Timings: Record<string, number> = {};
 		const embeddingNormIds = this.getEmbeddedNormIdsCached();
 		const bm25MainT = performance.now();
@@ -834,13 +834,16 @@ export class RagPipeline {
 		}
 
 		console.log(
-			`[bm25-breakdown] total=${Date.now() - t1}ms ${Object.entries(bm25Timings)
+			`[bm25-breakdown] total=${(performance.now() - bm25BreakT).toFixed(0)}ms ${Object.entries(
+				bm25Timings,
+			)
 				.map(([k, v]) => `${k}=${v.toFixed(0)}ms`)
 				.join(" ")}`,
 		);
 
 		// 2b. Vector search — runs AFTER BM25 (blocks_fts cache), pure in-memory.
-		// vectors.bin is preloaded into a Float32Array at startup so no disk I/O.
+		// vectors.bin is loaded into Float32Array chunks on the first request
+		// and cached on the instance, so subsequent requests have no disk I/O.
 		const t0 = Date.now();
 		const vidx = await this.getVectorIndex();
 		const vectorResults = vidx
@@ -1688,6 +1691,7 @@ export class RagPipeline {
 			poolSize: RERANK_POOL_SIZE,
 		});
 		const bm25Start = Date.now();
+		const bm25BreakT = performance.now();
 		const bm25Timings: Record<string, number> = {};
 		const embeddingNormIds = this.getEmbeddedNormIdsCached();
 		const bm25MainT = performance.now();
@@ -1840,7 +1844,7 @@ export class RagPipeline {
 		}
 
 		console.log(
-			`[bm25-breakdown] total=${Date.now() - bm25Start}ms ${Object.entries(
+			`[bm25-breakdown] total=${(performance.now() - bm25BreakT).toFixed(0)}ms ${Object.entries(
 				bm25Timings,
 			)
 				.map(([k, v]) => `${k}=${v.toFixed(0)}ms`)
@@ -1857,7 +1861,7 @@ export class RagPipeline {
 			{ durationMs: Date.now() - bm25Start },
 		);
 
-		// Vector search runs AFTER BM25, pure in-memory (vectors preloaded).
+		// Vector search runs AFTER BM25, pure in-memory (vectors loaded on first request and cached).
 		const vectorSpan = trace?.span("vector-search", "tool", {
 			poolSize: RERANK_POOL_SIZE,
 			minSimilarity: MIN_SIMILARITY,
