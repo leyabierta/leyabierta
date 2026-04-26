@@ -29,6 +29,59 @@ import {
 	enrichWithTemporalContext,
 } from "./temporal.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
+import { vectorSearchPooled } from "./vector-pool.ts";
+// Native SIMD backend (gated by RAG_VECTOR_BACKEND, falls back when unavailable).
+import { simdAvailable, vectorSearchSIMD } from "./vector-simd.ts";
+
+/**
+ * RAG_VECTOR_BACKEND selects how the vector top-K is computed:
+ *   - "pool"  → SharedArrayBuffer pool of N workers (best for concurrency)
+ *   - "simd"  → in-process bun:ffi (single-thread, blocks event loop)
+ *   - "js"    → pure JS fallback (safety valve, slow)
+ *   - unset   → "simd" by default (Day 2 baseline; Day 3 opts in via env)
+ */
+const VECTOR_BACKEND = (process.env.RAG_VECTOR_BACKEND ?? "simd").toLowerCase();
+const VECTOR_POOL_WORKERS = Number(process.env.RAG_VECTOR_POOL_WORKERS ?? "4");
+const VECTOR_POOL_MAX_PENDING = Number(
+	process.env.RAG_VECTOR_POOL_MAX_PENDING ?? "20",
+);
+
+/**
+ * Dispatch a vector top-K search to the configured backend, falling back
+ * cleanly when a backend can't run (missing native lib, pool busy, etc.).
+ * Returns the raw VectorSearchResult[]; the caller still applies
+ * MIN_SIMILARITY filtering to keep the existing semantics.
+ */
+async function selectVectorBackend(
+	embedding: Float32Array,
+	meta: Array<{ normId: string; blockId: string }>,
+	index: Parameters<typeof vectorSearchSIMD>[2],
+	dims: number,
+	topK: number,
+) {
+	if (VECTOR_BACKEND === "pool") {
+		try {
+			return await vectorSearchPooled(embedding, meta, index, dims, topK, {
+				workerCount: VECTOR_POOL_WORKERS,
+				maxPending: VECTOR_POOL_MAX_PENDING,
+			});
+		} catch (err) {
+			const e = err as Error;
+			if (e.message === "VECTOR_POOL_BUSY") {
+				console.warn("[vector-pool] busy — falling back to in-process SIMD");
+			} else {
+				console.warn(
+					`[vector-pool] unavailable (${e.message}) — falling back to SIMD`,
+				);
+			}
+			// fall through to SIMD/JS below
+		}
+	}
+	if (VECTOR_BACKEND !== "js" && simdAvailable()) {
+		return vectorSearchSIMD(embedding, meta, index, dims, topK);
+	}
+	return vectorSearchInMemory(embedding, meta, index, dims, topK);
+}
 
 // ── Config ──
 
@@ -847,12 +900,14 @@ export class RagPipeline {
 		const t0 = Date.now();
 		const vidx = await this.getVectorIndex();
 		const vectorResults = vidx
-			? vectorSearchInMemory(
-					queryResult.embedding,
-					vidx.meta,
-					vidx.vectors,
-					vidx.dims,
-					RERANK_POOL_SIZE,
+			? (
+					await selectVectorBackend(
+						queryResult.embedding,
+						vidx.meta,
+						vidx.vectors,
+						vidx.dims,
+						RERANK_POOL_SIZE,
+					)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];
 		const tVector = Date.now() - t0;
@@ -1892,12 +1947,14 @@ export class RagPipeline {
 		const vectorStart = Date.now();
 		const vidx = await this.getVectorIndex();
 		const vectorResults = vidx
-			? vectorSearchInMemory(
-					queryResult.embedding,
-					vidx.meta,
-					vidx.vectors,
-					vidx.dims,
-					RERANK_POOL_SIZE,
+			? (
+					await selectVectorBackend(
+						queryResult.embedding,
+						vidx.meta,
+						vidx.vectors,
+						vidx.dims,
+						RERANK_POOL_SIZE,
+					)
 				).filter((r) => r.score >= MIN_SIMILARITY)
 			: [];
 		const vectorRanked: RankedItem[] = vectorResults.map((r) => ({

@@ -72,7 +72,25 @@ export interface BM25ArticleResult {
 }
 
 /**
+ * Threshold below which an AND-matched query is considered too sparse and
+ * we re-run as OR. Tuned empirically: with K=20 the eval gold set keeps
+ * R@1 ≥ baseline while killing the OR-explosion on generic-token queries
+ * ("días tengo caso") where OR alone took 49s in prod.
+ */
+const AND_FALLBACK_THRESHOLD = 20;
+
+/**
  * Search articles using BM25 via FTS5.
+ *
+ * Adaptive AND/OR: when a query has 2+ tokens we first run a strict AND
+ * match (every token must appear). If that returns ≥ AND_FALLBACK_THRESHOLD
+ * results we keep them — AND is dramatically cheaper for high-frequency
+ * tokens because FTS5 can intersect short postings lists early. If it
+ * returns less, we fall back to OR so that recall is preserved on
+ * questions phrased with rare or domain-specific words.
+ *
+ * The decision is made by the cardinality of the result set, not by
+ * a hardcoded stop-word list — so it adapts to the corpus.
  *
  * @param db - SQLite database
  * @param query - Search query (plain text, will be tokenized)
@@ -85,45 +103,64 @@ export function bm25ArticleSearch(
 	topK: number = 50,
 	normFilter?: string[],
 ): BM25ArticleResult[] {
-	// Sanitize query for FTS5: remove punctuation, wrap tokens in quotes
-	const safeQuery = query
+	// Sanitize query for FTS5: remove punctuation, wrap tokens in quotes.
+	const tokens = query
 		.replace(/[¿?¡!"'()[\]{},.:;]/g, "")
 		.split(/\s+/)
 		.filter((t) => t.length > 2)
 		.slice(0, 12)
-		.map((t) => `"${t}"`)
-		.join(" OR ");
+		.map((t) => `"${t}"`);
 
-	if (!safeQuery) return [];
+	if (tokens.length === 0) return [];
 
 	const normPlaceholders = normFilter?.length
 		? `AND norm_id IN (${normFilter.map(() => "?").join(",")})`
 		: "";
 
-	try {
-		const params: (string | number)[] = [safeQuery];
-		if (normFilter?.length) params.push(...normFilter);
-		params.push(Math.floor(topK));
+	const runMatch = (matchExpr: string): BM25ArticleResult[] => {
+		try {
+			const params: (string | number)[] = [matchExpr];
+			if (normFilter?.length) params.push(...normFilter);
+			params.push(Math.floor(topK));
 
-		const results = db
-			.query<{ norm_id: string; block_id: string }, (string | number)[]>(
-				`SELECT norm_id, block_id
-         FROM blocks_fts
-         WHERE blocks_fts MATCH ?
-           ${normPlaceholders}
-         ORDER BY bm25(blocks_fts, 0, 0, 5.0, 8.0, 1.0)
-         LIMIT ?`,
-			)
-			.all(...params);
+			const results = db
+				.query<{ norm_id: string; block_id: string }, (string | number)[]>(
+					`SELECT norm_id, block_id
+           FROM blocks_fts
+           WHERE blocks_fts MATCH ?
+             ${normPlaceholders}
+           ORDER BY bm25(blocks_fts, 0, 0, 5.0, 8.0, 1.0)
+           LIMIT ?`,
+				)
+				.all(...params);
 
-		return results.map((r, i) => ({
-			normId: r.norm_id,
-			blockId: r.block_id,
-			rank: i + 1,
-		}));
-	} catch {
-		return [];
-	}
+			return results.map((r, i) => ({
+				normId: r.norm_id,
+				blockId: r.block_id,
+				rank: i + 1,
+			}));
+		} catch (err) {
+			// FTS5 parse errors, schema mismatches and lock contention all
+			// surface here. Returning [] is the right behaviour (the AND
+			// path triggers OR fallback by length<threshold; the OR path
+			// just yields zero candidates and the rest of the RRF systems
+			// carry the load), but a silent swallow makes prod failures
+			// invisible. Log so diagnostics show up in container logs and
+			// Opik traces without breaking retrieval.
+			console.warn(
+				`[bm25] FTS5 query failed for "${matchExpr.slice(0, 80)}": ${(err as Error).message}`,
+			);
+			return [];
+		}
+	};
+
+	// Single-token: AND ≡ OR, just run it once.
+	if (tokens.length === 1) return runMatch(tokens[0]!);
+
+	// Multi-token: try AND first, fall back to OR if too sparse.
+	const andResults = runMatch(tokens.join(" AND "));
+	if (andResults.length >= AND_FALLBACK_THRESHOLD) return andResults;
+	return runMatch(tokens.join(" OR "));
 }
 
 /**
