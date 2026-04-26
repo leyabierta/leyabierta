@@ -98,6 +98,11 @@ export function askRoutes(pipeline: RagPipeline | null) {
 					})) {
 						if (event.type === "chunk") {
 							yield `event: chunk\ndata: ${JSON.stringify(event.text)}\n\n`;
+						} else if (event.type === "keepalive") {
+							// SSE comment — clients ignore it, but proxies (Cloudflare
+							// Tunnel) see the bytes and keep the connection open during
+							// the long retrieval phase.
+							yield `: keepalive\n\n`;
 						} else {
 							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined })}\n\n`;
 						}

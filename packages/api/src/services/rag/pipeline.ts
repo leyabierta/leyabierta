@@ -1388,6 +1388,7 @@ export class RagPipeline {
 	 */
 	async *askStream(request: AskRequest): AsyncGenerator<
 		| { type: "chunk"; text: string }
+		| { type: "keepalive" }
 		| {
 				type: "done";
 				citations: Citation[];
@@ -1403,7 +1404,28 @@ export class RagPipeline {
 		});
 
 		try {
-			const retrieval = await this.runRetrieval(request, trace);
+			// Retrieval can take >100s on the production server, longer than the
+			// Cloudflare Tunnel idle timeout. Interleave keepalive events every
+			// 10s so the route handler can flush an SSE comment and the proxy
+			// keeps the connection open.
+			const retrievalPromise = this.runRetrieval(request, trace);
+			let retrievalDone = false;
+			retrievalPromise.finally(() => {
+				retrievalDone = true;
+			});
+			while (!retrievalDone) {
+				const tick = new Promise<"tick">((r) =>
+					setTimeout(() => r("tick"), 10_000),
+				);
+				const winner = await Promise.race([
+					retrievalPromise.then(() => "done" as const),
+					tick,
+				]);
+				if (winner === "tick" && !retrievalDone) {
+					yield { type: "keepalive" };
+				}
+			}
+			const retrieval = await retrievalPromise;
 
 			if (retrieval.type === "early") {
 				yield { type: "chunk", text: retrieval.response.answer };
@@ -3024,11 +3046,12 @@ Responde SOLO con JSON.`,
 						.replace(/[\x00-\x1f]/g, "")
 						.trim();
 					if (sanitized) {
-						this.insertSummaryStmt.run(
-							article.normId,
-							article.blockId,
-							sanitized,
-						);
+						// blocks.block_id is the article-level id (e.g. "a10"); embeddings
+						// may carry sub-chunk ids (e.g. "a10__1") which would fail the FK.
+						const rootBlockId =
+							parseSubchunkId(article.blockId)?.parentBlockId ??
+							article.blockId;
+						this.insertSummaryStmt.run(article.normId, rootBlockId, sanitized);
 					}
 				})
 				.catch((err) => {
