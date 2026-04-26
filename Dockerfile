@@ -15,7 +15,9 @@ FROM oven/bun:1-slim
 WORKDIR /app
 
 # Git is needed by GitService for diff operations.
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+# adduser provides the addgroup/adduser commands used in the non-root step
+# below; with --no-install-recommends it isn't pulled transitively.
+RUN apt-get update && apt-get install -y --no-install-recommends git adduser \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace config + package files for dependency install
