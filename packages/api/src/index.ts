@@ -46,8 +46,9 @@ const citizenSummaryService = new CitizenSummaryService(db);
 
 // RAG pipeline (optional — only if API key is available)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
+const RAG_DATA_DIR = process.env.RAG_DATA_DIR ?? "./data";
 const ragPipeline = OPENROUTER_API_KEY
-	? new RagPipeline(db, OPENROUTER_API_KEY)
+	? new RagPipeline(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
 	: null;
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS
