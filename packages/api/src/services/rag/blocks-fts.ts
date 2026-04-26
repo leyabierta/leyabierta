@@ -139,7 +139,17 @@ export function bm25ArticleSearch(
 				blockId: r.block_id,
 				rank: i + 1,
 			}));
-		} catch {
+		} catch (err) {
+			// FTS5 parse errors, schema mismatches and lock contention all
+			// surface here. Returning [] is the right behaviour (the AND
+			// path triggers OR fallback by length<threshold; the OR path
+			// just yields zero candidates and the rest of the RRF systems
+			// carry the load), but a silent swallow makes prod failures
+			// invisible. Log so diagnostics show up in container logs and
+			// Opik traces without breaking retrieval.
+			console.warn(
+				`[bm25] FTS5 query failed for "${matchExpr.slice(0, 80)}": ${(err as Error).message}`,
+			);
 			return [];
 		}
 	};

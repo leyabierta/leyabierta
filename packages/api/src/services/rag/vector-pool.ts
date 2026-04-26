@@ -44,7 +44,14 @@ interface SharedIndex {
 	totalVectors: number;
 }
 
+/**
+ * Singleton state. We track the in-flight init promise separately so two
+ * concurrent callers race to neither create two pools nor see a half-built
+ * one. If init rejects we clear `initPromise` so the next caller retries
+ * (vs. permanently caching the failed instance).
+ */
 let pool: VectorPool | null = null;
+let initPromise: Promise<VectorPool | null> | null = null;
 
 class VectorPool {
 	private workers: Worker[] = [];
@@ -236,28 +243,55 @@ function defaultLibPath(): string | null {
  * Lazily build the singleton pool. Returns null if pool cannot be
  * created (unsupported platform, missing .so) — callers should fall
  * back to the synchronous in-process path.
+ *
+ * Concurrent callers share the same `initPromise` (no double-init,
+ * no leaked workers). If the first init rejects, `initPromise` is
+ * cleared so a later call gets to try again.
+ *
+ * NOTE: `options` is only honoured on the first call that triggers
+ * init. Later calls receive the existing singleton regardless of the
+ * options they pass — the pool is not reconfigurable at runtime.
  */
 export async function getVectorPool(
 	index: InMemoryVectorIndex,
 	options: { workerCount?: number; maxPending?: number } = {},
 ): Promise<VectorPool | null> {
 	if (pool) return pool;
-	const libPath = defaultLibPath();
-	if (!libPath) return null;
+	if (initPromise) return initPromise;
 
-	const dim = index.chunks[0]
-		? index.chunks[0].length / index.vectorsPerChunk[0]!
-		: 0;
-	if (!dim) return null;
+	initPromise = (async () => {
+		const libPath = defaultLibPath();
+		if (!libPath) return null;
 
-	const shared = toShared(index);
-	pool = new VectorPool(shared, {
-		workerCount: options.workerCount ?? 4,
-		libPath,
-		maxPending: options.maxPending ?? 20,
-	});
-	await pool.ready();
-	return pool;
+		const dim = index.chunks[0]
+			? index.chunks[0].length / index.vectorsPerChunk[0]!
+			: 0;
+		if (!dim) return null;
+
+		const shared = toShared(index);
+		const candidate = new VectorPool(shared, {
+			workerCount: options.workerCount ?? 4,
+			libPath,
+			maxPending: options.maxPending ?? 20,
+		});
+		try {
+			await candidate.ready();
+		} catch (err) {
+			candidate.terminate();
+			throw err;
+		}
+		pool = candidate;
+		return pool;
+	})();
+
+	try {
+		return await initPromise;
+	} catch (err) {
+		// Clear so the next caller can retry (e.g. .so was missing at boot
+		// but now exists after a reload).
+		initPromise = null;
+		throw err;
+	}
 }
 
 export async function vectorSearchPooled(
@@ -291,6 +325,7 @@ export async function vectorSearchPooled(
 export function shutdownVectorPool() {
 	pool?.terminate();
 	pool = null;
+	initPromise = null;
 }
 
 export type { VectorPool };

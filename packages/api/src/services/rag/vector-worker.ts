@@ -64,32 +64,42 @@ self.onmessage = (event: MessageEvent) => {
 	const msg = event.data as InMessage;
 
 	if (msg.type === "init") {
-		const chunks = msg.sharedChunks.map((sab) => new Float32Array(sab));
-		const norms = msg.sharedNorms.map((sab) => new Float32Array(sab));
-		const lib = dlopen(msg.libPath, {
-			cosine_topk: {
-				args: [
-					FFIType.ptr,
-					FFIType.f32,
-					FFIType.ptr,
-					FFIType.ptr,
-					FFIType.i32,
-					FFIType.i32,
-					FFIType.i32,
-					FFIType.ptr,
-					FFIType.ptr,
-				],
-				returns: FFIType.i32,
-			},
-		});
-		state = {
-			chunks,
-			norms,
-			vpc: msg.vectorsPerChunk,
-			dim: msg.dim,
-			cosine_topk: lib.symbols.cosine_topk as unknown as CosineTopk,
-		};
-		self.postMessage({ type: "ready" });
+		// Init failures (missing .so, wrong ABI, SAB constructor surprises)
+		// must reach the pool as an `error` message — otherwise the pool's
+		// `ready` promise would never settle and the worker slot would leak.
+		try {
+			const chunks = msg.sharedChunks.map((sab) => new Float32Array(sab));
+			const norms = msg.sharedNorms.map((sab) => new Float32Array(sab));
+			const lib = dlopen(msg.libPath, {
+				cosine_topk: {
+					args: [
+						FFIType.ptr,
+						FFIType.f32,
+						FFIType.ptr,
+						FFIType.ptr,
+						FFIType.i32,
+						FFIType.i32,
+						FFIType.i32,
+						FFIType.ptr,
+						FFIType.ptr,
+					],
+					returns: FFIType.i32,
+				},
+			});
+			state = {
+				chunks,
+				norms,
+				vpc: msg.vectorsPerChunk,
+				dim: msg.dim,
+				cosine_topk: lib.symbols.cosine_topk as unknown as CosineTopk,
+			};
+			self.postMessage({ type: "ready" });
+		} catch (err) {
+			self.postMessage({
+				type: "error",
+				message: `worker init failed: ${(err as Error).message}`,
+			});
+		}
 		return;
 	}
 
@@ -103,48 +113,60 @@ self.onmessage = (event: MessageEvent) => {
 			return;
 		}
 
-		// Precompute query norm.
-		let qNorm = 0;
-		const q = msg.query;
-		for (let i = 0; i < state.dim; i++) qNorm += q[i]! * q[i]!;
-		qNorm = Math.sqrt(qNorm);
+		// Any throw inside the SIMD path or its prologue must come back as
+		// an `error` reply tagged with the request id. Otherwise the
+		// pending Promise on the main thread hangs forever and the pool
+		// permanently loses one worker slot.
+		try {
+			// Precompute query norm.
+			let qNorm = 0;
+			const q = msg.query;
+			for (let i = 0; i < state.dim; i++) qNorm += q[i]! * q[i]!;
+			qNorm = Math.sqrt(qNorm);
 
-		const merged: Array<{ globalIdx: number; score: number }> = [];
-		let globalOffset = 0;
+			const merged: Array<{ globalIdx: number; score: number }> = [];
+			let globalOffset = 0;
 
-		for (let c = 0; c < state.chunks.length; c++) {
-			const vectors = state.chunks[c]!;
-			const norms = state.norms[c]!;
-			const numVecs = state.vpc[c]!;
-			if (numVecs === 0) continue;
+			for (let c = 0; c < state.chunks.length; c++) {
+				const vectors = state.chunks[c]!;
+				const norms = state.norms[c]!;
+				const numVecs = state.vpc[c]!;
+				if (numVecs === 0) continue;
 
-			const k = Math.min(msg.topK, numVecs);
-			const outIndices = new Int32Array(k);
-			const outScores = new Float32Array(k);
+				const k = Math.min(msg.topK, numVecs);
+				const outIndices = new Int32Array(k);
+				const outScores = new Float32Array(k);
 
-			const written = state.cosine_topk(
-				ptr(q),
-				qNorm,
-				ptr(vectors),
-				ptr(norms),
-				numVecs,
-				state.dim,
-				k,
-				ptr(outIndices),
-				ptr(outScores),
-			);
+				const written = state.cosine_topk(
+					ptr(q),
+					qNorm,
+					ptr(vectors),
+					ptr(norms),
+					numVecs,
+					state.dim,
+					k,
+					ptr(outIndices),
+					ptr(outScores),
+				);
 
-			for (let i = 0; i < written; i++) {
-				merged.push({
-					globalIdx: globalOffset + outIndices[i]!,
-					score: outScores[i]!,
-				});
+				for (let i = 0; i < written; i++) {
+					merged.push({
+						globalIdx: globalOffset + outIndices[i]!,
+						score: outScores[i]!,
+					});
+				}
+				globalOffset += numVecs;
 			}
-			globalOffset += numVecs;
-		}
 
-		merged.sort((a, b) => b.score - a.score);
-		const top = merged.slice(0, msg.topK);
-		self.postMessage({ type: "result", id: msg.id, results: top });
+			merged.sort((a, b) => b.score - a.score);
+			const top = merged.slice(0, msg.topK);
+			self.postMessage({ type: "result", id: msg.id, results: top });
+		} catch (err) {
+			self.postMessage({
+				type: "error",
+				id: msg.id,
+				message: `query failed: ${(err as Error).message}`,
+			});
+		}
 	}
 };

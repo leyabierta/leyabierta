@@ -166,14 +166,20 @@ int32_t cosine_topk(
         }
     }
 
-    /* Heap-sort: extract min repeatedly into the *end* of the array,
-     * then reverse — output is descending by score. */
+    /* Heap-sort using a min-heap: repeatedly swap heap[0] (the smallest
+     * remaining score) into the *end* of the live region, then sift
+     * down. After the loop heap[0..n-1] is *descending* by score
+     * (largest at index 0, smallest at index n-1). The copy below
+     * reverses that, so the output arrays end up *ascending*. JS callers
+     * re-sort descending themselves; we don't rely on either ordering
+     * downstream, but the comments here matter for anyone adding a new
+     * caller that skips the re-sort. */
     int32_t n = heap_size;
     for (int32_t end = n - 1; end > 0; end--) {
         HeapItem tmp = heap[0]; heap[0] = heap[end]; heap[end] = tmp;
         heap_sift_down(heap, end, 0);
     }
-    /* Now heap[0..n-1] is ascending by score; copy reversed. */
+    /* heap[0..n-1] is descending; copying via heap[n-1-i] yields ascending. */
     for (int32_t i = 0; i < n; i++) {
         out_scores[i]  = heap[n - 1 - i].score;
         out_indices[i] = heap[n - 1 - i].index;
