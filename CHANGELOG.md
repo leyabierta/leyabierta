@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0.0] - 2026-04-26
+
+### Added — Public database snapshot (Issue #14)
+
+- **`/datos` page** — public landing page for downloading the consolidated
+  database. Lists the latest snapshot, older versions in retention, schema
+  documentation, example queries and licensing. Static, no API calls,
+  reads from a build-time manifest.
+- **`scripts/upload-db-snapshot.sh`** — produces a weekly public snapshot of
+  `leyabierta.db` and uploads it to Hugging Face Datasets
+  (`leyabierta/leyes-snapshot`, primary) and to archive.org
+  (`leyabierta-snapshot-YYYY-MM-DD`, mirror). Two artifacts per run:
+  `leyes-snapshot-YYYY-MM-DD.db.gz` (no embeddings, ~2 GB) and
+  `leyes-embeddings-YYYY-MM-DD.db.gz` (embeddings only, ~3 GB). Uses
+  `sqlite3 .backup` for an online, non-blocking copy. Supports
+  `--dry-run`, `--skip-hf`, `--skip-ia`.
+- **Privacy invariants enforced in code** — the script drops six tables
+  containing PII or operational tracking from every snapshot
+  (`subscribers`, `ask_log`, `notified_reforms`, `norm_follows`, `digests`,
+  `notification_runs`) and asserts they are absent before upload. A new
+  test (`packages/api/src/__tests__/snapshot-private-tables.test.ts`)
+  parses the bash array and fails the build if the script and the
+  test fixture drift.
+- **ADR-001** (`docs/ADRs/001-public-database-snapshot.md`) — rationale for
+  format, hosting (HF + archive.org rather than R2), weekly cadence,
+  3-month retention, RGPD treatment, schema-compatibility commitment, CC0
+  for the SQLite structure.
+- **Footer link** to `/datos/`. Sitemap entry with `changefreq: weekly`.
+
+### Operational
+
+- Weekly cron line documented in the private `docs/infrastructure.md`
+  (sibling repo): Sundays 09:30 UTC, after the 06:30 UTC daily pipeline.
+  Requires `HF_TOKEN`, `IA_ACCESS_KEY`, `IA_SECRET_KEY`. Not installed
+  automatically — first upload is manual after credentials are configured.
+
 ## [0.3.0.0] - 2026-04-26
 
 ### Performance — Sprint 2: BM25 also runs on workers, OR fallback pruned
