@@ -1,0 +1,293 @@
+{
+	"slice": "temporal-sensitive",
+	"generator": "claude-opus-4-7-via-claude-code",
+	"generated_at": "2026-04-27",
+	"description": "35 preguntas sin fecha explícita donde el sistema debe responder con el estado VIGENTE a 2026-04-27. expectedNorms = norma(s) vigente(s) que aplican hoy. obsoleteNorms = IDs derogados/históricos que el sistema podría citar erróneamente.",
+	"questions": [
+		{
+			"id": 136,
+			"question": "¿Cuál es el salario mínimo interprofesional?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2026-3815"],
+			"obsoleteNorms": [
+				"BOE-A-2025-1925",
+				"BOE-A-2024-2356",
+				"BOE-A-2023-3179",
+				"BOE-A-2018-17773"
+			],
+			"rationale": "vigente en 2026: RD 126/2026 fija el SMI para 2026. Los RD anuales anteriores son históricos."
+		},
+		{
+			"id": 137,
+			"question": "¿Cuántas pagas anuales incluye el salario mínimo?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-2026-3815", "BOE-A-2015-11430"],
+			"obsoleteNorms": ["BOE-A-2025-1925"],
+			"rationale": "vigente: RD anual SMI fija el importe; ET (RDLeg 2/2015) art. 31 regula gratificaciones extraordinarias (mínimo dos pagas)."
+		},
+		{
+			"id": 138,
+			"question": "¿Cómo se actualiza anualmente el salario mínimo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": ["BOE-A-2004-12010"],
+			"rationale": "vigente: ET art. 27 regula el procedimiento de fijación anual del SMI por el Gobierno."
+		},
+		{
+			"id": 139,
+			"question": "¿Cuántas semanas dura el permiso por nacimiento del progenitor distinto de la madre biológica?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": ["BOE-A-2018-17989", "BOE-A-2007-6115"],
+			"rationale": "vigente: ET art. 48.4 establece 16 semanas para ambos progenitores tras RDL 6/2019. La PGE 2018 (16->5) y la Ley de Igualdad original (13 días) están superadas."
+		},
+		{
+			"id": 140,
+			"question": "¿Cuánto dura la baja por maternidad?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": ["BOE-A-2007-6115"],
+			"rationale": "vigente: ET art. 48.4 — 16 semanas, ampliable por parto múltiple/discapacidad."
+		},
+		{
+			"id": 141,
+			"question": "¿Cuántas semanas de permiso parental no retribuido tienen los progenitores para cuidado de hijo menor de 8 años?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: ET art. 48 bis introducido por RDL 5/2023 transponiendo Directiva (UE) 2019/1158: 8 semanas hasta que el menor cumpla 8 años."
+		},
+		{
+			"id": 142,
+			"question": "¿Cuántos días de permiso retribuido se tienen por hospitalización de un familiar?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: ET art. 37.3 tras RDL 5/2023: 5 días por accidente o enfermedad graves, hospitalización o intervención quirúrgica sin hospitalización que precise reposo. Antes eran 2 días (4 con desplazamiento)."
+		},
+		{
+			"id": 143,
+			"question": "¿Cómo se reduce la jornada por lactancia de un hijo menor de 9 meses?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: ET art. 37.4 — 1 hora diaria fraccionable, acumulable en jornadas completas según convenio. Es derecho individual de los trabajadores tras RDL 6/2019."
+		},
+		{
+			"id": 144,
+			"question": "¿Cuáles son los tramos del IRPF estatal?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-20764"],
+			"obsoleteNorms": ["BOE-A-2014-12327"],
+			"rationale": "vigente: Ley 35/2006 art. 63 con la escala vigente tras sucesivas reformas (PGE/leyes anuales). El sistema debe dar la escala actual, no la de 2014/2015."
+		},
+		{
+			"id": 145,
+			"question": "¿Existe deducción por alquiler de vivienda habitual en el IRPF?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-20764"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: Ley 35/2006 DT 15ª — la deducción estatal por alquiler se suprimió desde 1-1-2015 y solo se mantiene en régimen transitorio para contratos anteriores. El sistema debe avisar de la supresión, no devolver el 10,05% como vigente."
+		},
+		{
+			"id": 146,
+			"question": "¿Cuál es el mínimo personal en el IRPF?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-20764"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: Ley 35/2006 art. 57 (5.550 euros con incrementos por edad). Cifras anteriores a 2015 son obsoletas."
+		},
+		{
+			"id": 147,
+			"question": "¿Qué reducción se aplica a los rendimientos del arrendamiento de vivienda en el IRPF?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-20764", "BOE-A-2023-12203"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: Ley 35/2006 art. 23.2 modificado por Ley 12/2023: reducción general baja del 60% al 50%, con porcentajes mejorados (60/70/90%) según supuestos en zona tensionada. La cifra 60% sin matices está obsoleta para contratos posteriores a 26-5-2023."
+		},
+		{
+			"id": 148,
+			"question": "¿A qué edad puedo jubilarme?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11724"],
+			"obsoleteNorms": ["BOE-A-2011-13242"],
+			"rationale": "vigente: LGSS art. 205 y DT 7ª — edad ordinaria 67 años, con escala transitoria 65-67 según años cotizados (2013-2027). En 2026 es 65 años y 10 meses con menos de 38a3m cotizados."
+		},
+		{
+			"id": 149,
+			"question": "¿Cómo se calcula la base reguladora de la pensión de jubilación?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11724"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LGSS art. 209 modificado por Ley 21/2021 y RDL 2/2023 — promedio de bases de cotización de los últimos 25 años (300 meses), con periodo transitorio. La regla de 15 años es obsoleta."
+		},
+		{
+			"id": 150,
+			"question": "¿Cómo se revalorizan las pensiones cada año?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11724", "BOE-A-2021-21652"],
+			"obsoleteNorms": ["BOE-A-2013-13569"],
+			"rationale": "vigente: LGSS art. 58 reformado por Ley 21/2021 — revalorización conforme al IPC medio anual. El Índice de Revalorización (IRP) de la Ley 23/2013 quedó derogado."
+		},
+		{
+			"id": 151,
+			"question": "¿Cuántos años hay que cotizar para tener derecho a pensión contributiva de jubilación?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11724"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LGSS art. 205 — 15 años cotizados, de los cuales 2 deben estar en los últimos 15 años anteriores al hecho causante."
+		},
+		{
+			"id": 152,
+			"question": "¿Cuál es la duración máxima de un contrato de arrendamiento de vivienda?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-1994-26003"],
+			"obsoleteNorms": ["BOE-A-2013-5073"],
+			"rationale": "vigente: LAU art. 9 tras RDL 7/2019 — prórroga obligatoria hasta 5 años (7 si arrendador persona jurídica). La regla de 3 años de la Ley 4/2013 está derogada."
+		},
+		{
+			"id": 153,
+			"question": "¿Cómo se actualiza la renta del alquiler cada año?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-1994-26003", "BOE-A-2023-12203"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LAU art. 18 + Ley 12/2023 — se introduce un nuevo índice de referencia (IRAV) que sustituye al IPC; tope del 2% en 2023, 3% en 2024, IRAV desde 2025. La actualización por IPC sin tope es obsoleta."
+		},
+		{
+			"id": 154,
+			"question": "¿Cuánta fianza puede pedir el arrendador en un alquiler de vivienda?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-1994-26003"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LAU art. 36 — una mensualidad para vivienda habitual; garantías adicionales máximo 2 mensualidades tras RDL 7/2019."
+		},
+		{
+			"id": 155,
+			"question": "¿Quién paga los gastos de gestión inmobiliaria y formalización del contrato de alquiler?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-1994-26003"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LAU art. 20.1 modificado por Ley 12/2023 — los gastos de gestión inmobiliaria y formalización corren a cargo del arrendador siempre. Antes solo si era persona jurídica."
+		},
+		{
+			"id": 156,
+			"question": "¿Qué es una zona de mercado residencial tensionado?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2023-12203"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: Ley 12/2023 art. 18 — declaración por la administración competente con limitación de rentas para grandes tenedores."
+		},
+		{
+			"id": 157,
+			"question": "¿Cómo cotizan los autónomos a la Seguridad Social?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2022-12482"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: RDL 13/2022 — sistema de cotización por rendimientos netos reales en 15 tramos desde 2023, con despliegue progresivo 2023-2025. La cuota mínima fija única es obsoleta."
+		},
+		{
+			"id": 158,
+			"question": "¿Existe la tarifa plana para nuevos autónomos?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2022-12482", "BOE-A-2015-11724"],
+			"obsoleteNorms": ["BOE-A-2013-2030"],
+			"rationale": "vigente: cuota reducida de 80 euros mensuales durante 12 meses (prorrogable 12 más) tras RDL 13/2022. La 'tarifa plana 50€' de la Ley 11/2013 es obsoleta."
+		},
+		{
+			"id": 159,
+			"question": "¿Cuántos puntos tiene el carné de conducir?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11722"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: TR LSV (RDLeg 6/2015) art. 60 — 12 puntos iniciales (8 para conductores noveles)."
+		},
+		{
+			"id": 160,
+			"question": "¿Cuántos puntos se pierden por usar el móvil al volante?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11722"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: TR LSV anexo II tras Ley 18/2021 — 6 puntos por uso manual del móvil (antes 3)."
+		},
+		{
+			"id": 161,
+			"question": "¿Cuál es la tasa máxima de alcohol permitida al conducir?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2003-23514"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: Reglamento General de Circulación (RD 1428/2003) art. 20 — 0,5 g/l en sangre (0,3 g/l noveles y profesionales)."
+		},
+		{
+			"id": 162,
+			"question": "¿Tengo que llevar el permiso de conducir físico o vale la app miDGT?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11722"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: TR LSV reformado en 2022 — la app miDGT tiene validez en territorio nacional como acreditación digital del permiso."
+		},
+		{
+			"id": 163,
+			"question": "¿Puedo alquilar mi vivienda como apartamento turístico?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-1994-26003", "BOE-A-2023-12203"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LAU art. 5.e) excluye viviendas turísticas (régimen autonómico/municipal); Ley 12/2023 refuerza competencias municipales y comunitarias para limitar."
+		},
+		{
+			"id": 164,
+			"question": "¿Puede una comunidad de vecinos prohibir las viviendas de uso turístico?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-1960-10906"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: Ley de Propiedad Horizontal art. 17.12 modificado por RDL 7/2019 (y reforma 2025): mayoría de 3/5 para limitar/condicionar viviendas turísticas."
+		},
+		{
+			"id": 165,
+			"question": "¿Cómo solicito el bono de alquiler para jóvenes?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2022-802"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: RD 42/2022 — Bono Alquiler Joven (250€/mes, 2 años) para 18-35 años con rentas y vivienda en condiciones tasadas; gestión por CCAA."
+		},
+		{
+			"id": 166,
+			"question": "¿Cuánto tiempo cobro el paro si me despiden?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11724"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LGSS art. 269 — duración 4 a 24 meses según meses cotizados en los últimos 6 años."
+		},
+		{
+			"id": 167,
+			"question": "¿Qué porcentaje de la base reguladora cobro de prestación por desempleo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11724"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: LGSS art. 270 reformado por RDL 2/2024 — 70% durante los primeros 180 días, 60% a partir del día 181 (antes era 50% a partir del día 181)."
+		},
+		{
+			"id": 168,
+			"question": "¿Quién puede cobrar el ingreso mínimo vital?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2021-21007"],
+			"obsoleteNorms": ["BOE-A-2020-5493"],
+			"rationale": "vigente: Ley 19/2021 reguladora del IMV (sustituye al RDL 20/2020). Requisitos de unidad de convivencia, edad y rentas."
+		},
+		{
+			"id": 169,
+			"question": "¿Tengo derecho a permiso retribuido por matrimonio o pareja de hecho?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: ET art. 37.3.a) tras RDL 5/2023 — 15 días naturales por matrimonio o registro como pareja de hecho. La extensión a parejas de hecho es la novedad de 2023."
+		},
+		{
+			"id": 170,
+			"question": "¿Cuántos días de permiso por fallecimiento de un familiar tengo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"obsoleteNorms": [],
+			"rationale": "vigente: ET art. 37.3.b) tras RDL 5/2023 — 2 días por fallecimiento del cónyuge o pareja de hecho y parientes hasta 2º grado, ampliable a 4 con desplazamiento. Se incluye explícitamente a la pareja de hecho."
+		}
+	]
+}

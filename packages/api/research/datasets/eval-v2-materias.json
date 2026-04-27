@@ -1,0 +1,252 @@
+{
+	"slice": "materias-underrepresented",
+	"generator": "claude-opus-4-7-via-claude-code",
+	"generated_at": "2026-04-27",
+	"questions": [
+		{
+			"id": 101,
+			"question": "¿A qué edad es obligatorio escolarizar a mi hijo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-7899"],
+			"rationale": "LOE art. 4: enseñanza básica obligatoria de 6 a 16 años."
+		},
+		{
+			"id": 102,
+			"question": "¿Cuántas asignaturas puedo suspender en la ESO y aún así pasar de curso?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-7899"],
+			"rationale": "LOE art. 28 (modificado por LOMLOE): promoción y permanencia en ESO."
+		},
+		{
+			"id": 103,
+			"question": "¿Tengo derecho a que mi hijo reciba enseñanza en la lengua oficial de mi comunidad?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-7899"],
+			"rationale": "LOE art. 2 y disposiciones sobre lenguas cooficiales."
+		},
+		{
+			"id": 104,
+			"question": "¿Pueden mis profesores en la universidad pública ser indefinidamente asociados?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2023-7500"],
+			"rationale": "LOSU art. 75: profesorado asociado, límites temporales."
+		},
+		{
+			"id": 105,
+			"question": "¿Tengo derecho a que un médico me explique mi diagnóstico antes de operarme?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2002-22188"],
+			"rationale": "Ley 41/2002 art. 4 y 8: consentimiento informado y derecho a la información asistencial."
+		},
+		{
+			"id": 106,
+			"question": "¿Puedo pedir una copia de mi historia clínica?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2002-22188"],
+			"rationale": "Ley 41/2002 art. 18: derecho de acceso del paciente a su historia clínica."
+		},
+		{
+			"id": 107,
+			"question": "¿Quién paga el medicamento que me receta el médico de la pública si soy pensionista?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2006-13554"],
+			"rationale": "Ley 29/2006 art. 94 bis: aportación del usuario por dispensación de medicamentos según renta y condición."
+		},
+		{
+			"id": 108,
+			"question": "¿Tengo derecho a una segunda opinión médica en la sanidad pública?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2003-10715"],
+			"rationale": "Ley 16/2003 de cohesión SNS, derechos en cartera de servicios comunes."
+		},
+		{
+			"id": 109,
+			"question": "¿Puedo separar la basura orgánica obligatoriamente en mi municipio?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2022-5809"],
+			"rationale": "Ley 7/2022 art. 25: recogida separada obligatoria, biorresiduos."
+		},
+		{
+			"id": 110,
+			"question": "¿En qué tiendas se cobra por las bolsas de plástico?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2022-5809"],
+			"rationale": "Ley 7/2022 art. 56 y disp. sobre bolsas de plástico de un solo uso."
+		},
+		{
+			"id": 111,
+			"question": "¿Hay límites legales a la contaminación del aire en mi ciudad?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2007-19744"],
+			"rationale": "Ley 34/2007 arts. 5 y 8: objetivos de calidad del aire y zonas de protección."
+		},
+		{
+			"id": 112,
+			"question": "¿Necesita una obra grande cerca de mi casa una evaluación ambiental?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2013-12913"],
+			"rationale": "Ley 21/2013 arts. 7 y anexo I: proyectos sometidos a EIA ordinaria."
+		},
+		{
+			"id": 113,
+			"question": "¿Cuánto tiempo tengo de garantía si compro un electrodoméstico nuevo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2007-20555"],
+			"rationale": "TRLGDCU art. 120: 3 años de garantía legal en bienes (tras reforma 2021)."
+		},
+		{
+			"id": 114,
+			"question": "¿Puedo devolver lo que compré por internet sin dar explicaciones?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2007-20555"],
+			"rationale": "TRLGDCU arts. 102-108: derecho de desistimiento, 14 días naturales."
+		},
+		{
+			"id": 115,
+			"question": "¿Es legal una cláusula del contrato que firmé pero que el banco no me explicó?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2007-20555"],
+			"rationale": "TRLGDCU arts. 80 y 82: requisitos de transparencia y cláusulas abusivas."
+		},
+		{
+			"id": 116,
+			"question": "¿Cuántos puntos pierdo si me pillan usando el móvil al volante?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11722"],
+			"rationale": "TR Tráfico anexo II: pérdida de puntos por infracciones graves/muy graves."
+		},
+		{
+			"id": 117,
+			"question": "¿Cuál es el límite de alcohol permitido para conducir si soy novel?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11722"],
+			"rationale": "TR Tráfico arts. 14 y reglamento de circulación: 0,15 mg/l aire conductores noveles."
+		},
+		{
+			"id": 118,
+			"question": "¿Cuánto tiempo tengo para recurrir una multa de tráfico?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11722"],
+			"rationale": "TR Tráfico art. 95: plazo de alegaciones y recurso, 20 días."
+		},
+		{
+			"id": 119,
+			"question": "¿Puedo pedirle a una empresa que borre mis datos personales?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2018-16673"],
+			"rationale": "LOPDGDD art. 15 (y RGPD art. 17): derecho de supresión."
+		},
+		{
+			"id": 120,
+			"question": "¿Cuánto puede multarme la Agencia de Protección de Datos por mandar publicidad sin permiso?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2018-16673"],
+			"rationale": "LOPDGDD arts. 72-74: infracciones muy graves y cuantías."
+		},
+		{
+			"id": 121,
+			"question": "¿Tengo derecho a desconectar del trabajo fuera de mi horario?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2018-16673"],
+			"rationale": "LOPDGDD art. 88: derecho a la desconexión digital en el ámbito laboral."
+		},
+		{
+			"id": 122,
+			"question": "¿Puedo dejar a mi perro atado en la puerta del supermercado mientras compro?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2023-7936"],
+			"rationale": "Ley 7/2023 art. 26 y 27: prohibiciones en la tenencia y bienestar de animales de compañía."
+		},
+		{
+			"id": 123,
+			"question": "¿Es obligatorio hacer un curso para tener un perro?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2023-7936"],
+			"rationale": "Ley 7/2023 art. 30: formación obligatoria para tenencia responsable de perros."
+		},
+		{
+			"id": 124,
+			"question": "¿Cuántos años llevando en España tengo que llevar para pedir el arraigo social?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2000-544"],
+			"rationale": "LOEX art. 31.3 y reglamento: arraigo social, 3 años de permanencia."
+		},
+		{
+			"id": 125,
+			"question": "¿Puedo traer a mi mujer y mis hijos a España si tengo residencia legal?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2000-544"],
+			"rationale": "LOEX arts. 16-19: derecho a la reagrupación familiar."
+		},
+		{
+			"id": 126,
+			"question": "¿Soy refugiado puedo trabajar mientras me resuelven la solicitud?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2009-17242"],
+			"rationale": "Ley 12/2009 art. 36: derechos del solicitante de asilo, autorización de trabajo a los 6 meses."
+		},
+		{
+			"id": 127,
+			"question": "¿Si soy funcionario, cuántos días de asuntos propios me corresponden?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11719"],
+			"rationale": "TREBEP art. 48: permisos por asuntos particulares (6 días)."
+		},
+		{
+			"id": 128,
+			"question": "¿Puedo pedir excedencia como funcionario para cuidar a mi madre enferma?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11719"],
+			"rationale": "TREBEP art. 89: excedencia por cuidado de familiares."
+		},
+		{
+			"id": 129,
+			"question": "¿A qué edad se jubila obligatoriamente un funcionario de carrera?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-11719"],
+			"rationale": "TREBEP art. 67: jubilación forzosa a los 65/67 años."
+		},
+		{
+			"id": 130,
+			"question": "¿Tiene mi hijo derecho a ser oído en un juicio de custodia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-1996-1069"],
+			"rationale": "LOPJM art. 9: derecho del menor a ser oído y escuchado."
+		},
+		{
+			"id": 131,
+			"question": "¿Cómo puedo denunciar un caso de violencia contra un niño en el colegio?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2021-9347"],
+			"rationale": "LO 8/2021 arts. 15-16: deber de comunicación y denuncia de violencia sobre la infancia."
+		},
+		{
+			"id": 132,
+			"question": "¿Cuánto tarda mi médico de cabecera en darme cita por ley?",
+			"category": "out-of-scope",
+			"expectedNorms": [],
+			"rationale": "No existe plazo máximo estatal por ley en atención primaria; está regulado por normativa autonómica de garantías de tiempos de respuesta. Pregunta con premisa de ley estatal inexistente."
+		},
+		{
+			"id": 133,
+			"question": "¿Puedo cobrar la beca del Ministerio si suspendo más de la mitad de las asignaturas en la universidad?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-2006-7899", "BOE-A-2023-7500"],
+			"rationale": "LOE art. 83 (becas y ayudas al estudio) y LOSU arts. 47-49 (régimen general de becas universitarias y rendimiento académico)."
+		},
+		{
+			"id": 134,
+			"question": "Si soy extranjero sin papeles, ¿tengo derecho a la sanidad pública?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-1986-10499", "BOE-A-2000-544"],
+			"rationale": "Ley General de Sanidad arts. 1 y 3 (universalidad) y LOEX art. 12 (derecho a la asistencia sanitaria de los extranjeros)."
+		},
+		{
+			"id": 135,
+			"question": "Si pego a mi perro en la calle, ¿qué multa me ponen y quién la cobra?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-2023-7936", "BOE-A-2015-11722"],
+			"rationale": "Ley 7/2023 arts. 74-77 (sanciones por maltrato animal); el régimen sancionador animal es estatal pero la ejecución es autonómica/local. La pregunta cruza materias de protección animal y, si el episodio incluye vehículo, tráfico."
+		}
+	]
+}
