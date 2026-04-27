@@ -522,16 +522,7 @@ export class DbService {
 	}
 
 	/** Filter a large ID array through norms table in chunks to avoid SQLite variable limits. */
-	private filterIdsByChunks(
-		ids: string[],
-		filters: {
-			country?: string;
-			rank?: string;
-			status?: string;
-			materia?: string;
-			citizen_tag?: string;
-		},
-	): string[] {
+	private filterIdsByChunks(ids: string[], filters: SearchFilters): string[] {
 		const CHUNK = 500;
 		const result: string[] = [];
 		for (let i = 0; i < ids.length; i += CHUNK) {

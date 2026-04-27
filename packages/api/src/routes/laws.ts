@@ -103,13 +103,24 @@ export function lawRoutes(
 									"Search is unavailable: hybrid retrieval is not configured. Check OPENROUTER_API_KEY and the vector index.",
 							};
 						}
-						result = await dbService.searchLawsHybrid(
-							query.q as string,
-							filters,
-							limit,
-							offset,
-							hybridSearcher,
-						);
+						try {
+							result = await dbService.searchLawsHybrid(
+								query.q as string,
+								filters,
+								limit,
+								offset,
+								hybridSearcher,
+							);
+						} catch (err) {
+							// Embedding API timeout, rate-limit, or pool busy — surface
+							// as 503 with the underlying message instead of letting
+							// Elysia turn it into a 500 with a stack trace.
+							set.status = 503;
+							return {
+								error: "Search temporarily unavailable",
+								detail: err instanceof Error ? err.message : "Unknown error",
+							};
+						}
 					} else {
 						result = dbService.searchLaws(
 							query.q,

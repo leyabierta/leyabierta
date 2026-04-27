@@ -56,9 +56,9 @@ const RAG_DATA_DIR = process.env.RAG_DATA_DIR ?? "./data";
 const ragPipeline = OPENROUTER_API_KEY
 	? new RagPipeline(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
 	: null;
-// Hybrid search for /v1/laws?mode=hybrid (Issue #40). Opt-in only — default
-// search remains BM25, so this is safe to always enable when the API key is
-// available.
+// Hybrid search for /v1/laws (Issue #40). Default retrieval mode for
+// relevance-ranked free-text queries. If OPENROUTER_API_KEY is missing the
+// route returns 503 — no silent fallback to BM25.
 const hybridSearcher = OPENROUTER_API_KEY
 	? new HybridSearcherImpl(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
 	: null;

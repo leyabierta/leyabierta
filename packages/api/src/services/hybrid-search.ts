@@ -9,7 +9,6 @@
  * Cost mitigations:
  *   - Query embedding LRU cache (`Map<string, Float32Array>`, capped) so the
  *     same query never pays twice.
- *   - Hybrid mode is opt-in via `?mode=hybrid` on /v1/laws. Default stays BM25.
  *   - Vector index loads lazily on first hybrid call.
  *
  * Aggregation: TWO ranked lists are produced from the article-level KNN and

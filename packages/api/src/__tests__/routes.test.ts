@@ -265,6 +265,51 @@ describe("GET /v1/laws", () => {
 		expect(body.total).toBe(1);
 		expect(body.data[0].id).toBe("N1");
 	});
+
+	it("returns 503 when hybrid is required but not configured", async () => {
+		// Spin up an app without a HybridSearcher to exercise the failure path.
+		const localApp = new Elysia().use(
+			lawRoutes(
+				dbService,
+				gitStub,
+				new LruCache<string>(100),
+				citizenSummaryStub,
+				new LruCache<SearchResponse>(100),
+				null,
+			),
+		);
+		const res = await localApp.handle(
+			new Request("http://localhost/v1/laws?q=anything"),
+		);
+		expect(res.status).toBe(503);
+		const body = (await res.json()) as { error: string };
+		expect(body.error).toContain("hybrid retrieval is not configured");
+	});
+
+	it("returns 503 when hybrid throws (embed/pool failure)", async () => {
+		const failing: HybridSearcher = {
+			rankNorms: async () => {
+				throw new Error("OpenRouter timeout");
+			},
+		};
+		const localApp = new Elysia().use(
+			lawRoutes(
+				dbService,
+				gitStub,
+				new LruCache<string>(100),
+				citizenSummaryStub,
+				new LruCache<SearchResponse>(100),
+				failing,
+			),
+		);
+		const res = await localApp.handle(
+			new Request("http://localhost/v1/laws?q=anything"),
+		);
+		expect(res.status).toBe(503);
+		const body = (await res.json()) as { error: string; detail: string };
+		expect(body.error).toBe("Search temporarily unavailable");
+		expect(body.detail).toBe("OpenRouter timeout");
+	});
 });
 
 // ---------------------------------------------------------------------------
