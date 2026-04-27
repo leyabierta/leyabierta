@@ -43,11 +43,11 @@ import {
 } from "./synthesis.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
 
+export { normalizePeriodicTitle } from "./analyzer.ts";
 // Re-exports kept for backwards compatibility with existing tests + external
 // imports. Tests import { articleTypePenalty, normalizePeriodicTitle } from
 // this module; keep that surface stable.
 export { articleTypePenalty } from "./retrieval.ts";
-export { normalizePeriodicTitle } from "./analyzer.ts";
 export type { Citation } from "./synthesis.ts";
 
 // Suppress unused-import warning: bm25HybridSearch is imported only so the

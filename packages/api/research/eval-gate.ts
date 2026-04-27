@@ -197,7 +197,9 @@ async function main() {
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			const stack = err instanceof Error ? err.stack : "";
-			console.error(`\nQ${q.id} failed: ${msg}\n${stack?.split("\n").slice(0, 4).join("\n") ?? ""}`);
+			console.error(
+				`\nQ${q.id} failed: ${msg}\n${stack?.split("\n").slice(0, 4).join("\n") ?? ""}`,
+			);
 		}
 	}
 	process.stdout.write("\n");
