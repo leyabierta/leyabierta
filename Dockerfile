@@ -17,7 +17,10 @@ WORKDIR /app
 # Git is needed by GitService for diff operations.
 # adduser provides the addgroup/adduser commands used in the non-root step
 # below; with --no-install-recommends it isn't pulled transitively.
-RUN apt-get update && apt-get install -y --no-install-recommends git adduser \
+# ca-certificates is needed for `git push` over HTTPS in the daily pipeline
+# (Step 1.5 of daily-pipeline.sh) — without it git fails with "Problem with
+# the SSL CA cert".
+RUN apt-get update && apt-get install -y --no-install-recommends git adduser ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace config + package files for dependency install
