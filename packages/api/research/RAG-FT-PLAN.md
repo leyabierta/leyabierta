@@ -226,6 +226,9 @@ Reserved for when an expert (Benjamín or similar) has validated ≥10K examples
 | 2026-04-27 | Generate datasets via Claude Code, not paid APIs | Zero incremental cost on top of subscription |
 | 2026-04-27 | Train MLX, serve vLLM | Avoid MLX→GGUF buggy export path for Qwen/Gemma |
 | 2026-04-27 | Prompt v2 over v1 for query generation | A/B on same 50-article pilot: procedural register 9% (v1) → 29% (v2). Other metrics held: 0 article-number leaks both runs, P50 word count 9→11, skips 4→2, trap rate ~8% both. v2 spec adds explicit procedural self-check rule before emitting. |
+| 2026-04-27 | Prompt v3 over v2 for the scale-up | Validated on a fresh 50-article batch (seed=1337). Hits the 30/40/30 target: informal 44% (plurality, matches expected production mix), procedural 27% (still solid), formal 29%. v3 added (a) two informal sub-flavours (Google-style + natural-Spanish) so the model sees both, and (b) a tail-eyeball-rebalance rule. Pair output → `reranker-v2.jsonl`, 135 pairs, 99.3% with both negative types. v3 is the prompt for the scale-up; v1/v2 stay committed for the audit trail. |
+| 2026-04-27 | Toolchain correction: cross-encoder LoRA via sentence-transformers + PEFT, not mlx-lm | Original plan said "LoRA via mlx-lm" — wrong, mlx-lm is for autoregressive LLMs. sentence-transformers + PEFT on PyTorch's MPS backend is the mature path for cross-encoder LoRA on Apple Silicon. Documented in `packages/api/research/training/README.md`. |
+| 2026-04-27 | Single feature branch (`feat/rag-ft`), no PRs to staging until ship-criteria | RAG-FT is exploratory research. PRs to `staging` reserved for completed, deployable features. All work continues on `feat/rag-ft` until Fase 1c A/B passes ship criteria, then one consolidated PR. |
 
 ## Status log
 
