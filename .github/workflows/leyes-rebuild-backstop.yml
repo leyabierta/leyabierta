@@ -23,8 +23,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: write   # to dispatch deploy.yml
+  contents: read   # GITHUB_TOKEN only used to read leyes (public repo)
+                   # Dispatch uses LEYABIERTA_DISPATCH_TOKEN (PAT), not GITHUB_TOKEN
 
 concurrency:
   group: leyes-backstop
@@ -57,7 +57,12 @@ jobs:
       - name: Compare and dispatch if drifted
         id: decide
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # IMPORTANT: dispatch must use a PAT, NOT GITHUB_TOKEN. GitHub
+          # explicitly suppresses workflow-triggering events fired by the
+          # default GITHUB_TOKEN to prevent accidental loops — the dispatch
+          # API call returns 204 (success) but deploy.yml never runs. Use
+          # the same PAT that notify-leyabierta.yml uses on the leyes side.
+          GH_TOKEN: ${{ secrets.LEYABIERTA_DISPATCH_TOKEN }}
           REMOTE_SHA: ${{ steps.remote.outputs.sha }}
         run: |
           set -euo pipefail
