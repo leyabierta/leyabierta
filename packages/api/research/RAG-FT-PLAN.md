@@ -107,6 +107,69 @@ Goal: replace Cohere rerank-4-pro with a self-hosted cross-encoder. Highest evid
 
 **Budget**: ~$0 dataset (Claude Code), ~$1 eval runs.
 
+### Fase 1a — Dataset implementation spec
+
+**Schema** (`packages/api/research/datasets/reranker-v1.jsonl`, one row per training pair):
+
+```jsonc
+{
+  "id": "rkr-000123",                       // stable ID, batch-sequential
+  "query": "¿Cuántos días de permiso por nacimiento tengo?",
+  "positive": {
+    "norm_id": "BOE-A-2015-11430",
+    "block_id": "a48",
+    "block_type": "precepto",
+    "title": "Artículo 48. Permisos retribuidos.",
+    "text": "...",                           // article body at ingest time
+    "rank": "ley",
+    "jurisdiction": "es",
+    "materias": ["Empleo y Trabajo"]
+  },
+  "hard_negatives": [
+    {
+      "norm_id": "...", "block_id": "...", "text": "...",
+      "source": "semantic-topk"               // top-K of current pipeline minus gold
+    },
+    {
+      "norm_id": "...", "block_id": "...", "text": "...",
+      "source": "materia-sibling"             // same materia, different norm
+    }
+  ],
+  "meta": {
+    "generation": "synthetic-claude",         // synthetic-claude | real-user
+    "generator_pass": "v1",
+    "created_at": "2026-04-27"
+  }
+}
+```
+
+**Generation strategy: article-first.** We sample preceptos from the DB and ask Claude Code to generate plausible citizen queries that the article answers — not the reverse. This avoids the failure mode where queries are written first and then forced onto a marginal article.
+
+**Sampling (deterministic, seeded):**
+- Source: `blocks` table where `block_type = 'precepto'` and norm `status = 'vigente'`, joined on `norms`.
+- Strata: by jurisdiction (state vs CCAA, weighted ~70/30 to mirror real query mix), then by rank (ley/lo > rd > orden, weighted by importance), then by materia (oversample underrepresented to fight long tail).
+- Filters out: empty `current_text`, length < 80 chars (too short to ground a query), disposiciones derogatorias (`dd*`).
+- Pilot N=50 first, eyeball, then scale to 5K.
+
+**Query generation (Claude Code subagents, sharded by jurisdiction):**
+Each subagent receives a batch of articles and produces 1-3 queries per article in mixed registers (formal "¿Cuál es el plazo de prescripción de delitos contra la Hacienda Pública?", informal "¿cuánto tarda hacienda en reclamar?", procedural "¿dónde puedo presentar el modelo 100?"). A small fraction (~10%) generate "trap" queries that *look* answerable by the article but actually require a different one — these become positives for that other article during cross-pollination, and get filtered if no match exists.
+
+**Hard negative mining (two sources per pair):**
+1. **Semantic top-K minus gold**: run the article's gold query through the current pipeline (vector + BM25 + RRF, no reranker), take top 20, drop the gold and its same-norm siblings, sample 1-2 from positions 5-15 (close enough to be confusable, far enough to be wrong).
+2. **Materia sibling**: random precepto from a different norm with overlapping materia. Tests "right topic, wrong article" — the most common production failure mode.
+
+**Quality gates before scaling past pilot:**
+- ≥80% of pilot queries pass human eyeball: "would a citizen actually ask this?".
+- 0% of positives are derogated/transitorias/derogatorias.
+- ≥90% of pairs have both negative types populated.
+- Queries length distribution: P50 ~12 words, P95 < 30 words.
+
+**Output artifacts:**
+- `packages/api/research/datasets/reranker-articles-batch.jsonl` — sampled articles ready for query generation (deterministic input).
+- `packages/api/research/datasets/reranker-queries-batch-N.jsonl` — generated queries per shard (one file per subagent, easy to audit/discard).
+- `packages/api/research/datasets/reranker-v1.jsonl` — assembled final dataset with hard negatives.
+- `packages/api/research/datasets/reranker-v1.meta.json` — generation manifest (seed, counts, distribution, generator versions).
+
 ## Fase 2 — RAFT-style synthesis (deferred until Fase 1 ships)
 
 Goal: fine-tune a small open-weight LLM to cite verbatim, refuse when context lacks the answer, and run self-hosted to eliminate synthesis API cost.
