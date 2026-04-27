@@ -596,10 +596,12 @@ export async function runRetrievalCore(
 		embeddingDims: queryResult.embedding.length,
 	});
 
-	const bm25Start = Date.now();
-	const vectorStart = Date.now();
+	const parallelStart = Date.now();
 	const bm25BreakT = performance.now();
 
+	// Capture per-leg durations by closing each span when its own leg resolves,
+	// not after Promise.all. Without this, both spans would report the same wall
+	// time (the slower leg), defeating the per-leg observability.
 	const [bm25Result, vectorResultsRaw] = await Promise.all([
 		dispatchBm25Stages({
 			db,
@@ -607,8 +609,20 @@ export async function runRetrievalCore(
 			analyzed,
 			embeddingNormIds: embeddedNormIds,
 			vectors: vectorIndex?.vectors ?? null,
+		}).then((r) => {
+			bm25Span?.end(
+				{
+					mainHits: r.main.length,
+					synonymHits: r.synonym.length,
+					namedLawHits: r.namedLaw.length,
+					coreLawHits: r.coreLaw.length,
+					recentHits: r.recent.length,
+				},
+				{ durationMs: Date.now() - parallelStart },
+			);
+			return r;
 		}),
-		vectorIndex
+		(vectorIndex
 			? vectorSearchPooled(
 					queryResult.embedding,
 					vectorIndex.meta,
@@ -616,7 +630,15 @@ export async function runRetrievalCore(
 					vectorIndex.dims,
 					RERANK_POOL_SIZE,
 				)
-			: Promise.resolve([]),
+			: Promise.resolve([])
+		).then((r) => {
+			const filtered = r.filter((x) => x.score >= MIN_SIMILARITY);
+			vectorSpan?.end(
+				{ hits: filtered.length, topScore: filtered[0]?.score ?? 0 },
+				{ durationMs: Date.now() - parallelStart },
+			);
+			return r;
+		}),
 	]);
 
 	const vectorResults = vectorResultsRaw.filter(
@@ -639,21 +661,6 @@ export async function runRetrievalCore(
 		)
 			.map(([k, v]) => `${k}=${v.toFixed(0)}ms`)
 			.join(" ")}`,
-	);
-
-	bm25Span?.end(
-		{
-			mainHits: bm25Ranked.length,
-			synonymHits: synonymBm25Ranked.length,
-			namedLawHits: namedLawRanked.length,
-			coreLawHits: coreLawRanked.length,
-			recentHits: recentBm25Ranked.length,
-		},
-		{ durationMs: Date.now() - bm25Start },
-	);
-	vectorSpan?.end(
-		{ hits: vectorResults.length, topScore: vectorResults[0]?.score ?? 0 },
-		{ durationMs: Date.now() - vectorStart },
 	);
 
 	// 3. Collection density signal.

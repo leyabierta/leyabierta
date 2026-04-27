@@ -156,9 +156,9 @@ export function buildStructuredEvidence(
 	let approxTokens = 0;
 	let isFirstArticle = true;
 
-	for (let tier = 0; tier < 4; tier++) {
+	tierLoop: for (let tier = 0; tier < 4; tier++) {
 		for (const article of tiers[tier]!) {
-			if (approxTokens >= MAX_EVIDENCE_TOKENS) break;
+			if (approxTokens >= MAX_EVIDENCE_TOKENS) break tierLoop;
 
 			const scope = describeNormScope(
 				article.rank,
@@ -184,7 +184,7 @@ export function buildStructuredEvidence(
 
 			const chunk = `${header}\n${numbersToDigits(article.text)}\n\n`;
 			const chunkTokens = Math.ceil(chunk.length / 4);
-			if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break;
+			if (approxTokens + chunkTokens > MAX_EVIDENCE_TOKENS) break tierLoop;
 			evidenceText += chunk;
 			approxTokens += chunkTokens;
 		}

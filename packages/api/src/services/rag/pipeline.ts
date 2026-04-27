@@ -327,9 +327,9 @@ export class RagPipeline {
 		}
 
 		// Citation completeness signal (inline norm+article vs bare article ref).
-		const inlineCitePattern =
-			/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+[^\]]*)\]/g;
-		const inlineCites = [...finalAnswer.matchAll(inlineCitePattern)];
+		// Reuse the exported INLINE_CITE_PATTERN so completeness scoring and
+		// streaming-citation extraction can't silently diverge.
+		const inlineCites = [...finalAnswer.matchAll(INLINE_CITE_PATTERN)];
 		const bareArticlePattern =
 			/(?<!\[[A-Z]{2,5}-[A-Za-z]-\d{4}-\d+,\s*)(?:artículo|art\.)\s+\d+/gi;
 		const bareCites = [...finalAnswer.matchAll(bareArticlePattern)];

@@ -353,7 +353,10 @@ export function resolveNormsByName(
 	const likeClauses = words.map(() => "LOWER(title) LIKE ?").join(" AND ");
 	const likeParams = words.map((w) => `%${w}%`);
 
-	const sql = `SELECT id FROM norms WHERE ${likeClauses}`;
+	// Scope to embedded norms inline so the LIKE scan never has to materialize
+	// the full norms table for short hint words. The post-query Set filter is
+	// kept as a safety net in case the embeddings table is empty.
+	const sql = `SELECT id FROM norms WHERE ${likeClauses} AND id IN (SELECT DISTINCT norm_id FROM embeddings) LIMIT 200`;
 	const rows = db.query<{ id: string }, string[]>(sql).all(...likeParams);
 
 	const embeddingSet = new Set(embeddingNormIds);
