@@ -18,6 +18,7 @@ import {
 	type RankedCandidate,
 	type SampledArticle,
 	seededShuffle,
+	shardPrefixFromBatchPath,
 	splitArticlesByShard,
 } from "../../research/build-reranker-dataset.ts";
 
@@ -435,5 +436,23 @@ describe("splitArticlesByShard", () => {
 		const { state, ccaa } = splitArticlesByShard([]);
 		expect(state).toEqual([]);
 		expect(ccaa).toEqual([]);
+	});
+});
+
+describe("shardPrefixFromBatchPath", () => {
+	test("strips directory and .jsonl extension", () => {
+		expect(shardPrefixFromBatchPath("foo.jsonl")).toBe("foo");
+		expect(shardPrefixFromBatchPath("/abs/path/bar.jsonl")).toBe("bar");
+		expect(shardPrefixFromBatchPath("dir/baz-v3.jsonl")).toBe("baz-v3");
+	});
+
+	test("preserves filename when no extension", () => {
+		expect(shardPrefixFromBatchPath("nodot")).toBe("nodot");
+	});
+
+	test("two different batch paths produce different prefixes", () => {
+		expect(shardPrefixFromBatchPath("reranker-articles-batch.jsonl")).not.toBe(
+			shardPrefixFromBatchPath("reranker-articles-batch-v3.jsonl"),
+		);
 	});
 });

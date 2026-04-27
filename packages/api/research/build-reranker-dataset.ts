@@ -247,6 +247,20 @@ function hashString(s: string): number {
 }
 
 /**
+ * Derive the shard-file prefix from the merged-batch path. Strips the
+ * directory and the `.jsonl` extension so two sample runs with different
+ * --out paths produce disjoint shard files.
+ *
+ *   reranker-articles-batch.jsonl       → reranker-articles-batch
+ *   reranker-articles-batch-v3.jsonl    → reranker-articles-batch-v3
+ *   /abs/path/foo.jsonl                  → foo
+ */
+export function shardPrefixFromBatchPath(batchPath: string): string {
+	const base = batchPath.split("/").pop() ?? batchPath;
+	return base.replace(/\.jsonl$/, "");
+}
+
+/**
  * Serialise a list of articles to JSONL (one row per article, trailing
  * newline). Pulled out of the sample command so we can emit the merged
  * batch and the per-jurisdiction shards through the same code path.
@@ -597,17 +611,19 @@ function sampleCommand(args: SampleArgs): void {
 		writeFileSync(args.outPath, articlesToJsonl(all), "utf8");
 		// Also emit per-jurisdiction shards next to the merged batch so the
 		// downstream query-generation step can hand one shard per subagent
-		// without an ad-hoc split.
+		// without an ad-hoc split. Shard names derive from the merged batch
+		// basename so that two sample runs with different --out paths don't
+		// silently overwrite each other's shards.
 		const shards = splitArticlesByShard(all);
 		const dir = dirname(args.outPath);
-		const baseName = "reranker-articles-shard";
+		const baseName = shardPrefixFromBatchPath(args.outPath);
 		writeFileSync(
-			`${dir}/${baseName}-state.jsonl`,
+			`${dir}/${baseName}-shard-state.jsonl`,
 			articlesToJsonl(shards.state),
 			"utf8",
 		);
 		writeFileSync(
-			`${dir}/${baseName}-ccaa.jsonl`,
+			`${dir}/${baseName}-shard-ccaa.jsonl`,
 			articlesToJsonl(shards.ccaa),
 			"utf8",
 		);
