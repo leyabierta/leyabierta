@@ -13,8 +13,6 @@ import {
 
 type SqlParams = SQLQueryBindings[];
 
-export type SearchMode = "bm25" | "hybrid";
-
 export interface SearchFilters {
 	country?: string;
 	jurisdiction?: string;
@@ -412,13 +410,17 @@ export class DbService {
 		//    enough candidates to pick from).
 		const bm25Ids = this.bm25RankedNormIds(trimmed, 500);
 
-		// 2. Hybrid fusion (BM25 ranks + vector ranks).
+		// 2. Hybrid fusion (BM25 ranks + vector ranks). `normTopK` caps the
+		//    fused list — track it so we can signal `capped` to the caller,
+		//    matching the BM25 path's contract.
+		const NORM_TOP_K = 500;
 		const { fused } = await hybridSearcher.rankNorms(trimmed, bm25Ids, {
 			articleTopK: 200,
-			normTopK: 500,
+			normTopK: NORM_TOP_K,
 		});
 
 		if (fused.length === 0) return { laws: [], total: 0 };
+		const capped = fused.length >= NORM_TOP_K;
 
 		// 3. Apply filters across the fused IDs.
 		const hasFilters =
@@ -436,7 +438,9 @@ export class DbService {
 
 		const total = filteredIds.length;
 		const pageIds = filteredIds.slice(offset, offset + limit);
-		if (pageIds.length === 0) return { laws: [], total };
+		if (pageIds.length === 0) {
+			return capped ? { laws: [], total, capped: true } : { laws: [], total };
+		}
 
 		const placeholders = pageIds.map(() => "?").join(",");
 		const rows = this.db
@@ -449,7 +453,7 @@ export class DbService {
 			.map((id) => rowMap.get(id))
 			.filter((r): r is LawRow => r != null);
 
-		return { laws, total };
+		return capped ? { laws, total, capped: true } : { laws, total };
 	}
 
 	/**
