@@ -10,6 +10,10 @@ on:
         required: false
         default: "all"
         type: string
+  # Fired by leyabierta/leyes on push to main (notify-leyabierta.yml)
+  # so the static site rebuilds whenever new laws are published.
+  repository_dispatch:
+    types: [leyes-updated]
 
 permissions:
   contents: read
@@ -39,7 +43,10 @@ jobs:
         id: api
         run: |
           TARGETS="${{ github.event.inputs.targets || '' }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # leyes-updated only changes content, never API code
+            echo "deploy=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ] || echo "$TARGETS" | grep -q "api"; then
               echo "deploy=true" >> $GITHUB_OUTPUT
             else
@@ -62,7 +69,11 @@ jobs:
         id: web
         run: |
           TARGETS="${{ github.event.inputs.targets || '' }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # leyes-updated → always rebuild web to pick up new laws
+            echo "Web rebuild triggered by leyes update"
+            echo "deploy=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ] || echo "$TARGETS" | grep -q "web"; then
               echo "deploy=true" >> $GITHUB_OUTPUT
             else
