@@ -1,0 +1,93 @@
+name: Leyes rebuild backstop
+
+# Safety net for the leyes → web pipeline.
+#
+# Primary path: when `leyabierta/leyes` is pushed, its `notify-leyabierta.yml`
+# workflow fires a `repository_dispatch` event that triggers `deploy.yml` to
+# rebuild the web. That covers the happy path with ~1-2 min latency.
+#
+# This workflow is the backstop in case the dispatch is dropped (GitHub Actions
+# degradation, expired PAT, workflow disabled, etc.). Every 30 minutes it:
+#   1. Reads the current HEAD SHA of `leyabierta/leyes` main.
+#   2. Compares it to the last-built SHA stored in actions/cache.
+#   3. If different → fires `repository_dispatch` to deploy.yml (same code path
+#      as the primary trigger) and refreshes the cache with the new SHA.
+#
+# Cache-based storage chosen because the default GITHUB_TOKEN cannot mutate
+# repo variables. Cache entries idle-evict after 7 days; we run every 30 min
+# so the entry stays warm indefinitely.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # to dispatch deploy.yml
+
+concurrency:
+  group: leyes-backstop
+  cancel-in-progress: false
+
+jobs:
+  check-and-trigger:
+    name: Check leyes SHA and trigger rebuild if drifted
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch remote leyes HEAD
+        id: remote
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHA=$(gh api repos/leyabierta/leyes/commits/main --jq '.sha')
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Remote leyes HEAD: $SHA"
+
+      - name: Restore last built SHA
+        id: cache-restore
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .last-leyes-sha
+          key: last-leyes-sha-${{ steps.remote.outputs.sha }}
+          restore-keys: |
+            last-leyes-sha-
+
+      - name: Compare and dispatch if drifted
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REMOTE_SHA: ${{ steps.remote.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          LAST_SHA=""
+          if [ -f .last-leyes-sha ]; then
+            LAST_SHA=$(cat .last-leyes-sha)
+          fi
+          echo "Last built SHA: ${LAST_SHA:-<none>}"
+
+          if [ "$REMOTE_SHA" = "$LAST_SHA" ]; then
+            echo "✓ in sync — no rebuild needed"
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "⚠ drift detected — firing repository_dispatch"
+          gh api -X POST "repos/${{ github.repository }}/dispatches" \
+            -f event_type=leyes-updated \
+            -f "client_payload[source]=backstop" \
+            -f "client_payload[remote_sha]=$REMOTE_SHA" \
+            -f "client_payload[previous_sha]=${LAST_SHA:-none}"
+
+          echo "$REMOTE_SHA" > .last-leyes-sha
+          echo "drifted=true" >> "$GITHUB_OUTPUT"
+          echo "✓ dispatch sent"
+
+      - name: Save updated SHA
+        if: steps.decide.outputs.drifted == 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .last-leyes-sha
+          key: last-leyes-sha-${{ steps.remote.outputs.sha }}
