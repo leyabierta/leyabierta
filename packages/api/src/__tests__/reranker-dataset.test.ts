@@ -12,6 +12,9 @@ import {
 	classifyArticle,
 	mulberry32,
 	pickFromPool,
+	pickMateriaSibling,
+	pickSemanticNegatives,
+	type RankedCandidate,
 	type SampledArticle,
 	seededShuffle,
 } from "../../research/build-reranker-dataset.ts";
@@ -254,5 +257,104 @@ describe("pickFromPool", () => {
 	test("returns empty for count 0 or empty pool", () => {
 		expect(pickFromPool([], 10, { ley: 1 }, 1)).toEqual([]);
 		expect(pickFromPool([art("A", "a1", "ley")], 0, { ley: 1 }, 1)).toEqual([]);
+	});
+});
+
+describe("pickSemanticNegatives", () => {
+	function rk(norm: string, block: string): RankedCandidate {
+		return { norm_id: norm, block_id: block };
+	}
+
+	test("drops same-norm siblings before windowing", () => {
+		const ranked = [
+			rk("GOLD", "a1"),
+			rk("GOLD", "a2"),
+			rk("OTHER1", "a1"),
+			rk("OTHER2", "a1"),
+			rk("OTHER3", "a1"),
+			rk("OTHER4", "a1"),
+			rk("OTHER5", "a1"),
+			rk("OTHER6", "a1"),
+		];
+		// Range 0-2 against the FILTERED list (after removing GOLD).
+		const picked = pickSemanticNegatives(ranked, "GOLD", 3, 0, 2, 7);
+		expect(picked.length).toBe(3);
+		for (const p of picked) expect(p.norm_id).not.toBe("GOLD");
+		// All picks must come from the first 3 OTHER items.
+		const allowed = new Set(["OTHER1", "OTHER2", "OTHER3"]);
+		for (const p of picked) expect(allowed.has(p.norm_id)).toBe(true);
+	});
+
+	test("range outside filtered list falls back to whole pool", () => {
+		const ranked = [rk("GOLD", "a1"), rk("OTHER1", "a1"), rk("OTHER2", "a1")];
+		const picked = pickSemanticNegatives(ranked, "GOLD", 1, 50, 60, 1);
+		expect(picked.length).toBe(1);
+		expect(["OTHER1", "OTHER2"]).toContain(picked[0].norm_id);
+	});
+
+	test("returns empty when no non-gold candidates exist", () => {
+		const ranked = [rk("GOLD", "a1"), rk("GOLD", "a2")];
+		expect(pickSemanticNegatives(ranked, "GOLD", 2, 0, 5, 1)).toEqual([]);
+	});
+
+	test("count of 0 returns empty", () => {
+		const ranked = [rk("OTHER", "a1")];
+		expect(pickSemanticNegatives(ranked, "GOLD", 0, 0, 5, 1)).toEqual([]);
+	});
+
+	test("is deterministic for the same seed", () => {
+		const ranked = [
+			rk("OTHER1", "a1"),
+			rk("OTHER2", "a1"),
+			rk("OTHER3", "a1"),
+			rk("OTHER4", "a1"),
+			rk("OTHER5", "a1"),
+		];
+		const a = pickSemanticNegatives(ranked, "GOLD", 2, 0, 4, 99);
+		const b = pickSemanticNegatives(ranked, "GOLD", 2, 0, 4, 99);
+		expect(a).toEqual(b);
+	});
+
+	test("clamps count to window size", () => {
+		const ranked = [rk("OTHER1", "a1"), rk("OTHER2", "a1")];
+		const picked = pickSemanticNegatives(ranked, "GOLD", 10, 0, 5, 1);
+		expect(picked.length).toBe(2);
+	});
+});
+
+describe("pickMateriaSibling", () => {
+	const cand = (n: string) => ({
+		norm_id: n,
+		block_id: "a1",
+		text: "x".repeat(120),
+	});
+
+	test("picks a non-gold candidate", () => {
+		const pool = [cand("GOLD"), cand("OTHER1"), cand("OTHER2")];
+		const picked = pickMateriaSibling(pool, "GOLD", 1);
+		expect(picked).not.toBeNull();
+		expect(picked?.norm_id).not.toBe("GOLD");
+	});
+
+	test("returns null when only gold exists", () => {
+		expect(
+			pickMateriaSibling([cand("GOLD"), cand("GOLD")], "GOLD", 1),
+		).toBeNull();
+	});
+
+	test("returns null for empty pool", () => {
+		expect(pickMateriaSibling([], "GOLD", 1)).toBeNull();
+	});
+
+	test("is deterministic for the same seed", () => {
+		const pool = [
+			cand("OTHER1"),
+			cand("OTHER2"),
+			cand("OTHER3"),
+			cand("OTHER4"),
+		];
+		expect(pickMateriaSibling(pool, "GOLD", 5)).toEqual(
+			pickMateriaSibling(pool, "GOLD", 5),
+		);
 	});
 });

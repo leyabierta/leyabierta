@@ -160,7 +160,7 @@ Each subagent receives a batch of articles and produces 1-3 queries per article 
 
 **Quality gates before scaling past pilot:**
 - ≥80% of pilot queries pass human eyeball: "would a citizen actually ask this?".
-- 0% of positives are derogated/transitorias/derogatorias.
+- 0% of positives are derogatorias (`dd*`) — sampler enforces this. Disposiciones transitorias/adicionales/finales (`dt*`/`da*`/`df*`) are allowed as positives when their text is substantive, since citizens often ask about them (e.g. IRPF transitoria de vivienda habitual). The retrieval-time article-type penalty is a separate concern.
 - ≥90% of pairs have both negative types populated.
 - Queries length distribution: P50 ~12 words, P95 < 30 words.
 
