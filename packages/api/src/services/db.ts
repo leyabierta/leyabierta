@@ -105,10 +105,15 @@ export class DbService {
 					// Cap each FTS pass at 5000 ids — paginated UI never needs more
 					// and ORDER BY bm25 LIMIT k lets FTS5 short-circuit on top-k.
 					const FTS_PAGE_CAP = 5000;
+					// One row per norm_id in norms_fts (norm_id is UNINDEXED and
+					// each document is inserted exactly once at ingest), so DISTINCT
+					// is a no-op that prevents FTS5's top-k early termination.
+					// Removing it lets the planner stop scanning postings once it
+					// has the LIMIT-ranked rows.
 					const runTitleMatch = (matchExpr: string): string[] =>
 						this.db
 							.query<{ norm_id: string }, [string]>(
-								`SELECT DISTINCT norm_id FROM norms_fts
+								`SELECT norm_id FROM norms_fts
 								 WHERE norms_fts MATCH ?
 								 ORDER BY bm25(norms_fts, 0, 10.0, 1.0, 15.0, 12.0)
 								 LIMIT ${FTS_PAGE_CAP}`,
@@ -129,7 +134,7 @@ export class DbService {
 						const runContentMatch = (matchExpr: string): string[] =>
 							this.db
 								.query<{ norm_id: string }, [string]>(
-									`SELECT DISTINCT norm_id FROM norms_fts
+									`SELECT norm_id FROM norms_fts
 									 WHERE norms_fts MATCH ?
 									 ORDER BY bm25(norms_fts)
 									 LIMIT ${FTS_PAGE_CAP}`,
@@ -150,6 +155,7 @@ export class DbService {
 					// then fetch sorted page from norms table
 					const hasFilters2 =
 						filters.country ||
+						filters.jurisdiction ||
 						filters.rank ||
 						filters.status ||
 						filters.materia ||
@@ -205,10 +211,12 @@ export class DbService {
 				// (with high-DF tokens pruned via fts5vocab) if AND yields too
 				// few results. No hardcoded stop-word list.
 				const exactSet = new Set(exactIds);
+				// DISTINCT removed — norm_id is unique per row in norms_fts, so it
+				// was a no-op blocking FTS5 top-k early termination.
 				const runTitleMatch = (matchExpr: string): string[] =>
 					this.db
 						.query<{ norm_id: string }, [string]>(
-							`SELECT DISTINCT norm_id FROM norms_fts
+							`SELECT norm_id FROM norms_fts
 							 WHERE norms_fts MATCH ?
 							 ORDER BY bm25(norms_fts, 0, 10.0, 1.0, 15.0, 12.0)
 							 LIMIT ${FTS_CAP}`,
@@ -231,7 +239,7 @@ export class DbService {
 					const runContentMatch = (matchExpr: string): string[] =>
 						this.db
 							.query<{ norm_id: string }, [string]>(
-								`SELECT DISTINCT norm_id FROM norms_fts
+								`SELECT norm_id FROM norms_fts
 								 WHERE norms_fts MATCH ?
 								 ORDER BY bm25(norms_fts)
 								 LIMIT ${FTS_CAP}`,

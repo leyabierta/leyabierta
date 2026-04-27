@@ -44,12 +44,21 @@ const OR_DOCFREQ_PRUNE_RATIO = 0.3;
  */
 const AND_FALLBACK_THRESHOLD = 20;
 
-const docfreqCache = new Map<string, number>();
-let totalDocsCache: number | null = null;
+/**
+ * Soft TTL for the docfreq cache. The daily ingest job adds new norms but runs
+ * in a separate process, so the API can't be told to flush. A 15-minute TTL
+ * caps staleness at the cost of one extra vocab lookup per term every 15 min
+ * (each lookup is sub-millisecond and the working set is small). Container
+ * restarts (Watchtower, deploys) also reset everything implicitly.
+ */
+const DOCFREQ_CACHE_TTL_MS = 15 * 60 * 1000;
+
+const docfreqCache = new Map<string, { value: number; expiresAt: number }>();
+let totalDocsCache: { value: number; expiresAt: number } | null = null;
 
 /**
- * Drop the cached docfreq entries — call after the FTS index is rebuilt
- * (ingest, schema migration). Cheap.
+ * Drop the cached docfreq entries — call manually if you know the FTS index
+ * was just rebuilt in-process (eg. inside a long-running script).
  */
 export function resetNormsFtsCaches(): void {
 	docfreqCache.clear();
@@ -70,21 +79,27 @@ export function ensureNormsFtsVocab(db: Database): void {
 }
 
 function getTotalDocs(db: Database): number {
-	if (totalDocsCache !== null) return totalDocsCache;
+	const now = Date.now();
+	if (totalDocsCache !== null && totalDocsCache.expiresAt > now) {
+		return totalDocsCache.value;
+	}
 	try {
 		const row = db
 			.query<{ cnt: number }, []>("SELECT count(*) as cnt FROM norms_fts")
 			.get();
-		totalDocsCache = row?.cnt ?? 0;
+		const value = row?.cnt ?? 0;
+		totalDocsCache = { value, expiresAt: now + DOCFREQ_CACHE_TTL_MS };
+		return value;
 	} catch {
-		totalDocsCache = 0;
+		totalDocsCache = { value: 0, expiresAt: now + DOCFREQ_CACHE_TTL_MS };
+		return 0;
 	}
-	return totalDocsCache;
 }
 
 function getDocfreq(db: Database, quotedToken: string): number {
+	const now = Date.now();
 	const cached = docfreqCache.get(quotedToken);
-	if (cached !== undefined) return cached;
+	if (cached !== undefined && cached.expiresAt > now) return cached.value;
 	const term = quotedToken.replace(/^"|"$/g, "").toLowerCase();
 	try {
 		const row = db
@@ -92,9 +107,12 @@ function getDocfreq(db: Database, quotedToken: string): number {
 				"SELECT doc FROM norms_fts_vocab WHERE term = ?",
 			)
 			.get(term);
-		const docs = row?.doc ?? 0;
-		docfreqCache.set(quotedToken, docs);
-		return docs;
+		const value = row?.doc ?? 0;
+		docfreqCache.set(quotedToken, {
+			value,
+			expiresAt: now + DOCFREQ_CACHE_TTL_MS,
+		});
+		return value;
 	} catch {
 		// vocab table not built yet — treat as unknown (don't prune)
 		return 0;
@@ -177,8 +195,10 @@ export function adaptiveSearch(
 	const andResults = runMatch(matchExprBuilder(tokens, "AND"));
 	if (andResults.length >= AND_FALLBACK_THRESHOLD) return andResults;
 
+	// pruneCommonTokens never returns an empty list — it falls back to the
+	// original tokens when pruning would zero out the query (recall trumps
+	// speed in that edge case).
 	const orPruned = pruneCommonTokens(db, tokens);
-	if (orPruned.length === 0) return andResults;
 	return runMatch(matchExprBuilder(orPruned, "OR"));
 }
 
@@ -189,5 +209,8 @@ export function _internalCacheState(): {
 	totalDocs: number | null;
 	size: number;
 } {
-	return { totalDocs: totalDocsCache, size: docfreqCache.size };
+	return {
+		totalDocs: totalDocsCache?.value ?? null,
+		size: docfreqCache.size,
+	};
 }

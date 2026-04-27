@@ -9,9 +9,10 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
-import { lawRoutes } from "../routes/laws.ts";
+import { lawRoutes, type SearchResponse } from "../routes/laws.ts";
 import { omnibusRoutes } from "../routes/omnibus.ts";
 import { LruCache } from "../services/cache.ts";
+import type { CitizenSummaryService } from "../services/citizen-summary.ts";
 import { DbService } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
 
@@ -28,25 +29,24 @@ const gitStub: GitService = {
 	log: async () => [],
 } as unknown as GitService;
 
+// Minimal CitizenSummaryService stub. The /laws/:id/summaries endpoint fires
+// a background generate-and-cache call we don't want to trigger in tests.
+// Returning undefined synchronously keeps the fire-and-forget path quiet.
+const citizenSummaryStub: CitizenSummaryService = {
+	getOrGenerate: async () => null,
+} as unknown as CitizenSummaryService;
+
 beforeEach(() => {
 	db = new Database(":memory:");
 	createSchema(db);
 	dbService = new DbService(db);
 
 	const diffCache = new LruCache<string>(100);
-	const searchCache = new LruCache<
-		Parameters<typeof lawRoutes>[4] extends LruCache<infer T> ? T : never
-	>(100);
+	const searchCache = new LruCache<SearchResponse>(100);
 
 	app = new Elysia()
 		.use(
-			lawRoutes(
-				dbService,
-				gitStub,
-				diffCache,
-				undefined as unknown as Parameters<typeof lawRoutes>[3],
-				searchCache,
-			),
+			lawRoutes(dbService, gitStub, diffCache, citizenSummaryStub, searchCache),
 		)
 		.use(omnibusRoutes(dbService))
 		.get("/health", () => ({
