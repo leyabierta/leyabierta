@@ -7,8 +7,16 @@ import { type BoeAnalisis, BoeClient } from "@leyabierta/pipeline";
 import { Elysia, t } from "elysia";
 import { LruCache } from "../services/cache.ts";
 import type { CitizenSummaryService } from "../services/citizen-summary.ts";
-import type { DbService } from "../services/db.ts";
+import type { DbService, LawRow } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
+
+export interface SearchResponse {
+	data: LawRow[];
+	total: number;
+	limit: number;
+	offset: number;
+	capped?: true;
+}
 
 const boeClient = new BoeClient();
 
@@ -34,6 +42,7 @@ export function lawRoutes(
 	gitService: GitService,
 	diffCache: LruCache<string>,
 	citizenSummaryService: CitizenSummaryService,
+	searchCache: LruCache<SearchResponse>,
 ) {
 	return (
 		new Elysia({ prefix: "/v1" })
@@ -43,6 +52,26 @@ export function lawRoutes(
 				({ query }) => {
 					const limit = Math.min(query.limit ?? 20, 100);
 					const offset = query.offset ?? 0;
+
+					// In-process LRU. Key is a stable JSON of every input that
+					// changes the result. Bounded TTL (5 min) handles staleness
+					// against the daily ingest cron — Cloudflare's s-maxage gives
+					// us another layer of insulation in front of this.
+					const cacheKey = JSON.stringify({
+						q: query.q ?? "",
+						country: query.country ?? "",
+						jurisdiction: query.jurisdiction ?? "",
+						rank: query.rank ?? "",
+						status: query.status ?? "",
+						materia: query.materia ?? "",
+						citizen_tag: query.citizen_tag ?? "",
+						sort: query.sort ?? "",
+						limit,
+						offset,
+					});
+					const cached = searchCache.get(cacheKey);
+					if (cached !== undefined) return cached;
+
 					const { laws, total, capped } = dbService.searchLaws(
 						query.q,
 						{
@@ -57,13 +86,15 @@ export function lawRoutes(
 						offset,
 						query.sort,
 					);
-					return {
+					const response: SearchResponse = {
 						data: laws,
 						total,
 						limit,
 						offset,
-						...(capped ? { capped: true } : {}),
+						...(capped ? { capped: true as const } : {}),
 					};
+					searchCache.set(cacheKey, response);
+					return response;
 				},
 				{
 					query: t.Object({
