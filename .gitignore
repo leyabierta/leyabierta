@@ -49,3 +49,7 @@ og-images/
 
 # research / experiments
 packages/search-lab/
+
+# generated reranker training artifacts (regenerable from reranker-v1.jsonl)
+packages/api/research/training/triplets.jsonl
+packages/api/research/training/.venv/
