@@ -341,6 +341,35 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      # Without this, Cloudflare's edge serves the previous build for up to 2h
+      # (per the cache rules on leyabierta.es). Purging right after the deploy
+      # makes new content visible immediately. Failures are non-fatal: the deploy
+      # itself succeeded, the cache will refresh naturally within 2h.
+      - name: Purge Cloudflare cache
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          ZONE=$(curl -sf -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            "https://api.cloudflare.com/client/v4/zones?name=leyabierta.es" \
+            | jq -r '.result[0].id')
+          if [ -z "$ZONE" ] || [ "$ZONE" = "null" ]; then
+            echo "::warning::could not resolve zone id for leyabierta.es — skipping purge"
+            exit 0
+          fi
+          echo "Purging zone $ZONE..."
+          RESPONSE=$(curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/zones/$ZONE/purge_cache" \
+            --data '{"purge_everything":true}')
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+          if [ "$SUCCESS" != "true" ]; then
+            echo "::warning::purge API returned success=$SUCCESS"
+            echo "$RESPONSE" | jq .
+            exit 1
+          fi
+          echo "✓ cache purged"
+
       - name: Calculate duration
         if: always()
         id: duration
