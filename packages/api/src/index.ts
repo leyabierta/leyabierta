@@ -12,7 +12,7 @@ import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
 import { alertRoutes } from "./routes/alerts.ts";
 import { askRoutes } from "./routes/ask.ts";
-import { lawRoutes } from "./routes/laws.ts";
+import { lawRoutes, type SearchResponse } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { LruCache } from "./services/cache.ts";
@@ -42,6 +42,11 @@ createSchema(db);
 const dbService = new DbService(db);
 const gitService = new GitService(REPO_PATH);
 const diffCache = new LruCache<string>(5000);
+// In-process search cache. Cloudflare edge handles most of the load via the
+// default Cache-Control headers (s-maxage=3600), but a hot LRU absorbs the
+// "edge cold" thundering-herd window after deploys, ingest, or container
+// restarts. TTL of 5 min bounds staleness against the daily ingest job.
+const searchCache = new LruCache<SearchResponse>(2000, 5 * 60 * 1000);
 const citizenSummaryService = new CitizenSummaryService(db);
 
 // RAG pipeline (optional — only if API key is available)
@@ -200,7 +205,15 @@ app.use(
 );
 
 app
-	.use(lawRoutes(dbService, gitService, diffCache, citizenSummaryService))
+	.use(
+		lawRoutes(
+			dbService,
+			gitService,
+			diffCache,
+			citizenSummaryService,
+			searchCache,
+		),
+	)
 	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))
 	.use(omnibusRoutes(dbService))
