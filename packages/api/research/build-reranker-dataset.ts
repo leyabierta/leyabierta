@@ -533,7 +533,7 @@ function assembleCommand(args: AssembleArgs): void {
 			gold_norms_with_no_materia_sibling: noMateriaSibling,
 		},
 	};
-	writeFileSync(args.metaPath, `${JSON.stringify(meta, null, 2)}\n`, "utf8");
+	writeFileSync(args.metaPath, `${JSON.stringify(meta, null, "\t")}\n`, "utf8");
 
 	console.log(`Wrote ${pairs.length} pairs to ${args.outPath}`);
 	console.log(`Wrote meta to ${args.metaPath}`);

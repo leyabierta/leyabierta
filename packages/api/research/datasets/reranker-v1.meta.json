@@ -1,26 +1,23 @@
 {
-  "generated_at": "2026-04-27T17:37:45.664Z",
-  "seed": 42,
-  "bm25_top_k": 30,
-  "semantic_neg_range": [
-    5,
-    15
-  ],
-  "semantic_neg_count": 2,
-  "input_articles": "/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta/packages/api/research/datasets/reranker-articles-batch.jsonl",
-  "input_queries": [
-    "/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta/packages/api/research/datasets/reranker-queries-v2-state.jsonl",
-    "/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta/packages/api/research/datasets/reranker-queries-v2-ccaa.jsonl"
-  ],
-  "stats": {
-    "total_pairs": 136,
-    "trap_pairs": 10,
-    "skipped_query_rows": 2,
-    "missing_positives": 0,
-    "pairs_with_both_negative_types": 136,
-    "pairs_only_semantic": 0,
-    "pairs_only_materia_sibling": 0,
-    "pairs_with_no_negatives": 0,
-    "gold_norms_with_no_materia_sibling": 0
-  }
+	"generated_at": "2026-04-27T17:37:45.664Z",
+	"seed": 42,
+	"bm25_top_k": 30,
+	"semantic_neg_range": [5, 15],
+	"semantic_neg_count": 2,
+	"input_articles": "/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta/packages/api/research/datasets/reranker-articles-batch.jsonl",
+	"input_queries": [
+		"/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta/packages/api/research/datasets/reranker-queries-v2-state.jsonl",
+		"/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta/packages/api/research/datasets/reranker-queries-v2-ccaa.jsonl"
+	],
+	"stats": {
+		"total_pairs": 136,
+		"trap_pairs": 10,
+		"skipped_query_rows": 2,
+		"missing_positives": 0,
+		"pairs_with_both_negative_types": 136,
+		"pairs_only_semantic": 0,
+		"pairs_only_materia_sibling": 0,
+		"pairs_with_no_negatives": 0,
+		"gold_norms_with_no_materia_sibling": 0
+	}
 }
