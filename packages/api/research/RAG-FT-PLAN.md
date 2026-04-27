@@ -207,6 +207,7 @@ Reserved for when an expert (Benjamín or similar) has validated ≥10K examples
 | 2026-04-27 | Bootstrap dataset from corpus, not users | No production users yet; standard BGE/RAFT technique |
 | 2026-04-27 | Generate datasets via Claude Code, not paid APIs | Zero incremental cost on top of subscription |
 | 2026-04-27 | Train MLX, serve vLLM | Avoid MLX→GGUF buggy export path for Qwen/Gemma |
+| 2026-04-27 | Prompt v2 over v1 for query generation | A/B on same 50-article pilot: procedural register 9% (v1) → 29% (v2). Other metrics held: 0 article-number leaks both runs, P50 word count 9→11, skips 4→2, trap rate ~8% both. v2 spec adds explicit procedural self-check rule before emitting. |
 
 ## Status log
 
