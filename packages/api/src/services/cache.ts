@@ -1,23 +1,35 @@
 /**
  * Simple LRU cache for API responses.
  *
- * In-memory Map with max size eviction.
+ * In-memory Map with max size eviction. Optional TTL — if `ttlMs > 0` is
+ * supplied at construction, expired entries are skipped on read and dropped.
  * Upgrade to Redis when needed.
  */
 
-export class LruCache<V> {
-	private map = new Map<string, V>();
+interface Entry<V> {
+	value: V;
+	expiresAt: number; // epoch ms; Infinity means no expiry
+}
 
-	constructor(private maxSize: number = 500) {}
+export class LruCache<V> {
+	private map = new Map<string, Entry<V>>();
+
+	constructor(
+		private maxSize: number = 500,
+		private ttlMs: number = 0,
+	) {}
 
 	get(key: string): V | undefined {
-		const value = this.map.get(key);
-		if (value !== undefined) {
-			// Move to end (most recently used)
+		const entry = this.map.get(key);
+		if (entry === undefined) return undefined;
+		if (entry.expiresAt <= Date.now()) {
 			this.map.delete(key);
-			this.map.set(key, value);
+			return undefined;
 		}
-		return value;
+		// Move to end (most recently used)
+		this.map.delete(key);
+		this.map.set(key, entry);
+		return entry.value;
 	}
 
 	set(key: string, value: V): void {
@@ -30,7 +42,13 @@ export class LruCache<V> {
 				this.map.delete(firstKey);
 			}
 		}
-		this.map.set(key, value);
+		const expiresAt =
+			this.ttlMs > 0 ? Date.now() + this.ttlMs : Number.POSITIVE_INFINITY;
+		this.map.set(key, { value, expiresAt });
+	}
+
+	clear(): void {
+		this.map.clear();
 	}
 
 	get size(): number {

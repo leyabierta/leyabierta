@@ -4,6 +4,11 @@
 
 import type { Database, SQLQueryBindings } from "bun:sqlite";
 import { BASE_MATERIAS } from "../data/materia-mappings.ts";
+import {
+	adaptiveSearch,
+	ensureNormsFtsVocab,
+	tokenizeQuery,
+} from "./norms-fts-search.ts";
 
 type SqlParams = SQLQueryBindings[];
 
@@ -50,7 +55,9 @@ export interface VersionRow {
 }
 
 export class DbService {
-	constructor(private db: Database) {}
+	constructor(private db: Database) {
+		ensureNormsFtsVocab(db);
+	}
 
 	searchLaws(
 		query: string | undefined,
@@ -77,14 +84,11 @@ export class DbService {
 				return law ? { laws: [law], total: 1 } : { laws: [], total: 0 };
 			}
 
-			// Escape FTS5 query: wrap each token in double quotes to avoid
-			// hyphens and special chars being treated as operators
-			const safeQuery = query
-				.replace(/"/g, "")
-				.split(/\s+/)
-				.filter(Boolean)
-				.map((token) => `"${token}"`)
-				.join(" ");
+			// Tokenize once for adaptive AND→OR. tokens are pre-quoted so hyphens
+			// and special chars don't trip the FTS5 parser. Tokens of length ≤2
+			// are dropped (Spanish particles like "de", "la", "el" — they're noise
+			// for relevance and explode posting-list cost when AND-joined).
+			const tokens = tokenizeQuery(query);
 
 			// Build filter conditions for the JOIN
 			const conditions: string[] = [];
@@ -98,24 +102,46 @@ export class DbService {
 					title: "ORDER BY title ASC",
 				};
 				try {
-					// Two-pass FTS: title matches (fast) + content matches
-					const titleMatchIds = this.db
-						.query<{ norm_id: string }, [string]>(
-							"SELECT DISTINCT norm_id FROM norms_fts WHERE title MATCH ? LIMIT 10000",
-						)
-						.all(safeQuery)
-						.map((r) => r.norm_id);
+					// Cap each FTS pass at 5000 ids — paginated UI never needs more
+					// and ORDER BY bm25 LIMIT k lets FTS5 short-circuit on top-k.
+					const FTS_PAGE_CAP = 5000;
+					const runTitleMatch = (matchExpr: string): string[] =>
+						this.db
+							.query<{ norm_id: string }, [string]>(
+								`SELECT DISTINCT norm_id FROM norms_fts
+								 WHERE norms_fts MATCH ?
+								 ORDER BY bm25(norms_fts, 0, 10.0, 1.0, 15.0, 12.0)
+								 LIMIT ${FTS_PAGE_CAP}`,
+							)
+							.all(matchExpr)
+							.map((r) => r.norm_id);
+
+					const titleMatchIds = adaptiveSearch(this.db, {
+						tokens,
+						matchExprBuilder: (toks, joiner) =>
+							`title:(${toks.join(` ${joiner} `)})`,
+						runMatch: runTitleMatch,
+					});
 
 					let ftsIds = titleMatchIds;
-					if (titleMatchIds.length < 10000) {
+					if (titleMatchIds.length < FTS_PAGE_CAP) {
 						const seen = new Set(titleMatchIds);
-						const contentIds = this.db
-							.query<{ norm_id: string }, [string]>(
-								"SELECT DISTINCT norm_id FROM norms_fts WHERE norms_fts MATCH ? LIMIT 10000",
-							)
-							.all(safeQuery)
-							.map((r) => r.norm_id)
-							.filter((id) => !seen.has(id));
+						const runContentMatch = (matchExpr: string): string[] =>
+							this.db
+								.query<{ norm_id: string }, [string]>(
+									`SELECT DISTINCT norm_id FROM norms_fts
+									 WHERE norms_fts MATCH ?
+									 ORDER BY bm25(norms_fts)
+									 LIMIT ${FTS_PAGE_CAP}`,
+								)
+								.all(matchExpr)
+								.map((r) => r.norm_id)
+								.filter((id) => !seen.has(id));
+						const contentIds = adaptiveSearch(this.db, {
+							tokens,
+							matchExprBuilder: (toks, joiner) => toks.join(` ${joiner} `),
+							runMatch: runContentMatch,
+						});
 						ftsIds = [...titleMatchIds, ...contentIds];
 					}
 					if (ftsIds.length === 0) return { laws: [], total: 0 };
@@ -153,9 +179,14 @@ export class DbService {
 				}
 			}
 
-			// Default: FTS relevance order — three-pass: exact title matches first,
-			// then FTS title matches, then content matches. Cap at 2000.
-			const FTS_CAP = 2000;
+			// Default: FTS relevance order — three-pass:
+			//   Pass 0  exact/prefix title LIKE  (always wins)
+			//   Pass 1  FTS title MATCH with BM25 (adaptive AND→OR)
+			//   Pass 2  FTS content MATCH with BM25 (adaptive AND→OR)
+			// Cap at 500 — paginated UI never reaches the cap and ORDER BY bm25
+			// LIMIT k lets FTS5 short-circuit on top-k instead of scanning the
+			// full intersection.
+			const FTS_CAP = 500;
 			try {
 				// Pass 0: exact/prefix title matches (highest relevance)
 				// These go first regardless of BM25 score
@@ -169,32 +200,50 @@ export class DbService {
 					.all(`${query}%`, `% ${query}%`)
 					.map((r) => r.id);
 
-				// Pass 1: FTS title matches (fast, most relevant)
+				// Pass 1: FTS title matches (fast, most relevant). Adaptive
+				// AND→OR — multi-token queries first try AND, fall back to OR
+				// (with high-DF tokens pruned via fts5vocab) if AND yields too
+				// few results. No hardcoded stop-word list.
 				const exactSet = new Set(exactIds);
-				const titleIds = this.db
-					.query<{ norm_id: string }, [string]>(
-						`SELECT DISTINCT norm_id FROM norms_fts
-						 WHERE title MATCH ?
-						 ORDER BY bm25(norms_fts, 0, 10.0, 1.0, 15.0, 12.0)
-						 LIMIT ${FTS_CAP}`,
-					)
-					.all(safeQuery)
-					.map((r) => r.norm_id)
-					.filter((id) => !exactSet.has(id));
+				const runTitleMatch = (matchExpr: string): string[] =>
+					this.db
+						.query<{ norm_id: string }, [string]>(
+							`SELECT DISTINCT norm_id FROM norms_fts
+							 WHERE norms_fts MATCH ?
+							 ORDER BY bm25(norms_fts, 0, 10.0, 1.0, 15.0, 12.0)
+							 LIMIT ${FTS_CAP}`,
+						)
+						.all(matchExpr)
+						.map((r) => r.norm_id)
+						.filter((id) => !exactSet.has(id));
+				const titleIds = adaptiveSearch(this.db, {
+					tokens,
+					matchExprBuilder: (toks, joiner) =>
+						`title:(${toks.join(` ${joiner} `)})`,
+					runMatch: runTitleMatch,
+				});
 
 				let allIds = [...exactIds, ...titleIds];
 
-				// Pass 2: content matches if we need more results
+				// Pass 2: content matches if we need more results.
 				if (allIds.length < FTS_CAP) {
 					const seen = new Set(allIds);
-					const contentIds = this.db
-						.query<{ norm_id: string }, [string]>(
-							`SELECT DISTINCT norm_id FROM norms_fts
-							 WHERE norms_fts MATCH ? LIMIT ${FTS_CAP * 3}`,
-						)
-						.all(safeQuery)
-						.map((r) => r.norm_id)
-						.filter((id) => !seen.has(id));
+					const runContentMatch = (matchExpr: string): string[] =>
+						this.db
+							.query<{ norm_id: string }, [string]>(
+								`SELECT DISTINCT norm_id FROM norms_fts
+								 WHERE norms_fts MATCH ?
+								 ORDER BY bm25(norms_fts)
+								 LIMIT ${FTS_CAP}`,
+							)
+							.all(matchExpr)
+							.map((r) => r.norm_id)
+							.filter((id) => !seen.has(id));
+					const contentIds = adaptiveSearch(this.db, {
+						tokens,
+						matchExprBuilder: (toks, joiner) => toks.join(` ${joiner} `),
+						runMatch: runContentMatch,
+					});
 					allIds = [...allIds, ...contentIds].slice(0, FTS_CAP);
 				}
 

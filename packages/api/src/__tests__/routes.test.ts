@@ -34,9 +34,20 @@ beforeEach(() => {
 	dbService = new DbService(db);
 
 	const diffCache = new LruCache<string>(100);
+	const searchCache = new LruCache<
+		Parameters<typeof lawRoutes>[4] extends LruCache<infer T> ? T : never
+	>(100);
 
 	app = new Elysia()
-		.use(lawRoutes(dbService, gitStub, diffCache))
+		.use(
+			lawRoutes(
+				dbService,
+				gitStub,
+				diffCache,
+				undefined as unknown as Parameters<typeof lawRoutes>[3],
+				searchCache,
+			),
+		)
 		.use(omnibusRoutes(dbService))
 		.get("/health", () => ({
 			status: "ok",
