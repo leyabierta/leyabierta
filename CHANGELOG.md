@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0.0] - 2026-04-27
+
+### Búsqueda híbrida en `/v1/laws` (Issue #40)
+
+- **El motor de búsqueda ahora entiende lenguaje ciudadano.** Antes, una persona buscando «morir dignamente», «no me devuelven la fianza» o «horas extras que no me pagan» no encontraba la ley estatal correspondiente porque BM25 sólo casa palabras literales. Ahora la búsqueda combina BM25 con embeddings semánticos (Gemini-2 vía OpenRouter) y devuelve la norma correcta aunque el texto legal use jerga distinta.
+- **Resultados medidos sobre 50 queries ciudadanas:** Recall@5 del 2 % al 62 %, Recall@10 del 6 % al 80 %. Categorías que pasaron de 0 % a 100 %: penal, violencia de género, violencia sexual, igualdad, identidad, vivienda. El conjunto de evaluación vive en `packages/api/research/datasets/citizen-queries.json`.
+- **Arquitectura:** retrieval híbrido = BM25 + KNN sobre `vectors.bin` (483.983 embeddings, vía pool de Bun Workers existente con SharedArrayBuffer) + Reciprocal Rank Fusion. Tres listas se fusionan por RRF (k=60): BM25, max-pool de scores artículo→norma, y sum-pool con umbral cosine ≥ 0,5. Boost por rango legal: textos refundidos (LGSS, ET, IRPF) ×1.2, leyes orgánicas ×1.0, RD ×0.7, autonómicas ×0.6, órdenes ×0.4. LRU de 1000 embeddings de query para evitar pagar OpenRouter dos veces por la misma búsqueda.
+- **Latencia:** ~80 ms cache hit en Cloudflare (mayoría del tráfico), ~800 ms LRU hit en proceso, ~3 s cold start (embed API + KNN). Coste marginal: ~$2/mes a 1M queries únicas.
+- **Sin fallback silencioso a BM25.** Si OpenRouter o el pool de vectores no están disponibles, `/v1/laws` devuelve 503 con error descriptivo. Respuestas erróneas son peores que un 503 honesto.
+- Scripts de evaluación reproducibles: `bun run packages/api/research/eval-citizen-bm25.ts` (baseline) y `bun run packages/api/research/eval-citizen-hybrid.ts` (modo híbrido).
+
 ## [0.3.0.0] - 2026-04-26
 
 ### Performance — Sprint 2: BM25 also runs on workers, OR fallback pruned
