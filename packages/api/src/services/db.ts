@@ -543,14 +543,7 @@ export class DbService {
 	private applyFilters(
 		conditions: string[],
 		params: SqlParams,
-		filters: {
-			country?: string;
-			jurisdiction?: string;
-			rank?: string;
-			status?: string;
-			materia?: string;
-			citizen_tag?: string;
-		},
+		filters: SearchFilters,
 	): void {
 		if (filters.jurisdiction) {
 			conditions.push("jurisdiction = ?");
