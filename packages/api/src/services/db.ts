@@ -4,6 +4,7 @@
 
 import type { Database, SQLQueryBindings } from "bun:sqlite";
 import { BASE_MATERIAS } from "../data/materia-mappings.ts";
+import type { HybridSearcher } from "./hybrid-search.ts";
 import {
 	adaptiveSearch,
 	ensureNormsFtsVocab,
@@ -11,6 +12,17 @@ import {
 } from "./norms-fts-search.ts";
 
 type SqlParams = SQLQueryBindings[];
+
+export type SearchMode = "bm25" | "hybrid";
+
+export interface SearchFilters {
+	country?: string;
+	jurisdiction?: string;
+	rank?: string;
+	status?: string;
+	materia?: string;
+	citizen_tag?: string;
+}
 
 export interface LawRow {
 	id: string;
@@ -355,6 +367,158 @@ export class DbService {
 				"SELECT materia, count(*) as count FROM materias GROUP BY materia ORDER BY count DESC",
 			)
 			.all();
+	}
+
+	/**
+	 * Hybrid search — BM25 + vector KNN fused via RRF (Issue #40).
+	 *
+	 * Default retrieval path for relevance-ranked free-text queries on
+	 * /v1/laws. Steps:
+	 *   1. Compute BM25 ranked norm IDs (top-K, unfiltered).
+	 *   2. Embed the query (cached LRU) and KNN over `vectors.bin`.
+	 *   3. Aggregate article scores → norm scores (max-pool + sum-pool).
+	 *   4. RRF fuse BM25 + vector_max + vector_sum lists.
+	 *   5. Apply filters in chunks, paginate, hydrate LawRow.
+	 *
+	 * Latency budget per query: ~80ms (Cloudflare edge cache hit) / ~800ms
+	 * (LRU cache hit, KNN only) / ~3000ms (cold: embed API + KNN).
+	 *
+	 * Embedding-API failures propagate — there is no silent fallback to
+	 * BM25. Wrong answers are worse than 503s; operators must see config
+	 * problems.
+	 */
+	async searchLawsHybrid(
+		query: string,
+		filters: SearchFilters,
+		limit: number,
+		offset: number,
+		hybridSearcher: HybridSearcher,
+	): Promise<{ laws: LawRow[]; total: number; capped?: boolean }> {
+		const trimmed = query.trim();
+		if (!trimmed) {
+			return this.searchLaws(undefined, filters, limit, offset);
+		}
+
+		// Norm-ID short-circuit: same behavior as BM25 path.
+		const isNormId = /^[A-Z]+-[A-Z]+-\d{4}-\d+$/i.test(trimmed);
+		if (isNormId) {
+			const law = this.db
+				.query<LawRow, [string]>("SELECT * FROM norms WHERE id = ?")
+				.get(trimmed.toUpperCase());
+			return law ? { laws: [law], total: 1 } : { laws: [], total: 0 };
+		}
+
+		// 1. BM25 ranked norm IDs (unfiltered, larger cap so the fusion has
+		//    enough candidates to pick from).
+		const bm25Ids = this.bm25RankedNormIds(trimmed, 500);
+
+		// 2. Hybrid fusion (BM25 ranks + vector ranks).
+		const { fused } = await hybridSearcher.rankNorms(trimmed, bm25Ids, {
+			articleTopK: 200,
+			normTopK: 500,
+		});
+
+		if (fused.length === 0) return { laws: [], total: 0 };
+
+		// 3. Apply filters across the fused IDs.
+		const hasFilters =
+			!!filters.country ||
+			!!filters.jurisdiction ||
+			!!filters.rank ||
+			!!filters.status ||
+			!!filters.materia ||
+			!!filters.citizen_tag;
+		let filteredIds = fused;
+		if (hasFilters) {
+			const filteredSet = new Set(this.filterIdsByChunks(fused, filters));
+			filteredIds = fused.filter((id) => filteredSet.has(id));
+		}
+
+		const total = filteredIds.length;
+		const pageIds = filteredIds.slice(offset, offset + limit);
+		if (pageIds.length === 0) return { laws: [], total };
+
+		const placeholders = pageIds.map(() => "?").join(",");
+		const rows = this.db
+			.query<LawRow, SqlParams>(
+				`SELECT * FROM norms WHERE id IN (${placeholders})`,
+			)
+			.all(...pageIds);
+		const rowMap = new Map(rows.map((r) => [r.id, r]));
+		const laws = pageIds
+			.map((id) => rowMap.get(id))
+			.filter((r): r is LawRow => r != null);
+
+		return { laws, total };
+	}
+
+	/**
+	 * Run the same three-pass BM25 the default `searchLaws` path runs, but
+	 * return only the ranked norm IDs (no filters, no pagination). Used by
+	 * `searchLawsHybrid` to feed RRF.
+	 */
+	private bm25RankedNormIds(query: string, cap: number): string[] {
+		const tokens = tokenizeQuery(query);
+		try {
+			// Pass 0: exact/prefix title.
+			const exactIds = this.db
+				.query<{ id: string }, [string, string]>(
+					`SELECT id FROM norms
+					 WHERE title LIKE ? OR title LIKE ?
+					 ORDER BY length(title) ASC
+					 LIMIT 20`,
+				)
+				.all(`${query}%`, `% ${query}%`)
+				.map((r) => r.id);
+
+			const exactSet = new Set(exactIds);
+
+			// Pass 1: FTS title MATCH.
+			const runTitleMatch = (matchExpr: string): string[] =>
+				this.db
+					.query<{ norm_id: string }, [string]>(
+						`SELECT norm_id FROM norms_fts
+						 WHERE norms_fts MATCH ?
+						 ORDER BY bm25(norms_fts, 0, 10.0, 1.0, 15.0, 12.0)
+						 LIMIT ${cap}`,
+					)
+					.all(matchExpr)
+					.map((r) => r.norm_id)
+					.filter((id) => !exactSet.has(id));
+			const titleIds = adaptiveSearch(this.db, {
+				tokens,
+				matchExprBuilder: (toks, joiner) =>
+					`title:(${toks.join(` ${joiner} `)})`,
+				runMatch: runTitleMatch,
+			});
+
+			let allIds = [...exactIds, ...titleIds];
+
+			// Pass 2: FTS content MATCH.
+			if (allIds.length < cap) {
+				const seen = new Set(allIds);
+				const runContentMatch = (matchExpr: string): string[] =>
+					this.db
+						.query<{ norm_id: string }, [string]>(
+							`SELECT norm_id FROM norms_fts
+							 WHERE norms_fts MATCH ?
+							 ORDER BY bm25(norms_fts)
+							 LIMIT ${cap}`,
+						)
+						.all(matchExpr)
+						.map((r) => r.norm_id)
+						.filter((id) => !seen.has(id));
+				const contentIds = adaptiveSearch(this.db, {
+					tokens,
+					matchExprBuilder: (toks, joiner) => toks.join(` ${joiner} `),
+					runMatch: runContentMatch,
+				});
+				allIds = [...allIds, ...contentIds].slice(0, cap);
+			}
+			return allIds;
+		} catch {
+			return [];
+		}
 	}
 
 	/** Filter a large ID array through norms table in chunks to avoid SQLite variable limits. */

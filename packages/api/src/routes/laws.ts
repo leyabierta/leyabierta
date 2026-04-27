@@ -9,6 +9,7 @@ import { LruCache } from "../services/cache.ts";
 import type { CitizenSummaryService } from "../services/citizen-summary.ts";
 import type { DbService, LawRow } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
+import type { HybridSearcher } from "../services/hybrid-search.ts";
 
 export interface SearchResponse {
 	data: LawRow[];
@@ -43,13 +44,14 @@ export function lawRoutes(
 	diffCache: LruCache<string>,
 	citizenSummaryService: CitizenSummaryService,
 	searchCache: LruCache<SearchResponse>,
+	hybridSearcher: HybridSearcher | null = null,
 ) {
 	return (
 		new Elysia({ prefix: "/v1" })
 			// 1. GET /v1/laws — search/list
 			.get(
 				"/laws",
-				({ query }) => {
+				async ({ query, set }) => {
 					const limit = Math.min(query.limit ?? 20, 100);
 					const offset = query.offset ?? 0;
 
@@ -72,26 +74,58 @@ export function lawRoutes(
 					const cached = searchCache.get(cacheKey);
 					if (cached !== undefined) return cached;
 
-					const { laws, total, capped } = dbService.searchLaws(
-						query.q,
-						{
-							country: query.country,
-							jurisdiction: query.jurisdiction,
-							rank: query.rank,
-							status: query.status,
-							materia: query.materia,
-							citizen_tag: query.citizen_tag,
-						},
-						limit,
-						offset,
-						query.sort,
-					);
+					const filters = {
+						country: query.country,
+						jurisdiction: query.jurisdiction,
+						rank: query.rank,
+						status: query.status,
+						materia: query.materia,
+						citizen_tag: query.citizen_tag,
+					};
+
+					// Hybrid (BM25 + vector) is the only retrieval mode. If a
+					// non-default sort is requested or no query string is given,
+					// the BM25 path handles it (hybrid only adds value for
+					// relevance-ranked free-text queries).
+					const useHybrid =
+						!!query.q?.trim() &&
+						(query.sort === undefined || query.sort === "relevance");
+
+					let result: { laws: LawRow[]; total: number; capped?: boolean };
+					if (useHybrid) {
+						if (!hybridSearcher) {
+							// Fail loud rather than silently degrade to BM25 — wrong
+							// answers are worse than 503s, and operators need to see
+							// configuration problems.
+							set.status = 503;
+							return {
+								error:
+									"Search is unavailable: hybrid retrieval is not configured. Check OPENROUTER_API_KEY and the vector index.",
+							};
+						}
+						result = await dbService.searchLawsHybrid(
+							query.q as string,
+							filters,
+							limit,
+							offset,
+							hybridSearcher,
+						);
+					} else {
+						result = dbService.searchLaws(
+							query.q,
+							filters,
+							limit,
+							offset,
+							query.sort,
+						);
+					}
+
 					const response: SearchResponse = {
-						data: laws,
-						total,
+						data: result.laws,
+						total: result.total,
 						limit,
 						offset,
-						...(capped ? { capped: true as const } : {}),
+						...(result.capped ? { capped: true as const } : {}),
 					};
 					searchCache.set(cacheKey, response);
 					return response;

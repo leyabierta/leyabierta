@@ -19,6 +19,7 @@ import { LruCache } from "./services/cache.ts";
 import { CitizenSummaryService } from "./services/citizen-summary.ts";
 import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
+import { HybridSearcherImpl } from "./services/hybrid-search.ts";
 import { RagPipeline } from "./services/rag/pipeline.ts";
 import { flushTraces } from "./services/rag/tracing.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
@@ -54,6 +55,12 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const RAG_DATA_DIR = process.env.RAG_DATA_DIR ?? "./data";
 const ragPipeline = OPENROUTER_API_KEY
 	? new RagPipeline(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
+	: null;
+// Hybrid search for /v1/laws?mode=hybrid (Issue #40). Opt-in only — default
+// search remains BM25, so this is safe to always enable when the API key is
+// available.
+const hybridSearcher = OPENROUTER_API_KEY
+	? new HybridSearcherImpl(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
 	: null;
 
 const CORS_ORIGINS = process.env.CORS_ORIGINS
@@ -212,6 +219,7 @@ app
 			diffCache,
 			citizenSummaryService,
 			searchCache,
+			hybridSearcher,
 		),
 	)
 	.use(alertRoutes(dbService))
