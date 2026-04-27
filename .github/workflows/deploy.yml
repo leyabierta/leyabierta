@@ -345,28 +345,24 @@ jobs:
       # (per the cache rules on leyabierta.es). Purging right after the deploy
       # makes new content visible immediately. Failures are non-fatal: the deploy
       # itself succeeded, the cache will refresh naturally within 2h.
+      # Zone ID hardcoded so the token doesn't need Zone:Read scope.
       - name: Purge Cloudflare cache
         continue-on-error: true
+        env:
+          CF_ZONE_ID: 06b4115e591b907e16f0ea87569006b2 # leyabierta.es
         run: |
           set -euo pipefail
-          ZONE=$(curl -sf -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-            "https://api.cloudflare.com/client/v4/zones?name=leyabierta.es" \
-            | jq -r '.result[0].id')
-          if [ -z "$ZONE" ] || [ "$ZONE" = "null" ]; then
-            echo "::warning::could not resolve zone id for leyabierta.es — skipping purge"
-            exit 0
-          fi
-          echo "Purging zone $ZONE..."
-          RESPONSE=$(curl -sf -X POST \
+          echo "Purging zone $CF_ZONE_ID..."
+          RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
-            "https://api.cloudflare.com/client/v4/zones/$ZONE/purge_cache" \
+            "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
             --data '{"purge_everything":true}')
+          echo "Response: $RESPONSE"
           SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
           if [ "$SUCCESS" != "true" ]; then
-            echo "::warning::purge API returned success=$SUCCESS"
-            echo "$RESPONSE" | jq .
-            exit 1
+            echo "::warning::purge failed — token likely missing Cache Purge scope. Cache will refresh naturally within 2h."
+            exit 0
           fi
           echo "✓ cache purged"
 
