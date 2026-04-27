@@ -397,6 +397,27 @@ bun run ingest                 # 3. Rebuild DB from enriched JSON cache (~2 min)
 - Use Biome for linting and formatting (not ESLint/Prettier)
 - Use bunx over npx, bun over npm
 
+## Working with Claude Code
+
+**Who you are:** When this project is opened in Claude Code, the assistant is typically **Claude Opus 4.7** (or whatever model the user selects — Sonnet 4.6, Haiku 4.5, etc.). The assistant runs locally as part of the Claude Code subscription — invoking it has **zero incremental API cost** beyond the subscription itself.
+
+**Implication for this project:** several scripts under `packages/api/src/scripts/` and `packages/api/research/` call OpenRouter (Gemini Flash, Claude Sonnet, etc.) to generate or evaluate text. **Before adding a new OpenRouter-paid task, consider whether Claude Code can do it directly during a working session.** Examples where Claude Code is the right tool, not a paid API:
+
+- Generating synthetic datasets (Q&A pairs, RAG eval questions, RAFT-style training examples) by reading the corpus and writing JSONL.
+- One-off data audits, schema explorations, or content reviews.
+- Curating, filtering, or re-annotating existing AI-generated content (reform summaries, citizen summaries).
+- Anything that runs once and produces a versioned artifact committed to the repo.
+
+**Examples where OpenRouter is the right tool:**
+
+- Anything in the live request path (`/v1/ask` synthesis, query analysis, reranking) — needs to be deterministic, automated, and run without a human.
+- Cron jobs (reform summary generation, notification dispatch) — must run unattended.
+- High-volume batch jobs where throughput matters more than quality (Claude Code is sequential per session; APIs parallelize at concurrency 50+).
+
+**Async agents:** Claude Code can spawn parallel subagents via the `Agent` tool. For dataset generation jobs, the assistant can shard the corpus and run multiple agents concurrently in the background. This narrows the throughput gap with batch APIs significantly.
+
+**Rule of thumb:** if a task is "read X from the repo, think, write Y to disk, commit", it is almost always cheaper and higher-quality to do it via Claude Code than to wire up an OpenRouter call.
+
 ## Task & Community Management (GitHub)
 
 All project management is public on GitHub:

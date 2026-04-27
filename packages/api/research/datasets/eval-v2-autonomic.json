@@ -1,0 +1,253 @@
+{
+	"slice": "autonomic",
+	"generator": "claude-opus-4-7-via-claude-code",
+	"generated_at": "2026-04-27",
+	"notes": "35 questions covering autonomous community legislation across es-ct, es-pv, es-an, es-vc, es-ga, es-md, es-mc, es-ar, es-ib. Mix: ~28 clear, 5 cross-law, 2 out-of-scope. All expectedNorms verified to exist as vigente in leyabierta.db.",
+	"questions": [
+		{
+			"id": 66,
+			"question": "¿Puedo cazar conejo en Aragón sin licencia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2015-5291"],
+			"rationale": "Ley 1/2015 de Caza de Aragón regula la licencia de caza obligatoria y especies cinegéticas (Título II, licencia y permisos)."
+		},
+		{
+			"id": 67,
+			"question": "¿Qué pasa si pesco una trucha sin permiso en un río de Galicia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2021-4520"],
+			"rationale": "Ley 2/2021 de pesca continental de Galicia, régimen de licencias y sanciones (capítulos sobre infracciones)."
+		},
+		{
+			"id": 68,
+			"question": "¿Es legal la caza con galgo en Murcia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2004-3376"],
+			"rationale": "Ley 7/2003 de Caza y Pesca Fluvial de la Región de Murcia, modalidades de caza permitidas."
+		},
+		{
+			"id": 69,
+			"question": "¿Cuántos días tengo para reclamar la fianza si alquilo un piso en Cataluña?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-1994-26003", "BOE-A-2020-11363"],
+			"rationale": "LAU estatal art. 36 (un mes) más Ley 11/2020 catalana de contención de rentas, que añade reglas autonómicas a contratos en zonas tensionadas."
+		},
+		{
+			"id": 70,
+			"question": "¿Puedo poner mi piso de turistas en Barcelona sin pedir nada?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2017-11320"],
+			"rationale": "Ley 18/2017 de comercio, servicios y ferias de Cataluña regula actividad de servicios; alojamiento turístico requiere habilitación."
+		},
+		{
+			"id": 71,
+			"question": "¿Qué derechos tengo como persona LGBTI en Cataluña?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2026-8073"],
+			"rationale": "Ley 13/2025 de derechos de personas LGBTI y erradicación de la LGBTI-fobia (Cataluña)."
+		},
+		{
+			"id": 72,
+			"question": "¿Tengo derecho a vacunación gratuita en Cataluña según el calendario público?",
+			"category": "clear",
+			"expectedNorms": ["DOGC-f-2019-90528"],
+			"rationale": "Ley 5/2019 de la Agencia de Salud Pública de Cataluña, funciones en programas preventivos y vacunación."
+		},
+		{
+			"id": 73,
+			"question": "¿Puedo pescar sardina en la costa catalana en agosto?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2010-733"],
+			"rationale": "Ley 22/2009 de ordenación sostenible de la pesca en aguas continentales de Cataluña; para pesca marítima profesional, complementaria con normativa estatal."
+		},
+		{
+			"id": 74,
+			"question": "¿Pueden subirme el alquiler en Bilbao por encima del IPC este año?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-1994-26003", "BOE-A-2026-1256"],
+			"rationale": "LAU estatal art. 18 sobre actualización de renta; Ley 6/2025 vasca de medidas urgentes en vivienda añade límites autonómicos."
+		},
+		{
+			"id": 75,
+			"question": "¿A qué edad puede empezar mi hijo el colegio en el País Vasco?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2024-901"],
+			"rationale": "Ley 17/2023 de Educación del País Vasco, etapas educativas y escolarización."
+		},
+		{
+			"id": 76,
+			"question": "¿Necesito licencia para cazar jabalí en Vizcaya?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2011-6648"],
+			"rationale": "Ley 2/2011 de Caza del País Vasco, licencias y especies cinegéticas."
+		},
+		{
+			"id": 77,
+			"question": "¿Puedo instalar placas solares en mi tejado en Euskadi sin permiso?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2024-4783"],
+			"rationale": "Ley 1/2024 de Transición Energética y Cambio Climático del País Vasco, autoconsumo y procedimientos simplificados."
+		},
+		{
+			"id": 78,
+			"question": "¿Qué requisitos tiene una casa rural para abrir en San Sebastián?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2016-8346"],
+			"rationale": "Ley 13/2016 de Turismo del País Vasco, clasificación y requisitos de alojamientos."
+		},
+		{
+			"id": 79,
+			"question": "¿Tengo derecho a una vivienda pública si llevo años en lista de espera en Andalucía?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2026-423"],
+			"rationale": "Ley 5/2025 de Vivienda de Andalucía, derecho de acceso a la vivienda y registro de demandantes."
+		},
+		{
+			"id": 80,
+			"question": "¿Necesito una licencia especial para abrir un hotel rural en Sevilla?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2012-876"],
+			"rationale": "Ley 13/2011 del Turismo de Andalucía, modalidades de alojamiento y autorizaciones."
+		},
+		{
+			"id": 81,
+			"question": "¿Cómo puedo ser funcionario de la Junta de Andalucía?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2023-16066"],
+			"rationale": "Ley 5/2023 de la Función Pública de Andalucía, acceso al empleo público autonómico."
+		},
+		{
+			"id": 82,
+			"question": "¿Puedo recoger setas en un monte público en Andalucía?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2026-7559"],
+			"rationale": "Ley 3/2026 de Montes de Andalucía, aprovechamientos forestales no madereros."
+		},
+		{
+			"id": 83,
+			"question": "¿Qué ayudas hay para mujeres que trabajan en el campo en Andalucía?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2024-25455"],
+			"rationale": "Ley 5/2024 del Estatuto de las Mujeres Rurales y del Mar de Andalucía."
+		},
+		{
+			"id": 84,
+			"question": "¿Es obligatorio chipar a mi gato en Valencia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2023-7421"],
+			"rationale": "Ley 2/2023 valenciana de Protección, Bienestar y Tenencia de animales de compañía, identificación obligatoria."
+		},
+		{
+			"id": 85,
+			"question": "¿Qué documentación necesito para pescar gambas en la costa de Castellón?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2017-2424"],
+			"rationale": "Ley 5/2017 de pesca marítima y acuicultura de la Comunitat Valenciana, licencias y artes."
+		},
+		{
+			"id": 86,
+			"question": "¿Puedo alquilar mi piso a turistas en Benidorm sin registrarlo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2018-8950"],
+			"rationale": "Ley 15/2018 de turismo, ocio y hospitalidad de la Comunitat Valenciana, registro obligatorio de alojamientos."
+		},
+		{
+			"id": 87,
+			"question": "¿Cómo se concursan las plazas de funcionario en la Generalitat Valenciana?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2021-8880"],
+			"rationale": "Ley 4/2021 de la Función Pública Valenciana, sistemas de provisión y concursos."
+		},
+		{
+			"id": 88,
+			"question": "¿Puedo construir un chalet a 50 metros de la playa en Valencia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2025-11647"],
+			"rationale": "Ley 3/2025 de protección y ordenación de la costa valenciana, servidumbres y limitaciones edificatorias."
+		},
+		{
+			"id": 89,
+			"question": "¿Cuándo abre la veda del corzo en Galicia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2014-887"],
+			"rationale": "Ley 13/2013 de caza de Galicia, periodos hábiles y especies cinegéticas (desarrollado por orden anual)."
+		},
+		{
+			"id": 90,
+			"question": "¿Mi ayuntamiento en Galicia puede obligarme a cambiar la caldera de gasoil?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2026-5549"],
+			"rationale": "Ley 1/2026 del clima de Galicia, planes de descarbonización y obligaciones para edificios."
+		},
+		{
+			"id": 91,
+			"question": "¿Puedo organizar una verbena hasta las 4 de la mañana en mi pueblo de Lugo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2023-6377"],
+			"rationale": "Ley 10/2017 de espectáculos públicos y actividades recreativas de Galicia, horarios y autorizaciones."
+		},
+		{
+			"id": 92,
+			"question": "¿Qué requisitos tiene una vivienda protegida nueva en Madrid?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2024-15001"],
+			"rationale": "Ley 3/2024 de medidas urbanísticas para la promoción de vivienda protegida en la Comunidad de Madrid."
+		},
+		{
+			"id": 93,
+			"question": "¿Cómo registro mi apartamento turístico en la Comunidad de Madrid?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-1999-12089"],
+			"rationale": "Ley 1/1999 de Ordenación del Turismo de la Comunidad de Madrid, registro de empresas y actividades turísticas."
+		},
+		{
+			"id": 94,
+			"question": "¿Puedo abrir mi tienda en domingo en Madrid centro?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2008-15147"],
+			"rationale": "Ley 1/2008 de Modernización del Comercio de la Comunidad de Madrid, horarios comerciales y zonas de gran afluencia."
+		},
+		{
+			"id": 95,
+			"question": "¿Tengo derecho a ayuda al alquiler si pago más del 30% de mi sueldo en Madrid?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2017-13988"],
+			"rationale": "Ley 9/2017 de la Comunidad de Madrid sobre el mecanismo compensatorio en materia de vivienda."
+		},
+		{
+			"id": 96,
+			"question": "¿Puedo coger mejillones en la costa de Cartagena para mi consumo?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2008-12492"],
+			"rationale": "Ley 2/2007 de Pesca Marítima y Acuicultura de la Región de Murcia, marisqueo recreativo y profesional."
+		},
+		{
+			"id": 97,
+			"question": "¿Qué ayudas a domicilio puedo pedir si mi madre es dependiente en Murcia?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2021-21315"],
+			"rationale": "Ley 3/2021 de Servicios Sociales de la Región de Murcia, prestaciones del sistema público."
+		},
+		{
+			"id": 98,
+			"question": "¿Es obligatoria la limitación de coches en la isla de Ibiza en verano?",
+			"category": "clear",
+			"expectedNorms": ["BOE-A-2024-26254"],
+			"rationale": "Ley 5/2024 de control de la afluencia de vehículos en la isla de Eivissa."
+		},
+		{
+			"id": 99,
+			"question": "¿Cuánto puede subirme el alquiler una inmobiliaria en Mallorca este año?",
+			"category": "cross-law",
+			"expectedNorms": ["BOE-A-1994-26003", "BOE-A-2024-15575"],
+			"rationale": "LAU estatal art. 18 (índice de referencia) + Ley 3/2024 balear de medidas urgentes en vivienda."
+		},
+		{
+			"id": 100,
+			"question": "¿Cuántos días de vacaciones me corresponden si trabajo en una empresa privada en Valencia?",
+			"category": "out-of-scope",
+			"expectedNorms": ["BOE-A-2015-11430"],
+			"rationale": "Las vacaciones laborales son competencia estatal (ET art. 38). El sistema debe declinar dar respuesta autonómica y citar la norma estatal."
+		}
+	]
+}
