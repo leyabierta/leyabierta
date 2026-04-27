@@ -246,6 +246,34 @@ function hashString(s: string): number {
 	return h >>> 0;
 }
 
+/**
+ * Serialise a list of articles to JSONL (one row per article, trailing
+ * newline). Pulled out of the sample command so we can emit the merged
+ * batch and the per-jurisdiction shards through the same code path.
+ */
+export function articlesToJsonl(articles: readonly SampledArticle[]): string {
+	if (articles.length === 0) return "";
+	return `${articles.map((a) => JSON.stringify(a)).join("\n")}\n`;
+}
+
+/**
+ * Split a sampled batch into the two jurisdiction shards used downstream
+ * by the query-generation subagents. State = ES; CCAA = everything else
+ * (es-ct, es-pv, es-vc, ...).
+ */
+export function splitArticlesByShard(articles: readonly SampledArticle[]): {
+	state: SampledArticle[];
+	ccaa: SampledArticle[];
+} {
+	const state: SampledArticle[] = [];
+	const ccaa: SampledArticle[] = [];
+	for (const a of articles) {
+		if (a.jurisdiction === "es") state.push(a);
+		else ccaa.push(a);
+	}
+	return { state, ccaa };
+}
+
 // ───── assemble: query + positive + hard negatives → training pair ─────
 
 export type RankedCandidate = { norm_id: string; block_id: string };
@@ -566,8 +594,23 @@ function sampleCommand(args: SampleArgs): void {
 		);
 		const all = [...stateArticles, ...ccaaArticles];
 		mkdirSync(dirname(args.outPath), { recursive: true });
-		const lines = all.map((a) => JSON.stringify(a));
-		writeFileSync(args.outPath, `${lines.join("\n")}\n`, "utf8");
+		writeFileSync(args.outPath, articlesToJsonl(all), "utf8");
+		// Also emit per-jurisdiction shards next to the merged batch so the
+		// downstream query-generation step can hand one shard per subagent
+		// without an ad-hoc split.
+		const shards = splitArticlesByShard(all);
+		const dir = dirname(args.outPath);
+		const baseName = "reranker-articles-shard";
+		writeFileSync(
+			`${dir}/${baseName}-state.jsonl`,
+			articlesToJsonl(shards.state),
+			"utf8",
+		);
+		writeFileSync(
+			`${dir}/${baseName}-ccaa.jsonl`,
+			articlesToJsonl(shards.ccaa),
+			"utf8",
+		);
 		const distByJur = new Map<string, number>();
 		const distByRank = new Map<string, number>();
 		for (const a of all) {

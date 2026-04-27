@@ -158,6 +158,24 @@ Each subagent receives a batch of articles and produces 1-3 queries per article 
 1. **Semantic top-K minus gold**: run the article's gold query through the current pipeline (vector + BM25 + RRF, no reranker), take top 20, drop the gold and its same-norm siblings, sample 1-2 from positions 5-15 (close enough to be confusable, far enough to be wrong).
 2. **Materia sibling**: random precepto from a different norm with overlapping materia. Tests "right topic, wrong article" — the most common production failure mode.
 
+**Register coverage decisions (post-v1/v2 A/B):**
+
+The v1 prompt produced 56% informal / 35% formal / 9% procedural. v2 (with explicit procedural self-check) produced 35% informal / 35% formal / 29% procedural. In absolute counts (50-article pilot):
+
+| | v1 | v2 | Δ |
+|---|---|---|---|
+| informal  | 75 | 48 | −27 |
+| formal    | 46 | 48 | +2 |
+| procedural | 12 | 40 | +28 |
+
+Procedural cannibalised informal, not formal. v1 had a hole at procedural; v2 plugs it but at the cost of informal absolute count.
+
+This matters because real citizen production queries (Google-style, lowercase, no accents) skew informal. The eval gate happens to be 85% formal-by-punctuation (questions written by AI agents with proper accents) — a weak proxy for production mix.
+
+**For the 5K scale-up we'll prompt v3 with target 30 formal / 40 informal / 30 procedural** — informal as plurality, procedural covered, formal maintained. This is the explicit forward decision; v2 stays committed at pilot scale as the proof that prompt iteration moves the metric.
+
+**Fase 1c addition:** report retrieval/reranker metrics _per register_ (R@10 informal, R@10 formal, R@10 procedural) so any per-register regression is visible at A/B time, not after deploy.
+
 **Quality gates before scaling past pilot:**
 - ≥80% of pilot queries pass human eyeball: "would a citizen actually ask this?".
 - 0% of positives are derogatorias (`dd*`) — sampler enforces this. Disposiciones transitorias/adicionales/finales (`dt*`/`da*`/`df*`) are allowed as positives when their text is substantive, since citizens often ask about them (e.g. IRPF transitoria de vivienda habitual). The retrieval-time article-type penalty is a separate concern.

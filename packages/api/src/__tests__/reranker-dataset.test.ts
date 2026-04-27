@@ -9,6 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	allocateByWeight,
+	articlesToJsonl,
 	classifyArticle,
 	mulberry32,
 	pickFromPool,
@@ -17,6 +18,7 @@ import {
 	type RankedCandidate,
 	type SampledArticle,
 	seededShuffle,
+	splitArticlesByShard,
 } from "../../research/build-reranker-dataset.ts";
 
 describe("mulberry32", () => {
@@ -356,5 +358,82 @@ describe("pickMateriaSibling", () => {
 		expect(pickMateriaSibling(pool, "GOLD", 5)).toEqual(
 			pickMateriaSibling(pool, "GOLD", 5),
 		);
+	});
+});
+
+describe("articlesToJsonl", () => {
+	function art(jurisdiction: string): SampledArticle {
+		return {
+			norm_id: "N",
+			block_id: "a1",
+			block_type: "precepto",
+			title: "",
+			text: "x".repeat(120),
+			rank: "ley",
+			jurisdiction,
+			published_at: "2020-01-01",
+		};
+	}
+
+	test("empty input returns empty string (no trailing newline)", () => {
+		expect(articlesToJsonl([])).toBe("");
+	});
+
+	test("non-empty input ends with a single trailing newline", () => {
+		const out = articlesToJsonl([art("es")]);
+		expect(out.endsWith("\n")).toBe(true);
+		expect(out.endsWith("\n\n")).toBe(false);
+	});
+
+	test("emits one JSON object per line", () => {
+		const out = articlesToJsonl([art("es"), art("es-ct")]);
+		const lines = out.trimEnd().split("\n");
+		expect(lines.length).toBe(2);
+		for (const l of lines) JSON.parse(l);
+	});
+});
+
+describe("splitArticlesByShard", () => {
+	function art(jurisdiction: string, id = "1"): SampledArticle {
+		return {
+			norm_id: id,
+			block_id: "a1",
+			block_type: "precepto",
+			title: "",
+			text: "x".repeat(120),
+			rank: "ley",
+			jurisdiction,
+			published_at: "2020-01-01",
+		};
+	}
+
+	test("splits state vs ccaa on jurisdiction === 'es'", () => {
+		const { state, ccaa } = splitArticlesByShard([
+			art("es", "1"),
+			art("es-ct", "2"),
+			art("es-pv", "3"),
+			art("es", "4"),
+		]);
+		expect(state.length).toBe(2);
+		expect(ccaa.length).toBe(2);
+		expect(state.every((a) => a.jurisdiction === "es")).toBe(true);
+		expect(ccaa.every((a) => a.jurisdiction !== "es")).toBe(true);
+	});
+
+	test("preserves input order within each shard", () => {
+		const { state, ccaa } = splitArticlesByShard([
+			art("es", "1"),
+			art("es-ct", "2"),
+			art("es", "3"),
+			art("es-pv", "4"),
+		]);
+		expect(state.map((a) => a.norm_id)).toEqual(["1", "3"]);
+		expect(ccaa.map((a) => a.norm_id)).toEqual(["2", "4"]);
+	});
+
+	test("empty input gives empty shards", () => {
+		const { state, ccaa } = splitArticlesByShard([]);
+		expect(state).toEqual([]);
+		expect(ccaa).toEqual([]);
 	});
 });
