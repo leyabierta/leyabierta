@@ -15,6 +15,7 @@ import { LruCache } from "../services/cache.ts";
 import type { CitizenSummaryService } from "../services/citizen-summary.ts";
 import { DbService } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
+import type { HybridSearcher } from "../services/hybrid-search.ts";
 
 let db: Database;
 let dbService: DbService;
@@ -36,6 +37,20 @@ const citizenSummaryStub: CitizenSummaryService = {
 	getOrGenerate: async () => null,
 } as unknown as CitizenSummaryService;
 
+// Stub HybridSearcher: returns the BM25 input verbatim so route tests focus
+// on wiring, not on retrieval quality. Real semantic-quality checks live in
+// `eval-citizen-hybrid.ts`.
+const hybridStub: HybridSearcher = {
+	rankNorms: async (_query, bm25NormIds) => ({
+		fused: bm25NormIds,
+		bm25Count: bm25NormIds.length,
+		vectorCount: 0,
+		embeddingCacheHit: false,
+		embedMs: 0,
+		searchMs: 0,
+	}),
+};
+
 beforeEach(() => {
 	db = new Database(":memory:");
 	createSchema(db);
@@ -46,7 +61,14 @@ beforeEach(() => {
 
 	app = new Elysia()
 		.use(
-			lawRoutes(dbService, gitStub, diffCache, citizenSummaryStub, searchCache),
+			lawRoutes(
+				dbService,
+				gitStub,
+				diffCache,
+				citizenSummaryStub,
+				searchCache,
+				hybridStub,
+			),
 		)
 		.use(omnibusRoutes(dbService))
 		.get("/health", () => ({
