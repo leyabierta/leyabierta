@@ -1,0 +1,483 @@
+---
+import Base from "../layouts/Base.astro";
+
+// At build time we try to read the local manifest produced by
+// `scripts/upload-db-snapshot.sh`. If it's not present (e.g. no snapshot
+// has been published yet, or the file isn't part of the build context),
+// the page renders a "próximamente" state without breaking the build.
+
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+type SnapshotEntry = {
+	date: string;
+	main: { filename: string; sha256: string; bytes: number; hf_url: string; archive_url: string };
+	embeddings: { filename: string; sha256: string; bytes: number; hf_url: string; archive_url: string };
+};
+
+type Manifest = {
+	snapshots: SnapshotEntry[];
+	updated_at?: string;
+};
+
+const manifestPath = resolve(process.cwd(), "../../snapshots-out/manifest.json");
+let manifest: Manifest = { snapshots: [] };
+
+if (existsSync(manifestPath)) {
+	try {
+		manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as Manifest;
+	} catch {
+		manifest = { snapshots: [] };
+	}
+}
+
+const latest = manifest.snapshots[0];
+const older = manifest.snapshots.slice(1);
+
+function formatBytes(n: number): string {
+	if (!Number.isFinite(n) || n <= 0) return "—";
+	const gb = n / 1024 ** 3;
+	if (gb >= 1) return `${gb.toFixed(2)} GB`;
+	const mb = n / 1024 ** 2;
+	return `${mb.toFixed(0)} MB`;
+}
+
+function formatDate(iso: string): string {
+	// "2026-04-26" → "26 de abril de 2026"
+	const [y, m, d] = iso.split("-").map(Number);
+	const meses = [
+		"enero",
+		"febrero",
+		"marzo",
+		"abril",
+		"mayo",
+		"junio",
+		"julio",
+		"agosto",
+		"septiembre",
+		"octubre",
+		"noviembre",
+		"diciembre",
+	];
+	if (!y || !m || !d) return iso;
+	return `${d} de ${meses[m - 1]} de ${y}`;
+}
+---
+
+<Base
+	title="Descargar la base de datos"
+	description="Descarga la base de datos completa de Ley Abierta: legislación española consolidada en formato SQLite, bajo dominio público."
+	canonicalUrl="/datos/"
+>
+	<style>
+		.datos-page { max-width: 52rem; margin: 0 auto; }
+		.datos-page h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin: 0 0 0.25rem;
+		}
+		@media (max-width: 640px) {
+			.datos-page h1 { font-size: 1.625rem; }
+		}
+		.datos-subtitle {
+			font-size: 1rem;
+			color: var(--text-muted);
+			margin-bottom: 2.5rem;
+		}
+		.datos-page h2 {
+			font-family: var(--font-serif);
+			font-size: 1.375rem;
+			font-weight: 600;
+			margin-top: 2.5rem;
+			margin-bottom: 0.75rem;
+			color: var(--text);
+		}
+		.datos-page h3 {
+			font-family: var(--font-serif);
+			font-size: 1.0625rem;
+			font-weight: 600;
+			margin-top: 1.75rem;
+			margin-bottom: 0.5rem;
+			color: var(--text);
+		}
+		.datos-page p { color: var(--text-secondary); }
+
+		/* ── Snapshot card ── */
+		.snapshot-card {
+			background: var(--surface, #ffffff);
+			border: 1px solid var(--border, #e8ecf0);
+			border-radius: 10px;
+			padding: 1.5rem;
+			margin-top: 1rem;
+		}
+		.snapshot-card-kicker {
+			font-family: var(--font-mono, "JetBrains Mono", monospace);
+			font-size: 0.6875rem;
+			letter-spacing: 0.12em;
+			text-transform: uppercase;
+			color: var(--text-muted);
+			margin-bottom: 0.5rem;
+		}
+		.snapshot-card-title {
+			font-family: var(--font-serif);
+			font-size: 1.125rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 0 0 0.5rem;
+		}
+		.snapshot-card-meta {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 1rem;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+		}
+		.snapshot-card-meta span + span::before {
+			content: "·";
+			color: var(--border-medium, #c4ced8);
+			margin-right: 0.75rem;
+		}
+		.snapshot-card-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+		}
+		.btn-primary, .btn-outline {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+			font-size: 0.8125rem;
+			font-weight: 600;
+			padding: 0.5rem 0.875rem;
+			border-radius: 6px;
+			text-decoration: none;
+			transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+		}
+		.btn-primary {
+			background: var(--accent, #1a365d);
+			color: #ffffff;
+			border: 1px solid var(--accent, #1a365d);
+		}
+		.btn-primary:hover { opacity: 0.92; text-decoration: none; }
+		.btn-outline {
+			background: transparent;
+			color: var(--text-secondary);
+			border: 1.5px solid var(--border-medium, #c4ced8);
+		}
+		.btn-outline:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+			text-decoration: none;
+		}
+		.sha {
+			display: block;
+			margin-top: 0.75rem;
+			font-family: var(--font-mono, monospace);
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			word-break: break-all;
+		}
+
+		/* ── History list ── */
+		.history-list {
+			list-style: none;
+			padding: 0;
+			margin: 0.5rem 0 0;
+			border-top: 1px solid var(--border, #e8ecf0);
+		}
+		.history-list li {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			padding: 0.6rem 0;
+			border-bottom: 1px solid var(--border, #e8ecf0);
+			font-size: 0.875rem;
+		}
+		.history-date {
+			font-family: var(--font-mono, monospace);
+			color: var(--text-muted);
+			font-size: 0.8125rem;
+		}
+		.history-links { display: flex; gap: 0.75rem; }
+		.history-links a { color: var(--accent); font-weight: 500; }
+
+		/* ── Code block ── */
+		.code-block {
+			background: #0b1120;
+			color: #e2e8f0;
+			padding: 1rem 1.25rem;
+			border-radius: 8px;
+			font-family: var(--font-mono, "JetBrains Mono", monospace);
+			font-size: 0.8125rem;
+			line-height: 1.55;
+			overflow-x: auto;
+			margin: 0.75rem 0 1.25rem;
+		}
+		.code-block code { background: none; color: inherit; padding: 0; }
+		.code-inline {
+			background: var(--accent-bg, #e6eef8);
+			color: var(--accent, #1a365d);
+			padding: 0.1rem 0.35rem;
+			border-radius: 4px;
+			font-family: var(--font-mono, monospace);
+			font-size: 0.8125em;
+		}
+
+		/* ── Schema table ── */
+		.schema-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 1rem 0 1.5rem;
+			font-size: 0.875rem;
+		}
+		.schema-table th, .schema-table td {
+			text-align: left;
+			padding: 0.55rem 0.75rem;
+			border-bottom: 1px solid var(--border, #e8ecf0);
+			vertical-align: top;
+		}
+		.schema-table th {
+			font-weight: 600;
+			color: var(--text);
+			background: var(--accent-bg-light, #f2f6fb);
+			font-family: var(--font-sans, "Inter", sans-serif);
+			font-size: 0.8125rem;
+		}
+		.schema-table td:first-child {
+			font-family: var(--font-mono, monospace);
+			color: var(--accent);
+			white-space: nowrap;
+		}
+
+		/* ── Empty state ── */
+		.empty-state {
+			padding: 1.25rem 1.5rem;
+			background: var(--accent-bg-light, #f2f6fb);
+			border: 1px solid #d9e3ef;
+			border-radius: 10px;
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			margin-top: 1rem;
+		}
+		.empty-state strong { color: var(--text); }
+
+		/* ── Note ── */
+		.note {
+			margin-top: 2.5rem;
+			padding-top: 1.5rem;
+			border-top: 1px solid var(--border, #e8ecf0);
+			font-size: 0.875rem;
+			color: var(--text-muted);
+		}
+		.note a { font-weight: 600; color: var(--accent); }
+	</style>
+
+	<div class="datos-page prose">
+		<h1>Descargar la base de datos</h1>
+		<p class="datos-subtitle">
+			Toda la legislación consolidada de Ley Abierta, en un único fichero SQLite. Para investigación,
+			periodismo, análisis o para construir tu propia herramienta encima.
+		</p>
+
+		<h2>¿Qué se publica?</h2>
+		<p>
+			Cada domingo publicamos un volcado de la base de datos que mueve <a href="/">leyabierta.es</a>:
+			más de 12.000 leyes consolidadas, sus 567.000 artículos, 683.000 versiones temporales y 43.000
+			reformas históricas. El contenido legislativo es de dominio público (procede del BOE y boletines
+			autonómicos); la estructura SQLite la liberamos bajo
+			<a href="https://creativecommons.org/publicdomain/zero/1.0/deed.es" target="_blank" rel="noopener">CC0</a>.
+		</p>
+		<p>
+			Publicamos dos archivos por cada instantánea:
+		</p>
+		<ul>
+			<li>
+				<strong>Snapshot principal</strong> (<span class="code-inline">leyes-snapshot-FECHA.db.gz</span>):
+				metadatos, texto legal, reformas, materias, resúmenes ciudadanos. Sin embeddings vectoriales.
+				Es lo que la mayoría querrá.
+			</li>
+			<li>
+				<strong>Embeddings</strong> (<span class="code-inline">leyes-embeddings-FECHA.db.gz</span>):
+				solo la tabla <span class="code-inline">embeddings</span>, con los 484.000 vectores de
+				3072 dimensiones que utiliza nuestra búsqueda semántica. Útil si reconstruyes un sistema
+				RAG sobre legislación española sin pagar la generación inicial de embeddings.
+			</li>
+		</ul>
+
+		<h2>Última instantánea</h2>
+
+		{latest ? (
+			<>
+				<div class="snapshot-card">
+					<div class="snapshot-card-kicker">SNAPSHOT PRINCIPAL · {latest.date}</div>
+					<h3 class="snapshot-card-title">{latest.main.filename}</h3>
+					<div class="snapshot-card-meta">
+						<span>{formatDate(latest.date)}</span>
+						<span>{formatBytes(latest.main.bytes)} comprimido</span>
+						<span>SQLite + gzip</span>
+					</div>
+					<div class="snapshot-card-actions">
+						<a class="btn-primary" href={latest.main.hf_url} rel="noopener">
+							Descargar (Hugging Face)
+						</a>
+						<a class="btn-outline" href={latest.main.archive_url} rel="noopener">
+							Espejo en archive.org
+						</a>
+					</div>
+					<code class="sha">SHA-256 {latest.main.sha256}</code>
+				</div>
+
+				<div class="snapshot-card">
+					<div class="snapshot-card-kicker">EMBEDDINGS · {latest.date}</div>
+					<h3 class="snapshot-card-title">{latest.embeddings.filename}</h3>
+					<div class="snapshot-card-meta">
+						<span>{formatDate(latest.date)}</span>
+						<span>{formatBytes(latest.embeddings.bytes)} comprimido</span>
+						<span>484.000 vectores · 3072 dim</span>
+					</div>
+					<div class="snapshot-card-actions">
+						<a class="btn-primary" href={latest.embeddings.hf_url} rel="noopener">
+							Descargar (Hugging Face)
+						</a>
+						<a class="btn-outline" href={latest.embeddings.archive_url} rel="noopener">
+							Espejo en archive.org
+						</a>
+					</div>
+					<code class="sha">SHA-256 {latest.embeddings.sha256}</code>
+				</div>
+
+				{older.length > 0 && (
+					<>
+						<h3>Versiones anteriores</h3>
+						<p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">
+							Conservamos las últimas {manifest.snapshots.length} instantáneas (aproximadamente tres meses).
+							Para versiones más antiguas, consulta la
+							<a href="https://huggingface.co/datasets/leyabierta/leyes-snapshot/commits/main" target="_blank" rel="noopener">
+								historia del repositorio en Hugging Face</a>.
+						</p>
+						<ul class="history-list">
+							{older.map((s) => (
+								<li>
+									<span class="history-date">{s.date}</span>
+									<span class="history-links">
+										<a href={s.main.hf_url} rel="noopener">principal</a>
+										<a href={s.embeddings.hf_url} rel="noopener">embeddings</a>
+										<a href={`https://archive.org/details/leyabierta-snapshot-${s.date}`} rel="noopener">archive.org</a>
+									</span>
+								</li>
+							))}
+						</ul>
+					</>
+				)}
+			</>
+		) : (
+			<div class="empty-state">
+				<strong>Próximamente.</strong> Estamos preparando la primera publicación pública de la base de
+				datos. En cuanto esté disponible aparecerá aquí, junto al checksum y los espejos. Si quieres
+				que te avisemos, escribe a <a href="mailto:contacto@leyabierta.es">contacto@leyabierta.es</a>.
+			</div>
+		)}
+
+		<h2>Cómo usarla</h2>
+		<p>
+			Descarga el fichero <span class="code-inline">.db.gz</span>, descomprímelo y ábrelo con
+			<span class="code-inline">sqlite3</span> o cualquier biblioteca SQLite (Python, Node.js, Bun, Rust,
+			Go, Java…). Verifica siempre el SHA-256 antes de usarlo.
+		</p>
+
+		<div class="code-block"><code>{`# Verificar checksum (sustituye FECHA por la del snapshot que descargaste)
+sha256sum leyes-snapshot-${latest?.date ?? "YYYY-MM-DD"}.db.gz
+
+# Descomprimir
+gunzip leyes-snapshot-${latest?.date ?? "YYYY-MM-DD"}.db.gz
+
+# Abrir
+sqlite3 leyes-snapshot-${latest?.date ?? "YYYY-MM-DD"}.db`}</code></div>
+
+		<h3>Consultas de ejemplo</h3>
+
+		<div class="code-block"><code>{`-- Texto de un artículo concreto de la Constitución
+SELECT title, text
+FROM blocks
+WHERE norm_id = 'BOE-A-1978-31229' AND label = 'art. 14';
+
+-- Las 10 leyes con más reformas
+SELECT n.title, COUNT(r.id) AS reformas
+FROM norms n JOIN reforms r ON r.norm_id = n.id
+GROUP BY n.id ORDER BY reformas DESC LIMIT 10;
+
+-- Búsqueda de texto completo (FTS5)
+SELECT n.title, b.label
+FROM blocks_fts f
+JOIN blocks b ON b.id = f.rowid
+JOIN norms n ON n.id = b.norm_id
+WHERE blocks_fts MATCH 'salario mínimo'
+LIMIT 20;`}</code></div>
+
+		<h2>Esquema</h2>
+		<p>
+			Las tablas más relevantes del snapshot principal:
+		</p>
+		<table class="schema-table">
+			<thead>
+				<tr><th>Tabla</th><th>Filas aprox.</th><th>Contenido</th></tr>
+			</thead>
+			<tbody>
+				<tr><td>norms</td><td>12.250</td><td>Una fila por ley: identificador BOE, título, rango, jurisdicción, fechas, estado.</td></tr>
+				<tr><td>blocks</td><td>567.000</td><td>Unidades estructurales (artículos, capítulos, títulos, secciones) con su texto.</td></tr>
+				<tr><td>versions</td><td>683.000</td><td>Snapshots temporales de cada bloque: el mismo artículo en distintas fechas.</td></tr>
+				<tr><td>reforms</td><td>43.800</td><td>Cada reforma puntual con la norma que la introdujo y la fecha oficial.</td></tr>
+				<tr><td>reform_blocks</td><td>—</td><td>Relación reforma ↔ bloques afectados.</td></tr>
+				<tr><td>materias</td><td>187.000</td><td>Categorías temáticas asignadas por el BOE a cada norma.</td></tr>
+				<tr><td>notas</td><td>—</td><td>Notas marginales del BOE.</td></tr>
+				<tr><td>referencias</td><td>—</td><td>Referencias cruzadas entre normas (deroga, modifica, desarrolla).</td></tr>
+				<tr><td>reform_summaries</td><td>~200</td><td>Resúmenes generados por IA de reformas recientes.</td></tr>
+				<tr><td>citizen_article_summaries</td><td>~3.000</td><td>Resúmenes ciudadanos de artículos generados por IA.</td></tr>
+				<tr><td>omnibus_topics</td><td>~6.000</td><td>Detección de leyes ómnibus y sus ejes temáticos.</td></tr>
+				<tr><td>blocks_fts, norms_fts</td><td>—</td><td>Índices FTS5 para búsqueda de texto completo.</td></tr>
+			</tbody>
+		</table>
+
+		<h3>Tablas excluidas (privacidad)</h3>
+		<p>
+			Por respeto a la privacidad y al RGPD, retiramos siempre del snapshot público las siguientes
+			tablas: <span class="code-inline">subscribers</span>, <span class="code-inline">ask_log</span>,
+			<span class="code-inline">notified_reforms</span>, <span class="code-inline">norm_follows</span>,
+			<span class="code-inline">digests</span>, <span class="code-inline">notification_runs</span>.
+			Contienen direcciones de correo, tokens de confirmación o registros operativos sin valor para
+			terceros.
+		</p>
+
+		<h2>Atribución y licencia</h2>
+		<p>
+			Los datos legislativos son de dominio público y proceden de fuentes oficiales: Boletín Oficial
+			del Estado y boletines autonómicos. Si publicas trabajos derivados, atribuye:
+		</p>
+		<blockquote style="border-left: 3px solid var(--accent); padding: 0.5rem 1rem; margin: 1rem 0; font-style: italic; color: var(--text-secondary);">
+			Fuente: Agencia Estatal Boletín Oficial del Estado · <a href="https://www.boe.es" target="_blank" rel="noopener">boe.es</a>.
+			Estructura SQLite: Ley Abierta (CC0).
+		</blockquote>
+		<p>
+			Ley Abierta no es una fuente legal y no sustituye al texto oficial publicado en el BOE.
+			Para uso jurídico vinculante consulta siempre la versión oficial.
+		</p>
+
+		<h2>Detalles técnicos</h2>
+		<ul>
+			<li><strong>Periodicidad:</strong> semanal (cada domingo, después del proceso diario que importa los nuevos textos del BOE).</li>
+			<li><strong>Retención:</strong> conservamos las últimas 12 instantáneas (≈ 3 meses) en la página. La historia completa queda disponible en Hugging Face y archive.org.</li>
+			<li><strong>Generación:</strong> <span class="code-inline">sqlite3 .backup</span> en caliente, sin bloquear el servicio. Ver el script <a href="https://github.com/leyabierta/leyabierta/blob/main/scripts/upload-db-snapshot.sh" target="_blank" rel="noopener">upload-db-snapshot.sh</a>.</li>
+			<li><strong>Decisiones de formato:</strong> ver <a href="https://github.com/leyabierta/leyabierta/blob/main/docs/ADRs/001-public-database-snapshot.md" target="_blank" rel="noopener">ADR-001</a>.</li>
+		</ul>
+
+		<p class="note">
+			¿Echas en falta algo? ¿Necesitas un volcado en otro formato (Parquet, JSON-Lines, dumps SQL)?
+			Abre una <a href="https://github.com/leyabierta/leyabierta/issues" target="_blank" rel="noopener">incidencia en GitHub</a>
+			o escribe a <a href="mailto:contacto@leyabierta.es">contacto@leyabierta.es</a>.
+		</p>
+	</div>
+</Base>
