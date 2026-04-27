@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-04-27T17:59:44.561Z",
+	"generated_at": "2026-04-27T18:03:42.736Z",
 	"seed": 42,
 	"bm25_top_k": 30,
 	"semantic_neg_range": [5, 15],

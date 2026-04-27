@@ -20,6 +20,7 @@
  */
 
 import { Database } from "bun:sqlite";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { bm25ArticleSearch } from "../src/services/rag/blocks-fts.ts";
@@ -576,6 +577,12 @@ function assembleCommand(args: AssembleArgs): void {
 		},
 	};
 	writeFileSync(args.metaPath, `${JSON.stringify(meta, null, "\t")}\n`, "utf8");
+	// biome formats short arrays inline; we don't want a manual format step
+	// after every assemble run, so do it ourselves. Best-effort: if biome
+	// isn't available we leave the file as-is (the pre-push hook will catch).
+	spawnSync("bunx", ["biome", "format", "--write", args.metaPath], {
+		stdio: "ignore",
+	});
 
 	console.log(`Wrote ${pairs.length} pairs to ${args.outPath}`);
 	console.log(`Wrote meta to ${args.metaPath}`);
