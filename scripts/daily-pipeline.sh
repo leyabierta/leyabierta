@@ -5,33 +5,37 @@
 # Usage: /opt/leyabierta/scripts/daily-pipeline.sh
 # Cron:  30 8 * * * /opt/leyabierta/scripts/daily-pipeline.sh
 
-# ── Single-instance lock ────────────────────────────────────────────────────
-# Prevents concurrent runs from racing on the leyes git working tree
-# (root cause of duplicate commits seen in production before 2026-04-27).
-LOCKFILE=/var/lock/leyabierta-pipeline.lock
-exec 9>"$LOCKFILE"
-if ! flock -n 9; then
-  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] another pipeline run is in progress — skipping" >> /opt/leyabierta/logs/daily-pipeline.log
-  exit 0
-fi
-
-set -euo pipefail
-
 LOG=/opt/leyabierta/logs/daily-pipeline.log
 CONTAINER=code-api-1
 ENV_FILE=/opt/leyabierta/code/.env.prod
 LEYES_DIR_CONTAINER=/data/leyes
 DIVERGENCE_CEILING=200  # abort push if local is ahead by more than this; alert + investigate
 
+# Ensure the log directory exists BEFORE any code that might log (the lock
+# guard below being the first such case on a fresh server).
 mkdir -p "$(dirname "$LOG")"
+
+# ── Single-instance lock ────────────────────────────────────────────────────
+# Prevents concurrent runs from racing on the leyes git working tree
+# (root cause of duplicate commits seen in production before 2026-04-27).
+LOCKFILE=/var/lock/leyabierta-pipeline.lock
+exec 9>"$LOCKFILE"
+if ! flock -n 9; then
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] another pipeline run is in progress — skipping" >> "$LOG"
+  exit 0
+fi
+
+set -euo pipefail
+
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $1" | tee -a "$LOG"; }
 
-# Load LEYES_PUSH_TOKEN from .env.prod for the push step. Sourcing the whole
-# file is safe (it only contains KEY=value lines) and lets us forward the
-# token to docker exec without baking it into the container image.
+# Extract ONLY the LEYES_PUSH_TOKEN from .env.prod for the push step. Avoid
+# `set -a; source ...` because that exports every secret in the file
+# (Resend, OpenRouter, ALERTS_SECRET, etc.) into the environment of every
+# subsequent `docker exec` call — much wider blast radius than necessary.
 if [ -r "$ENV_FILE" ]; then
-  # shellcheck disable=SC1090
-  set -a; source "$ENV_FILE"; set +a
+  LEYES_PUSH_TOKEN=$(grep -E '^LEYES_PUSH_TOKEN=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
+  export LEYES_PUSH_TOKEN
 fi
 
 log "=== Daily pipeline started ==="
@@ -70,7 +74,7 @@ push_leyes() {
   git_in_container config user.name  "Ley Abierta Bot" >> "$LOG" 2>&1 || true
   git_in_container config user.email "bot@leyabierta.es" >> "$LOG" 2>&1 || true
 
-  sha_before=$(git_in_container rev-parse HEAD 2>&1)
+  sha_before=$(git_in_container rev-parse HEAD 2>/dev/null || echo "<unknown>")
   log "  HEAD before push: $sha_before"
 
   # Fetch first to know how far we've drifted from origin
@@ -94,8 +98,20 @@ push_leyes() {
     return 0
   fi
 
+  # ahead=0/behind>0: nothing local to publish. Just fast-forward and return —
+  # no need to round-trip a no-op push.
+  if [ "$ahead" = "0" ] && [ "$behind" -gt "0" ]; then
+    log "  remote has $behind unseen commits, nothing local to publish — fast-forwarding"
+    if ! git_in_container pull --ff-only origin main >> "$LOG" 2>&1; then
+      log "  ✗ fast-forward failed — manual intervention required"
+      return 1
+    fi
+    log "  ✓ fast-forwarded"
+    return 0
+  fi
+
   if [ "$behind" -gt "0" ]; then
-    log "  remote has $behind unseen commits — rebasing"
+    log "  remote has $behind unseen commits — rebasing $ahead local commits on top"
     if ! git_in_container pull --rebase origin main >> "$LOG" 2>&1; then
       log "  ✗ rebase failed — manual intervention required"
       git_in_container rebase --abort >> "$LOG" 2>&1 || true
@@ -108,8 +124,8 @@ push_leyes() {
     return 1
   fi
 
-  sha_after=$(git_in_container rev-parse HEAD 2>&1)
-  log "  ✓ push OK ($ahead commits published, HEAD=$sha_after)"
+  sha_after=$(git_in_container rev-parse HEAD 2>/dev/null || echo "<unknown>")
+  log "  ✓ push OK ($ahead local commits published, HEAD=$sha_after)"
   return 0
 }
 
@@ -158,9 +174,11 @@ log "→ Step 8: Send notifications"
 docker exec "$CONTAINER" bun run packages/api/src/scripts/send-notifications.ts >> "$LOG" 2>&1
 log "  ✓ Notifications sent"
 
-# ── Step 9: Retry push if step 1.5 failed (AI may have generated new commits) ──
-# Reform summaries / citizen tags don't write to leyes markdown — they write to
-# DB only. So a retry only matters if step 1.5 push genuinely failed.
+# ── Step 9: Retry push if step 1.5 failed due to a transient error ──────────
+# AI/email steps (2-8) write only to the DB, never to leyes markdown. The
+# retry exists purely to recover from network/auth flakes in step 1.5; the
+# AI work in between bought us ~minutes of wall-clock time for whatever was
+# wrong upstream to clear.
 if [ "$push_status" -ne 0 ]; then
   log "→ Step 9: Retry push (step 1.5 failed earlier)"
   set +e
