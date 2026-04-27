@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0.0] - 2026-04-26
+
+### Performance — Sprint 2: BM25 also runs on workers, OR fallback pruned
+
+- **BM25 dispatched to the worker pool** — `vector-worker.ts` opens its own SQLite readonly handle and serves a new `bm25` message in addition to vector search. The five BM25 stages (main, synonym, namedLaw, coreLaw, recent) are dispatched concurrently from `runPipeline` and `runRetrieval` via `Promise.all`. Total wall ≈ max(stage_i) instead of sum(stage_i).
+- **Document-frequency pruning** — adds `blocks_fts_vocab` (FTS5 builtin auxiliary virtual table, no extra storage) and a small cached lookup. Before falling back to OR, `bm25ArticleSearch` drops tokens whose document frequency exceeds 30 % of the corpus. Common Spanish words (`dura`, `tengo`, `días`) no longer dominate the postings traversal — the worst-case OR scan drops from ~50 s to ~5 s.
+- **Per-stage resilience** — if the pool is unavailable on the platform, busy (`VECTOR_POOL_BUSY`), or crashes mid-FFI, the stage falls back to the in-process synchronous `bm25HybridSearch`. One degraded stage no longer sinks the other four.
+- **`CORE_NORMS` extracted to a single module-level constant** — `runPipeline` and `runRetrieval` now reference the same array; the previous `CORE_NORMS_2` duplicate is gone.
+- **`resetBlocksFtsCaches()`** clears the docfreq/total caches after `ensureBlocksFts` rebuilds the index. Called from `beforeEach` in tests for cross-test isolation.
+
+### Numbers — prod after deploy
+
+| Query | Sprint 1 | Sprint 2 |
+|---|---:|---:|
+| SMI 2025 | 7 s | 8.8 s |
+| paternidad | 35 s | **10.2 s** |
+| despido | 34 s | **16.4 s** |
+| prescripción | 10 s | **8.8 s** |
+| alquiler | 14 s | **11.7 s** |
+
+Median warm latency: **22 s → 10.2 s** (Sprint 1 → Sprint 2). Total since pre-Sprint 1 baseline (~120 s): ~12× e2e improvement.
+
+### Infrastructure
+
+- `blocks_fts_vocab` virtual table created on the production DB. Tables that don't exist on Sprint 1 deployments degrade gracefully: `getDocfreq` returns 0 → no pruning → behavior identical to Sprint 1.
+
 ## [0.2.0.0] - 2026-04-26
 
 ### Performance — Sprint 1: RAG retrieval ~5× faster end-to-end

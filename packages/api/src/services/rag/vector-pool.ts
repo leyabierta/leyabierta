@@ -292,11 +292,6 @@ function defaultLibPath(): string | null {
  */
 export async function getVectorPool(
 	index: InMemoryVectorIndex,
-	options: {
-		workerCount?: number;
-		maxPending?: number;
-		dbPath?: string;
-	} = {},
 ): Promise<VectorPool | null> {
 	if (pool) return pool;
 	if (initPromise) return initPromise;
@@ -310,15 +305,19 @@ export async function getVectorPool(
 			: 0;
 		if (!dim) return null;
 
-		const dbPath =
-			options.dbPath ?? process.env.DB_PATH ?? "./data/leyabierta.db";
+		// Sizing read at init time — the pool is a process-wide singleton
+		// so accepting per-call options would silently no-op for everyone
+		// after the first caller. Override via env vars below.
+		const workerCount = Number(process.env.RAG_VECTOR_POOL_WORKERS ?? "4");
+		const maxPending = Number(process.env.RAG_VECTOR_POOL_MAX_PENDING ?? "20");
+		const dbPath = process.env.DB_PATH ?? "./data/leyabierta.db";
 
 		const shared = toShared(index);
 		const candidate = new VectorPool(shared, {
-			workerCount: options.workerCount ?? 4,
+			workerCount,
 			libPath,
 			dbPath,
-			maxPending: options.maxPending ?? 20,
+			maxPending,
 		});
 		try {
 			await candidate.ready();
@@ -346,9 +345,8 @@ export async function vectorSearchPooled(
 	index: InMemoryVectorIndex,
 	dims: number,
 	topK: number = 10,
-	options: { workerCount?: number; maxPending?: number } = {},
 ): Promise<VectorSearchResult[]> {
-	const p = await getVectorPool(index, options);
+	const p = await getVectorPool(index);
 	if (!p) {
 		throw new Error("vector pool unavailable on this platform");
 	}
@@ -385,9 +383,8 @@ export async function bm25SearchPooled(
 	expandedKeywords: string[],
 	topK: number,
 	normFilter?: string[],
-	options: { workerCount?: number; maxPending?: number; dbPath?: string } = {},
 ): Promise<Array<{ normId: string; blockId: string; rank: number }>> {
-	const p = await getVectorPool(index, options);
+	const p = await getVectorPool(index);
 	if (!p) {
 		throw new Error("vector pool unavailable on this platform");
 	}
