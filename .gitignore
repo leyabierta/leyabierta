@@ -53,3 +53,8 @@ packages/search-lab/
 # generated reranker training artifacts (regenerable from reranker-v*.jsonl)
 packages/api/research/training/triplets*.jsonl
 packages/api/research/training/.venv/
+
+# generated reranker eval artifacts
+packages/api/research/training/eval-candidates.jsonl
+packages/api/research/training/eval-*.json
+packages/api/research/training/adapters/
