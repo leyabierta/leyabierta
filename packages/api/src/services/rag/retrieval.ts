@@ -491,6 +491,8 @@ const ANCHOR_RANKS = new Set([
 	"constitucion",
 ]);
 
+export type ProgressStep = "analyzing" | "retrieving" | "ranking" | "writing";
+
 export type RunRetrievalCoreOpts = {
 	db: Database;
 	apiKey: string;
@@ -504,6 +506,13 @@ export type RunRetrievalCoreOpts = {
 		dims: number;
 	} | null;
 	trace?: RagTrace;
+	/**
+	 * Optional progress callback. Fired at phase boundaries inside the
+	 * retrieval pipeline (`retrieving` before vector/BM25 fan-out, `ranking`
+	 * before the Cohere/LLM rerank). The streaming route consumes these to
+	 * surface SSE `progress` events; non-streaming callers can omit.
+	 */
+	onProgress?: (step: ProgressStep, label: string) => void;
 };
 
 /**
@@ -527,6 +536,7 @@ export async function runRetrievalCore(
 		embeddedNormIds,
 		vectorIndex,
 		trace,
+		onProgress,
 	} = opts;
 
 	// 1. Analyze + embed query in parallel.
@@ -595,6 +605,8 @@ export async function runRetrievalCore(
 		minSimilarity: MIN_SIMILARITY,
 		embeddingDims: queryResult.embedding.length,
 	});
+
+	onProgress?.("retrieving", "Buscando entre 12.000 leyes…");
 
 	const parallelStart = Date.now();
 	const bm25BreakT = performance.now();
@@ -830,6 +842,7 @@ export async function runRetrievalCore(
 	let rerankerBackend = "none";
 
 	if (allFusedArticles.length > TOP_K) {
+		onProgress?.("ranking", "Seleccionando los artículos más relevantes…");
 		const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
 			key: `${a.normId}:${a.blockId}`,
 			title: `${a.blockTitle} — ${describeNormScope(a.rank, resolveJurisdiction(a.sourceUrl, a.normId))}: ${a.normTitle}`,
