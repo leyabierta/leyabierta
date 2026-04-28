@@ -32,7 +32,7 @@
  *
  * Usage:
  *   bun run packages/api/research/quantize-vectors.ts
- *   bun run packages/api/research/quantize-vectors.ts --in data/vectors.bin --out data/vectors-int8.bin
+ *   bun run packages/api/research/quantize-vectors.ts --in data/vectors.bin --out data/vectors-int8.bin [--dims 3072]
  */
 
 const DEFAULT_IN = "./data/vectors.bin";
@@ -46,15 +46,24 @@ const REPORT_EVERY = 50_000;
 interface Args {
 	inPath: string;
 	outPath: string;
+	dims: number;
 }
 
 function parseArgs(): Args {
 	const argv = process.argv;
 	const inIdx = argv.indexOf("--in");
 	const outIdx = argv.indexOf("--out");
+	const dimsIdx = argv.indexOf("--dims");
+	const dimsRaw = dimsIdx >= 0 ? Number(argv[dimsIdx + 1]) : DIMS;
+	if (!Number.isFinite(dimsRaw) || dimsRaw <= 0) {
+		throw new Error(
+			`--dims must be a positive integer, got ${argv[dimsIdx + 1]}`,
+		);
+	}
 	return {
 		inPath: inIdx >= 0 ? (argv[inIdx + 1] ?? DEFAULT_IN) : DEFAULT_IN,
 		outPath: outIdx >= 0 ? (argv[outIdx + 1] ?? DEFAULT_OUT) : DEFAULT_OUT,
+		dims: dimsRaw,
 	};
 }
 
@@ -249,8 +258,8 @@ export async function quantizeVectorsFile(opts: {
 }
 
 async function main(): Promise<void> {
-	const { inPath, outPath } = parseArgs();
-	await quantizeVectorsFile({ inPath, outPath });
+	const { inPath, outPath, dims } = parseArgs();
+	await quantizeVectorsFile({ inPath, outPath, dims });
 	console.log(
 		`[quantize] meta file is reused as-is from data/vectors.meta.jsonl ` +
 			`(no copy made — single source of truth)`,

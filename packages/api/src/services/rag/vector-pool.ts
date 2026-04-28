@@ -14,10 +14,11 @@
  * reject so the API layer can return 503 Busy instead of memory-bombing
  * under sustained load.
  *
- * Memory: vectors.bin (~5.6 GB) lives once in SABs allocated by the
- * pool's create() and viewed read-only by every worker. Per-worker
- * heap is small (the .so handle, the message buffers, no JS-side
- * vector storage).
+ * Memory: the vector index lives once in SABs allocated by the pool's
+ * create() and viewed read-only by every worker. Footprint depends on
+ * format: ~1.5 GB for `vectors-int8.bin` (default when present), ~5.6 GB
+ * for the legacy `vectors.bin` float32 fallback. Per-worker heap is small
+ * (the .so handle, the message buffers, no JS-side vector storage).
  */
 
 import { join } from "node:path";

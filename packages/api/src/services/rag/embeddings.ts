@@ -942,7 +942,9 @@ export async function ensureVectorIndex(
 			writer.flush();
 		}
 	}
-	writer.end();
+	// Await flush before reading the file back through `loadVectorsToMemory`
+	// below. Without this, the read can race the final pending writes.
+	await writer.end();
 	await Bun.write(metaPath, metaLines.join("\n"));
 
 	meta = metaLines.map((l) => {
