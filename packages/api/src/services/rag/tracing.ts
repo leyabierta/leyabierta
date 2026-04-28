@@ -99,6 +99,35 @@ export function startTrace(
 }
 
 /**
+ * Start a new trace for a hybrid search invocation (/v1/laws).
+ * Uses the same Opik project as the RAG pipeline (`leyabierta-rag`) so
+ * both search paths are visible in a single UI view. Differentiated by
+ * trace name (`hybrid-laws-search`).
+ *
+ * Returns a no-op trace if Opik is not configured or initialization fails.
+ */
+export function startHybridTrace(
+	query: string,
+	metadata?: Record<string, unknown>,
+): RagTrace {
+	const opik = getClient();
+	if (!opik) return NO_OP_TRACE;
+
+	try {
+		const trace = opik.trace({
+			name: "hybrid-laws-search",
+			input: { query },
+			metadata,
+			tags: ["hybrid-search", "production"],
+		});
+		return new OpikRagTrace(trace);
+	} catch (err) {
+		console.warn("[tracing] Failed to create hybrid trace:", err);
+		return NO_OP_TRACE;
+	}
+}
+
+/**
  * Flush all pending traces. Call on server shutdown.
  * Safe to call even if Opik was never initialized.
  */
