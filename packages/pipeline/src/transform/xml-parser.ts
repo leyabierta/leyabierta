@@ -440,10 +440,18 @@ function decodeEntities(text: string): string {
 		.replace(/[\u2002\u2003\u202F\u00A0]/g, " ");
 }
 
-/** Collapse whitespace runs and trim \u2014 apply at paragraph/cell boundaries only. */
+/**
+ * Collapse whitespace runs and trim \u2014 apply at paragraph/cell boundaries only.
+ *
+ * The newline rule trims only horizontal whitespace around line breaks, not
+ * other newlines: `\s*\n\s*` would have `\s*` consume an adjacent `\n`, which
+ * collapses paragraph breaks (`\n\n` \u2192 `\n`). The diff renderer in
+ * reforma.astro splits block text on `\n\n` to drive per-paragraph diffs, so
+ * losing those breaks would coalesce a multi-paragraph article into one.
+ */
 function normalizeWhitespace(text: string): string {
 	return text
 		.replace(/[ \t]+/g, " ")
-		.replace(/\s*\n\s*/g, "\n")
+		.replace(/[ \t]*\n[ \t]*/g, "\n")
 		.trim();
 }

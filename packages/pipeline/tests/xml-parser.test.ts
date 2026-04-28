@@ -113,3 +113,29 @@ describe("getBlockAtDate", () => {
 		expect(version).toBeUndefined();
 	});
 });
+
+describe("normalizeWhitespace via <br><br>", () => {
+	// Regression test for review finding on PR #67: the previous regex
+	// `/\s*\n\s*/g` collapsed `\n\n` to `\n`, because `\s` matches `\n`. A
+	// paragraph with two consecutive <br> elements produces "...\n\n..." inside
+	// renderInlineNodes; downstream code (reforma.astro diff renderer) splits
+	// on `\n\n` so the collapse silently merged paragraph breaks.
+	const xml = new TextEncoder().encode(`<?xml version="1.0" encoding="utf-8"?>
+<response>
+  <data>
+    <texto>
+      <bloque id="a1" tipo="precepto" titulo="Artículo 1">
+        <version id_norma="BOE-A-TEST" fecha_publicacion="20240101" fecha_vigencia="20240101">
+          <p class="parrafo">First line.<br/><br/>Second line.</p>
+        </version>
+      </bloque>
+    </texto>
+  </data>
+</response>`);
+
+	test("preserves \\n\\n produced by consecutive <br> elements", () => {
+		const blocks = parseTextXml(xml);
+		const text = blocks[0]!.versions[0]!.paragraphs[0]!.text;
+		expect(text).toBe("First line.\n\nSecond line.");
+	});
+});
