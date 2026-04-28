@@ -55,6 +55,7 @@ export const RANK_LABELS: Record<string, string> = {
 	resolucion: "Resolución",
 	reglamento: "Reglamento",
 	acuerdo_internacional: "Acuerdo internacional",
+	acuerdo: "Acuerdo",
 	otro: "Norma",
 };
 
