@@ -1,0 +1,26 @@
+{
+	"generated_at": "2026-04-28T21:11:29.142Z",
+	"seed": 42,
+	"bm25_top_k": 30,
+	"semantic_neg_range": [5, 15],
+	"semantic_neg_count": 2,
+	"input_articles": "/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta-rag-ft/packages/api/research/datasets/reranker-articles-batch-v4.jsonl",
+	"input_queries": [
+		"/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta-rag-ft/packages/api/research/datasets/reranker-queries-v4-state-1.jsonl",
+		"/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta-rag-ft/packages/api/research/datasets/reranker-queries-v4-state-2.jsonl",
+		"/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta-rag-ft/packages/api/research/datasets/reranker-queries-v4-state-3.jsonl",
+		"/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta-rag-ft/packages/api/research/datasets/reranker-queries-v4-ccaa-1.jsonl",
+		"/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta-rag-ft/packages/api/research/datasets/reranker-queries-v4-ccaa-2.jsonl"
+	],
+	"stats": {
+		"total_pairs": 689,
+		"trap_pairs": 50,
+		"skipped_query_rows": 2,
+		"missing_positives": 0,
+		"pairs_with_both_negative_types": 681,
+		"pairs_only_semantic": 0,
+		"pairs_only_materia_sibling": 8,
+		"pairs_with_no_negatives": 0,
+		"gold_norms_with_no_materia_sibling": 0
+	}
+}
