@@ -72,6 +72,7 @@ class EvalConfig:
     mode: Literal["candidates", "oracle"]
     report_path: Path
     top_k: int
+    register_field: str
 
 
 def load_eval(path: Path) -> list[dict]:
@@ -196,7 +197,7 @@ def evaluate(cfg: EvalConfig) -> dict:
         if qid not in cands_by_q:
             continue
 
-        register = q.get("register", "untagged")
+        register = q.get(cfg.register_field, "untagged")
         bucket = register if register in counters else "untagged"
 
         ranked = rerank(reranker, q["question"], cands_by_q[qid])
@@ -246,6 +247,11 @@ def parse_args(argv: list[str]) -> EvalConfig:
     )
     p.add_argument("--report", required=True, type=Path, dest="report_path")
     p.add_argument("--top-k", type=int, default=80)
+    p.add_argument(
+        "--register-field",
+        default="register",
+        help='which JSON field to use for register tags (default "register"; use "register_heuristic" for the heuristic interim tagging)',
+    )
     args = p.parse_args(argv)
     return EvalConfig(
         eval_path=args.eval_path,
@@ -254,6 +260,7 @@ def parse_args(argv: list[str]) -> EvalConfig:
         mode=args.mode,
         report_path=args.report_path,
         top_k=args.top_k,
+        register_field=args.register_field,
     )
 
 
