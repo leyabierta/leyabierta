@@ -84,6 +84,15 @@ self.onmessage = (event: MessageEvent) => {
 		// `ready` promise would never settle and the worker slot would leak.
 		try {
 			const isInt8 = msg.kind === "int8";
+			// For int8, scales is a per-chunk parallel array. A mismatch here
+			// would only surface at query time as `state.scales[c] === undefined`,
+			// which is a confusing failure mode — fail loud at init instead.
+			if (isInt8 && msg.sharedScales.length !== msg.sharedChunks.length) {
+				throw new Error(
+					`int8 init: sharedScales.length (${msg.sharedScales.length}) ` +
+						`!= sharedChunks.length (${msg.sharedChunks.length})`,
+				);
+			}
 			const chunks = isInt8
 				? []
 				: msg.sharedChunks.map((sab) => new Float32Array(sab));

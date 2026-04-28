@@ -9,11 +9,12 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	type InMemoryVectorIndex,
+	loadInt8VectorsToMemory,
 	vectorSearchInMemory,
 } from "../services/rag/embeddings.ts";
 import {
@@ -91,7 +92,7 @@ function buildFiles(floats: Float32Array): {
 describe("INT8VEC1 loader + search end-to-end", () => {
 	const tmp = mkdtempSync(join(tmpdir(), "int8-loader-"));
 	afterAll(() => {
-		// Best-effort cleanup. Files are tiny.
+		rmSync(tmp, { recursive: true, force: true });
 	});
 
 	test.skipIf(!simdAvailable())(
@@ -109,44 +110,10 @@ describe("INT8VEC1 loader + search end-to-end", () => {
 
 			// Use the real loader so any header / chunking / SAB plumbing
 			// regression in production code is caught here.
-			const mod = await import("../services/rag/embeddings.ts");
-			// loadInt8VectorsToMemory is internal — re-export-friendly hack.
-			// biome-ignore lint/suspicious/noExplicitAny: test-only escape hatch.
-			const loader: any = (mod as any).loadInt8VectorsToMemory;
-			let int8Index: InMemoryVectorIndex;
-			if (typeof loader === "function") {
-				int8Index = await loader(binPath, normsPath);
-			} else {
-				// Fallback: build the same index shape inline. Keeps the test
-				// useful even if we tighten the public surface later.
-				const headerView = new DataView(bin.buffer);
-				const dims = headerView.getUint32(8, true);
-				const n = headerView.getUint32(12, true);
-				const int8 = new Int8Array(n * dims);
-				const scales = new Float32Array(n);
-				const normsArr = new Float32Array(
-					norms.buffer,
-					norms.byteOffset,
-					norms.byteLength / 4,
-				);
-				for (let v = 0; v < n; v++) {
-					const off = 32 + v * (4 + dims);
-					scales[v] = headerView.getFloat32(off, true);
-					for (let j = 0; j < dims; j++) {
-						int8[v * dims + j] = (bin[off + 4 + j]! << 24) >> 24;
-					}
-				}
-				int8Index = {
-					kind: "int8",
-					chunks: [],
-					int8Chunks: [int8],
-					scalesPerChunk: [scales],
-					vectorsPerChunk: [n],
-					normsPerChunk: [normsArr],
-					totalVectors: n,
-					dim: dims,
-				};
-			}
+			const int8Index: InMemoryVectorIndex = await loadInt8VectorsToMemory(
+				binPath,
+				normsPath,
+			);
 
 			expect(int8Index.kind).toBe("int8");
 			expect(int8Index.totalVectors).toBe(N);

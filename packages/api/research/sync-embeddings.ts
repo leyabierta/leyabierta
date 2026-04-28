@@ -425,14 +425,20 @@ if (hasRemovals || hasAdditions) {
 		"SELECT norm_id, block_id, vector FROM embeddings WHERE model = ? ORDER BY norm_id, block_id",
 	);
 	let exported = 0;
+	const expectedBytes = model.dimensions * 4;
 	for (const row of stmt.iterate(MODEL_KEY)) {
+		// Guard against truncated or wrong-dimension rows. A `new Uint8Array`
+		// view past the backing buffer throws RangeError and would crash the
+		// whole sync — skip the row with a warning instead.
+		if (row.vector.byteLength !== expectedBytes) {
+			console.warn(
+				`[sync] skipping ${row.norm_id}/${row.block_id}: expected ${expectedBytes}B, got ${row.vector.byteLength}B`,
+			);
+			continue;
+		}
 		metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
 		writer.write(
-			new Uint8Array(
-				row.vector.buffer,
-				row.vector.byteOffset,
-				model.dimensions * 4,
-			),
+			new Uint8Array(row.vector.buffer, row.vector.byteOffset, expectedBytes),
 		);
 		exported++;
 		if (exported % 100_000 === 0) {

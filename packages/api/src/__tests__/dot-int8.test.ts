@@ -204,6 +204,39 @@ describe("dot_int8 / cosine_topk_int8 quantization parity", () => {
 		},
 	);
 
+	test.skipIf(!simdAvailable())(
+		"int8 cosine handles non-multiple-of-8 dims (exercises scalar tail)",
+		() => {
+			// 13 dims: SIMD covers 8, scalar tail covers 5. Catches any future
+			// regression where the tail loop is dropped or miswritten.
+			const TAIL_DIMS = 13;
+			const TAIL_N = 16;
+			const floats = makeF32Vectors(TAIL_N, TAIL_DIMS, 0xfaceb00c);
+			const f32 = makeF32Index(floats, TAIL_N, TAIL_DIMS);
+			const int8 = makeInt8Index(floats, TAIL_N, TAIL_DIMS);
+
+			const rnd = xorshift(0xbeef);
+			const q = new Float32Array(TAIL_DIMS);
+			for (let j = 0; j < TAIL_DIMS; j++) q[j] = rnd();
+
+			const refRes = vectorSearchInMemory(q, f32.meta, f32.index, TAIL_DIMS, 5);
+			const intRes = vectorSearchSIMD(q, int8.meta, int8.index, TAIL_DIMS, 5);
+			expect(intRes.length).toBe(refRes.length);
+
+			const refScores = new Map(
+				refRes.map((r) => [`${r.normId}:${r.blockId}`, r.score] as const),
+			);
+			for (const r of intRes) {
+				const expected = refScores.get(`${r.normId}:${r.blockId}`);
+				if (expected != null) {
+					const rel =
+						Math.abs(r.score - expected) / Math.max(Math.abs(expected), 1e-9);
+					expect(rel).toBeLessThan(REL_EPS);
+				}
+			}
+		},
+	);
+
 	test("simdAvailable() reports a boolean", () => {
 		expect(typeof simdAvailable()).toBe("boolean");
 	});
