@@ -256,7 +256,6 @@ export class HybridSearcherImpl implements HybridSearcher {
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err);
 					embedSpan.end({ error: msg, cache_hit: false });
-					trace.end({ error: msg, latency_ms: performance.now() - embedStart });
 					throw err;
 				}
 			}
@@ -313,6 +312,11 @@ export class HybridSearcherImpl implements HybridSearcher {
 			// 4. Aggregate article scores → norm scores. `sum` only counts articles
 			// above SUM_POOL_THRESHOLD so weak tail doesn't dilute the signal.
 			const poolStart = performance.now();
+			const poolSpan = trace.span("aggregate_pool", "general", {
+				strategy: pool,
+				sum_pool_threshold: SUM_POOL_THRESHOLD,
+				n_articles: articles.length,
+			});
 			const normScores = new Map<
 				string,
 				{ sum: number; max: number; n: number }
@@ -339,12 +343,6 @@ export class HybridSearcherImpl implements HybridSearcher {
 			const aboveThreshold = [...normScores.values()].filter(
 				(s) => s.sum > 0,
 			).length;
-
-			const poolSpan = trace.span("aggregate_pool", "general", {
-				strategy: pool,
-				sum_pool_threshold: SUM_POOL_THRESHOLD,
-				n_articles: articles.length,
-			});
 
 			// Optional per-norm rank boost. Single batched query — candidate set is
 			// at most articleTopK distinct norms (typically <100).
@@ -414,7 +412,7 @@ export class HybridSearcherImpl implements HybridSearcher {
 				bm25_count: bm25Ranked.length,
 				vector_count: vectorMaxRanked.length,
 				cache_hit: cacheHit,
-				latency_ms: Math.round(embedMs + searchMs),
+				latency_ms: Math.round(embedMs + bm25Ms + searchMs + poolMs + fusionMs),
 			});
 
 			return {
