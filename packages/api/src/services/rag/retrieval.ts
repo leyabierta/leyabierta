@@ -504,6 +504,13 @@ export type RunRetrievalCoreOpts = {
 		dims: number;
 	} | null;
 	trace?: RagTrace;
+	/**
+	 * Skip the reranker stage entirely. When true, `articles` is just the
+	 * first TOP_K of `allFusedArticles` (RRF order). Used by offline tools
+	 * that want pre-rerank candidates without paying for Cohere/LLM rerank
+	 * (e.g. the eval-candidates dumper for reranker training/eval).
+	 */
+	skipRerank?: boolean;
 };
 
 /**
@@ -829,7 +836,7 @@ export async function runRetrievalCore(
 	let articles: RetrievedArticle[];
 	let rerankerBackend = "none";
 
-	if (allFusedArticles.length > TOP_K) {
+	if (allFusedArticles.length > TOP_K && !opts.skipRerank) {
 		const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
 			key: `${a.normId}:${a.blockId}`,
 			title: `${a.blockTitle} — ${describeNormScope(a.rank, resolveJurisdiction(a.sourceUrl, a.normId))}: ${a.normTitle}`,
@@ -851,6 +858,11 @@ export async function runRetrievalCore(
 			);
 
 		articles = applyLegalHierarchyBoost(articles, allFusedArticles, db);
+	} else if (opts.skipRerank) {
+		// Caller asked to bypass rerank; truncate to TOP_K to preserve the
+		// invariant that downstream consumers expect (articles.length ≤ TOP_K).
+		articles = allFusedArticles.slice(0, TOP_K);
+		rerankerBackend = "skipped";
 	} else {
 		articles = allFusedArticles;
 	}
