@@ -1,13 +1,22 @@
 #!/usr/bin/env bun
 /**
- * Heuristic register tagger for the eval-v2 questions.
+ * INTERIM heuristic register tagger for the eval-v2 questions.
  *
- * The proper register tagging is meant to be done by a Claude Code agent
- * (`/Users/alex/.../tag-eval-register agent`), which can read each
- * question and judge tone, formality, and procedural anchor. That agent
- * hit a rate limit on the first attempt, so this script provides a
- * deterministic, instant fallback so we have *some* per-register signal
- * to baseline against today.
+ * **This script is fragile by design and meant to be deleted.** It exists
+ * solely as a one-day stopgap so we could produce a per-register baseline
+ * before the agent-based tagger ran. The hardcoded verb lists
+ * (PROCEDURAL_ACTION_VERBS, INFORMAL_FIRST_PERSON, etc.) will misclassify
+ * any reasonable production query mix at ~10-15% — fine for a sanity
+ * check, NOT fine for any decision that depends on per-register accuracy.
+ *
+ * Replacement plan:
+ *   1. Run the agent-based tagger (Claude Code subagent) against eval-v2
+ *      to populate the canonical `register` field.
+ *   2. Compare `register` vs `register_heuristic` for divergence — if the
+ *      heuristic got more than ~85% right, log the disagreements and
+ *      delete this file. If less than 85%, the agent's tagging stands and
+ *      we delete this file anyway.
+ *   3. Either way: delete this file. Don't iterate on the regexes.
  *
  * Output goes to `data/eval-v2.json` under the field `register_heuristic`,
  * not `register`. When the agent run completes it will populate
