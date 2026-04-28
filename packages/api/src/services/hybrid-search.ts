@@ -32,12 +32,11 @@ import {
 	EMBEDDING_MODELS,
 	type EmbeddingModel,
 	embedQuery,
-	ensureVectorIndex,
-	type InMemoryVectorIndex,
 	type VectorSearchResult,
 } from "./rag/embeddings.ts";
 import { type RankedItem, reciprocalRankFusion } from "./rag/rrf.ts";
 import { startHybridTrace } from "./rag/tracing.ts";
+import { getSharedVectorIndex } from "./rag/vector-index-singleton.ts";
 import { vectorSearchPooled } from "./rag/vector-pool.ts";
 
 export const HYBRID_EMBEDDING_MODEL_KEY = "gemini-embedding-2";
@@ -161,12 +160,6 @@ export interface HybridSearcher {
  * in-memory `vectors.bin` index used by the RAG pipeline.
  */
 export class HybridSearcherImpl implements HybridSearcher {
-	private vectorIndex: {
-		meta: Array<{ normId: string; blockId: string }>;
-		vectors: InMemoryVectorIndex;
-		dims: number;
-	} | null = null;
-	private vectorIndexPromise: Promise<void> | null = null;
 	private cache = new QueryEmbeddingCache(1000);
 
 	constructor(
@@ -187,29 +180,17 @@ export class HybridSearcherImpl implements HybridSearcher {
 	}
 
 	private async getVectorIndex() {
-		if (this.vectorIndex) return this.vectorIndex;
-		if (!this.vectorIndexPromise) {
-			this.vectorIndexPromise = ensureVectorIndex(
-				this.db,
-				this.modelKey,
-				this.dataDir,
-			)
-				.then((idx) => {
-					if (!idx) {
-						throw new Error(
-							`No vector index available for model ${this.modelKey}. Run sync-embeddings.ts first.`,
-						);
-					}
-					this.vectorIndex = idx;
-				})
-				.catch((err) => {
-					this.vectorIndexPromise = null;
-					throw err;
-				});
+		const idx = await getSharedVectorIndex(
+			this.db,
+			this.modelKey,
+			this.dataDir,
+		);
+		if (!idx) {
+			throw new Error(
+				`No vector index available for model ${this.modelKey}. Run sync-embeddings.ts first.`,
+			);
 		}
-		await this.vectorIndexPromise;
-		if (!this.vectorIndex) throw new Error("Vector index failed to load");
-		return this.vectorIndex;
+		return idx;
 	}
 
 	async rankNorms(

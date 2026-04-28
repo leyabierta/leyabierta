@@ -19,14 +19,11 @@ import {
 	ensureBlocksFts,
 	ensureBlocksFtsVocab,
 } from "./blocks-fts.ts";
-import {
-	ensureVectorIndex,
-	getEmbeddedNormIds,
-	getEmbeddingCount,
-} from "./embeddings.ts";
+import { getEmbeddedNormIds, getEmbeddingCount } from "./embeddings.ts";
 import {
 	EMBEDDING_MODEL_KEY,
 	LOW_CONFIDENCE_THRESHOLD,
+	type ProgressStep,
 	type RetrievedArticle,
 	runRetrievalCore,
 	TOP_K,
@@ -42,6 +39,7 @@ import {
 	verifyCitations,
 } from "./synthesis.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
+import { getSharedVectorIndex } from "./vector-index-singleton.ts";
 
 export { normalizePeriodicTitle } from "./analyzer.ts";
 // Re-exports kept for backwards compatibility with existing tests + external
@@ -88,8 +86,6 @@ const DECLINE_LOW_CONFIDENCE =
 export class RagPipeline {
 	private cohereApiKey: string | null;
 	private embeddedNormIds: string[] | null = null;
-	private vectorIndex: Awaited<ReturnType<typeof ensureVectorIndex>> = null;
-	private vectorIndexPromise: Promise<void> | null = null;
 
 	private insertSummaryStmt: ReturnType<Database["prepare"]>;
 	private insertAskLogStmt: ReturnType<Database["prepare"]>;
@@ -400,6 +396,7 @@ export class RagPipeline {
 	async *askStream(request: AskRequest): AsyncGenerator<
 		| { type: "chunk"; text: string }
 		| { type: "keepalive" }
+		| { type: "progress"; step: ProgressStep }
 		| {
 				type: "done";
 				citations: Citation[];
@@ -415,6 +412,16 @@ export class RagPipeline {
 		});
 
 		try {
+			// Emit the first progress event before any awaits — the client
+			// gets a label as soon as the SSE stream opens, killing the
+			// "30s of mute spinner" perception.
+			yield { type: "progress", step: "analyzing" };
+
+			// Buffer for `progress` events emitted from inside runRetrievalCore.
+			// The callback fires synchronously from a worker awaiting context;
+			// we drain the buffer between awaits in the keepalive loop.
+			const progressBuffer: Array<{ step: ProgressStep }> = [];
+
 			// Retrieval can take >100s on the production server, longer than the
 			// Cloudflare Tunnel idle timeout. Interleave keepalive events every
 			// 10s so the route handler can flush an SSE comment and the proxy
@@ -428,6 +435,9 @@ export class RagPipeline {
 				embeddedNormIds: this.getEmbeddedNormIdsCached(),
 				vectorIndex: await this.getVectorIndex(),
 				trace,
+				onProgress: (step) => {
+					progressBuffer.push({ step });
+				},
 			});
 			let retrievalDone = false;
 			retrievalPromise.finally(() => {
@@ -441,9 +451,20 @@ export class RagPipeline {
 					retrievalPromise.then(() => "done" as const),
 					tick,
 				]);
+				// Drain buffered progress events before yielding keepalive/done.
+				while (progressBuffer.length > 0) {
+					const p = progressBuffer.shift()!;
+					yield { type: "progress", step: p.step };
+				}
 				if (winner === "tick" && !retrievalDone) {
 					yield { type: "keepalive" };
 				}
+			}
+			// Final drain in case the last progress event landed after the
+			// tick race resolved but before the loop re-checked the buffer.
+			while (progressBuffer.length > 0) {
+				const p = progressBuffer.shift()!;
+				yield { type: "progress", step: p.step };
 			}
 			const retrieval = await retrievalPromise;
 
@@ -499,6 +520,9 @@ export class RagPipeline {
 			}
 
 			const { articles, useTemporal, bestScore } = retrieval;
+
+			yield { type: "progress", step: "writing" };
+
 			const { evidenceText, systemPrompt } = buildEvidence({
 				db: this.db,
 				articles,
@@ -674,26 +698,12 @@ export class RagPipeline {
 
 	/**
 	 * Ensure the flat binary vector index exists and is up to date.
-	 * Built once from SQLite on first request (~30s), then cached.
+	 * Built once from SQLite on first request (~30s) and shared
+	 * process-wide via `getSharedVectorIndex` so `/v1/laws` (hybrid search)
+	 * and `/v1/ask` (RAG) don't load `vectors-int8.bin` twice.
 	 */
 	private async getVectorIndex() {
-		if (this.vectorIndex) return this.vectorIndex;
-		if (!this.vectorIndexPromise) {
-			this.vectorIndexPromise = ensureVectorIndex(
-				this.db,
-				EMBEDDING_MODEL_KEY,
-				this.dataDir,
-			)
-				.then((idx) => {
-					this.vectorIndex = idx;
-				})
-				.catch((err) => {
-					this.vectorIndexPromise = null;
-					throw err;
-				});
-		}
-		await this.vectorIndexPromise;
-		return this.vectorIndex;
+		return getSharedVectorIndex(this.db, EMBEDDING_MODEL_KEY, this.dataDir);
 	}
 
 	/**
