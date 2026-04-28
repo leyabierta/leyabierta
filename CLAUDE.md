@@ -191,8 +191,26 @@ Citation-grounded legal Q&A. Citizens ask plain-language questions, the system r
 - `reranker.ts` — Cohere/LLM reranking
 - `temporal.ts` — version history enrichment
 - `subchunk.ts` — article sub-chunking by apartados
+- `tracing.ts` — Opik observability integration (shared by RAG and hybrid search)
 - `research/TEMPORAL-ACCURACY.md` — all decisions, rationales, and eval results
 - `research/sync-embeddings.ts` — embedding generation and sync script
+
+### Opik Observability
+
+All AI paths are instrumented with [Opik](https://www.comet.com/site/products/opik/) for latency, cost, and quality monitoring.
+
+**Project: `leyabierta-rag`** — single project for all traces (configured via `OPIK_PROJECT` env var or defaults to `leyabierta-rag`).
+
+| Trace name | Origin | Spans |
+|------------|--------|-------|
+| `rag-pipeline` | `POST /v1/ask` (non-streaming) | query-analysis, retrieval, synthesis, citation-verification |
+| `ai-conversation` | streaming `POST /v1/ask` | same stages, streaming variant |
+| `handle_query` | internal retrieval core | bm25-dispatch, vector-knn, rerank |
+| `hybrid-laws-search` | `GET /v1/laws` (hybrid mode) | embed_query, bm25, vector_knn, aggregate_pool, rrf_fusion |
+
+**Decision rationale:** `hybrid-laws-search` shares `leyabierta-rag` instead of a separate project so both search paths (RAG Q&A and norm listing) are visible in a single Opik UI view. Differentiation is by trace `name` field, which Opik supports as a filter.
+
+**Tracing is always safe-to-fail:** every Opik call is wrapped in try-catch. A tracing failure never breaks the user response. Disabled gracefully when `OPIK_API_KEY` is not set.
 
 ### Email notifications
 

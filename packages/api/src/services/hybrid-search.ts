@@ -37,6 +37,7 @@ import {
 	type VectorSearchResult,
 } from "./rag/embeddings.ts";
 import { type RankedItem, reciprocalRankFusion } from "./rag/rrf.ts";
+import { startHybridTrace } from "./rag/tracing.ts";
 import { vectorSearchPooled } from "./rag/vector-pool.ts";
 
 export const HYBRID_EMBEDDING_MODEL_KEY = "gemini-embedding-2";
@@ -224,112 +225,211 @@ export class HybridSearcherImpl implements HybridSearcher {
 
 		const trimmed = query.trim();
 
-		// 1. Get query embedding (cache or API).
-		let cacheHit = false;
-		const embedStart = performance.now();
-		let embedding = this.cache.get(trimmed);
-		if (embedding) {
-			cacheHit = true;
-		} else {
-			const result = await embedQuery(this.apiKey, this.modelKey, trimmed);
-			embedding = result.embedding;
-			this.cache.set(trimmed, embedding);
-		}
-		const embedMs = performance.now() - embedStart;
-
-		// 2. KNN over article embeddings → top-K articles, then aggregate to norm.
-		// Dispatched to the shared Bun Worker pool (`vector-pool.ts`) so the
-		// SIMD KNN runs off the main thread and the ~5.6 GB index lives once
-		// in SharedArrayBuffer across the process. Same pool used by /v1/ask.
-		const searchStart = performance.now();
-		const idx = await this.getVectorIndex();
-		const articles: VectorSearchResult[] = await vectorSearchPooled(
-			embedding,
-			idx.meta,
-			idx.vectors,
-			idx.dims,
+		const trace = startHybridTrace(trimmed, {
+			pool,
+			boostByRank,
 			articleTopK,
-		);
-		const searchMs = performance.now() - searchStart;
+			normTopK,
+			rrfK,
+			bm25Candidates: bm25NormIds.length,
+		});
 
-		// Aggregate article scores → norm scores. `sum` only counts articles
-		// above SUM_POOL_THRESHOLD so weak tail doesn't dilute the signal.
-		const normScores = new Map<
-			string,
-			{ sum: number; max: number; n: number }
-		>();
-		for (const a of articles) {
-			const sumContrib = a.score >= SUM_POOL_THRESHOLD ? a.score : 0;
-			const cur = normScores.get(a.normId);
-			if (cur) {
-				cur.sum += sumContrib;
-				cur.n += 1;
-				if (a.score > cur.max) cur.max = a.score;
+		try {
+			// 1. Get query embedding (cache or API).
+			let cacheHit = false;
+			const embedStart = performance.now();
+			const embedSpan = trace.span("embed_query", "general", {
+				model: this.modelKey,
+				query: trimmed,
+				cacheSize: this.cache.size,
+			});
+			let embedding = this.cache.get(trimmed);
+			let embedTokens = 0;
+			if (embedding) {
+				cacheHit = true;
 			} else {
-				normScores.set(a.normId, {
-					sum: sumContrib,
-					max: a.score,
-					n: 1,
-				});
+				try {
+					const result = await embedQuery(this.apiKey, this.modelKey, trimmed);
+					embedding = result.embedding;
+					embedTokens = result.tokens;
+					this.cache.set(trimmed, embedding);
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					embedSpan.end({ error: msg, cache_hit: false });
+					trace.end({ error: msg, latency_ms: performance.now() - embedStart });
+					throw err;
+				}
 			}
-		}
+			const embedMs = performance.now() - embedStart;
+			embedSpan.end({
+				cache_hit: cacheHit,
+				tokens: embedTokens,
+				latency_ms: Math.round(embedMs),
+			});
 
-		// Optional per-norm rank boost. Single batched query — candidate set is
-		// at most articleTopK distinct norms (typically <100).
-		let boosts: Map<string, number> | null = null;
-		if (boostByRank && normScores.size > 0) {
-			const ids = [...normScores.keys()];
-			const ph = ids.map(() => "?").join(",");
-			const rows = this.db
-				.query<{ id: string; rank: string; jurisdiction: string }, string[]>(
-					`SELECT id, rank, jurisdiction FROM norms WHERE id IN (${ph})`,
-				)
-				.all(...ids);
-			boosts = new Map();
-			for (const r of rows) {
-				boosts.set(r.id, rankFactor(r.rank ?? "", r.jurisdiction ?? ""));
+			// 2. BM25 ranked list (input is already in BM25 relevance order).
+			const bm25Start = performance.now();
+			const bm25Span = trace.span("bm25", "general", {
+				n_candidates: bm25NormIds.length,
+			});
+			const bm25Ranked: RankedItem[] = bm25NormIds.map((id, i) => ({
+				key: id,
+				// Inverse rank as a stand-in score; RRF only uses rank position.
+				score: 1 / (i + 1),
+			}));
+			const bm25Ms = performance.now() - bm25Start;
+			bm25Span.end({
+				n_candidates: bm25Ranked.length,
+				latency_ms: Math.round(bm25Ms),
+			});
+
+			// 3. KNN over article embeddings → top-K articles, then aggregate to norm.
+			// Dispatched to the shared Bun Worker pool (`vector-pool.ts`) so the
+			// SIMD KNN runs off the main thread and the ~5.6 GB index lives once
+			// in SharedArrayBuffer across the process. Same pool used by /v1/ask.
+			const searchStart = performance.now();
+			const idx = await this.getVectorIndex();
+			const vectorsCount = idx.meta.length;
+			const knnSpan = trace.span("vector_knn", "general", {
+				top_k: articleTopK,
+				vectors_count: vectorsCount,
+				model: this.modelKey,
+			});
+			const articles: VectorSearchResult[] = await vectorSearchPooled(
+				embedding,
+				idx.meta,
+				idx.vectors,
+				idx.dims,
+				articleTopK,
+			);
+			const searchMs = performance.now() - searchStart;
+			knnSpan.end({
+				top_k: articleTopK,
+				results: articles.length,
+				vectors_count: vectorsCount,
+				latency_ms: Math.round(searchMs),
+			});
+
+			// 4. Aggregate article scores → norm scores. `sum` only counts articles
+			// above SUM_POOL_THRESHOLD so weak tail doesn't dilute the signal.
+			const poolStart = performance.now();
+			const normScores = new Map<
+				string,
+				{ sum: number; max: number; n: number }
+			>();
+			for (const a of articles) {
+				const sumContrib = a.score >= SUM_POOL_THRESHOLD ? a.score : 0;
+				const cur = normScores.get(a.normId);
+				if (cur) {
+					cur.sum += sumContrib;
+					cur.n += 1;
+					if (a.score > cur.max) cur.max = a.score;
+				} else {
+					normScores.set(a.normId, {
+						sum: sumContrib,
+						max: a.score,
+						n: 1,
+					});
+				}
 			}
+
+			const nNormsUnique = normScores.size;
+			const allMaxScores = [...normScores.values()].map((s) => s.max);
+			const maxScore = allMaxScores.length > 0 ? Math.max(...allMaxScores) : 0;
+			const aboveThreshold = [...normScores.values()].filter(
+				(s) => s.sum > 0,
+			).length;
+
+			const poolSpan = trace.span("aggregate_pool", "general", {
+				strategy: pool,
+				sum_pool_threshold: SUM_POOL_THRESHOLD,
+				n_articles: articles.length,
+			});
+
+			// Optional per-norm rank boost. Single batched query — candidate set is
+			// at most articleTopK distinct norms (typically <100).
+			let boosts: Map<string, number> | null = null;
+			if (boostByRank && normScores.size > 0) {
+				const ids = [...normScores.keys()];
+				const ph = ids.map(() => "?").join(",");
+				const rows = this.db
+					.query<{ id: string; rank: string; jurisdiction: string }, string[]>(
+						`SELECT id, rank, jurisdiction FROM norms WHERE id IN (${ph})`,
+					)
+					.all(...ids);
+				boosts = new Map();
+				for (const r of rows) {
+					boosts.set(r.id, rankFactor(r.rank ?? "", r.jurisdiction ?? ""));
+				}
+			}
+			const boostFor = (id: string): number => boosts?.get(id) ?? 1;
+
+			const vectorMaxRanked: RankedItem[] = [...normScores.entries()]
+				.map(([normId, s]) => ({
+					key: normId,
+					score: (pool === "mean" ? s.sum / s.n : s.max) * boostFor(normId),
+				}))
+				.sort((a, b) => b.score - a.score);
+
+			const vectorSumRanked: RankedItem[] | null =
+				pool === "max+sum"
+					? [...normScores.entries()]
+							.map(([normId, s]) => ({
+								key: normId,
+								score: s.sum * boostFor(normId),
+							}))
+							.sort((a, b) => b.score - a.score)
+					: null;
+
+			const poolMs = performance.now() - poolStart;
+			poolSpan.end({
+				n_norms_unique: nNormsUnique,
+				max_score: maxScore,
+				sum_above_threshold: aboveThreshold,
+				latency_ms: Math.round(poolMs),
+			});
+
+			// 5. Fuse.
+			const fusionStart = performance.now();
+			const nLists = vectorSumRanked ? 3 : 2;
+			const fusionSpan = trace.span("rrf_fusion", "general", {
+				n_lists: nLists,
+				rrf_k: rrfK,
+				top_k_out: normTopK,
+			});
+			const lists = new Map<string, RankedItem[]>();
+			lists.set("bm25", bm25Ranked);
+			lists.set("vector_max", vectorMaxRanked);
+			if (vectorSumRanked) lists.set("vector_sum", vectorSumRanked);
+			const fused = reciprocalRankFusion(lists, rrfK, normTopK);
+			const fusionMs = performance.now() - fusionStart;
+			fusionSpan.end({
+				n_lists: nLists,
+				top_k_out: fused.length,
+				latency_ms: Math.round(fusionMs),
+			});
+
+			trace.end({
+				fused_count: fused.length,
+				bm25_count: bm25Ranked.length,
+				vector_count: vectorMaxRanked.length,
+				cache_hit: cacheHit,
+				latency_ms: Math.round(embedMs + searchMs),
+			});
+
+			return {
+				fused: fused.map((r) => r.key),
+				bm25Count: bm25Ranked.length,
+				vectorCount: vectorMaxRanked.length,
+				embeddingCacheHit: cacheHit,
+				embedMs,
+				searchMs,
+			};
+		} catch (err) {
+			trace.end({
+				error: err instanceof Error ? err.message : String(err),
+			});
+			throw err;
 		}
-		const boostFor = (id: string): number => boosts?.get(id) ?? 1;
-
-		const vectorMaxRanked: RankedItem[] = [...normScores.entries()]
-			.map(([normId, s]) => ({
-				key: normId,
-				score: (pool === "mean" ? s.sum / s.n : s.max) * boostFor(normId),
-			}))
-			.sort((a, b) => b.score - a.score);
-
-		const vectorSumRanked: RankedItem[] | null =
-			pool === "max+sum"
-				? [...normScores.entries()]
-						.map(([normId, s]) => ({
-							key: normId,
-							score: s.sum * boostFor(normId),
-						}))
-						.sort((a, b) => b.score - a.score)
-				: null;
-
-		// 3. BM25 ranked list (input is already in BM25 relevance order).
-		const bm25Ranked: RankedItem[] = bm25NormIds.map((id, i) => ({
-			key: id,
-			// Inverse rank as a stand-in score; RRF only uses rank position.
-			score: 1 / (i + 1),
-		}));
-
-		// 4. Fuse.
-		const lists = new Map<string, RankedItem[]>();
-		lists.set("bm25", bm25Ranked);
-		lists.set("vector_max", vectorMaxRanked);
-		if (vectorSumRanked) lists.set("vector_sum", vectorSumRanked);
-		const fused = reciprocalRankFusion(lists, rrfK, normTopK);
-
-		return {
-			fused: fused.map((r) => r.key),
-			bm25Count: bm25Ranked.length,
-			vectorCount: vectorMaxRanked.length,
-			embeddingCacheHit: cacheHit,
-			embedMs,
-			searchMs,
-		};
 	}
 }
