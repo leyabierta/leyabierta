@@ -20,15 +20,16 @@
  *   bun run packages/pipeline/src/scripts/fix-rank-from-cache.ts --apply --limit 50
  */
 
-import { Glob } from "bun";
 import { join } from "node:path";
-import { RANK_MAP } from "../spain/boe-metadata.ts";
+import { Glob } from "bun";
 import type { Rank } from "../models.ts";
 
 // ---------------------------------------------------------------------------
 // ELI type code → Rank
-// Derived from BOE's ELI conventions cross-referenced with RANK_MAP.
-// Each entry maps the path segment after /eli/<jurisdiction>/ to a Rank value.
+// Derived from BOE's ELI conventions. Each entry maps the path segment after
+// /eli/<jurisdiction>/ to a Rank value. Parallel to (but keyed differently
+// from) RANK_MAP in spain/boe-metadata.ts (which is keyed by rango.codigo);
+// the two MUST resolve to the same Rank for the same norm type.
 // ---------------------------------------------------------------------------
 const ELI_TO_RANK: Record<string, Rank> = {
 	a: "acuerdo",
@@ -119,7 +120,12 @@ async function run() {
 
 		const key = `${currentRank} -> ${correctRank}`;
 		if (!changesByKind.has(key)) changesByKind.set(key, []);
-		changesByKind.get(key)!.push({ file: filePath, normId, oldRank: currentRank, newRank: correctRank });
+		changesByKind.get(key)!.push({
+			file: filePath,
+			normId,
+			oldRank: currentRank,
+			newRank: correctRank,
+		});
 
 		scanned++;
 		if (scanned >= limit) break;
@@ -128,17 +134,24 @@ async function run() {
 	// ---------------------------------------------------------------------------
 	// Report
 	// ---------------------------------------------------------------------------
-	const totalChanges = [...changesByKind.values()].reduce((s, a) => s + a.length, 0);
+	const totalChanges = [...changesByKind.values()].reduce(
+		(s, a) => s + a.length,
+		0,
+	);
 
 	console.log("=== fix-rank-from-cache ===");
-	console.log(`Mode:       ${apply ? "APPLY (writes JSON files)" : "DRY RUN (no writes)"}`);
+	console.log(
+		`Mode:       ${apply ? "APPLY (writes JSON files)" : "DRY RUN (no writes)"}`,
+	);
 	if (limit !== Infinity) console.log(`Limit:      ${limit}`);
 	console.log(`No-ELI:     ${noEli} files skipped (no ELI source URL)`);
 	console.log(`No-change:  ${noChange} files already correct`);
 	console.log(`Changes:    ${totalChanges} files need updating`);
 	console.log();
 
-	for (const [kind, records] of [...changesByKind.entries()].sort((a, b) => b[1].length - a[1].length)) {
+	for (const [kind, records] of [...changesByKind.entries()].sort(
+		(a, b) => b[1].length - a[1].length,
+	)) {
 		console.log(`  ${kind}: ${records.length} files`);
 		const examples = records.slice(0, 10);
 		for (const r of examples) {

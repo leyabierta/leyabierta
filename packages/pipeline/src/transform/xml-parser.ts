@@ -164,9 +164,7 @@ function extractParagraphs(versionChildren: XmlNode[]): Paragraph[] {
 		// Handle <p> elements
 		if (child.p) {
 			const cssClass = (child[":@"]?.class as string) ?? "";
-			const text = normalizeWhitespace(
-				renderInlineNodes(child.p as XmlNode[]),
-			);
+			const text = normalizeWhitespace(renderInlineNodes(child.p as XmlNode[]));
 
 			if (!text) continue;
 			if (isEditorialNote(cssClass, text)) continue;
@@ -444,5 +442,8 @@ function decodeEntities(text: string): string {
 
 /** Collapse whitespace runs and trim \u2014 apply at paragraph/cell boundaries only. */
 function normalizeWhitespace(text: string): string {
-	return text.replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+	return text
+		.replace(/[ \t]+/g, " ")
+		.replace(/\s*\n\s*/g, "\n")
+		.trim();
 }

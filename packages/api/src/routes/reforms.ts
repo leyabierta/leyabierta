@@ -160,7 +160,8 @@ export function reformRoutes(dbService: DbService) {
 						rank: detail.law.rank,
 						status: detail.law.status,
 						source_url: detail.law.source_url,
-						last_reform_date: detail.next_reform_date === null ? detail.reform.date : null,
+						last_reform_date:
+							detail.next_reform_date === null ? detail.reform.date : null,
 					},
 					reform: detail.reform,
 					affected_blocks: detail.affected_blocks,
