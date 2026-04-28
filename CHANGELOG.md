@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0.0] - 2026-04-28
+
+### Cuantización int8 del índice vectorial
+
+- **El índice de embeddings pasa de 5,95 GB a 1,49 GB** (-75 %) gracias a cuantización int8 simétrica per-vector. Tiempo de carga del corpus tras un restart se reduce proporcionalmente y la presión de memoria del contenedor baja unos 4,5 GB. Sin pérdida medible de calidad: Recall@1/5/10 igual sobre las 50 queries ciudadanas (R@5 incluso sube de 62 % a 66 %, dentro del ruido del embedding API).
+- **Nuevo kernel SIMD `dot_int8_f32`** en `vector-simd.c` con paths NEON (arm64) y AVX2 (x86_64), más fallback escalar. Test de paridad confirma error relativo máximo del 0,7 % vs float32 sobre 100 vectores × 10 queries.
+- **Latencia de búsqueda híbrida cae a la mitad**: avg 2720 ms → 1307 ms (p50 2094 → 817 ms, p95 4236 → 2041 ms) gracias a que el corpus int8 cabe en una fracción del cache L2.
+- **Nuevo formato `INT8VEC1`** con header detectable en el primer chunk del archivo. El loader prefiere `vectors-int8.bin` si existe, fallback automático a `vectors.bin` (float32) si no — facilita rollback con un único `rm`.
+- **Sidecar `vectors-int8.norms.bin`** (1,9 MB) con las normas L2 de los vectores originales precomputadas, evita recálculo en arranque.
+- **`sync-embeddings.ts` regenera ambos archivos automáticamente** tras cada sync, manteniendo SQLite como fuente de verdad y `vectors.bin` como red de seguridad durante el rollout.
+- Plan de rollout y rollback documentado en `packages/api/research/INT8-ROLLOUT.md`.
+
 ## [0.4.0.0] - 2026-04-27
 
 ### Búsqueda híbrida en `/v1/laws` (Issue #40)

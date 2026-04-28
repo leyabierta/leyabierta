@@ -369,7 +369,7 @@ export async function vectorSearchPooled(
 	queryEmbedding: Float32Array,
 	meta: Array<{ normId: string; blockId: string }>,
 	index: InMemoryVectorIndex,
-	dims: number,
+	_dims: number,
 	topK: number = 10,
 ): Promise<VectorSearchResult[]> {
 	const p = await getVectorPool(index);
