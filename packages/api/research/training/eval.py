@@ -106,11 +106,16 @@ def load_reranker(spec: str):
     if spec == "none":
         return None
 
+    # max_length cap on tokens — bge-reranker-v2-m3 defaults to 8192 which
+    # OOMs on MPS with even modest batches. 512 is the cross-encoder norm
+    # and matches what the reranker pipeline uses in production.
+    MAX_LENGTH = 512
+
     if spec.startswith("base:"):
         from sentence_transformers import CrossEncoder
 
         model_name = spec[len("base:") :]
-        return CrossEncoder(model_name, num_labels=1)
+        return CrossEncoder(model_name, num_labels=1, max_length=MAX_LENGTH)
 
     if spec.startswith("model:") or spec.startswith("ft:"):
         # Full fine-tuned CrossEncoder saved by sentence_transformers.fit().
@@ -118,7 +123,7 @@ def load_reranker(spec: str):
 
         prefix = "model:" if spec.startswith("model:") else "ft:"
         model_dir = spec[len(prefix) :]
-        return CrossEncoder(model_dir, num_labels=1)
+        return CrossEncoder(model_dir, num_labels=1, max_length=MAX_LENGTH)
 
     if spec.startswith("lora:"):
         adapter_dir = Path(spec[len("lora:") :])
@@ -131,7 +136,7 @@ def load_reranker(spec: str):
         from peft import PeftModel
         from sentence_transformers import CrossEncoder
 
-        ce = CrossEncoder(cfg["base_model"], num_labels=1)
+        ce = CrossEncoder(cfg["base_model"], num_labels=1, max_length=MAX_LENGTH)
         ce.model = PeftModel.from_pretrained(ce.model, str(adapter_dir / "lora_adapter"))
         ce.model.eval()
         return ce
@@ -154,7 +159,9 @@ def rerank(reranker, query: str, candidates: list[dict]) -> list[dict]:
             indices.append(i)
     if not pairs:
         return list(candidates)
-    scores = reranker.predict(pairs, show_progress_bar=False)
+    # batch_size=8: keeps per-step MPS memory below ~3 GB on M4 Max even
+    # with 512-token sequences. Default of 32 OOMs with bge-reranker-v2-m3.
+    scores = reranker.predict(pairs, batch_size=8, show_progress_bar=False)
     scored = list(candidates)
     for idx, score in zip(indices, scores):
         scored[idx] = {**scored[idx], "_rerank_score": float(score)}
@@ -193,6 +200,20 @@ def evaluate(cfg: EvalConfig) -> dict:
         bucket: {"n": 0, "r1": 0, "r5": 0, "r10": 0}
         for bucket in ("overall", "formal", "informal", "procedural", "untagged")
     }
+    in_scope_total = sum(
+        1
+        for q in eval_items
+        if (q.get("expectedNorms") or []) and int(q["id"]) in cands_by_q
+    )
+    progressed = 0
+    print(
+        f"[eval.py] grading {in_scope_total} in-scope questions"
+        f" with reranker={cfg.reranker_spec}",
+        flush=True,
+    )
+    import time as _time
+
+    started = _time.time()
 
     for q in eval_items:
         qid = int(q["id"])

@@ -1,34 +1,39 @@
 #!/usr/bin/env python3
 """
-Train a cross-encoder reranker with LoRA on the Ley Abierta synthetic
-dataset (Fase 1b of RAG-FT).
+Train a cross-encoder reranker for Ley Abierta (Fase 1b of RAG-FT).
 
-The trainer wraps `sentence-transformers.CrossEncoder` with PEFT LoRA
-adapters so we don't fine-tune the full base model. Output is a
-LoRA-only safetensors adapter that gets loaded at inference time on top
-of the frozen base.
+Uses the modern sentence-transformers v5 cross-encoder training API
+with MultipleNegativesRankingLoss (InfoNCE-style contrastive). Triplets
+go in directly as `(query, positive, negative)`; the loss treats the
+positive as the target and the in-batch negatives as distractors. This
+is the canonical objective for rerankers — earlier versions of this
+file used CrossEncoder.fit() with a BCE binary classifier on (query,
+doc, label∈{0,1}), which trains a doc-relevance classifier rather than
+a ranker and overfits hard at 824 pairs / 3 epochs.
 
-Why this toolchain (not mlx-lm): see ./README.md.
+Why this toolchain (not mlx-lm): mlx-lm is for autoregressive LLMs.
+Cross-encoders are sequence classifiers, and sentence-transformers +
+PyTorch + MPS is the path that actually works on Apple Silicon.
+
+PEFT/LoRA support is parked: the v5 trainer can wrap with PEFT but the
+current file targets full fine-tuning. Add `--use-lora` later when the
+dataset is large enough that adapter sizes matter.
 
 Usage
 -----
 
-    python packages/api/research/training/train.py \\
-        --triplets packages/api/research/training/triplets-v2.jsonl \\
-        --base-model BAAI/bge-reranker-v2-m3 \\
-        --output-dir packages/api/research/training/adapters/bge-v1 \\
+    python train.py \\
+        --triplets ./triplets-combined.jsonl \\
+        --base-model cross-encoder/mmarco-mMiniLMv2-L12-H384-v1 \\
+        --output-dir adapters/minilm-mnr-v1 \\
         --epochs 3 --batch-size 16
 
-Status
-------
-
-This is a thin orchestration wrapper. The actual training loop uses
-`CrossEncoder.fit` which handles dataloading, optimization, and eval.
-
-The script is **not yet validated end-to-end** — it lands as part of
-the scaffolding so that when the dataset reaches a useful scale (~5K
-pairs), training is one command away. Expect to iterate on hyperparams
-once the first real run happens.
+The triplets file is the output of `convert-reranker-data.ts` and has
+one JSON row per triplet:
+    {"query": ..., "positive": <text>, "negative": <text>,
+     "source": "semantic-topk"|"materia-sibling",
+     "register": "informal"|"formal"|"procedural",
+     "is_trap": false, "pair_id": "rkr-000123"}
 """
 
 from __future__ import annotations
@@ -40,9 +45,6 @@ import random
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
-
-# Lazy imports so `--help` works without the full ML stack installed.
 
 
 @dataclass
@@ -55,11 +57,8 @@ class TrainConfig:
     learning_rate: float
     max_seq_length: int
     val_split: float
-    lora_r: int
-    lora_alpha: int
-    lora_dropout: float
     seed: int
-    use_lora: bool
+    warmup_ratio: float
 
     def to_json(self) -> str:
         d = asdict(self)
@@ -78,7 +77,7 @@ def split_triplets(
     triplets: list[dict], val_split: float, seed: int
 ) -> tuple[list[dict], list[dict]]:
     """Split by `pair_id` so all triplets from the same query land in the
-    same partition — otherwise the model sees the validation queries during
+    same partition. Otherwise the model sees the validation queries during
     training and the val metric is meaningless."""
     pair_ids = sorted({t["pair_id"] for t in triplets})
     rng = random.Random(seed)
@@ -90,51 +89,18 @@ def split_triplets(
     return train, val
 
 
-def to_cross_encoder_examples(triplets: Iterable[dict]):
-    """Cross-encoder consumes (query, passage, label) pairs.
+def to_dataset(triplets):
+    """Convert triplets to a HF Dataset with the columns MNR loss expects:
+    `query`, `positive`, `negative`."""
+    from datasets import Dataset
 
-    Each triplet becomes two pairs: one positive, one negative. The
-    in-batch loss (MultipleNegativesRankingLoss) learns to push the
-    positive above the negative.
-    """
-    from sentence_transformers import InputExample
-
-    out: list[InputExample] = []
-    for t in triplets:
-        out.append(InputExample(texts=[t["query"], t["positive"]], label=1.0))
-        out.append(InputExample(texts=[t["query"], t["negative"]], label=0.0))
-    return out
-
-
-def build_model(base_model: str, max_seq_length: int, cfg: TrainConfig):
-    """Build a CrossEncoder, optionally wrapped with a LoRA adapter.
-
-    LoRA via PEFT is currently broken on top of CrossEncoder.fit() — the
-    legacy fit() API does some manual tensor handling that breaks when
-    the model returns a BatchEncoding wrapper (KeyError: 'ne'). For now
-    PEFT is opt-in via --use-lora; default is full fine-tuning. With
-    568M params and a few thousand triplets, full FT on M4 Max is ~20
-    minutes and the adapter savings don't matter at this scale.
-    """
-    from sentence_transformers import CrossEncoder
-
-    ce = CrossEncoder(base_model, num_labels=1, max_length=max_seq_length)
-    if not cfg.use_lora:
-        return ce
-
-    from peft import LoraConfig, TaskType, get_peft_model
-
-    lora_cfg = LoraConfig(
-        r=cfg.lora_r,
-        lora_alpha=cfg.lora_alpha,
-        lora_dropout=cfg.lora_dropout,
-        bias="none",
-        task_type=TaskType.SEQ_CLS,
-        # XLM-RoBERTa attention modules. Override per base model if needed.
-        target_modules=["query", "value"],
+    return Dataset.from_dict(
+        {
+            "query": [t["query"] for t in triplets],
+            "positive": [t["positive"] for t in triplets],
+            "negative": [t["negative"] for t in triplets],
+        }
     )
-    ce.model = get_peft_model(ce.model, lora_cfg)
-    return ce
 
 
 def pick_device() -> str:
@@ -156,55 +122,88 @@ def train(cfg: TrainConfig) -> None:
     if len(triplets) < 50:
         print(
             f"[train.py] WARNING: only {len(triplets)} triplets — too small for"
-            " meaningful training. Continuing anyway so the toolchain validates."
+            " meaningful training. Continuing so the toolchain validates."
         )
 
     train_t, val_t = split_triplets(triplets, cfg.val_split, cfg.seed)
     print(f"[train.py] split: {len(train_t)} train / {len(val_t)} val")
 
-    train_examples = to_cross_encoder_examples(train_t)
+    train_ds = to_dataset(train_t)
+    eval_ds = to_dataset(val_t) if val_t else None
 
-    model = build_model(cfg.base_model, cfg.max_seq_length, cfg)
+    # Lazy imports — keep --help fast and avoid loading the ML stack when
+    # the script is just being inspected.
+    from sentence_transformers.cross_encoder import CrossEncoder
+    from sentence_transformers.cross_encoder.losses import (
+        MultipleNegativesRankingLoss,
+    )
+    from sentence_transformers.cross_encoder.trainer import CrossEncoderTrainer
+    from sentence_transformers.cross_encoder.training_args import (
+        CrossEncoderTrainingArguments,
+    )
+
     device = pick_device()
     print(f"[train.py] device: {device}")
-    model.model.to(device)
 
-    from torch.utils.data import DataLoader
+    model = CrossEncoder(
+        cfg.base_model,
+        num_labels=1,
+        max_length=cfg.max_seq_length,
+    )
+    loss = MultipleNegativesRankingLoss(model)
 
-    train_loader = DataLoader(train_examples, shuffle=True, batch_size=cfg.batch_size)
-    warmup_steps = max(1, int(0.1 * len(train_loader) * cfg.epochs))
+    args = CrossEncoderTrainingArguments(
+        output_dir=str(cfg.output_dir),
+        num_train_epochs=cfg.epochs,
+        per_device_train_batch_size=cfg.batch_size,
+        per_device_eval_batch_size=cfg.batch_size,
+        learning_rate=cfg.learning_rate,
+        warmup_ratio=cfg.warmup_ratio,
+        seed=cfg.seed,
+        fp16=False,
+        bf16=False,
+        # MPS doesn't speed up much from dataloader workers; 0 is safer.
+        dataloader_num_workers=0,
+        # We don't need HF Trainer's checkpointing (we save explicitly at
+        # the end). Disabling avoids 2-3× storage overhead per run.
+        save_strategy="no",
+        eval_strategy="no",
+        logging_steps=50,
+        report_to="none",
+    )
+
+    trainer = CrossEncoderTrainer(
+        model=model,
+        args=args,
+        train_dataset=train_ds,
+        eval_dataset=eval_ds,
+        loss=loss,
+    )
 
     print(
-        f"[train.py] starting fit: {cfg.epochs} epochs × {len(train_loader)} steps"
-        f" (warmup {warmup_steps})"
+        f"[train.py] starting fit: {cfg.epochs} epochs ×"
+        f" {len(train_ds) // cfg.batch_size} steps/epoch"
+        f" with MultipleNegativesRankingLoss"
     )
-    model.fit(
-        train_dataloader=train_loader,
-        epochs=cfg.epochs,
-        warmup_steps=warmup_steps,
-        optimizer_params={"lr": cfg.learning_rate},
-        output_path=str(cfg.output_dir),
-        save_best_model=True,
-        show_progress_bar=True,
-    )
+    trainer.train()
 
-    # Persist the model + a small metadata file so we know exactly how
-    # the run was configured. CrossEncoder.fit(output_path=...) already
-    # saves the full model under output_dir/, so this only adds metadata.
-    if cfg.use_lora:
-        model.model.save_pretrained(str(cfg.output_dir / "lora_adapter"))
+    # Save the trained model. Trainer saves under output_dir already, but
+    # we call save_pretrained to be deterministic across versions.
+    model.save_pretrained(str(cfg.output_dir))
     (cfg.output_dir / "train_config.json").write_text(cfg.to_json(), encoding="utf-8")
     val_path = cfg.output_dir / "val_pair_ids.json"
     val_path.write_text(
         json.dumps(sorted({t["pair_id"] for t in val_t}), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    target = cfg.output_dir / ("lora_adapter" if cfg.use_lora else "")
-    print(f"[train.py] done. model at {target}")
+    print(f"[train.py] done. model at {cfg.output_dir}")
 
 
 def parse_args(argv: list[str]) -> TrainConfig:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.add_argument("--triplets", required=True, type=Path)
     p.add_argument("--base-model", default="BAAI/bge-reranker-v2-m3")
     p.add_argument("--output-dir", required=True, type=Path)
@@ -213,15 +212,7 @@ def parse_args(argv: list[str]) -> TrainConfig:
     p.add_argument("--learning-rate", type=float, default=2e-5)
     p.add_argument("--max-seq-length", type=int, default=512)
     p.add_argument("--val-split", type=float, default=0.1)
-    p.add_argument("--lora-r", type=int, default=16)
-    p.add_argument("--lora-alpha", type=int, default=32)
-    p.add_argument("--lora-dropout", type=float, default=0.05)
-    p.add_argument(
-        "--use-lora",
-        action="store_true",
-        help="Wrap the base with a PEFT LoRA adapter. Currently broken on top "
-        "of CrossEncoder.fit() (KeyError: 'ne'); default is full fine-tuning.",
-    )
+    p.add_argument("--warmup-ratio", type=float, default=0.1)
     p.add_argument("--seed", type=int, default=42)
     args = p.parse_args(argv)
     return TrainConfig(
@@ -233,11 +224,8 @@ def parse_args(argv: list[str]) -> TrainConfig:
         learning_rate=args.learning_rate,
         max_seq_length=args.max_seq_length,
         val_split=args.val_split,
-        lora_r=args.lora_r,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=args.lora_dropout,
-        use_lora=args.use_lora,
         seed=args.seed,
+        warmup_ratio=args.warmup_ratio,
     )
 
 
