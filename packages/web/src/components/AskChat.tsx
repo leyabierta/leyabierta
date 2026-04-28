@@ -6,7 +6,14 @@
  * Uses SSE streaming for real-time text display.
  */
 
+import MarkdownIt from "markdown-it";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+
+// ── Markdown renderer ──
+// `html: false` means raw HTML inside the markdown is escaped — Gemini output
+// is trusted but we still keep the guard. `linkify: false` so we don't
+// auto-link random URLs (the rendered text is already very citation-heavy).
+const md = new MarkdownIt({ html: false, breaks: true, linkify: false });
 
 interface Citation {
 	normId: string;
@@ -32,10 +39,27 @@ interface AskResponse {
 	meta: AskMeta;
 }
 
+type ProgressStep = "analyzing" | "retrieving" | "ranking" | "writing";
+
+const PROGRESS_ORDER: ProgressStep[] = [
+	"analyzing",
+	"retrieving",
+	"ranking",
+	"writing",
+];
+
+const PROGRESS_LABELS: Record<ProgressStep, string> = {
+	analyzing: "Analizando tu pregunta",
+	retrieving: "Buscando artículos relevantes",
+	ranking: "Seleccionando las fuentes más fiables",
+	writing: "Redactando la respuesta",
+};
+
 interface Turn {
 	question: string;
 	response: AskResponse | null;
 	error: string | null;
+	currentStep?: ProgressStep;
 }
 
 const API_BASE =
@@ -66,105 +90,229 @@ function buildCitationMap(
 	return map;
 }
 
+/**
+ * Render a plain text run, splitting out citation matches and replacing them
+ * with interactive React links + tooltips. Used both for the markdown path
+ * (per text-node) and as a fallback during SSR / pre-hydration.
+ */
+function renderTextWithCitations(
+	text: string,
+	citationMap: Map<string, Map<string, Citation>>,
+	keyPrefix: string,
+): ReactNode[] {
+	const parts: ReactNode[] = [];
+	let lastIndex = 0;
+	let matchIdx = 0;
+
+	for (const match of text.matchAll(CITE_PATTERN)) {
+		const start = match.index;
+		if (start > lastIndex) {
+			parts.push(text.slice(lastIndex, start));
+		}
+
+		const normId = match[1]!;
+		const articleRef = match[2]!;
+		const fullMatch = match[0];
+		const citationByArticle = citationMap.get(normId);
+		const citation =
+			citationByArticle?.get(articleRef.toLowerCase()) ??
+			[...(citationByArticle?.values() ?? [])][0];
+
+		if (citation) {
+			parts.push(
+				<span
+					key={`${keyPrefix}-cite-${matchIdx}`}
+					className="ask-cite-wrapper"
+				>
+					<a
+						href={`/laws/${normId}/${citation.anchor ? `#${citation.anchor}` : ""}`}
+						target="_blank"
+						rel="noopener noreferrer"
+						className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}
+						title={
+							citation.verified === false ? "Referencia aproximada" : undefined
+						}
+					>
+						{articleRef}
+						<svg
+							className="ask-cite-icon"
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2.5"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+							<polyline points="15 3 21 3 21 9" />
+							<line x1="10" y1="14" x2="21" y2="3" />
+						</svg>
+					</a>
+					<span className="ask-cite-tooltip" role="tooltip">
+						<span className="ask-cite-tooltip-norm">
+							{citation.normTitle || normId}
+						</span>
+						<span className="ask-cite-tooltip-article">
+							{citation.articleTitle}
+						</span>
+						{citation.citizenSummary && (
+							<span className="ask-cite-tooltip-summary">
+								{citation.citizenSummary}
+							</span>
+						)}
+						<span className="ask-cite-tooltip-action">Ver en Ley Abierta</span>
+					</span>
+				</span>,
+			);
+		} else {
+			parts.push(fullMatch);
+		}
+
+		lastIndex = start + fullMatch.length;
+		matchIdx++;
+	}
+
+	if (lastIndex < text.length) {
+		parts.push(text.slice(lastIndex));
+	}
+
+	return parts;
+}
+
+/**
+ * Convert a DOM node tree (from markdown-it output, parsed via DOMParser) into
+ * a React element tree. Text nodes go through `renderTextWithCitations` so the
+ * `[BOE-A-XXXX-XXXX, Artículo N]` patterns become tooltipped links even when
+ * they appear inside list items, paragraphs, headings, etc.
+ */
+function domToReact(
+	node: Node,
+	citationMap: Map<string, Map<string, Citation>>,
+	keyPrefix: string,
+): ReactNode {
+	if (node.nodeType === Node.TEXT_NODE) {
+		const text = node.nodeValue ?? "";
+		if (!text) return null;
+		const rendered = renderTextWithCitations(text, citationMap, keyPrefix);
+		// Single string fragment: return as-is (React handles it fine).
+		if (rendered.length === 1 && typeof rendered[0] === "string") {
+			return rendered[0];
+		}
+		return <>{rendered}</>;
+	}
+
+	if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+	const el = node as Element;
+	const tag = el.tagName.toLowerCase();
+
+	// Skip <script>/<style> defensively (markdown-it shouldn't emit these
+	// with `html: false` but belt-and-braces).
+	if (tag === "script" || tag === "style") return null;
+
+	const children: ReactNode[] = [];
+	for (let i = 0; i < el.childNodes.length; i++) {
+		const child = el.childNodes[i];
+		if (!child) continue;
+		const rendered = domToReact(child, citationMap, `${keyPrefix}-${i}`);
+		if (rendered !== null && rendered !== undefined) children.push(rendered);
+	}
+
+	const props: Record<string, unknown> = { key: keyPrefix };
+
+	// Carry over href on links (markdown-it can still emit links from auto-
+	// detected URLs even with linkify off — be safe).
+	if (tag === "a") {
+		const href = el.getAttribute("href");
+		if (href) {
+			props.href = href;
+			props.target = "_blank";
+			props.rel = "noopener noreferrer";
+		}
+	}
+
+	// Self-closing tags
+	if (tag === "br") return <br key={keyPrefix} />;
+	if (tag === "hr") return <hr key={keyPrefix} />;
+
+	// Allow-list of structural tags markdown-it produces. Anything outside
+	// this set falls back to <span>.
+	const allowed = new Set([
+		"p",
+		"strong",
+		"em",
+		"ul",
+		"ol",
+		"li",
+		"h1",
+		"h2",
+		"h3",
+		"h4",
+		"h5",
+		"h6",
+		"code",
+		"pre",
+		"blockquote",
+		"a",
+		"br",
+		"hr",
+		"del",
+		"s",
+		"span",
+		"div",
+		"table",
+		"thead",
+		"tbody",
+		"tr",
+		"th",
+		"td",
+	]);
+	const safeTag = allowed.has(tag) ? tag : "span";
+
+	// biome-ignore lint/suspicious/noExplicitAny: dynamic tag name needs cast for React.createElement equivalent
+	const Tag = safeTag as any;
+	return (
+		<Tag {...props} key={keyPrefix}>
+			{children.length > 0 ? children : null}
+		</Tag>
+	);
+}
+
 function renderAnswerWithCitations(
 	text: string,
 	citations: Citation[],
-): ReactNode[] {
+): ReactNode {
 	const citationMap = buildCitationMap(citations);
-	const paragraphs = text.split("\n").filter((p) => p.trim());
 
-	return paragraphs.map((paragraph, pIdx) => {
-		const parts: ReactNode[] = [];
-		let lastIndex = 0;
-
-		for (const match of paragraph.matchAll(CITE_PATTERN)) {
-			if (match.index > lastIndex) {
-				parts.push(paragraph.slice(lastIndex, match.index));
-			}
-
-			const normId = match[1];
-			const articleRef = match[2];
-			const fullMatch = match[0];
-			const citationByArticle = citationMap.get(normId);
-			const citation =
-				citationByArticle?.get(articleRef.toLowerCase()) ??
-				[...(citationByArticle?.values() ?? [])][0];
-
-			if (citation) {
-				parts.push(
-					<span
-						key={`${normId}-${articleRef}-${match.index}`}
-						className="ask-cite-wrapper"
-					>
-						<a
-							href={`/laws/${normId}/${citation.anchor ? `#${citation.anchor}` : ""}`}
-							target="_blank"
-							rel="noopener noreferrer"
-							className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}
-							title={
-								citation.verified === false
-									? "Referencia aproximada"
-									: undefined
-							}
-						>
-							{articleRef}
-							<svg
-								className="ask-cite-icon"
-								width="12"
-								height="12"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="2.5"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								aria-hidden="true"
-							>
-								<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-								<polyline points="15 3 21 3 21 9" />
-								<line x1="10" y1="14" x2="21" y2="3" />
-							</svg>
-						</a>
-						<span className="ask-cite-tooltip" role="tooltip">
-							<span className="ask-cite-tooltip-norm">
-								{citation.normTitle || normId}
-							</span>
-							<span className="ask-cite-tooltip-article">
-								{citation.articleTitle}
-							</span>
-							{citation.citizenSummary && (
-								<span className="ask-cite-tooltip-summary">
-									{citation.citizenSummary}
-								</span>
-							)}
-							<span className="ask-cite-tooltip-action">
-								Ver en Ley Abierta
-							</span>
-						</span>
-					</span>,
-				);
-			} else {
-				parts.push(fullMatch);
-			}
-
-			lastIndex = match.index + match[0].length;
-		}
-
-		if (lastIndex < paragraph.length) {
-			parts.push(paragraph.slice(lastIndex));
-		}
-
-		if (parts.length === 0) {
-			parts.push(paragraph);
-		}
-
+	// SSR / no DOMParser (shouldn't happen in this island, but be defensive):
+	// render as a single paragraph with citation replacement only.
+	if (typeof DOMParser === "undefined") {
 		return (
-			// biome-ignore lint/suspicious/noArrayIndexKey: paragraphs have no stable ID
-			<p key={pIdx} className="ask-answer-paragraph">
-				{parts}
+			<p className="ask-answer-paragraph">
+				{renderTextWithCitations(text, citationMap, "ssr")}
 			</p>
 		);
-	});
+	}
+
+	const html = md.render(text);
+	const doc = new DOMParser().parseFromString(
+		`<div>${html}</div>`,
+		"text/html",
+	);
+	const root = doc.body.firstElementChild;
+	if (!root) return null;
+
+	const children: ReactNode[] = [];
+	for (let i = 0; i < root.childNodes.length; i++) {
+		const child = root.childNodes[i];
+		if (!child) continue;
+		const rendered = domToReact(child, citationMap, `md-${i}`);
+		if (rendered !== null && rendered !== undefined) children.push(rendered);
+	}
+	return <>{children}</>;
 }
 
 // ── SSE parsing ──
@@ -221,6 +369,203 @@ function saveTurns(turns: Turn[]) {
 	} catch {
 		/* ignore */
 	}
+}
+
+// ── Progress stepper ──
+
+function StepIcon({
+	step,
+	state,
+}: {
+	step: ProgressStep;
+	state: "done" | "active" | "pending";
+}) {
+	if (state === "done") {
+		return (
+			<svg
+				className="ask-step-icon ask-step-icon-done"
+				width="22"
+				height="22"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				aria-hidden="true"
+			>
+				<polyline points="20 6 9 17 4 12" />
+			</svg>
+		);
+	}
+
+	const animClass = state === "active" ? " ask-step-anim" : "";
+
+	if (step === "analyzing") {
+		// Magnifying glass with a soft pulse on the lens.
+		return (
+			<svg
+				className={`ask-step-icon ask-step-icon-analyzing${animClass}`}
+				width="22"
+				height="22"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				aria-hidden="true"
+			>
+				<circle cx="11" cy="11" r="7" className="ask-step-lens" />
+				<line x1="21" y1="21" x2="16.65" y2="16.65" />
+			</svg>
+		);
+	}
+
+	if (step === "retrieving") {
+		// Stack of three documents that gently shift up/down.
+		return (
+			<svg
+				className={`ask-step-icon ask-step-icon-retrieving${animClass}`}
+				width="22"
+				height="22"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				aria-hidden="true"
+			>
+				<rect
+					x="6"
+					y="3"
+					width="12"
+					height="14"
+					rx="1.5"
+					className="ask-doc ask-doc-1"
+				/>
+				<rect
+					x="6"
+					y="5"
+					width="12"
+					height="14"
+					rx="1.5"
+					className="ask-doc ask-doc-2"
+				/>
+				<rect
+					x="6"
+					y="7"
+					width="12"
+					height="14"
+					rx="1.5"
+					className="ask-doc ask-doc-3"
+				/>
+			</svg>
+		);
+	}
+
+	if (step === "ranking") {
+		// Three bars that scale vertically at staggered phases.
+		return (
+			<svg
+				className={`ask-step-icon ask-step-icon-ranking${animClass}`}
+				width="22"
+				height="22"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				stroke="none"
+				aria-hidden="true"
+			>
+				<rect
+					x="4"
+					y="14"
+					width="4"
+					height="6"
+					rx="1"
+					className="ask-bar ask-bar-1"
+				/>
+				<rect
+					x="10"
+					y="10"
+					width="4"
+					height="10"
+					rx="1"
+					className="ask-bar ask-bar-2"
+				/>
+				<rect
+					x="16"
+					y="6"
+					width="4"
+					height="14"
+					rx="1"
+					className="ask-bar ask-bar-3"
+				/>
+			</svg>
+		);
+	}
+
+	// writing — pen + a blinking underline cursor.
+	return (
+		<svg
+			className={`ask-step-icon ask-step-icon-writing${animClass}`}
+			width="22"
+			height="22"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M16 3l5 5-11 11H5v-5L16 3z" />
+			<line
+				x1="5"
+				y1="22"
+				x2="14"
+				y2="22"
+				className="ask-cursor"
+				strokeWidth="2.5"
+			/>
+		</svg>
+	);
+}
+
+function AskProgressStepper({ current }: { current: ProgressStep }) {
+	const currentIdx = PROGRESS_ORDER.indexOf(current);
+	return (
+		<div
+			className="ask-progress-stepper"
+			role="status"
+			aria-live="polite"
+			aria-label="Progreso de la respuesta"
+		>
+			<ol className="ask-progress-list">
+				{PROGRESS_ORDER.map((step, idx) => {
+					const state =
+						idx < currentIdx
+							? "done"
+							: idx === currentIdx
+								? "active"
+								: "pending";
+					return (
+						<li
+							key={step}
+							className={`ask-progress-item ask-progress-${state}`}
+						>
+							<span className="ask-progress-icon-wrap" aria-hidden="true">
+								<StepIcon step={step} state={state} />
+							</span>
+							<span className="ask-progress-label">
+								{PROGRESS_LABELS[step]}
+							</span>
+						</li>
+					);
+				})}
+			</ol>
+		</div>
+	);
 }
 
 export default function AskChat() {
@@ -322,7 +667,29 @@ export default function AskChat() {
 			}
 
 			for await (const sseEvent of parseSSE(res)) {
-				if (sseEvent.event === "chunk") {
+				if (sseEvent.event === "progress") {
+					try {
+						const progress = JSON.parse(sseEvent.data) as {
+							step: ProgressStep;
+							label?: string;
+						};
+						if (PROGRESS_ORDER.includes(progress.step)) {
+							setTurns((prev) => {
+								const updated = [...prev];
+								const turn = updated[turnIndex];
+								if (turn) {
+									updated[turnIndex] = {
+										...turn,
+										currentStep: progress.step,
+									};
+								}
+								return updated;
+							});
+						}
+					} catch {
+						/* ignore malformed progress events */
+					}
+				} else if (sseEvent.event === "chunk") {
 					pendingText += JSON.parse(sseEvent.data) as string;
 					if (!rafId) {
 						rafId = requestAnimationFrame(() => {
@@ -560,12 +927,21 @@ export default function AskChat() {
 						</div>
 					))}
 
-					{loading && !turns[turns.length - 1]?.response?.answer && (
-						<div className="ask-loading" role="status" aria-live="polite">
-							<span className="ask-spinner-large" aria-hidden="true" />
-							<p>Buscando en la legislación española...</p>
-						</div>
-					)}
+					{loading &&
+						!turns[turns.length - 1]?.response?.answer &&
+						(() => {
+							const lastTurn = turns[turns.length - 1];
+							const step = lastTurn?.currentStep;
+							if (step) {
+								return <AskProgressStepper current={step} />;
+							}
+							return (
+								<div className="ask-loading" role="status" aria-live="polite">
+									<span className="ask-spinner-large" aria-hidden="true" />
+									<p>Buscando en la legislación española...</p>
+								</div>
+							);
+						})()}
 
 					<div ref={bottomRef} />
 				</div>
