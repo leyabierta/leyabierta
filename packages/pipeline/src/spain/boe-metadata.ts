@@ -49,7 +49,7 @@ function extractJurisdiction(eli: string | undefined, normId: string): string {
 // off-by-one for several codes (1370 was labeled "instruccion" instead of
 // "resolucion", 1380 didn't exist as "reglamento", etc.), so most Resoluciones
 // rendered as "Instrucción" and real Instrucciones fell through to "otro".
-const RANK_MAP: Record<string, Rank> = {
+export const RANK_MAP: Record<string, Rank> = {
 	"1020": "acuerdo",
 	"1070": "constitucion",
 	"1080": "ley_organica", // Estatuto de Autonomía
