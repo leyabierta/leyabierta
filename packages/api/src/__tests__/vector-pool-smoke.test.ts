@@ -58,11 +58,15 @@ function makeIndex(seed: number): {
 	return {
 		meta,
 		index: {
+			kind: "f32",
 			chunks: [vectors],
+			int8Chunks: [],
+			scalesPerChunk: [],
 			vectorsPerChunk: [N],
 			normsPerChunk: [norms],
 			totalVectors: N,
-		},
+			dim: DIMS,
+		} satisfies InMemoryVectorIndex,
 	};
 }
 

@@ -54,8 +54,11 @@ interface Pending {
 }
 
 interface SharedIndex {
+	kind: "f32" | "int8";
 	sharedChunks: SharedArrayBuffer[];
 	sharedNorms: SharedArrayBuffer[];
+	/** Only set when kind === "int8". One scale SAB per chunk. */
+	sharedScales: SharedArrayBuffer[];
 	vectorsPerChunk: number[];
 	dim: number;
 	totalVectors: number;
@@ -112,8 +115,10 @@ class VectorPool {
 
 			w.postMessage({
 				type: "init",
+				kind: this.shared.kind,
 				sharedChunks: this.shared.sharedChunks,
 				sharedNorms: this.shared.sharedNorms,
+				sharedScales: this.shared.sharedScales,
 				vectorsPerChunk: this.shared.vectorsPerChunk,
 				dim: this.shared.dim,
 				libPath: config.libPath,
@@ -226,17 +231,40 @@ class VectorPool {
 function toShared(index: InMemoryVectorIndex): SharedIndex {
 	const sharedChunks: SharedArrayBuffer[] = [];
 	const sharedNorms: SharedArrayBuffer[] = [];
-	for (let c = 0; c < index.chunks.length; c++) {
-		const v = index.chunks[c]!;
-		// If embeddings.ts allocated the chunk on a SharedArrayBuffer
-		// (RAG_VECTOR_BACKEND=pool path), reuse it. Otherwise copy once —
-		// peak memory during init temporarily doubles, ~5.6 GB extra on prod.
-		if (v.buffer instanceof SharedArrayBuffer) {
-			sharedChunks.push(v.buffer);
+	const sharedScales: SharedArrayBuffer[] = [];
+	const isInt8 = index.kind === "int8";
+	const numChunks = isInt8 ? index.int8Chunks.length : index.chunks.length;
+
+	for (let c = 0; c < numChunks; c++) {
+		// Vector chunk (f32 → Float32Array, int8 → Int8Array). In both
+		// cases the loader already allocates SAB-backed buffers, so the
+		// hot path is a zero-copy SAB pass-through.
+		if (isInt8) {
+			const v = index.int8Chunks[c]!;
+			if (v.buffer instanceof SharedArrayBuffer) {
+				sharedChunks.push(v.buffer);
+			} else {
+				const sab = new SharedArrayBuffer(v.byteLength);
+				new Int8Array(sab).set(v);
+				sharedChunks.push(sab);
+			}
+			const sc = index.scalesPerChunk[c]!;
+			if (sc.buffer instanceof SharedArrayBuffer) {
+				sharedScales.push(sc.buffer);
+			} else {
+				const sab = new SharedArrayBuffer(sc.byteLength);
+				new Float32Array(sab).set(sc);
+				sharedScales.push(sab);
+			}
 		} else {
-			const sab = new SharedArrayBuffer(v.byteLength);
-			new Float32Array(sab).set(v);
-			sharedChunks.push(sab);
+			const v = index.chunks[c]!;
+			if (v.buffer instanceof SharedArrayBuffer) {
+				sharedChunks.push(v.buffer);
+			} else {
+				const sab = new SharedArrayBuffer(v.byteLength);
+				new Float32Array(sab).set(v);
+				sharedChunks.push(sab);
+			}
 		}
 
 		const n = index.normsPerChunk[c]!;
@@ -249,12 +277,12 @@ function toShared(index: InMemoryVectorIndex): SharedIndex {
 		}
 	}
 	return {
+		kind: index.kind,
 		sharedChunks,
 		sharedNorms,
+		sharedScales,
 		vectorsPerChunk: [...index.vectorsPerChunk],
-		dim: index.chunks[0]
-			? index.chunks[0].length / index.vectorsPerChunk[0]!
-			: 0,
+		dim: index.dim,
 		totalVectors: index.totalVectors,
 	};
 }
@@ -300,9 +328,7 @@ export async function getVectorPool(
 		const libPath = defaultLibPath();
 		if (!libPath) return null;
 
-		const dim = index.chunks[0]
-			? index.chunks[0].length / index.vectorsPerChunk[0]!
-			: 0;
+		const dim = index.dim;
 		if (!dim) return null;
 
 		// Sizing read at init time — the pool is a process-wide singleton

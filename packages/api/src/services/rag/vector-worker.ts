@@ -28,8 +28,11 @@ declare const self: {
 
 interface InitMessage {
 	type: "init";
+	kind: "f32" | "int8";
 	sharedChunks: SharedArrayBuffer[];
 	sharedNorms: SharedArrayBuffer[];
+	/** Only set when kind === "int8". */
+	sharedScales: SharedArrayBuffer[];
 	vectorsPerChunk: number[];
 	dim: number;
 	libPath: string;
@@ -58,11 +61,15 @@ type InMessage = InitMessage | VectorQueryMessage | Bm25QueryMessage;
 type CosineTopk = (...args: any[]) => number;
 
 interface State {
+	kind: "f32" | "int8";
 	chunks: Float32Array[];
+	int8Chunks: Int8Array[];
+	scales: Float32Array[];
 	norms: Float32Array[];
 	vpc: number[];
 	dim: number;
 	cosine_topk: CosineTopk;
+	cosine_topk_int8: CosineTopk;
 	db: Database;
 }
 
@@ -76,13 +83,37 @@ self.onmessage = (event: MessageEvent) => {
 		// must reach the pool as an `error` message — otherwise the pool's
 		// `ready` promise would never settle and the worker slot would leak.
 		try {
-			const chunks = msg.sharedChunks.map((sab) => new Float32Array(sab));
+			const isInt8 = msg.kind === "int8";
+			const chunks = isInt8
+				? []
+				: msg.sharedChunks.map((sab) => new Float32Array(sab));
+			const int8Chunks = isInt8
+				? msg.sharedChunks.map((sab) => new Int8Array(sab))
+				: [];
+			const scales = isInt8
+				? msg.sharedScales.map((sab) => new Float32Array(sab))
+				: [];
 			const norms = msg.sharedNorms.map((sab) => new Float32Array(sab));
 			const lib = dlopen(msg.libPath, {
 				cosine_topk: {
 					args: [
 						FFIType.ptr,
 						FFIType.f32,
+						FFIType.ptr,
+						FFIType.ptr,
+						FFIType.i32,
+						FFIType.i32,
+						FFIType.i32,
+						FFIType.ptr,
+						FFIType.ptr,
+					],
+					returns: FFIType.i32,
+				},
+				cosine_topk_int8: {
+					args: [
+						FFIType.ptr,
+						FFIType.f32,
+						FFIType.ptr,
 						FFIType.ptr,
 						FFIType.ptr,
 						FFIType.i32,
@@ -102,11 +133,15 @@ self.onmessage = (event: MessageEvent) => {
 			// running ensureBlocksFts here would fail on a fresh DB rather
 			// than gracefully bail — main thread is the single owner.
 			state = {
+				kind: msg.kind,
 				chunks,
+				int8Chunks,
+				scales,
 				norms,
 				vpc: msg.vectorsPerChunk,
 				dim: msg.dim,
 				cosine_topk: lib.symbols.cosine_topk as unknown as CosineTopk,
+				cosine_topk_int8: lib.symbols.cosine_topk_int8 as unknown as CosineTopk,
 				db,
 			};
 			self.postMessage({ type: "ready" });
@@ -143,8 +178,9 @@ self.onmessage = (event: MessageEvent) => {
 			const merged: Array<{ globalIdx: number; score: number }> = [];
 			let globalOffset = 0;
 
-			for (let c = 0; c < state.chunks.length; c++) {
-				const vectors = state.chunks[c]!;
+			const isInt8 = state.kind === "int8";
+			const numChunks = isInt8 ? state.int8Chunks.length : state.chunks.length;
+			for (let c = 0; c < numChunks; c++) {
 				const norms = state.norms[c]!;
 				const numVecs = state.vpc[c]!;
 				if (numVecs === 0) continue;
@@ -153,17 +189,36 @@ self.onmessage = (event: MessageEvent) => {
 				const outIndices = new Int32Array(k);
 				const outScores = new Float32Array(k);
 
-				const written = state.cosine_topk(
-					ptr(q),
-					qNorm,
-					ptr(vectors),
-					ptr(norms),
-					numVecs,
-					state.dim,
-					k,
-					ptr(outIndices),
-					ptr(outScores),
-				);
+				let written: number;
+				if (isInt8) {
+					const corpus = state.int8Chunks[c]!;
+					const scales = state.scales[c]!;
+					written = state.cosine_topk_int8(
+						ptr(q),
+						qNorm,
+						ptr(corpus),
+						ptr(scales),
+						ptr(norms),
+						numVecs,
+						state.dim,
+						k,
+						ptr(outIndices),
+						ptr(outScores),
+					);
+				} else {
+					const vectors = state.chunks[c]!;
+					written = state.cosine_topk(
+						ptr(q),
+						qNorm,
+						ptr(vectors),
+						ptr(norms),
+						numVecs,
+						state.dim,
+						k,
+						ptr(outIndices),
+						ptr(outScores),
+					);
+				}
 
 				for (let i = 0; i < written; i++) {
 					merged.push({
