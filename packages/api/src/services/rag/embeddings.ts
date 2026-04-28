@@ -404,20 +404,98 @@ export function deleteEmbeddingsByNorm(
  */
 
 /**
- * In-memory vector index. vectors.bin is split into multiple Float32Array
- * chunks because V8/Bun ArrayBuffer is capped at ~4GB and our full data is ~6GB.
+ * In-memory vector index. vectors.bin is split into multiple chunks
+ * because V8/Bun ArrayBuffer is capped at ~4GB. The index can hold
+ * either a float32 corpus (`kind: "f32"`) or an int8 quantized corpus
+ * (`kind: "int8"`) — the latter has per-vector scales recorded
+ * alongside the raw int8 data and norms computed on the original
+ * float32 vectors (see `quantize-vectors.ts`).
  *
- * `normsPerChunk[c][i]` holds the precomputed L2 norm of vector `i` in chunk
- * `c`. Computing the norm once at load time (instead of inside every query)
- * roughly halves the per-query CPU cost.
+ * For f32 indices `chunks` carry the raw float32 data and
+ * `int8Chunks` / `scalesPerChunk` are empty.
+ *
+ * For int8 indices `chunks` is empty (or undefined-length entries)
+ * and `int8Chunks[c]` is an `Int8Array` of `vectorsPerChunk[c] * dim`
+ * bytes; `scalesPerChunk[c]` is a `Float32Array` of `vectorsPerChunk[c]`
+ * scales (one per vector); `normsPerChunk[c]` is a `Float32Array` of
+ * the original-vector L2 norms (loaded from the sidecar).
  */
+export type VectorIndexKind = "f32" | "int8";
+
 export interface InMemoryVectorIndex {
+	kind: VectorIndexKind;
 	chunks: Float32Array[];
-	/** vectorsPerChunk[i] = number of vectors in chunks[i] */
+	/** Only populated when kind === "int8". */
+	int8Chunks: Int8Array[];
+	/** Only populated when kind === "int8". One scale per vector. */
+	scalesPerChunk: Float32Array[];
+	/** vectorsPerChunk[i] = number of vectors in chunk i */
 	vectorsPerChunk: number[];
-	/** normsPerChunk[i] = L2 norms of vectors in chunks[i] (one float per vector) */
+	/**
+	 * normsPerChunk[i] = L2 norms of vectors in chunks[i] (one float per
+	 * vector). For int8 indices these are norms of the *original* float32
+	 * vectors (so cosine reconstructs cleanly).
+	 */
 	normsPerChunk: Float32Array[];
 	totalVectors: number;
+	/** Dimensionality of every vector. */
+	dim: number;
+}
+
+/**
+ * JS reference implementation for the int8 path. Used when the native
+ * SIMD lib is unavailable (CI without compiler, dev sanity checks) and
+ * by the integration tests.
+ */
+function vectorSearchInMemoryInt8(
+	queryEmbedding: Float32Array,
+	meta: Array<{ normId: string; blockId: string }>,
+	index: InMemoryVectorIndex,
+	dims: number,
+	topK: number,
+): VectorSearchResult[] {
+	const searchStart = Date.now();
+	let queryNorm = 0;
+	for (let i = 0; i < dims; i++) {
+		const v = queryEmbedding[i] ?? 0;
+		queryNorm += v * v;
+	}
+	queryNorm = Math.sqrt(queryNorm);
+	if (queryNorm === 0) return [];
+
+	const scored: Array<{ globalIdx: number; score: number }> = [];
+	let globalIdx = 0;
+	for (let c = 0; c < index.int8Chunks.length; c++) {
+		const corpus = index.int8Chunks[c]!;
+		const scales = index.scalesPerChunk[c]!;
+		const norms = index.normsPerChunk[c]!;
+		const numVecs = index.vectorsPerChunk[c]!;
+		for (let i = 0; i < numVecs; i++) {
+			const scale = scales[i]!;
+			const docNorm = norms[i]!;
+			if (docNorm === 0) {
+				globalIdx++;
+				continue;
+			}
+			const offset = i * dims;
+			let dot = 0;
+			for (let j = 0; j < dims; j++) {
+				dot += queryEmbedding[j]! * corpus[offset + j]!;
+			}
+			const score = (dot * (scale / 127)) / (queryNorm * docNorm);
+			scored.push({ globalIdx, score });
+			globalIdx++;
+		}
+	}
+	scored.sort((a, b) => b.score - a.score);
+	const totalMs = Date.now() - searchStart;
+	console.log(
+		`[vector-search-int8] ${index.totalVectors} int8 vectors in ${totalMs}ms (JS path)`,
+	);
+	return scored.slice(0, topK).map((s) => {
+		const a = meta[s.globalIdx]!;
+		return { normId: a.normId, blockId: a.blockId, score: s.score };
+	});
 }
 
 export function vectorSearchInMemory(
@@ -427,6 +505,9 @@ export function vectorSearchInMemory(
 	dims: number,
 	topK: number = 10,
 ): VectorSearchResult[] {
+	if (index.kind === "int8") {
+		return vectorSearchInMemoryInt8(queryEmbedding, meta, index, dims, topK);
+	}
 	const searchStart = Date.now();
 
 	// Precompute query norm
@@ -575,7 +656,176 @@ async function loadVectorsToMemory(
 	console.log(
 		`[rag] Loaded vectors.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${chunks.length} chunks (${totalVectors} vectors, load + norms in ${totalMs.toFixed(0)}ms)`,
 	);
-	return { chunks, vectorsPerChunk: vpc, normsPerChunk, totalVectors };
+	return {
+		kind: "f32",
+		chunks,
+		int8Chunks: [],
+		scalesPerChunk: [],
+		vectorsPerChunk: vpc,
+		normsPerChunk,
+		totalVectors,
+		dim: dims,
+	};
+}
+
+/**
+ * Magic header for the int8 quantized format. See
+ * `packages/api/research/quantize-vectors.ts` for the full layout.
+ */
+const INT8_MAGIC = "INT8VEC1";
+const INT8_HEADER_BYTES = 32;
+const INT8_BYTES_PER_VEC_OVERHEAD = 4; // float32 scale prefix per vector
+
+/**
+ * Detect the format of a vectors file by sniffing the first 8 bytes.
+ * Cheap (single 8-byte read) and lets the caller skip touching the
+ * file twice on the hot boot path.
+ */
+async function detectVectorFormat(
+	path: string,
+): Promise<"int8" | "f32" | null> {
+	const f = Bun.file(path);
+	if (!(await f.exists())) return null;
+	const head = await f.slice(0, INT8_MAGIC.length).arrayBuffer();
+	if (head.byteLength < INT8_MAGIC.length) return "f32";
+	const bytes = new Uint8Array(head);
+	let isInt8 = true;
+	for (let i = 0; i < INT8_MAGIC.length; i++) {
+		if (bytes[i] !== INT8_MAGIC.charCodeAt(i)) {
+			isInt8 = false;
+			break;
+		}
+	}
+	return isInt8 ? "int8" : "f32";
+}
+
+/**
+ * Load a `vectors-int8.bin` (INT8VEC1 format) into SAB-backed chunks.
+ *
+ * The on-disk layout interleaves a float32 scale with the int8 data per
+ * vector. To keep the SIMD inner loop contiguous (and the FFI signature
+ * tidy) we deinterleave at load time: int8 data lives in `Int8Array`
+ * SAB chunks; scales live in their own per-chunk `Float32Array` SAB.
+ *
+ * Norms come from the `vectors-int8.norms.bin` sidecar — one float32
+ * per vector recording the L2 norm of the *original* float32 vector
+ * (so cosine reconstruction is exact).
+ */
+export async function loadInt8VectorsToMemory(
+	vecPath: string,
+	normsPath: string,
+): Promise<InMemoryVectorIndex> {
+	const vecFile = Bun.file(vecPath);
+	const totalBytes = vecFile.size;
+
+	// Read header.
+	const headerAb = await vecFile.slice(0, INT8_HEADER_BYTES).arrayBuffer();
+	const headerView = new DataView(headerAb);
+	for (let i = 0; i < INT8_MAGIC.length; i++) {
+		if (headerView.getUint8(i) !== INT8_MAGIC.charCodeAt(i)) {
+			throw new Error(`${vecPath}: missing INT8VEC1 magic`);
+		}
+	}
+	const dims = headerView.getUint32(8, true);
+	const totalVectors = headerView.getUint32(12, true);
+	const bytesPerInt8Vec = INT8_BYTES_PER_VEC_OVERHEAD + dims;
+
+	const expectedBytes = INT8_HEADER_BYTES + totalVectors * bytesPerInt8Vec;
+	if (totalBytes !== expectedBytes) {
+		throw new Error(
+			`${vecPath}: size mismatch — got ${totalBytes}, expected ${expectedBytes} (header says ${totalVectors} × ${dims})`,
+		);
+	}
+
+	// Norms sidecar is required.
+	const normsFile = Bun.file(normsPath);
+	if (!(await normsFile.exists())) {
+		throw new Error(
+			`${vecPath} present but norms sidecar missing at ${normsPath}. ` +
+				`Re-run quantize-vectors.ts to regenerate both files.`,
+		);
+	}
+	const normsAb = await normsFile.arrayBuffer();
+	if (normsAb.byteLength !== totalVectors * 4) {
+		throw new Error(
+			`${normsPath}: expected ${totalVectors * 4} bytes (${totalVectors} float32 norms), got ${normsAb.byteLength}`,
+		);
+	}
+	const allNorms = new Float32Array(normsAb);
+
+	// Chunk by vector count so each Int8Array stays well under the
+	// ArrayBuffer cap. ~80M vectors per chunk is plenty for our 484K rows
+	// but we keep the chunking so the loader generalizes if the corpus
+	// grows beyond 4 GB of int8 (~1.4M × 3072 dims).
+	const MAX_CHUNK_BYTES = 2_500_000_000;
+	const vectorsPerChunk = Math.floor(MAX_CHUNK_BYTES / dims);
+
+	const int8Chunks: Int8Array[] = [];
+	const scalesPerChunk: Float32Array[] = [];
+	const normsPerChunk: Float32Array[] = [];
+	const vpc: number[] = [];
+
+	const t0 = performance.now();
+	let loaded = 0;
+	while (loaded < totalVectors) {
+		const startVec = loaded;
+		const endVec = Math.min(startVec + vectorsPerChunk, totalVectors);
+		const numVecs = endVec - startVec;
+
+		const startByte = INT8_HEADER_BYTES + startVec * bytesPerInt8Vec;
+		const endByte = INT8_HEADER_BYTES + endVec * bytesPerInt8Vec;
+		const buf = await vecFile.slice(startByte, endByte).arrayBuffer();
+
+		const intSab = new SharedArrayBuffer(numVecs * dims);
+		const int8 = new Int8Array(intSab);
+		const scaleSab = new SharedArrayBuffer(numVecs * 4);
+		const scales = new Float32Array(scaleSab);
+
+		const src = new Uint8Array(buf);
+		const srcView = new DataView(buf);
+		for (let v = 0; v < numVecs; v++) {
+			const inOff = v * bytesPerInt8Vec;
+			scales[v] = srcView.getFloat32(inOff, true);
+			// Copy int8 portion. Using set on a Uint8Array view of the int8
+			// SAB chunk avoids a per-byte loop while preserving the bit
+			// pattern (int8 bytes are bit-identical to uint8).
+			const dstOff = v * dims;
+			new Uint8Array(intSab, dstOff, dims).set(
+				src.subarray(
+					inOff + INT8_BYTES_PER_VEC_OVERHEAD,
+					inOff + bytesPerInt8Vec,
+				),
+			);
+		}
+
+		// Slice norms for this chunk into its own SAB so workers receive
+		// it without a copy.
+		const normSab = new SharedArrayBuffer(numVecs * 4);
+		const norms = new Float32Array(normSab);
+		norms.set(allNorms.subarray(startVec, endVec));
+
+		int8Chunks.push(int8);
+		scalesPerChunk.push(scales);
+		normsPerChunk.push(norms);
+		vpc.push(numVecs);
+		loaded = endVec;
+	}
+
+	const totalMs = performance.now() - t0;
+	console.log(
+		`[rag] Loaded vectors-int8.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${int8Chunks.length} chunks (${totalVectors} vectors, dims=${dims}) in ${totalMs.toFixed(0)}ms`,
+	);
+
+	return {
+		kind: "int8",
+		chunks: [],
+		int8Chunks,
+		scalesPerChunk,
+		vectorsPerChunk: vpc,
+		normsPerChunk,
+		totalVectors,
+		dim: dims,
+	};
 }
 
 /**
@@ -597,6 +847,8 @@ export async function ensureVectorIndex(
 
 	const metaPath = `${dataDir}/vectors.meta.jsonl`;
 	const vecPath = `${dataDir}/vectors.bin`;
+	const int8Path = `${dataDir}/vectors-int8.bin`;
+	const int8NormsPath = `${dataDir}/vectors-int8.norms.bin`;
 	const dims = model.dimensions;
 
 	const dbCount =
@@ -611,8 +863,45 @@ export async function ensureVectorIndex(
 	// Check if files exist and are up to date
 	const metaFile = Bun.file(metaPath);
 	const vecFile = Bun.file(vecPath);
+	const int8File = Bun.file(int8Path);
 
 	let meta: Array<{ normId: string; blockId: string }> | null = null;
+
+	// Prefer int8 quantized index if it exists and is fresh. Falls back
+	// to float32 transparently — deleting `vectors-int8.bin` is the
+	// rollback path.
+	if (
+		(await metaFile.exists()) &&
+		(await int8File.exists()) &&
+		(await Bun.file(int8NormsPath).exists())
+	) {
+		const lines = (await metaFile.text()).split("\n").filter(Boolean);
+		if (lines.length === dbCount) {
+			const fmt = await detectVectorFormat(int8Path);
+			if (fmt === "int8") {
+				meta = lines.map((l) => {
+					const obj = JSON.parse(l);
+					return { normId: obj.n, blockId: obj.b };
+				});
+				const vectors = await loadInt8VectorsToMemory(int8Path, int8NormsPath);
+				if (vectors.totalVectors !== lines.length) {
+					console.warn(
+						`[rag] int8 index has ${vectors.totalVectors} vectors but meta has ${lines.length} — falling back to f32`,
+					);
+				} else if (vectors.dim !== dims) {
+					console.warn(
+						`[rag] int8 index dim=${vectors.dim} but model expects ${dims} — falling back to f32`,
+					);
+				} else {
+					return { meta, vectors, dims };
+				}
+			}
+		} else {
+			console.log(
+				`[rag] Vector index stale (${lines.length} vs ${dbCount}), rebuilding...`,
+			);
+		}
+	}
 
 	if ((await metaFile.exists()) && (await vecFile.exists())) {
 		const lines = (await metaFile.text()).split("\n").filter(Boolean);
