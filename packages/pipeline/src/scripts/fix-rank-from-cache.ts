@@ -15,7 +15,7 @@
  *   # Apply changes:
  *   bun run packages/pipeline/src/scripts/fix-rank-from-cache.ts --apply
  *
- *   # Limit for testing:
+ *   # Stop after scanning N files (not N changes — useful for spot-tests):
  *   bun run packages/pipeline/src/scripts/fix-rank-from-cache.ts --limit 50
  *   bun run packages/pipeline/src/scripts/fix-rank-from-cache.ts --apply --limit 50
  */
@@ -88,9 +88,10 @@ async function run() {
 	const glob = new Glob("*.json");
 	const changesByKind = new Map<string, ChangeRecord[]>();
 	const shortTitleChanges: ShortTitleRecord[] = [];
-	let scanned = 0;
+	let filesScanned = 0;
 	let noEli = 0;
 	let noChange = 0;
+	let unknownEli = 0;
 
 	for await (const filename of glob.scan({ cwd: jsonDir })) {
 		const filePath = join(jsonDir, filename);
@@ -106,6 +107,8 @@ async function run() {
 		const meta = doc.metadata as Record<string, string> | undefined;
 		if (!meta) continue;
 
+		filesScanned++;
+
 		const source = meta.source ?? "";
 		const currentRank = meta.rank ?? "";
 		const normId = meta.id ?? filename.replace(".json", "");
@@ -117,7 +120,10 @@ async function run() {
 			noEli++;
 		} else {
 			const correctRank = ELI_TO_RANK[eliCode];
-			if (correctRank && correctRank !== currentRank) {
+			if (correctRank === undefined) {
+				// ELI segment we don't recognise — skip rather than guess.
+				unknownEli++;
+			} else if (correctRank !== currentRank) {
 				const key = `${currentRank} -> ${correctRank}`;
 				if (!changesByKind.has(key)) changesByKind.set(key, []);
 				changesByKind.get(key)!.push({
@@ -126,11 +132,9 @@ async function run() {
 					oldRank: currentRank,
 					newRank: correctRank,
 				});
-				scanned++;
-			} else if (correctRank === currentRank) {
+			} else {
 				noChange++;
 			}
-			// Unknown ELI code → skip rather than guess (counted in noChange)
 		}
 
 		// --- short_title fix ---
@@ -147,7 +151,7 @@ async function run() {
 			}
 		}
 
-		if (scanned >= limit) break;
+		if (filesScanned >= limit) break;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -163,7 +167,11 @@ async function run() {
 		`Mode:             ${apply ? "APPLY (writes JSON files)" : "DRY RUN (no writes)"}`,
 	);
 	if (limit !== Infinity) console.log(`Limit:            ${limit}`);
+	console.log(`Files scanned:    ${filesScanned}`);
 	console.log(`No-ELI:           ${noEli} files skipped (no ELI source URL)`);
+	console.log(
+		`Unknown ELI:      ${unknownEli} files skipped (ELI segment not in map)`,
+	);
 	console.log(`No-change (rank): ${noChange} files already correct`);
 	console.log(`Rank changes:     ${totalRankChanges} files need rank updating`);
 	console.log(
