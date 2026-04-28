@@ -112,6 +112,31 @@ async function bootstrap() {
 		}
 	}
 
+	// Deduplicate `discovered` by id. The BOE catalog API has been observed to
+	// return the same id in different pages near pagination boundaries, and
+	// duplicates would otherwise be fetched twice and (in concurrent runs) end
+	// up as duplicate commits. The flock in daily-pipeline.sh prevents
+	// concurrent runs; this guard prevents single-run duplicates regardless.
+	const seenIds = new Set<string>();
+	const dedupedDiscovered: DiscoveredNorm[] = [];
+	let droppedDuplicates = 0;
+	for (const item of discovered) {
+		if (seenIds.has(item.id)) {
+			droppedDuplicates++;
+			continue;
+		}
+		seenIds.add(item.id);
+		dedupedDiscovered.push(item);
+	}
+	if (droppedDuplicates > 0) {
+		console.warn(
+			`[discover] Dropped ${droppedDuplicates} duplicate ids from ` +
+				`discovered set (likely BOE pagination boundary).`,
+		);
+	}
+	discovered.length = 0;
+	discovered.push(...dedupedDiscovered);
+
 	// Everything from discoverUpdated is either new or updated — process all.
 	// In --force mode, discoverAll returns everything — also process all.
 	const errorIds = new Set(errorRetries);
