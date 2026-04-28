@@ -1,7 +1,8 @@
 /**
  * RAG worker — runs the two CPU-bound stages on behalf of the main thread:
  *
- *   1. SIMD cosine top-K over the shared vector index (5.6 GB SAB).
+ *   1. SIMD cosine top-K over the shared vector index (~1.5 GB SAB int8 /
+ *      ~5.6 GB SAB f32 fallback).
  *   2. BM25 article search via SQLite FTS5 against a readonly DB handle.
  *
  * Spawned by `vector-pool.ts` via `new Worker(new URL("./vector-worker.ts",
@@ -13,8 +14,8 @@
  *
  * Memory: the SharedArrayBuffer is referenced (not copied) into the
  * worker's address space. With N workers all viewing the same SABs, the
- * physical RAM cost stays at the single 5.6 GB index. Each worker holds
- * its own SQLite statement cache (small).
+ * physical RAM cost stays at the single ~1.5–5.6 GB index. Each worker
+ * holds its own SQLite statement cache (small).
  */
 
 import { dlopen, FFIType, ptr } from "bun:ffi";

@@ -223,8 +223,8 @@ class VectorPool {
 /**
  * Build a SharedArrayBuffer-backed view of an existing in-memory vector
  * index by *copying* each chunk into a SAB. We accept the one-time copy
- * cost (~5.6 GB) at boot; afterwards the SAB is the source of truth and
- * the original ArrayBuffer is dropped.
+ * cost (~1.5 GB int8 / ~5.6 GB f32) at boot; afterwards the SAB is the
+ * source of truth and the original ArrayBuffer is dropped.
  *
  * If we ever rebuild loadVectorsToMemory() to allocate SABs directly,
  * this copy disappears.

@@ -932,10 +932,20 @@ export async function ensureVectorIndex(
 	);
 
 	let exported = 0;
+	const expectedBytes = dims * 4;
 	for (const row of stmt.iterate(modelKey)) {
+		// Guard against truncated or wrong-dimension rows. Same fix as in
+		// sync-embeddings.ts — a `new Uint8Array` view past the backing
+		// buffer throws RangeError, which here would crash API boot.
+		if (row.vector.byteLength !== expectedBytes) {
+			console.warn(
+				`[rag] skipping ${row.norm_id}/${row.block_id}: expected ${expectedBytes}B, got ${row.vector.byteLength}B`,
+			);
+			continue;
+		}
 		metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
 		writer.write(
-			new Uint8Array(row.vector.buffer, row.vector.byteOffset, dims * 4),
+			new Uint8Array(row.vector.buffer, row.vector.byteOffset, expectedBytes),
 		);
 		exported++;
 		if (exported % 100_000 === 0) {
