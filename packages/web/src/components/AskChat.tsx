@@ -284,8 +284,25 @@ function domToReact(
 function renderAnswerWithCitations(
 	text: string,
 	citations: Citation[],
+	streaming = false,
 ): ReactNode {
 	const citationMap = buildCitationMap(citations);
+
+	// During streaming, skip the expensive markdown parse + DOMParser round-trip.
+	// Citations aren't available yet (they arrive with the `done` event), so we
+	// just render plain paragraphs split by newline.
+	if (streaming) {
+		return (
+			<>
+				{text.split("\n").map((line, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: streaming lines have no stable ID
+					<p key={i} className="ask-answer-paragraph">
+						{line}
+					</p>
+				))}
+			</>
+		);
+	}
 
 	// SSR / no DOMParser (shouldn't happen in this island, but be defensive):
 	// render as a single paragraph with citation replacement only.
@@ -574,11 +591,18 @@ export default function AskChat() {
 	const [loading, setLoading] = useState(false);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
+	const abortRef = useRef<AbortController | null>(null);
 
 	useEffect(() => {
 		saveTurns(turns);
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [turns]);
+
+	useEffect(() => {
+		return () => {
+			abortRef.current?.abort();
+		};
+	}, []);
 
 	async function handleSubmit(q?: string) {
 		const text = (q ?? question).trim();
@@ -593,10 +617,15 @@ export default function AskChat() {
 		setLoading(true);
 
 		try {
+			abortRef.current?.abort();
+			const controller = new AbortController();
+			abortRef.current = controller;
+
 			const res = await fetch(`${API_BASE}/v1/ask/stream`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ question: text }),
+				signal: controller.signal,
 			});
 
 			if (res.status === 429) {
@@ -738,7 +767,11 @@ export default function AskChat() {
 					});
 				}
 			}
-		} catch {
+		} catch (err) {
+			if (err instanceof Error && err.name === "AbortError") {
+				// Expected on unmount or new submit — don't show error.
+				return;
+			}
 			setTurns((prev) => {
 				const updated = [...prev];
 				updated[turnIndex] = {
@@ -773,6 +806,8 @@ export default function AskChat() {
 	}
 
 	const hasHistory = turns.length > 0;
+	const lastTurn = turns.at(-1);
+	const showStepper = loading && !lastTurn?.response?.answer;
 
 	return (
 		<div className="ask-chat">
@@ -842,6 +877,7 @@ export default function AskChat() {
 												{renderAnswerWithCitations(
 													turn.response.answer,
 													turn.response.citations,
+													loading && turn === lastTurn,
 												)}
 											</div>
 
@@ -927,21 +963,15 @@ export default function AskChat() {
 						</div>
 					))}
 
-					{loading &&
-						!turns[turns.length - 1]?.response?.answer &&
-						(() => {
-							const lastTurn = turns[turns.length - 1];
-							const step = lastTurn?.currentStep;
-							if (step) {
-								return <AskProgressStepper current={step} />;
-							}
-							return (
-								<div className="ask-loading" role="status" aria-live="polite">
-									<span className="ask-spinner-large" aria-hidden="true" />
-									<p>Buscando en la legislación española...</p>
-								</div>
-							);
-						})()}
+					{showStepper &&
+						(lastTurn?.currentStep ? (
+							<AskProgressStepper current={lastTurn.currentStep} />
+						) : (
+							<div className="ask-loading" role="status" aria-live="polite">
+								<span className="ask-spinner-large" aria-hidden="true" />
+								<p>Buscando en la legislación española...</p>
+							</div>
+						))}
 
 					<div ref={bottomRef} />
 				</div>

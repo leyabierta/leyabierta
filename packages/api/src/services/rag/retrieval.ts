@@ -512,7 +512,7 @@ export type RunRetrievalCoreOpts = {
 	 * before the Cohere/LLM rerank). The streaming route consumes these to
 	 * surface SSE `progress` events; non-streaming callers can omit.
 	 */
-	onProgress?: (step: ProgressStep, label: string) => void;
+	onProgress?: (step: ProgressStep) => void;
 };
 
 /**
@@ -606,7 +606,7 @@ export async function runRetrievalCore(
 		embeddingDims: queryResult.embedding.length,
 	});
 
-	onProgress?.("retrieving", "Buscando entre 12.000 leyes…");
+	onProgress?.("retrieving");
 
 	const parallelStart = Date.now();
 	const bm25BreakT = performance.now();
@@ -842,7 +842,7 @@ export async function runRetrievalCore(
 	let rerankerBackend = "none";
 
 	if (allFusedArticles.length > TOP_K) {
-		onProgress?.("ranking", "Seleccionando los artículos más relevantes…");
+		onProgress?.("ranking");
 		const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
 			key: `${a.normId}:${a.blockId}`,
 			title: `${a.blockTitle} — ${describeNormScope(a.rank, resolveJurisdiction(a.sourceUrl, a.normId))}: ${a.normTitle}`,

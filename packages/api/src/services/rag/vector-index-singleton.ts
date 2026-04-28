@@ -17,17 +17,34 @@ type VectorIndex = Awaited<ReturnType<typeof ensureVectorIndex>>;
 
 let cached: VectorIndex = null;
 let inflight: Promise<VectorIndex> | null = null;
+let loadedModelKey: string | null = null;
+let loadedDataDir: string | null = null;
 
 export async function getSharedVectorIndex(
 	db: Database,
 	modelKey: string,
 	dataDir: string,
 ): Promise<VectorIndex> {
-	if (cached) return cached;
+	if (cached) {
+		if (
+			process.env.NODE_ENV !== "production" &&
+			(modelKey !== loadedModelKey || dataDir !== loadedDataDir)
+		) {
+			console.warn(
+				`[vector-index-singleton] cache hit ignores divergent params: ` +
+					`requested modelKey="${modelKey}" dataDir="${dataDir}", ` +
+					`cached modelKey="${loadedModelKey}" dataDir="${loadedDataDir}". ` +
+					`Returning cached index regardless.`,
+			);
+		}
+		return cached;
+	}
 	if (!inflight) {
 		inflight = ensureVectorIndex(db, modelKey, dataDir)
 			.then((idx) => {
 				cached = idx;
+				loadedModelKey = modelKey;
+				loadedDataDir = dataDir;
 				return idx;
 			})
 			.catch((err) => {
@@ -42,4 +59,6 @@ export async function getSharedVectorIndex(
 export function _resetSharedVectorIndexForTests(): void {
 	cached = null;
 	inflight = null;
+	loadedModelKey = null;
+	loadedDataDir = null;
 }

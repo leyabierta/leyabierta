@@ -115,7 +115,7 @@ export function askRoutes(pipeline: RagPipeline | null) {
 							// event types per the SSE spec.
 							yield `event: keepalive\ndata: ${JSON.stringify({})}\n\n`;
 						} else if (event.type === "progress") {
-							yield `event: progress\ndata: ${JSON.stringify({ step: event.step, label: event.label })}\n\n`;
+							yield `event: progress\ndata: ${JSON.stringify({ step: event.step })}\n\n`;
 						} else {
 							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined })}\n\n`;
 						}

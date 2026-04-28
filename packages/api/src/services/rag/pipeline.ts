@@ -396,7 +396,7 @@ export class RagPipeline {
 	async *askStream(request: AskRequest): AsyncGenerator<
 		| { type: "chunk"; text: string }
 		| { type: "keepalive" }
-		| { type: "progress"; step: ProgressStep; label: string }
+		| { type: "progress"; step: ProgressStep }
 		| {
 				type: "done";
 				citations: Citation[];
@@ -415,16 +415,12 @@ export class RagPipeline {
 			// Emit the first progress event before any awaits — the client
 			// gets a label as soon as the SSE stream opens, killing the
 			// "30s of mute spinner" perception.
-			yield {
-				type: "progress",
-				step: "analyzing",
-				label: "Entendiendo tu pregunta…",
-			};
+			yield { type: "progress", step: "analyzing" };
 
 			// Buffer for `progress` events emitted from inside runRetrievalCore.
 			// The callback fires synchronously from a worker awaiting context;
 			// we drain the buffer between awaits in the keepalive loop.
-			const progressBuffer: Array<{ step: ProgressStep; label: string }> = [];
+			const progressBuffer: Array<{ step: ProgressStep }> = [];
 
 			// Retrieval can take >100s on the production server, longer than the
 			// Cloudflare Tunnel idle timeout. Interleave keepalive events every
@@ -439,8 +435,8 @@ export class RagPipeline {
 				embeddedNormIds: this.getEmbeddedNormIdsCached(),
 				vectorIndex: await this.getVectorIndex(),
 				trace,
-				onProgress: (step, label) => {
-					progressBuffer.push({ step, label });
+				onProgress: (step) => {
+					progressBuffer.push({ step });
 				},
 			});
 			let retrievalDone = false;
@@ -458,7 +454,7 @@ export class RagPipeline {
 				// Drain buffered progress events before yielding keepalive/done.
 				while (progressBuffer.length > 0) {
 					const p = progressBuffer.shift()!;
-					yield { type: "progress", step: p.step, label: p.label };
+					yield { type: "progress", step: p.step };
 				}
 				if (winner === "tick" && !retrievalDone) {
 					yield { type: "keepalive" };
@@ -525,11 +521,7 @@ export class RagPipeline {
 
 			const { articles, useTemporal, bestScore } = retrieval;
 
-			yield {
-				type: "progress",
-				step: "writing",
-				label: "Redactando la respuesta con citas…",
-			};
+			yield { type: "progress", step: "writing" };
 
 			const { evidenceText, systemPrompt } = buildEvidence({
 				db: this.db,
