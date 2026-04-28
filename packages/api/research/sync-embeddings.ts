@@ -29,6 +29,7 @@ import {
 	loadEmbeddings,
 } from "../src/services/rag/embeddings.ts";
 import { splitByApartados } from "../src/services/rag/subchunk.ts";
+import { quantizeVectorsFile } from "./quantize-vectors.ts";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -393,3 +394,69 @@ const finalNorms = db
 
 console.log(`\n✅ Sync complete!`);
 console.log(`  Store: ${finalCount} articles from ${finalNorms} norms`);
+
+// ── Step 5: Regenerate vectors.bin + int8 quantized index ──
+//
+// SQLite is the source of truth, but the API server reads `vectors.bin`
+// (or `vectors-int8.bin` when present) on boot. After any change we
+// stream the embeddings table back out to disk and re-quantize so the
+// next API restart picks up a consistent triple
+// (vectors.bin / vectors-int8.bin / vectors-int8.norms.bin) from a
+// single sync run.
+//
+// Skipped for `--dry-run` (already exited above) and for runs where
+// nothing changed in SQLite.
+
+if (hasRemovals || hasAdditions) {
+	const dataDir = join(repoRoot, "data");
+	const vecPath = join(dataDir, "vectors.bin");
+	const metaPath = join(dataDir, "vectors.meta.jsonl");
+	const int8Path = join(dataDir, "vectors-int8.bin");
+	const model = EMBEDDING_MODELS[MODEL_KEY]!;
+
+	console.log(`\nRebuilding vectors.bin from SQLite → ${vecPath}`);
+	const exportStart = Date.now();
+	const writer = Bun.file(vecPath).writer();
+	const metaLines: string[] = [];
+	const stmt = db.query<
+		{ norm_id: string; block_id: string; vector: Buffer },
+		[string]
+	>(
+		"SELECT norm_id, block_id, vector FROM embeddings WHERE model = ? ORDER BY norm_id, block_id",
+	);
+	let exported = 0;
+	const expectedBytes = model.dimensions * 4;
+	for (const row of stmt.iterate(MODEL_KEY)) {
+		// Guard against truncated or wrong-dimension rows. A `new Uint8Array`
+		// view past the backing buffer throws RangeError and would crash the
+		// whole sync — skip the row with a warning instead.
+		if (row.vector.byteLength !== expectedBytes) {
+			console.warn(
+				`[sync] skipping ${row.norm_id}/${row.block_id}: expected ${expectedBytes}B, got ${row.vector.byteLength}B`,
+			);
+			continue;
+		}
+		metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
+		writer.write(
+			new Uint8Array(row.vector.buffer, row.vector.byteOffset, expectedBytes),
+		);
+		exported++;
+		if (exported % 100_000 === 0) {
+			writer.flush();
+			process.stdout.write(`\r  Exported ${exported.toLocaleString()} vectors`);
+		}
+	}
+	await writer.end();
+	await Bun.write(metaPath, metaLines.join("\n"));
+	console.log(
+		`\n  vectors.bin: ${exported.toLocaleString()} vectors in ${((Date.now() - exportStart) / 1000).toFixed(1)}s`,
+	);
+
+	console.log(`\nQuantizing → ${int8Path}`);
+	await quantizeVectorsFile({
+		inPath: vecPath,
+		outPath: int8Path,
+		dims: model.dimensions,
+	});
+	console.log(`\n✅ Vector index files regenerated.`);
+}

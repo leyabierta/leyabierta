@@ -14,10 +14,11 @@
  * reject so the API layer can return 503 Busy instead of memory-bombing
  * under sustained load.
  *
- * Memory: vectors.bin (~5.6 GB) lives once in SABs allocated by the
- * pool's create() and viewed read-only by every worker. Per-worker
- * heap is small (the .so handle, the message buffers, no JS-side
- * vector storage).
+ * Memory: the vector index lives once in SABs allocated by the pool's
+ * create() and viewed read-only by every worker. Footprint depends on
+ * format: ~1.5 GB for `vectors-int8.bin` (default when present), ~5.6 GB
+ * for the legacy `vectors.bin` float32 fallback. Per-worker heap is small
+ * (the .so handle, the message buffers, no JS-side vector storage).
  */
 
 import { join } from "node:path";
@@ -54,8 +55,11 @@ interface Pending {
 }
 
 interface SharedIndex {
+	kind: "f32" | "int8";
 	sharedChunks: SharedArrayBuffer[];
 	sharedNorms: SharedArrayBuffer[];
+	/** Only set when kind === "int8". One scale SAB per chunk. */
+	sharedScales: SharedArrayBuffer[];
 	vectorsPerChunk: number[];
 	dim: number;
 	totalVectors: number;
@@ -112,8 +116,10 @@ class VectorPool {
 
 			w.postMessage({
 				type: "init",
+				kind: this.shared.kind,
 				sharedChunks: this.shared.sharedChunks,
 				sharedNorms: this.shared.sharedNorms,
+				sharedScales: this.shared.sharedScales,
 				vectorsPerChunk: this.shared.vectorsPerChunk,
 				dim: this.shared.dim,
 				libPath: config.libPath,
@@ -217,8 +223,8 @@ class VectorPool {
 /**
  * Build a SharedArrayBuffer-backed view of an existing in-memory vector
  * index by *copying* each chunk into a SAB. We accept the one-time copy
- * cost (~5.6 GB) at boot; afterwards the SAB is the source of truth and
- * the original ArrayBuffer is dropped.
+ * cost (~1.5 GB int8 / ~5.6 GB f32) at boot; afterwards the SAB is the
+ * source of truth and the original ArrayBuffer is dropped.
  *
  * If we ever rebuild loadVectorsToMemory() to allocate SABs directly,
  * this copy disappears.
@@ -226,17 +232,40 @@ class VectorPool {
 function toShared(index: InMemoryVectorIndex): SharedIndex {
 	const sharedChunks: SharedArrayBuffer[] = [];
 	const sharedNorms: SharedArrayBuffer[] = [];
-	for (let c = 0; c < index.chunks.length; c++) {
-		const v = index.chunks[c]!;
-		// If embeddings.ts allocated the chunk on a SharedArrayBuffer
-		// (RAG_VECTOR_BACKEND=pool path), reuse it. Otherwise copy once —
-		// peak memory during init temporarily doubles, ~5.6 GB extra on prod.
-		if (v.buffer instanceof SharedArrayBuffer) {
-			sharedChunks.push(v.buffer);
+	const sharedScales: SharedArrayBuffer[] = [];
+	const isInt8 = index.kind === "int8";
+	const numChunks = isInt8 ? index.int8Chunks.length : index.chunks.length;
+
+	for (let c = 0; c < numChunks; c++) {
+		// Vector chunk (f32 → Float32Array, int8 → Int8Array). In both
+		// cases the loader already allocates SAB-backed buffers, so the
+		// hot path is a zero-copy SAB pass-through.
+		if (isInt8) {
+			const v = index.int8Chunks[c]!;
+			if (v.buffer instanceof SharedArrayBuffer) {
+				sharedChunks.push(v.buffer);
+			} else {
+				const sab = new SharedArrayBuffer(v.byteLength);
+				new Int8Array(sab).set(v);
+				sharedChunks.push(sab);
+			}
+			const sc = index.scalesPerChunk[c]!;
+			if (sc.buffer instanceof SharedArrayBuffer) {
+				sharedScales.push(sc.buffer);
+			} else {
+				const sab = new SharedArrayBuffer(sc.byteLength);
+				new Float32Array(sab).set(sc);
+				sharedScales.push(sab);
+			}
 		} else {
-			const sab = new SharedArrayBuffer(v.byteLength);
-			new Float32Array(sab).set(v);
-			sharedChunks.push(sab);
+			const v = index.chunks[c]!;
+			if (v.buffer instanceof SharedArrayBuffer) {
+				sharedChunks.push(v.buffer);
+			} else {
+				const sab = new SharedArrayBuffer(v.byteLength);
+				new Float32Array(sab).set(v);
+				sharedChunks.push(sab);
+			}
 		}
 
 		const n = index.normsPerChunk[c]!;
@@ -249,12 +278,12 @@ function toShared(index: InMemoryVectorIndex): SharedIndex {
 		}
 	}
 	return {
+		kind: index.kind,
 		sharedChunks,
 		sharedNorms,
+		sharedScales,
 		vectorsPerChunk: [...index.vectorsPerChunk],
-		dim: index.chunks[0]
-			? index.chunks[0].length / index.vectorsPerChunk[0]!
-			: 0,
+		dim: index.dim,
 		totalVectors: index.totalVectors,
 	};
 }
@@ -300,9 +329,7 @@ export async function getVectorPool(
 		const libPath = defaultLibPath();
 		if (!libPath) return null;
 
-		const dim = index.chunks[0]
-			? index.chunks[0].length / index.vectorsPerChunk[0]!
-			: 0;
+		const dim = index.dim;
 		if (!dim) return null;
 
 		// Sizing read at init time — the pool is a process-wide singleton
@@ -343,7 +370,7 @@ export async function vectorSearchPooled(
 	queryEmbedding: Float32Array,
 	meta: Array<{ normId: string; blockId: string }>,
 	index: InMemoryVectorIndex,
-	dims: number,
+	_dims: number,
 	topK: number = 10,
 ): Promise<VectorSearchResult[]> {
 	const p = await getVectorPool(index);

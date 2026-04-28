@@ -53,10 +53,14 @@ function makeIndex(seed: number): {
 	}));
 
 	const index: InMemoryVectorIndex = {
+		kind: "f32",
 		chunks: [vectors],
+		int8Chunks: [],
+		scalesPerChunk: [],
 		vectorsPerChunk: [N],
 		normsPerChunk: [norms],
 		totalVectors: N,
+		dim: DIMS,
 	};
 	return { meta, index };
 }

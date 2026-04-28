@@ -1,7 +1,8 @@
 /**
  * RAG worker — runs the two CPU-bound stages on behalf of the main thread:
  *
- *   1. SIMD cosine top-K over the shared vector index (5.6 GB SAB).
+ *   1. SIMD cosine top-K over the shared vector index (~1.5 GB SAB int8 /
+ *      ~5.6 GB SAB f32 fallback).
  *   2. BM25 article search via SQLite FTS5 against a readonly DB handle.
  *
  * Spawned by `vector-pool.ts` via `new Worker(new URL("./vector-worker.ts",
@@ -13,8 +14,8 @@
  *
  * Memory: the SharedArrayBuffer is referenced (not copied) into the
  * worker's address space. With N workers all viewing the same SABs, the
- * physical RAM cost stays at the single 5.6 GB index. Each worker holds
- * its own SQLite statement cache (small).
+ * physical RAM cost stays at the single ~1.5–5.6 GB index. Each worker
+ * holds its own SQLite statement cache (small).
  */
 
 import { dlopen, FFIType, ptr } from "bun:ffi";
@@ -28,8 +29,11 @@ declare const self: {
 
 interface InitMessage {
 	type: "init";
+	kind: "f32" | "int8";
 	sharedChunks: SharedArrayBuffer[];
 	sharedNorms: SharedArrayBuffer[];
+	/** Only set when kind === "int8". */
+	sharedScales: SharedArrayBuffer[];
 	vectorsPerChunk: number[];
 	dim: number;
 	libPath: string;
@@ -58,11 +62,15 @@ type InMessage = InitMessage | VectorQueryMessage | Bm25QueryMessage;
 type CosineTopk = (...args: any[]) => number;
 
 interface State {
+	kind: "f32" | "int8";
 	chunks: Float32Array[];
+	int8Chunks: Int8Array[];
+	scales: Float32Array[];
 	norms: Float32Array[];
 	vpc: number[];
 	dim: number;
 	cosine_topk: CosineTopk;
+	cosine_topk_int8: CosineTopk;
 	db: Database;
 }
 
@@ -76,13 +84,46 @@ self.onmessage = (event: MessageEvent) => {
 		// must reach the pool as an `error` message — otherwise the pool's
 		// `ready` promise would never settle and the worker slot would leak.
 		try {
-			const chunks = msg.sharedChunks.map((sab) => new Float32Array(sab));
+			const isInt8 = msg.kind === "int8";
+			// For int8, scales is a per-chunk parallel array. A mismatch here
+			// would only surface at query time as `state.scales[c] === undefined`,
+			// which is a confusing failure mode — fail loud at init instead.
+			if (isInt8 && msg.sharedScales.length !== msg.sharedChunks.length) {
+				throw new Error(
+					`int8 init: sharedScales.length (${msg.sharedScales.length}) ` +
+						`!= sharedChunks.length (${msg.sharedChunks.length})`,
+				);
+			}
+			const chunks = isInt8
+				? []
+				: msg.sharedChunks.map((sab) => new Float32Array(sab));
+			const int8Chunks = isInt8
+				? msg.sharedChunks.map((sab) => new Int8Array(sab))
+				: [];
+			const scales = isInt8
+				? msg.sharedScales.map((sab) => new Float32Array(sab))
+				: [];
 			const norms = msg.sharedNorms.map((sab) => new Float32Array(sab));
 			const lib = dlopen(msg.libPath, {
 				cosine_topk: {
 					args: [
 						FFIType.ptr,
 						FFIType.f32,
+						FFIType.ptr,
+						FFIType.ptr,
+						FFIType.i32,
+						FFIType.i32,
+						FFIType.i32,
+						FFIType.ptr,
+						FFIType.ptr,
+					],
+					returns: FFIType.i32,
+				},
+				cosine_topk_int8: {
+					args: [
+						FFIType.ptr,
+						FFIType.f32,
+						FFIType.ptr,
 						FFIType.ptr,
 						FFIType.ptr,
 						FFIType.i32,
@@ -102,11 +143,15 @@ self.onmessage = (event: MessageEvent) => {
 			// running ensureBlocksFts here would fail on a fresh DB rather
 			// than gracefully bail — main thread is the single owner.
 			state = {
+				kind: msg.kind,
 				chunks,
+				int8Chunks,
+				scales,
 				norms,
 				vpc: msg.vectorsPerChunk,
 				dim: msg.dim,
 				cosine_topk: lib.symbols.cosine_topk as unknown as CosineTopk,
+				cosine_topk_int8: lib.symbols.cosine_topk_int8 as unknown as CosineTopk,
 				db,
 			};
 			self.postMessage({ type: "ready" });
@@ -143,8 +188,9 @@ self.onmessage = (event: MessageEvent) => {
 			const merged: Array<{ globalIdx: number; score: number }> = [];
 			let globalOffset = 0;
 
-			for (let c = 0; c < state.chunks.length; c++) {
-				const vectors = state.chunks[c]!;
+			const isInt8 = state.kind === "int8";
+			const numChunks = isInt8 ? state.int8Chunks.length : state.chunks.length;
+			for (let c = 0; c < numChunks; c++) {
 				const norms = state.norms[c]!;
 				const numVecs = state.vpc[c]!;
 				if (numVecs === 0) continue;
@@ -153,17 +199,36 @@ self.onmessage = (event: MessageEvent) => {
 				const outIndices = new Int32Array(k);
 				const outScores = new Float32Array(k);
 
-				const written = state.cosine_topk(
-					ptr(q),
-					qNorm,
-					ptr(vectors),
-					ptr(norms),
-					numVecs,
-					state.dim,
-					k,
-					ptr(outIndices),
-					ptr(outScores),
-				);
+				let written: number;
+				if (isInt8) {
+					const corpus = state.int8Chunks[c]!;
+					const scales = state.scales[c]!;
+					written = state.cosine_topk_int8(
+						ptr(q),
+						qNorm,
+						ptr(corpus),
+						ptr(scales),
+						ptr(norms),
+						numVecs,
+						state.dim,
+						k,
+						ptr(outIndices),
+						ptr(outScores),
+					);
+				} else {
+					const vectors = state.chunks[c]!;
+					written = state.cosine_topk(
+						ptr(q),
+						qNorm,
+						ptr(vectors),
+						ptr(norms),
+						numVecs,
+						state.dim,
+						k,
+						ptr(outIndices),
+						ptr(outScores),
+					);
+				}
 
 				for (let i = 0; i < written; i++) {
 					merged.push({

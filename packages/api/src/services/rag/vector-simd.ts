@@ -35,6 +35,18 @@ interface NativeBindings {
 		outIndices: Uint8Array | NodeJS.TypedArray,
 		outScores: Uint8Array | NodeJS.TypedArray,
 	) => number;
+	cosine_topk_int8: (
+		query: Uint8Array | NodeJS.TypedArray,
+		queryNorm: number,
+		corpusInt8: Uint8Array | NodeJS.TypedArray,
+		scales: Uint8Array | NodeJS.TypedArray,
+		docNorms: Uint8Array | NodeJS.TypedArray,
+		nDocs: number,
+		dim: number,
+		topK: number,
+		outIndices: Uint8Array | NodeJS.TypedArray,
+		outScores: Uint8Array | NodeJS.TypedArray,
+	) => number;
 }
 
 let cached: NativeBindings | null | undefined;
@@ -89,6 +101,21 @@ function loadNative(): NativeBindings | null {
 				],
 				returns: FFIType.i32,
 			},
+			cosine_topk_int8: {
+				args: [
+					FFIType.ptr, // const float* query
+					FFIType.f32, // float query_norm
+					FFIType.ptr, // const int8* corpus
+					FFIType.ptr, // const float* scales
+					FFIType.ptr, // const float* doc_norms
+					FFIType.i32, // int32 n_docs
+					FFIType.i32, // int32 dim
+					FFIType.i32, // int32 top_k
+					FFIType.ptr, // int32* out_indices
+					FFIType.ptr, // float* out_scores
+				],
+				returns: FFIType.i32,
+			},
 		});
 		cached = {
 			cosine_topk: (q, qn, v, dn, n, d, k, oi, os) =>
@@ -96,6 +123,19 @@ function loadNative(): NativeBindings | null {
 					ptr(q as NodeJS.TypedArray),
 					qn,
 					ptr(v as NodeJS.TypedArray),
+					ptr(dn as NodeJS.TypedArray),
+					n,
+					d,
+					k,
+					ptr(oi as NodeJS.TypedArray),
+					ptr(os as NodeJS.TypedArray),
+				),
+			cosine_topk_int8: (q, qn, c, sc, dn, n, d, k, oi, os) =>
+				symbols.cosine_topk_int8(
+					ptr(q as NodeJS.TypedArray),
+					qn,
+					ptr(c as NodeJS.TypedArray),
+					ptr(sc as NodeJS.TypedArray),
 					ptr(dn as NodeJS.TypedArray),
 					n,
 					d,
@@ -158,8 +198,10 @@ export function vectorSearchSIMD(
 	const merged: Array<{ globalIdx: number; score: number }> = [];
 	let globalOffset = 0;
 
-	for (let c = 0; c < index.chunks.length; c++) {
-		const vectors = index.chunks[c]!;
+	const isInt8 = index.kind === "int8";
+	const numChunks = isInt8 ? index.int8Chunks.length : index.chunks.length;
+
+	for (let c = 0; c < numChunks; c++) {
 		const norms = index.normsPerChunk[c]!;
 		const numVecs = index.vectorsPerChunk[c]!;
 		if (numVecs === 0) continue;
@@ -168,17 +210,36 @@ export function vectorSearchSIMD(
 		const outIndices = new Int32Array(k);
 		const outScores = new Float32Array(k);
 
-		const written = native.cosine_topk(
-			queryEmbedding,
-			queryNorm,
-			vectors,
-			norms,
-			numVecs,
-			dims,
-			k,
-			outIndices,
-			outScores,
-		);
+		let written: number;
+		if (isInt8) {
+			const corpus = index.int8Chunks[c]!;
+			const scales = index.scalesPerChunk[c]!;
+			written = native.cosine_topk_int8(
+				queryEmbedding,
+				queryNorm,
+				corpus,
+				scales,
+				norms,
+				numVecs,
+				dims,
+				k,
+				outIndices,
+				outScores,
+			);
+		} else {
+			const vectors = index.chunks[c]!;
+			written = native.cosine_topk(
+				queryEmbedding,
+				queryNorm,
+				vectors,
+				norms,
+				numVecs,
+				dims,
+				k,
+				outIndices,
+				outScores,
+			);
+		}
 
 		for (let i = 0; i < written; i++) {
 			merged.push({
@@ -202,7 +263,7 @@ export function vectorSearchSIMD(
 
 	const totalMs = performance.now() - t0;
 	console.log(
-		`[vector-search-simd] ${index.totalVectors} vectors, ${index.chunks.length} chunks, ${totalMs.toFixed(0)}ms`,
+		`[vector-search-simd:${index.kind}] ${index.totalVectors} vectors, ${numChunks} chunks, ${totalMs.toFixed(0)}ms`,
 	);
 	return results;
 }
