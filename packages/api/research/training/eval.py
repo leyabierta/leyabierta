@@ -112,6 +112,14 @@ def load_reranker(spec: str):
         model_name = spec[len("base:") :]
         return CrossEncoder(model_name, num_labels=1)
 
+    if spec.startswith("model:") or spec.startswith("ft:"):
+        # Full fine-tuned CrossEncoder saved by sentence_transformers.fit().
+        from sentence_transformers import CrossEncoder
+
+        prefix = "model:" if spec.startswith("model:") else "ft:"
+        model_dir = spec[len(prefix) :]
+        return CrossEncoder(model_dir, num_labels=1)
+
     if spec.startswith("lora:"):
         adapter_dir = Path(spec[len("lora:") :])
         config_path = adapter_dir / "train_config.json"

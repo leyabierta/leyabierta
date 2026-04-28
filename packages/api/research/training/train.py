@@ -59,6 +59,7 @@ class TrainConfig:
     lora_alpha: int
     lora_dropout: float
     seed: int
+    use_lora: bool
 
     def to_json(self) -> str:
         d = asdict(self)
@@ -105,13 +106,23 @@ def to_cross_encoder_examples(triplets: Iterable[dict]):
     return out
 
 
-def build_lora_model(base_model: str, max_seq_length: int, cfg: TrainConfig):
-    """Wrap a CrossEncoder's underlying transformer with a LoRA adapter."""
-    from peft import LoraConfig, TaskType, get_peft_model
+def build_model(base_model: str, max_seq_length: int, cfg: TrainConfig):
+    """Build a CrossEncoder, optionally wrapped with a LoRA adapter.
+
+    LoRA via PEFT is currently broken on top of CrossEncoder.fit() — the
+    legacy fit() API does some manual tensor handling that breaks when
+    the model returns a BatchEncoding wrapper (KeyError: 'ne'). For now
+    PEFT is opt-in via --use-lora; default is full fine-tuning. With
+    568M params and a few thousand triplets, full FT on M4 Max is ~20
+    minutes and the adapter savings don't matter at this scale.
+    """
     from sentence_transformers import CrossEncoder
 
     ce = CrossEncoder(base_model, num_labels=1, max_length=max_seq_length)
-    base = ce.model  # AutoModelForSequenceClassification under the hood
+    if not cfg.use_lora:
+        return ce
+
+    from peft import LoraConfig, TaskType, get_peft_model
 
     lora_cfg = LoraConfig(
         r=cfg.lora_r,
@@ -122,7 +133,7 @@ def build_lora_model(base_model: str, max_seq_length: int, cfg: TrainConfig):
         # XLM-RoBERTa attention modules. Override per base model if needed.
         target_modules=["query", "value"],
     )
-    ce.model = get_peft_model(base, lora_cfg)
+    ce.model = get_peft_model(ce.model, lora_cfg)
     return ce
 
 
@@ -153,7 +164,7 @@ def train(cfg: TrainConfig) -> None:
 
     train_examples = to_cross_encoder_examples(train_t)
 
-    model = build_lora_model(cfg.base_model, cfg.max_seq_length, cfg)
+    model = build_model(cfg.base_model, cfg.max_seq_length, cfg)
     device = pick_device()
     print(f"[train.py] device: {device}")
     model.model.to(device)
@@ -177,16 +188,19 @@ def train(cfg: TrainConfig) -> None:
         show_progress_bar=True,
     )
 
-    # Persist the LoRA adapter separately + a small metadata file so we
-    # know exactly how the run was configured.
-    model.model.save_pretrained(str(cfg.output_dir / "lora_adapter"))
+    # Persist the model + a small metadata file so we know exactly how
+    # the run was configured. CrossEncoder.fit(output_path=...) already
+    # saves the full model under output_dir/, so this only adds metadata.
+    if cfg.use_lora:
+        model.model.save_pretrained(str(cfg.output_dir / "lora_adapter"))
     (cfg.output_dir / "train_config.json").write_text(cfg.to_json(), encoding="utf-8")
     val_path = cfg.output_dir / "val_pair_ids.json"
     val_path.write_text(
         json.dumps(sorted({t["pair_id"] for t in val_t}), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"[train.py] done. adapter at {cfg.output_dir / 'lora_adapter'}")
+    target = cfg.output_dir / ("lora_adapter" if cfg.use_lora else "")
+    print(f"[train.py] done. model at {target}")
 
 
 def parse_args(argv: list[str]) -> TrainConfig:
@@ -202,6 +216,12 @@ def parse_args(argv: list[str]) -> TrainConfig:
     p.add_argument("--lora-r", type=int, default=16)
     p.add_argument("--lora-alpha", type=int, default=32)
     p.add_argument("--lora-dropout", type=float, default=0.05)
+    p.add_argument(
+        "--use-lora",
+        action="store_true",
+        help="Wrap the base with a PEFT LoRA adapter. Currently broken on top "
+        "of CrossEncoder.fit() (KeyError: 'ne'); default is full fine-tuning.",
+    )
     p.add_argument("--seed", type=int, default=42)
     args = p.parse_args(argv)
     return TrainConfig(
@@ -216,6 +236,7 @@ def parse_args(argv: list[str]) -> TrainConfig:
         lora_r=args.lora_r,
         lora_alpha=args.lora_alpha,
         lora_dropout=args.lora_dropout,
+        use_lora=args.use_lora,
         seed=args.seed,
     )
 
