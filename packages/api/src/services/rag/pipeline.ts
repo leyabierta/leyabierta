@@ -464,7 +464,7 @@ export class RagPipeline {
 			// tick race resolved but before the loop re-checked the buffer.
 			while (progressBuffer.length > 0) {
 				const p = progressBuffer.shift()!;
-				yield { type: "progress", step: p.step, label: p.label };
+				yield { type: "progress", step: p.step };
 			}
 			const retrieval = await retrievalPromise;
 

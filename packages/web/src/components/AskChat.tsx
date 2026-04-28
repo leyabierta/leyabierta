@@ -700,7 +700,6 @@ export default function AskChat() {
 					try {
 						const progress = JSON.parse(sseEvent.data) as {
 							step: ProgressStep;
-							label?: string;
 						};
 						if (PROGRESS_ORDER.includes(progress.step)) {
 							setTurns((prev) => {
