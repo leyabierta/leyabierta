@@ -250,8 +250,19 @@ export async function fetchNorm(
 	}
 
 	// Norms with blocks but no version history (e.g. missing fecha_publicacion
-	// in XML) get a synthetic bootstrap reform from the metadata publication date
+	// in XML) get a synthetic bootstrap reform from the metadata publication
+	// date. If the metadata itself fell back to the BOE sentinel (1900-01-01),
+	// flag it loudly — we have no real date for this norm and the commit will
+	// end up clamped to 1970-01-02, which is wrong but at least auditable
+	// from the warning.
 	if (reforms.length === 0) {
+		if (!metadata.publishedAt || metadata.publishedAt === "1900-01-01") {
+			console.warn(
+				`[pipeline] ${metadata.id} has no version history AND no real ` +
+					`publishedAt — falling back to "${metadata.publishedAt}". ` +
+					`Commit date will be clamped/wrong; investigate BOE metadata.`,
+			);
+		}
 		reforms = [
 			{
 				date: metadata.publishedAt,

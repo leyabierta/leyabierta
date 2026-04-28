@@ -98,6 +98,16 @@ export class BoeMetadataParser implements MetadataParser {
 		const vigencia = parseBoeDate(item.fecha_vigencia as string);
 		const eli = item.url_eli as string | undefined;
 
+		// "1900-01-01" is the sentinel for "BOE returned no usable
+		// fecha_publicacion". Log it so the per-norm commit later (which will
+		// clamp to 1970-01-02) is traceable to the real cause: missing source
+		// data, not a pipeline bug.
+		if (!published) {
+			console.warn(
+				`[boe-metadata] ${normId} has no fecha_publicacion (raw=${JSON.stringify(item.fecha_publicacion)}) — falling back to 1900-01-01`,
+			);
+		}
+
 		return {
 			title,
 			shortTitle: extractShortTitle(title),

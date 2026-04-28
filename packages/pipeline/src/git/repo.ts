@@ -176,11 +176,37 @@ export class GitRepo {
 
 		const message = formatCommitMessage(info);
 
-		// Clamp dates to valid git range
+		// Validate the date BEFORE clamping. Empty/malformed dates are an
+		// upstream bug and silently clamping them to 1970-01-02 buries the
+		// problem — we end up with junk commit dates that look intentional.
+		// Refuse to commit with no date; the caller must supply something.
+		const sourceId = info.trailers["Source-Id"] ?? "<no-source-id>";
+		const normId = info.trailers["Norm-Id"] ?? "<no-norm-id>";
+		if (!info.authorDate || !/^\d{4}-\d{2}-\d{2}$/.test(info.authorDate)) {
+			throw new Error(
+				`Refusing to commit with invalid date "${info.authorDate}" ` +
+					`(Source-Id=${sourceId}, Norm-Id=${normId}). ` +
+					`Fix the upstream parser instead of clamping silently.`,
+			);
+		}
+
+		// Clamp to git's safe range. Some downstream tools (web build, GitHub
+		// UI) behave poorly on pre-1970 timestamps. Anything we clamp gets
+		// logged so we can audit which commits had real ancient dates vs which
+		// had a fallback like "1900-01-01" (the BOE metadata sentinel for
+		// missing data).
 		let gitDate = info.authorDate;
 		if (gitDate < "1970-01-02") {
+			console.warn(
+				`[git.commit] Clamping pre-1970 date ${gitDate} → 1970-01-02 ` +
+					`(Source-Id=${sourceId}, Norm-Id=${normId})`,
+			);
 			gitDate = "1970-01-02";
 		} else if (gitDate > "2099-12-31") {
+			console.warn(
+				`[git.commit] Clamping post-2099 date ${gitDate} → 2099-12-31 ` +
+					`(Source-Id=${sourceId}, Norm-Id=${normId})`,
+			);
 			gitDate = "2099-12-31";
 		}
 		const authorDate = `${gitDate}T00:00:00`;
