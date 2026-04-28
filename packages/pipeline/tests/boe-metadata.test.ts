@@ -47,22 +47,29 @@ describe("BoeMetadataParser", () => {
 	});
 
 	describe("rank mapping", () => {
+		// Codes match BOE's own catalog (data/auxiliar/rangos.json). Keep this
+		// list aligned: a regression here means citizens see the wrong rank label.
 		const rankCases: [string, string][] = [
+			["1020", "acuerdo"],
 			["1070", "constitucion"],
 			["1080", "ley_organica"],
+			["1180", "acuerdo_internacional"],
+			["1220", "reglamento"],
 			["1290", "ley_organica"],
 			["1300", "ley"],
 			["1310", "real_decreto_legislativo"],
 			["1320", "real_decreto_ley"],
+			["1325", "real_decreto_ley"],
 			["1340", "real_decreto"],
 			["1350", "orden"],
-			["1360", "resolucion"],
-			["1370", "instruccion"],
-			["1380", "reglamento"],
+			["1370", "resolucion"],
 			["1390", "circular"],
-			["1180", "acuerdo_internacional"],
+			["1410", "instruccion"],
+			["1450", "ley"],
 			["1470", "decreto"],
+			["1480", "decreto"],
 			["1500", "real_decreto_ley"],
+			["1510", "decreto"],
 		];
 
 		for (const [codigo, expectedRank] of rankCases) {

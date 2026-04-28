@@ -44,23 +44,32 @@ function extractJurisdiction(eli: string | undefined, normId: string): string {
 	return "es";
 }
 
-/** Map BOE rank codes to our Rank values. */
+// Map BOE rank codes to our Rank values. Source of truth:
+// data/auxiliar/rangos.json (BOE's own catalog). The previous mapping was
+// off-by-one for several codes (1370 was labeled "instruccion" instead of
+// "resolucion", 1380 didn't exist as "reglamento", etc.), so most Resoluciones
+// rendered as "Instrucción" and real Instrucciones fell through to "otro".
 const RANK_MAP: Record<string, Rank> = {
+	"1020": "acuerdo",
 	"1070": "constitucion",
 	"1080": "ley_organica", // Estatuto de Autonomía
+	"1180": "acuerdo_internacional",
+	"1220": "reglamento",
 	"1290": "ley_organica",
 	"1300": "ley",
 	"1310": "real_decreto_legislativo",
 	"1320": "real_decreto_ley",
+	"1325": "real_decreto_ley", // Decreto-ley Foral
 	"1340": "real_decreto",
 	"1350": "orden",
-	"1360": "resolucion",
-	"1370": "instruccion",
-	"1380": "reglamento",
+	"1370": "resolucion",
 	"1390": "circular",
-	"1180": "acuerdo_internacional",
+	"1410": "instruccion",
+	"1450": "ley", // Ley Foral
 	"1470": "decreto", // Decreto Legislativo (autonómico)
+	"1480": "decreto", // Decreto Foral Legislativo
 	"1500": "real_decreto_ley", // Decreto-ley (autonómico)
+	"1510": "decreto",
 };
 
 export class BoeMetadataParser implements MetadataParser {
