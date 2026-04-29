@@ -2,16 +2,16 @@
 
 ## Final verdict (2026-04-29)
 
-**Self-hosted FT path is closed at this dataset scale. Production answer: keep no-rerank as the default; switch to Cohere `rerank-4-pro` when budget allows ($0.002/query — affordable).**
+**Self-hosted FT path is closed at this dataset scale. Production already runs Cohere `rerank-4-pro` via OpenRouter (`packages/api/src/services/rag/reranker.ts`); this research was about whether we could *replace* it with a self-hosted model. The answer is no.**
 
-After 11 fine-tuning experiments across 5 model sizes (33M MiniLM → 568M bge-v2-m3), 2 losses (BCE, MNR), 4 dataset sizes (824, 1968, mined-negs, real-eval-split), and 4 mitigation strategies (hard-negative mining, bigger effective batches via grad accumulation, real-distribution training, alternative bases), **no FT run beat the no-rerank baseline of R@10 = 79.0%.** Best FT score: 68.4% (MiniLM 33M, MNR, 824 pairs) — still −10.6pp below baseline.
+After 11 fine-tuning experiments across 5 model sizes (33M MiniLM → 568M bge-v2-m3), 2 losses (BCE, MNR), 4 dataset sizes (824, 1968, mined-negs, real-eval-split), and 4 mitigation strategies (hard-negative mining, bigger effective batches via grad accumulation, real-distribution training, alternative bases), **no FT run beat the no-rerank retrieval baseline of R@10 = 79.0%.** Best FT score: 68.4% (MiniLM 33M, MNR, 824 pairs) — still −10.6pp below the no-rerank baseline, and ~−19pp below the Cohere production reranker.
 
 The decisive evidence is **Exp 3 (real-query diagnostic)**: trained MiniLM on a 50% split of the real eval-v2 queries, evaluated on the other 50%. Result R@10 = 66.9% vs the baseline on that same holdout = **81.6%** — a −14.7pp drop with perfect-distribution training data. This rules out "synthetic distribution mismatch" as the bottleneck. The bottleneck is structural: the production retrieval pipeline (Gemini embeddings + BM25 article-FTS + RRF fusion + rank/jurisdiction/recency boosts + diversity penalty + disposición-type penalty) already curates the top-10 well enough that any cross-encoder trained from <2K pairs reorders the curated set away from the gold more often than toward it.
 
-**Production recommendation:**
-- **Default:** keep no-rerank (R@10 = 79.0%, R@1 = 49.3%). It's the current production behavior and it's competitive.
-- **When budget approves:** wire Cohere `rerank-4-pro` ($0.002 per query — confirmed affordable). Plan-target was R@10 = 87.6%, +8.6pp over no-rerank. This is the only path with predictable lift.
-- **Self-hosted FT:** parked. Reopen only if (a) ≥10K pairs of real /v1/ask logs become available (none today), (b) compute is no longer a M4 Max constraint, or (c) someone publishes a Spanish-legal pre-trained reranker base.
+**Architectural reality:**
+- **Production today:** Cohere `rerank-4-pro` routed via OpenRouter (no direct Cohere account — OpenRouter is the access path). Plan-target R@10 = 87.6% over the 79.0% no-rerank floor. This is already wired and was the right call before this research even started.
+- **No-rerank floor:** R@10 = 79.0%, R@1 = 49.3%. It's what runs when neither `COHERE_API_KEY` nor `OPENROUTER_API_KEY` is set. Used here as the comparator any self-hosted reranker has to beat.
+- **Self-hosted FT:** parked. Reopen only if (a) ≥10K pairs of real /v1/ask logs become available (the endpoint is too new to have produced them today), (b) compute is no longer a M4 Max constraint, or (c) someone publishes a Spanish-legal pre-trained reranker base.
 
 **What ran in the autonomous orchestration (2026-04-29):** Round 1 — Exp 1 (mined negs MiniLM = 63.2%), Exp 2 (MiniLM on v3v5 = 63.6%), Exp 3 (real eval-v2 split diagnostic = 66.9% on 81.6% holdout — the smoking gun). Round 2 — #9 (grad accumulation effective batch 32 = 67.3%, the second-best score), #4 (bge-v2-m3 568M aborted at 11h ETA on M4 Max). Round 4 — #10 (XLM-RoBERTa from scratch) was killed mid-flight when the verdict became clear. v6-style data, MarginMSE, and curriculum learning were not run because Exp 3 had already falsified the hypothesis they would address.
 
