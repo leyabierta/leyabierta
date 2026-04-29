@@ -16,6 +16,8 @@ First training pass on the 824-pair / 2448-triplet dataset (v2 pilot + v3 scale-
 | MiniLM 3ep MNR (1968 pairs) | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 16.5% | 51.8% | **63.6%** | 61.5% | 67.4% | 57.5% |
 | MiniLM 3ep MNR (mined negs) | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 19.1% | 47.8% | **63.2%** | 57.3% | 67.4% | 63.8% |
 | MiniLM 3ep MNR (real eval-v2 train split, eval on holdout) | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 20.6% | 55.1% | **66.9%** | 63.5% | 67.2% | 73.9% | *(n=136, holdout baseline=81.6%)* |
+| MiniLM 3ep MNR (grad acc eff=32) | mmarco-mMiniLMv2 | 33M | MNR | 8+acc4 | 256 | 3 | 16.9% | 53.3% | **67.3%** | 65.6% | 69.8% | 63.8% |
+| bge-v2-m3 3ep MNR | bge-reranker-v2-m3 | 568M | MNR | 8 | 256 | 3 | — | — | **ABORTED** | — | — | — | *(~32s/step → 11h ETA, killed)* |
 
 ## Findings
 
@@ -61,6 +63,14 @@ Exp 3 took eval-v2 questions directly: 50/50 split (seed=99), 136 train, 136 hol
 Result on holdout: R@10=**66.9%**, holdout no-rerank baseline=**81.6%** → gap of −14.7pp. The real-query model is slightly better than synthetic-only runs (63-65%) but still far below the baseline.
 
 Key interpretation: this is NOT a clean distribution test because (a) the model undertrained (1.175 loss), (b) the positives were found by BM25, not gold article-level annotations. The 396 pairs are real queries but the training signal is still synthetic-quality (BM25-picked positives + BM25 negatives). To truly test whether real queries close the gap, we'd need 1000+ pairs with human-verified article-level gold. **The experiment falsifies "real queries alone are sufficient" — training data quantity AND annotation quality both matter.**
+
+### 9. Gradient accumulation (eff_batch=32) not better than batch 16 (Exp 9, 2026-04-29)
+MiniLM on triplets-v3v5, batch 8 + grad_acc 4 = eff_batch 32. Loss: 0.092 (vs 0.032 batch 16). R@10=67.3% — slightly above the 1968-pair runs (63-65%) but below the 824-pair run (68.4%).
+
+Key insight confirmed: MNR loss uses in-batch negatives per micro-batch, not per gradient update. With batch_size=8, each forward pass has 8 negatives, not 32. Gradient accumulation adds nothing for in-batch negative diversity. The experiment was equivalent to "batch 8 MNR with correct gradients" and produced expected results.
+
+### 10. bge-reranker-v2-m3 (568M) aborted — 32 s/step (~11h ETA)
+Attempted batch 8, seq 256 on v3v5 triplets. First step: 21s, second: 32s/step. At 1971 steps this would take >11 hours on M4 Max MPS. Aborted. This model is not trainable on Apple Silicon without mixed precision or shorter sequences.
 
 ## What's actually worth trying next
 
