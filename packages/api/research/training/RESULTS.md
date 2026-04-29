@@ -10,7 +10,8 @@ First training pass on the 824-pair / 2448-triplet dataset (v2 pilot + v3 scale-
 | MiniLM 1ep BCE | mmarco-mMiniLMv2 | 33M | BCE | 16 | 256 | 1 | 18.8% | 53.3% | 68.8% | 66.7% | 72.1% | 63.8% |
 | MiniLM 3ep BCE | mmarco-mMiniLMv2 | 33M | BCE | 16 | 256 | 3 | 17.6% | 48.5% | 63.6% | 58.3% | 68.2% | 61.7% |
 | MiniLM 3ep MNR | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 19.9% | 53.3% | **68.4%** | 64.6% | 72.9% | 63.8% |
-| bge-base 3ep MNR | bge-reranker-base | 278M | MNR | 4 | 128 | 3 | 16.5% | 47.1% | 64.3% | 56.2% | 69.8% | 66.0% |
+| bge-base 3ep MNR (small) | bge-reranker-base | 278M | MNR | 4 | 128 | 3 | 16.5% | 47.1% | 64.3% | 56.2% | 69.8% | 66.0% |
+| bge-base 3ep MNR (fair) | bge-reranker-base | 278M | MNR | 16 | 256 | 3 | 19.1% | 51.8% | 66.9% | 62.5% | 72.1% | 61.7% |
 
 ## Findings
 
@@ -24,10 +25,15 @@ The FT challenge therefore has two parts:
 - Undo the base reranker's prior biases on legal-Spanish text.
 - Learn the actual signals from our query→article gold pairs.
 
-### 3. Memory is a real constraint
-M4 Max 64GB with concurrent apps consuming ~45GB leaves ~17GB for training. bge-reranker-base at batch 8 seq 256 OOMs (request was for ~18GB). Forced to batch 4 seq 128, MNR loss gets only 3 in-batch negatives — far weaker contrastive signal than batch 16's 15 negatives. Result: bge-base R@10=64.3% is *worse* than MiniLM R@10=68.4% despite 8× more parameters.
+### 3. Memory is a real constraint (resolved)
+First bge-base run was forced to batch 4 seq 128 by an MPS OOM at batch 8. With other apps closed (system reported 27GB workable), we re-ran at the standard batch 16 seq 256 — no OOM, MPS used ~24GB peak. Result is on the table as "bge-base 3ep MNR (fair)".
 
-To compare base sizes fairly we need batch 16+ across all runs. That requires either (a) freeing 20-30GB of system memory, (b) gradient accumulation (slower), or (c) smaller seq_length (sacrifices longer articles).
+### 4. Bigger model + same dataset = WORSE generalization
+With identical config (batch 16 × seq 256 × 3ep MNR), bge-base 278M reaches R@10=66.9% while MiniLM 33M reaches 68.4%. The 8× bigger model is empirically worse on our 824-pair dataset.
+
+Best explanation: bge-base has stronger learned priors from web-search ranking. With only 824 contrastive pairs, MNR fine-tuning can't move it far enough to overcome those priors on legal-Spanish queries — it converges to a mix of the original biases and partial new signal. MiniLM has weaker priors so the same fine-tuning shifts it more.
+
+This confirms the dataset is the bottleneck, not capacity. **Throwing parameters at 824 pairs hurts.** The right move is to scale data first, then choose model size.
 
 ## What's needed to move past the no-rerank baseline
 
