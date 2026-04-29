@@ -14,6 +14,8 @@ First training pass on the 824-pair / 2448-triplet dataset (v2 pilot + v3 scale-
 | bge-base 3ep MNR (fair) | bge-reranker-base | 278M | MNR | 16 | 256 | 3 | 19.1% | 51.8% | 66.9% | 62.5% | 72.1% | 61.7% |
 | bge-base 3ep MNR (1968 pairs) | bge-reranker-base | 278M | MNR | 16 | 256 | 3 | 18.4% | 44.9% | 65.4% | 62.5% | 65.9% | 70.2% |
 | MiniLM 3ep MNR (1968 pairs) | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 16.5% | 51.8% | **63.6%** | 61.5% | 67.4% | 57.5% |
+| MiniLM 3ep MNR (mined negs) | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 19.1% | 47.8% | **63.2%** | 57.3% | 67.4% | 63.8% |
+| MiniLM 3ep MNR (real eval-v2 train split, eval on holdout) | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 20.6% | 55.1% | **66.9%** | 63.5% | 67.2% | 73.9% | *(n=136, holdout baseline=81.6%)* |
 
 ## Findings
 
@@ -53,6 +55,13 @@ The procedural gain is real (the v3 prompt over-indexes on procedural framings v
 2. **Negative quality, not negative volume.** Current hard negatives are BM25 top-5..15 minus gold. If the trained reranker fails on candidates that BM25 ranks *outside* top-15 (or *inside* top-5 for a different reason), those are the negatives that would teach. We're not mining those.
 3. **The base reranker prior dominates.** bge-reranker-base is trained on web-search MS MARCO. The legal-Spanish prior shift needs either much more data than 5K, a different base (multilingual legal pretraining), or a different loss that decouples relevance learning from web-search bias.
 
+### 8. Real-query diagnostic (Exp 3, 2026-04-29): distribution IS a factor, but 396 pairs insufficient
+Exp 3 took eval-v2 questions directly: 50/50 split (seed=99), 136 train, 136 holdout. Found the most relevant article per norm via BM25, mined BM25 negatives (positions 5..14). Converted to 396 triplets (66 training steps, 3 epochs). Train loss: 1.175 — model barely converged, 66 steps is too few for MNR to stabilize.
+
+Result on holdout: R@10=**66.9%**, holdout no-rerank baseline=**81.6%** → gap of −14.7pp. The real-query model is slightly better than synthetic-only runs (63-65%) but still far below the baseline.
+
+Key interpretation: this is NOT a clean distribution test because (a) the model undertrained (1.175 loss), (b) the positives were found by BM25, not gold article-level annotations. The 396 pairs are real queries but the training signal is still synthetic-quality (BM25-picked positives + BM25 negatives). To truly test whether real queries close the gap, we'd need 1000+ pairs with human-verified article-level gold. **The experiment falsifies "real queries alone are sufficient" — training data quantity AND annotation quality both matter.**
+
 ## What's actually worth trying next
 
 In order of expected impact given what we now know:
@@ -64,7 +73,16 @@ In order of expected impact given what we now know:
 
 Scaling the synthetic dataset further (1968 → 5K) is **not** in this list anymore. The 824 → 1968 controlled experiment is the evidence that path is not load-bearing.
 
-### 6. MiniLM on 1968 pairs also regresses vs 824 (Exp 2, 2026-04-29)
+### 6. Hard-negative mining from trained reranker did NOT improve (Exp 1, 2026-04-29)
+For Exp 1 we mined hard negatives using the trained bge-base-mnr-v3 adapter itself: BM25 top-100 candidates per query → score all non-gold candidates → pick top-3 scoring (most confusable to the model) as negatives. This produced 1968 pairs × ~4 negatives each = 7852 triplets. The loss during training stayed high (0.23 final vs 0.032 for BM25 negatives), confirming the negatives are genuinely harder.
+
+Result: R@10=**63.2%**, essentially identical to the BM25-negative runs (63.6% / 65.4% / 66.9%) and still −15.8pp below the no-rerank baseline (79.0%). Per-register: formal 67.4% (same as other runs), informal 57.3% (−4.1pp vs best MiniLM), procedural 63.8% (+6.3pp).
+
+The informal register hurt most. This is consistent with the core hypothesis: the trained reranker's top confusables are themselves artifacts of the synthetic-query distribution. Mining from a model trained on synthetic data produces synthetic-flavored hard negatives — they don't bridge the distribution gap, they reinforce it. The model learns to separate articles that synthetic queries confuse, not articles that real citizen queries confuse.
+
+**Implication: all three negative-mining approaches (BM25 5..15, BM25 larger window, reranker-mined) converge to similar failure points.** The bottleneck is NOT the negative type; it's the training query distribution itself. Exp 3 (real query diagnostic) is the critical next test.
+
+### 7. MiniLM on 1968 pairs also regresses vs 824 (Exp 2, 2026-04-29)
 To confirm that Exp 5 (bge-base 1968 pairs) wasn't a model-size artifact, we ran MiniLM 33M on the same 1968-pair / 5844-triplet dataset (identical fair config: batch 16, seq 256, 3ep, MNR). Result: R@10=**63.6%** — a **−4.8pp drop** from the MiniLM 824-pair run (68.4%), and the worst overall result after BCE-3ep.
 
 Loss curve: 0.268 → 0.032 (healthy convergence). The model trained fine. The regression is purely distributional: more synthetic data from the same Claude-generation prompt shifts the model further from the eval-v2 lexical space, not closer. Per-register: formal 67.4% (−5.5pp), informal 61.5% (−3.1pp), procedural 57.5% (−6.3pp) — all three registers degraded simultaneously, ruling out a per-stratum rebalancing effect.

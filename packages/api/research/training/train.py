@@ -59,6 +59,8 @@ class TrainConfig:
     val_split: float
     seed: int
     warmup_ratio: float
+    trust_remote_code: bool = False
+    gradient_accumulation_steps: int = 1
 
     def to_json(self) -> str:
         d = asdict(self)
@@ -149,6 +151,7 @@ def train(cfg: TrainConfig) -> None:
         cfg.base_model,
         num_labels=1,
         max_length=cfg.max_seq_length,
+        trust_remote_code=cfg.trust_remote_code,
     )
     loss = MultipleNegativesRankingLoss(model)
 
@@ -157,6 +160,7 @@ def train(cfg: TrainConfig) -> None:
         num_train_epochs=cfg.epochs,
         per_device_train_batch_size=cfg.batch_size,
         per_device_eval_batch_size=cfg.batch_size,
+        gradient_accumulation_steps=cfg.gradient_accumulation_steps,
         learning_rate=cfg.learning_rate,
         warmup_ratio=cfg.warmup_ratio,
         seed=cfg.seed,
@@ -180,10 +184,12 @@ def train(cfg: TrainConfig) -> None:
         loss=loss,
     )
 
+    eff_batch = cfg.batch_size * cfg.gradient_accumulation_steps
     print(
         f"[train.py] starting fit: {cfg.epochs} epochs ×"
         f" {len(train_ds) // cfg.batch_size} steps/epoch"
         f" with MultipleNegativesRankingLoss"
+        f" (eff_batch={eff_batch})"
     )
     trainer.train()
 
@@ -214,6 +220,8 @@ def parse_args(argv: list[str]) -> TrainConfig:
     p.add_argument("--val-split", type=float, default=0.1)
     p.add_argument("--warmup-ratio", type=float, default=0.1)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--trust-remote-code", action="store_true", default=False)
+    p.add_argument("--gradient-accumulation-steps", type=int, default=1)
     args = p.parse_args(argv)
     return TrainConfig(
         triplets_path=args.triplets,
@@ -226,6 +234,8 @@ def parse_args(argv: list[str]) -> TrainConfig:
         val_split=args.val_split,
         seed=args.seed,
         warmup_ratio=args.warmup_ratio,
+        trust_remote_code=args.trust_remote_code,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
     )
 
 
