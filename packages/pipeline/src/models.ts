@@ -24,6 +24,7 @@ export const Rank = {
 	INSTRUCCION: "instruccion" as Rank,
 	DECRETO: "decreto" as Rank,
 	REGLAMENTO: "reglamento" as Rank,
+	ACUERDO: "acuerdo" as Rank,
 	OTHER: "otro" as Rank,
 } as const;
 

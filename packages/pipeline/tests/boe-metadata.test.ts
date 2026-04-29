@@ -3,7 +3,10 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { BoeMetadataParser } from "../src/spain/boe-metadata.ts";
+import {
+	BoeMetadataParser,
+	extractShortTitle,
+} from "../src/spain/boe-metadata.ts";
 
 const parser = new BoeMetadataParser();
 
@@ -47,22 +50,29 @@ describe("BoeMetadataParser", () => {
 	});
 
 	describe("rank mapping", () => {
+		// Codes match BOE's own catalog (data/auxiliar/rangos.json). Keep this
+		// list aligned: a regression here means citizens see the wrong rank label.
 		const rankCases: [string, string][] = [
+			["1020", "acuerdo"],
 			["1070", "constitucion"],
 			["1080", "ley_organica"],
+			["1180", "acuerdo_internacional"],
+			["1220", "reglamento"],
 			["1290", "ley_organica"],
 			["1300", "ley"],
 			["1310", "real_decreto_legislativo"],
 			["1320", "real_decreto_ley"],
+			["1325", "real_decreto_ley"],
 			["1340", "real_decreto"],
 			["1350", "orden"],
-			["1360", "resolucion"],
-			["1370", "instruccion"],
-			["1380", "reglamento"],
+			["1370", "resolucion"],
 			["1390", "circular"],
-			["1180", "acuerdo_internacional"],
+			["1410", "instruccion"],
+			["1450", "ley"],
 			["1470", "decreto"],
+			["1480", "decreto"],
 			["1500", "real_decreto_ley"],
+			["1510", "decreto"],
 		];
 
 		for (const [codigo, expectedRank] of rankCases) {
@@ -238,6 +248,63 @@ describe("BoeMetadataParser", () => {
 			const meta = parser.parse(data, "BOE-A-2024-9999");
 			expect(meta.shortTitle.length).toBeLessThanOrEqual(60);
 			expect(meta.shortTitle).toContain("...");
+		});
+
+		// --- Dated-rank cases (issue #66) ---
+
+		test("dated: Resolución de DD de mes de YYYY", () => {
+			expect(
+				extractShortTitle(
+					"Resolución de 31 de enero de 1995, de la Secretaría General de Comunicaciones",
+				),
+			).toBe("Resolución de 31 de enero de 1995");
+		});
+
+		test("dated: Orden de DD de mes de YYYY", () => {
+			expect(
+				extractShortTitle(
+					"Orden de 4 de febrero de 1985, por la que se establecen normas",
+				),
+			).toBe("Orden de 4 de febrero de 1985");
+		});
+
+		test("dated: Instrucción de DD de mes de YYYY", () => {
+			expect(
+				extractShortTitle(
+					"Instrucción de 15 de septiembre de 2020, sobre procedimientos",
+				),
+			).toBe("Instrucción de 15 de septiembre de 2020");
+		});
+
+		test("dated: Acuerdo de DD de mes de YYYY", () => {
+			expect(
+				extractShortTitle(
+					"Acuerdo de 12 de marzo de 2010, del Consejo de Ministros",
+				),
+			).toBe("Acuerdo de 12 de marzo de 2010");
+		});
+
+		// Numbered Circular should still work (numbered-rank path, not dated)
+		test("numbered: Circular N/YEAR unchanged", () => {
+			expect(
+				extractShortTitle("Circular 1/2024, de 10 de enero, sobre algo"),
+			).toBe("Circular 1/2024");
+		});
+
+		// --- Regression: numbered ranks must still work ---
+
+		test("regression: Real Decreto N/YEAR unchanged", () => {
+			expect(
+				extractShortTitle(
+					"Real Decreto 123/2024, de 15 de marzo, por el que se regula algo",
+				),
+			).toBe("Real Decreto 123/2024");
+		});
+
+		test("regression: Ley Orgánica N/YEAR unchanged", () => {
+			expect(
+				extractShortTitle("Ley Orgánica 1/2024, de 10 de junio, de amnistia"),
+			).toBe("Ley Orgánica 1/2024");
 		});
 	});
 

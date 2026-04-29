@@ -139,7 +139,9 @@ function extractParagraphs(versionChildren: XmlNode[]): Paragraph[] {
 				const bqChildren: XmlNode[] = child.blockquote ?? [];
 				for (const bqChild of bqChildren) {
 					if (!bqChild.p) continue;
-					const text = renderInlineNodes(bqChild.p as XmlNode[]);
+					const text = normalizeWhitespace(
+						renderInlineNodes(bqChild.p as XmlNode[]),
+					);
 					if (!text) continue;
 					paragraphs.push({
 						cssClass: "nota_boe",
@@ -162,7 +164,7 @@ function extractParagraphs(versionChildren: XmlNode[]): Paragraph[] {
 		// Handle <p> elements
 		if (child.p) {
 			const cssClass = (child[":@"]?.class as string) ?? "";
-			const text = renderInlineNodes(child.p as XmlNode[]);
+			const text = normalizeWhitespace(renderInlineNodes(child.p as XmlNode[]));
 
 			if (!text) continue;
 			if (isEditorialNote(cssClass, text)) continue;
@@ -210,10 +212,18 @@ function renderInlineNodes(nodes: XmlNode[]): string {
 			continue;
 		}
 
-		// Links: strip tag, keep text
+		// Links: strip tag, keep text — except editorial cross-reference chrome
+		// (<a class="refPost">, <a class="refAnt">) which BOE injects as a UI
+		// affordance pointing at its own viewer; the target norm is already
+		// in NormAnalisis.referencias and rendering this text leaks raw anchor
+		// fragments like "Ref. BOE-A-XXXX-YYYY#cu" into the article.
 		if (node.a) {
+			const aClass = (node[":@"]?.class as string) ?? "";
+			if (aClass.startsWith("ref")) continue;
 			const inner = renderInlineNodes(node.a as XmlNode[]);
-			parts.push(inner);
+			// Defensive: strip any trailing "#anchor" fragment that survived
+			// from BOE's link text (some <a> have no class but same shape).
+			parts.push(inner.replace(/#\S*$/, ""));
 			continue;
 		}
 
@@ -350,7 +360,7 @@ function extractCellText(children: XmlNode[]): string {
 			}
 		}
 	}
-	return parts.join(" ").trim();
+	return normalizeWhitespace(parts.join(" "));
 }
 
 // ─── Shared utilities ───
@@ -410,7 +420,13 @@ const NAMED_ENTITIES: Record<string, string> = {
 	"&nbsp;": " ",
 };
 
-/** Decode HTML entities to characters in a single pass (prevents double-decoding). */
+/**
+ * Decode HTML entities to characters in a single pass (prevents double-decoding).
+ *
+ * Whitespace is NOT trimmed here: this runs per #text node, and trimming would
+ * collapse the space between two adjacent inline elements (e.g. "...2026. " +
+ * "<a>Ref...</a>" \u2192 "...2026.Ref..."). Trim happens at the paragraph boundary.
+ */
 function decodeEntities(text: string): string {
 	return text
 		.replace(
@@ -421,6 +437,21 @@ function decodeEntities(text: string): string {
 				return NAMED_ENTITIES[match] ?? match;
 			},
 		)
-		.replace(/[\u2002\u2003\u202F\u00A0]/g, " ")
+		.replace(/[\u2002\u2003\u202F\u00A0]/g, " ");
+}
+
+/**
+ * Collapse whitespace runs and trim \u2014 apply at paragraph/cell boundaries only.
+ *
+ * The newline rule trims only horizontal whitespace around line breaks, not
+ * other newlines: `\s*\n\s*` would have `\s*` consume an adjacent `\n`, which
+ * collapses paragraph breaks (`\n\n` \u2192 `\n`). The diff renderer in
+ * reforma.astro splits block text on `\n\n` to drive per-paragraph diffs, so
+ * losing those breaks would coalesce a multi-paragraph article into one.
+ */
+function normalizeWhitespace(text: string): string {
+	return text
+		.replace(/[ \t]+/g, " ")
+		.replace(/[ \t]*\n[ \t]*/g, "\n")
 		.trim();
 }

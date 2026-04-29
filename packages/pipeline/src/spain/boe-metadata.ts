@@ -44,23 +44,32 @@ function extractJurisdiction(eli: string | undefined, normId: string): string {
 	return "es";
 }
 
-/** Map BOE rank codes to our Rank values. */
-const RANK_MAP: Record<string, Rank> = {
+// Map BOE rank codes to our Rank values. Source of truth:
+// data/auxiliar/rangos.json (BOE's own catalog). The previous mapping was
+// off-by-one for several codes (1370 was labeled "instruccion" instead of
+// "resolucion", 1380 didn't exist as "reglamento", etc.), so most Resoluciones
+// rendered as "Instrucción" and real Instrucciones fell through to "otro".
+export const RANK_MAP: Record<string, Rank> = {
+	"1020": "acuerdo",
 	"1070": "constitucion",
 	"1080": "ley_organica", // Estatuto de Autonomía
+	"1180": "acuerdo_internacional",
+	"1220": "reglamento",
 	"1290": "ley_organica",
 	"1300": "ley",
 	"1310": "real_decreto_legislativo",
 	"1320": "real_decreto_ley",
+	"1325": "real_decreto_ley", // Decreto-ley Foral
 	"1340": "real_decreto",
 	"1350": "orden",
-	"1360": "resolucion",
-	"1370": "instruccion",
-	"1380": "reglamento",
+	"1370": "resolucion",
 	"1390": "circular",
-	"1180": "acuerdo_internacional",
+	"1410": "instruccion",
+	"1450": "ley", // Ley Foral
 	"1470": "decreto", // Decreto Legislativo (autonómico)
+	"1480": "decreto", // Decreto Foral Legislativo
 	"1500": "real_decreto_ley", // Decreto-ley (autonómico)
+	"1510": "decreto",
 };
 
 export class BoeMetadataParser implements MetadataParser {
@@ -137,19 +146,48 @@ function cleanTitle(raw: string): string {
 
 /**
  * Extract a short title from a full BOE title.
- * "Ley Orgánica 1/2024, de 10 de junio, de amnistía para..." → "Ley Orgánica 1/2024"
+ *
+ * Two patterns are recognised:
+ *
+ * 1. Dated ranks (Resolución, Orden, Instrucción, …) — titles structured as
+ *    "<Tipo> de DD de <mes> de YYYY, …". We capture up to and including the
+ *    four-digit year so the date is preserved:
+ *    "Resolución de 31 de enero de 1995, de la Secretaría…" → "Resolución de 31 de enero de 1995"
+ *
+ * 2. Numbered ranks (Ley, Real Decreto, …) — titles structured as
+ *    "<Tipo> N/YEAR, de DD de <mes>, …". We capture up to the first comma
+ *    so the number is preserved:
+ *    "Ley Orgánica 1/2024, de 10 de junio, de amnistía…" → "Ley Orgánica 1/2024"
+ *
+ * Order matters: dated pattern is tried first because some types (Circular,
+ * Acuerdo, Orden) can appear in both patterns and the dated form is more
+ * specific — it requires the literal word "de" between type and day number.
  */
-function extractShortTitle(title: string): string {
-	// Match up to the first comma after the law number
-	const match = title.match(
-		/^((?:Constitución|Ley Orgánica|Ley|Real Decreto[- ]ley|Real Decreto Legislativo|Real Decreto|Orden|Resolución|Circular|Instrucción|Decreto[- ]ley|Decreto Legislativo|Decreto|Reglamento|Acuerdo)[^,]*?\d+(?:\/\d+)?)/i,
+export function extractShortTitle(title: string): string {
+	// 1. Special case: "Constitución Española" — no number/date suffix.
+	if (/^constituci[oó]n/i.test(title)) return "Constitución Española";
+
+	// Spanish months for the date pattern.
+	const MONTHS =
+		"enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre";
+
+	// 2. Dated-rank pattern: "<Tipo> de DD de <mes> de YYYY"
+	//    Covers: Resolución, Orden, Orden Ministerial, Instrucción, Circular,
+	//            Acuerdo, Acuerdo Internacional.
+	const datedMatch = title.match(
+		new RegExp(
+			`^((?:Resolución|Orden Ministerial|Orden|Instrucción|Circular|Acuerdo Internacional|Acuerdo)\\s+de\\s+\\d+\\s+de\\s+(?:${MONTHS})\\s+de\\s+\\d{4})`,
+			"i",
+		),
 	);
-	if (match) return match[1]!;
+	if (datedMatch) return datedMatch[1]!;
 
-	// Special case: "Constitución Española"
-	if (title.toLowerCase().includes("constitución"))
-		return "Constitución Española";
+	// 3. Numbered-rank pattern: "<Tipo> N/YEAR" — capture up to first comma.
+	const numberedMatch = title.match(
+		/^((?:Ley Orgánica|Ley|Real Decreto[- ]ley|Real Decreto Legislativo|Real Decreto|Decreto[- ]ley|Decreto Legislativo|Decreto|Reglamento|Circular|Acuerdo Internacional|Acuerdo|Orden Ministerial|Orden|Instrucción|Resolución)[^,]*?\d+(?:\/\d+)?)/i,
+	);
+	if (numberedMatch) return numberedMatch[1]!;
 
-	// Fallback: first 60 chars
+	// 4. Fallback: first 60 chars.
 	return title.length > 60 ? `${title.slice(0, 57)}...` : title;
 }

@@ -253,7 +253,8 @@ import Base from "../layouts/Base.astro";
 				real_decreto_ley: "Decreto urgente", real_decreto_legislativo: "Decreto legislativo",
 				real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
 				acuerdo_internacional: "Acuerdo internacional", circular: "Circular",
-				instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento"
+				instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento",
+				acuerdo: "Acuerdo"
 			};
 			var STATUS_LABELS = {
 				vigente: "En vigor",
@@ -392,9 +393,25 @@ import Base from "../layouts/Base.astro";
 						? allBlocks.filter(function(b) { return topicBlockIds.indexOf(b.block_id) !== -1; })
 						: allBlocks;
 					var hasHeadline = reform.headline && reform.headline.length > 0;
-					var typeLabel = TYPE_LABELS[reform.reform_type] || "";
 					var importance = reform.importance || "";
 					var rankLabel = RANK_LABELS[law.rank] || law.rank || "";
+
+					// Bug fix #1: detect if this reform is the one that derogated the law.
+					// Signal: law.status === "derogada" AND law.last_reform_date === reform.date
+					// (last_reform_date is set by the API only when next_reform_date is null, i.e. this IS the latest reform)
+					var isDerogatingReform = law.status === "derogada" && law.last_reform_date === reform.date;
+
+					// Resolve type label — override to "Derogación" when derogating reform
+					var typeLabel = isDerogatingReform ? "Derogación" : (TYPE_LABELS[reform.reform_type] || "");
+
+					// H1 priority: AI-generated reform headline first (citizen-friendly, plain
+					// language, already includes the verb for derogations); fall back to the
+					// law's official title. Never use short_title here — its regex is geared
+					// to "Ley X/YEAR" patterns and produces awkward truncations on Resolución/
+					// Orden titles ("Resolución de 31 de enero..." → "Resolución de 31").
+					// No "Derogada:" prefix — the type badge and the status chip already
+					// communicate the derogation, prefixing it would be redundant.
+					var headline = hasHeadline ? reform.headline : law.title;
 
 					// ── Header ──
 					var html = '<div class="reforma-header">';
@@ -404,7 +421,7 @@ import Base from "../layouts/Base.astro";
 					if (importance === "high") html += '<span class="reforma-importance-badge">Cambio importante</span>';
 					if (topicInfo) html += '<span style="font-size:0.6875rem;font-weight:600;color:var(--accent);background:var(--accent-faint);padding:0.125rem 0.5rem;border-radius:4px">' + esc(topicInfo.topic_label) + '</span>';
 					html += '</div>';
-					html += '<h1 class="reforma-headline">' + esc(hasHeadline ? reform.headline : law.title) + '</h1>';
+					html += '<h1 class="reforma-headline">' + esc(headline) + '</h1>';
 					html += '<div class="reforma-law-info">';
 					html += esc(rankLabel) + ' · ' + esc(STATUS_LABELS[law.status] || law.status);
 					html += ' · <a href="/laws/' + encodeURIComponent(law.id) + '/">' + esc(law.title) + '</a>';
@@ -434,15 +451,22 @@ import Base from "../layouts/Base.astro";
 							var isOpen = i < 5;
 
 							html += '<div class="block-change">';
+							// Bug fix #3: nota_inicial blocks have id "no" and empty title.
+							// Show a citizen-readable label instead of the raw id.
+							var isNotaInicial = b.block_type === "nota_inicial" || b.block_id === "no";
+							var blockLabel = isNotaInicial ? "Nota oficial del BOE" : (b.title || b.block_id);
+
 							html += '<div class="block-change-header" data-idx="' + i + '">';
-							html += '<span>' + esc(b.title || b.block_id) + '</span>';
+							html += '<span>' + esc(blockLabel) + '</span>';
 							html += '<span style="font-size:0.75rem;color:var(--text-muted)">' + (isOpen ? '▾' : '▸') + '</span>';
 							html += '</div>';
 							html += '<div class="block-change-body' + (isOpen ? ' open' : '') + '" id="block-' + i + '">';
 
 							if (isNew) {
+								// Bug fix #4: nota_inicial is not a new article — it's a derogation notice.
+								var newBlockLabel = isNotaInicial ? "Aviso oficial" : "Artículo nuevo";
 								html += '<div class="new-block">';
-								html += '<div class="version-label">Artículo nuevo</div>';
+								html += '<div class="version-label">' + newBlockLabel + '</div>';
 								html += '<div class="version-text">' + esc(b.after_text) + '</div>';
 								html += '</div>';
 							} else {
@@ -466,7 +490,7 @@ import Base from "../layouts/Base.astro";
 					html += '</nav>';
 
 					contentDiv.innerHTML = html;
-					document.title = (hasHeadline ? reform.headline : law.title) + ' — Ley Abierta';
+					document.title = headline + ' — Ley Abierta';
 
 					// ── Toggles ──
 					contentDiv.querySelectorAll('.block-change-header').forEach(function (hdr) {

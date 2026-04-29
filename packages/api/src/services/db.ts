@@ -1243,6 +1243,7 @@ export class DbService {
 		};
 		affected_blocks: Array<{
 			block_id: string;
+			block_type: string;
 			title: string;
 			before_text: string;
 			after_text: string;
@@ -1281,6 +1282,7 @@ export class DbService {
 			.query<
 				{
 					block_id: string;
+					block_type: string;
 					title: string;
 					after_text: string | null;
 					before_text: string | null;
@@ -1289,6 +1291,7 @@ export class DbService {
 			>(
 				`SELECT
 					rb.block_id,
+					b.block_type,
 					b.title,
 					v_after.text AS after_text,
 					(SELECT v2.text FROM versions v2
@@ -1328,6 +1331,7 @@ export class DbService {
 			},
 			affected_blocks: blocks.map((b) => ({
 				block_id: b.block_id,
+				block_type: b.block_type,
 				title: b.title,
 				before_text: b.before_text ?? "",
 				after_text: b.after_text ?? "",
