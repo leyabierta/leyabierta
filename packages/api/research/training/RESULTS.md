@@ -13,6 +13,7 @@ First training pass on the 824-pair / 2448-triplet dataset (v2 pilot + v3 scale-
 | bge-base 3ep MNR (small) | bge-reranker-base | 278M | MNR | 4 | 128 | 3 | 16.5% | 47.1% | 64.3% | 56.2% | 69.8% | 66.0% |
 | bge-base 3ep MNR (fair) | bge-reranker-base | 278M | MNR | 16 | 256 | 3 | 19.1% | 51.8% | 66.9% | 62.5% | 72.1% | 61.7% |
 | bge-base 3ep MNR (1968 pairs) | bge-reranker-base | 278M | MNR | 16 | 256 | 3 | 18.4% | 44.9% | 65.4% | 62.5% | 65.9% | 70.2% |
+| MiniLM 3ep MNR (1968 pairs) | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 16.5% | 51.8% | **63.6%** | 61.5% | 67.4% | 57.5% |
 
 ## Findings
 
@@ -62,6 +63,13 @@ In order of expected impact given what we now know:
 4. **Different base.** A multilingual reranker without an MS MARCO prior — or even a generic XLM-R fine-tuned from scratch as a cross-encoder — may be more tractable than fighting bge's prior.
 
 Scaling the synthetic dataset further (1968 → 5K) is **not** in this list anymore. The 824 → 1968 controlled experiment is the evidence that path is not load-bearing.
+
+### 6. MiniLM on 1968 pairs also regresses vs 824 (Exp 2, 2026-04-29)
+To confirm that Exp 5 (bge-base 1968 pairs) wasn't a model-size artifact, we ran MiniLM 33M on the same 1968-pair / 5844-triplet dataset (identical fair config: batch 16, seq 256, 3ep, MNR). Result: R@10=**63.6%** — a **−4.8pp drop** from the MiniLM 824-pair run (68.4%), and the worst overall result after BCE-3ep.
+
+Loss curve: 0.268 → 0.032 (healthy convergence). The model trained fine. The regression is purely distributional: more synthetic data from the same Claude-generation prompt shifts the model further from the eval-v2 lexical space, not closer. Per-register: formal 67.4% (−5.5pp), informal 61.5% (−3.1pp), procedural 57.5% (−6.3pp) — all three registers degraded simultaneously, ruling out a per-stratum rebalancing effect.
+
+**Key finding:** this cross-validates Exp 5. The "more data hurts" pattern holds across both model sizes (33M and 278M) and across all three registers. The dataset generation prompt is the bottleneck, not the training infrastructure or model capacity. Hard-negative mining and real-query distribution (Exp 1 and Exp 3) are the next levers to test.
 
 ## Reproducing
 
