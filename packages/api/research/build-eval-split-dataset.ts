@@ -44,7 +44,7 @@ function loadEval(path: string): EvalItem[] {
 	const raw = JSON.parse(readFileSync(path, "utf8")) as
 		| { results: EvalItem[] }
 		| EvalItem[];
-	const items = Array.isArray(raw) ? raw : raw.results ?? [];
+	const items = Array.isArray(raw) ? raw : (raw.results ?? []);
 	return items.filter((q) => (q.expectedNorms ?? []).length > 0);
 }
 
@@ -75,9 +75,7 @@ function getBlockText(
 	blockId: string,
 ): string | null {
 	const row = db
-		.query(
-			"SELECT current_text FROM blocks WHERE norm_id = ? AND block_id = ?",
-		)
+		.query("SELECT current_text FROM blocks WHERE norm_id = ? AND block_id = ?")
 		.get(normId, blockId) as { current_text: string } | null;
 	return row?.current_text ?? null;
 }
@@ -195,7 +193,7 @@ async function main(args: ParsedArgs): Promise<void> {
 			// Find positive: first result from the gold norm
 			const posResult = bm25Results.find((r) => r.normId === goldNormId);
 			let positiveText: string | null = null;
-			let posNormId = goldNormId;
+			const posNormId = goldNormId;
 			let posBlockId = "";
 
 			if (posResult) {
@@ -292,7 +290,9 @@ async function main(args: ParsedArgs): Promise<void> {
 		pairs.map((p) => JSON.stringify(p)).join("\n") + "\n",
 		"utf8",
 	);
-	console.log(`[build-eval-split] wrote training pairs to ${args.outTrainPath}`);
+	console.log(
+		`[build-eval-split] wrote training pairs to ${args.outTrainPath}`,
+	);
 
 	// Write holdout question IDs for use with eval.py (just the IDs, the eval.py
 	// already knows to filter by what's in eval-candidates-realistic.jsonl)
@@ -300,7 +300,11 @@ async function main(args: ParsedArgs): Promise<void> {
 	mkdirSync(dirname(args.outHoldoutPath), { recursive: true });
 	writeFileSync(
 		args.outHoldoutPath,
-		JSON.stringify({ holdout_ids: holdoutIds, total: holdoutIds.length }, null, 2),
+		JSON.stringify(
+			{ holdout_ids: holdoutIds, total: holdoutIds.length },
+			null,
+			2,
+		),
 		"utf8",
 	);
 	console.log(

@@ -60,9 +60,7 @@ function getBlockText(
 	blockId: string,
 ): string | null {
 	const row = db
-		.query(
-			"SELECT current_text FROM blocks WHERE norm_id = ? AND block_id = ?",
-		)
+		.query("SELECT current_text FROM blocks WHERE norm_id = ? AND block_id = ?")
 		.get(normId, blockId) as { current_text: string } | null;
 	return row?.current_text ?? null;
 }
@@ -133,8 +131,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 			opts.out ?? "packages/api/research/datasets/reranker-v3v5-mined.jsonl",
 		),
 		adapterPath: resolve(
-			opts.adapter ??
-				"packages/api/research/training/adapters/bge-base-mnr-v3",
+			opts.adapter ?? "packages/api/research/training/adapters/bge-base-mnr-v3",
 		),
 		dbPath: resolve(opts.db ?? "data/leyabierta.db"),
 		bm25TopK: Number.parseInt(opts["bm25-top-k"] ?? "100", 10),
@@ -260,10 +257,7 @@ async function main(args: ParsedArgs): Promise<void> {
 	);
 	writeFileSync(tmpScript, SCORER_PY, "utf8");
 
-	const pyVenv = resolve(
-		import.meta.dir,
-		"training/.venv/bin/python",
-	);
+	const pyVenv = resolve(import.meta.dir, "training/.venv/bin/python");
 	const result = Bun.spawnSync(
 		[pyVenv, tmpScript, args.adapterPath, tmpIn, tmpOut],
 		{
@@ -279,7 +273,12 @@ async function main(args: ParsedArgs): Promise<void> {
 	console.log("[mine-hard-negatives] Stage 3: parsing scores");
 	const scoresByPair: Map<
 		number,
-		Array<{ cand_idx: number; norm_id: string; block_id: string; score: number }>
+		Array<{
+			cand_idx: number;
+			norm_id: string;
+			block_id: string;
+			score: number;
+		}>
 	> = new Map();
 
 	const scoreLines = readFileSync(tmpOut, "utf8")
@@ -295,10 +294,17 @@ async function main(args: ParsedArgs): Promise<void> {
 			score: number;
 		};
 		const arr = scoresByPair.get(s.pair_idx) ?? [];
-		arr.push({ cand_idx: s.cand_idx, norm_id: s.norm_id, block_id: s.block_id, score: s.score });
+		arr.push({
+			cand_idx: s.cand_idx,
+			norm_id: s.norm_id,
+			block_id: s.block_id,
+			score: s.score,
+		});
 		scoresByPair.set(s.pair_idx, arr);
 	}
-	console.log(`[mine-hard-negatives] parsed scores for ${scoresByPair.size} pairs`);
+	console.log(
+		`[mine-hard-negatives] parsed scores for ${scoresByPair.size} pairs`,
+	);
 
 	// Stage 4: Assemble mined pairs
 	console.log("[mine-hard-negatives] Stage 4: assembling mined pairs");
