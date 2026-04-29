@@ -12,6 +12,7 @@ First training pass on the 824-pair / 2448-triplet dataset (v2 pilot + v3 scale-
 | MiniLM 3ep MNR | mmarco-mMiniLMv2 | 33M | MNR | 16 | 256 | 3 | 19.9% | 53.3% | **68.4%** | 64.6% | 72.9% | 63.8% |
 | bge-base 3ep MNR (small) | bge-reranker-base | 278M | MNR | 4 | 128 | 3 | 16.5% | 47.1% | 64.3% | 56.2% | 69.8% | 66.0% |
 | bge-base 3ep MNR (fair) | bge-reranker-base | 278M | MNR | 16 | 256 | 3 | 19.1% | 51.8% | 66.9% | 62.5% | 72.1% | 61.7% |
+| bge-base 3ep MNR (1968 pairs) | bge-reranker-base | 278M | MNR | 16 | 256 | 3 | 18.4% | 44.9% | 65.4% | 62.5% | 65.9% | 70.2% |
 
 ## Findings
 
@@ -35,14 +36,32 @@ Best explanation: bge-base has stronger learned priors from web-search ranking. 
 
 This confirms the dataset is the bottleneck, not capacity. **Throwing parameters at 824 pairs hurts.** The right move is to scale data first, then choose model size.
 
-## What's needed to move past the no-rerank baseline
+### 5. Doubling the dataset (824 → 1968 pairs) did NOT move the curve
+On 2026-04-29 we ran a controlled scale-up: 500 fresh articles (zero overlap with prior batches) sampled with seed 2027, dispatched to 10 parallel Sonnet agents using the v3 prompt, validated (0 parse errors / 0 ID mismatches / 0 article-number leakage / 33.6% formal / 39.2% informal / 27.1% procedural — within tolerance), assembled into `reranker-v5.jsonl` (1279 pairs, 98.7% with both negative types), concatenated with v3 → 1968 pairs / 5844 triplets, and trained bge-base with the identical fair config (batch 16, seq 256, 3ep, MNR). Loss curve healthy (0.37 → 0.02). Result: R@10=65.4%, **−1.5pp vs the 824-pair run** (66.9%) and still −13.6pp from the no-rerank baseline.
 
-The pipeline works; the dataset is the bottleneck. Next steps in order of expected impact:
+Per-register movement was non-uniform:
+- formal: 72.1% → 65.9% (−6.2pp)
+- informal: 62.5% → 62.5% (flat)
+- procedural: 61.7% → 70.2% (+8.5pp)
 
-1. **Scale dataset 824 → 5K+ pairs.** This is the lever the original RAG-FT plan already targets. With more pairs MNR has more contrastive scope and the model has enough signal to overcome base biases.
-2. **Free memory / use a smaller base.** With ~30GB free we can train bge-reranker-base at batch 16 seq 256 — the configuration MNR was designed for. Or use a smaller multilingual base that fits comfortably (e.g. `bge-reranker-base` is the cap; `mMiniLM` already runs but is too small).
-3. **Hard-negative mining beyond top-K BM25.** Current negatives come from BM25 top-K minus gold + materia siblings. After we have a trained reranker we can mine negatives that *the trained model* gets wrong, then retrain — iterative refinement.
-4. **Cascade with Cohere instead of replacing.** If self-hosted FT can't beat Cohere on its own, route the trained reranker as a 1st-pass filter and keep Cohere for the top-15 final ordering. Still cuts most of Cohere's cost.
+The procedural gain is real (the v3 prompt over-indexes on procedural framings vs the v2 pilot, and 1968 pairs of that distribution moves it). But formal regresses by the same magnitude, so overall stays put.
+
+**Implication: more synthetic data from the same generation prompt is not the lever.** The original RAG-FT plan presumed scaling to 5K+ would close the gap; this experiment falsifies that assumption. The real bottlenecks are upstream:
+
+1. **Distribution mismatch.** Synthetic queries from Claude don't sit in the same lexical space as the eval-v2 holdout queries. Loss going to 0.02 means the model memorises the synthetic pattern, not the citizen-query pattern. More of the same data deepens the memorisation without bridging the gap.
+2. **Negative quality, not negative volume.** Current hard negatives are BM25 top-5..15 minus gold. If the trained reranker fails on candidates that BM25 ranks *outside* top-15 (or *inside* top-5 for a different reason), those are the negatives that would teach. We're not mining those.
+3. **The base reranker prior dominates.** bge-reranker-base is trained on web-search MS MARCO. The legal-Spanish prior shift needs either much more data than 5K, a different base (multilingual legal pretraining), or a different loss that decouples relevance learning from web-search bias.
+
+## What's actually worth trying next
+
+In order of expected impact given what we now know:
+
+1. **Hard-negative mining from real retrieval failures.** Take the eval-v2 queries (or a held-out training split), run the trained reranker, collect the top-K candidates that aren't the gold, and feed those as negatives in a second training pass. This grounds negatives in the model's actual confusion surface — not BM25's.
+2. **Mix synthetic with curated real queries.** Hand-write or harvest 200-500 real citizen queries (from Search logs, Stack Exchange equivalents, /v1/ask logs once we have them) and weight them heavily. A 200-query curated subset may move the curve more than 5K synthetic.
+3. **Cascade with Cohere instead of replacing.** Use FT as cheap 1st-pass filter (top-80 → top-30) and Cohere for top-15. Still cuts Cohere cost ~80% even if FT alone never beats no-rerank.
+4. **Different base.** A multilingual reranker without an MS MARCO prior — or even a generic XLM-R fine-tuned from scratch as a cross-encoder — may be more tractable than fighting bge's prior.
+
+Scaling the synthetic dataset further (1968 → 5K) is **not** in this list anymore. The 824 → 1968 controlled experiment is the evidence that path is not load-bearing.
 
 ## Reproducing
 

@@ -1,0 +1,44 @@
+{
+  "overall": {
+    "n": 272,
+    "r@1": 0.1838,
+    "r@5": 0.4485,
+    "r@10": 0.6544
+  },
+  "per_register": {
+    "formal": {
+      "n": 129,
+      "r@1": 0.2171,
+      "r@5": 0.4574,
+      "r@10": 0.6589
+    },
+    "informal": {
+      "n": 96,
+      "r@1": 0.1458,
+      "r@5": 0.4479,
+      "r@10": 0.625
+    },
+    "procedural": {
+      "n": 47,
+      "r@1": 0.1702,
+      "r@5": 0.4255,
+      "r@10": 0.7021
+    },
+    "untagged": {
+      "n": 0,
+      "r@1": 0.0,
+      "r@5": 0.0,
+      "r@10": 0.0
+    }
+  },
+  "config": {
+    "eval_path": "../../../../data/eval-v2.json",
+    "candidates_path": "eval-candidates-realistic.jsonl",
+    "reranker_spec": "ft:adapters/bge-base-mnr-v3",
+    "mode": "candidates",
+    "report_path": "eval-bge-base-mnr-v3.json",
+    "top_k": 80,
+    "register_field": "register"
+  },
+  "timestamp": "2026-04-29T18:39:47.380506Z"
+}
