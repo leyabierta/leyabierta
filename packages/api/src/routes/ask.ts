@@ -134,5 +134,30 @@ export function askRoutes(pipeline: RagPipeline | null) {
 					tags: ["Preguntas"],
 				},
 			},
+		)
+		.post(
+			"/_eval/retrieval",
+			async ({ body, set }) => {
+				if (!pipeline) {
+					set.status = 503;
+					return { error: "RAG pipeline unavailable." };
+				}
+				const validated = validateQuestion(body.question);
+				if (typeof validated !== "string") {
+					set.status = validated.status;
+					return { error: validated.error };
+				}
+				try {
+					return await pipeline.evalRetrieval({
+						question: validated,
+						jurisdiction: body.jurisdiction,
+					});
+				} catch (err) {
+					console.error("eval retrieval error:", err);
+					set.status = 500;
+					return { error: err instanceof Error ? err.message : String(err) };
+				}
+			},
+			{ body: askBody },
 		);
 }

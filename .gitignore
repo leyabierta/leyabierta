@@ -50,3 +50,4 @@ og-images/
 # research / experiments
 packages/search-lab/
 packages/api/research/training/
+packages/api/research/qwen-ab*
