@@ -9,63 +9,93 @@ import AskChat from "../components/AskChat.tsx";
 	canonicalUrl="/pregunta/"
 >
 	<div class="ask-page">
-		<div class="ask-header">
-			<h1>Pregunta tus derechos</h1>
-			<p class="ask-subtitle">
-				Haz una pregunta sobre la legislación española y recibirás una respuesta
-				basada en artículos reales, con enlaces verificables al texto original.
-			</p>
-		</div>
-
 		<AskChat client:load />
 	</div>
 </Base>
 
 <style>
 	.ask-page {
-		max-width: 44rem;
+		max-width: 45rem;
 		margin: 0 auto;
 	}
 
-	.ask-header {
+	/* ── Empty state · editorial header ── */
+	:global(.ask-empty) {
 		text-align: center;
-		margin-bottom: 2rem;
+		padding: 2.5rem 0 0;
 	}
 
-	.ask-header h1 {
+	:global(.ask-empty-eyebrow) {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		margin-bottom: 1rem;
+	}
+
+	:global(.ask-empty-h1) {
 		font-family: var(--font-serif);
-		font-size: 1.75rem;
+		font-size: clamp(1.75rem, 4.5vw, 2.625rem);
 		font-weight: 700;
+		line-height: 1.1;
+		letter-spacing: -0.015em;
 		color: var(--text);
-		margin-bottom: 0.5rem;
+		margin: 0 0 1rem;
+		text-wrap: balance;
 	}
 
-	.ask-subtitle {
-		font-size: 0.9375rem;
+	:global(.ask-empty-lede) {
+		font-family: var(--font-serif);
+		font-size: 1.125rem;
+		line-height: 1.55;
 		color: var(--text-secondary);
-		line-height: 1.6;
-		max-width: 36rem;
-		margin: 0 auto;
+		max-width: 35rem;
+		margin: 0 auto 2.25rem;
+		text-wrap: pretty;
 	}
 
-	/* ── Disclaimer banner ── */
-	:global(.ask-disclaimer) {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.625rem;
-		padding: 0.75rem 1rem;
-		background: var(--warning-bg);
-		color: var(--warning-text);
-		border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
-		border-radius: 8px;
+	:global(.ask-empty-hint) {
 		font-size: 0.8125rem;
-		line-height: 1.5;
-		margin-bottom: 1.5rem;
+		color: var(--text-muted);
+		text-align: center;
+		margin: 0.75rem 0 0;
 	}
 
-	:global(.ask-disclaimer svg) {
-		flex-shrink: 0;
-		margin-top: 0.125rem;
+	:global(.ask-empty-trust) {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 1.5rem 2.25rem;
+		padding-top: 2rem;
+		margin-top: 3.5rem;
+		border-top: 1px solid var(--border-light);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		letter-spacing: 0.02em;
+		color: var(--text-muted);
+	}
+
+	:global(.ask-empty-trust span) {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	:global(.ask-empty-trust span::before) {
+		content: "●";
+		color: var(--accent);
+		font-size: 0.625rem;
+	}
+
+	/* ── Per-turn disclaimer ── */
+	:global(.ask-turn-disclaimer) {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+		line-height: 1.5;
+		margin: 1.25rem 0 0;
+		font-style: italic;
+		text-align: center;
 	}
 
 	/* ── Input area ── */
@@ -181,49 +211,163 @@ import AskChat from "../components/AskChat.tsx";
 		border-width: 3px;
 	}
 
-	/* ── Example questions ── */
+	/* ── Example questions · grouped by category ── */
 	:global(.ask-examples) {
-		margin-bottom: 1.5rem;
+		margin-top: 4rem;
+		text-align: left;
 	}
 
 	:global(.ask-examples-label) {
-		font-size: 0.8125rem;
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
 		color: var(--text-muted);
-		margin-bottom: 0.75rem;
+		margin: 0 0 1.25rem;
+		text-align: center;
 	}
 
-	:global(.ask-examples-grid) {
+	:global(.ask-categories) {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.5rem;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1.25rem 1.75rem;
 	}
 
 	@media (max-width: 640px) {
-		:global(.ask-examples-grid) {
+		:global(.ask-categories) {
 			grid-template-columns: 1fr;
 		}
+	}
+
+	:global(.ask-category-name) {
+		font-family: var(--font-serif);
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--accent);
+		margin: 0 0 0.4rem;
+		padding-bottom: 0.4rem;
+		border-bottom: 1px solid var(--tierra-deep);
 	}
 
 	:global(.ask-example-btn) {
 		display: block;
 		width: 100%;
 		text-align: left;
-		padding: 0.75rem 1rem;
-		background: var(--surface);
-		border: 1px solid var(--border-light);
-		border-radius: 8px;
+		padding: 0.5rem 0;
+		background: none;
+		border: none;
 		font-family: var(--font-sans);
-		font-size: 0.8125rem;
+		font-size: 0.875rem;
 		color: var(--text-secondary);
+		line-height: 1.5;
 		cursor: pointer;
-		line-height: 1.4;
-		transition: border-color 0.15s var(--ease-out-quart), color 0.15s var(--ease-out-quart), background 0.15s var(--ease-out-quart);
+		transition: color 0.15s var(--ease-out-quart);
+	}
+
+	:global(.ask-example-btn::before) {
+		content: "↗ ";
+		color: var(--text-muted);
+		margin-right: 0.15rem;
 	}
 
 	:global(.ask-example-btn:hover) {
-		border-color: var(--accent);
 		color: var(--accent);
+	}
+
+	:global(.ask-example-btn:hover::before) {
+		color: var(--accent);
+	}
+
+	/* ── Per-turn actions (útil / compartir) ── */
+	:global(.ask-turn-actions) {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 1.125rem;
+		padding-top: 0.875rem;
+		border-top: 1px solid var(--border-light);
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	:global(.ask-turn-actions-label) {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+		margin-right: 0.25rem;
+	}
+
+	:global(.ask-action-btn) {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.3rem 0.7rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		font-family: var(--font-sans);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--bg);
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition: color 0.15s var(--ease-out-quart), border-color 0.15s var(--ease-out-quart), background 0.15s var(--ease-out-quart);
+	}
+
+	:global(.ask-action-btn:hover) {
+		color: var(--accent);
+		border-color: var(--accent);
 		background: var(--accent-faint);
+	}
+
+	:global(.ask-action-btn[aria-pressed="true"]) {
+		color: var(--accent);
+		border-color: var(--accent);
+		background: var(--accent-faint);
+	}
+
+	:global(.ask-action-spacer) {
+		flex: 1;
+	}
+
+	/* ── Declined state · editorial ── */
+	:global(.ask-turn-declined) {
+		background: var(--surface);
+		border: 1px solid var(--border-light);
+		border-left: 3px solid var(--warning);
+		border-radius: 8px;
+		padding: 1.25rem 1.4rem;
+	}
+
+	:global(.ask-declined-eyebrow) {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--warning-text);
+		font-weight: 700;
+		margin: 0 0 0.5rem;
+	}
+
+	:global(.ask-declined-heading) {
+		font-family: var(--font-serif);
+		font-size: 1.1875rem;
+		font-weight: 700;
+		color: var(--text);
+		line-height: 1.3;
+		margin: 0 0 0.6rem;
+	}
+
+	:global(.ask-declined-body) {
+		font-size: 0.9375rem;
+		color: var(--text-secondary);
+		line-height: 1.6;
+		margin: 0;
+	}
+
+	:global(.ask-declined-body p) {
+		margin: 0 0 0.6rem;
+	}
+
+	:global(.ask-declined-body p:last-child) {
+		margin-bottom: 0;
 	}
 
 	/* ── Conversation ── */
@@ -800,5 +944,125 @@ import AskChat from "../components/AskChat.tsx";
 		clip: rect(0, 0, 0, 0);
 		white-space: nowrap;
 		border: 0;
+	}
+
+	/* ── TL;DR card ── */
+	:global(.ask-tldr) {
+		background: var(--tierra-warm);
+		border-left: 3px solid var(--accent);
+		border-radius: 8px;
+		padding: 0.875rem 1rem;
+		margin-bottom: 1.125rem;
+	}
+
+	:global(.ask-tldr-eyebrow) {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--accent);
+		font-weight: 700;
+		margin: 0 0 0.3rem;
+	}
+
+	:global(.ask-tldr-body) {
+		font-family: var(--font-serif);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+		color: var(--text);
+		margin: 0;
+		text-wrap: pretty;
+	}
+
+	/* ── Next questions chips ── */
+	:global(.ask-next) {
+		margin-top: 1.125rem;
+		padding-top: 0.875rem;
+		border-top: 1px solid var(--border-light);
+	}
+
+	:global(.ask-next-label) {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		font-weight: 600;
+		margin: 0 0 0.6rem;
+	}
+
+	:global(.ask-next-chips) {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+
+	:global(.ask-next-chip) {
+		font-family: var(--font-sans);
+		font-size: 0.8125rem;
+		padding: 0.35rem 0.75rem;
+		border-radius: 999px;
+		border: 1px solid var(--border);
+		background: var(--bg);
+		color: var(--accent);
+		cursor: pointer;
+		line-height: 1.3;
+		transition: color 0.15s var(--ease-out-quart), border-color 0.15s var(--ease-out-quart), background 0.15s var(--ease-out-quart);
+	}
+
+	:global(.ask-next-chip:hover:not(:disabled)) {
+		border-color: var(--accent);
+		background: var(--accent-faint);
+	}
+
+	:global(.ask-next-chip:disabled) {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* ── Declined suggestions ── */
+	:global(.ask-declined-suggestions) {
+		margin-top: 1rem;
+		padding: 0.875rem 1rem;
+		background: var(--bg);
+		border: 1px solid var(--border-light);
+		border-radius: 6px;
+	}
+
+	:global(.ask-declined-suggestions-label) {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+		font-weight: 600;
+		margin: 0 0 0.5rem;
+	}
+
+	:global(.ask-declined-suggestions-list) {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+	}
+
+	:global(.ask-declined-suggestion) {
+		text-align: left;
+		font-family: var(--font-sans);
+		font-size: 0.875rem;
+		color: var(--accent);
+		padding: 0.3rem 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+		transition: color 0.15s var(--ease-out-quart);
+	}
+
+	:global(.ask-declined-suggestion:hover:not(:disabled)) {
+		color: var(--accent-light);
+	}
+
+	:global(.ask-declined-suggestion:disabled) {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 </style>
