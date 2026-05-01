@@ -117,7 +117,7 @@ export function askRoutes(pipeline: RagPipeline | null) {
 						} else if (event.type === "progress") {
 							yield `event: progress\ndata: ${JSON.stringify({ step: event.step })}\n\n`;
 						} else {
-							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined })}\n\n`;
+							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined, tldr: event.tldr, nextQuestions: event.nextQuestions, suggestedQuestions: event.suggestedQuestions })}\n\n`;
 						}
 					}
 				} catch (err) {

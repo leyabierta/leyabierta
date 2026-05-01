@@ -83,7 +83,20 @@ CUÁNDO DECLINAR (declined=true):
 - Los artículos NO responden a la pregunta DE FONDO (ignorando nombres de leyes erróneos) → declined=true.
 En todos los demás casos, INTENTA responder.
 
-Responde con JSON: {"answer": "texto con citas inline [norm_id, Artículo N]...", "citations": [{"norm_id": "...", "article_title": "..."}], "declined": false}`;
+RESPUESTA CORTA (tldr):
+- Una frase de máximo 200 caracteres que responda la pregunta de forma directa.
+- Empieza por "Sí", "No", "Depende" o el dato concreto. No la prefijes con "TL;DR:" ni "Respuesta corta:".
+- No incluyas citas inline aquí. La respuesta corta es para escaneo rápido.
+- Si declined=true, deja tldr como cadena vacía.
+
+PREGUNTAS DE SEGUIMIENTO (next_questions):
+- Exactamente 3 preguntas que el ciudadano se haría DESPUÉS de leer tu respuesta.
+- Naturales, en primera persona ("¿Y si...?", "¿Qué pasa si...?", "¿Puedo...?").
+- Específicas a su situación, no genéricas. Si la respuesta menciona un tope del 3%, una pregunta podría ser "¿Y si me suben más del 3%, qué hago?".
+- Máximo 90 caracteres cada una.
+- Si declined=true, devuelve [].
+
+Responde con JSON: {"answer": "...", "citations": [...], "declined": false, "tldr": "...", "next_questions": ["...", "...", "..."]}`;
 
 export const SYSTEM_PROMPT_STREAM = SYSTEM_PROMPT.replace(
 	/\nResponde con JSON:.*$/s,
@@ -199,6 +212,8 @@ export type SynthesisResult = {
 	answer: string;
 	citations: Array<{ normId: string; articleTitle: string }>;
 	declined: boolean;
+	tldr: string;
+	nextQuestions: string[];
 	cost: number;
 	tokensIn: number;
 	tokensOut: number;
@@ -215,6 +230,8 @@ export async function synthesizeAnswer(opts: {
 		answer: string;
 		citations: Array<{ norm_id: string; article_title: string }>;
 		declined: boolean;
+		tldr: string;
+		next_questions: string[];
 	}>(apiKey, {
 		model: SYNTHESIS_MODEL,
 		messages: [
@@ -248,8 +265,15 @@ export async function synthesizeAnswer(opts: {
 						},
 					},
 					declined: { type: "boolean" },
+					tldr: { type: "string" },
+					next_questions: {
+						type: "array",
+						items: { type: "string" },
+						minItems: 0,
+						maxItems: 3,
+					},
 				},
-				required: ["answer", "citations", "declined"],
+				required: ["answer", "citations", "declined", "tldr", "next_questions"],
 				additionalProperties: false,
 			},
 		},
@@ -262,6 +286,8 @@ export async function synthesizeAnswer(opts: {
 			articleTitle: c.article_title,
 		})),
 		declined: result.data.declined ?? false,
+		tldr: result.data.tldr ?? "",
+		nextQuestions: result.data.next_questions ?? [],
 		cost: result.cost,
 		tokensIn: result.tokensIn,
 		tokensOut: result.tokensOut,
@@ -423,6 +449,129 @@ export function generateMissingSummaries(opts: {
 					err instanceof Error ? err.message : "unknown error",
 				);
 			});
+	}
+}
+
+// ── Evidence assembly with optional temporal enrichment ──
+
+// ── Post-synthesis enrichment (streaming path) ──
+
+export async function generatePostSynthExtras(opts: {
+	apiKey: string;
+	question: string;
+	answer: string;
+}): Promise<{ tldr: string; nextQuestions: string[] }> {
+	const { apiKey, question, answer } = opts;
+	try {
+		const result = await callOpenRouter<{
+			tldr: string;
+			next_questions: string[];
+		}>(apiKey, {
+			model: SYNTHESIS_MODEL,
+			messages: [
+				{
+					role: "system",
+					content: `Eres un postprocesador de Ley Abierta. Recibes una pregunta de un ciudadano y la respuesta legal que se le ha dado. Genera dos cosas:
+
+1) tldr: respuesta corta de máximo 200 caracteres que destile la respuesta principal. Empieza por "Sí", "No", "Depende" o el dato concreto. Sin citas inline. Sin prefijos como "TL;DR".
+
+2) next_questions: exactamente 3 preguntas de seguimiento que el ciudadano se haría DESPUÉS de leer la respuesta. Naturales, primera persona, específicas a la situación (no genéricas). Máximo 90 caracteres cada una.
+
+Responde con JSON: {"tldr": "...", "next_questions": ["...", "...", "..."]}`,
+				},
+				{
+					role: "user",
+					content: `PREGUNTA:\n${question}\n\nRESPUESTA:\n${answer}`,
+				},
+			],
+			temperature: 0,
+			maxTokens: 400,
+			jsonSchema: {
+				name: "post_synth_extras",
+				schema: {
+					type: "object",
+					properties: {
+						tldr: { type: "string" },
+						next_questions: {
+							type: "array",
+							items: { type: "string" },
+							minItems: 0,
+							maxItems: 3,
+						},
+					},
+					required: ["tldr", "next_questions"],
+					additionalProperties: false,
+				},
+			},
+		});
+		return {
+			tldr: result.data.tldr ?? "",
+			nextQuestions: result.data.next_questions ?? [],
+		};
+	} catch (err) {
+		console.warn(
+			"generatePostSynthExtras failed:",
+			err instanceof Error ? err.message : "unknown error",
+		);
+		return { tldr: "", nextQuestions: [] };
+	}
+}
+
+export async function generateDeclinedSuggestions(opts: {
+	apiKey: string;
+	question: string;
+}): Promise<string[]> {
+	const { apiKey, question } = opts;
+	try {
+		const result = await callOpenRouter<{ suggested_questions: string[] }>(
+			apiKey,
+			{
+				model: SYNTHESIS_MODEL,
+				messages: [
+					{
+						role: "system",
+						content: `Un ciudadano ha hecho una pregunta a Ley Abierta que está fuera de alcance porque NO trata sobre legislación española (ej. precios de mercado, opiniones, predicciones). Tu trabajo: proponer 3 reformulaciones legales plausibles que SÍ estarían en alcance, manteniendo el espíritu de la pregunta original.
+
+Reglas:
+- Cada sugerencia es una pregunta concreta sobre derechos, plazos, requisitos, obligaciones, o procedimientos regulados por ley española.
+- Mantén el tema (vivienda, trabajo, familia, consumo, etc.) de la pregunta original.
+- Primera persona, lenguaje natural, máximo 90 caracteres cada una.
+- Si no puedes proponer reformulaciones razonables, devuelve [].
+
+Responde con JSON: {"suggested_questions": ["...", "...", "..."]}`,
+					},
+					{
+						role: "user",
+						content: `PREGUNTA: ${question}`,
+					},
+				],
+				temperature: 0.2,
+				maxTokens: 250,
+				jsonSchema: {
+					name: "declined_suggestions",
+					schema: {
+						type: "object",
+						properties: {
+							suggested_questions: {
+								type: "array",
+								items: { type: "string" },
+								minItems: 0,
+								maxItems: 3,
+							},
+						},
+						required: ["suggested_questions"],
+						additionalProperties: false,
+					},
+				},
+			},
+		);
+		return result.data.suggested_questions ?? [];
+	} catch (err) {
+		console.warn(
+			"generateDeclinedSuggestions failed:",
+			err instanceof Error ? err.message : "unknown error",
+		);
+		return [];
 	}
 }
 
