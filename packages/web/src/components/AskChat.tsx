@@ -36,6 +36,9 @@ interface AskResponse {
 	answer: string;
 	citations: Citation[];
 	declined: boolean;
+	tldr?: string;
+	nextQuestions?: string[];
+	suggestedQuestions?: string[];
 	meta: AskMeta;
 }
 
@@ -67,11 +70,35 @@ const API_BASE =
 		? (document.documentElement.dataset.api ?? "https://api.leyabierta.es")
 		: "https://api.leyabierta.es";
 
-const EXAMPLE_QUESTIONS = [
-	"¿Cuántos días de vacaciones me corresponden por ley?",
-	"¿Me pueden despedir estando embarazada?",
-	"¿Cuánto preaviso tiene que dar mi casero para subir el alquiler?",
-	"¿Qué derechos tengo si me venden un producto defectuoso?",
+const EXAMPLE_CATEGORIES: { name: string; questions: string[] }[] = [
+	{
+		name: "Vivienda",
+		questions: [
+			"¿Cuánto preaviso tiene que dar mi casero para subirme el alquiler?",
+			"¿Pueden echarme si llevo 3 años en el piso?",
+		],
+	},
+	{
+		name: "Trabajo",
+		questions: [
+			"¿Cuántos días de vacaciones me corresponden por ley?",
+			"¿Me pueden despedir estando embarazada?",
+		],
+	},
+	{
+		name: "Familia",
+		questions: [
+			"¿Cuánto dura el permiso de paternidad en 2026?",
+			"¿Cómo se reparte una herencia sin testamento?",
+		],
+	},
+	{
+		name: "Consumidor",
+		questions: [
+			"¿Qué derechos tengo si un producto sale defectuoso?",
+			"¿Puedo cancelar una compra online en 14 días?",
+		],
+	},
 ];
 
 // ── Citation parsing ──
@@ -585,6 +612,87 @@ function AskProgressStepper({ current }: { current: ProgressStep }) {
 	);
 }
 
+// ── Per-turn feedback + share actions ──
+
+function TurnActions({ turn }: { turn: Turn }) {
+	const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+	const [shared, setShared] = useState(false);
+
+	async function handleShare() {
+		const text = turn.question;
+		const shareData = {
+			title: "Ley Abierta",
+			text,
+			url: typeof location !== "undefined" ? location.href : "",
+		};
+		if (typeof navigator === "undefined") return;
+		const nav = navigator as Navigator & {
+			share?: (d: ShareData) => Promise<void>;
+		};
+		try {
+			if (typeof nav.share === "function") {
+				await nav.share(shareData);
+				return;
+			}
+			if (nav.clipboard) {
+				await nav.clipboard.writeText(`${text}\n${shareData.url}`);
+				setShared(true);
+				setTimeout(() => setShared(false), 1800);
+			}
+		} catch {
+			/* user cancelled or unavailable */
+		}
+	}
+
+	return (
+		<div className="ask-turn-actions">
+			<span className="ask-turn-actions-label">¿Te ha sido útil?</span>
+			<button
+				type="button"
+				className="ask-action-btn"
+				aria-pressed={feedback === "up"}
+				onClick={() => setFeedback(feedback === "up" ? null : "up")}
+			>
+				<span aria-hidden="true">👍</span> Sí
+			</button>
+			<button
+				type="button"
+				className="ask-action-btn"
+				aria-pressed={feedback === "down"}
+				onClick={() => setFeedback(feedback === "down" ? null : "down")}
+			>
+				<span aria-hidden="true">👎</span> No
+			</button>
+			<span className="ask-action-spacer" />
+			<button
+				type="button"
+				className="ask-action-btn"
+				onClick={handleShare}
+				aria-label="Compartir"
+			>
+				<svg
+					width="13"
+					height="13"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					aria-hidden="true"
+				>
+					<circle cx="18" cy="5" r="3" />
+					<circle cx="6" cy="12" r="3" />
+					<circle cx="18" cy="19" r="3" />
+					<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+					<line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+				</svg>
+				{shared ? "Copiado" : "Compartir"}
+			</button>
+		</div>
+	);
+}
+
 export default function AskChat() {
 	const [turns, setTurns] = useState<Turn[]>(loadTurns);
 	const [question, setQuestion] = useState("");
@@ -736,6 +844,9 @@ export default function AskChat() {
 						citations: Citation[];
 						meta: AskMeta;
 						declined: boolean;
+						tldr?: string;
+						nextQuestions?: string[];
+						suggestedQuestions?: string[];
 					};
 					setTurns((prev) => {
 						const updated = [...prev];
@@ -747,6 +858,9 @@ export default function AskChat() {
 									answer: accumulated,
 									citations: done.citations,
 									declined: done.declined,
+									tldr: done.tldr,
+									nextQuestions: done.nextQuestions,
+									suggestedQuestions: done.suggestedQuestions,
 									meta: done.meta,
 								},
 							};
@@ -810,46 +924,16 @@ export default function AskChat() {
 
 	return (
 		<div className="ask-chat">
-			<div className="ask-disclaimer" role="status">
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					strokeWidth="2"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					aria-hidden="true"
-				>
-					<circle cx="12" cy="12" r="10" />
-					<line x1="12" y1="8" x2="12" y2="12" />
-					<line x1="12" y1="16" x2="12.01" y2="16" />
-				</svg>
-				<span>
-					Esta información es orientativa y no constituye asesoramiento
-					jurídico. Para tu caso concreto, consulta con un profesional del
-					derecho.
-				</span>
-			</div>
-
 			{!hasHistory && !loading && (
-				<div className="ask-examples">
-					<p className="ask-examples-label">
-						Prueba con una de estas preguntas:
+				<div className="ask-empty">
+					<p className="ask-empty-eyebrow">Pregunta</p>
+					<h1 className="ask-empty-h1">
+						Pregunta lo que quieras saber sobre la ley.
+					</h1>
+					<p className="ask-empty-lede">
+						Tu duda en lenguaje normal. Te respondemos citando los artículos
+						concretos que aplican, con enlace al texto oficial.
 					</p>
-					<div className="ask-examples-grid">
-						{EXAMPLE_QUESTIONS.map((q) => (
-							<button
-								key={q}
-								type="button"
-								className="ask-example-btn"
-								onClick={() => handleExample(q)}
-							>
-								{q}
-							</button>
-						))}
-					</div>
 				</div>
 			)}
 
@@ -864,14 +948,62 @@ export default function AskChat() {
 							</div>
 
 							{turn.response && (
-								<div className="ask-turn-answer">
+								<div
+									className={`ask-turn-answer${turn.response.declined ? " ask-turn-declined" : ""}`}
+								>
 									{turn.response.declined ? (
-										<p className="ask-declined">
-											{turn.response.answer ||
-												"Esta pregunta no está relacionada con la legislación española."}
-										</p>
+										<>
+											<p className="ask-declined-eyebrow">
+												Esto está fuera de mi alcance
+											</p>
+											<h2 className="ask-declined-heading">
+												No puedo darte una respuesta fiable a esta pregunta.
+											</h2>
+											<div className="ask-declined-body">
+												{turn.response.answer ? (
+													renderAnswerWithCitations(
+														turn.response.answer,
+														[],
+														false,
+													)
+												) : (
+													<p>
+														Solo respondo basándome en la legislación española.
+														Reformula la pregunta dando más contexto sobre tu
+														situación concreta y lo intentamos de nuevo.
+													</p>
+												)}
+											</div>
+											{turn.response.suggestedQuestions &&
+												turn.response.suggestedQuestions.length > 0 && (
+													<div className="ask-declined-suggestions">
+														<p className="ask-declined-suggestions-label">
+															¿Quizá querías saber…?
+														</p>
+														<div className="ask-declined-suggestions-list">
+															{turn.response.suggestedQuestions.map((q) => (
+																<button
+																	key={q}
+																	type="button"
+																	className="ask-declined-suggestion"
+																	onClick={() => handleSubmit(q)}
+																	disabled={loading}
+																>
+																	→ {q}
+																</button>
+															))}
+														</div>
+													</div>
+												)}
+										</>
 									) : (
 										<>
+											{turn.response.tldr && (
+												<div className="ask-tldr">
+													<p className="ask-tldr-eyebrow">Respuesta corta</p>
+													<p className="ask-tldr-body">{turn.response.tldr}</p>
+												</div>
+											)}
 											<div className="ask-answer-text">
 												{renderAnswerWithCitations(
 													turn.response.answer,
@@ -924,6 +1056,28 @@ export default function AskChat() {
 												</div>
 											)}
 
+											{turn.response.nextQuestions &&
+												turn.response.nextQuestions.length > 0 && (
+													<div className="ask-next">
+														<p className="ask-next-label">Continuar con</p>
+														<div className="ask-next-chips">
+															{turn.response.nextQuestions.map((q) => (
+																<button
+																	key={q}
+																	type="button"
+																	className="ask-next-chip"
+																	onClick={() => handleSubmit(q)}
+																	disabled={loading}
+																>
+																	{q}
+																</button>
+															))}
+														</div>
+													</div>
+												)}
+
+											<TurnActions turn={turn} />
+
 											{turn.response.meta.model && (
 												<details className="ask-meta-details">
 													<summary className="ask-meta-summary">
@@ -952,6 +1106,14 @@ export default function AskChat() {
 										</>
 									)}
 								</div>
+							)}
+
+							{turn.response && !turn.response.declined && (
+								<p className="ask-turn-disclaimer">
+									Respuestas generadas automáticamente a partir del texto
+									oficial. No son asesoramiento jurídico — para casos serios
+									consulta con un profesional.
+								</p>
 							)}
 
 							{turn.error && (
@@ -990,7 +1152,7 @@ export default function AskChat() {
 					placeholder={
 						hasHistory
 							? "Haz otra pregunta..."
-							: "Escribe tu pregunta sobre legislación española..."
+							: "¿Mi casero puede subirme el alquiler un 10%?"
 					}
 					rows={hasHistory ? 1 : 2}
 					maxLength={1000}
@@ -1040,6 +1202,39 @@ export default function AskChat() {
 					</button>
 				</div>
 			</div>
+
+			{!hasHistory && !loading && (
+				<>
+					<p className="ask-empty-hint">
+						Pulsa Enter para enviar · O elige uno de los ejemplos
+					</p>
+					<div className="ask-examples">
+						<p className="ask-examples-label">Ejemplos por área</p>
+						<div className="ask-categories">
+							{EXAMPLE_CATEGORIES.map((cat) => (
+								<div key={cat.name}>
+									<p className="ask-category-name">{cat.name}</p>
+									{cat.questions.map((q) => (
+										<button
+											key={q}
+											type="button"
+											className="ask-example-btn"
+											onClick={() => handleExample(q)}
+										>
+											{q}
+										</button>
+									))}
+								</div>
+							))}
+						</div>
+					</div>
+					<div className="ask-empty-trust">
+						<span>Solo legislación española vigente</span>
+						<span>Citas verificables al BOE</span>
+						<span>Gratuito y open source</span>
+					</div>
+				</>
+			)}
 		</div>
 	);
 }

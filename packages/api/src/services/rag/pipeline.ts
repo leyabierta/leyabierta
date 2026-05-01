@@ -31,7 +31,9 @@ import {
 import {
 	buildEvidence,
 	type Citation,
+	generateDeclinedSuggestions,
 	generateMissingSummaries,
+	generatePostSynthExtras,
 	INLINE_CITE_PATTERN,
 	SYNTHESIS_MODEL,
 	synthesizeAnswer,
@@ -64,6 +66,9 @@ export interface AskResponse {
 	answer: string;
 	citations: Citation[];
 	declined: boolean;
+	tldr?: string;
+	nextQuestions?: string[];
+	suggestedQuestions?: string[];
 	meta: {
 		articlesRetrieved: number;
 		temporalEnriched: boolean;
@@ -229,6 +234,15 @@ export class RagPipeline {
 					: retrieval.reason === "no_articles"
 						? DECLINE_NO_ARTICLES
 						: DECLINE_LOW_CONFIDENCE;
+
+			let suggestedQuestions: string[] | undefined;
+			if (retrieval.reason === "non_legal") {
+				suggestedQuestions = await generateDeclinedSuggestions({
+					apiKey: this.apiKey,
+					question: request.question,
+				});
+			}
+
 			const result: AskResponse & {
 				_bestScore?: number;
 				_cost?: number;
@@ -238,6 +252,7 @@ export class RagPipeline {
 				answer,
 				citations: [],
 				declined: true,
+				suggestedQuestions,
 				meta: {
 					articlesRetrieved: 0,
 					temporalEnriched: false,
@@ -362,6 +377,8 @@ export class RagPipeline {
 			answer: finalAnswer,
 			citations: validCitations,
 			declined: synthesis.declined,
+			tldr: synthesis.tldr,
+			nextQuestions: synthesis.nextQuestions,
 			meta: {
 				articlesRetrieved: articles.length,
 				temporalEnriched: useTemporal,
@@ -402,6 +419,9 @@ export class RagPipeline {
 				citations: Citation[];
 				meta: AskResponse["meta"];
 				declined: boolean;
+				tldr?: string;
+				nextQuestions?: string[];
+				suggestedQuestions?: string[];
 		  }
 	> {
 		const start = Date.now();
@@ -488,7 +508,22 @@ export class RagPipeline {
 					model: SYNTHESIS_MODEL,
 				};
 				yield { type: "chunk", text: answer };
-				yield { type: "done", citations: [], meta, declined: true };
+
+				let declinedSuggestedQuestions: string[] | undefined;
+				if (retrieval.reason === "non_legal") {
+					declinedSuggestedQuestions = await generateDeclinedSuggestions({
+						apiKey: this.apiKey,
+						question: request.question,
+					});
+				}
+
+				yield {
+					type: "done",
+					citations: [],
+					meta,
+					declined: true,
+					suggestedQuestions: declinedSuggestedQuestions,
+				};
 				try {
 					this.insertAskLogStmt.run(
 						request.question,
@@ -635,6 +670,12 @@ export class RagPipeline {
 				totalTokensOut,
 			});
 
+			const { tldr, nextQuestions } = await generatePostSynthExtras({
+				apiKey: this.apiKey,
+				question: request.question,
+				answer: fullText,
+			});
+
 			yield {
 				type: "done",
 				citations: validCitations,
@@ -645,6 +686,8 @@ export class RagPipeline {
 					model: SYNTHESIS_MODEL,
 				},
 				declined,
+				tldr,
+				nextQuestions,
 			};
 		} catch (err) {
 			trace.end({
