@@ -777,4 +777,62 @@ export class RagPipeline {
 	get lowConfidenceThreshold() {
 		return LOW_CONFIDENCE_THRESHOLD;
 	}
+
+	/**
+	 * Eval-only: run retrieval + buildEvidence and return both, WITHOUT
+	 * calling synthesis. Lets external A/B harnesses send the same evidence
+	 * to multiple synthesis backends (e.g. Gemini vs Qwen).
+	 */
+	async evalRetrieval(request: AskRequest): Promise<{
+		type: "early" | "ready";
+		reason?: string;
+		articles?: RetrievedArticle[];
+		evidenceText?: string;
+		systemPrompt?: string;
+		bestScore?: number;
+		useTemporal?: boolean;
+		latencyMs: number;
+	}> {
+		const start = Date.now();
+		const trace = startTrace(request.question, {
+			jurisdiction: request.jurisdiction,
+			model: "eval-retrieval-only",
+		});
+		try {
+			const retrieval = await runRetrievalCore({
+				db: this.db,
+				apiKey: this.apiKey,
+				cohereApiKey: this.cohereApiKey,
+				question: request.question,
+				requestJurisdiction: request.jurisdiction,
+				embeddedNormIds: this.getEmbeddedNormIdsCached(),
+				vectorIndex: await this.getVectorIndex(),
+				trace,
+			});
+			if (retrieval.type === "early") {
+				return {
+					type: "early",
+					reason: retrieval.reason,
+					latencyMs: Date.now() - start,
+				};
+			}
+			const { evidenceText, systemPrompt } = buildEvidence({
+				db: this.db,
+				articles: retrieval.articles,
+				useTemporal: retrieval.useTemporal,
+				streaming: true,
+			});
+			return {
+				type: "ready",
+				articles: retrieval.articles,
+				evidenceText,
+				systemPrompt,
+				bestScore: retrieval.bestScore,
+				useTemporal: retrieval.useTemporal,
+				latencyMs: Date.now() - start,
+			};
+		} finally {
+			trace.end({ latencyMs: Date.now() - start });
+		}
+	}
 }
