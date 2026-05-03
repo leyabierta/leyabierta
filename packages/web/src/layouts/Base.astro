@@ -578,6 +578,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 
 	{isProd && UMAMI_WEBSITE_ID && (
 		<script
+			is:inline
 			defer
 			src="https://analytics.leyabierta.es/ley.js"
 			data-website-id={UMAMI_WEBSITE_ID}
