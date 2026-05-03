@@ -287,9 +287,11 @@ Never silently default to `es` when the above resolution fails — a missing jur
 
 ### How the invariant is enforced
 
-- **At write time:** `GitRepo.writeAndAdd` checks whether the same norm ID already exists in a different jurisdiction folder. If it does, it throws rather than creating a duplicate. This is the primary defense: violations are caught as they happen, not discovered later.
-- **At the end of each `pipeline bootstrap` run:** `assertUniqueByNormId` scans the full output repo and fails the run if any ID appears in more than one folder.
-- **In CI:** a dedicated test exercises the invariant against a fixture set to prevent regressions.
+- **At write time:** `GitRepo.writeAndAdd` checks whether the same norm ID already exists in a different jurisdiction folder. If it does, it throws rather than creating a duplicate. This is the primary defense: violations are caught as they happen, not discovered later. Backed by an in-memory index built lazily on first call (one directory scan per `GitRepo` instance, ~12k files), so the per-write check is O(1).
+- **At the end of each `pipeline bootstrap` and `pipeline rebuild` run:** `assertUniqueByNormId` scans the full output repo and fails the run if any ID appears in more than one folder. Called *after* `state.save()` so a thrown assert does not lose the watermark of processed norms.
+- **In CI:** dedicated tests exercise both layers (writer rejection, post-bootstrap scan) plus the path-parsing edge cases.
+
+The canonical list of jurisdiction codes and the norm-path parsing helpers live in `packages/pipeline/src/spain/jurisdictions.ts`. Both the writer and the asserter import from there — they cannot diverge.
 
 ### Authoritative source for norm counts
 

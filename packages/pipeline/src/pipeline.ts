@@ -16,6 +16,7 @@ import type {
 import { buildCommitInfo } from "./git/message.ts";
 import { GitRepo } from "./git/repo.ts";
 import type { Norm, NormMetadata, Reform } from "./models.ts";
+import { SPAIN_JURISDICTION_CODES } from "./spain/jurisdictions.ts";
 import { renderNormAtDate } from "./transform/markdown.ts";
 import { normToFilepath } from "./transform/slug.ts";
 import { extractReforms, parseTextXml } from "./transform/xml-parser.ts";
@@ -243,24 +244,18 @@ export async function commitNormsChronologically(
  * jurisdiction folder. Does nothing when the repo is clean.
  */
 export async function assertUniqueByNormId(repoPath: string): Promise<void> {
+	if (!existsSync(repoPath)) return;
+
 	/** norm ID → list of jurisdictions where it was found */
 	const seen = new Map<string, string[]>();
 
-	if (!existsSync(repoPath)) return;
-
-	// Each top-level directory that looks like a jurisdiction folder
-	let entries: string[];
-	try {
-		entries = readdirSync(repoPath);
-	} catch {
-		return;
-	}
-
-	const JURISDICTION_RE = /^es(?:-[a-z]{2})?$/;
-
-	for (const entry of entries) {
-		if (!JURISDICTION_RE.test(entry)) continue;
-		const dirPath = join(repoPath, entry);
+	// Iterate the canonical list of jurisdictions instead of scanning the
+	// repo top-level dirs. The list is the single source of truth (see
+	// `spain/jurisdictions.ts`); the writer enforces against the same list,
+	// so writer and asserter agree by construction.
+	for (const jurisdiction of SPAIN_JURISDICTION_CODES) {
+		const dirPath = join(repoPath, jurisdiction);
+		if (!existsSync(dirPath)) continue;
 		let files: string[];
 		try {
 			files = readdirSync(dirPath);
@@ -269,10 +264,13 @@ export async function assertUniqueByNormId(repoPath: string): Promise<void> {
 		}
 		for (const file of files) {
 			if (!file.endsWith(".md")) continue;
-			const normId = file.slice(0, -3); // strip .md
-			const existing = seen.get(normId) ?? [];
-			existing.push(entry);
-			seen.set(normId, existing);
+			const normId = file.slice(0, -3);
+			const existing = seen.get(normId);
+			if (existing) {
+				existing.push(jurisdiction);
+			} else {
+				seen.set(normId, [jurisdiction]);
+			}
 		}
 	}
 

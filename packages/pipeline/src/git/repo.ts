@@ -10,6 +10,7 @@ import { execSync } from "node:child_process";
 import {
 	existsSync,
 	mkdirSync,
+	readdirSync,
 	readFileSync,
 	unlinkSync,
 	writeFileSync,
@@ -40,38 +41,24 @@ function cleanEnv(extra?: Record<string, string>): Record<string, string> {
 }
 
 import type { CommitInfo } from "../models.ts";
+import {
+	parseNormPath,
+	SPAIN_JURISDICTION_CODES,
+	type SpainJurisdiction,
+} from "../spain/jurisdictions.ts";
 import { formatCommitMessage } from "./message.ts";
-
-/**
- * All known Spanish ELI jurisdiction folders in the leyes repo.
- * Used by writeAndAdd to detect cross-jurisdiction duplicates.
- */
-const SPAIN_JURISDICTIONS = [
-	"es",
-	"es-an",
-	"es-ar",
-	"es-as",
-	"es-cb",
-	"es-cl",
-	"es-cm",
-	"es-cn",
-	"es-ct",
-	"es-ex",
-	"es-ga",
-	"es-ib",
-	"es-mc",
-	"es-md",
-	"es-nc",
-	"es-pv",
-	"es-ri",
-	"es-vc",
-] as const;
-
-/** Regex that matches `<jurisdiction>/<normId>.md` paths. */
-const NORM_PATH_RE = /^(es(?:-[a-z]{2})?)\/([A-Z][^/]+)\.md$/;
 
 export class GitRepo {
 	private existingCommits: Set<string> | null = null;
+
+	/**
+	 * normId → jurisdiction where the file currently exists. Built lazily on
+	 * first call to writeAndAdd that needs it (one directory scan, ~12k files
+	 * for the production repo). Subsequent writes update the index in-place,
+	 * so cross-jurisdiction duplicate checks are O(1) — this matters: a full
+	 * bootstrap calls writeAndAdd ~50k times.
+	 */
+	private normIndex: Map<string, SpainJurisdiction> | null = null;
 
 	constructor(
 		private readonly path: string,
@@ -181,43 +168,80 @@ export class GitRepo {
 
 	writeAndAdd(relPath: string, content: string): boolean {
 		const filePath = join(this.path, relPath);
+		const targetExists = existsSync(filePath);
 
 		// ── Pre-write invariant: same norm ID must not exist in another
-		// jurisdiction folder. Skipped when relPath already exists — that path
-		// is the canonical location for this norm and an update there is fine
-		// even if a stale duplicate sits in another folder (the operator can
-		// clean that up separately without blocking legitimate updates).
-		if (!existsSync(filePath)) {
-			const match = NORM_PATH_RE.exec(relPath);
-			if (match) {
-				const jurisdiction = match[1]!;
-				const normId = match[2]!;
-				for (const other of SPAIN_JURISDICTIONS) {
-					if (other === jurisdiction) continue;
-					const candidate = join(this.path, other, `${normId}.md`);
-					if (existsSync(candidate)) {
-						const otherRel = `${other}/${normId}.md`;
-						throw new Error(
-							`Refusing to write ${relPath}: same id "${normId}" already exists at ${candidate}. ` +
-								`A norm must live in exactly one jurisdiction folder. ` +
-								`To resolve, decide which is canonical and remove the other: ` +
-								`git -C ${this.path} rm ${otherRel}  (or)  git -C ${this.path} rm ${relPath}`,
-						);
-					}
+		// jurisdiction folder. Skipped when the target path already exists —
+		// that's a legitimate update of the canonical file and must not be
+		// blocked by a stale duplicate sitting elsewhere (the operator can
+		// resolve that separately).
+		if (!targetExists) {
+			const parsed = parseNormPath(relPath);
+			if (parsed !== null) {
+				const existing = this.lookupNormJurisdiction(parsed.normId);
+				if (existing !== null && existing !== parsed.jurisdiction) {
+					const otherRel = `${existing}/${parsed.normId}.md`;
+					const otherAbs = join(this.path, otherRel);
+					throw new Error(
+						`Refusing to write ${relPath}: same id "${parsed.normId}" already exists at ${otherAbs}. ` +
+							`A norm must live in exactly one jurisdiction folder. ` +
+							`To resolve, decide which is canonical and remove the other: ` +
+							`git -C ${this.path} rm ${otherRel}  (or)  git -C ${this.path} rm ${relPath}`,
+					);
 				}
 			}
 		}
 
 		mkdirSync(dirname(filePath), { recursive: true });
 
-		if (existsSync(filePath)) {
+		if (targetExists) {
 			const existing = readFileSync(filePath, "utf-8");
 			if (existing === content) return false;
 		}
 
 		writeFileSync(filePath, content, "utf-8");
+
+		// Keep the index consistent with the new write.
+		if (!targetExists) {
+			const parsed = parseNormPath(relPath);
+			if (parsed !== null && this.normIndex !== null) {
+				this.normIndex.set(parsed.normId, parsed.jurisdiction);
+			}
+		}
 		// We'll add in the next step
 		return true;
+	}
+
+	/**
+	 * Where (if anywhere) does a norm with `normId` live in this repo?
+	 * Returns the jurisdiction code if the file exists, or null otherwise.
+	 *
+	 * On first call, scans every known jurisdiction folder once and builds an
+	 * in-memory index. Subsequent lookups are O(1). The index is kept in sync
+	 * by `writeAndAdd` for new writes; manual fs changes outside this class
+	 * are not reflected (acceptable: the only writer to this repo IS this
+	 * class — see CLAUDE.md "Data Integrity Invariants").
+	 */
+	private lookupNormJurisdiction(normId: string): SpainJurisdiction | null {
+		if (this.normIndex === null) {
+			this.normIndex = new Map();
+			for (const jurisdiction of SPAIN_JURISDICTION_CODES) {
+				const dir = join(this.path, jurisdiction);
+				if (!existsSync(dir)) continue;
+				let entries: string[];
+				try {
+					entries = readdirSync(dir);
+				} catch {
+					continue;
+				}
+				for (const entry of entries) {
+					if (!entry.endsWith(".md")) continue;
+					const id = entry.slice(0, -3);
+					this.normIndex.set(id, jurisdiction);
+				}
+			}
+		}
+		return this.normIndex.get(normId) ?? null;
 	}
 
 	async add(relPath: string): Promise<void> {

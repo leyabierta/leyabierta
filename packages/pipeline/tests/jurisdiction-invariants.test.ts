@@ -124,6 +124,27 @@ describe("writeAndAdd cross-jurisdiction duplicate detection", () => {
 			repo.writeAndAdd("es/BOE-A-2026-7558.md", "# Wrong jurisdiction"),
 		).toThrow(/git -C .* rm /);
 	});
+
+	test("Test 2e — non-norm files (README, index) skip the invariant check", () => {
+		// READMEs and similar housekeeping files can legitimately exist in
+		// multiple folders. The pre-write check must not pretend they are
+		// norms and refuse the write.
+		repo.writeAndAdd("es/README.md", "# es readme");
+		repo.writeAndAdd("es-an/README.md", "# es-an readme");
+		// If the check incorrectly fired, the second call would have thrown.
+		expect(existsSync(join(tempDir, "es/README.md"))).toBe(true);
+		expect(existsSync(join(tempDir, "es-an/README.md"))).toBe(true);
+	});
+
+	test("Test 2f — index reflects writes from this same GitRepo instance", () => {
+		// First write populates the lazy index. Second write to a DIFFERENT
+		// jurisdiction must be rejected based on the cached entry, even
+		// though the file exists physically (same instance saw it).
+		repo.writeAndAdd("es-an/BOE-A-2026-7558.md", "# v1");
+		expect(() =>
+			repo.writeAndAdd("es-pv/BOE-A-2026-7558.md", "# wrong"),
+		).toThrow(/already exists/);
+	});
 });
 
 // ── Test 3 — assertUniqueByNormId detects duplicates ─────────────────────────
