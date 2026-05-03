@@ -4,12 +4,23 @@ import Base from "../layouts/Base.astro";
 
 const laws = await getCollection("laws");
 
+// Dedupe by norm id. The leyes repo can momentarily contain the same id
+// in two jurisdiction folders if an ad-hoc script writes there (it has
+// happened — see CLAUDE.md "Past incidents"). The DB is the canonical
+// count source; deduping here keeps the home stat consistent.
+const seenIds = new Set<string>();
+const uniqueLaws = laws.filter(l => {
+	if (seenIds.has(l.data.identificador)) return false;
+	seenIds.add(l.data.identificador);
+	return true;
+});
+
 // Compute stats from Content Collections
-const totalNorms = laws.length;
+const totalNorms = uniqueLaws.length;
 const jurisdictionCounts = new Map<string, number>();
 const rankCounts = new Map<string, number>();
 let totalReforms = 0;
-for (const law of laws) {
+for (const law of uniqueLaws) {
 	const j = law.data.jurisdiccion;
 	jurisdictionCounts.set(j, (jurisdictionCounts.get(j) ?? 0) + 1);
 	const r = law.data.rango;
