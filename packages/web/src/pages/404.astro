@@ -3,45 +3,153 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base
-	title="Ley no encontrada"
-	description="La ley que buscas no existe en nuestra base de datos."
+	title="Página no encontrada"
+	description="Esta página no existe en Ley Abierta. Usa el buscador para encontrar la ley que necesitas."
+	noindex={true}
 >
 	<style>
-		.not-found {
-			text-align: center;
-			padding: 4rem 1rem;
+		/* ── 404 empty state ── */
+		.notfound {
+			padding: 4rem 0 3rem;
+			max-width: 36rem;
 		}
-		.not-found-code {
+
+		/* Mono kicker — DESIGN.md "Mono Kicker" pattern */
+		.notfound-kicker {
 			font-family: var(--font-mono);
-			font-size: 3.5rem;
-			font-weight: 700;
-			color: var(--border);
-			line-height: 1;
-			margin-bottom: 0.5rem;
-		}
-		.not-found-heading {
-			font-family: var(--font-serif);
-			font-size: 1.5rem;
-			font-weight: 700;
-			margin-bottom: 0.75rem;
-		}
-		.not-found-text {
-			font-size: 0.9375rem;
+			font-size: 0.6875rem;
+			letter-spacing: 0.12em;
+			text-transform: uppercase;
 			color: var(--text-muted);
-			max-width: 28rem;
-			margin: 0 auto 2rem;
-			line-height: 1.7;
+			margin: 0 0 1.25rem;
+		}
+
+		/* Source Serif 4 headline — institutional, sober */
+		.notfound-heading {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin: 0 0 1rem;
+		}
+		@media (max-width: 640px) {
+			.notfound-heading { font-size: 1.625rem; }
+		}
+
+		/* Explanatory paragraph */
+		.notfound-text {
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.75;
+			margin: 0 0 2rem;
+			max-width: 52ch;
+		}
+
+		/* Search form */
+		.notfound-form {
+			display: flex;
+			gap: 0.5rem;
+			align-items: stretch;
+			max-width: 30rem;
+			margin: 0 0 2.5rem;
+		}
+
+		.notfound-input {
+			flex: 1;
+			font-family: var(--font-sans);
+			font-size: 0.9375rem;
+			color: var(--text);
+			background: var(--surface);
+			border: 1.5px solid var(--border);
+			border-radius: 8px;
+			padding: 0.625rem 0.875rem;
+			outline: none;
+			transition: border-color 0.15s ease-out;
+			-webkit-appearance: none;
+		}
+		.notfound-input::placeholder {
+			color: var(--text-muted);
+		}
+		.notfound-input:focus {
+			border-color: var(--accent);
+		}
+
+		/* Primary search button */
+		.notfound-btn {
+			font-family: var(--font-sans);
+			font-size: 0.875rem;
+			font-weight: 600;
+			color: #fff;
+			background: var(--accent);
+			border: 1.5px solid var(--accent);
+			border-radius: 8px;
+			padding: 0 1.25rem;
+			cursor: pointer;
+			white-space: nowrap;
+			transition: background 0.15s ease-out, border-color 0.15s ease-out;
+		}
+		.notfound-btn:hover {
+			background: var(--accent-light);
+			border-color: var(--accent-light);
+		}
+
+		/* Secondary action — back to home */
+		.notfound-back {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+		.notfound-back a {
+			color: var(--accent);
+			text-decoration: underline;
+		}
+		.notfound-back a:hover {
+			text-decoration: none;
+		}
+
+		/* Divider between heading block and form */
+		.notfound-rule {
+			border: none;
+			border-top: 1px solid var(--border-light);
+			margin: 2rem 0;
+			max-width: 30rem;
+		}
+
+		@media (max-width: 480px) {
+			.notfound-form {
+				flex-direction: column;
+			}
+			.notfound-btn {
+				padding: 0.625rem 1rem;
+			}
 		}
 	</style>
 
-	<div class="not-found">
-		<div class="not-found-code">404</div>
-		<h1 class="not-found-heading">Ley no encontrada</h1>
-		<p class="not-found-text">
-			La ley que buscas no existe en nuestra base de datos.
-			Puede que el identificador sea incorrecto o que la ley
-			no forme parte del repertorio de legislaci&oacute;n consolidada.
+	<div class="notfound">
+		<p class="notfound-kicker">Error 404</p>
+		<h1 class="notfound-heading">Esta página no existe</h1>
+		<p class="notfound-text">
+			La dirección que has introducido no corresponde a ninguna página de Ley Abierta.
+			Puede que la URL sea incorrecta o que el contenido haya sido movido.
+			Usa el buscador para encontrar la ley que necesitas.
 		</p>
-		<a href="/" class="btn btn-primary">Buscar leyes</a>
+
+		<hr class="notfound-rule" aria-hidden="true" />
+
+		<form class="notfound-form" action="/leyes/" method="get" role="search">
+			<input
+				class="notfound-input"
+				type="search"
+				name="q"
+				placeholder="Buscar entre las leyes de España..."
+				aria-label="Buscar leyes"
+				autocomplete="off"
+			/>
+			<button class="notfound-btn" type="submit">Buscar</button>
+		</form>
+
+		<p class="notfound-back">
+			O vuelve a la <a href="/">página de inicio</a>.
+		</p>
 	</div>
 </Base>
