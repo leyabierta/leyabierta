@@ -347,16 +347,17 @@ curl -s 'https://api.leyabierta.es/v1/changelog?jurisdiction=es&amp;limit=50' \
 					<button class="copy-btn" aria-label="Copiar script">Copiar</button>
 					<pre><code
 ># Extraer todos los identificadores y títulos
-find leyes/es -name '*.md' | head -100 | while read f; do
+find leyes/es -name '*.md' | head -100 | while read -r f; do
   python3 -c "
-import sys, re
-content = open('$f').read()
+import re, sys
+with open(sys.argv[1]) as fh:
+    content = fh.read()
 match = re.search(r'---\n(.*?)---', content, re.DOTALL)
 if match:
     for line in match.group(1).splitlines():
         if line.startswith('titulo:') or line.startswith('identificador:'):
             print(line.split(':', 1)[1].strip())
-  "
+" "$f"
 done</code></pre>
 				</div>
 				<p class="usecase-note">
@@ -569,8 +570,8 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 
 	/* ── Prompt block ──────────────────────────────────────── */
 	.prompt-block {
-		background: var(--accent-bg-light);
-		border: 1px solid #d9e3ef;
+		background: var(--accent-faint);
+		border: 1px solid var(--border-light);
 		border-radius: 10px;
 		padding: 1.5rem;
 		margin-bottom: 2rem;
@@ -665,7 +666,6 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 		gap: 1.5rem;
 		margin-bottom: 2rem;
 	}
-	.snippet-item {}
 	.snippet-label {
 		font-size: 0.8125rem;
 		font-weight: 500;
@@ -707,7 +707,6 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 		gap: 2rem;
 		margin-bottom: 1.5rem;
 	}
-	.endpoint-group {}
 	.endpoint-title {
 		font-family: var(--font-sans);
 		font-size: 0.875rem;
@@ -725,8 +724,8 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 		font-size: 0.75rem;
 	}
 	.api-note {
-		background: var(--accent-bg-light);
-		border: 1px solid #d9e3ef;
+		background: var(--accent-faint);
+		border: 1px solid var(--border-light);
 		border-radius: 8px;
 		padding: 1rem 1.25rem;
 	}
@@ -862,7 +861,7 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 
 	/* ── License section ───────────────────────────────────── */
 	.section-license {
-		background: var(--tierra);
+		background: var(--tierra-warm);
 		border-radius: 12px;
 		padding: 2.5rem 2rem;
 		border: 1px solid var(--tierra-deep);
@@ -914,7 +913,7 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 		display: inline-flex;
 		align-items: center;
 		padding: 0.5rem 1rem;
-		border: 1.5px solid var(--border-medium);
+		border: 1.5px solid var(--border);
 		border-radius: 6px;
 		font-size: 0.875rem;
 		color: var(--text-secondary);
