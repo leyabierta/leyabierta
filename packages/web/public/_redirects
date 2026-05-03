@@ -1,6 +1,9 @@
 # Force trailing slash on internal routes (Astro trailingSlash: "always")
 /pregunta /pregunta/ 301
 /cambios /cambios/ 301
+/cambios/recientes /cambios/recientes/ 301
+/cambios/omnibus /cambios/omnibus/ 301
+/cambios/mias /cambios/mias/ 301
 /mis-cambios /mis-cambios/ 301
 /mi-situacion /mi-situacion/ 301
 /alertas /alertas/ 301
@@ -15,6 +18,14 @@
 /omnibus/detalle /omnibus/detalle/ 301
 /reforma /reforma/ 301
 /situaciones /situaciones/ 301
+
+# === Reorganización Cambios hub (2026-05-03) ===
+/omnibus/ /cambios/omnibus/ 301
+/omnibus/detalle/:normId /cambios/omnibus/:normId/ 301
+/omnibus/detalle/:normId/ /cambios/omnibus/:normId/ 301
+/mis-cambios/ /cambios/mias/ 301
+/reforma/:reformaId /cambios/:reformaId 301
+/reforma/:reformaId/ /cambios/:reformaId/ 301
 
 # === Migración /laws/ → /leyes/ (2026-05-03) ===
 # Two named-param rules cover both bare and trailing-slash variants

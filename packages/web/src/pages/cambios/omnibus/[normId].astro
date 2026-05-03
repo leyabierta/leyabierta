@@ -1,5 +1,5 @@
 ---
-import Base from "../../layouts/Base.astro";
+import Base from "../../../layouts/Base.astro";
 ---
 
 <Base
@@ -8,12 +8,13 @@ import Base from "../../layouts/Base.astro";
 >
 	<script is:inline>
 		(function () {
-			var params = new URLSearchParams(window.location.search);
-			var normId = params.get("id") || "";
+			var parts = window.location.pathname.split("/").filter(Boolean);
+			// path: /cambios/omnibus/{normId}
+			var normId = parts[parts.length - 1] || "";
 			if (normId) {
 				window.location.replace("/leyes/" + encodeURIComponent(normId) + "/");
 			} else {
-				window.location.replace("/omnibus/");
+				window.location.replace("/cambios/omnibus/");
 			}
 		})();
 	</script>

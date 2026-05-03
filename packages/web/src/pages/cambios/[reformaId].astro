@@ -1,5 +1,5 @@
 ---
-import Base from "../layouts/Base.astro";
+import Base from "../../layouts/Base.astro";
 ---
 
 <Base
@@ -198,7 +198,7 @@ import Base from "../layouts/Base.astro";
 	</style>
 
 	<div class="reforma-wrap">
-		<a href="/mis-cambios/" class="reforma-back" id="reforma-back">&larr; Volver</a>
+		<a href="/cambios/recientes/" class="reforma-back" id="reforma-back">&larr; Volver</a>
 		<div id="reforma-content">
 			<div class="reforma-header">
 				<div class="skeleton-line" style="width:30%"></div>
@@ -224,12 +224,17 @@ import Base from "../layouts/Base.astro";
 				// Set label based on context
 				if (from === "cambios") {
 					backLink.innerHTML = "&larr; Volver a cambios recientes";
+				} else if (from === "mis-cambios") {
+					backLink.innerHTML = "&larr; Volver a mis cambios";
+					backLink.href = "/cambios/mias/";
 				} else if (from === "omnibus" || from === "law") {
 					backLink.innerHTML = "&larr; Volver a la ley";
 				} else if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
 					var refPath = new URL(document.referrer).pathname;
-					if (refPath === "/cambios/") {
+					if (refPath === "/cambios/recientes/" || refPath === "/cambios/") {
 						backLink.innerHTML = "&larr; Volver a cambios recientes";
+					} else if (refPath === "/cambios/mias/") {
+						backLink.innerHTML = "&larr; Volver a mis cambios";
 					} else if (refPath.indexOf("/leyes/") === 0) {
 						backLink.innerHTML = "&larr; Volver a la ley";
 					}
@@ -242,7 +247,7 @@ import Base from "../layouts/Base.astro";
 						history.back();
 					});
 				} else if (from === "cambios") {
-					backLink.href = "/cambios/";
+					backLink.href = "/cambios/recientes/";
 				} else if ((from === "omnibus" || from === "law") && normId) {
 					backLink.href = "/leyes/" + encodeURIComponent(normId) + "/";
 				}
@@ -272,6 +277,20 @@ import Base from "../layouts/Base.astro";
 				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 				return dt.getDate() + " " + months[dt.getMonth()] + " " + dt.getFullYear();
 			}
+
+			// Read normId from path: /cambios/{normId}?date=...
+			var pathParts = window.location.pathname.split("/").filter(Boolean);
+			// pathParts = ["cambios", normId]
+			var normId = pathParts[pathParts.length - 1] || "";
+			// Fallback to query param for backwards compat
+			var qParams = new URLSearchParams(window.location.search);
+			if (!normId || normId === "cambios") {
+				normId = qParams.get("id") || "";
+			}
+			var date = qParams.get("date");
+			var topicParam = qParams.get("topic");
+			var topicIndex = topicParam !== null ? parseInt(topicParam, 10) : NaN;
+			var fromOmnibus = qParams.get("from") === "omnibus";
 
 			// Render paragraph-level diff with word highlighting
 			function renderBlockDiff(beforeText, afterText, container) {
@@ -348,12 +367,6 @@ import Base from "../layouts/Base.astro";
 
 			var API = document.documentElement.dataset.api;
 			var contentDiv = document.getElementById("reforma-content");
-			var params = new URLSearchParams(window.location.search);
-			var normId = params.get("id");
-			var date = params.get("date");
-			var topicParam = params.get("topic");
-			var topicIndex = topicParam !== null ? parseInt(topicParam, 10) : NaN;
-			var fromOmnibus = params.get("from") === "omnibus";
 
 			if (!normId || !date) {
 				contentDiv.innerHTML = '<div class="error-state"><p>Faltan parámetros.</p></div>';
@@ -397,20 +410,11 @@ import Base from "../layouts/Base.astro";
 					var rankLabel = RANK_LABELS[law.rank] || law.rank || "";
 
 					// Bug fix #1: detect if this reform is the one that derogated the law.
-					// Signal: law.status === "derogada" AND law.last_reform_date === reform.date
-					// (last_reform_date is set by the API only when next_reform_date is null, i.e. this IS the latest reform)
 					var isDerogatingReform = law.status === "derogada" && law.last_reform_date === reform.date;
 
 					// Resolve type label — override to "Derogación" when derogating reform
 					var typeLabel = isDerogatingReform ? "Derogación" : (TYPE_LABELS[reform.reform_type] || "");
 
-					// H1 priority: AI-generated reform headline first (citizen-friendly, plain
-					// language, already includes the verb for derogations); fall back to the
-					// law's official title. Never use short_title here — its regex is geared
-					// to "Ley X/YEAR" patterns and produces awkward truncations on Resolución/
-					// Orden titles ("Resolución de 31 de enero..." → "Resolución de 31").
-					// No "Derogada:" prefix — the type badge and the status chip already
-					// communicate the derogation, prefixing it would be redundant.
 					var headline = hasHeadline ? reform.headline : law.title;
 
 					// ── Header ──
@@ -427,8 +431,6 @@ import Base from "../layouts/Base.astro";
 					html += ' · <a href="/leyes/' + encodeURIComponent(law.id) + '/">' + esc(law.title) + '</a>';
 					html += '</div></div>';
 
-					// ── Topic tag in date row (when filtering by omnibus topic) ──
-
 					// ── Summary ──
 					if (reform.summary) {
 						html += '<div class="reforma-summary">' + esc(reform.summary) + '</div>';
@@ -437,7 +439,7 @@ import Base from "../layouts/Base.astro";
 					// ── Empty topic intersection ──
 					if (topicBlockIds && blocks.length === 0) {
 						html += '<p style="color:var(--text-muted);font-size:0.9375rem;margin-bottom:0.5rem">Los ' + topicBlockIds.length + ' artículo' + (topicBlockIds.length !== 1 ? 's' : '') + ' de este tema no se modificaron en esta reforma.</p>';
-						html += '<p style="font-size:0.875rem"><a href="/reforma?id=' + encodeURIComponent(law.id) + '&date=' + encodeURIComponent(reform.date) + '&from=omnibus" style="color:var(--accent-light)">Ver todos los cambios de esta reforma &rarr;</a></p>';
+						html += '<p style="font-size:0.875rem"><a href="/cambios/' + encodeURIComponent(law.id) + '?date=' + encodeURIComponent(reform.date) + '&from=omnibus" style="color:var(--accent-light)">Ver todos los cambios de esta reforma &rarr;</a></p>';
 					}
 
 					// ── Affected blocks ──
@@ -451,8 +453,6 @@ import Base from "../layouts/Base.astro";
 							var isOpen = i < 5;
 
 							html += '<div class="block-change">';
-							// Bug fix #3: nota_inicial blocks have id "no" and empty title.
-							// Show a citizen-readable label instead of the raw id.
 							var isNotaInicial = b.block_type === "nota_inicial" || b.block_id === "no";
 							var blockLabel = isNotaInicial ? "Nota oficial del BOE" : (b.title || b.block_id);
 
@@ -463,7 +463,6 @@ import Base from "../layouts/Base.astro";
 							html += '<div class="block-change-body' + (isOpen ? ' open' : '') + '" id="block-' + i + '">';
 
 							if (isNew) {
-								// Bug fix #4: nota_inicial is not a new article — it's a derogation notice.
 								var newBlockLabel = isNotaInicial ? "Aviso oficial" : "Artículo nuevo";
 								html += '<div class="new-block">';
 								html += '<div class="version-label">' + newBlockLabel + '</div>';
@@ -476,7 +475,6 @@ import Base from "../layouts/Base.astro";
 						}
 						html += '</section>';
 					} else if (data.prev_reform_date && !topicBlockIds) {
-						// No block-level data and NOT filtered by topic — show unified diff fallback
 						html += '<section class="reforma-changes">';
 						html += '<h2>Qué ha cambiado</h2>';
 						html += '<div id="unified-diff-container"><div class="diff-content" style="color:var(--text-muted);font-size:0.8125rem;padding:1rem">Cargando diferencias...</div></div>';
@@ -503,7 +501,7 @@ import Base from "../layouts/Base.astro";
 						});
 					});
 
-					// ── Unified diff fallback (when no block-level data and NOT topic-filtered) ──
+					// ── Unified diff fallback ──
 					if (blocks.length === 0 && data.prev_reform_date && !topicBlockIds) {
 						var diffUrl = API + "/v1/laws/" + encodeURIComponent(normId) + "/diff?from=" + encodeURIComponent(data.prev_reform_date) + "&to=" + encodeURIComponent(date);
 						fetch(diffUrl)
@@ -519,7 +517,6 @@ import Base from "../layouts/Base.astro";
 								var skippedHeader = false;
 								for (var j = 0; j < lines.length; j++) {
 									var line = lines[j];
-									// Skip git diff header lines (diff --git, index, ---, +++)
 									if (!skippedHeader) {
 										if (line.indexOf("diff --git") === 0 || line.indexOf("index ") === 0 || line.indexOf("---") === 0 || line.indexOf("+++") === 0) continue;
 										if (line.indexOf("@@") === 0) skippedHeader = true;
@@ -569,9 +566,9 @@ import Base from "../layouts/Base.astro";
 				.catch(function () {
 					var params2 = new URLSearchParams(window.location.search);
 					var from2 = params2.get("from") || "";
-					var errorBackHref = "/mis-cambios/";
+					var errorBackHref = "/cambios/mias/";
 					var errorBackLabel = "Volver a mis cambios";
-					if (from2 === "cambios") { errorBackHref = "/cambios/"; errorBackLabel = "Volver a cambios recientes"; }
+					if (from2 === "cambios") { errorBackHref = "/cambios/recientes/"; errorBackLabel = "Volver a cambios recientes"; }
 					else if (from2 === "omnibus") { errorBackHref = "/leyes/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
 					else if (from2 === "law") { errorBackHref = "/leyes/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
 					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="' + errorBackHref + '" style="color:var(--accent)">' + errorBackLabel + '</a></div>';

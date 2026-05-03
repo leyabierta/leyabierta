@@ -807,7 +807,7 @@ const seoDescription = [
 					link.textContent = "\u2190 Volver a resultados";
 				} else if (refPath === "/cambios/") {
 					link.textContent = "\u2190 Volver a cambios recientes";
-				} else if (refPath === "/mis-cambios/") {
+				} else if (refPath === "/cambios/mias/") {
 					link.textContent = "\u2190 Volver a mis cambios";
 				}
 			}
@@ -1013,7 +1013,7 @@ const seoDescription = [
 			<ul class="timeline">
 				{reforms.map((reform, i) => {
 					const isOriginal = i === reforms.length - 1;
-					const reformaUrl = !isOriginal ? `/reforma?id=${id}&date=${reform.fecha}&from=law` : null;
+					const reformaUrl = !isOriginal ? `/cambios/${id}?date=${reform.fecha}&from=law` : null;
 					return (
 						<li class="timeline-item">
 							<div class="timeline-dot"></div>
