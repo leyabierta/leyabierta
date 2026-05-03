@@ -1,0 +1,280 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Sobre Ley Abierta"
+	description="Por qué existe Ley Abierta, sus principios y hacia dónde va el proyecto."
+	canonicalUrl="/sobre/"
+>
+	<style>
+		.sobre-page { max-width: 40rem; margin: 0 auto; }
+
+		.sobre-kicker {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: var(--text-muted);
+			margin-bottom: 0.75rem;
+		}
+
+		.sobre-page h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin: 0 0 0.25rem;
+		}
+		@media (max-width: 640px) {
+			.sobre-page h1 { font-size: 1.625rem; }
+		}
+
+		.sobre-subtitle {
+			font-size: 1rem;
+			color: var(--text-muted);
+			margin-bottom: 2.5rem;
+		}
+
+		.sobre-page h2 {
+			font-family: var(--font-serif);
+			font-size: 1.2rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 2rem 0 0.75rem;
+			padding-bottom: 0.5rem;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.sobre-page p {
+			font-size: 0.9375rem;
+			line-height: 1.7;
+			color: var(--text-secondary);
+			margin: 0 0 1rem;
+		}
+
+		.principios-list {
+			list-style: none;
+			padding: 0;
+			margin: 0 0 1.5rem;
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+
+		.principio-item {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 1rem 1.25rem;
+		}
+
+		.principio-titulo {
+			font-size: 0.9375rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 0 0 0.25rem;
+		}
+
+		.principio-texto {
+			font-size: 0.875rem;
+			line-height: 1.6;
+			color: var(--text-secondary);
+			margin: 0;
+		}
+
+		.sobre-highlight {
+			background: var(--accent-faint);
+			border: 1px solid #d9e3ef;
+			border-radius: 10px;
+			padding: 1rem 1.25rem;
+			margin: 1.5rem 0;
+		}
+
+		.sobre-highlight p {
+			font-family: var(--font-serif);
+			font-style: italic;
+			font-size: 1rem;
+			color: var(--text);
+			margin: 0;
+		}
+
+		.audiencias-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 0.75rem;
+			margin-bottom: 1.5rem;
+		}
+		@media (max-width: 480px) {
+			.audiencias-grid { grid-template-columns: 1fr; }
+		}
+
+		.audiencia-item {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 0.875rem 1rem;
+		}
+
+		.audiencia-rol {
+			font-size: 0.8125rem;
+			font-weight: 600;
+			color: var(--accent);
+			margin: 0 0 0.25rem;
+		}
+
+		.audiencia-desc {
+			font-size: 0.8125rem;
+			line-height: 1.5;
+			color: var(--text-secondary);
+			margin: 0;
+		}
+
+		.sobre-nav {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			margin-top: 2.5rem;
+			padding-top: 1.5rem;
+			border-top: 1px solid var(--border);
+		}
+
+		.sobre-nav-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
+			padding: 0.625rem 1rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			color: var(--accent);
+			border: 1.5px solid var(--border);
+			border-radius: 6px;
+			text-decoration: none;
+			transition: border-color 0.15s ease-out, background 0.15s ease-out;
+		}
+
+		.sobre-nav-link:hover {
+			border-color: var(--accent);
+			background: var(--accent-faint);
+			text-decoration: none;
+		}
+	</style>
+
+	<div class="sobre-page prose">
+		<div class="sobre-kicker">PROYECTO</div>
+		<h1>Sobre Ley Abierta</h1>
+		<p class="sobre-subtitle">Por qué existe este proyecto y los principios que lo guían.</p>
+
+		<h2>Por qué existe este proyecto</h2>
+		<p>
+			La ley es algo abstracto y difícil de entender. El lenguaje jurídico es necesariamente técnico
+			y estricto, pero eso crea una barrera: millones de personas desconocen sus derechos o no
+			entienden qué se está legislando, cuando todas las leyes nos aplican a todos.
+		</p>
+		<p>
+			Ley Abierta nace para cerrar esa brecha. No para sustituir el lenguaje legal, sino para
+			traducirlo: que tanto una persona de 90 años como una adolescente de 14 puedan informarse
+			correctamente sobre qué leyes existen, qué se está legislando y cómo les afecta.
+		</p>
+
+		<div class="sobre-highlight">
+			<p>Las leyes pertenecen al pueblo. Su evolución debería ser visible para todos.</p>
+		</div>
+
+		<h2>Principios</h2>
+		<ul class="principios-list">
+			<li class="principio-item">
+				<p class="principio-titulo">Neutralidad factual</p>
+				<p class="principio-texto">
+					Ley Abierta informa, no opina. Nunca diremos si una ley es buena o mala. Presentamos
+					los hechos — el texto, los cambios, las relaciones entre normas — y cada persona forma
+					su propia valoración.
+				</p>
+			</li>
+			<li class="principio-item">
+				<p class="principio-titulo">Accesibilidad universal</p>
+				<p class="principio-texto">
+					La legislación es de todos. Su evolución debería ser visible, comprensible y gratuita.
+					Ley Abierta debe funcionar para cualquier ciudadano, independientemente de su edad,
+					formación o conocimientos técnicos.
+				</p>
+			</li>
+			<li class="principio-item">
+				<p class="principio-titulo">Privacidad mínima</p>
+				<p class="principio-texto">
+					Solo recabamos los datos estrictamente necesarios para dar el servicio. No vendemos
+					datos, no hacemos perfiles, no monetizamos a los usuarios.
+				</p>
+			</li>
+			<li class="principio-item">
+				<p class="principio-titulo">Código abierto, siempre</p>
+				<p class="principio-texto">
+					Todo el código, los datos y las herramientas de Ley Abierta son públicos. Usamos la
+					licencia AGPL-3.0 para garantizar que cualquier versión derivada mantenga este
+					compromiso.
+				</p>
+			</li>
+			<li class="principio-item">
+				<p class="principio-titulo">Sin ánimo de lucro</p>
+				<p class="principio-texto">
+					Este proyecto no busca beneficio monetario. Busca hacer un bien a la comunidad. Si
+					aceptamos ayudas, será exclusivamente para cubrir costes operativos y nunca
+					condicionarán la visión ni la independencia del proyecto.
+				</p>
+			</li>
+		</ul>
+
+		<h2>Para quién</h2>
+		<div class="audiencias-grid">
+			<div class="audiencia-item">
+				<p class="audiencia-rol">Ciudadanos</p>
+				<p class="audiencia-desc">Entender qué leyes les afectan sin necesitar un abogado.</p>
+			</div>
+			<div class="audiencia-item">
+				<p class="audiencia-rol">Periodistas</p>
+				<p class="audiencia-desc">Investigar cambios legislativos con datos comparables.</p>
+			</div>
+			<div class="audiencia-item">
+				<p class="audiencia-rol">Juristas</p>
+				<p class="audiencia-desc">Consultar y comparar versiones con una herramienta abierta.</p>
+			</div>
+			<div class="audiencia-item">
+				<p class="audiencia-rol">Investigadores</p>
+				<p class="audiencia-desc">Estudiar la evolución del ordenamiento jurídico.</p>
+			</div>
+			<div class="audiencia-item">
+				<p class="audiencia-rol">Organizaciones civiles</p>
+				<p class="audiencia-desc">Trabajar en transparencia y rendición de cuentas.</p>
+			</div>
+			<div class="audiencia-item">
+				<p class="audiencia-rol">Desarrolladores</p>
+				<p class="audiencia-desc">Construir herramientas sobre datos legislativos abiertos.</p>
+			</div>
+		</div>
+
+		<h2>Hacia dónde vamos</h2>
+		<p>Algunas ideas que queremos explorar:</p>
+		<ul>
+			<li>
+				<strong>Flujo legislativo completo</strong> — Seguir una ley desde su propuesta hasta su
+				aprobación, con todo el proceso parlamentario visible.
+			</li>
+			<li>
+				<strong>Visualización de reformas pendientes</strong> — Ver los cambios propuestos como si
+				fueran borradores: qué cambia, qué se añade, qué se elimina.
+			</li>
+			<li>
+				<strong>Más países</strong> — El foco actual es España, pero la arquitectura está
+				diseñada para que cualquiera pueda adaptarla a su país.
+			</li>
+		</ul>
+
+		<nav class="sobre-nav" aria-label="Más sobre el proyecto">
+			<a href="/sobre/contribuir/" class="sobre-nav-link">Cómo contribuir &rarr;</a>
+			<a href="/sobre/apoyar/" class="sobre-nav-link">Apoyar el proyecto &rarr;</a>
+			<a href="/sobre/api/" class="sobre-nav-link">API y datos abiertos &rarr;</a>
+			<a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener" class="sobre-nav-link">GitHub &rarr;</a>
+		</nav>
+	</div>
+</Base>
