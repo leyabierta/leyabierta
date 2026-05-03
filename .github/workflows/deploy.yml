@@ -322,6 +322,9 @@ jobs:
         env:
           LAWS_PATH: content/laws
           API_BYPASS_KEY: ${{ secrets.API_BYPASS_KEY }}
+          # Umami website ID (public, AEPD-compliant analytics).
+          # See packages/web/src/layouts/Base.astro: gated by isProd && PUBLIC_UMAMI_WEBSITE_ID
+          PUBLIC_UMAMI_WEBSITE_ID: ${{ vars.PUBLIC_UMAMI_WEBSITE_ID }}
 
       - name: Notify — Deploying
         continue-on-error: true
