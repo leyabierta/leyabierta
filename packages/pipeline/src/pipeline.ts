@@ -78,7 +78,7 @@ export async function commitNorm(
 	for (let i = 0; i < reforms.length; i++) {
 		const reform = reforms[i]!;
 
-		if (repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
+		if (await repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
 			continue;
 		}
 
@@ -181,7 +181,7 @@ export async function commitNormsChronologically(
 		const { norm, reformIndex, reform } = entries[i]!;
 		const { metadata, blocks } = norm;
 
-		if (repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
+		if (await repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
 			continue;
 		}
 

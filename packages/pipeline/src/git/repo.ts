@@ -209,9 +209,15 @@ export class GitRepo {
 			);
 			gitDate = "2099-12-31";
 		}
-		const authorDate = `${gitDate}T00:00:00`;
+		// Always use explicit UTC offset (+00:00) so the stored TZ is
+		// deterministic regardless of the host system's local timezone
+		// (e.g., Europe/Madrid alternates between CET +0100 and CEST +0200).
+		// Midday (12:00:00Z) survives any DST crossover without risk of
+		// shifting the calendar date.
+		const authorDate = `${gitDate}T12:00:00+00:00`;
 
 		const commitEnv = {
+			TZ: "UTC",
 			GIT_AUTHOR_DATE: authorDate,
 			GIT_COMMITTER_DATE: authorDate,
 			GIT_AUTHOR_NAME: info.authorName,
@@ -291,47 +297,117 @@ export class GitRepo {
 	async loadExistingCommits(): Promise<void> {
 		this.existingCommits = new Set();
 
+		let output = "";
 		try {
-			const output = await this.runWithOutput([
-				"log",
-				"--all",
-				"--format=%B%x00",
-			]).catch(() => "");
+			output = await this.runWithOutput(["log", "--all", "--format=%B%x00"]);
+		} catch (err) {
+			// Empty repo OR git/pipe failure. Leaving the cache empty is safe —
+			// hasCommitWithSourceId falls back to per-commit `git log --grep` —
+			// but we surface the failure so silent degradation doesn't hide a
+			// real problem (e.g. Bun pipe capture failure on large repos).
+			console.warn(
+				`[git/repo] loadExistingCommits failed: ${(err as Error).message}. Idempotency checks will fall back to per-commit git-grep.`,
+			);
+			return;
+		}
 
-			if (!output.trim()) return;
+		if (!output.trim()) return;
 
-			for (const body of output.split("\0")) {
-				let sourceId = "";
-				let normId = "";
-				for (const line of body.split("\n")) {
-					if (line.startsWith("Source-Id: ")) {
-						sourceId = line.slice("Source-Id: ".length).trim();
-					} else if (line.startsWith("Norm-Id: ")) {
-						normId = line.slice("Norm-Id: ".length).trim();
-					}
-				}
-				if (sourceId && normId) {
-					this.existingCommits.add(`${sourceId}|${normId}`);
+		for (const body of output.split("\0")) {
+			let sourceId = "";
+			let normId = "";
+			for (const line of body.split("\n")) {
+				if (line.startsWith("Source-Id: ")) {
+					sourceId = line.slice("Source-Id: ".length).trim();
+				} else if (line.startsWith("Norm-Id: ")) {
+					normId = line.slice("Norm-Id: ".length).trim();
 				}
 			}
-		} catch {
-			// Empty repo, no commits yet
+			if (sourceId && normId) {
+				this.existingCommits.add(`${sourceId}|${normId}`);
+			}
+		}
+
+		// Sanity: if the repo has commits but we parsed zero trailers, warn.
+		// Indicates either the output capture lost data, or commits predate the
+		// trailer convention. Either way, idempotency falls back to git-grep.
+		if (this.existingCommits.size === 0) {
+			console.warn(
+				"[git/repo] loadExistingCommits: parsed 0 trailers from non-empty git output. Idempotency falls back to git-grep.",
+			);
 		}
 	}
 
-	hasCommitWithSourceId(sourceId: string, normId?: string): boolean {
-		if (!this.existingCommits) {
-			throw new Error("Call loadExistingCommits() first");
+	/**
+	 * Check whether a commit with the given Source-Id (and optionally Norm-Id)
+	 * already exists in the repo.
+	 *
+	 * Uses `git log --grep` on the Source-Id trailer so the lookup is
+	 * TZ-independent and works even when the in-memory cache was not loaded or
+	 * was partially populated due to a large repo / output-capture issue.
+	 *
+	 * Fast path: if the in-memory cache from `loadExistingCommits()` is present,
+	 * a cache-hit is returned immediately without shelling out. A cache-miss
+	 * still falls through to git grep to guard against stale / incomplete caches.
+	 */
+	async hasCommitWithSourceId(
+		sourceId: string,
+		normId?: string,
+	): Promise<boolean> {
+		// ── Fast path: in-memory cache hit ───────────────────────────────────
+		if (this.existingCommits) {
+			let hit: boolean;
+			if (normId === undefined) {
+				hit = [...this.existingCommits].some((k) =>
+					k.startsWith(`${sourceId}|`),
+				);
+			} else {
+				hit = this.existingCommits.has(`${sourceId}|${normId}`);
+			}
+			if (hit) return true;
+			// Cache miss — fall through to git grep for correctness.
+			// The cache may be incomplete (e.g. large repo, pipe capture failure).
 		}
 
-		if (normId === undefined) {
-			for (const key of this.existingCommits) {
-				if (key.startsWith(`${sourceId}|`)) return true;
+		// ── Authoritative path: git log --grep on Source-Id trailer ──────────
+		// Escape the id so it cannot inject regex metacharacters.
+		// BOE ids are "BOE-A-1978-31229" (alphanumeric + hyphens) but we escape
+		// defensively for any future id format.
+		const escapedId = sourceId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const grepPattern = `^Source-Id: ${escapedId}$`;
+
+		try {
+			const result = await this.runWithOutput([
+				"log",
+				"--all",
+				`--grep=${grepPattern}`,
+				"--extended-regexp",
+				"--format=%H",
+				"-1",
+			]);
+			if (!result.trim()) return false;
+
+			// If normId is specified, verify the matching commit also has the
+			// correct Norm-Id trailer. Anchored to line boundaries to prevent
+			// prefix collisions: "Norm-Id: BOE-A-2025-76" must NOT match a
+			// body containing "Norm-Id: BOE-A-2025-7659".
+			if (normId !== undefined) {
+				const sha = result.trim().split("\n")[0]!;
+				const body = await this.runWithOutput([
+					"show",
+					"-s",
+					"--format=%B",
+					sha,
+				]);
+				const escapedNormId = normId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+				return new RegExp(`^Norm-Id: ${escapedNormId}$`, "m").test(body);
 			}
+
+			return true;
+		} catch {
+			// Empty repo or git error — treat as not found
 			return false;
 		}
-
-		return this.existingCommits.has(`${sourceId}|${normId}`);
 	}
 
 	async log(format = "%ai  %s", reverse = true): Promise<string> {
