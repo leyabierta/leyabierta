@@ -48,15 +48,34 @@ set -euo pipefail
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $1" | tee -a "$LOG"; }
 
-# send_alert TITLE BODY — posts a JSON alert to ALERT_WEBHOOK_URL (non-fatal).
-# Uses printf %q for safe shell-quoting of the values into the JSON payload.
+# build_alert_json TITLE BODY — emits a valid JSON object on stdout.
+# Prefers python3 (always present on Ubuntu/Debian VPS) for correct escaping
+# of quotes, backslashes, control chars, and unicode. Falls back to jq, then
+# to a manual best-effort escape if neither is installed.
+build_alert_json() {
+  local title="$1" body="$2"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import json,sys; print(json.dumps({"title":sys.argv[1],"body":sys.argv[2],"host":"KonarServer"}))' \
+      "$title" "$body"
+  elif command -v jq >/dev/null 2>&1; then
+    jq -nc --arg t "$title" --arg b "$body" '{title:$t, body:$b, host:"KonarServer"}'
+  else
+    local et=${title//\\/\\\\}; et=${et//\"/\\\"}
+    local eb=${body//\\/\\\\}; eb=${eb//\"/\\\"}
+    printf '{"title":"%s","body":"%s","host":"KonarServer"}' "$et" "$eb"
+  fi
+}
+
+# send_alert TITLE BODY — POST a JSON alert to ALERT_WEBHOOK_URL (non-fatal).
 # Falls back silently if ALERT_WEBHOOK_URL is unset or curl fails.
 send_alert() {
   local title="$1" body="$2"
   if [ -n "${ALERT_WEBHOOK_URL:-}" ]; then
+    local json
+    json=$(build_alert_json "$title" "$body")
     curl -fsS --max-time 10 -X POST "$ALERT_WEBHOOK_URL" \
       -H "Content-Type: application/json" \
-      -d "$(printf '{"title":%q,"body":%q,"host":"KonarServer"}' "$title" "$body")" \
+      -d "$json" \
       >/dev/null 2>&1 || true
   fi
 }
