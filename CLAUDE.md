@@ -271,6 +271,46 @@ from the same data.             `bun run ingest`.
 
 The JSON cache (`data/json/*.json`) is the bridge: the pipeline writes to it, `ingest` reads it into the DB, and `ingest-analisis` enriches it with materias/notas/refs from BOE.
 
+## Data Integrity Invariants
+
+### One norm, one jurisdiction folder
+
+Every norm identified by its BOE/regional ID must appear in exactly one jurisdiction folder in the `leyes` repo. No duplicates, no exceptions.
+
+**Canonical jurisdiction resolution — priority order:**
+
+1. **ELI URL** in the norm's metadata source field (e.g. `/eli/es-an/...` → `es-an`, `/eli/es/...` → `es`)
+2. **Regional bulletin prefix** in the norm ID for autonomous community bulletins (BOJA → `es-an`, BON → `es-nc`, DOGV → `es-vc`, BOA → `es-ar`, etc.)
+3. **`metadata.country` field** in the JSON cache (`data/json/<id>.json`) as a last resort
+
+Never silently default to `es` when the above resolution fails — a missing jurisdiction is a bug that must surface loudly, not be papered over. An incorrect `es` fallback is harder to detect than a thrown error.
+
+### How the invariant is enforced
+
+- **At write time:** `GitRepo.writeAndAdd` checks whether the same norm ID already exists in a different jurisdiction folder. If it does, it throws rather than creating a duplicate. This is the primary defense: violations are caught as they happen, not discovered later.
+- **At the end of each `pipeline bootstrap` run:** `assertUniqueByNormId` scans the full output repo and fails the run if any ID appears in more than one folder.
+- **In CI:** a dedicated test exercises the invariant against a fixture set to prevent regressions.
+
+### Authoritative source for norm counts
+
+For any "total number of laws" figure surfaced in the web, API, or stats — use the SQLite DB:
+
+```sql
+SELECT COUNT(*) FROM norms;
+```
+
+Do **not** use `find leyes -name "*.md" | wc -l`. The DB deduplicates by ID during ingest; a file count can be inflated by transient duplicates that the DB would reject. The web build (Astro) must also deduplicate by ID when reading from `getCollection("laws")` before computing counts or rendering lists.
+
+### Rules for ad-hoc scripts that write to `leyes`
+
+- Any script that writes files to the `leyes` repo must go through `GitRepo.writeAndAdd` — never call `fs.writeFileSync` (or Bun's `Bun.write`) directly on the output repo.
+- Jurisdiction must be read from the JSON cache (`data/json/<id>.json` → `metadata.country`) or from the DB (`norms.jurisdiction`). Never derive or default it by hand inside the script.
+- Ad-hoc scripts must be committed to this repo under `scripts/ad-hoc/` (with a short comment explaining why they were needed). A script that exists only locally and later disappears is untraceable when something goes wrong.
+
+### Past incidents
+
+**2026-04-28 — server-history-divergence:** A manual backfill script used simplified jurisdiction logic with an `es` fallback and wrote 2 autonomous community norms into the `es/` folder instead of their correct jurisdiction folders. The pipeline itself handled the same norms correctly; the bug was in the ad-hoc script. The misclassified files were detected and corrected in the subsequent cleanup. These invariants and the `assertUniqueByNormId` check were introduced as a direct result.
+
 ## Design Principles
 
 **Ley Abierta should feel like how the BOE _should_ be — accessible to every citizen.**

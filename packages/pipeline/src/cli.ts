@@ -20,7 +20,11 @@ import type {
 	Reform,
 	Version,
 } from "./models.ts";
-import { commitNormsChronologically, fetchNorm } from "./pipeline.ts";
+import {
+	assertUniqueByNormId,
+	commitNormsChronologically,
+	fetchNorm,
+} from "./pipeline.ts";
 import { BoeClient } from "./spain/boe-client.ts";
 import { StateStore } from "./utils/state-store.ts";
 
@@ -273,7 +277,16 @@ async function bootstrap() {
 		state.setLastBoeUpdate(maxFechaActualizacion);
 	}
 
+	// Persist state BEFORE the invariant check. If the assert throws, the
+	// commits are already in the repo (irreversible without manual git ops),
+	// and the state correctly reflects that those norms were processed. The
+	// next run can then focus on fixing the duplicate rather than re-fetching.
 	await state.save();
+
+	// Post-bootstrap sanity: each norm ID must live in exactly one
+	// jurisdiction folder. Caught here surfaces both bugs in this run and
+	// pre-existing duplicates introduced out-of-band (e.g., ad-hoc scripts).
+	await assertUniqueByNormId(OUTPUT_DIR);
 
 	const totalElapsed = (Date.now() - startTime) / 1000;
 	const stats = state.stats;
@@ -388,6 +401,11 @@ async function rebuild() {
 			}
 		},
 	);
+
+	// Same invariant check as bootstrap. Rebuild is even more prone to
+	// duplicates if the JSON cache and repo state disagree, so the assert
+	// runs here too — after all commits are in place.
+	await assertUniqueByNormId(repoPath);
 
 	const elapsed = (Date.now() - startTime) / 1000;
 	console.log(`\n─── Rebuild Summary ───`);

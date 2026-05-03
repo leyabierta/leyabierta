@@ -6,6 +6,8 @@
  * via the registry.
  */
 
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import type {
 	LegislativeClient,
 	MetadataParser,
@@ -222,7 +224,71 @@ export async function commitNormsChronologically(
 		}
 	}
 
+	// Note: the post-bootstrap `assertUniqueByNormId` invariant check is the
+	// caller's responsibility — it must be called AFTER persisting state, not
+	// here. Otherwise a thrown assertion would leave commits made but state
+	// unpersisted, causing the next run to re-fetch everything.
 	return commitsCreated;
+}
+
+/**
+ * Scan all `<jurisdiction>/<id>.md` files in repoPath and assert that each
+ * norm ID appears in exactly one jurisdiction folder.
+ *
+ * Called at the end of commitNormsChronologically as a post-bootstrap sanity
+ * check. If the repo is already inconsistent (e.g., due to a manual backfill
+ * script), this surfaces all conflicts at once instead of silently proceeding.
+ *
+ * Throws with a full list of conflicts if any norm ID appears in more than one
+ * jurisdiction folder. Does nothing when the repo is clean.
+ */
+export async function assertUniqueByNormId(repoPath: string): Promise<void> {
+	/** norm ID → list of jurisdictions where it was found */
+	const seen = new Map<string, string[]>();
+
+	if (!existsSync(repoPath)) return;
+
+	// Each top-level directory that looks like a jurisdiction folder
+	let entries: string[];
+	try {
+		entries = readdirSync(repoPath);
+	} catch {
+		return;
+	}
+
+	const JURISDICTION_RE = /^es(?:-[a-z]{2})?$/;
+
+	for (const entry of entries) {
+		if (!JURISDICTION_RE.test(entry)) continue;
+		const dirPath = join(repoPath, entry);
+		let files: string[];
+		try {
+			files = readdirSync(dirPath);
+		} catch {
+			continue;
+		}
+		for (const file of files) {
+			if (!file.endsWith(".md")) continue;
+			const normId = file.slice(0, -3); // strip .md
+			const existing = seen.get(normId) ?? [];
+			existing.push(entry);
+			seen.set(normId, existing);
+		}
+	}
+
+	const conflicts: string[] = [];
+	for (const [normId, jurisdictions] of seen) {
+		if (jurisdictions.length > 1) {
+			conflicts.push(`  ${normId}: found in [${jurisdictions.join(", ")}]`);
+		}
+	}
+
+	if (conflicts.length > 0) {
+		throw new Error(
+			`assertUniqueByNormId: ${conflicts.length} norm(s) exist in multiple jurisdiction folders.\n` +
+				conflicts.join("\n"),
+		);
+	}
 }
 
 /**

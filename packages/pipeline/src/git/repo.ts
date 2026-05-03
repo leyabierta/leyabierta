@@ -42,6 +42,34 @@ function cleanEnv(extra?: Record<string, string>): Record<string, string> {
 import type { CommitInfo } from "../models.ts";
 import { formatCommitMessage } from "./message.ts";
 
+/**
+ * All known Spanish ELI jurisdiction folders in the leyes repo.
+ * Used by writeAndAdd to detect cross-jurisdiction duplicates.
+ */
+const SPAIN_JURISDICTIONS = [
+	"es",
+	"es-an",
+	"es-ar",
+	"es-as",
+	"es-cb",
+	"es-cl",
+	"es-cm",
+	"es-cn",
+	"es-ct",
+	"es-ex",
+	"es-ga",
+	"es-ib",
+	"es-mc",
+	"es-md",
+	"es-nc",
+	"es-pv",
+	"es-ri",
+	"es-vc",
+] as const;
+
+/** Regex that matches `<jurisdiction>/<normId>.md` paths. */
+const NORM_PATH_RE = /^(es(?:-[a-z]{2})?)\/([A-Z][^/]+)\.md$/;
+
 export class GitRepo {
 	private existingCommits: Set<string> | null = null;
 
@@ -153,6 +181,33 @@ export class GitRepo {
 
 	writeAndAdd(relPath: string, content: string): boolean {
 		const filePath = join(this.path, relPath);
+
+		// ── Pre-write invariant: same norm ID must not exist in another
+		// jurisdiction folder. Skipped when relPath already exists — that path
+		// is the canonical location for this norm and an update there is fine
+		// even if a stale duplicate sits in another folder (the operator can
+		// clean that up separately without blocking legitimate updates).
+		if (!existsSync(filePath)) {
+			const match = NORM_PATH_RE.exec(relPath);
+			if (match) {
+				const jurisdiction = match[1]!;
+				const normId = match[2]!;
+				for (const other of SPAIN_JURISDICTIONS) {
+					if (other === jurisdiction) continue;
+					const candidate = join(this.path, other, `${normId}.md`);
+					if (existsSync(candidate)) {
+						const otherRel = `${other}/${normId}.md`;
+						throw new Error(
+							`Refusing to write ${relPath}: same id "${normId}" already exists at ${candidate}. ` +
+								`A norm must live in exactly one jurisdiction folder. ` +
+								`To resolve, decide which is canonical and remove the other: ` +
+								`git -C ${this.path} rm ${otherRel}  (or)  git -C ${this.path} rm ${relPath}`,
+						);
+					}
+				}
+			}
+		}
+
 		mkdirSync(dirname(filePath), { recursive: true });
 
 		if (existsSync(filePath)) {
