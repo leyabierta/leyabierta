@@ -5,9 +5,15 @@ interface Props {
 	title: string;
 	description: string;
 	canonicalUrl: string;
+	kicker?: string;
 }
 
-const { title, description, canonicalUrl } = Astro.props;
+const {
+	title,
+	description,
+	canonicalUrl,
+	kicker = "Información legal · Ley Abierta",
+} = Astro.props;
 ---
 
 <Base title={title} description={description} canonicalUrl={canonicalUrl}>
@@ -53,7 +59,7 @@ const { title, description, canonicalUrl } = Astro.props;
 	</style>
 
 	<div class="legal-wrap prose">
-		<p class="legal-kicker">Información legal · Ley Abierta</p>
+		<p class="legal-kicker">{kicker}</p>
 		<slot />
 	</div>
 </Base>

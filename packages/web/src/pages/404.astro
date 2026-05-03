@@ -93,6 +93,11 @@ import Base from "../layouts/Base.astro";
 			background: var(--accent-light);
 			border-color: var(--accent-light);
 		}
+		/* Dark mode: --accent-light is light blue (#8bbce6); white text on it
+		   gives ~3.2:1 contrast, below WCAG AA 4.5:1. Switch to dark text. */
+		:global(:root[data-theme="dark"]) .notfound-btn:hover {
+			color: var(--text);
+		}
 
 		/* Secondary action — back to home */
 		.notfound-back {
@@ -143,7 +148,6 @@ import Base from "../layouts/Base.astro";
 				name="q"
 				placeholder="Buscar entre las leyes de España..."
 				aria-label="Buscar leyes"
-				autocomplete="off"
 			/>
 			<button class="notfound-btn" type="submit">Buscar</button>
 		</form>
