@@ -1,5 +1,5 @@
 ---
-import Base from "../../layouts/Base.astro";
+import Base from "../../../layouts/Base.astro";
 ---
 
 <Base
@@ -278,15 +278,9 @@ import Base from "../../layouts/Base.astro";
 				return dt.getDate() + " " + months[dt.getMonth()] + " " + dt.getFullYear();
 			}
 
-			// Read normId from path: /cambios/{normId}?date=...
-			var pathParts = window.location.pathname.split("/").filter(Boolean);
-			// pathParts = ["cambios", normId]
-			var normId = pathParts[pathParts.length - 1] || "";
-			// Fallback to query param for backwards compat
+			// Read normId from query param: /cambios/reforma/?id=...&date=...
 			var qParams = new URLSearchParams(window.location.search);
-			if (!normId || normId === "cambios") {
-				normId = qParams.get("id") || "";
-			}
+			var normId = qParams.get("id") || "";
 			var date = qParams.get("date");
 			var topicParam = qParams.get("topic");
 			var topicIndex = topicParam !== null ? parseInt(topicParam, 10) : NaN;
