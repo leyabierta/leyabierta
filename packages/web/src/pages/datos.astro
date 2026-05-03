@@ -48,7 +48,7 @@ import Base from "../layouts/Base.astro";
 				<div class="card">
 					<div class="card-head">
 						<span class="card-mono">llms.txt</span>
-						<a href="/llms.txt" class="card-link" target="_blank">Ver archivo →</a>
+						<a href="/llms.txt" class="card-link" target="_blank" rel="noopener">Ver archivo →</a>
 					</div>
 					<p class="card-body">
 						Descripción concisa del proyecto, páginas principales y endpoints de la API.
@@ -58,7 +58,7 @@ import Base from "../layouts/Base.astro";
 				<div class="card">
 					<div class="card-head">
 						<span class="card-mono">llms-full.txt</span>
-						<a href="/llms-full.txt" class="card-link" target="_blank">Ver archivo →</a>
+						<a href="/llms-full.txt" class="card-link" target="_blank" rel="noopener">Ver archivo →</a>
 					</div>
 					<p class="card-body">
 						Documentación extendida con referencia completa de la API, cobertura por
@@ -133,7 +133,7 @@ import Base from "../layouts/Base.astro";
 				<div class="snippet-item">
 					<p class="snippet-label">Ver el texto de una ley en un commit concreto</p>
 					<div class="code-block">
-						<button class="copy-btn" data-copy="git show <sha> es/BOE-A-1978-31229.md" aria-label="Copiar comando">Copiar</button>
+						<button class="copy-btn" data-copy="git show &lt;sha&gt; es/BOE-A-1978-31229.md" aria-label="Copiar comando">Copiar</button>
 						<pre><code>git show &lt;sha&gt; es/BOE-A-1978-31229.md</code></pre>
 					</div>
 				</div>
@@ -234,7 +234,7 @@ import Base from "../layouts/Base.astro";
 				<div class="feed-item">
 					<div class="feed-head">
 						<span class="feed-name">Reformas recientes</span>
-						<a href="/feed.xml" class="feed-url" target="_blank">/feed.xml</a>
+						<a href="/feed.xml" class="feed-url" target="_blank" rel="noopener">/feed.xml</a>
 					</div>
 					<p class="feed-desc">
 						Todas las reformas procesadas, ordenadas por fecha. Compatible con cualquier
@@ -249,7 +249,7 @@ import Base from "../layouts/Base.astro";
 				<div class="feed-item">
 					<div class="feed-head">
 						<span class="feed-name">Leyes ómnibus</span>
-						<a href="/feed-omnibus.xml" class="feed-url" target="_blank">/feed-omnibus.xml</a>
+						<a href="/feed-omnibus.xml" class="feed-url" target="_blank" rel="noopener">/feed-omnibus.xml</a>
 					</div>
 					<p class="feed-desc">
 						Feed específico para leyes que modifican múltiples normas simultáneamente,
