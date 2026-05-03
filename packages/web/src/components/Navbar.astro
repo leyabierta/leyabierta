@@ -10,7 +10,7 @@
 const pathname = Astro.url.pathname;
 
 function isActive(href: string): boolean {
-	if (href === "/leyes/" || href === "/") {
+	if (href === "/") {
 		return pathname === "/" || pathname.startsWith("/leyes");
 	}
 	return pathname.startsWith(href.replace(/\/$/, ""));
@@ -72,31 +72,31 @@ function isActive(href: string): boolean {
 		</button>
 
 		<!-- Nav links + items mobile expandidos -->
-		<div class="nav-links" id="nav-links" role="navigation">
+		<div class="nav-links" id="nav-links">
 			<!-- Links principales -->
 			<ul class="nav-items" role="list">
 				<li>
-					<a href="/" class:list={["nav-link", { "nav-active": isActive("/") }]}>
+					<a href="/" aria-current={isActive("/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/") }]}>
 						Leyes
 					</a>
 				</li>
 				<li>
-					<a href="/pregunta/" class:list={["nav-link", { "nav-active": isActive("/pregunta/") }]}>
+					<a href="/pregunta/" aria-current={isActive("/pregunta/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/pregunta/") }]}>
 						Pregunta
 					</a>
 				</li>
 				<li>
-					<a href="/cambios/" class:list={["nav-link", { "nav-active": isActive("/cambios/") }]}>
+					<a href="/cambios/" aria-current={isActive("/cambios/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/cambios/") }]}>
 						Cambios
 					</a>
 				</li>
 				<li>
-					<a href="/datos/" class:list={["nav-link", { "nav-active": isActive("/datos/") }]}>
+					<a href="/datos/" aria-current={isActive("/datos/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/datos/") }]}>
 						Datos
 					</a>
 				</li>
 				<li>
-					<a href="/sobre/" class:list={["nav-link", { "nav-active": isActive("/sobre/") }]}>
+					<a href="/sobre/" aria-current={isActive("/sobre/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/sobre/") }]}>
 						Sobre
 					</a>
 				</li>
@@ -404,6 +404,15 @@ function isActive(href: string): boolean {
 				navLinks.classList.remove("open");
 				menuBtn.setAttribute("aria-expanded", "false");
 				menuBtn.setAttribute("aria-label", "Abrir menú");
+			}
+		});
+		// Close menu on Escape key (returns focus to toggle button)
+		document.addEventListener("keydown", function (e) {
+			if (e.key === "Escape" && navLinks.classList.contains("open")) {
+				navLinks.classList.remove("open");
+				menuBtn.setAttribute("aria-expanded", "false");
+				menuBtn.setAttribute("aria-label", "Abrir menú");
+				menuBtn.focus();
 			}
 		});
 	}
