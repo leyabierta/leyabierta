@@ -1,0 +1,455 @@
+---
+/**
+ * Navbar global — 5 items + buscador inline + CTA "Suscribirme"
+ * Sprint 1 del mega-plan (2026-05-03)
+ *
+ * Desktop: logo | Leyes Pregunta Cambios Datos Sobre | [buscador] [Suscribirme] [tema]
+ * Mobile:  logo | [hamburguesa] → menú colapsado + buscador en segunda fila
+ */
+
+const pathname = Astro.url.pathname;
+
+function isActive(href: string): boolean {
+	if (href === "/") {
+		return pathname === "/" || pathname.startsWith("/leyes");
+	}
+	return pathname.startsWith(href.replace(/\/$/, ""));
+}
+---
+
+<header class="site-header">
+	<nav class="nav-inner" aria-label="Principal">
+		<!-- Logo -->
+		<a href="/" class="logo" aria-label="Ley Abierta — Inicio">
+			<picture>
+				<source srcset="/logo-full.webp" type="image/webp" />
+				<img
+					src="/logo-full.png"
+					alt="Ley Abierta"
+					width="258"
+					height="40"
+					fetchpriority="high"
+				/>
+			</picture>
+		</a>
+
+		<!-- Buscador inline (desktop: siempre visible; mobile: en segunda fila) -->
+		<form class="nav-search" action="/leyes/" method="get" role="search">
+			<label for="nav-q" class="sr-only">Buscar leyes</label>
+			<div class="nav-search-wrap">
+				<svg class="nav-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<circle cx="11" cy="11" r="8"/>
+					<line x1="21" y1="21" x2="16.65" y2="16.65"/>
+				</svg>
+				<input
+					id="nav-q"
+					name="q"
+					type="search"
+					placeholder="Buscar leyes..."
+					autocomplete="off"
+					class="nav-search-input"
+				/>
+			</div>
+		</form>
+
+		<!-- CTA desktop (visible ≥768px) -->
+		<a href="/alertas/" class="nav-cta-desktop btn">Suscribirme</a>
+
+		<!-- Botón tema (desktop) -->
+		<button id="theme-toggle" class="theme-toggle theme-toggle-desktop" type="button" aria-label="Cambiar tema"></button>
+
+		<!-- Hamburguesa mobile -->
+		<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="nav-links">
+			<svg class="menu-icon-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+				<line x1="3" y1="6" x2="21" y2="6"/>
+				<line x1="3" y1="12" x2="21" y2="12"/>
+				<line x1="3" y1="18" x2="21" y2="18"/>
+			</svg>
+			<svg class="menu-icon-close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+				<line x1="18" y1="6" x2="6" y2="18"/>
+				<line x1="6" y1="6" x2="18" y2="18"/>
+			</svg>
+		</button>
+
+		<!-- Nav links + items mobile expandidos -->
+		<div class="nav-links" id="nav-links">
+			<!-- Links principales -->
+			<ul class="nav-items" role="list">
+				<li>
+					<a href="/" aria-current={isActive("/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/") }]}>
+						Leyes
+					</a>
+				</li>
+				<li>
+					<a href="/pregunta/" aria-current={isActive("/pregunta/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/pregunta/") }]}>
+						Pregunta
+					</a>
+				</li>
+				<li>
+					<a href="/cambios/" aria-current={isActive("/cambios/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/cambios/") }]}>
+						Cambios
+					</a>
+				</li>
+				<li>
+					<a href="/datos/" aria-current={isActive("/datos/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/datos/") }]}>
+						Datos
+					</a>
+				</li>
+				<li>
+					<a href="/sobre/" aria-current={isActive("/sobre/") ? "page" : undefined} class:list={["nav-link", { "nav-active": isActive("/sobre/") }]}>
+						Sobre
+					</a>
+				</li>
+			</ul>
+
+			<!-- Mobile: buscador en menú expandido -->
+			<form class="nav-search-mobile" action="/leyes/" method="get" role="search">
+				<label for="nav-q-mobile" class="sr-only">Buscar leyes</label>
+				<div class="nav-search-wrap">
+					<svg class="nav-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<circle cx="11" cy="11" r="8"/>
+						<line x1="21" y1="21" x2="16.65" y2="16.65"/>
+					</svg>
+					<input
+						id="nav-q-mobile"
+						name="q"
+						type="search"
+						placeholder="Buscar leyes..."
+						autocomplete="off"
+						class="nav-search-input"
+					/>
+				</div>
+			</form>
+
+			<!-- Mobile: CTA + tema -->
+			<div class="nav-mobile-footer">
+				<a href="/alertas/" class="btn nav-cta-mobile">Suscribirme</a>
+				<button id="theme-toggle-mobile" class="theme-toggle" type="button" aria-label="Cambiar tema"></button>
+			</div>
+		</div>
+	</nav>
+</header>
+
+<style>
+	/* ── Header shell ── */
+	.site-header {
+		border-bottom: 1px solid var(--border);
+		background: var(--surface);
+		position: sticky;
+		top: 0;
+		z-index: 100;
+	}
+
+	/* ── Inner nav row ── */
+	.nav-inner {
+		max-width: 72rem;
+		margin: 0 auto;
+		padding: 0 1.25rem;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		height: 56px;
+	}
+
+	/* ── Logo ── */
+	.logo {
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+	}
+	.logo:hover { opacity: 0.85; text-decoration: none; }
+	.logo img { height: 32px; width: auto; }
+	:global(:root[data-theme="dark"]) .logo img {
+		filter: brightness(0) invert(1);
+	}
+
+	/* ── Nav items list (desktop: horizontal) ── */
+	.nav-links {
+		display: flex;
+		align-items: center;
+		gap: 0.125rem;
+		margin-left: 0.5rem;
+	}
+
+	.nav-items {
+		display: flex;
+		align-items: center;
+		gap: 0.125rem;
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.nav-link {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.8125rem;
+		font-family: var(--font-sans);
+		font-weight: 500;
+		color: var(--text-muted);
+		letter-spacing: 0.01em;
+		padding: 0.35rem 0.625rem;
+		border-radius: 6px;
+		transition: color 0.15s ease-out, background 0.15s ease-out;
+		white-space: nowrap;
+		text-decoration: none;
+	}
+	.nav-link:hover {
+		color: var(--accent);
+		background: var(--accent-faint);
+		text-decoration: none;
+	}
+	.nav-active {
+		color: var(--accent) !important;
+		background: var(--accent-bg) !important;
+		font-weight: 600;
+	}
+
+	/* ── Search (desktop) ── */
+	.nav-search {
+		margin-left: auto;
+		flex-shrink: 1;
+		min-width: 0;
+	}
+	.nav-search-wrap {
+		position: relative;
+		display: flex;
+		align-items: center;
+	}
+	.nav-search-icon {
+		position: absolute;
+		left: 0.625rem;
+		color: var(--text-muted);
+		pointer-events: none;
+		flex-shrink: 0;
+	}
+	.nav-search-input {
+		height: 34px;
+		width: 180px;
+		padding: 0 0.75rem 0 2.1rem;
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		background: var(--bg);
+		color: var(--text);
+		font-family: var(--font-sans);
+		font-size: 0.8125rem;
+		line-height: 1;
+		transition: border-color 0.15s ease-out, width 0.2s ease-out, box-shadow 0.15s ease-out;
+		outline: none;
+	}
+	.nav-search-input::placeholder { color: var(--text-muted); }
+	.nav-search-input:focus {
+		border-color: var(--accent);
+		width: 220px;
+		box-shadow: 0 0 0 2px var(--accent-bg);
+	}
+
+	/* ── CTA desktop ── */
+	.nav-cta-desktop {
+		flex-shrink: 0;
+		font-size: 0.8125rem;
+		padding: 0.375rem 0.875rem;
+		white-space: nowrap;
+	}
+
+	/* ── Theme toggle ── */
+	.theme-toggle {
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		color: var(--text-muted);
+		cursor: pointer;
+		line-height: 1;
+		padding: 0.35rem 0.4rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: color 0.15s ease-out, border-color 0.15s ease-out;
+	}
+	.theme-toggle:hover {
+		color: var(--accent);
+		border-color: var(--accent);
+	}
+
+	/* ── Hamburger ── */
+	.menu-toggle {
+		display: none;
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		color: var(--text-muted);
+		cursor: pointer;
+		width: 2.5rem;
+		height: 2.5rem;
+		padding: 0;
+		margin-left: auto;
+		align-items: center;
+		justify-content: center;
+		transition: color 0.15s ease-out, border-color 0.15s ease-out;
+		flex-shrink: 0;
+	}
+	.menu-toggle:hover { color: var(--accent); border-color: var(--accent); }
+	.menu-icon-close { display: none; }
+	.menu-toggle[aria-expanded="true"] .menu-icon-open { display: none; }
+	.menu-toggle[aria-expanded="true"] .menu-icon-close { display: block; }
+
+	/* ── Mobile: search in menu + footer ── */
+	.nav-search-mobile { display: none; }
+	.nav-mobile-footer { display: none; }
+
+	/* ── Responsive ── */
+	@media (max-width: 767px) {
+		.nav-inner {
+			height: auto;
+			min-height: 56px;
+			flex-wrap: wrap;
+			padding: 0.5rem 1rem;
+			gap: 0.5rem;
+		}
+
+		/* Ocultar buscador desktop + CTA desktop + tema desktop */
+		.nav-search { display: none; }
+		.nav-cta-desktop { display: none; }
+		.theme-toggle-desktop { display: none; }
+
+		/* Mostrar hamburguesa */
+		.menu-toggle { display: inline-flex; }
+
+		/* Menú colapsado por defecto */
+		.nav-links {
+			display: none;
+			width: 100%;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0;
+			margin-left: 0;
+			border-top: 1px solid var(--border);
+			padding: 0.5rem 0 0.75rem;
+		}
+		.nav-links.open { display: flex; }
+
+		/* Items en columna */
+		.nav-items {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0.125rem;
+			width: 100%;
+		}
+		.nav-link {
+			padding: 0.625rem 0.75rem;
+			font-size: 0.875rem;
+			min-height: 2.5rem;
+			border-radius: 8px;
+			width: 100%;
+		}
+
+		/* Buscador mobile (en menú) */
+		.nav-search-mobile {
+			display: block;
+			margin: 0.5rem 0 0;
+			padding: 0;
+		}
+		.nav-search-mobile .nav-search-input {
+			width: 100%;
+		}
+		.nav-search-mobile .nav-search-input:focus {
+			width: 100%;
+		}
+
+		/* CTA + tema en pie del menú */
+		.nav-mobile-footer {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+			margin-top: 0.75rem;
+			padding-top: 0.75rem;
+			border-top: 1px solid var(--border);
+		}
+		.nav-cta-mobile {
+			flex: 1;
+			justify-content: center;
+			font-size: 0.875rem;
+		}
+	}
+
+	/* ── Accessibility ── */
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+</style>
+
+<script is:inline>
+(function () {
+	// Hamburger toggle
+	var menuBtn = document.getElementById("menu-toggle");
+	var navLinks = document.getElementById("nav-links");
+	if (menuBtn && navLinks) {
+		menuBtn.addEventListener("click", function () {
+			var isOpen = navLinks.classList.toggle("open");
+			menuBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+			menuBtn.setAttribute("aria-label", isOpen ? "Cerrar menú" : "Abrir menú");
+		});
+		// Close menu on outside click
+		document.addEventListener("click", function (e) {
+			if (!menuBtn.contains(e.target) && !navLinks.contains(e.target)) {
+				navLinks.classList.remove("open");
+				menuBtn.setAttribute("aria-expanded", "false");
+				menuBtn.setAttribute("aria-label", "Abrir menú");
+			}
+		});
+		// Close menu on Escape key (returns focus to toggle button)
+		document.addEventListener("keydown", function (e) {
+			if (e.key === "Escape" && navLinks.classList.contains("open")) {
+				navLinks.classList.remove("open");
+				menuBtn.setAttribute("aria-expanded", "false");
+				menuBtn.setAttribute("aria-label", "Abrir menú");
+				menuBtn.focus();
+			}
+		});
+	}
+
+	// Theme toggle (desktop)
+	var themeBtnDesktop = document.getElementById("theme-toggle");
+	// Theme toggle (mobile)
+	var themeBtnMobile = document.getElementById("theme-toggle-mobile");
+
+	var sunSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+	var moonSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+	function isDark() {
+		return localStorage.getItem("theme") === "dark";
+	}
+
+	function updateIcons() {
+		var icon = isDark() ? sunSvg : moonSvg;
+		if (themeBtnDesktop) themeBtnDesktop.innerHTML = icon;
+		if (themeBtnMobile) themeBtnMobile.innerHTML = icon;
+	}
+
+	function toggleTheme() {
+		if (isDark()) {
+			document.documentElement.removeAttribute("data-theme");
+			localStorage.removeItem("theme");
+		} else {
+			document.documentElement.setAttribute("data-theme", "dark");
+			localStorage.setItem("theme", "dark");
+		}
+		updateIcons();
+	}
+
+	if (themeBtnDesktop) themeBtnDesktop.addEventListener("click", toggleTheme);
+	if (themeBtnMobile) themeBtnMobile.addEventListener("click", toggleTheme);
+	updateIcons();
+
+	window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", updateIcons);
+})();
+</script>
