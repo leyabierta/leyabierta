@@ -37,7 +37,10 @@ function installWindow(umami?: UmamiStub) {
 			return 0 as unknown as ReturnType<typeof setTimeout>;
 		},
 		clearTimeout: () => undefined,
-		location: { hostname: "leyabierta.es", pathname: "/laws/BOE-A-1978-31229" },
+		location: {
+			hostname: "leyabierta.es",
+			pathname: "/leyes/BOE-A-1978-31229",
+		},
 		screen: { width: 1920, height: 1080 },
 	};
 	(globalThis as { window?: unknown }).window = win;

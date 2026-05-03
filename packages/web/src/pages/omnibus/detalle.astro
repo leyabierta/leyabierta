@@ -11,7 +11,7 @@ import Base from "../../layouts/Base.astro";
 			var params = new URLSearchParams(window.location.search);
 			var normId = params.get("id") || "";
 			if (normId) {
-				window.location.replace("/laws/" + encodeURIComponent(normId) + "/");
+				window.location.replace("/leyes/" + encodeURIComponent(normId) + "/");
 			} else {
 				window.location.replace("/omnibus/");
 			}
