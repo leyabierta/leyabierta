@@ -1,0 +1,206 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Cambios legislativos"
+	description="El seguimiento de las novedades legislativas en España: recientes, multitemáticas y personalizadas."
+	ogTitle="Cambios legislativos — Ley Abierta"
+	canonicalUrl="/cambios/"
+>
+	<style is:global>
+		.hub-wrap {
+			max-width: 720px;
+			margin: 0 auto;
+			padding: 0 1rem 4rem;
+		}
+
+		/* ── Header ── */
+		.hub-header {
+			margin-bottom: 2.5rem;
+			padding-bottom: 2rem;
+			border-bottom: 1px solid var(--border);
+		}
+		.hub-header h1 {
+			font-family: var(--font-serif);
+			font-size: 2.25rem;
+			font-weight: 700;
+			line-height: 1.15;
+			color: var(--text);
+			margin-bottom: 0.625rem;
+		}
+		.hub-header p {
+			color: var(--text-secondary);
+			font-size: 1rem;
+			line-height: 1.6;
+			max-width: 52ch;
+		}
+
+		/* ── Cards grid ── */
+		.hub-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 1rem;
+			margin-bottom: 2rem;
+		}
+		@media (max-width: 560px) {
+			.hub-grid { grid-template-columns: 1fr; }
+			.hub-header h1 { font-size: 1.75rem; }
+		}
+
+		.hub-card {
+			display: block;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			padding: 1.5rem 1.5rem 1.25rem;
+			text-decoration: none;
+			transition: box-shadow 0.18s, border-color 0.18s;
+		}
+		.hub-card:hover {
+			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+			border-color: var(--border-medium);
+		}
+		.hub-card-icon {
+			width: 40px;
+			height: 40px;
+			border-radius: 10px;
+			background: var(--accent-bg);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			margin-bottom: 1rem;
+			font-size: 1.25rem;
+		}
+		.hub-card h2 {
+			font-family: var(--font-serif);
+			font-size: 1.125rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-bottom: 0.375rem;
+			line-height: 1.3;
+		}
+		.hub-card p {
+			color: var(--text-secondary);
+			font-size: 0.875rem;
+			line-height: 1.55;
+			margin-bottom: 0.75rem;
+		}
+		.hub-card-arrow {
+			font-size: 0.8125rem;
+			font-weight: 600;
+			color: var(--accent);
+		}
+
+		/* ── CTA de suscripción ── */
+		.hub-cta {
+			padding: 1.75rem 2rem;
+			background: var(--accent-bg-light);
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			display: flex;
+			align-items: center;
+			gap: 1.5rem;
+			flex-wrap: wrap;
+		}
+		.hub-cta-text h2 {
+			font-family: var(--font-serif);
+			font-size: 1.125rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-bottom: 0.25rem;
+		}
+		.hub-cta-text p {
+			color: var(--text-secondary);
+			font-size: 0.9rem;
+			line-height: 1.5;
+		}
+		.hub-cta-actions {
+			display: flex;
+			gap: 0.75rem;
+			flex-wrap: wrap;
+			flex-shrink: 0;
+		}
+		.btn-primary-hub {
+			display: inline-flex;
+			align-items: center;
+			background: var(--accent);
+			color: #fff;
+			border-radius: 8px;
+			padding: 0.625rem 1.25rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			text-decoration: none;
+			min-height: 44px;
+			white-space: nowrap;
+		}
+		.btn-primary-hub:hover {
+			opacity: 0.9;
+		}
+		.btn-secondary-hub {
+			display: inline-flex;
+			align-items: center;
+			background: transparent;
+			color: var(--accent);
+			border: 1px solid var(--accent);
+			border-radius: 8px;
+			padding: 0.625rem 1.25rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			text-decoration: none;
+			min-height: 44px;
+			white-space: nowrap;
+		}
+		.btn-secondary-hub:hover {
+			background: var(--accent-bg);
+		}
+	</style>
+
+	<div class="hub-wrap">
+		<div class="hub-header">
+			<h1>Cambios legislativos</h1>
+			<p>Sigue la actividad legislativa en España: últimas modificaciones, leyes con múltiples temas y los cambios que te afectan a ti.</p>
+		</div>
+
+		<div class="hub-grid">
+			<a href="/cambios/recientes/" class="hub-card">
+				<div class="hub-card-icon" aria-hidden="true">📋</div>
+				<h2>Recientes</h2>
+				<p>Las últimas modificaciones legislativas explicadas en lenguaje ciudadano.</p>
+				<span class="hub-card-arrow">Ver cambios recientes →</span>
+			</a>
+
+			<a href="/cambios/omnibus/" class="hub-card">
+				<div class="hub-card-icon" aria-hidden="true">📦</div>
+				<h2>Ómnibus</h2>
+				<p>Leyes que agrupan múltiples temas en una sola norma, desglosadas por categoría.</p>
+				<span class="hub-card-arrow">Ver leyes ómnibus →</span>
+			</a>
+
+			<a href="/cambios/mias/" class="hub-card">
+				<div class="hub-card-icon" aria-hidden="true">👤</div>
+				<h2>Los míos</h2>
+				<p>Solo los cambios que afectan a tu situación: trabajo, vivienda, familia y más.</p>
+				<span class="hub-card-arrow">Ver mis cambios →</span>
+			</a>
+
+			<a href="/alertas/" class="hub-card">
+				<div class="hub-card-icon" aria-hidden="true">🔔</div>
+				<h2>Alertas por email</h2>
+				<p>Recibe un aviso cuando cambien leyes que te importan. Sin spam.</p>
+				<span class="hub-card-arrow">Configurar alertas →</span>
+			</a>
+		</div>
+
+		<div class="hub-cta">
+			<div class="hub-cta-text">
+				<h2>¿Quieres saber qué te afecta a ti?</h2>
+				<p>Cuéntanos tu situación en 1 minuto y filtramos los cambios que importan.</p>
+			</div>
+			<div class="hub-cta-actions">
+				<a href="/cambios/mias/" class="btn-primary-hub">Empezar</a>
+				<a href="/alertas/" class="btn-secondary-hub">Suscribirme</a>
+			</div>
+		</div>
+	</div>
+</Base>

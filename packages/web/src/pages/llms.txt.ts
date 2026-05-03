@@ -27,7 +27,7 @@ export const GET: APIRoute = async () => {
 ## Páginas principales
 - [Inicio](https://leyabierta.es/): Buscador de leyes, estadísticas, últimas reformas
 - [Cambios legislativos](https://leyabierta.es/cambios/): Cronología de reformas recientes con resúmenes
-- [Leyes ómnibus](https://leyabierta.es/omnibus/): Detección de leyes que modifican múltiples normas
+- [Leyes ómnibus](https://leyabierta.es/cambios/omnibus/): Detección de leyes que modifican múltiples normas
 - [Alertas](https://leyabierta.es/alertas/): Suscripción a notificaciones por temas y jurisdicción
 - [Sobre Ley Abierta](https://leyabierta.es/sobre-leyabierta/): Misión, datos, metodología
 

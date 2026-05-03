@@ -1,12 +1,12 @@
 ---
-import Base from "../layouts/Base.astro";
+import Base from "../../layouts/Base.astro";
 ---
 
 <Base
 	title="Mis cambios legislativos"
 	description="Los cambios legislativos que afectan a tu situación personal."
 	ogTitle="Mis cambios — Ley Abierta"
-	canonicalUrl="/mis-cambios/"
+	canonicalUrl="/cambios/mias/"
 >
 	<style is:global>
 		.cambios-wrap {
@@ -483,7 +483,7 @@ import Base from "../layouts/Base.astro";
 						html += '<h3 class="reform-title-fallback">' + esc(r.title) + '</h3>';
 					}
 
-					html += '<a href="/reforma?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
+					html += '<a href="/cambios/' + encodeURIComponent(r.id) + '?date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
 					html += '</div>';
 				}
 				return html;
