@@ -79,6 +79,9 @@ import Base from "../../layouts/Base.astro";
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
 					if (data.ok) {
+						if (window.la) {
+							window.la.track("digest_subscribe_success", { source: "email_confirm" });
+						}
 						el.innerHTML =
 							'<div class="confirm-icon success">&#10003;</div>' +
 							'<h1>Suscripción confirmada</h1>' +

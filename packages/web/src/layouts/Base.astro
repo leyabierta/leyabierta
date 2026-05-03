@@ -586,6 +586,13 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			data-cache="true"
 		/>
 	)}
+
+	<script>
+		// Bundled by Astro. Sets up window.la helpers, outbound-click delegation,
+		// and scroll-depth tracking. Runs on every page.
+		import { initAnalytics } from "../lib/analytics-init.ts";
+		initAnalytics();
+	</script>
 </head>
 <body>
 	<a href="#main" class="skip-to-content">Saltar al contenido</a>

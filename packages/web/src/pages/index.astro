@@ -935,6 +935,7 @@ const TOPICS = [
 			li.addEventListener("mouseleave", function () { highlightRegion(null); });
 			li.addEventListener("click", function () {
 				currentCountry = jur;
+				if (window.la) window.la.track("filter_applied", { kind: "jurisdiction", value: jur, source: "list" });
 				doSearch(1);
 			});
 		});
@@ -952,6 +953,7 @@ const TOPICS = [
 			path.addEventListener("mouseleave", function () { highlightRegion(null); });
 			path.addEventListener("click", function () {
 				currentCountry = this.dataset.region;
+				if (window.la) window.la.track("filter_applied", { kind: "jurisdiction", value: currentCountry, source: "map" });
 				doSearch(1);
 			});
 		});
@@ -1005,6 +1007,14 @@ const TOPICS = [
 
 			if (searchHints) searchHints.style.display = "none";
 
+			// Track first page only (avoid double-counting paginations as searches).
+			if (window.la && currentPage === 1 && q) {
+				window.la.track("search_submit", {
+					q_len: q.length,
+					has_jurisdiction: !!currentCountry,
+				});
+			}
+
 			var params = new URLSearchParams();
 			if (q) params.set("q", q);
 			if (currentCountry) params.set("jurisdiction", currentCountry);
@@ -1032,6 +1042,15 @@ const TOPICS = [
 				.then(function (r) { return r.json(); })
 				.then(function (result) {
 					if (result.data.length === 0) {
+						// Zero-results event: PII-filtered query.
+						if (window.la && q) {
+							var sanitized = window.la.sanitize(q);
+							window.la.track("search_zero_results", {
+								had_pii: sanitized.had_pii,
+								query: sanitized.query,
+								jurisdiction: currentCountry || null,
+							});
+						}
 						resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">No se encontraron resultados. Prueba con otro término.</div>';
 						return;
 					}
@@ -1098,6 +1117,19 @@ const TOPICS = [
 
 					resultsDiv.innerHTML = html;
 
+					// search_result_click: track which position the user clicked.
+					if (window.la) {
+						resultsDiv.querySelectorAll(".law-card .law-card-title").forEach(function (link, idx) {
+							link.addEventListener("click", function () {
+								window.la.track("search_result_click", {
+									position: offset + idx + 1,
+									law_id: (this.getAttribute("href") || "").replace(/\/laws\/|\/$/g, ""),
+									had_query: !!q,
+								});
+							});
+						});
+					}
+
 					resultsDiv.querySelectorAll(".page-num").forEach(function (el) {
 						el.style.cursor = "pointer";
 						el.addEventListener("click", function () { doSearch(Number(this.dataset.page)); });
@@ -1107,6 +1139,7 @@ const TOPICS = [
 					if (sortSelect) {
 						sortSelect.addEventListener("change", function () {
 							currentSort = this.value;
+							if (window.la) window.la.track("filter_applied", { kind: "sort", value: currentSort || "default" });
 							doSearch(1);
 						});
 					}
@@ -1115,6 +1148,7 @@ const TOPICS = [
 					if (clearBtn) {
 						clearBtn.addEventListener("click", function () {
 							currentCountry = "";
+							if (window.la) window.la.track("filter_applied", { kind: "jurisdiction_cleared" });
 							doSearch(1);
 						});
 					}
