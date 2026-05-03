@@ -71,7 +71,7 @@ function wireScrollDepthIfArticle() {
 	const path = window.location.pathname;
 	const isArticle =
 		/^\/leyes\/[^/]+\/?$/.test(path) ||
-		/^\/cambios\/[^/]+\/?$/.test(path) ||
+		/^\/cambios\/(?!recientes\/?$|mias\/?$|omnibus\/?$)[^/]+\/?$/.test(path) ||
 		/^\/cambios\/omnibus\/[^/]+\/?$/.test(path) ||
 		/^\/sobre-leyabierta\/?$/.test(path);
 	if (!isArticle) return;
