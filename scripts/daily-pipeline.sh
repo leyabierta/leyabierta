@@ -5,6 +5,25 @@
 # Usage: /opt/leyabierta/scripts/daily-pipeline.sh
 # Cron:  30 8 * * * /opt/leyabierta/scripts/daily-pipeline.sh
 
+# ── Self-update: pull latest version from the prod tag before doing anything ──
+# Runs BEFORE set -euo pipefail and BEFORE the lockfile so that even a stale
+# on-disk copy of this script can bootstrap itself to the current version.
+# LEYABIERTA_SELF_UPDATED=1 breaks the re-exec loop (set by child after update).
+SCRIPT_PATH="$(readlink -f "$0")"
+REPO_DIR=/opt/leyabierta/code
+SCRIPT_IN_REPO="$REPO_DIR/scripts/daily-pipeline.sh"
+
+if [ -z "${LEYABIERTA_SELF_UPDATED:-}" ] && [ -d "$REPO_DIR/.git" ]; then
+  if git -C "$REPO_DIR" fetch --quiet --tags origin 2>/dev/null \
+     && git -C "$REPO_DIR" rev-parse --verify --quiet refs/tags/prod >/dev/null \
+     && git -C "$REPO_DIR" reset --hard refs/tags/prod >/dev/null 2>&1; then
+    if [ -f "$SCRIPT_IN_REPO" ] && ! cmp -s "$SCRIPT_PATH" "$SCRIPT_IN_REPO"; then
+      export LEYABIERTA_SELF_UPDATED=1
+      exec "$SCRIPT_IN_REPO" "$@"
+    fi
+  fi
+fi
+
 LOG=/opt/leyabierta/logs/daily-pipeline.log
 CONTAINER=code-api-1
 ENV_FILE=/opt/leyabierta/code/.env.prod
@@ -29,13 +48,28 @@ set -euo pipefail
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $1" | tee -a "$LOG"; }
 
+# send_alert TITLE BODY — posts a JSON alert to ALERT_WEBHOOK_URL (non-fatal).
+# Uses printf %q for safe shell-quoting of the values into the JSON payload.
+# Falls back silently if ALERT_WEBHOOK_URL is unset or curl fails.
+send_alert() {
+  local title="$1" body="$2"
+  if [ -n "${ALERT_WEBHOOK_URL:-}" ]; then
+    curl -fsS --max-time 10 -X POST "$ALERT_WEBHOOK_URL" \
+      -H "Content-Type: application/json" \
+      -d "$(printf '{"title":%q,"body":%q,"host":"KonarServer"}' "$title" "$body")" \
+      >/dev/null 2>&1 || true
+  fi
+}
+
 # Extract ONLY the LEYES_PUSH_TOKEN from .env.prod for the push step. Avoid
 # `set -a; source ...` because that exports every secret in the file
 # (Resend, OpenRouter, ALERTS_SECRET, etc.) into the environment of every
 # subsequent `docker exec` call — much wider blast radius than necessary.
 if [ -r "$ENV_FILE" ]; then
   LEYES_PUSH_TOKEN=$(grep -E '^LEYES_PUSH_TOKEN=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
-  export LEYES_PUSH_TOKEN
+  BETTERSTACK_HEARTBEAT_URL=$(grep -E '^BETTERSTACK_HEARTBEAT_URL=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
+  ALERT_WEBHOOK_URL=$(grep -E '^ALERT_WEBHOOK_URL=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
+  export LEYES_PUSH_TOKEN BETTERSTACK_HEARTBEAT_URL ALERT_WEBHOOK_URL
 fi
 
 log "=== Daily pipeline started ==="
@@ -90,6 +124,7 @@ push_leyes() {
   if [ "$ahead" -gt "$DIVERGENCE_CEILING" ]; then
     log "  ✗ ABORT: local is ahead by $ahead (ceiling $DIVERGENCE_CEILING). Manual intervention required."
     log "    Investigate /opt/leyabierta/data/leyes before next run."
+    send_alert "leyes divergence ceiling exceeded" "ahead=$ahead ceiling=$DIVERGENCE_CEILING — manual intervention required"
     return 1
   fi
 
@@ -137,6 +172,7 @@ push_status=$?
 set -e
 if [ "$push_status" -ne 0 ]; then
   log "  ⚠ push failed (status $push_status). DB ingest + AI steps will continue."
+  send_alert "leyes push failed" "exit=$push_status — will retry in step 9"
 fi
 
 # ── Step 2: Ingest JSON → SQLite ────────────────────────────────────────────
@@ -187,7 +223,15 @@ if [ "$push_status" -ne 0 ]; then
   set -e
   if [ "$retry_status" -ne 0 ]; then
     log "  ⚠ retry also failed. Will retry on next daily run. Investigate logs."
+    send_alert "leyes push retry also failed" "exit=$retry_status — investigate logs at /opt/leyabierta/logs/daily-pipeline.log"
   fi
 fi
 
 log "=== Daily pipeline completed ==="
+
+# ── Heartbeat: signal successful completion to uptime monitor ────────────────
+if [ -n "${BETTERSTACK_HEARTBEAT_URL:-}" ]; then
+  curl -fsS --max-time 10 "$BETTERSTACK_HEARTBEAT_URL" >/dev/null 2>&1 \
+    && log "  ✓ heartbeat sent" \
+    || log "  ⚠ heartbeat failed (non-fatal)"
+fi
