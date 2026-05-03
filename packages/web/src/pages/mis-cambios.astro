@@ -595,6 +595,13 @@ import Base from "../layouts/Base.astro";
 				emailSubmit.textContent = "Enviando...";
 				emailError.style.display = "none";
 
+				if (window.la) {
+					window.la.track("digest_subscribe_attempt", {
+						jurisdiction: jurisdiccion || null,
+						answers_count: Object.keys(answersObj || {}).length,
+					});
+				}
+
 				fetch(API + "/v1/alerts/subscribe", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
