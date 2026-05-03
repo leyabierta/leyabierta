@@ -31,23 +31,34 @@ function parseRedirects(text: string): Rule[] {
 const rules = parseRedirects(REDIRECTS);
 
 describe("/_redirects: /laws/ → /leyes/ migration", () => {
-	test("splat rule maps /laws/* to /leyes/:splat/ in one hop", () => {
-		const rule = rules.find((r) => r.from === "/laws/*");
+	test("trailing-slash variant: /laws/:id/ → /leyes/:id/", () => {
+		const rule = rules.find((r) => r.from === "/laws/:id/");
 		expect(rule).toBeDefined();
-		expect(rule?.to).toBe("/leyes/:splat/");
+		expect(rule?.to).toBe("/leyes/:id/");
 		expect(rule?.status).toBe(301);
 	});
 
-	test("no legacy /laws/:id rule remains (would conflict with splat)", () => {
-		const legacy = rules.find((r) => r.from === "/laws/:id");
-		expect(legacy).toBeUndefined();
+	test("bare variant: /laws/:id → /leyes/:id/ (one hop, lands on canonical)", () => {
+		const rule = rules.find((r) => r.from === "/laws/:id");
+		expect(rule).toBeDefined();
+		expect(rule?.to).toBe("/leyes/:id/");
+		expect(rule?.status).toBe(301);
 	});
 
-	test("destination ends with trailing slash to avoid 2-hop chain", () => {
-		// trailingSlash: "always" in astro.config means /leyes/X would 301 to /leyes/X/
-		// The splat MUST land on the canonical /-terminated form directly.
-		const rule = rules.find((r) => r.from === "/laws/*");
-		expect(rule?.to.endsWith("/")).toBe(true);
+	test("no splat rule for /laws/ — would create double-slash for trailing-slash inputs", () => {
+		// /laws/* with input /laws/X/ would capture splat=X/ → destination /leyes/X//.
+		// Cloudflare normalizes typically, but explicit named-param rules are safer.
+		const splat = rules.find((r) => r.from === "/laws/*");
+		expect(splat).toBeUndefined();
+	});
+
+	test("both /laws/ rules land on /-terminated destination (no 2-hop chain)", () => {
+		// trailingSlash: "always" in astro.config means /leyes/X would 301 to /leyes/X/.
+		// Both migration rules must land on the canonical /-terminated form directly.
+		for (const from of ["/laws/:id", "/laws/:id/"]) {
+			const rule = rules.find((r) => r.from === from);
+			expect(rule?.to.endsWith("/")).toBe(true);
+		}
 	});
 });
 

@@ -70,7 +70,7 @@ function wireScrollDepthIfArticle() {
 	// Long-content pages: /leyes/<id>/, /reforma/, /omnibus/<id>/, /sobre-leyabierta/
 	const path = window.location.pathname;
 	const isArticle =
-		/^\/laws\/[^/]+\/?$/.test(path) ||
+		/^\/leyes\/[^/]+\/?$/.test(path) ||
 		/^\/reforma\/?$/.test(path) ||
 		/^\/omnibus\/[^/]+\/?$/.test(path) ||
 		/^\/sobre-leyabierta\/?$/.test(path);
@@ -101,7 +101,7 @@ function wireScrollDepthIfArticle() {
 		if (getComputedStyle(article).position === "static") {
 			(article as HTMLElement).style.position = "relative";
 		}
-		const lawId = path.match(/^\/laws\/([^/]+)\//)?.[1];
+		const lawId = path.match(/^\/leyes\/([^/]+)\//)?.[1];
 		initScrollDepth(sentinel, lawId ? { law_id: lawId } : undefined);
 	});
 }
