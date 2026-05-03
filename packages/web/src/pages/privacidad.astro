@@ -8,7 +8,7 @@ import Legal from "../layouts/Legal.astro";
 	canonicalUrl="/privacidad/"
 >
 		<h1>Política de privacidad</h1>
-		<p class="legal-updated">Última actualización: 2 de abril de 2026</p>
+		<p class="legal-updated">Última actualización: 3 de mayo de 2026</p>
 
 		<h2>Responsable del tratamiento</h2>
 		<p>
@@ -63,9 +63,9 @@ import Legal from "../layouts/Legal.astro";
 				</tr>
 				<tr>
 					<td>Datos de navegación agregados</td>
-					<td>Estadísticas anónimas del sitio (Cloudflare Web Analytics)</td>
-					<td>Interés legítimo (art. 6.1.f RGPD)</td>
-					<td>Agregados, sin datos personales</td>
+					<td>Estadísticas anónimas del sitio (Umami self-hosted)</td>
+					<td>Interés legítimo (art. 6.1.f RGPD); exención AEPD para analítica de medición de audiencia</td>
+					<td>25 meses (purga automática)</td>
 				</tr>
 			</tbody>
 		</table>
@@ -102,20 +102,33 @@ import Legal from "../layouts/Legal.astro";
 			datos con ningún otro tercero.
 		</p>
 
-		<h2>Analytics</h2>
+		<h2>Analítica</h2>
 		<p>
-			Utilizamos <strong>Cloudflare Web Analytics</strong>, un servicio de analítica que:
+			Utilizamos <strong>Umami</strong>, un servicio de analítica web open source
+			<strong>auto-alojado en nuestros servidores en Alemania</strong> (Hetzner, Frankfurt).
+			Umami se ha diseñado específicamente para respetar la privacidad:
 		</p>
 		<ul>
-			<li>No utiliza cookies.</li>
-			<li>No recoge direcciones IP ni datos personales.</li>
-			<li>No realiza seguimiento entre sitios.</li>
-			<li>Cumple con el RGPD sin necesidad de consentimiento.</li>
+			<li>No utiliza cookies ni almacenamiento local en tu navegador.</li>
+			<li>No recoge tu dirección IP (se hashea con un salt rotativo diario y se descarta).</li>
+			<li>No te identifica entre visitas ni te sigue en otros sitios web.</li>
+			<li>No usa fingerprinting, tag managers, heatmaps ni grabaciones de sesión.</li>
+			<li>No comparte datos con terceros: el procesamiento ocurre íntegramente en nuestros servidores.</li>
 		</ul>
 		<p>
-			Más información en la
-			<a href="https://www.cloudflare.com/web-analytics/" target="_blank" rel="noopener">documentación
-			de Cloudflare Web Analytics</a>.
+			Solo medimos páginas visitadas, país, navegador, dispositivo y referrer de forma
+			agregada y anónima, exclusivamente para mejorar el servicio. Los datos se conservan
+			un máximo de <strong>25 meses</strong> con purga automática.
+		</p>
+		<p>
+			Esta medición está <strong>exenta de consentimiento</strong> conforme a los criterios
+			de la AEPD para herramientas de medición de audiencia
+			(<a href="https://www.aepd.es/guias/guia-cookies.pdf" target="_blank" rel="noopener">Guía de cookies AEPD</a>;
+			<a href="https://www.aepd.es/guias/orientaciones-analitica-web-aapp.pdf" target="_blank" rel="noopener">Orientaciones para AAPP, febrero 2023</a>),
+			por lo que no mostramos banner de cookies.
+		</p>
+		<p>
+			Umami es <a href="https://github.com/umami-software/umami" target="_blank" rel="noopener">software libre con licencia MIT</a>.
 		</p>
 
 		<h2>Tus derechos</h2>
@@ -146,6 +159,11 @@ import Legal from "../layouts/Legal.astro";
 			El sitio web está alojado en <strong>Cloudflare</strong> (red global de distribución
 			de contenido). Cloudflare cumple con las cláusulas contractuales tipo de la Comisión
 			Europea para transferencias internacionales de datos.
+		</p>
+		<p>
+			Los datos analíticos (Umami) se procesan íntegramente en nuestros servidores en
+			<strong>Hetzner Online GmbH</strong> (Frankfurt, Alemania), dentro del Espacio
+			Económico Europeo. <strong>No hay transferencia internacional de datos analíticos.</strong>
 		</p>
 		<p>
 			El servicio de envío de emails (<strong>Resend, Inc.</strong>) tiene sede en Estados
