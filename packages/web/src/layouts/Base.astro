@@ -15,6 +15,13 @@ const SITE_URL = "https://leyabierta.es";
 const API_BASE = import.meta.env.PUBLIC_API_URL
 	?? (import.meta.env.DEV ? "http://localhost:3000" : "https://api.leyabierta.es");
 
+// Privacy-first analytics. Loaded only in production builds where the website
+// ID env var is set. The script itself is cookieless and AEPD-compliant for
+// analytics without consent. data-domains scopes events to leyabierta.es so
+// the same script (e.g. on a fork or local dev) does not pollute production.
+const UMAMI_WEBSITE_ID = import.meta.env.PUBLIC_UMAMI_WEBSITE_ID as string | undefined;
+const isProd = import.meta.env.PROD;
+
 const {
 	title,
 	description = "Legislación española consolidada, accesible para todos.",
@@ -568,6 +575,16 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			outline-offset: 2px;
 		}
 	</style>
+
+	{isProd && UMAMI_WEBSITE_ID && (
+		<script
+			defer
+			src="https://analytics.leyabierta.es/ley.js"
+			data-website-id={UMAMI_WEBSITE_ID}
+			data-domains="leyabierta.es"
+			data-cache="true"
+		/>
+	)}
 </head>
 <body>
 	<a href="#main" class="skip-to-content">Saltar al contenido</a>
