@@ -67,7 +67,7 @@ function wireOutboundClicks() {
 }
 
 function wireScrollDepthIfArticle() {
-	// Long-content pages: /laws/<id>/, /reforma/, /omnibus/<id>/, /sobre-leyabierta/
+	// Long-content pages: /leyes/<id>/, /reforma/, /omnibus/<id>/, /sobre-leyabierta/
 	const path = window.location.pathname;
 	const isArticle =
 		/^\/laws\/[^/]+\/?$/.test(path) ||

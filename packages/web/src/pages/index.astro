@@ -781,11 +781,11 @@ const TOPICS = [
 						</p>
 						<div class="explicame-sources">
 							<div class="explicame-sources-h">Basado en</div>
-							<a href="/laws/BOE-A-2023-12203/" class="explicame-source">
+							<a href="/leyes/BOE-A-2023-12203/" class="explicame-source">
 								<span class="explicame-source-title">Ley 12/2023 por el derecho a la vivienda</span>
 								<span class="explicame-source-ref">Art. 18 · BOE-A-2023-12203</span>
 							</a>
-							<a href="/laws/BOE-A-1994-26003/" class="explicame-source">
+							<a href="/leyes/BOE-A-1994-26003/" class="explicame-source">
 								<span class="explicame-source-title">Ley de Arrendamientos Urbanos</span>
 								<span class="explicame-source-ref">Art. 18 · BOE-A-1994-26003</span>
 							</a>
@@ -1090,13 +1090,13 @@ const TOPICS = [
 						var law = result.data[i];
 						html += '<article class="law-card">';
 						if (law.citizen_summary) {
-							html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
+							html += '<a href="/leyes/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
 							html += '<p class="law-card-official-title">' + esc(law.title) + '</p>';
 						} else {
 							if (law.short_title && law.short_title !== law.title && law.short_title.length > 25) {
 								html += '<span class="law-card-short-title">' + esc(law.short_title) + '</span>';
 							}
-							html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.title) + '</a>';
+							html += '<a href="/leyes/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.title) + '</a>';
 						}
 						html += '<div class="law-card-meta">';
 						html += '<span class="badge badge-' + esc(law.status) + '" style="text-transform:none">' + esc(STATUS_LABELS[law.status] || law.status) + '</span>';
@@ -1195,7 +1195,7 @@ const TOPICS = [
 				var pubYear = law.published_at ? parseInt(law.published_at.slice(0, 4), 10) : null;
 				var years = pubYear ? currentYear - pubYear : null;
 				html += '<li class="rank-item"><div class="rank-num">' + String(i + 1).padStart(2, "0") + '</div><div style="flex:1">';
-				html += '<a href="/laws/' + encodeURIComponent(law.id) + '/" class="rank-title">' + esc(law.title.length > 60 ? law.title.slice(0, 57) + "..." : law.title) + '</a>';
+				html += '<a href="/leyes/' + encodeURIComponent(law.id) + '/" class="rank-title">' + esc(law.title.length > 60 ? law.title.slice(0, 57) + "..." : law.title) + '</a>';
 				html += '<div class="rank-meta"><span class="rank-reforms">' + law.reform_count + ' reformas</span>';
 				if (years) html += '<span class="rank-sep">·</span><span>desde ' + pubYear + '</span>';
 				html += '</div></div></li>';
@@ -1222,7 +1222,7 @@ const TOPICS = [
 				html += '<li class="change-item"><div class="change-head">';
 				html += '<span class="' + (isNew ? 'badge-new' : 'badge-reform') + '">' + (isNew ? 'Nueva ley' : 'Reforma') + '</span>';
 				html += '<span class="change-date">' + formatDate(r.last_reform) + '</span></div>';
-				html += '<a href="/laws/' + encodeURIComponent(r.id) + '/" class="change-title">' + esc(displayText) + '</a>';
+				html += '<a href="/leyes/' + encodeURIComponent(r.id) + '/" class="change-title">' + esc(displayText) + '</a>';
 				html += '<div class="change-id">' + esc(r.id) + '</div></li>';
 			}
 			html += '</ul>';

@@ -16,5 +16,11 @@
 /reforma /reforma/ 301
 /situaciones /situaciones/ 301
 
-# Dynamic law detail pages — preserve hash fragment (#articulo-N)
-/laws/:id /laws/:id/ 301
+# === Migración /laws/ → /leyes/ (2026-05-03) ===
+# Splat covers all 12K+ law detail URLs in one rule.
+# Trailing slash on the destination avoids a 2-hop redirect chain
+# (/laws/X → /leyes/X → /leyes/X/) under trailingSlash: "always".
+/laws/* /leyes/:splat/ 301
+
+# Trailing slash on the new canonical path (in case someone links without it)
+/leyes /leyes/ 301

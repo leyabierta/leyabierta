@@ -230,7 +230,7 @@ import Base from "../layouts/Base.astro";
 					var refPath = new URL(document.referrer).pathname;
 					if (refPath === "/cambios/") {
 						backLink.innerHTML = "&larr; Volver a cambios recientes";
-					} else if (refPath.indexOf("/laws/") === 0) {
+					} else if (refPath.indexOf("/leyes/") === 0) {
 						backLink.innerHTML = "&larr; Volver a la ley";
 					}
 				}
@@ -244,7 +244,7 @@ import Base from "../layouts/Base.astro";
 				} else if (from === "cambios") {
 					backLink.href = "/cambios/";
 				} else if ((from === "omnibus" || from === "law") && normId) {
-					backLink.href = "/laws/" + encodeURIComponent(normId) + "/";
+					backLink.href = "/leyes/" + encodeURIComponent(normId) + "/";
 				}
 			}
 
@@ -424,7 +424,7 @@ import Base from "../layouts/Base.astro";
 					html += '<h1 class="reforma-headline">' + esc(headline) + '</h1>';
 					html += '<div class="reforma-law-info">';
 					html += esc(rankLabel) + ' · ' + esc(STATUS_LABELS[law.status] || law.status);
-					html += ' · <a href="/laws/' + encodeURIComponent(law.id) + '/">' + esc(law.title) + '</a>';
+					html += ' · <a href="/leyes/' + encodeURIComponent(law.id) + '/">' + esc(law.title) + '</a>';
 					html += '</div></div>';
 
 					// ── Topic tag in date row (when filtering by omnibus topic) ──
@@ -485,7 +485,7 @@ import Base from "../layouts/Base.astro";
 
 					// ── Nav ──
 					html += '<nav class="reforma-nav">';
-					html += '<a href="/laws/' + encodeURIComponent(law.id) + '/?from=reforma">Ver ley completa &rarr;</a>';
+					html += '<a href="/leyes/' + encodeURIComponent(law.id) + '/?from=reforma">Ver ley completa &rarr;</a>';
 					html += '<a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">Ver en BOE &rarr;</a>';
 					html += '</nav>';
 
@@ -572,8 +572,8 @@ import Base from "../layouts/Base.astro";
 					var errorBackHref = "/mis-cambios/";
 					var errorBackLabel = "Volver a mis cambios";
 					if (from2 === "cambios") { errorBackHref = "/cambios/"; errorBackLabel = "Volver a cambios recientes"; }
-					else if (from2 === "omnibus") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
-					else if (from2 === "law") { errorBackHref = "/laws/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
+					else if (from2 === "omnibus") { errorBackHref = "/leyes/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
+					else if (from2 === "law") { errorBackHref = "/leyes/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
 					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="' + errorBackHref + '" style="color:var(--accent)">' + errorBackLabel + '</a></div>';
 				});
 		})();
