@@ -103,7 +103,7 @@ ${rankLines}
 - [Cambios legislativos](https://leyabierta.es/cambios/): Cronología de reformas recientes con resúmenes
 - [Leyes ómnibus](https://leyabierta.es/cambios/omnibus/): Detección de leyes que modifican múltiples normas
 - [Alertas](https://leyabierta.es/alertas/): Suscripción a notificaciones por temas y jurisdicción
-- [Sobre Ley Abierta](https://leyabierta.es/sobre-leyabierta/): Misión, datos, metodología
+- [Sobre Ley Abierta](https://leyabierta.es/sobre/): Misión, datos, metodología
 
 ## API REST — Referencia completa
 

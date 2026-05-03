@@ -10,7 +10,12 @@
 /alertas/gestionar /alertas/gestionar/ 301
 /alertas/cancelar /alertas/cancelar/ 301
 /alertas/confirmar /alertas/confirmar/ 301
-/sobre-leyabierta /sobre-leyabierta/ 301
+/sobre-leyabierta /sobre/ 301
+/sobre-leyabierta/ /sobre/ 301
+/sobre /sobre/ 301
+/sobre/contribuir /sobre/contribuir/ 301
+/sobre/apoyar /sobre/apoyar/ 301
+/sobre/api /sobre/api/ 301
 /aviso-legal /aviso-legal/ 301
 /cookies /cookies/ 301
 /privacidad /privacidad/ 301

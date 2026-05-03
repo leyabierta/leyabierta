@@ -14,7 +14,10 @@ export const GET: APIRoute = async () => {
 
 	const secondaryPages = [
 		{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
-		{ path: "/sobre-leyabierta/", changefreq: "monthly", priority: "0.4" },
+		{ path: "/sobre/", changefreq: "monthly", priority: "0.5" },
+		{ path: "/sobre/contribuir/", changefreq: "monthly", priority: "0.4" },
+		{ path: "/sobre/apoyar/", changefreq: "monthly", priority: "0.4" },
+		{ path: "/sobre/api/", changefreq: "monthly", priority: "0.4" },
 		{ path: "/alertas/", changefreq: "monthly", priority: "0.5" },
 		{ path: "/mi-situacion/", changefreq: "monthly", priority: "0.5" },
 		{ path: "/privacidad/", changefreq: "yearly", priority: "0.2" },

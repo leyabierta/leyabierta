@@ -67,13 +67,13 @@ function wireOutboundClicks() {
 }
 
 function wireScrollDepthIfArticle() {
-	// Long-content pages: /leyes/<id>/, /cambios/<id>/, /cambios/omnibus/<id>/, /sobre-leyabierta/
+	// Long-content pages: /leyes/<id>/, /cambios/<id>/, /cambios/omnibus/<id>/, /sobre/
 	const path = window.location.pathname;
 	const isArticle =
 		/^\/leyes\/[^/]+\/?$/.test(path) ||
 		/^\/cambios\/(?!recientes\/?$|mias\/?$|omnibus\/?$)[^/]+\/?$/.test(path) ||
 		/^\/cambios\/omnibus\/[^/]+\/?$/.test(path) ||
-		/^\/sobre-leyabierta\/?$/.test(path);
+		/^\/sobre\/?$/.test(path);
 	if (!isArticle) return;
 
 	const article =

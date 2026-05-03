@@ -1,0 +1,318 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Contribuir a Ley Abierta"
+	description="Cómo participar en Ley Abierta: código, revisión legal, difusión o simplemente reportando errores."
+	canonicalUrl="/sobre/contribuir/"
+>
+	<style>
+		.contribuir-page { max-width: 40rem; margin: 0 auto; }
+
+		.sobre-kicker {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: var(--text-muted);
+			margin-bottom: 0.75rem;
+		}
+
+		.contribuir-page h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin: 0 0 0.25rem;
+		}
+		@media (max-width: 640px) {
+			.contribuir-page h1 { font-size: 1.625rem; }
+		}
+
+		.page-subtitle {
+			font-size: 1rem;
+			color: var(--text-muted);
+			margin-bottom: 2.5rem;
+		}
+
+		.contribuir-page h2 {
+			font-family: var(--font-serif);
+			font-size: 1.2rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 2rem 0 0.75rem;
+			padding-bottom: 0.5rem;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.contribuir-page p {
+			font-size: 0.9375rem;
+			line-height: 1.7;
+			color: var(--text-secondary);
+			margin: 0 0 1rem;
+		}
+
+		.perfiles-list {
+			list-style: none;
+			padding: 0;
+			margin: 0 0 1.5rem;
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+
+		.perfil-item {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 1.125rem 1.25rem;
+		}
+
+		.perfil-header {
+			display: flex;
+			align-items: baseline;
+			gap: 0.75rem;
+			margin-bottom: 0.5rem;
+		}
+
+		.perfil-rol {
+			font-size: 0.9375rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 0;
+		}
+
+		.perfil-tag {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: var(--text-muted);
+			background: var(--accent-bg);
+			padding: 0.15rem 0.5rem;
+			border-radius: 4px;
+		}
+
+		.perfil-texto {
+			font-size: 0.875rem;
+			line-height: 1.6;
+			color: var(--text-secondary);
+			margin: 0;
+		}
+
+		.perfil-texto li {
+			margin-bottom: 0.25rem;
+		}
+
+		.acciones-grid {
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+			margin-bottom: 1.5rem;
+		}
+
+		.accion-link {
+			display: flex;
+			align-items: center;
+			gap: 0.875rem;
+			padding: 0.875rem 1rem;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			text-decoration: none;
+			color: var(--text-secondary);
+			font-size: 0.9375rem;
+			transition: border-color 0.15s ease-out, color 0.15s ease-out;
+		}
+
+		.accion-link:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+			text-decoration: none;
+		}
+
+		.accion-icon {
+			width: 1.25rem;
+			height: 1.25rem;
+			flex-shrink: 0;
+			color: var(--text-muted);
+		}
+
+		.accion-link:hover .accion-icon {
+			color: var(--accent);
+		}
+
+		.accion-texto strong {
+			display: block;
+			font-size: 0.9375rem;
+			font-weight: 600;
+			color: inherit;
+			margin-bottom: 0.125rem;
+		}
+
+		.accion-texto span {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+		}
+
+		.accion-link:hover .accion-texto span {
+			color: var(--text-secondary);
+		}
+
+		.breadcrumb {
+			font-size: 0.8125rem;
+			color: var(--text-muted);
+			margin-bottom: 1.5rem;
+		}
+
+		.breadcrumb a {
+			color: var(--text-muted);
+			text-decoration: none;
+		}
+
+		.breadcrumb a:hover {
+			color: var(--accent);
+		}
+
+		.breadcrumb-sep {
+			margin: 0 0.4rem;
+			color: var(--border-medium);
+		}
+	</style>
+
+	<div class="contribuir-page prose">
+		<div class="sobre-kicker">PROYECTO</div>
+		<h1>Cómo contribuir</h1>
+		<p class="page-subtitle">No hace falta ser desarrollador para contribuir a Ley Abierta.</p>
+
+		<h2>Según tu perfil</h2>
+		<ul class="perfiles-list">
+			<li class="perfil-item">
+				<div class="perfil-header">
+					<p class="perfil-rol">Ciudadanos</p>
+					<span class="perfil-tag">Todos</span>
+				</div>
+				<ul class="perfil-texto">
+					<li>Reportad errores o imprecisiones en el texto de una ley.</li>
+					<li>Proponed mejoras: ¿algo no se entiende? ¿falta información útil?</li>
+					<li>Compartid el proyecto con quien pueda usarlo.</li>
+				</ul>
+			</li>
+			<li class="perfil-item">
+				<div class="perfil-header">
+					<p class="perfil-rol">Juristas</p>
+					<span class="perfil-tag">Expertos legales</span>
+				</div>
+				<ul class="perfil-texto">
+					<li>Revisad los resúmenes generados por IA y señalad errores de interpretación.</li>
+					<li>Sugerid mejores formas de explicar conceptos jurídicos complejos.</li>
+					<li>Ayudad a definir criterios de calidad para los resúmenes ciudadanos.</li>
+				</ul>
+			</li>
+			<li class="perfil-item">
+				<div class="perfil-header">
+					<p class="perfil-rol">Periodistas e investigadores</p>
+					<span class="perfil-tag">Comunicación</span>
+				</div>
+				<ul class="perfil-texto">
+					<li>Documentad casos de uso reales y compartidlos para que mejoren el producto.</li>
+					<li>Ayudad a definir qué información legislativa es más relevante para el ciudadano.</li>
+					<li>Señalad cuando algo no está explicado con suficiente claridad.</li>
+				</ul>
+			</li>
+			<li class="perfil-item">
+				<div class="perfil-header">
+					<p class="perfil-rol">Desarrolladores</p>
+					<span class="perfil-tag">Técnico</span>
+				</div>
+				<ul class="perfil-texto">
+					<li>Mejorad el código: correcciones, optimizaciones, nuevas funcionalidades.</li>
+					<li>Los <em>good first issues</em> son el mejor punto de entrada si es tu primera contribución.</li>
+					<li>Revisad PRs abiertos o proponed mejoras de arquitectura en las Discusiones.</li>
+				</ul>
+			</li>
+		</ul>
+
+		<h2>Por dónde empezar</h2>
+		<div class="acciones-grid">
+			<a
+				href="https://github.com/leyabierta/leyabierta/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"
+				target="_blank"
+				rel="noopener"
+				class="accion-link"
+			>
+				<svg class="accion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="12" cy="12" r="10"/>
+					<line x1="12" y1="8" x2="12" y2="12"/>
+					<line x1="12" y1="16" x2="12.01" y2="16"/>
+				</svg>
+				<div class="accion-texto">
+					<strong>Issues con "good first issue"</strong>
+					<span>Tareas asequibles para empezar a contribuir</span>
+				</div>
+			</a>
+			<a
+				href="https://github.com/leyabierta/leyabierta/issues/new/choose"
+				target="_blank"
+				rel="noopener"
+				class="accion-link"
+			>
+				<svg class="accion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M12 5v14M5 12h14"/>
+				</svg>
+				<div class="accion-texto">
+					<strong>Abrir un issue nuevo</strong>
+					<span>Reportar un error, sugerir una mejora o señalar datos incorrectos</span>
+				</div>
+			</a>
+			<a
+				href="https://github.com/leyabierta/leyabierta/discussions"
+				target="_blank"
+				rel="noopener"
+				class="accion-link"
+			>
+				<svg class="accion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+				</svg>
+				<div class="accion-texto">
+					<strong>Discusiones en GitHub</strong>
+					<span>Ideas, preguntas y conversaciones sobre el proyecto</span>
+				</div>
+			</a>
+			<a
+				href="https://github.com/leyabierta/leyabierta/blob/main/CONTRIBUTING.md"
+				target="_blank"
+				rel="noopener"
+				class="accion-link"
+			>
+				<svg class="accion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>
+				</svg>
+				<div class="accion-texto">
+					<strong>Guía técnica de contribución</strong>
+					<span>CONTRIBUTING.md: setup, tests, convenciones de código</span>
+				</div>
+			</a>
+			<a
+				href="https://github.com/leyabierta/leyabierta"
+				target="_blank"
+				rel="noopener"
+				class="accion-link"
+			>
+				<svg class="accion-icon" viewBox="0 0 24 24" fill="currentColor">
+					<path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+				</svg>
+				<div class="accion-texto">
+					<strong>Repositorio en GitHub</strong>
+					<span>github.com/leyabierta/leyabierta</span>
+				</div>
+			</a>
+		</div>
+
+		<p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 2rem;">
+			¿Preguntas? Escríbenos a <a href="mailto:contacto@leyabierta.es">contacto@leyabierta.es</a>.
+		</p>
+	</div>
+</Base>

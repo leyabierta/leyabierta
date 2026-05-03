@@ -1,0 +1,214 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+	title="Apoyar Ley Abierta"
+	description="Cómo apoyar el proyecto sin ánimo de lucro Ley Abierta."
+	canonicalUrl="/sobre/apoyar/"
+>
+	<style>
+		.apoyar-page { max-width: 40rem; margin: 0 auto; }
+
+		.sobre-kicker {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: var(--text-muted);
+			margin-bottom: 0.75rem;
+		}
+
+		.apoyar-page h1 {
+			font-family: var(--font-serif);
+			font-size: 2rem;
+			font-weight: 700;
+			line-height: 1.2;
+			color: var(--text);
+			margin: 0 0 0.25rem;
+		}
+		@media (max-width: 640px) {
+			.apoyar-page h1 { font-size: 1.625rem; }
+		}
+
+		.page-subtitle {
+			font-size: 1rem;
+			color: var(--text-muted);
+			margin-bottom: 2.5rem;
+		}
+
+		.apoyar-page h2 {
+			font-family: var(--font-serif);
+			font-size: 1.2rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 2rem 0 0.75rem;
+			padding-bottom: 0.5rem;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.apoyar-page p {
+			font-size: 0.9375rem;
+			line-height: 1.7;
+			color: var(--text-secondary);
+			margin: 0 0 1rem;
+		}
+
+		.apoyar-intro {
+			background: var(--accent-bg-light);
+			border: 1px solid #d9e3ef;
+			border-radius: 10px;
+			padding: 1.25rem 1.5rem;
+			margin-bottom: 2rem;
+		}
+
+		.apoyar-intro p {
+			margin: 0;
+			font-size: 0.9375rem;
+			line-height: 1.7;
+			color: var(--text);
+		}
+
+		.vias-list {
+			list-style: none;
+			padding: 0;
+			margin: 0 0 1.5rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.875rem;
+		}
+
+		.via-item {
+			display: flex;
+			gap: 1rem;
+			align-items: flex-start;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 1.125rem 1.25rem;
+		}
+
+		.via-num {
+			font-family: var(--font-mono);
+			font-size: 0.75rem;
+			font-weight: 600;
+			color: var(--text-muted);
+			background: var(--accent-bg);
+			border-radius: 50%;
+			width: 1.5rem;
+			height: 1.5rem;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
+			margin-top: 0.125rem;
+		}
+
+		.via-content strong {
+			display: block;
+			font-size: 0.9375rem;
+			font-weight: 600;
+			color: var(--text);
+			margin-bottom: 0.25rem;
+		}
+
+		.via-content p {
+			font-size: 0.875rem;
+			line-height: 1.6;
+			color: var(--text-secondary);
+			margin: 0;
+		}
+
+		.via-content a {
+			color: var(--accent);
+		}
+
+		.futuro-box {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 1.25rem 1.5rem;
+			margin-top: 1.5rem;
+		}
+
+		.futuro-box p {
+			font-size: 0.875rem;
+			line-height: 1.6;
+			color: var(--text-muted);
+			margin: 0;
+		}
+
+		.futuro-box strong {
+			color: var(--text-secondary);
+		}
+	</style>
+
+	<div class="apoyar-page prose">
+		<div class="sobre-kicker">PROYECTO</div>
+		<h1>Apoyar el proyecto</h1>
+		<p class="page-subtitle">Ley Abierta es voluntario, abierto y sin ánimo de lucro.</p>
+
+		<div class="apoyar-intro">
+			<p>
+				Ley Abierta es un proyecto sin ánimo de lucro mantenido por personas voluntarias. No hay
+				empresa detrás, no hay publicidad, no hay venta de datos. Los costes operativos
+				(servidores, herramientas de IA) los asume quien mantiene el proyecto en este momento.
+			</p>
+		</div>
+
+		<h2>Cómo puedes apoyarlo ahora</h2>
+		<ul class="vias-list">
+			<li class="via-item">
+				<div class="via-num">1</div>
+				<div class="via-content">
+					<strong>Contribuir en GitHub</strong>
+					<p>
+						Código, documentación, traducciones, revisión de resúmenes legales. Cualquier
+						mejora suma. <a href="/sobre/contribuir/">Ver cómo contribuir &rarr;</a>
+					</p>
+				</div>
+			</li>
+			<li class="via-item">
+				<div class="via-num">2</div>
+				<div class="via-content">
+					<strong>Reportar errores en leyes o resúmenes</strong>
+					<p>
+						Si encuentras una ley mal categorizada, un resumen impreciso o cualquier dato
+						incorrecto, <a href="https://github.com/leyabierta/leyabierta/issues/new/choose" target="_blank" rel="noopener">abre un issue en GitHub</a>.
+						Mejorar la calidad de los datos es una de las contribuciones más valiosas.
+					</p>
+				</div>
+			</li>
+			<li class="via-item">
+				<div class="via-num">3</div>
+				<div class="via-content">
+					<strong>Difundir el proyecto</strong>
+					<p>
+						Comparte Ley Abierta con periodistas, juristas, profesores o cualquier persona
+						que trabaje con legislación. El proyecto crece gracias a quienes lo conocen y lo
+						usan.
+					</p>
+				</div>
+			</li>
+			<li class="via-item">
+				<div class="via-num">4</div>
+				<div class="via-content">
+					<strong>Dar feedback directo</strong>
+					<p>
+						Escríbenos a <a href="mailto:contacto@leyabierta.es">contacto@leyabierta.es</a>.
+						Las ideas y críticas directas ayudan más que los votos en producción.
+					</p>
+				</div>
+			</li>
+		</ul>
+
+		<div class="futuro-box">
+			<p>
+				<strong>Sobre donaciones económicas:</strong> cuando exista la fundación legal del proyecto,
+				abriremos una vía de donaciones aquí. Por ahora, no aceptamos dinero directamente para
+				evitar cualquier ambigüedad sobre quién se beneficia y en qué condiciones. La
+				transparencia es parte del proyecto.
+			</p>
+		</div>
+	</div>
+</Base>
