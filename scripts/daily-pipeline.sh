@@ -14,8 +14,11 @@ REPO_DIR=/opt/leyabierta/code
 SCRIPT_IN_REPO="$REPO_DIR/scripts/daily-pipeline.sh"
 
 if [ -z "${LEYABIERTA_SELF_UPDATED:-}" ] && [ -d "$REPO_DIR/.git" ]; then
-  if git -C "$REPO_DIR" fetch --quiet --tags origin 2>/dev/null \
-     && git -C "$REPO_DIR" rev-parse --verify --quiet refs/tags/prod >/dev/null \
+  # Fetch the prod tag with explicit refspec so a force-updated remote tag
+  # always overrides the local one. `git fetch --tags` (without --force) is
+  # NOT enough — it silently keeps an existing local tag pointing to an old
+  # commit, so self-update would never advance.
+  if git -C "$REPO_DIR" fetch --quiet origin "+refs/tags/prod:refs/tags/prod" 2>/dev/null \
      && git -C "$REPO_DIR" reset --hard refs/tags/prod >/dev/null 2>&1; then
     if [ -f "$SCRIPT_IN_REPO" ] && ! cmp -s "$SCRIPT_PATH" "$SCRIPT_IN_REPO"; then
       export LEYABIERTA_SELF_UPDATED=1
