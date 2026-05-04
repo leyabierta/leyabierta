@@ -280,7 +280,7 @@ async function main() {
 	// Retry wrapper: if Qwen times out, retry once with a stronger timeout.
 	async function callQwenWithRetry(row: SampleRow): Promise<ProviderResult> {
 		const result = await callChat(qwen, SYSTEM_PROMPT, userPromptFor(row), 180_000);
-		if (result.error && result.error.includes("timed out")) {
+		if (result.error?.includes("timed out")) {
 			console.log(`  Case ${sample.indexOf(row) + 1}: Qwen timeout, retrying…`);
 			return callChat(qwen, SYSTEM_PROMPT, userPromptFor(row), 180_000);
 		}
