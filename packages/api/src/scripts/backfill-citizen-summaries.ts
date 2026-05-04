@@ -28,7 +28,7 @@ const DB_PATH = "data/leyabierta.db";
 const FAILURE_LOG = "data/backfill-failures.jsonl";
 const PROGRESS_FILE = "data/backfill-progress.json";
 
- // Qwen rate limit: max 5 concurrent
+// Qwen rate limit: max 5 concurrent
 const BATCH_SIZE = 100; // checkpoint interval
 const TIMEOUT_MS = 180_000; // 3 minutes per article
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
@@ -133,7 +133,10 @@ const LIMIT = args.includes("--limit")
 const DRY_RUN = args.includes("--dry-run");
 const _FORCE = args.includes("--force");
 const CONCURRENCY = args.includes("--concurrency")
-	? Math.max(1, Math.min(10, Number(args[args.indexOf("--concurrency") + 1] ?? 5)))
+	? Math.max(
+			1,
+			Math.min(10, Number(args[args.indexOf("--concurrency") + 1] ?? 5)),
+		)
 	: 5;
 
 if ((LIMIT > 0 && !Number.isInteger(LIMIT)) || LIMIT < 0) {
@@ -349,22 +352,25 @@ interface BatchProgress {
 	startedAt: number;
 }
 
-function drawProgressBar(
-	p: BatchProgress,
-	width: number = 50,
-): string {
+function drawProgressBar(p: BatchProgress, width: number = 50): string {
 	const frac = p.completed / p.total;
 	const filled = Math.round(width * frac);
 	const bar = "█".repeat(filled) + "░".repeat(width - filled);
 	const pct = (frac * 100).toFixed(1).padStart(5);
 	const elapsed = ((Date.now() - p.startedAt) / 1000).toFixed(0);
-	const rate = p.completed > 0
-		? (p.completed / ((Date.now() - p.startedAt) / 1000)).toFixed(2)
-		: "0.00";
+	const rate =
+		p.completed > 0
+			? (p.completed / ((Date.now() - p.startedAt) / 1000)).toFixed(2)
+			: "0.00";
 	const remaining = p.total - p.completed;
-	const eta = p.completed > 0
-		? ((remaining / (p.completed / ((Date.now() - p.startedAt) / 1000))) / 60).toFixed(1)
-		: "∞";
+	const eta =
+		p.completed > 0
+			? (
+					remaining /
+					(p.completed / ((Date.now() - p.startedAt) / 1000)) /
+					60
+				).toFixed(1)
+			: "∞";
 
 	return (
 		`[${bar}] ${pct}% ` +
