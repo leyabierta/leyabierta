@@ -19,7 +19,8 @@
 /privacidad /privacidad/ 301
 /reforma /cambios/reforma/ 301
 /reforma/ /cambios/reforma/ 301
-/situaciones /situaciones/ 301
+/situaciones /mi-situacion/ 301
+/situaciones/ /mi-situacion/ 301
 
 # === Reorganización Cambios hub (2026-05-03) ===
 # "Los míos" + "Alertas por email" se fusionan en /cambios/para-mi/
