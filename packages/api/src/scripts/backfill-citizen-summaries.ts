@@ -20,7 +20,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import { writeFileSync, readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -32,7 +32,8 @@ const CONCURRENCY = 5; // Qwen rate limit: max 5 concurrent
 const BATCH_SIZE = 100; // checkpoint interval
 const TIMEOUT_MS = 180_000; // 3 minutes per article
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const HERMES_API_KEY = process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
+const HERMES_API_KEY =
+	process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
 
 // ── Qwen 3.6 Prompt (Iteration 7 — few-shot examples) ──────────────────────
 
@@ -126,11 +127,13 @@ interface Summary {
 // ── CLI Arguments ──────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-const LIMIT = args.includes("--limit") ? Number(args[args.indexOf("--limit") + 1] ?? 100) : 0;
+const LIMIT = args.includes("--limit")
+	? Number(args[args.indexOf("--limit") + 1] ?? 100)
+	: 0;
 const DRY_RUN = args.includes("--dry-run");
-const FORCE = args.includes("--force");
+const _FORCE = args.includes("--force");
 
-if (LIMIT > 0 && !Number.isInteger(LIMIT) || LIMIT < 0) {
+if ((LIMIT > 0 && !Number.isInteger(LIMIT)) || LIMIT < 0) {
 	console.error("Invalid --limit value. Must be a positive integer.");
 	process.exit(1);
 }
@@ -171,7 +174,10 @@ interface Article {
 	current_text: string;
 }
 
-function sampleArticles(startFrom?: { norm_id: string; block_id: string }): Article[] {
+function sampleArticles(startFrom?: {
+	norm_id: string;
+	block_id: string;
+}): Article[] {
 	let query = `
 		SELECT n.id AS norm_id, n.title AS norm_title, b.block_id, b.title AS block_title, b.current_text
 		FROM norms n
@@ -185,14 +191,7 @@ function sampleArticles(startFrom?: { norm_id: string; block_id: string }): Arti
 		  )
 		ORDER BY n.id, b.block_id
 	`;
-
-	interface CheckpointRow {
-	last_norm_id: string;
-	last_block_id: string;
-	processed_count: number;
-}
-
-let params: (string | number)[] = [];
+	let params: (string | number)[] = [];
 
 	if (startFrom) {
 		query += ` AND (n.id > ? OR (n.id = ? AND b.block_id > ?))`;
@@ -209,7 +208,9 @@ let params: (string | number)[] = [];
 
 // ── Qwen API ───────────────────────────────────────────────────────────────
 
-async function callQwen(article: Article): Promise<{ output: Summary | null; error: string | null }> {
+async function callQwen(
+	article: Article,
+): Promise<{ output: Summary | null; error: string | null }> {
 	const res = await fetch(`${HERMES_BASE_URL}/chat/completions`, {
 		method: "POST",
 		signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -237,7 +238,7 @@ async function callQwen(article: Article): Promise<{ output: Summary | null; err
 		return { output: null, error: `http_${res.status}: ${body.slice(0, 200)}` };
 	}
 
-	const data = await res.json() as {
+	const data = (await res.json()) as {
 		choices?: { message?: { content?: string } }[];
 		usage?: { prompt_tokens?: number; completion_tokens?: number };
 	};
@@ -245,15 +246,22 @@ async function callQwen(article: Article): Promise<{ output: Summary | null; err
 	const text = data.choices?.[0]?.message?.content ?? "";
 	let parsed: Summary | null = null;
 	try {
-		parsed = JSON.parse(text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""));
+		parsed = JSON.parse(
+			text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
+		);
 	} catch (e) {
-		return { output: null, error: `json_parse: ${(e as Error).message}: ${text.slice(0, 200)}` };
+		return {
+			output: null,
+			error: `json_parse: ${(e as Error).message}: ${text.slice(0, 200)}`,
+		};
 	}
 
 	return { output: parsed, error: null };
 }
 
-async function callQwenWithRetry(article: Article): Promise<{ output: Summary | null; error: string | null }> {
+async function callQwenWithRetry(
+	article: Article,
+): Promise<{ output: Summary | null; error: string | null }> {
 	const result = await callQwen(article);
 
 	if (result.error) {
@@ -278,7 +286,11 @@ async function callQwenWithRetry(article: Article): Promise<{ output: Summary | 
 	}
 
 	// Retry on empty for substantive articles (>200 chars)
-	if (result.output && result.output.citizen_summary === "" && article.current_text.length > 200) {
+	if (
+		result.output &&
+		result.output.citizen_summary === "" &&
+		article.current_text.length > 200
+	) {
 		const retryPrompt = `Este artículo SÍ es sustantivo. Genera un resumen obligatorio.
 
 LEY: ${article.norm_title}
@@ -307,12 +319,14 @@ ${article.current_text.slice(0, 2000)}`;
 		});
 
 		if (retryRes.ok) {
-			const data = await retryRes.json() as {
+			const data = (await retryRes.json()) as {
 				choices?: { message?: { content?: string } }[];
 			};
 			const text = data.choices?.[0]?.message?.content ?? "";
 			try {
-				const parsed = JSON.parse(text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""));
+				const parsed = JSON.parse(
+					text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
+				);
 				return { output: parsed, error: null };
 			} catch {
 				// Return original empty result
@@ -325,16 +339,23 @@ ${article.current_text.slice(0, 2000)}`;
 
 // ── Concurrency Pool ───────────────────────────────────────────────────────
 
-async function mapPool<T, R>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<R>): Promise<R[]> {
+async function mapPool<T, R>(
+	items: T[],
+	limit: number,
+	fn: (item: T, idx: number) => Promise<R>,
+): Promise<R[]> {
 	const results: R[] = new Array(items.length);
 	let cursor = 0;
-	const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-		while (true) {
-			const i = cursor++;
-			if (i >= items.length) return;
-			results[i] = await fn(items[i], i);
-		}
-	});
+	const workers = Array.from(
+		{ length: Math.min(limit, items.length) },
+		async () => {
+			while (true) {
+				const i = cursor++;
+				if (i >= items.length) return;
+				results[i] = await fn(items[i], i);
+			}
+		},
+	);
 	await Promise.all(workers);
 	return results;
 }
@@ -381,20 +402,22 @@ async function main() {
 	console.log(``);
 
 	// Load checkpoint
-interface CheckpointRow {
-	last_norm_id: string;
-	last_block_id: string;
-	processed_count: number;
-}
+	interface CheckpointRow {
+		last_norm_id: string;
+		last_block_id: string;
+		processed_count: number;
+	}
 
-const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
+	const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 
 	const startFrom = checkpoint
 		? { norm_id: checkpoint.last_norm_id, block_id: checkpoint.last_block_id }
 		: undefined;
 
 	if (startFrom) {
-		console.log(`Resuming from checkpoint: ${startFrom.norm_id}::${startFrom.block_id} (processed ${checkpoint.processed_count})`);
+		console.log(
+			`Resuming from checkpoint: ${startFrom.norm_id}::${startFrom.block_id} (processed ${checkpoint.processed_count})`,
+		);
 	}
 
 	// Sample articles
@@ -410,20 +433,28 @@ const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 	let progress: Progress;
 	if (existsSync(PROGRESS_FILE)) {
 		progress = loadProgress();
-		console.log(`Resuming progress: ${progress.success} success, ${progress.errors} errors, ${progress.empty} empty`);
+		console.log(
+			`Resuming progress: ${progress.success} success, ${progress.errors} errors, ${progress.empty} empty`,
+		);
 	} else {
 		progress = createProgress(articles.length);
 	}
 
 	// Process in batches
-	for (let batchStart = 0; batchStart < articles.length; batchStart += BATCH_SIZE) {
+	for (
+		let batchStart = 0;
+		batchStart < articles.length;
+		batchStart += BATCH_SIZE
+	) {
 		const batchEnd = Math.min(batchStart + BATCH_SIZE, articles.length);
 		const batch = articles.slice(batchStart, batchEnd);
 
-		console.log(`\nBatch ${Math.floor(batchStart / BATCH_SIZE) + 1}: processing ${batch.length} articles (${batchStart + 1}–${batchEnd} of ${articles.length})`);
+		console.log(
+			`\nBatch ${Math.floor(batchStart / BATCH_SIZE) + 1}: processing ${batch.length} articles (${batchStart + 1}–${batchEnd} of ${articles.length})`,
+		);
 
 		// Generate summaries
-		const results = await mapPool(batch, CONCURRENCY, async (article, idx) => {
+		const results = await mapPool(batch, CONCURRENCY, async (article) => {
 			const result = await callQwenWithRetry(article);
 			return { article, result };
 		});
@@ -435,16 +466,24 @@ const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 			if (result.error) {
 				progress.errors++;
 				// Log failure
-				writeFileSync(FAILURE_LOG, `${JSON.stringify({
-					norm_id: article.norm_id,
-					block_id: article.block_id,
-					error: result.error,
-					timestamp: new Date().toISOString(),
-				})}\n`, { flag: "a" });
-				console.log(`  ✗ ${article.norm_id}::${article.block_id}: ${result.error.slice(0, 60)}`);
+				writeFileSync(
+					FAILURE_LOG,
+					`${JSON.stringify({
+						norm_id: article.norm_id,
+						block_id: article.block_id,
+						error: result.error,
+						timestamp: new Date().toISOString(),
+					})}\n`,
+					{ flag: "a" },
+				);
+				console.log(
+					`  ✗ ${article.norm_id}::${article.block_id}: ${result.error.slice(0, 60)}`,
+				);
 			} else if (!result.output || result.output.citizen_summary === "") {
 				progress.empty++;
-				console.log(`  ○ ${article.norm_id}::${article.block_id}: empty (valid for procedural)`);
+				console.log(
+					`  ○ ${article.norm_id}::${article.block_id}: empty (valid for procedural)`,
+				);
 			} else {
 				progress.success++;
 
@@ -452,7 +491,11 @@ const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 					// Write to DB
 					db.prepare(
 						"INSERT OR REPLACE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
-					).run(article.norm_id, article.block_id, result.output.citizen_summary);
+					).run(
+						article.norm_id,
+						article.block_id,
+						result.output.citizen_summary,
+					);
 
 					// Write tags
 					for (const tag of result.output.citizen_tags) {
@@ -464,7 +507,9 @@ const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 
 				// Progress indicator every 10 articles
 				if (progress.processed % 10 === 0) {
-					console.log(`  ✓ ${progress.processed}/${articles.length} processed (${progress.success} success, ${progress.errors} errors, ${progress.empty} empty)`);
+					console.log(
+						`  ✓ ${progress.processed}/${articles.length} processed (${progress.success} success, ${progress.errors} errors, ${progress.empty} empty)`,
+					);
 				}
 			}
 		}
@@ -483,7 +528,8 @@ const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 		saveProgress(progress);
 
 		// ETA
-		const elapsed = (Date.now() - new Date(progress.startedAt).getTime()) / 1000;
+		const elapsed =
+			(Date.now() - new Date(progress.startedAt).getTime()) / 1000;
 		const rate = progress.processed / elapsed;
 		const remaining = articles.length - progress.processed;
 		const etaSeconds = remaining / rate;
@@ -494,9 +540,15 @@ const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 	// Final summary
 	console.log(`\n=== Backfill Complete ===`);
 	console.log(`Total: ${articles.length}`);
-	console.log(`Success: ${progress.success} (${(progress.success / articles.length * 100).toFixed(1)}%)`);
-	console.log(`Empty: ${progress.empty} (${(progress.empty / articles.length * 100).toFixed(1)}%)`);
-	console.log(`Errors: ${progress.errors} (${(progress.errors / articles.length * 100).toFixed(1)}%)`);
+	console.log(
+		`Success: ${progress.success} (${((progress.success / articles.length) * 100).toFixed(1)}%)`,
+	);
+	console.log(
+		`Empty: ${progress.empty} (${((progress.empty / articles.length) * 100).toFixed(1)}%)`,
+	);
+	console.log(
+		`Errors: ${progress.errors} (${((progress.errors / articles.length) * 100).toFixed(1)}%)`,
+	);
 	console.log(`Failure log: ${FAILURE_LOG}`);
 }
 

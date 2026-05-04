@@ -14,7 +14,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const DB_PATH = "data/leyabierta.db";
