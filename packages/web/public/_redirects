@@ -2,9 +2,7 @@
 /pregunta /pregunta/ 301
 /cambios /cambios/ 301
 /cambios/recientes /cambios/recientes/ 301
-/cambios/omnibus /cambios/omnibus/ 301
-/cambios/mias /cambios/mias/ 301
-/mis-cambios /mis-cambios/ 301
+/cambios/para-mi /cambios/para-mi/ 301
 /mi-situacion /mi-situacion/ 301
 /alertas /alertas/ 301
 /alertas/gestionar /alertas/gestionar/ 301
@@ -19,21 +17,32 @@
 /aviso-legal /aviso-legal/ 301
 /cookies /cookies/ 301
 /privacidad /privacidad/ 301
-/omnibus /omnibus/ 301
-/omnibus/detalle /omnibus/detalle/ 301
 /reforma /cambios/reforma/ 301
 /reforma/ /cambios/reforma/ 301
 /situaciones /situaciones/ 301
 
 # === Reorganización Cambios hub (2026-05-03) ===
-/omnibus/ /cambios/omnibus/ 301
-/omnibus/detalle/:normId /leyes/:normId/ 301
-/omnibus/detalle/:normId/ /leyes/:normId/ 301
-/cambios/omnibus/:normId /leyes/:normId/ 301
-/cambios/omnibus/:normId/ /leyes/:normId/ 301
-/mis-cambios/ /cambios/mias/ 301
+# "Los míos" + "Alertas por email" se fusionan en /cambios/para-mi/
+/cambios/mias /cambios/para-mi/ 301
+/cambios/mias/ /cambios/para-mi/ 301
+/mis-cambios /cambios/para-mi/ 301
+/mis-cambios/ /cambios/para-mi/ 301
 /reforma/:reformaId /cambios/reforma/?id=:reformaId 301
 /reforma/:reformaId/ /cambios/reforma/?id=:reformaId 301
+
+# === Ómnibus retirado de la web (2026-05-04) ===
+# Sección eliminada del navbar; metadata sigue disponible vía API /v1/omnibus.
+# Cualquier URL antigua redirige a /cambios/recientes/ como fallback razonable.
+/omnibus /cambios/recientes/ 301
+/omnibus/ /cambios/recientes/ 301
+/omnibus/detalle /cambios/recientes/ 301
+/omnibus/detalle/ /cambios/recientes/ 301
+/omnibus/detalle/:normId /leyes/:normId/ 301
+/omnibus/detalle/:normId/ /leyes/:normId/ 301
+/cambios/omnibus /cambios/recientes/ 301
+/cambios/omnibus/ /cambios/recientes/ 301
+/cambios/omnibus/:normId /leyes/:normId/ 301
+/cambios/omnibus/:normId/ /leyes/:normId/ 301
 
 # === Migración /laws/ → /leyes/ (2026-05-03) ===
 # Two named-param rules cover both bare and trailing-slash variants

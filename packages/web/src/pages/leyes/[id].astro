@@ -5,7 +5,7 @@ import MarkdownIt from "markdown-it";
 import sanitizeHtml from "sanitize-html";
 import Base from "../../layouts/Base.astro";
 import { safeJsonLd } from "../../lib/escape";
-import { getLaw, getOmnibusDetail, type OmnibusTopic } from "../../lib/api.ts";
+import { getLaw } from "../../lib/api.ts";
 import { loadManifest } from "../../lib/manifest.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
@@ -64,22 +64,16 @@ const { entry, allIds } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
 
-// Fetch citizen data (summary + tags) + omnibus topics.
+// Fetch citizen data (summary + tags).
 // If a build manifest is present (CI), read from local file (zero network calls).
 // Otherwise fall back to per-page API calls (local dev).
 let citizenSummary = "";
 let citizenTags: string[] = [];
-let omnibusTopics: OmnibusTopic[] = [];
-let omnibusTopicCount = 0;
 const manifest = loadManifest();
 if (manifest) {
 	const citizenData = manifest.citizens[id!];
 	citizenSummary = citizenData?.summary ?? "";
 	citizenTags = citizenData?.tags ?? [];
-	if (law.materias.length >= 15) {
-		omnibusTopics = manifest.omnibus[id!] ?? [];
-		omnibusTopicCount = omnibusTopics.length;
-	}
 } else {
 	try {
 		const detail = await getLaw(id!);
@@ -87,17 +81,6 @@ if (manifest) {
 		citizenTags = detail.citizen_tags ?? [];
 	} catch {
 		// API may not be available during build — gracefully degrade
-	}
-	if (law.materias.length >= 15) {
-		try {
-			const omnibus = await getOmnibusDetail(id!);
-			if (omnibus?.topics?.length) {
-				omnibusTopics = omnibus.topics;
-				omnibusTopicCount = omnibus.topics.length;
-			}
-		} catch {
-			// Omnibus data not available — skip
-		}
 	}
 }
 
@@ -433,101 +416,6 @@ const seoDescription = [
 		}
 
 		/* ── Resumen components ── */
-		/* ── Omnibus notice ── */
-		.omnibus-notice {
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-			padding: 0.625rem 0.875rem;
-			background: var(--warning-bg, #fff3cd);
-			border-radius: 8px;
-			margin-bottom: 1.25rem;
-		}
-		.omnibus-notice-badge {
-			font-size: 0.6875rem;
-			font-weight: 700;
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-			color: var(--warning, #856404);
-			background: rgba(255,193,7,0.2);
-			padding: 0.2rem 0.5rem;
-			border-radius: 4px;
-			white-space: nowrap;
-		}
-		.omnibus-notice-text {
-			font-size: 0.8125rem;
-			color: var(--warning, #856404);
-			line-height: 1.4;
-		}
-
-		/* ── Omnibus breakdown ── */
-		.omnibus-breakdown {
-			margin-bottom: 1.5rem;
-		}
-		.omnibus-topics-list {
-			display: flex;
-			flex-direction: column;
-			gap: 0.75rem;
-		}
-		.omnibus-topic-card {
-			background: var(--surface);
-			border: 1px solid var(--border-light);
-			border-radius: 10px;
-			padding: 1rem 1.25rem;
-			width: 100%;
-			text-align: left;
-			font-family: var(--font-sans);
-			cursor: pointer;
-			transition: border-color 0.15s, background 0.15s;
-		}
-		.omnibus-topic-card:hover {
-			border-color: var(--accent);
-			background: var(--accent-faint);
-		}
-		.omnibus-topic-action {
-			display: block;
-			margin-top: 0.5rem;
-			font-size: 0.75rem;
-			font-weight: 600;
-			color: var(--accent);
-			opacity: 0;
-			transition: opacity 0.15s;
-		}
-		.omnibus-topic-card:hover .omnibus-topic-action {
-			opacity: 1;
-		}
-		.omnibus-topic-label {
-			display: flex;
-			gap: 0.5rem;
-			align-items: center;
-			flex-wrap: wrap;
-			margin-bottom: 0.25rem;
-		}
-		.omnibus-topic-label h3 {
-			font-family: var(--font-serif);
-			font-size: 1rem;
-			font-weight: 600;
-			color: var(--text);
-			margin: 0;
-		}
-		.omnibus-topic-articles {
-			font-size: 0.75rem;
-			color: var(--text-muted);
-		}
-		.omnibus-topic-headline {
-			font-family: var(--font-serif);
-			font-size: 0.9375rem;
-			font-weight: 600;
-			line-height: 1.4;
-			margin: 0.25rem 0;
-			color: var(--text);
-		}
-		.omnibus-topic-summary {
-			font-size: 0.875rem;
-			color: var(--text-secondary);
-			line-height: 1.6;
-			margin: 0.25rem 0;
-		}
 
 		/* ── View toggle ── */
 		.view-toggle {
@@ -868,13 +756,6 @@ const seoDescription = [
 			</div>
 		)}
 
-		{omnibusTopicCount > 0 && (
-			<div class="omnibus-notice">
-				<span class="omnibus-notice-badge">Ley multitemática</span>
-				<span class="omnibus-notice-text">Esta ley agrupa {omnibusTopicCount} temas distintos en una sola norma.</span>
-			</div>
-		)}
-
 		<div class="quick-stats">
 			{articleCount > 0 && (
 				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
@@ -886,29 +767,6 @@ const seoDescription = [
 				<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Categorías</div></div></div>
 			)}
 		</div>
-
-		{omnibusTopicCount > 0 && (
-			<div class="omnibus-breakdown" id="omnibus-breakdown">
-				<h2 class="section-heading">Desglose por temas</h2>
-				<div class="omnibus-topics-list">
-					{omnibusTopics.map((topic) => (
-						<button
-							type="button"
-							class="omnibus-topic-card"
-							data-block-ids={JSON.stringify(topic.block_ids)}
-						>
-							<div class="omnibus-topic-label">
-								<h3>{topic.topic_label}</h3>
-								<span class="omnibus-topic-articles">{topic.article_count} artículo{topic.article_count !== 1 ? 's' : ''}</span>
-							</div>
-							{topic.headline && <p class="omnibus-topic-headline">{topic.headline}</p>}
-							{topic.summary && <p class="omnibus-topic-summary">{topic.summary}</p>}
-							<span class="omnibus-topic-action">Ver artículos →</span>
-						</button>
-					))}
-				</div>
-			</div>
-		)}
 
 		<!-- Technical details (always visible) -->
 		<div class="technical-details" id="technical-details">
@@ -1241,62 +1099,6 @@ const seoDescription = [
 	})();
 	</script>
 
-	<!-- Omnibus topic → scroll to matching articles in full text -->
-	<script is:inline>
-	(function() {
-		var topicCards = document.querySelectorAll('.omnibus-topic-card[data-block-ids]');
-		if (!topicCards.length) return;
-
-		topicCards.forEach(function(card) {
-			card.addEventListener('click', function() {
-				// Switch to "Texto completo" tab
-				document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-				document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-				var textoTab = document.querySelector('.tab[data-tab="texto"]');
-				var textoPanel = document.getElementById('tab-texto');
-				if (textoTab) textoTab.classList.add('active');
-				if (textoPanel) textoPanel.classList.add('active');
-
-				// Parse block IDs and build match strings
-				var blockIds = [];
-				try { blockIds = JSON.parse(card.dataset.blockIds || '[]'); } catch(e) {}
-				if (!blockIds.length) return;
-
-				// Clear previous highlights
-				document.querySelectorAll('.law-content .topic-highlight').forEach(function(el) {
-					el.classList.remove('topic-highlight');
-				});
-
-				// Find and highlight matching headings
-				var lawContent = document.querySelector('.law-content');
-				if (!lawContent) return;
-				var headings = lawContent.querySelectorAll('h2, h3, h4, h5, h6');
-				var firstMatch = null;
-
-				headings.forEach(function(h) {
-					var text = h.textContent || '';
-					var matched = blockIds.some(function(bid) {
-						// block_id format: "articulo_1", "disposicion_adicional_primera" etc.
-						// heading text: "Artículo 1. Naturaleza."
-						var label = bid.replace(/_/g, ' ');
-						return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-							.includes(label.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-					});
-					if (matched) {
-						h.classList.add('topic-highlight');
-						if (!firstMatch) firstMatch = h;
-					}
-				});
-
-				if (firstMatch) {
-					setTimeout(function() {
-						firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-					}, 100);
-				}
-			});
-		});
-	})();
-	</script>
 
 	<!-- Citizen article summaries as inline annotations -->
 	<script is:inline define:vars={{ normId: id }}>
