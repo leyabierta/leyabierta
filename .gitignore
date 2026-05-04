@@ -51,3 +51,12 @@ og-images/
 packages/search-lab/
 packages/api/research/training/
 packages/api/research/qwen-ab*
+
+# Qwen citizen summaries research - generated caches (re-runnable)
+packages/api/research/ab/qwen36-citizen-summaries/gemini-cache.json
+packages/api/research/ab/qwen36-citizen-summaries/fixed-sample.json
+packages/api/research/ab/qwen36-citizen-summaries/fixed-sample-outputs.json
+packages/api/research/ab/qwen36-citizen-summaries/build-cache.ts
+
+# Temporary judge prompts
+judge-prompt-*.md
