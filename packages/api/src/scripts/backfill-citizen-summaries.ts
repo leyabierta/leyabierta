@@ -28,7 +28,7 @@ const DB_PATH = "data/leyabierta.db";
 const FAILURE_LOG = "data/backfill-failures.jsonl";
 const PROGRESS_FILE = "data/backfill-progress.json";
 
-const CONCURRENCY = 5; // Qwen rate limit: max 5 concurrent
+ // Qwen rate limit: max 5 concurrent
 const BATCH_SIZE = 100; // checkpoint interval
 const TIMEOUT_MS = 180_000; // 3 minutes per article
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
@@ -132,6 +132,9 @@ const LIMIT = args.includes("--limit")
 	: 0;
 const DRY_RUN = args.includes("--dry-run");
 const _FORCE = args.includes("--force");
+const CONCURRENCY = args.includes("--concurrency")
+	? Math.max(1, Math.min(10, Number(args[args.indexOf("--concurrency") + 1] ?? 5)))
+	: 5;
 
 if ((LIMIT > 0 && !Number.isInteger(LIMIT)) || LIMIT < 0) {
 	console.error("Invalid --limit value. Must be a positive integer.");
@@ -140,7 +143,16 @@ if ((LIMIT > 0 && !Number.isInteger(LIMIT)) || LIMIT < 0) {
 
 // ── Database Setup ─────────────────────────────────────────────────────────
 
-const db = new Database(DB_PATH, { readonly: false });
+const db = new Database(DB_PATH);
+
+// Create checkpoint table if not exists (must be before stmt.prepare)
+db.exec(`CREATE TABLE IF NOT EXISTS backfill_checkpoint (
+	id INTEGER PRIMARY KEY CHECK (id = 1),
+	last_norm_id TEXT,
+	last_block_id TEXT,
+	processed_count INTEGER DEFAULT 0,
+	last_updated TEXT
+)`);
 
 // Checkpoint schema
 const stmtGetCheckpoint = db.prepare(
@@ -154,15 +166,6 @@ const stmtUpsertCheckpoint = db.prepare(
 	                                processed_count=excluded.processed_count,
 	                                last_updated=excluded.last_updated`,
 );
-
-// Create checkpoint table if not exists
-db.exec(`CREATE TABLE IF NOT EXISTS backfill_checkpoint (
-	id INTEGER PRIMARY KEY CHECK (id = 1),
-	last_norm_id TEXT,
-	last_block_id TEXT,
-	processed_count INTEGER DEFAULT 0,
-	last_updated TEXT
-)`);
 
 // ── Article Sampling ───────────────────────────────────────────────────────
 
@@ -339,13 +342,50 @@ ${article.current_text.slice(0, 2000)}`;
 
 // ── Concurrency Pool ───────────────────────────────────────────────────────
 
+interface BatchProgress {
+	completed: number;
+	total: number;
+	processed: number;
+	startedAt: number;
+}
+
+function drawProgressBar(
+	p: BatchProgress,
+	width: number = 50,
+): string {
+	const frac = p.completed / p.total;
+	const filled = Math.round(width * frac);
+	const bar = "█".repeat(filled) + "░".repeat(width - filled);
+	const pct = (frac * 100).toFixed(1).padStart(5);
+	const elapsed = ((Date.now() - p.startedAt) / 1000).toFixed(0);
+	const rate = p.completed > 0
+		? (p.completed / ((Date.now() - p.startedAt) / 1000)).toFixed(2)
+		: "0.00";
+	const remaining = p.total - p.completed;
+	const eta = p.completed > 0
+		? ((remaining / (p.completed / ((Date.now() - p.startedAt) / 1000))) / 60).toFixed(1)
+		: "∞";
+
+	return (
+		`[${bar}] ${pct}% ` +
+		`(${p.completed}/${p.total}) ` +
+		`${rate}/s ` +
+		`eta ~${eta}m ` +
+		`(${elapsed}s elapsed)`
+	);
+}
+
 async function mapPool<T, R>(
 	items: T[],
 	limit: number,
 	fn: (item: T, idx: number) => Promise<R>,
+	onProgress?: (p: BatchProgress) => void,
 ): Promise<R[]> {
 	const results: R[] = new Array(items.length);
 	let cursor = 0;
+	let completed = 0;
+	const startedAt = Date.now();
+
 	const workers = Array.from(
 		{ length: Math.min(limit, items.length) },
 		async () => {
@@ -353,9 +393,20 @@ async function mapPool<T, R>(
 				const i = cursor++;
 				if (i >= items.length) return;
 				results[i] = await fn(items[i], i);
+				completed++;
+
+				if (onProgress) {
+					onProgress({
+						completed,
+						total: items.length,
+						processed: completed,
+						startedAt,
+					});
+				}
 			}
 		},
 	);
+
 	await Promise.all(workers);
 	return results;
 }
@@ -453,11 +504,33 @@ async function main() {
 			`\nBatch ${Math.floor(batchStart / BATCH_SIZE) + 1}: processing ${batch.length} articles (${batchStart + 1}–${batchEnd} of ${articles.length})`,
 		);
 
-		// Generate summaries
-		const results = await mapPool(batch, CONCURRENCY, async (article) => {
-			const result = await callQwenWithRetry(article);
-			return { article, result };
-		});
+		// Generate summaries with live progress bar
+		const batchElapsedStart = Date.now();
+		let lastDraw = -1; // track which completed count was last drawn
+
+		const results = await mapPool(
+			batch,
+			CONCURRENCY,
+			async (article) => {
+				const result = await callQwenWithRetry(article);
+				return { article, result };
+			},
+			(p) => {
+				// Only redraw when completed count changes
+				if (p.completed === lastDraw) return;
+				lastDraw = p.completed;
+				const line = drawProgressBar(p);
+				if (p.completed < p.total) {
+					process.stdout.write(`\r${line}   `); // overwrite, no newline
+				} else {
+					console.log(line); // newline when done
+				}
+			},
+		);
+
+		// Clear the progress line and print elapsed time for this batch
+		const batchElapsed = ((Date.now() - batchElapsedStart) / 1000).toFixed(0);
+		console.log(`  Batch done in ${batchElapsed}s`);
 
 		// Write results
 		for (const { article, result } of results) {
