@@ -186,7 +186,11 @@ async function callChat(
 				max_tokens: cfg.maxTokens,
 				response_format: {
 					type: "json_schema",
-					json_schema: { name: "citizen_metadata", strict: true, schema: SCHEMA },
+					json_schema: {
+						name: "citizen_metadata",
+						strict: true,
+						schema: SCHEMA,
+					},
 				},
 			}),
 		});
@@ -207,7 +211,9 @@ async function callChat(
 		let parsed: Output | null = null;
 		let parseErr: string | null = null;
 		try {
-			parsed = JSON.parse(text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""));
+			parsed = JSON.parse(
+				text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
+			);
 		} catch (e) {
 			parseErr = `json_parse: ${(e as Error).message}: ${text.slice(0, 200)}`;
 		}
@@ -237,13 +243,16 @@ async function mapPool<T, R>(
 ): Promise<R[]> {
 	const results: R[] = new Array(items.length);
 	let cursor = 0;
-	const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-		while (true) {
-			const i = cursor++;
-			if (i >= items.length) return;
-			results[i] = await fn(items[i], i);
-		}
-	});
+	const workers = Array.from(
+		{ length: Math.min(limit, items.length) },
+		async () => {
+			while (true) {
+				const i = cursor++;
+				if (i >= items.length) return;
+				results[i] = await fn(items[i], i);
+			}
+		},
+	);
 	await Promise.all(workers);
 	return results;
 }
@@ -255,7 +264,8 @@ function userPromptFor(row: SampleRow): string {
 async function main() {
 	const openrouterKey = process.env.OPENROUTER_API_KEY;
 	const hermesKey = process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
-	const hermesUrl = process.env.HERMES_BASE_URL ?? "https://api.nan.builders/v1";
+	const hermesUrl =
+		process.env.HERMES_BASE_URL ?? "https://api.nan.builders/v1";
 	if (!openrouterKey) throw new Error("OPENROUTER_API_KEY required");
 
 	const gemini: ProviderConfig = {
@@ -263,7 +273,10 @@ async function main() {
 		baseUrl: "https://openrouter.ai/api/v1",
 		apiKey: openrouterKey,
 		model: "google/gemini-2.5-flash-lite",
-		extraHeaders: { "HTTP-Referer": "https://leyabierta.es", "X-Title": "Ley Abierta AB" },
+		extraHeaders: {
+			"HTTP-Referer": "https://leyabierta.es",
+			"X-Title": "Ley Abierta AB",
+		},
 		maxTokens: 500,
 	};
 	const qwen: ProviderConfig = {
@@ -295,20 +308,34 @@ async function main() {
 	// Rate-limit (429) bans last ~1 minute → 65s wait.
 	// 524s (gateway timeout) are intermittent → 2s wait, try again.
 	async function callQwenWithRetry(row: SampleRow): Promise<ProviderResult> {
-		const result = await callChat(qwen, SYSTEM_PROMPT, userPromptFor(row), 180_000);
+		const result = await callChat(
+			qwen,
+			SYSTEM_PROMPT,
+			userPromptFor(row),
+			180_000,
+		);
 		if (result.error) {
 			const idx = sample.indexOf(row) + 1;
 			const isRateLimit = result.error.includes("429");
 			const is524 = result.error.includes("524");
-			console.log(`  Case ${idx}: Qwen error (${result.error.slice(0, 60)}), retrying${isRateLimit ? " (65s wait)" : ""}…`);
+			console.log(
+				`  Case ${idx}: Qwen error (${result.error.slice(0, 60)}), retrying${isRateLimit ? " (65s wait)" : ""}…`,
+			);
 			if (isRateLimit) {
 				await new Promise((r) => setTimeout(r, 65_000));
 			}
-			const result2 = await callChat(qwen, SYSTEM_PROMPT, userPromptFor(row), 180_000);
+			const result2 = await callChat(
+				qwen,
+				SYSTEM_PROMPT,
+				userPromptFor(row),
+				180_000,
+			);
 			if (result2.error) {
 				// Second retry for 524s only (rate limits already cleared by 65s wait)
 				if (is524) {
-					console.log(`  Case ${idx}: Retry 2 failed (${result2.error.slice(0, 40)}), trying once more…`);
+					console.log(
+						`  Case ${idx}: Retry 2 failed (${result2.error.slice(0, 40)}), trying once more…`,
+					);
 					await new Promise((r) => setTimeout(r, 2000));
 					return callChat(qwen, SYSTEM_PROMPT, userPromptFor(row), 180_000);
 				}
@@ -324,7 +351,9 @@ async function main() {
 		callChat(gemini, SYSTEM_PROMPT, userPromptFor(row)),
 	);
 
-	console.log(`Generating Qwen (max 5 concurrent, rate-limit safe, with retry)…`);
+	console.log(
+		`Generating Qwen (max 5 concurrent, rate-limit safe, with retry)…`,
+	);
 	const qwenResults = await mapPool(sample, 5, (row) => callQwenWithRetry(row));
 
 	// Random-blind A/B label assignment per case (seed-free; just Math.random).
@@ -371,17 +400,25 @@ async function main() {
 	lines.push(`Run: ${runId}`);
 	lines.push(`Cases: ${cases.length}`);
 	lines.push(``);
-	lines.push(`Each case shows the original article and two candidate summaries (X and Y).`);
-	lines.push(`X / Y mapping is randomized per case and stored in report-key.json.`);
+	lines.push(
+		`Each case shows the original article and two candidate summaries (X and Y).`,
+	);
+	lines.push(
+		`X / Y mapping is randomized per case and stored in report-key.json.`,
+	);
 	lines.push(``);
 	lines.push(`---`);
 	lines.push(``);
 	for (const c of cases) {
-		lines.push(`## Caso ${c.case_id} — \`${c.row.norm_id}\` / \`${c.row.block_id}\``);
+		lines.push(
+			`## Caso ${c.case_id} — \`${c.row.norm_id}\` / \`${c.row.block_id}\``,
+		);
 		lines.push(``);
 		lines.push(`**Stratum:** ${c.row.stratum}  `);
 		lines.push(`**Ley:** ${c.row.norm_title.slice(0, 120)}  `);
-		lines.push(`**Jurisdicción:** ${c.row.jurisdiction || "es"} · **Rango:** ${c.row.rank}`);
+		lines.push(
+			`**Jurisdicción:** ${c.row.jurisdiction || "es"} · **Rango:** ${c.row.rank}`,
+		);
 		lines.push(``);
 		lines.push(`### Artículo original`);
 		lines.push(``);
@@ -436,14 +473,22 @@ async function main() {
 	// Summary stats
 	const errs = (rs: ProviderResult[]) => rs.filter((r) => r.error).length;
 	const lat = (rs: ProviderResult[]) =>
-		rs.length === 0 ? 0 : Math.round(rs.reduce((a, r) => a + r.latency_ms, 0) / rs.length);
+		rs.length === 0
+			? 0
+			: Math.round(rs.reduce((a, r) => a + r.latency_ms, 0) / rs.length);
 	const tok = (rs: ProviderResult[]) =>
-		rs.length === 0 ? 0 : Math.round(rs.reduce((a, r) => a + r.tokens_out, 0) / rs.length);
+		rs.length === 0
+			? 0
+			: Math.round(rs.reduce((a, r) => a + r.tokens_out, 0) / rs.length);
 
 	console.log(`\nDone. Output: ${outDir}/`);
 	console.log(``);
-	console.log(`Gemini  errors: ${errs(geminiResults)}/${cases.length}  · avg latency: ${lat(geminiResults)}ms · avg tokens_out: ${tok(geminiResults)}`);
-	console.log(`Qwen    errors: ${errs(qwenResults)}/${cases.length}  · avg latency: ${lat(qwenResults)}ms · avg tokens_out: ${tok(qwenResults)}`);
+	console.log(
+		`Gemini  errors: ${errs(geminiResults)}/${cases.length}  · avg latency: ${lat(geminiResults)}ms · avg tokens_out: ${tok(geminiResults)}`,
+	);
+	console.log(
+		`Qwen    errors: ${errs(qwenResults)}/${cases.length}  · avg latency: ${lat(qwenResults)}ms · avg tokens_out: ${tok(qwenResults)}`,
+	);
 }
 
 await main();
