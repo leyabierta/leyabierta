@@ -20,7 +20,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 // ── Configuration ──────────────────────────────────────────────────────────
@@ -188,7 +188,13 @@ function sampleArticles(startFrom?: { norm_id: string; block_id: string }): Arti
 		ORDER BY n.id, b.block_id
 	`;
 
-	let params: any[] = [];
+	interface CheckpointRow {
+	last_norm_id: string;
+	last_block_id: string;
+	processed_count: number;
+}
+
+let params: (string | number)[] = [];
 
 	if (startFrom) {
 		query += ` AND (n.id > ? OR (n.id = ? AND b.block_id > ?))`;
@@ -377,11 +383,13 @@ async function main() {
 	console.log(``);
 
 	// Load checkpoint
-	const checkpoint = stmtGetCheckpoint.get() as {
-		last_norm_id: string;
-		last_block_id: string;
-		processed_count: number;
-	} | null;
+interface CheckpointRow {
+	last_norm_id: string;
+	last_block_id: string;
+	processed_count: number;
+}
+
+const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 
 	const startFrom = checkpoint
 		? { norm_id: checkpoint.last_norm_id, block_id: checkpoint.last_block_id }
@@ -466,7 +474,7 @@ async function main() {
 		// Checkpoint
 		const lastArticle = batch[batch.length - 1];
 		if (!DRY_RUN) {
-			const totalProcessed = (startFrom?.processed_count ?? 0) + batchEnd;
+			const totalProcessed = (checkpoint?.processed_count ?? 0) + batchEnd;
 			stmtUpsertCheckpoint.run(
 				lastArticle.norm_id,
 				lastArticle.block_id,
@@ -494,4 +502,7 @@ async function main() {
 	console.log(`Failure log: ${FAILURE_LOG}`);
 }
 
-await main();
+main().catch((err) => {
+	console.error("Fatal error:", err);
+	process.exit(1);
+});
