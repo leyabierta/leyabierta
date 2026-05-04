@@ -1,0 +1,96 @@
+name: PR checks
+
+# Gate that runs on every PR. Catches the class of regression where a page
+# is renamed/deleted/moved without a redirect (the /sobre/ 404 incident, 2026-04).
+# Builds the web statically and runs scripts/smoke-pages.ts against dist/.
+#
+# Why a separate workflow from deploy.yml: deploy.yml only fires on push to main,
+# so PRs were never gated on a real build. This is the gate.
+
+on:
+  pull_request:
+    paths:
+      - "packages/web/**"
+      - "packages/pipeline/**"
+      - "packages/api/src/scripts/generate-og-images.ts"
+      - "scripts/smoke-pages.ts"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/pr-checks.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Biome
+        run: bun run check
+
+      # Tests are not run as a gate yet: see #81 (git-repo.test.ts has
+      # 2 preexisting failures around idempotency and TZ-stability).
+      # Re-enable once #81 is fixed.
+
+  build-and-smoke:
+    name: Build web & smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: leyabierta/leyes
+          path: content/laws
+          fetch-depth: 1
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - name: Cache bun deps
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            packages/*/node_modules
+          key: bun-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-
+
+      - run: bun install --frozen-lockfile
+
+      - name: Cache Astro content store
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: packages/web/.astro
+          key: astro-data-${{ hashFiles('content/laws/**/*.md') }}
+          restore-keys: astro-data-
+
+      - name: Build web
+        working-directory: packages/web
+        run: bash build-with-progress.sh
+        env:
+          LAWS_PATH: content/laws
+          API_BYPASS_KEY: ${{ secrets.API_BYPASS_KEY }}
+          PUBLIC_UMAMI_WEBSITE_ID: ${{ vars.PUBLIC_UMAMI_WEBSITE_ID }}
+
+      - name: Smoke test critical routes
+        run: bun run scripts/smoke-pages.ts
