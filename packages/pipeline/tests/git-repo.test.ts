@@ -6,7 +6,13 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	unlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GitRepo } from "../src/git/repo.ts";
@@ -299,57 +305,58 @@ async function writeCommit(
 }
 
 /**
- * Count commits in a repo using execSync (reliable in bun test runner).
+ * Run a git command with file-redirect output capture.
+ * Works reliably in the bun test runner where Bun.spawn pipe capture
+ * and execSync inherited-fd both return empty output due to the test
+ * runner closing the parent stdout fd.
+ */
+function gitShell(args: string[], cwd: string): string {
+	const GIT_LEAK_VARS = [
+		"GIT_DIR",
+		"GIT_WORK_TREE",
+		"GIT_INDEX_FILE",
+		"GIT_OBJECT_DIRECTORY",
+		"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	];
+	const env = { ...process.env } as Record<string, string>;
+	for (const key of GIT_LEAK_VARS) delete env[key];
+
+	const quoted = args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+	const outFile = join(
+		tmpdir(),
+		`.git-test-out-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
+	try {
+		execSync(`git ${quoted} > '${outFile}' 2>/dev/null`, {
+			cwd,
+			env,
+			shell: "/bin/bash",
+		});
+		return existsSync(outFile) ? readFileSync(outFile, "utf-8").trim() : "";
+	} catch {
+		return "";
+	} finally {
+		try {
+			unlinkSync(outFile);
+		} catch {}
+	}
+}
+
+/**
+ * Count commits in a repo (reliable in bun test runner).
  */
 function countCommits(repoPath: string): number {
-	try {
-		const GIT_LEAK_VARS = [
-			"GIT_DIR",
-			"GIT_WORK_TREE",
-			"GIT_INDEX_FILE",
-			"GIT_OBJECT_DIRECTORY",
-			"GIT_ALTERNATE_OBJECT_DIRECTORIES",
-		];
-		const env = { ...process.env } as Record<string, string>;
-		for (const key of GIT_LEAK_VARS) delete env[key];
-
-		const result = execSync("git rev-list --count HEAD", {
-			cwd: repoPath,
-			env,
-		});
-		return Number.parseInt(result.toString().trim(), 10);
-	} catch {
-		return 0;
-	}
+	const result = gitShell(["rev-list", "--count", "HEAD"], repoPath);
+	return Number.parseInt(result, 10);
 }
 
 /**
  * Read author dates of all commits via git log (reliable in bun test runner).
  */
 function readAuthorDates(repoPath: string): string[] {
-	try {
-		const GIT_LEAK_VARS = [
-			"GIT_DIR",
-			"GIT_WORK_TREE",
-			"GIT_INDEX_FILE",
-			"GIT_OBJECT_DIRECTORY",
-			"GIT_ALTERNATE_OBJECT_DIRECTORIES",
-		];
-		const env = { ...process.env } as Record<string, string>;
-		for (const key of GIT_LEAK_VARS) delete env[key];
-
-		const result = execSync("git log --format=%aI --reverse", {
-			cwd: repoPath,
-			env,
-		});
-		return result
-			.toString()
-			.trim()
-			.split("\n")
-			.filter((l) => l.trim() !== "");
-	} catch {
-		return [];
-	}
+	const result = gitShell(["log", "--format=%aI", "--reverse"], repoPath);
+	if (!result) return [];
+	return result.split("\n").filter((l) => l.trim() !== "");
 }
 
 describe("Idempotency and TZ-stability", () => {
