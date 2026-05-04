@@ -12,7 +12,7 @@ import Base from "../../../layouts/Base.astro";
 		.reforma-wrap {
 			max-width: 780px;
 			margin: 0 auto;
-			padding: 0 1rem 3rem;
+			padding: 0 1rem 3.5rem;
 		}
 		#reforma-content {
 			min-height: 28rem;
@@ -20,129 +20,125 @@ import Base from "../../../layouts/Base.astro";
 
 		.reforma-back {
 			font-size: 0.8125rem;
-			color: var(--accent-light);
-			margin-bottom: 1.5rem;
+			color: var(--accent);
+			margin-bottom: 1.375rem;
 			display: inline-block;
 		}
 
 		/* ── Header ── */
-		.reforma-header { margin-bottom: 2rem; }
+		.reforma-header { margin-bottom: 1.75rem; }
 		.reforma-date-row {
 			display: flex;
 			gap: 0.5rem;
 			align-items: center;
 			flex-wrap: wrap;
-			margin-bottom: 0.5rem;
+			margin-bottom: 0.625rem;
 		}
 		.reforma-date {
-			font-size: 0.8125rem;
+			font-size: 0.78125rem;
 			color: var(--text-muted);
 			font-family: var(--font-mono);
+			letter-spacing: 0.02em;
 		}
 		.reforma-type-badge { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
 		.reforma-importance-badge {
 			font-size: 0.6875rem; font-weight: 600; color: var(--accent);
-			background: var(--accent-faint); padding: 0.125rem 0.5rem; border-radius: 4px;
+			background: var(--accent-bg); padding: 0.1875rem 0.5625rem; border-radius: 4px;
 		}
 		:global(.reforma-headline) {
-			font-family: var(--font-serif); font-size: 2rem; font-weight: 700;
-			line-height: 1.2; color: var(--text); margin-bottom: 0.5rem;
+			font-family: var(--font-serif); font-size: 1.875rem; font-weight: 700;
+			line-height: 1.2; color: var(--text); margin: 0 0 0.625rem;
+			letter-spacing: -0.02em;
 		}
-		.reforma-law-info { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5; }
-		.reforma-law-info a { color: var(--accent-light); }
+		.reforma-law-info { font-size: 0.875rem; color: var(--text-muted); line-height: 1.55; }
+		.reforma-law-info a { color: var(--accent); text-decoration: underline; }
 
 		/* ── Summary ── */
 		.reforma-summary {
-			font-size: 1rem; color: var(--text-secondary); line-height: 1.7;
-			margin-bottom: 2rem; padding: 1.25rem;
-			background: var(--accent-faint); border-radius: 10px; border-left: 3px solid var(--accent);
+			font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.7;
+			margin-bottom: 2rem; padding: 1rem 1.25rem;
+			background: var(--tierra-warm); border-radius: 10px;
+			border-left: 3px solid var(--accent);
 		}
 
 		/* ── Changes section ── */
 		.reforma-changes h2 {
-			font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700;
+			font-family: var(--font-serif); font-size: 1.3125rem; font-weight: 700;
 			margin-bottom: 1rem; color: var(--text);
+			display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
 		}
 		.reforma-changes-count { font-size: 0.875rem; color: var(--text-muted); font-weight: 400; }
 
 		.block-change {
 			border: 1px solid var(--border-light); border-radius: 10px;
-			margin-bottom: 1rem; overflow: hidden;
+			margin-bottom: 0.875rem; overflow: hidden; background: var(--surface);
 		}
 		.block-change-header {
-			padding: 0.75rem 1rem; background: var(--surface);
+			padding: 0.75rem 1rem; background: var(--bg);
 			border-bottom: 1px solid var(--border-light);
 			font-weight: 600; font-size: 0.875rem; color: var(--text);
 			cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+			font-family: var(--font-serif);
 		}
 		.block-change-header:hover { background: var(--accent-faint); }
 		.block-change-body { display: none; }
 		.block-change-body.open { display: block; }
 
-		/* Diff display */
+		/* ── Word diff: side-by-side pair ── */
 		.diff-content { padding: 1rem; }
-		.diff-para {
-			font-size: 0.8125rem; line-height: 1.7;
-			color: var(--text-secondary); margin-bottom: 0.75rem;
-			padding: 0.5rem 0.75rem; border-radius: 6px;
-		}
-		.diff-para-removed {
-			background: color-mix(in srgb, var(--danger) 6%, var(--bg));
-		}
-		.diff-para-added {
-			background: color-mix(in srgb, var(--success) 6%, var(--bg));
-		}
-		.diff-label {
-			font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
-			letter-spacing: 0.05em; margin-bottom: 0.375rem; display: block;
-		}
-		.diff-para-removed .diff-label { color: var(--danger); }
-		.diff-para-added .diff-label { color: var(--success); }
 		.diff-mod-pair {
-			display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+			display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem;
 			margin-bottom: 0.75rem;
 		}
-		.diff-word-added {
-			background: #b7f5b7; border-radius: 2px; padding: 0.05em 0.15em;
-			font-weight: 500;
+		.diff-para {
+			font-size: 0.8125rem; line-height: 1.65; color: var(--text-secondary);
+			padding: 0.625rem 0.75rem; border-radius: 6px;
+			font-family: var(--font-serif);
 		}
+		.diff-para-removed { background: #fbeaea; }
+		.diff-para-added { background: #e8f5ec; }
+		.diff-label {
+			font-size: 0.65625rem; font-weight: 700; text-transform: uppercase;
+			letter-spacing: 0.04em; margin-bottom: 0.5rem; display: block;
+			font-family: var(--font-mono);
+		}
+		.diff-para-removed .diff-label { color: #7a1a1a; }
+		.diff-para-added .diff-label { color: #1a7a4e; }
 		.diff-word-removed {
-			background: #f5b7b7; border-radius: 2px; padding: 0.05em 0.15em;
+			background: #f5b7b7; border-radius: 2px; padding: 0.05em 0.18em;
 			text-decoration: line-through; text-decoration-color: rgba(0,0,0,0.3);
 		}
-		.diff-context {
-			color: var(--text-muted);
-		}
-		.diff-ellipsis {
-			color: var(--text-muted); padding: 0 0.25em;
-		}
-		.diff-skip {
-			font-size: 0.75rem; color: var(--text-muted); text-align: center;
-			padding: 0.375rem; font-style: italic;
+		.diff-word-added {
+			background: #b7f5b7; border-radius: 2px; padding: 0.05em 0.18em;
+			font-weight: 500;
 		}
 
 		@media (max-width: 640px) {
 			.diff-mod-pair { grid-template-columns: 1fr; }
 		}
 
-		/* New block (no before) */
-		.new-block { padding: 1rem; background: color-mix(in srgb, var(--success) 4%, var(--bg)); }
+		/* ── New block (no before_text) ── */
+		.new-block {
+			padding: 0.875rem; background: #e8f5ec; border-radius: 6px; margin: 1rem;
+		}
 		.new-block .version-label {
-			font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
-			letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--success);
+			font-size: 0.65625rem; font-weight: 700; text-transform: uppercase;
+			letter-spacing: 0.04em; margin-bottom: 0.5rem; color: #1a7a4e;
+			font-family: var(--font-mono);
 		}
 		.new-block .version-text {
 			font-size: 0.8125rem; line-height: 1.7; color: var(--text-secondary);
 			white-space: pre-wrap; word-break: break-word;
+			font-family: var(--font-serif);
 		}
 
 		/* ── Nav links ── */
-		.reforma-nav { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 1rem; }
+		.reforma-nav { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: 0.75rem; }
 		.reforma-nav a {
 			display: inline-flex; align-items: center; gap: 0.375rem;
-			font-size: 0.875rem; color: var(--accent-light); font-weight: 500;
-			padding: 0.625rem 1rem; border: 1px solid var(--border-light);
-			border-radius: 8px; background: var(--surface); min-height: 48px;
+			font-size: 0.84375rem; color: var(--accent); font-weight: 500;
+			padding: 0.625rem 1rem; border: 1px solid var(--border);
+			border-radius: 8px; background: var(--surface); min-height: 44px;
 		}
 		.reforma-nav a:hover { background: var(--accent-faint); border-color: var(--accent); }
 
@@ -159,7 +155,7 @@ import Base from "../../../layouts/Base.astro";
 		}
 		.error-state p { color: var(--danger); margin-bottom: 1rem; }
 
-		/* ── Unified diff fallback ── */
+		/* ── Unified diff fallback (no affected_blocks) ── */
 		.unified-diff {
 			font-family: var(--font-mono);
 			font-size: 0.8125rem;
@@ -214,33 +210,104 @@ import Base from "../../../layouts/Base.astro";
 
 	<script is:inline>
 		(function () {
-			// Context-aware back link: use history.back() when possible
+			// LCS-based word diff — ported from the design handoff
+			function wordDiff(before, after) {
+				var a = before.split(/(\s+)/);
+				var b = after.split(/(\s+)/);
+				var n = a.length, m = b.length;
+				var dp = [];
+				for (var x = 0; x <= n; x++) {
+					dp[x] = new Int32Array(m + 1);
+				}
+				for (var i = n - 1; i >= 0; i--) {
+					for (var j = m - 1; j >= 0; j--) {
+						dp[i][j] = a[i] === b[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+					}
+				}
+				var ops = [];
+				var pi = 0, pj = 0;
+				while (pi < n && pj < m) {
+					if (a[pi] === b[pj]) { ops.push({ t: "eq", v: a[pi] }); pi++; pj++; }
+					else if (dp[pi+1][pj] >= dp[pi][pj+1]) { ops.push({ t: "del", v: a[pi] }); pi++; }
+					else { ops.push({ t: "add", v: b[pj] }); pj++; }
+				}
+				while (pi < n) { ops.push({ t: "del", v: a[pi++] }); }
+				while (pj < m) { ops.push({ t: "add", v: b[pj++] }); }
+				return ops;
+			}
+
+			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+			function formatDate(d) {
+				var dt = new Date(d + "T00:00:00");
+				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+				return dt.getDate() + " " + months[dt.getMonth()] + " " + dt.getFullYear();
+			}
+
+			function buildWordDiffHtml(beforePara, afterPara) {
+				var ops = wordDiff(beforePara, afterPara);
+				var beforeHtml = '<span class="diff-label">Antes</span>';
+				var afterHtml = '<span class="diff-label">Ahora</span>';
+				for (var k = 0; k < ops.length; k++) {
+					var o = ops[k];
+					var v = esc(o.v);
+					if (o.t === "eq") {
+						beforeHtml += v;
+						afterHtml += v;
+					} else if (o.t === "del") {
+						beforeHtml += '<span class="diff-word-removed">' + v + '</span>';
+					} else {
+						afterHtml += '<span class="diff-word-added">' + v + '</span>';
+					}
+				}
+				return '<div class="diff-mod-pair">'
+					+ '<div class="diff-para diff-para-removed">' + beforeHtml + '</div>'
+					+ '<div class="diff-para diff-para-added">' + afterHtml + '</div>'
+					+ '</div>';
+			}
+
+			function renderBlockDiff(beforeText, afterText, container) {
+				if (beforeText === afterText) {
+					container.innerHTML = '<div class="diff-content"><p style="color:var(--text-muted);font-size:0.8125rem;padding:0.75rem;font-style:italic">El texto de este artículo no cambió en esta reforma. Es posible que el cambio afecte a su numeración o contexto dentro de la ley.</p></div>';
+					return;
+				}
+				var bParas = beforeText.split(/\n\n/).map(function(p){return p.trim();}).filter(Boolean);
+				var aParas = afterText.split(/\n\n/).map(function(p){return p.trim();}).filter(Boolean);
+				var html = '<div class="diff-content">';
+				var maxParas = Math.max(bParas.length, aParas.length);
+				for (var idx = 0; idx < maxParas; idx++) {
+					var bp = bParas[idx] || "";
+					var ap = aParas[idx] || "";
+					html += buildWordDiffHtml(bp, ap);
+				}
+				html += '</div>';
+				container.innerHTML = html;
+			}
+
+			// Context-aware back link
 			var backLink = document.getElementById("reforma-back");
 			if (backLink) {
 				var params = new URLSearchParams(window.location.search);
 				var from = params.get("from");
 				var normId = params.get("id") || "";
 
-				// Set label based on context
 				if (from === "cambios") {
 					backLink.innerHTML = "&larr; Volver a cambios recientes";
 				} else if (from === "mis-cambios") {
 					backLink.innerHTML = "&larr; Volver a mis cambios";
-					backLink.href = "/cambios/mias/";
+					backLink.href = "/cambios/para-mi/";
 				} else if (from === "omnibus" || from === "law") {
 					backLink.innerHTML = "&larr; Volver a la ley";
 				} else if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
 					var refPath = new URL(document.referrer).pathname;
 					if (refPath === "/cambios/recientes/" || refPath === "/cambios/") {
 						backLink.innerHTML = "&larr; Volver a cambios recientes";
-					} else if (refPath === "/cambios/mias/") {
+					} else if (refPath === "/cambios/para-mi/") {
 						backLink.innerHTML = "&larr; Volver a mis cambios";
 					} else if (refPath.indexOf("/leyes/") === 0) {
 						backLink.innerHTML = "&larr; Volver a la ley";
 					}
 				}
 
-				// Always use history.back() if we have a same-origin referrer
 				if (document.referrer && document.referrer.indexOf(location.origin) === 0) {
 					backLink.addEventListener("click", function(e) {
 						e.preventDefault();
@@ -271,93 +338,12 @@ import Base from "../../../layouts/Base.astro";
 				correction: "Corrección", derogation: "Derogación"
 			};
 
-			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
-			function formatDate(d) {
-				var dt = new Date(d + "T00:00:00");
-				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-				return dt.getDate() + " " + months[dt.getMonth()] + " " + dt.getFullYear();
-			}
-
-			// Read normId from query param: /cambios/reforma/?id=...&date=...
 			var qParams = new URLSearchParams(window.location.search);
 			var normId = qParams.get("id") || "";
 			var date = qParams.get("date");
 			var topicParam = qParams.get("topic");
 			var topicIndex = topicParam !== null ? parseInt(topicParam, 10) : NaN;
 			var fromOmnibus = qParams.get("from") === "omnibus";
-
-			// Render paragraph-level diff with word highlighting
-			function renderBlockDiff(beforeText, afterText, container) {
-				// If texts are identical, show a clear message instead of empty diff
-				if (beforeText === afterText) {
-					container.innerHTML = '<div class="diff-content"><p style="color:var(--text-muted);font-size:0.8125rem;padding:0.75rem;font-style:italic">El texto de este artículo no cambió en esta reforma. Es posible que el cambio afecte a su numeración o contexto dentro de la ley.</p></div>';
-					return;
-				}
-				if (typeof Diff === "undefined") {
-					container.innerHTML = '<div class="diff-content"><div class="diff-para">' + esc(afterText) + '</div></div>';
-					return;
-				}
-				var bParas = beforeText.split(/\n\n/).map(function(p){return p.trim()}).filter(function(p){return p});
-				var aParas = afterText.split(/\n\n/).map(function(p){return p.trim()}).filter(function(p){return p});
-				var parts = Diff.diffArrays(bParas, aParas);
-				var html = '<div class="diff-content">';
-
-				// Build HTML for one side of a word diff, keeping only context around changes
-				function buildSideHtml(words, side) {
-					var CTX = 80;
-					var result = '';
-					for (var k = 0; k < words.length; k++) {
-						var w = words[k];
-						if (side === 'before' && w.added) continue;
-						if (side === 'after' && w.removed) continue;
-						var escaped = esc(w.value);
-						if (w.added) { result += '<span class="diff-word-added">' + escaped + '</span>'; }
-						else if (w.removed) { result += '<span class="diff-word-removed">' + escaped + '</span>'; }
-						else {
-							if (w.value.length > CTX * 2 + 30) {
-								result += '<span class="diff-context">' + esc(w.value.slice(0, CTX)) + '</span>';
-								result += '<span class="diff-ellipsis"> [...] </span>';
-								result += '<span class="diff-context">' + esc(w.value.slice(-CTX)) + '</span>';
-							} else {
-								result += escaped;
-							}
-						}
-					}
-					return result;
-				}
-
-				for (var i = 0; i < parts.length; i++) {
-					var part = parts[i];
-					if (!part.added && !part.removed) {
-						if (part.count > 0) {
-							html += '<div class="diff-skip">' + part.count + ' párrafo' + (part.count !== 1 ? 's' : '') + ' sin cambios</div>';
-						}
-					} else if (part.removed && i + 1 < parts.length && parts[i+1].added) {
-						// Modification pair: side-by-side word diff
-						var nextPart = parts[i+1];
-						var oldText = part.value.join("\n\n");
-						var newText = nextPart.value.join("\n\n");
-						var words = Diff.diffWords(oldText, newText);
-						html += '<div class="diff-mod-pair">';
-						html += '<div class="diff-para diff-para-removed"><span class="diff-label">Antes</span>' + buildSideHtml(words, 'before') + '</div>';
-						html += '<div class="diff-para diff-para-added"><span class="diff-label">Ahora</span>' + buildSideHtml(words, 'after') + '</div>';
-						html += '</div>';
-						i++;
-					} else if (part.removed) {
-						for (var r = 0; r < part.value.length; r++) {
-							var text = part.value[r];
-							var preview = text.length > 250 ? esc(text.slice(0, 250)) + '...' : esc(text);
-							html += '<div class="diff-para diff-para-removed"><span class="diff-label">Eliminado</span>' + preview + '</div>';
-						}
-					} else if (part.added) {
-						for (var a = 0; a < part.value.length; a++) {
-							html += '<div class="diff-para diff-para-added"><span class="diff-label">Nuevo</span>' + esc(part.value[a]) + '</div>';
-						}
-					}
-				}
-				html += '</div>';
-				container.innerHTML = html;
-			}
 
 			var API = document.documentElement.dataset.api;
 			var contentDiv = document.getElementById("reforma-content");
@@ -367,7 +353,6 @@ import Base from "../../../layouts/Base.astro";
 				return;
 			}
 
-			// Fetch reform data, and optionally omnibus topic data for filtering
 			var reformUrl = API + "/v1/reforms/" + encodeURIComponent(normId) + "/" + encodeURIComponent(date);
 			var promises = [fetch(reformUrl).then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })];
 			if (fromOmnibus && !isNaN(topicIndex)) {
@@ -395,7 +380,6 @@ import Base from "../../../layouts/Base.astro";
 					var reform = data.reform;
 					var law = data.law;
 					var allBlocks = data.affected_blocks || [];
-					// Filter blocks by topic if available
 					var blocks = topicBlockIds
 						? allBlocks.filter(function(b) { return topicBlockIds.indexOf(b.block_id) !== -1; })
 						: allBlocks;
@@ -403,12 +387,8 @@ import Base from "../../../layouts/Base.astro";
 					var importance = reform.importance || "";
 					var rankLabel = RANK_LABELS[law.rank] || law.rank || "";
 
-					// Bug fix #1: detect if this reform is the one that derogated the law.
 					var isDerogatingReform = law.status === "derogada" && law.last_reform_date === reform.date;
-
-					// Resolve type label — override to "Derogación" when derogating reform
 					var typeLabel = isDerogatingReform ? "Derogación" : (TYPE_LABELS[reform.reform_type] || "");
-
 					var headline = hasHeadline ? reform.headline : law.title;
 
 					// ── Header ──
@@ -417,7 +397,7 @@ import Base from "../../../layouts/Base.astro";
 					html += '<span class="reforma-date">' + esc(formatDate(reform.date)) + '</span>';
 					if (typeLabel) html += '<span class="reforma-type-badge"> · ' + esc(typeLabel) + '</span>';
 					if (importance === "high") html += '<span class="reforma-importance-badge">Cambio importante</span>';
-					if (topicInfo) html += '<span style="font-size:0.6875rem;font-weight:600;color:var(--accent);background:var(--accent-faint);padding:0.125rem 0.5rem;border-radius:4px">' + esc(topicInfo.topic_label) + '</span>';
+					if (topicInfo) html += '<span style="font-size:0.6875rem;font-weight:600;color:var(--accent);background:var(--accent-bg);padding:0.125rem 0.5rem;border-radius:4px">' + esc(topicInfo.topic_label) + '</span>';
 					html += '</div>';
 					html += '<h1 class="reforma-headline">' + esc(headline) + '</h1>';
 					html += '<div class="reforma-law-info">';
@@ -433,7 +413,7 @@ import Base from "../../../layouts/Base.astro";
 					// ── Empty topic intersection ──
 					if (topicBlockIds && blocks.length === 0) {
 						html += '<p style="color:var(--text-muted);font-size:0.9375rem;margin-bottom:0.5rem">Los ' + topicBlockIds.length + ' artículo' + (topicBlockIds.length !== 1 ? 's' : '') + ' de este tema no se modificaron en esta reforma.</p>';
-						html += '<p style="font-size:0.875rem"><a href="/cambios/' + encodeURIComponent(law.id) + '?date=' + encodeURIComponent(reform.date) + '&from=omnibus" style="color:var(--accent-light)">Ver todos los cambios de esta reforma &rarr;</a></p>';
+						html += '<p style="font-size:0.875rem"><a href="/cambios/reforma/?id=' + encodeURIComponent(law.id) + '&date=' + encodeURIComponent(reform.date) + '&from=omnibus" style="color:var(--accent)">Ver todos los cambios de esta reforma &rarr;</a></p>';
 					}
 
 					// ── Affected blocks ──
@@ -478,7 +458,7 @@ import Base from "../../../layouts/Base.astro";
 					// ── Nav ──
 					html += '<nav class="reforma-nav">';
 					html += '<a href="/leyes/' + encodeURIComponent(law.id) + '/?from=reforma">Ver ley completa &rarr;</a>';
-					html += '<a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">Ver en BOE &rarr;</a>';
+					html += '<a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">Ver en BOE ↗</a>';
 					html += '</nav>';
 
 					contentDiv.innerHTML = html;
@@ -530,37 +510,22 @@ import Base from "../../../layouts/Base.astro";
 							});
 					}
 
-					// ── Load jsdiff and render paragraph-level diff ──
+					// Render word diff for blocks that have before_text
 					if (blocks.length > 0) {
-					var script = document.createElement("script");
-					script.src = "https://cdn.jsdelivr.net/npm/diff@7/dist/diff.min.js";
-					script.onload = function () {
-						for (var i = 0; i < blocks.length; i++) {
-							var b = blocks[i];
-							if (!b.before_text) continue;
-							var container = document.getElementById("diff-block-" + i);
+						for (var bi = 0; bi < blocks.length; bi++) {
+							var blk = blocks[bi];
+							if (!blk.before_text) continue;
+							var container = document.getElementById("diff-block-" + bi);
 							if (container) {
-								renderBlockDiff(b.before_text, b.after_text, container);
+								renderBlockDiff(blk.before_text, blk.after_text, container);
 							}
 						}
-					};
-					script.onerror = function () {
-						for (var i = 0; i < blocks.length; i++) {
-							var b = blocks[i];
-							if (!b.before_text) continue;
-							var container = document.getElementById("diff-block-" + i);
-							if (container) {
-								container.innerHTML = '<div class="diff-content"><div class="diff-para">' + esc(b.after_text) + '</div></div>';
-							}
-						}
-					};
-					document.head.appendChild(script);
 					}
 				})
 				.catch(function () {
 					var params2 = new URLSearchParams(window.location.search);
 					var from2 = params2.get("from") || "";
-					var errorBackHref = "/cambios/mias/";
+					var errorBackHref = "/cambios/para-mi/";
 					var errorBackLabel = "Volver a mis cambios";
 					if (from2 === "cambios") { errorBackHref = "/cambios/recientes/"; errorBackLabel = "Volver a cambios recientes"; }
 					else if (from2 === "omnibus") { errorBackHref = "/leyes/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }

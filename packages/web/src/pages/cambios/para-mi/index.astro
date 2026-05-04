@@ -12,7 +12,7 @@ import Base from "../../../layouts/Base.astro";
 		.cambios-wrap {
 			max-width: 680px;
 			margin: 0 auto;
-			padding: 0 1rem 3rem;
+			padding: 2rem 1rem 3.5rem;
 		}
 		#cambios-content {
 			min-height: 24rem;
@@ -20,15 +20,16 @@ import Base from "../../../layouts/Base.astro";
 
 		/* ── Header ── */
 		.cambios-header {
-			margin-bottom: 2rem;
+			margin-bottom: 1.75rem;
 		}
 		.cambios-header h1 {
 			font-family: var(--font-serif);
-			font-size: 2rem;
+			font-size: 1.875rem;
 			font-weight: 700;
-			line-height: 1.2;
+			line-height: 1.15;
 			color: var(--text);
 			margin-bottom: 0.75rem;
+			letter-spacing: -0.02em;
 		}
 		.cambios-meta {
 			display: flex;
@@ -41,10 +42,11 @@ import Base from "../../../layouts/Base.astro";
 			display: inline-block;
 			font-size: 0.75rem;
 			font-weight: 500;
-			padding: 0.2rem 0.625rem;
+			padding: 0.1875rem 0.625rem;
 			border-radius: 6px;
-			background: var(--accent-faint);
+			background: var(--accent-bg);
 			color: var(--accent);
+			white-space: nowrap;
 		}
 		.cambios-info {
 			font-size: 0.8125rem;
@@ -56,19 +58,20 @@ import Base from "../../../layouts/Base.astro";
 		}
 		.cambios-info a {
 			color: var(--accent);
+			text-decoration: underline;
 		}
 
 		/* ── Loading skeleton ── */
 		.skeleton-cards {
 			display: flex;
 			flex-direction: column;
-			gap: 1rem;
+			gap: 0.875rem;
 		}
 		.skeleton-card {
 			background: var(--surface);
 			border: 1px solid var(--border-light);
 			border-radius: 12px;
-			padding: 1.25rem;
+			padding: 1.125rem 1.25rem;
 		}
 		.skeleton-line {
 			height: 0.875rem;
@@ -108,10 +111,11 @@ import Base from "../../../layouts/Base.astro";
 			font-family: var(--font-serif);
 			font-size: 1.375rem;
 			font-weight: 700;
-			margin-bottom: 0.5rem;
+			color: var(--text);
+			margin: 0 0 0.5rem;
 		}
 		.empty-state p {
-			color: var(--text-secondary);
+			color: var(--text-muted);
 			font-size: 0.9375rem;
 			max-width: 24rem;
 			margin: 0 auto;
@@ -151,45 +155,67 @@ import Base from "../../../layouts/Base.astro";
 		.reform-timeline {
 			display: flex;
 			flex-direction: column;
-			gap: 1rem;
+			gap: 0.875rem;
 		}
 		.reform-card {
 			background: var(--surface);
 			border: 1px solid var(--border-light);
 			border-radius: 12px;
-			padding: 1.25rem;
+			padding: 1.125rem 1.25rem;
 			transition: box-shadow 0.2s;
 		}
 		.reform-card:hover {
 			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 		}
+		.reform-card.is-high {
+			border-left: 3px solid var(--accent);
+		}
 		.reform-date-row {
 			display: flex;
 			gap: 0.5rem;
 			align-items: center;
-			margin-bottom: 0.25rem;
+			flex-wrap: wrap;
+			margin-bottom: 0.375rem;
 		}
 		.reform-date {
-			font-size: 0.75rem;
+			font-size: 0.71875rem;
 			color: var(--text-muted);
 			font-family: var(--font-mono);
+			letter-spacing: 0.02em;
 		}
 		.reform-type-badge {
 			font-size: 0.6875rem;
 			font-weight: 500;
 			color: var(--text-muted);
 		}
+		.reform-importance-badge {
+			font-size: 0.65625rem;
+			font-weight: 600;
+			color: var(--accent);
+			background: var(--accent-bg);
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+			letter-spacing: 0.02em;
+		}
+		.reform-matched-tag {
+			font-size: 0.65625rem;
+			font-weight: 500;
+			color: var(--text-muted);
+			background: var(--tierra-warm);
+			padding: 0.125rem 0.5rem;
+			border-radius: 4px;
+		}
 		.reform-headline {
 			font-family: var(--font-serif);
 			font-size: 1.0625rem;
 			font-weight: 600;
-			line-height: 1.4;
-			margin: 0.375rem 0 0.25rem;
+			line-height: 1.35;
+			margin: 0.25rem 0 0.375rem;
 			color: var(--text);
 		}
 		.reform-summary {
-			font-size: 0.9rem;
-			color: var(--text-secondary);
+			font-size: 0.875rem;
+			color: var(--text-muted);
 			line-height: 1.6;
 			margin-bottom: 0.5rem;
 		}
@@ -203,7 +229,7 @@ import Base from "../../../layouts/Base.astro";
 		}
 		.reform-link {
 			font-size: 0.8125rem;
-			color: var(--accent-light);
+			color: var(--accent);
 			font-weight: 500;
 		}
 		.reform-link:hover {
@@ -212,39 +238,42 @@ import Base from "../../../layouts/Base.astro";
 
 		/* ── Email CTA ── */
 		.email-cta {
-			margin-top: 2.5rem;
-			padding: 2rem;
-			background: var(--accent-faint);
-			border: 1px solid var(--border-light);
+			margin-top: 2.25rem;
+			padding: 1.625rem 1.75rem;
+			background: var(--tierra-warm);
+			border: 1px solid var(--tierra-deep);
 			border-radius: 12px;
 			text-align: center;
 		}
 		.email-cta h2 {
 			font-family: var(--font-serif);
-			font-size: 1.25rem;
+			font-size: 1.1875rem;
 			font-weight: 700;
-			margin-bottom: 0.375rem;
+			margin: 0 0 0.375rem;
+			color: var(--text);
 		}
 		.email-cta > p {
 			color: var(--text-secondary);
-			font-size: 0.9rem;
-			margin-bottom: 1.25rem;
+			font-size: 0.84375rem;
+			margin-bottom: 1rem;
+			line-height: 1.55;
 		}
 		.email-cta form {
-			max-width: 24rem;
+			max-width: 22.5rem;
 			margin: 0 auto;
 			text-align: left;
 		}
 		.email-cta input[type="email"] {
 			width: 100%;
-			padding: 0.75rem;
+			padding: 0.6875rem 0.75rem;
 			border: 1px solid var(--border);
-			border-radius: 8px;
-			background: var(--surface);
+			border-radius: 7px;
+			background: var(--bg);
 			color: var(--text);
-			font-size: 0.9375rem;
+			font-size: 0.875rem;
 			font-family: var(--font-sans);
-			margin-bottom: 0.75rem;
+			margin-bottom: 0.625rem;
+			box-sizing: border-box;
 		}
 		.email-cta input[type="email"]:focus {
 			outline: none;
@@ -255,16 +284,16 @@ import Base from "../../../layouts/Base.astro";
 			display: flex;
 			align-items: flex-start;
 			gap: 0.5rem;
-			margin-bottom: 1rem;
+			margin-bottom: 0.75rem;
 		}
 		.consent-row input[type="checkbox"] {
-			margin-top: 0.2rem;
+			margin-top: 0.1875rem;
 			flex-shrink: 0;
 			accent-color: var(--accent);
 		}
 		.consent-row label {
-			font-size: 0.8125rem;
-			color: var(--text-secondary);
+			font-size: 0.78125rem;
+			color: var(--text-muted);
 			line-height: 1.5;
 		}
 		.consent-row a {
@@ -274,7 +303,7 @@ import Base from "../../../layouts/Base.astro";
 		.email-cta .btn-primary {
 			width: 100%;
 			justify-content: center;
-			min-height: 48px;
+			min-height: 44px;
 		}
 		.email-cta .btn-primary:disabled {
 			opacity: 0.5;
@@ -295,7 +324,7 @@ import Base from "../../../layouts/Base.astro";
 		}
 		.email-hint {
 			font-size: 0.8125rem;
-			color: var(--text-tertiary, var(--text-secondary));
+			color: var(--text-muted);
 			margin-top: 0.375rem;
 			text-align: center;
 			transition: opacity 0.2s;
@@ -304,7 +333,7 @@ import Base from "../../../layouts/Base.astro";
 		/* ── Responsive ── */
 		@media (max-width: 640px) {
 			.cambios-header h1 { font-size: 1.625rem; }
-			.cambios-wrap { padding-bottom: 2rem; }
+			.cambios-wrap { padding-top: 1.25rem; padding-bottom: 2rem; }
 		}
 	</style>
 
@@ -401,7 +430,6 @@ import Base from "../../../layouts/Base.astro";
 			var infoDiv = document.getElementById("cambios-info");
 			var emailCta = document.getElementById("email-cta");
 
-			// Read localStorage
 			var perfil = null;
 			try {
 				perfil = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
@@ -469,11 +497,19 @@ import Base from "../../../layouts/Base.astro";
 					var hasHeadline = r.headline && r.headline.length > 0;
 					var reformType = r.reform_type || "";
 					var typeLabel = TYPE_LABELS[reformType] || "";
+					var isHigh = r.importance === "high";
 
-					html += '<div class="reform-card">';
+					html += '<div class="reform-card' + (isHigh ? ' is-high' : '') + '">';
 					html += '<div class="reform-date-row">';
 					html += '<span class="reform-date">' + esc(dateStr) + '</span>';
 					if (typeLabel) html += '<span class="reform-type-badge"> · ' + esc(typeLabel) + '</span>';
+					if (isHigh) html += '<span class="reform-importance-badge">Cambio importante</span>';
+					// matched tags from API if present
+					if (r.matched_tags && r.matched_tags.length) {
+						for (var mt = 0; mt < r.matched_tags.length; mt++) {
+							html += '<span class="reform-matched-tag">↳ ' + esc(r.matched_tags[mt]) + '</span>';
+						}
+					}
 					html += '</div>';
 
 					if (hasHeadline) {
@@ -483,7 +519,7 @@ import Base from "../../../layouts/Base.astro";
 						html += '<h3 class="reform-title-fallback">' + esc(r.title) + '</h3>';
 					}
 
-					html += '<a href="/cambios/' + encodeURIComponent(r.id) + '?date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
+					html += '<a href="/cambios/reforma/?id=' + encodeURIComponent(r.id) + '&date=' + encodeURIComponent(r.date) + '&from=mis-cambios" class="reform-link">Ver qué cambió →</a>';
 					html += '</div>';
 				}
 				return html;
@@ -515,7 +551,7 @@ import Base from "../../../layouts/Base.astro";
 						if (!data.reforms) data.reforms = [];
 
 						if (isInitial && data.reforms.length === 0) {
-							contentDiv.innerHTML = '<div class="empty-state"><div class="empty-check">&#10003;</div><h2>No hay cambios recientes que te afecten</h2><p>¡Buenas noticias! Te avisaremos cuando algo cambie.</p></div>';
+							contentDiv.innerHTML = '<div class="empty-state"><div class="empty-check">&#10003;</div><h2>No hay cambios recientes que te afecten</h2><p>¡Buenas noticias! Te avisaremos cuando algo cambie en las leyes que tocan tu situación.</p></div>';
 							emailCta.style.visibility = "";
 							emailCta.style.position = "";
 							return;
@@ -530,7 +566,6 @@ import Base from "../../../layouts/Base.astro";
 						currentOffset = offset + data.reforms.length;
 						updateInfoDate();
 
-						// Show/hide "Ver más" button
 						if (data.reforms.length >= PAGE_SIZE) {
 							if (!loadMoreBtn) {
 								loadMoreBtn = document.createElement("button");
@@ -579,8 +614,8 @@ import Base from "../../../layouts/Base.astro";
 			var emailSuccess = document.getElementById("email-success");
 			var emailError = document.getElementById("email-error");
 			var emailForm = document.getElementById("email-form");
-
 			var emailHint = document.getElementById("email-hint");
+
 			function validateEmail() {
 				var valid = emailInput.value && emailInput.validity.valid && emailConsent.checked;
 				emailSubmit.disabled = !valid;
