@@ -21,12 +21,10 @@
 
 import { Database } from "bun:sqlite";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
 const DB_PATH = "data/leyabierta.db";
-const CHECKPOINT_FILE = "data/backfill-checkpoint.json";
 const FAILURE_LOG = "data/backfill-failures.jsonl";
 const PROGRESS_FILE = "data/backfill-progress.json";
 
@@ -437,12 +435,12 @@ const checkpoint = stmtGetCheckpoint.get() as CheckpointRow | null;
 			if (result.error) {
 				progress.errors++;
 				// Log failure
-				writeFileSync(FAILURE_LOG, JSON.stringify({
+				writeFileSync(FAILURE_LOG, `${JSON.stringify({
 					norm_id: article.norm_id,
 					block_id: article.block_id,
 					error: result.error,
 					timestamp: new Date().toISOString(),
-				}) + "\n", { flag: "a" });
+				})}\n`, { flag: "a" });
 				console.log(`  ✗ ${article.norm_id}::${article.block_id}: ${result.error.slice(0, 60)}`);
 			} else if (!result.output || result.output.citizen_summary === "") {
 				progress.empty++;
