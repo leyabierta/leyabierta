@@ -293,14 +293,54 @@ async function callQwenBatch(
 
 		const text = data.choices?.[0]?.message?.content ?? "";
 		let parsed: BatchSummary[] | null = null;
-		try {
-			parsed = JSON.parse(
-				text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
-			);
-		} catch (e) {
+		
+		// Robust JSON extraction: try multiple strategies
+		const extractors = [
+			// 1. Try as-is
+			(t: string) => JSON.parse(t),
+			// 2. Strip markdown code blocks
+			(t: string) => JSON.parse(t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")),
+			// 3. Find first { and last } and parse what's between
+			(t: string) => {
+				const first = t.indexOf("{");
+				const last = t.lastIndexOf("}");
+				if (first !== -1 && last !== -1 && last > first) {
+					return JSON.parse(t.slice(first, last + 1));
+				}
+				throw new Error("No JSON object found");
+			},
+			// 4. Find first [ and last ] and parse what's between (for array responses)
+			(t: string) => {
+				const first = t.indexOf("[");
+				const last = t.lastIndexOf("]");
+				if (first !== -1 && last !== -1 && last > first) {
+					return JSON.parse(t.slice(first, last + 1));
+				}
+				throw new Error("No JSON array found");
+			},
+		];
+		
+		let parseError = "";
+		for (const extractor of extractors) {
+			try {
+				parsed = extractor(text);
+				// Validate it's an array
+				if (Array.isArray(parsed)) break;
+				// If it's an object, wrap in array (single item)
+				if (typeof parsed === "object" && parsed !== null && "citizen_summary" in parsed) {
+					parsed = [parsed as BatchSummary];
+					break;
+				}
+				parseError = "Not an array or expected object";
+			} catch (e) {
+				parseError = (e as Error).message;
+			}
+		}
+		
+		if (!parsed) {
 			return {
 				outputs: [],
-				error: `json_parse: ${(e as Error).message}: ${text.slice(0, 200)}`,
+				error: `json_parse: ${parseError}: ${text.slice(0, 300)}`,
 			};
 		}
 
@@ -345,6 +385,16 @@ async function callQwenBatchWithRetry(
 			const jitter = Math.random() * 5000;
 			await new Promise((r) => setTimeout(r, 65_000 + jitter));
 			return callQwenBatch(articles);
+		}
+		// JSON parse errors — retry up to 3 times with increasing jitter
+		if (result.error.includes("json_parse")) {
+			for (let attempt = 0; attempt < 3; attempt++) {
+				const jitter = Math.random() * 1500 + (attempt * 1000);
+				await new Promise((r) => setTimeout(r, jitter));
+				const r = await callQwenBatch(articles);
+				if (!r.error) return r;
+			}
+			return result; // all retries failed
 		}
 		// Other errors — retry once with 1-2s jitter
 		const jitter3 = Math.random() * 1000;
