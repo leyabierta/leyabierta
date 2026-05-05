@@ -32,6 +32,7 @@ const PROGRESS_FILE = "data/backfill-progress.json";
 const API_BATCH_SIZE = 5; // articles per API call (batching)
 const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
 const TIMEOUT_MS = 300_000; // 5 minutes per batch (5 articles × ~60s each)
+const REQUEST_TIMEOUT_MS = 180_000; // 3 minutes per individual request
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
 const HERMES_API_KEY =
 	process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
@@ -256,55 +257,69 @@ async function callQwenBatch(
 	articles: Article[],
 ): Promise<{ outputs: (BatchSummary | null)[]; error: string | null }> {
 	const prompt = buildBatchPrompt(articles);
-	const res = await fetch(`${HERMES_BASE_URL}/chat/completions`, {
-		method: "POST",
-		signal: AbortSignal.timeout(TIMEOUT_MS),
-		headers: {
-			Authorization: `Bearer ${HERMES_API_KEY}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			model: "qwen3.6",
-			messages: [
-				{ role: "system", content: SYSTEM_PROMPT },
-				{ role: "user", content: prompt },
-			],
-			temperature: 0.2,
-			max_tokens: 32000,
-			response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
-		}),
-	});
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-	console.error(`[DEBUG] callQwenBatch: response status ${res.status}`);
-
-	if (!res.ok) {
-		const body = await res.text();
-		return { outputs: [], error: `http_${res.status}: ${body.slice(0, 200)}` };
-	}
-
-	const data = (await res.json()) as {
-		choices?: { message?: { content?: string } }[];
-	};
-
-	const text = data.choices?.[0]?.message?.content ?? "";
-	let parsed: BatchSummary[] | null = null;
 	try {
-		parsed = JSON.parse(
-			text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
-		);
-	} catch (e) {
-		return {
-			outputs: [],
-			error: `json_parse: ${(e as Error).message}: ${text.slice(0, 200)}`,
+		const res = await fetch(`${HERMES_BASE_URL}/chat/completions`, {
+			method: "POST",
+			signal: controller.signal,
+			headers: {
+				Authorization: `Bearer ${HERMES_API_KEY}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				model: "qwen3.6",
+				messages: [
+					{ role: "system", content: SYSTEM_PROMPT },
+					{ role: "user", content: prompt },
+				],
+				temperature: 0.2,
+				max_tokens: 32000,
+				response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
+			}),
+		});
+
+		console.error(`[DEBUG] callQwenBatch: response status ${res.status} (${Date.now()}ms)`);
+
+		if (!res.ok) {
+			const body = await res.text();
+			return { outputs: [], error: `http_${res.status}: ${body.slice(0, 200)}` };
+		}
+
+		const data = (await res.json()) as {
+			choices?: { message?: { content?: string } }[];
 		};
+
+		const text = data.choices?.[0]?.message?.content ?? "";
+		let parsed: BatchSummary[] | null = null;
+		try {
+			parsed = JSON.parse(
+				text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
+			);
+		} catch (e) {
+			return {
+				outputs: [],
+				error: `json_parse: ${(e as Error).message}: ${text.slice(0, 200)}`,
+			};
+		}
+
+		// Map by position (model returns article_id as "ARTÍCULO_1", "ARTÍCULO_2", etc.)
+		const outputs: (BatchSummary | null)[] = parsed?.map((p) => ({
+			article_id: "",
+			citizen_summary: p.citizen_summary,
+			citizen_tags: p.citizen_tags,
+		})) ?? articles.map(() => null);
+
+		return { outputs, error: null };
+	} catch (e) {
+		if ((e as Error).name === "AbortError") {
+			return { outputs: [], error: `timeout: request exceeded ${REQUEST_TIMEOUT_MS}ms` };
+		}
+		return { outputs: [], error: `fetch_error: ${(e as Error).message}` };
+	} finally {
+		clearTimeout(timeoutId);
 	}
-
-	// Map article_id to output
-	const outputs: (BatchSummary | null)[] = articles.map((a) => {
-		return parsed?.find((p) => p.article_id === a.block_id) ?? null;
-	});
-
-	return { outputs, error: null };
 }
 
 async function callQwenBatchWithRetry(
@@ -313,23 +328,27 @@ async function callQwenBatchWithRetry(
 	const result = await callQwenBatch(articles);
 
 	if (result.error) {
-		// Retry on 524 (gateway timeout) — 2s wait
+		// Retry on 524 (gateway timeout) — 2-4s wait with jitter
 		if (result.error.includes("524")) {
-			await new Promise((r) => setTimeout(r, 2000));
+			const jitter = Math.random() * 2000;
+			await new Promise((r) => setTimeout(r, 2000 + jitter));
 			const r2 = await callQwenBatch(articles);
 			if (r2.error) {
-				await new Promise((r) => setTimeout(r, 2000));
+				const jitter2 = Math.random() * 2000;
+				await new Promise((r) => setTimeout(r, 2000 + jitter2));
 				return callQwenBatch(articles); // final attempt
 			}
 			return r2;
 		}
-		// Retry on 429 (rate limit) — 65s wait
+		// Retry on 429 (rate limit) — 65-70s wait with jitter
 		if (result.error.includes("429")) {
-			await new Promise((r) => setTimeout(r, 65_000));
+			const jitter = Math.random() * 5000;
+			await new Promise((r) => setTimeout(r, 65_000 + jitter));
 			return callQwenBatch(articles);
 		}
-		// Other errors — retry once
-		await new Promise((r) => setTimeout(r, 1000));
+		// Other errors — retry once with 1-2s jitter
+		const jitter3 = Math.random() * 1000;
+		await new Promise((r) => setTimeout(r, 1000 + jitter3));
 		return callQwenBatch(articles);
 	}
 
