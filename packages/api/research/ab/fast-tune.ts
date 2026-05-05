@@ -10,8 +10,8 @@
  *   bun run fast-tune.ts --query-prefix=instruct-en --doc-format=prod --mrl-dim=4096 --normalize=l2
  */
 
-const fs = require("fs");
-const path = require("path");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const NAN_BASE_URL = "https://api.nan.builders/v1";
 const NAN_API_KEY = process.env.NAN_API_KEY || "sk-1WqPsfFrl3YHyBg52xRvTg";
@@ -154,7 +154,7 @@ function writeResult(result) {
 
 	fs.writeFileSync(
 		path.join(REPO_ROOT, "data", "ab-results", "latest-result.txt"),
-		line + "\n",
+		`${line}\n`,
 	);
 
 	// Also append to leaderboard
@@ -169,7 +169,7 @@ function writeResult(result) {
 		...result,
 		timestamp: new Date().toISOString(),
 	});
-	fs.appendFileSync(leaderboardPath, lbEntry + "\n");
+	fs.appendFileSync(leaderboardPath, `${lbEntry}\n`);
 
 	return { line, resultFile, leaderboardPath };
 }
@@ -180,7 +180,7 @@ async function main() {
 	const queryPrefixName = args["query-prefix"] || "instruct-en";
 	const docFormat = args["doc-format"] || "prod";
 	const mrlDim = Number(args["mrl-dim"] || 4096);
-	const normalize = args["normalize"] || "l2";
+	const normalize = args.normalize || "l2";
 	const maxBlocks = Number(args["max-blocks"] || 50);
 	const maxQuestions = Number(args["max-questions"] || 10);
 	const strategy = args["query-strategy"] || "single";

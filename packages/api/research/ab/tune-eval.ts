@@ -25,7 +25,6 @@ import { join } from "node:path";
 import { createSchema } from "../../../pipeline/src/db/schema.ts";
 import {
 	EMBEDDING_MODELS,
-	type EmbeddingModel,
 	vectorSearch,
 } from "../../src/services/rag/embeddings.ts";
 import { buildCorpusPlan, type PreparedBlock } from "./corpus.ts";
@@ -34,8 +33,8 @@ import { buildCorpusPlan, type PreparedBlock } from "./corpus.ts";
 const NAN_BASE_URL = "https://api.nan.builders/v1";
 const NAN_API_KEY = process.env.NAN_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
 const NAN_MODEL = "qwen3-embedding";
-const NAN_DIM = 4096;
-const NAN_BATCH_SIZE = 32; // NaN supports batch size 32
+const _NAN_DIM = 4096;
+const _NAN_BATCH_SIZE = 32; // NaN supports batch size 32
 
 // ── Gemini-2 baseline (from prior A/B) ──
 const GEMINI_R1 = 96.5;
@@ -87,7 +86,7 @@ const QUERY_PREFIXES: Record<string, (q: string) => string> = {
 };
 
 // ── Document format implementations ──
-function formatDoc(block: PreparedBlock, format: string): string {
+function _formatDoc(block: PreparedBlock, format: string): string {
 	// Parse the production format to extract norm title and chunk info
 	const parts = block.text.split("\n\n");
 	const header = parts[0] || "";
@@ -241,7 +240,7 @@ async function main() {
 	const queryPrefixName = args["query-prefix"] ?? "instruct-en";
 	const docFormat = args["doc-format"] ?? "prod";
 	const mrlDim = Number(args["mrl-dim"] ?? 4096);
-	const normalize = args["normalize"] ?? "l2";
+	const normalize = args.normalize ?? "l2";
 	const queryStrategy = args["query-strategy"] ?? "single";
 
 	if (!QUERY_PREFIXES[queryPrefixName]) {
