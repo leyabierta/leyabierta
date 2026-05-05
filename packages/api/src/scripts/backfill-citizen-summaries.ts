@@ -106,7 +106,8 @@ Ejemplo 5 (derechos procesales — SÍ resumen, NO vacío):
 ARTÍCULO: La defensa de una persona investigada podrá solicitar que se practiquen diligencias de investigación que complementen las ya practicadas. El Fiscal Europeo acordará las diligencias si son relevantes para la investigación. Si las deniega, se podrán impugnar ante el Juez de Garantías.
 RESUMEN: La persona investigada puede solicitar diligencias complementarias. El Fiscal Europeo las acordará si son relevantes. La denegación se puede impugnar ante el Juez de Garantías.`;
 
-const SCHEMA = {
+// Single-article schema (kept for reference, not used in batch mode)
+const _SCHEMA = {
 	name: "citizen_metadata",
 	strict: true,
 	schema: {
