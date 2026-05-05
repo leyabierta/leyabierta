@@ -29,8 +29,9 @@ const FAILURE_LOG = "data/backfill-failures.jsonl";
 const PROGRESS_FILE = "data/backfill-progress.json";
 
 // Qwen rate limit: max 5 concurrent
-const BATCH_SIZE = 100; // checkpoint interval
-const TIMEOUT_MS = 180_000; // 3 minutes per article
+const API_BATCH_SIZE = 5; // articles per API call (batching)
+const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
+const TIMEOUT_MS = 300_000; // 5 minutes per batch (5 articles × ~60s each)
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
 const HERMES_API_KEY =
 	process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
@@ -212,11 +213,48 @@ function sampleArticles(startFrom?: {
 	return db.prepare(query).all(...params) as Article[];
 }
 
-// ── Qwen API ───────────────────────────────────────────────────────────────
+// ── Qwen API (Batch Mode) ──────────────────────────────────────────────────
 
-async function callQwen(
-	article: Article,
-): Promise<{ output: Summary | null; error: string | null }> {
+interface BatchSummary {
+	article_id: string;
+	citizen_summary: string;
+	citizen_tags: string[];
+}
+
+const BATCH_SCHEMA = {
+	name: "citizen_metadata_batch",
+	strict: true,
+	schema: {
+		type: "array",
+		items: {
+			type: "object",
+			properties: {
+				article_id: { type: "string" },
+				citizen_summary: { type: "string" },
+				citizen_tags: { type: "array", items: { type: "string" } },
+			},
+			required: ["article_id", "citizen_summary", "citizen_tags"],
+			additionalProperties: false,
+		},
+	},
+};
+
+function buildBatchPrompt(articles: Article[]): string {
+	return (
+		articles
+			.map(
+				(a, i) =>
+					`ARTÍCULO_${i + 1}:\nLEY: ${a.norm_title}\nTÍTULO: ${a.block_title}\nTEXTO:\n${a.current_text.slice(0, 2000)}`,
+			)
+			.join("\n\n") +
+		"\n\nGenera un resumen para cada artículo. Usa article_id como identificador único."
+	);
+}
+
+async function callQwenBatch(
+	articles: Article[],
+): Promise<{ outputs: (BatchSummary | null)[]; error: string | null }> {
+	const prompt = buildBatchPrompt(articles);
 	const res = await fetch(`${HERMES_BASE_URL}/chat/completions`, {
 		method: "POST",
 		signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -228,116 +266,70 @@ async function callQwen(
 			model: "qwen3.6",
 			messages: [
 				{ role: "system", content: SYSTEM_PROMPT },
-				{
-					role: "user",
-					content: `LEY: ${article.norm_title}\n\nARTÍCULO:\n${article.block_title}\n${article.current_text.slice(0, 2000)}`,
-				},
+				{ role: "user", content: prompt },
 			],
 			temperature: 0.2,
 			max_tokens: 32000,
-			response_format: { type: "json_schema", json_schema: SCHEMA },
+			response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
 		}),
 	});
 
+	console.error(`[DEBUG] callQwenBatch: response status ${res.status}`);
+
 	if (!res.ok) {
 		const body = await res.text();
-		return { output: null, error: `http_${res.status}: ${body.slice(0, 200)}` };
+		return { outputs: [], error: `http_${res.status}: ${body.slice(0, 200)}` };
 	}
 
 	const data = (await res.json()) as {
 		choices?: { message?: { content?: string } }[];
-		usage?: { prompt_tokens?: number; completion_tokens?: number };
 	};
 
 	const text = data.choices?.[0]?.message?.content ?? "";
-	let parsed: Summary | null = null;
+	let parsed: BatchSummary[] | null = null;
 	try {
 		parsed = JSON.parse(
 			text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
 		);
 	} catch (e) {
 		return {
-			output: null,
+			outputs: [],
 			error: `json_parse: ${(e as Error).message}: ${text.slice(0, 200)}`,
 		};
 	}
 
-	return { output: parsed, error: null };
+	// Map article_id to output
+	const outputs: (BatchSummary | null)[] = articles.map((a) => {
+		return parsed?.find((p) => p.article_id === a.block_id) ?? null;
+	});
+
+	return { outputs, error: null };
 }
 
-async function callQwenWithRetry(
-	article: Article,
-): Promise<{ output: Summary | null; error: string | null }> {
-	const result = await callQwen(article);
+async function callQwenBatchWithRetry(
+	articles: Article[],
+): Promise<{ outputs: (BatchSummary | null)[]; error: string | null }> {
+	const result = await callQwenBatch(articles);
 
 	if (result.error) {
 		// Retry on 524 (gateway timeout) — 2s wait
 		if (result.error.includes("524")) {
 			await new Promise((r) => setTimeout(r, 2000));
-			const r2 = await callQwen(article);
+			const r2 = await callQwenBatch(articles);
 			if (r2.error) {
 				await new Promise((r) => setTimeout(r, 2000));
-				return callQwen(article); // final attempt
+				return callQwenBatch(articles); // final attempt
 			}
 			return r2;
 		}
 		// Retry on 429 (rate limit) — 65s wait
 		if (result.error.includes("429")) {
 			await new Promise((r) => setTimeout(r, 65_000));
-			return callQwen(article);
+			return callQwenBatch(articles);
 		}
 		// Other errors — retry once
 		await new Promise((r) => setTimeout(r, 1000));
-		return callQwen(article);
-	}
-
-	// Retry on empty for substantive articles (>200 chars)
-	if (
-		result.output &&
-		result.output.citizen_summary === "" &&
-		article.current_text.length > 200
-	) {
-		const retryPrompt = `Este artículo SÍ es sustantivo. Genera un resumen obligatorio.
-
-LEY: ${article.norm_title}
-
-ARTÍCULO:
-${article.block_title}
-${article.current_text.slice(0, 2000)}`;
-
-		const retryRes = await fetch(`${HERMES_BASE_URL}/chat/completions`, {
-			method: "POST",
-			signal: AbortSignal.timeout(TIMEOUT_MS),
-			headers: {
-				Authorization: `Bearer ${HERMES_API_KEY}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model: "qwen3.6",
-				messages: [
-					{ role: "system", content: SYSTEM_PROMPT },
-					{ role: "user", content: retryPrompt },
-				],
-				temperature: 0.2,
-				max_tokens: 32000,
-				response_format: { type: "json_schema", json_schema: SCHEMA },
-			}),
-		});
-
-		if (retryRes.ok) {
-			const data = (await retryRes.json()) as {
-				choices?: { message?: { content?: string } }[];
-			};
-			const text = data.choices?.[0]?.message?.content ?? "";
-			try {
-				const parsed = JSON.parse(
-					text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, ""),
-				);
-				return { output: parsed, error: null };
-			} catch {
-				// Return original empty result
-			}
-		}
+		return callQwenBatch(articles);
 	}
 
 	return result;
@@ -501,48 +493,68 @@ async function main() {
 	for (
 		let batchStart = 0;
 		batchStart < articles.length;
-		batchStart += BATCH_SIZE
+		batchStart += CHECKPOINT_INTERVAL
 	) {
-		const batchEnd = Math.min(batchStart + BATCH_SIZE, articles.length);
+		const batchEnd = Math.min(batchStart + CHECKPOINT_INTERVAL, articles.length);
 		const batch = articles.slice(batchStart, batchEnd);
 
 		console.log(
-			`\nBatch ${Math.floor(batchStart / BATCH_SIZE) + 1}: processing ${batch.length} articles (${batchStart + 1}–${batchEnd} of ${articles.length})`,
+			`\nBatch ${Math.floor(batchStart / CHECKPOINT_INTERVAL) + 1}: processing ${batch.length} articles (${batchStart + 1}–${batchEnd} of ${articles.length})`,
 		);
 
-		// Generate summaries with live progress bar
-		const batchElapsedStart = Date.now();
-		let lastDraw = -1; // track which completed count was last drawn
+		// Split into API batches of API_BATCH_SIZE articles
+		const apiBatches: Article[][] = [];
+		for (let i = 0; i < batch.length; i += API_BATCH_SIZE) {
+			apiBatches.push(batch.slice(i, i + API_BATCH_SIZE));
+		}
 
-		const results = await mapPool(
-			batch,
-			CONCURRENCY,
-			async (article) => {
-				const result = await callQwenWithRetry(article);
-				return { article, result };
-			},
-			(p) => {
-				// Only redraw when completed count changes
-				if (p.completed === lastDraw) return;
-				lastDraw = p.completed;
-				const line = drawProgressBar(p);
-				if (p.completed < p.total) {
-					process.stdout.write(`\r${line}   `); // overwrite, no newline
-				} else {
-					console.log(line); // newline when done
-				}
-			},
-		);
+		console.log(`  ${apiBatches.length} API batch(es) of ${API_BATCH_SIZE} articles`);
 
-		// Clear the progress line and print elapsed time for this batch
-		const batchElapsed = ((Date.now() - batchElapsedStart) / 1000).toFixed(0);
-		console.log(`  Batch done in ${batchElapsed}s`);
+		// Process API batches with live progress bar
+		let lastDraw = -1;
+		const allResults: { article: Article; outputs: (BatchSummary | null)[]; error: string | null }[] = [];
+
+		for (let apiBatchIdx = 0; apiBatchIdx < apiBatches.length; apiBatchIdx++) {
+			const apiBatch = apiBatches[apiBatchIdx];
+			const result = await callQwenBatchWithRetry(apiBatch);
+			allResults.push({ article: apiBatch[0], outputs: result.outputs, error: result.error });
+
+			// Progress per API batch
+			const totalApiBatches = apiBatches.length;
+			const completedApiBatches = apiBatchIdx + 1;
+			const articlesProcessed = Math.min((apiBatchIdx + 1) * API_BATCH_SIZE, batch.length);
+			const pct = (articlesProcessed / batch.length) * 100;
+			const filled = Math.round(50 * (pct / 100));
+			const bar = "█".repeat(filled) + "░".repeat(50 - filled);
+			const barLine = `[${bar}] ${pct.toFixed(1).padStart(5)}% (${articlesProcessed}/${batch.length})`;
+
+			if (apiBatchIdx < apiBatches.length - 1) {
+				process.stdout.write(`\r${barLine}   `);
+			} else {
+				console.log(`\r${barLine}`);
+			}
+		}
+
+		// Flatten results: map each article to its summary
+		const flatResults: { article: Article; output: BatchSummary | null; error: string | null }[] = [];
+		for (let apiBatchIdx = 0; apiBatchIdx < allResults.length; apiBatchIdx++) {
+			const apiBatch = apiBatches[apiBatchIdx];
+			const { outputs, error } = allResults[apiBatchIdx];
+
+			for (let i = 0; i < apiBatch.length; i++) {
+				flatResults.push({
+					article: apiBatch[i],
+					output: outputs[i] ?? null,
+					error: error ?? null,
+				});
+			}
+		}
 
 		// Write results
-		for (const { article, result } of results) {
+		for (const { article, output, error } of flatResults) {
 			progress.processed++;
 
-			if (result.error) {
+			if (error) {
 				progress.errors++;
 				// Log failure
 				writeFileSync(
@@ -550,15 +562,15 @@ async function main() {
 					`${JSON.stringify({
 						norm_id: article.norm_id,
 						block_id: article.block_id,
-						error: result.error,
+						error,
 						timestamp: new Date().toISOString(),
 					})}\n`,
 					{ flag: "a" },
 				);
 				console.log(
-					`  ✗ ${article.norm_id}::${article.block_id}: ${result.error.slice(0, 60)}`,
+					`  ✗ ${article.norm_id}::${article.block_id}: ${error.slice(0, 60)}`,
 				);
-			} else if (!result.output || result.output.citizen_summary === "") {
+			} else if (!output || output.citizen_summary === "") {
 				progress.empty++;
 				console.log(
 					`  ○ ${article.norm_id}::${article.block_id}: empty (valid for procedural)`,
@@ -573,11 +585,11 @@ async function main() {
 					).run(
 						article.norm_id,
 						article.block_id,
-						result.output.citizen_summary,
+						output.citizen_summary,
 					);
 
 					// Write tags
-					for (const tag of result.output.citizen_tags) {
+					for (const tag of output.citizen_tags) {
 						db.prepare(
 							"INSERT OR REPLACE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
 						).run(article.norm_id, article.block_id, tag);
