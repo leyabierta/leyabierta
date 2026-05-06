@@ -41,7 +41,12 @@ interface BenchResult {
 async function callOnce(
 	texts: string[],
 	timeoutMs: number,
-): Promise<Omit<BenchResult, "label" | "batchSize" | "avgInputChars" | "avgInputTokensEst">> {
+): Promise<
+	Omit<
+		BenchResult,
+		"label" | "batchSize" | "avgInputChars" | "avgInputTokensEst"
+	>
+> {
 	const start = Date.now();
 	try {
 		const res = await fetch(NAN_URL, {
@@ -130,7 +135,9 @@ async function run(
 	};
 	results.push(out);
 	const dimStr = out.dims !== null ? `${out.dims}d` : "—";
-	const usageStr = out.usage ? ` tokens=${(out.usage as { total_tokens?: number }).total_tokens ?? "?"}` : "";
+	const usageStr = out.usage
+		? ` tokens=${(out.usage as { total_tokens?: number }).total_tokens ?? "?"}`
+		: "";
 	console.log(
 		`[${label}] batch=${out.batchSize} chars=${out.avgInputChars} → ${out.status} in ${out.wallMs}ms ${dimStr}${usageStr}${out.errMsg ? ` err="${out.errMsg.slice(0, 100)}"` : ""}`,
 	);

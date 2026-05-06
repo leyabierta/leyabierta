@@ -31,7 +31,7 @@ import { buildCorpusPlan, type PreparedBlock } from "./corpus.ts";
 
 // ── NaN config ──
 const NAN_BASE_URL = "https://api.nan.builders/v1";
-const NAN_API_KEY = process.env.NAN_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
+const NAN_API_KEY = process.env.NAN_API_KEY ?? "";
 const NAN_MODEL = "qwen3-embedding";
 const _NAN_DIM = 4096;
 const _NAN_BATCH_SIZE = 32; // NaN supports batch size 32

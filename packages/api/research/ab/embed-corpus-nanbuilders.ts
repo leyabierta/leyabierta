@@ -81,9 +81,7 @@ if (dryRun) {
 	console.log(
 		`  Avg text length: ${Math.round(totalChars / Math.max(1, workBlocks.length))} chars`,
 	);
-	console.log(
-		`  Est. tokens: ${estTokens.toLocaleString()} (unmetered — $0)`,
-	);
+	console.log(`  Est. tokens: ${estTokens.toLocaleString()} (unmetered — $0)`);
 	console.log(`\nSample chunk:\n${workBlocks[0]?.text.slice(0, 300)}...`);
 	process.exit(0);
 }
@@ -101,9 +99,10 @@ const latencyStats = {
 	samples: [] as number[],
 };
 
-async function nanEmbed(
-	texts: string[],
-): Promise<{ data: Array<{ index: number; embedding: number[] }>; usage?: Record<string, unknown> } | null> {
+async function nanEmbed(texts: string[]): Promise<{
+	data: Array<{ index: number; embedding: number[] }>;
+	usage?: Record<string, unknown>;
+} | null> {
 	const body = JSON.stringify({
 		model: model.id,
 		input: texts,
@@ -139,7 +138,9 @@ async function nanEmbed(
 			if (!res.ok) {
 				const errText = await res.text();
 				// 4xx (other than 429) is a client error — no point retrying.
-				throw new Error(`HTTP ${res.status} (no-retry): ${errText.slice(0, 300)}`);
+				throw new Error(
+					`HTTP ${res.status} (no-retry): ${errText.slice(0, 300)}`,
+				);
 			}
 			const json = (await res.json()) as {
 				data: Array<{ index: number; embedding: number[] }>;
@@ -253,9 +254,7 @@ async function worker(workerId: number): Promise<void> {
 console.log(
 	`Starting ${CONCURRENCY} concurrent workers, batch=${BATCH_SIZE}, ${totalBatches} batches total`,
 );
-await Promise.all(
-	Array.from({ length: CONCURRENCY }, (_, i) => worker(i + 1)),
-);
+await Promise.all(Array.from({ length: CONCURRENCY }, (_, i) => worker(i + 1)));
 
 const elapsedMin = (Date.now() - startedAt) / 60000;
 console.log(
@@ -268,9 +267,7 @@ if (latencyStats.successCount > 0) {
 	const p90 = sorted[Math.floor(sorted.length * 0.9)] ?? 0;
 	const avgMs = latencyStats.totalMs / latencyStats.successCount;
 	const avgPerEmb = latencyStats.totalMs / inserted;
-	console.log(
-		`\n  Latency (successful requests only, excludes retry waits):`,
-	);
+	console.log(`\n  Latency (successful requests only, excludes retry waits):`);
 	console.log(
 		`    batches: ${latencyStats.successCount}, avg=${(avgMs / 1000).toFixed(1)}s p50=${(p50 / 1000).toFixed(1)}s p90=${(p90 / 1000).toFixed(1)}s min=${(latencyStats.min / 1000).toFixed(1)}s max=${(latencyStats.max / 1000).toFixed(1)}s`,
 	);

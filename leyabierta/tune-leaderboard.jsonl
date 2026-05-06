@@ -1,4 +1,0 @@
-{"iteration":1,"query_prefix":"instruct-en","doc_format":"prod","mrl_dim":4096,"normalize":"l2","strategy":"single","r1":0.0,"r5":0.0,"r10":0.0,"r60":0.0,"mrr":0.0,"latency_ms":1965,"gap":-96.5,"corpus_blocks":50,"notes":"baseline"}
-{"iteration":2,"query_prefix":"instruct-es","doc_format":"prod","mrl_dim":4096,"normalize":"l2","strategy":"single","r1":0.0,"r5":0.0,"r10":0.0,"r60":0.0,"mrr":0.0,"latency_ms":9008,"gap":-96.5,"corpus_blocks":50,"notes":"spanish instruct prefix"}
-{"iteration":3,"query_prefix":"instruct-en","doc_format":"prod","mrl_dim":4096,"normalize":"none","strategy":"single","r1":0.0,"r5":0.0,"r10":0.0,"r60":0.0,"mrr":0.0,"latency_ms":888,"gap":-96.5,"corpus_blocks":50,"notes":"no normalization"}
-{"iteration":4,"query_prefix":"instruct-en","doc_format":"prod","mrl_dim":4096,"normalize":"l2","strategy":"split","r1":0.0,"r5":0.0,"r10":0.0,"r60":0.0,"mrr":0.0,"latency_ms":15681,"gap":-96.5,"corpus_blocks":50,"notes":"split strategy"}

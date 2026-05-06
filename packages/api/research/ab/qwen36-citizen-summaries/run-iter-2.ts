@@ -249,7 +249,7 @@ function userPromptFor(row: SampleRow): string {
 
 async function main() {
 	const openrouterKey = process.env.OPENROUTER_API_KEY;
-	const hermesKey = process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
+	const hermesKey = process.env.HERMES_API_KEY ?? "";
 	const hermesUrl =
 		process.env.HERMES_BASE_URL ?? "https://api.nan.builders/v1";
 	if (!openrouterKey) throw new Error("OPENROUTER_API_KEY required");

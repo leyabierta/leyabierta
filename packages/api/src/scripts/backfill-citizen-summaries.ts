@@ -36,11 +36,10 @@ const API_BATCH_SIZE = Math.max(
 	Math.min(10, Number(process.env.QWEN_BATCH_SIZE ?? 5)),
 ); // articles per API call (batching)
 const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
-const TIMEOUT_MS = 300_000; // 5 minutes per batch (5 articles × ~60s each)
+const _TIMEOUT_MS = 300_000; // 5 minutes per batch (5 articles × ~60s each)
 const REQUEST_TIMEOUT_MS = 180_000; // 3 minutes per individual request
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const HERMES_API_KEY =
-	process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
+const HERMES_API_KEY = process.env.HERMES_API_KEY ?? "";
 
 // ── Qwen 3.6 Prompt v10 (anti-invention + force detail) ──────────────────────
 
@@ -138,11 +137,6 @@ const _SCHEMA = {
 		additionalProperties: false,
 	},
 };
-
-interface Summary {
-	citizen_summary: string;
-	citizen_tags: string[];
-}
 
 // ── CLI Arguments ──────────────────────────────────────────────────────────
 
@@ -310,11 +304,16 @@ async function callQwenBatch(
 			}),
 		});
 
-		console.error(`[DEBUG] callQwenBatch: response status ${res.status} (${Date.now()}ms)`);
+		console.error(
+			`[DEBUG] callQwenBatch: response status ${res.status} (${Date.now()}ms)`,
+		);
 
 		if (!res.ok) {
 			const body = await res.text();
-			return { outputs: [], error: `http_${res.status}: ${body.slice(0, 200)}` };
+			return {
+				outputs: [],
+				error: `http_${res.status}: ${body.slice(0, 200)}`,
+			};
 		}
 
 		const data = (await res.json()) as {
@@ -323,13 +322,14 @@ async function callQwenBatch(
 
 		const text = data.choices?.[0]?.message?.content ?? "";
 		let parsed: BatchSummary[] | null = null;
-		
+
 		// Robust JSON extraction: try multiple strategies
 		const extractors = [
 			// 1. Try as-is
 			(t: string) => JSON.parse(t),
 			// 2. Strip markdown code blocks
-			(t: string) => JSON.parse(t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")),
+			(t: string) =>
+				JSON.parse(t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")),
 			// 3. Find first { and last } and parse what's between
 			(t: string) => {
 				const first = t.indexOf("{");
@@ -349,7 +349,7 @@ async function callQwenBatch(
 				throw new Error("No JSON array found");
 			},
 		];
-		
+
 		let parseError = "";
 		for (const extractor of extractors) {
 			try {
@@ -357,7 +357,11 @@ async function callQwenBatch(
 				// Validate it's an array
 				if (Array.isArray(parsed)) break;
 				// If it's an object, wrap in array (single item)
-				if (typeof parsed === "object" && parsed !== null && "citizen_summary" in parsed) {
+				if (
+					typeof parsed === "object" &&
+					parsed !== null &&
+					"citizen_summary" in parsed
+				) {
 					parsed = [parsed as BatchSummary];
 					break;
 				}
@@ -366,7 +370,7 @@ async function callQwenBatch(
 				parseError = (e as Error).message;
 			}
 		}
-		
+
 		if (!parsed) {
 			return {
 				outputs: [],
@@ -396,7 +400,10 @@ async function callQwenBatch(
 		return { outputs, error: null };
 	} catch (e) {
 		if ((e as Error).name === "AbortError") {
-			return { outputs: [], error: `timeout: request exceeded ${REQUEST_TIMEOUT_MS}ms` };
+			return {
+				outputs: [],
+				error: `timeout: request exceeded ${REQUEST_TIMEOUT_MS}ms`,
+			};
 		}
 		return { outputs: [], error: `fetch_error: ${(e as Error).message}` };
 	} finally {
@@ -454,7 +461,8 @@ async function callQwenBatchWithRetry(
 		) {
 			// 10s, 30s, 60s, 120s, 180s, 240s with jitter — total ~10min
 			const schedule = [10_000, 30_000, 60_000, 120_000, 180_000, 240_000];
-			const base = schedule[Math.min(attempt - 1, schedule.length - 1)] ?? 10_000;
+			const base =
+				schedule[Math.min(attempt - 1, schedule.length - 1)] ?? 10_000;
 			waitMs = base + Math.random() * (base / 4);
 		} else if (err.includes("json_parse")) {
 			waitMs = 1500 + Math.random() * 1500 + attempt * 1000;
@@ -497,7 +505,7 @@ interface BatchProgress {
 	startedAt: number;
 }
 
-function drawProgressBar(p: BatchProgress, width: number = 50): string {
+function _drawProgressBar(p: BatchProgress, width: number = 50): string {
 	const frac = p.completed / p.total;
 	const filled = Math.round(width * frac);
 	const bar = "█".repeat(filled) + "░".repeat(width - filled);
@@ -650,7 +658,10 @@ async function main() {
 		batchStart < articles.length;
 		batchStart += CHECKPOINT_INTERVAL
 	) {
-		const batchEnd = Math.min(batchStart + CHECKPOINT_INTERVAL, articles.length);
+		const batchEnd = Math.min(
+			batchStart + CHECKPOINT_INTERVAL,
+			articles.length,
+		);
 		const batch = articles.slice(batchStart, batchEnd);
 
 		console.log(
@@ -663,38 +674,51 @@ async function main() {
 			apiBatches.push(batch.slice(i, i + API_BATCH_SIZE));
 		}
 
-		console.log(`  ${apiBatches.length} API batch(es) of ${API_BATCH_SIZE} articles`);
+		console.log(
+			`  ${apiBatches.length} API batch(es) of ${API_BATCH_SIZE} articles`,
+		);
 
 		// Process API batches concurrently with live progress bar
-		const allResults: { article: Article; outputs: (BatchSummary | null)[]; error: string | null }[] = [];
+		const allResults: {
+			article: Article;
+			outputs: (BatchSummary | null)[];
+			error: string | null;
+		}[] = [];
 		let completedApiBatches = 0;
-		const totalApiBatches = apiBatches.length;
+		const _totalApiBatches = apiBatches.length;
 
-		await mapPool(
-			apiBatches,
-			CONCURRENCY,
-			async (apiBatch, idx) => {
-				const result = await callQwenBatchWithRetry(apiBatch);
-				allResults[idx] = { article: apiBatch[0], outputs: result.outputs, error: result.error };
+		await mapPool(apiBatches, CONCURRENCY, async (apiBatch, idx) => {
+			const result = await callQwenBatchWithRetry(apiBatch);
+			allResults[idx] = {
+				article: apiBatch[0],
+				outputs: result.outputs,
+				error: result.error,
+			};
 
-				// Progress per API batch
-				completedApiBatches++;
-				const articlesProcessed = Math.min(completedApiBatches * API_BATCH_SIZE, batch.length);
-				const pct = (articlesProcessed / batch.length) * 100;
-				const filled = Math.round(50 * (pct / 100));
-				const bar = "█".repeat(filled) + "░".repeat(50 - filled);
-				const barLine = `[${bar}] ${pct.toFixed(1).padStart(5)}% (${articlesProcessed}/${batch.length})`;
-				process.stdout.write(`\r${barLine}   `);
+			// Progress per API batch
+			completedApiBatches++;
+			const articlesProcessed = Math.min(
+				completedApiBatches * API_BATCH_SIZE,
+				batch.length,
+			);
+			const pct = (articlesProcessed / batch.length) * 100;
+			const filled = Math.round(50 * (pct / 100));
+			const bar = "█".repeat(filled) + "░".repeat(50 - filled);
+			const barLine = `[${bar}] ${pct.toFixed(1).padStart(5)}% (${articlesProcessed}/${batch.length})`;
+			process.stdout.write(`\r${barLine}   `);
 
-				return allResults[idx];
-			},
-		);
+			return allResults[idx];
+		});
 
 		// Final newline after progress bar
 		console.log();
 
 		// Flatten results: map each article to its summary
-		const flatResults: { article: Article; output: BatchSummary | null; error: string | null }[] = [];
+		const flatResults: {
+			article: Article;
+			output: BatchSummary | null;
+			error: string | null;
+		}[] = [];
 		for (let apiBatchIdx = 0; apiBatchIdx < allResults.length; apiBatchIdx++) {
 			const apiBatch = apiBatches[apiBatchIdx];
 			const { outputs, error } = allResults[apiBatchIdx];
@@ -715,7 +739,8 @@ async function main() {
 			// `null` output means the model dropped this article from the batch
 			// (article_id mismatch, partial response, etc). Treat as error so it
 			// gets logged and retried — never as a silent "empty".
-			const realError = error ?? (output === null ? "missing_in_batch_response" : null);
+			const realError =
+				error ?? (output === null ? "missing_in_batch_response" : null);
 
 			if (realError) {
 				progress.errors++;
@@ -746,11 +771,7 @@ async function main() {
 					// Write to DB
 					db.prepare(
 						"INSERT OR REPLACE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
-					).run(
-						article.norm_id,
-						article.block_id,
-						output.citizen_summary,
-					);
+					).run(article.norm_id, article.block_id, output.citizen_summary);
 
 					// Write tags
 					for (const tag of output.citizen_tags) {
@@ -811,7 +832,9 @@ async function main() {
 const ERROR_LOG = "data/backfill-error-debug.log";
 function logError(msg: string) {
 	try {
-		Bun.write(ERROR_LOG, `[${new Date().toISOString()}] ${msg}\n`, { append: true });
+		Bun.write(ERROR_LOG, `[${new Date().toISOString()}] ${msg}\n`, {
+			append: true,
+		});
 	} catch {}
 }
 

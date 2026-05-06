@@ -13,12 +13,11 @@
  */
 
 import { Database } from "bun:sqlite";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 const DB_PATH = "data/leyabierta.db";
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const HERMES_API_KEY =
-	process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
+const HERMES_API_KEY = process.env.HERMES_API_KEY ?? "";
 
 const args = process.argv.slice(2);
 const N = args.includes("--n")
@@ -146,10 +145,7 @@ interface Result {
 	thinkingTokens: number; // approx: completion - content_tokens
 }
 
-async function callQwen(
-	a: Article,
-	thinking: boolean,
-): Promise<Result> {
+async function callQwen(a: Article, thinking: boolean): Promise<Result> {
 	const start = Date.now();
 	const ctrl = new AbortController();
 	const t = setTimeout(() => ctrl.abort(), 120_000);
@@ -215,7 +211,10 @@ async function callQwen(
 		const latencyMs = Date.now() - start;
 		return {
 			output: null,
-			error: (e as Error).name === "AbortError" ? "timeout" : `fetch: ${(e as Error).message}`,
+			error:
+				(e as Error).name === "AbortError"
+					? "timeout"
+					: `fetch: ${(e as Error).message}`,
 			latencyMs,
 			completionTokens: 0,
 			thinkingTokens: 0,
@@ -227,7 +226,9 @@ async function callQwen(
 
 // Main
 const articles = stratifiedSample(N);
-console.log(`Sampled ${articles.length} articles. Running A/B (thinking on vs off)…`);
+console.log(
+	`Sampled ${articles.length} articles. Running A/B (thinking on vs off)…`,
+);
 
 interface Pair {
 	article: Article;
@@ -286,27 +287,37 @@ for (const r of rows) {
 		summary.on.avg_latency_ms += r.thinking_on.latencyMs;
 		summary.on.avg_completion_tokens += r.thinking_on.completionTokens;
 		summary.on.avg_thinking_tokens += r.thinking_on.thinkingTokens;
-		summary.on.avg_summary_len += r.thinking_on.output?.citizen_summary.length ?? 0;
+		summary.on.avg_summary_len +=
+			r.thinking_on.output?.citizen_summary.length ?? 0;
 		onN++;
 	}
 	if (!r.thinking_off.error) {
 		summary.off.avg_latency_ms += r.thinking_off.latencyMs;
 		summary.off.avg_completion_tokens += r.thinking_off.completionTokens;
 		summary.off.avg_thinking_tokens += r.thinking_off.thinkingTokens;
-		summary.off.avg_summary_len += r.thinking_off.output?.citizen_summary.length ?? 0;
+		summary.off.avg_summary_len +=
+			r.thinking_off.output?.citizen_summary.length ?? 0;
 		offN++;
 	}
 }
 if (onN) {
 	summary.on.avg_latency_ms = Math.round(summary.on.avg_latency_ms / onN);
-	summary.on.avg_completion_tokens = Math.round(summary.on.avg_completion_tokens / onN);
-	summary.on.avg_thinking_tokens = Math.round(summary.on.avg_thinking_tokens / onN);
+	summary.on.avg_completion_tokens = Math.round(
+		summary.on.avg_completion_tokens / onN,
+	);
+	summary.on.avg_thinking_tokens = Math.round(
+		summary.on.avg_thinking_tokens / onN,
+	);
 	summary.on.avg_summary_len = Math.round(summary.on.avg_summary_len / onN);
 }
 if (offN) {
 	summary.off.avg_latency_ms = Math.round(summary.off.avg_latency_ms / offN);
-	summary.off.avg_completion_tokens = Math.round(summary.off.avg_completion_tokens / offN);
-	summary.off.avg_thinking_tokens = Math.round(summary.off.avg_thinking_tokens / offN);
+	summary.off.avg_completion_tokens = Math.round(
+		summary.off.avg_completion_tokens / offN,
+	);
+	summary.off.avg_thinking_tokens = Math.round(
+		summary.off.avg_thinking_tokens / offN,
+	);
 	summary.off.avg_summary_len = Math.round(summary.off.avg_summary_len / offN);
 }
 

@@ -14,7 +14,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const NAN_BASE_URL = "https://api.nan.builders/v1";
-const NAN_API_KEY = process.env.NAN_API_KEY || "sk-1WqPsfFrl3YHyBg52xRvTg";
+const NAN_API_KEY = process.env.NAN_API_KEY || "";
 const NAN_MODEL = "qwen3-embedding";
 const GEMINI_R1 = 96.5;
 const REPO_ROOT = "/Users/alex/00_Programacion/01_Alex/leyabierta/leyabierta";

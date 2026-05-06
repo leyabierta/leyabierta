@@ -20,12 +20,11 @@
  */
 
 import { Database } from "bun:sqlite";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 const DB_PATH = "data/leyabierta.db";
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const HERMES_API_KEY =
-	process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
+const HERMES_API_KEY = process.env.HERMES_API_KEY ?? "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 if (!OPENROUTER_API_KEY) {
 	console.error("OPENROUTER_API_KEY not set");
@@ -302,7 +301,9 @@ async function callWithRetry(
 			continue;
 		}
 		if (r.status === 429) {
-			await new Promise((res) => setTimeout(res, 65_000 + Math.random() * 5000));
+			await new Promise((res) =>
+				setTimeout(res, 65_000 + Math.random() * 5000),
+			);
 			continue;
 		}
 		if (r.netError === "timeout" || (r.status >= 500 && r.status < 600)) {
@@ -321,16 +322,20 @@ async function callWithRetry(
 }
 
 const callQwen = (a: Article) =>
-	callWithRetry(`${HERMES_BASE_URL}/chat/completions`, `Bearer ${HERMES_API_KEY}`, {
-		model: "qwen3.6",
-		messages: [
-			{ role: "system", content: SYSTEM_PROMPT_V10 },
-			{ role: "user", content: userPromptFor(a) },
-		],
-		temperature: 0.2,
-		max_tokens: 8000,
-		response_format: { type: "json_schema", json_schema: SCHEMA },
-	});
+	callWithRetry(
+		`${HERMES_BASE_URL}/chat/completions`,
+		`Bearer ${HERMES_API_KEY}`,
+		{
+			model: "qwen3.6",
+			messages: [
+				{ role: "system", content: SYSTEM_PROMPT_V10 },
+				{ role: "user", content: userPromptFor(a) },
+			],
+			temperature: 0.2,
+			max_tokens: 8000,
+			response_format: { type: "json_schema", json_schema: SCHEMA },
+		},
+	);
 
 const callGemini = (a: Article) =>
 	callWithRetry(
