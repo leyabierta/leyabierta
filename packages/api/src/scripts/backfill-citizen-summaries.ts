@@ -29,7 +29,12 @@ const FAILURE_LOG = "data/backfill-failures.jsonl";
 const PROGRESS_FILE = "data/backfill-progress.json";
 
 // Qwen rate limit: max 5 concurrent
-const API_BATCH_SIZE = 5; // articles per API call (batching)
+// Override via QWEN_BATCH_SIZE env var (1-10). Lower batch size avoids the
+// position-based-mapping risk when the model returns fewer items than sent.
+const API_BATCH_SIZE = Math.max(
+	1,
+	Math.min(10, Number(process.env.QWEN_BATCH_SIZE ?? 5)),
+); // articles per API call (batching)
 const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
 const TIMEOUT_MS = 300_000; // 5 minutes per batch (5 articles × ~60s each)
 const REQUEST_TIMEOUT_MS = 180_000; // 3 minutes per individual request
@@ -37,75 +42,87 @@ const HERMES_BASE_URL = "https://api.nan.builders/v1";
 const HERMES_API_KEY =
 	process.env.HERMES_API_KEY ?? "sk-1WqPsfFrl3YHyBg52xRvTg";
 
-// ── Qwen 3.6 Prompt (Iteration 7 — few-shot examples) ──────────────────────
+// ── Qwen 3.6 Prompt v10 (anti-invention + force detail) ──────────────────────
 
 const SYSTEM_PROMPT = `Eres un redactor institucional que traduce artículos legales españoles a lenguaje accesible para ciudadanos.
 
 **REGISTRO OBLIGATORIO — TERCERA PERSONA:**
-El resumen SIEMPRE debe escribirse en tercera persona. PROHIBIDO usar segunda persona (tú, tu, tienes, puedes, te, le, les). Usa construcciones impersonales o de tercera persona:
-- ✅ "El ciudadano tiene derecho a..." / "La persona investigada puede solicitar..." / "Se establece que..."
-- ✅ "Los funcionarios que falseen..." / "Las sanciones se gradúan..."
-- ❌ "Tienes derecho a..." / "Puedes ejercer..." / "tus datos personales"
-- ❌ "Usted tiene derecho a..." (tampoco, usa tercera persona)
+PROHIBIDO segunda persona (tú, tu, tienes, puedes, te, usted). Usa impersonal o tercera persona.
+- ✅ "El ciudadano tiene derecho a..." / "Se establece que..." / "La administración debe..."
+- ❌ "Tienes derecho..." / "Puedes solicitar..."
 
-**NO AÑADIR COMENTARIOS EDITORIALES:**
-El resumen debe contener ÚNICAMENTE información presente en el artículo original. PROHIBIDO:
-- Añadir frases de conclusión o interpretación que no estén en el texto
-- Añadir análisis, opiniones, o contexto externo
-- Parafasear de forma que cambie el significado
+**FIDELIDAD ESTRICTA:**
+El resumen contiene SOLO información presente en el artículo. PROHIBIDO inventar datos, añadir opiniones, advertencias, o frases de relleno ("Consulte la normativa", "Para más información", "Recuerde que...").
+
+**REGLA ANTI-INVENCIÓN DE REFERENCIAS NORMATIVAS:**
+NUNCA añadas números de leyes, decretos, órdenes, reglamentos o normas que no aparezcan LITERALMENTE en el texto del artículo. Si el texto solo dice "esta ley", "esta orden", "el organismo", "esta disposición", el resumen DEBE usar la misma forma genérica — JAMÁS sustituirla por un identificador específico (ej. "Ley 17/2001", "Orden PCI/881/2019", "Servicio Cántabro de Salud") aunque conozcas el dato por otra fuente. La fidelidad al texto literal es prioridad absoluta sobre la información de fondo.
+
+Igualmente, no añadas calificadores que no estén en el texto: si el artículo no menciona "civiles", "estatales", "menores", "europeos" u otros adjetivos restrictivos, no los añadas.
+
+**DETALLE FACTUAL — INCLUIR TODO LO RELEVANTE:**
+Incluye SIEMPRE los datos concretos del artículo:
+- Cantidades, plazos, porcentajes, fechas exactas
+- Referencias normativas citadas (números de artículo, leyes)
+- Sub-actividades enumeradas (si el artículo lista varias, nombrarlas todas)
+- Condiciones, excepciones, requisitos
+- Órganos, autoridades o sujetos específicos mencionados
+- Procedimientos accesorios (revisiones, recursos, plazos derivados)
+
+Si el artículo enumera "A, B, C y D", el resumen debe nombrar A, B, C y D — no resumir como "varias actividades".
+
+**LONGITUD:**
+Objetivo: 200-250 caracteres. Es la zona ideal para ciudadano: suficiente para datos clave, breve para escanear.
+Mínimo: 80 caracteres.
+Máximo blando: 280 caracteres. Se permite excederlo hasta ~300 (≈20% sobre el objetivo) si la fidelidad lo requiere para listas o referencias normativas que no se pueden abreviar sin perder información.
+Máximo duro: 300 caracteres. Si tu borrador rebasa 300, RECÓRTALO eligiendo los 2-3 datos más relevantes y omitiendo los secundarios. Nunca devuelvas >300.
+
+**FORMATO DE SALIDA:**
+SOLO JSON válido conforme al schema. NO añadas razonamiento, comentarios, ni texto antes o después del JSON.
 
 - citizen_tags: 3-5 tags en español llano, como buscaría un ciudadano normal.
-- citizen_summary: Resumen de máximo 280 caracteres. Lenguaje claro y serio, sin jerga legal. Con acentos correctos. Incluye los datos concretos más relevantes (plazos, requisitos, cantidades) cuando los haya.
+- citizen_summary: el resumen siguiendo todas las reglas anteriores.
 
-**LONGITUD OBLIGATORIA:** El resumen debe ser estrictamente menor de 280 caracteres. Si excedes, acorta sin perder el dato central. Un resumen de 150-250 caracteres es ideal.
+**EJEMPLOS:**
 
-**PROHIBIDO:** NO añadas frases de relleno como "Consulte la normativa vigente", "Para más información", "Recuerde que...", o cualquier advertencia no presente en el artículo original. Solo resume lo que dice el artículo.
-
-**CUÁNDO DEVOLVER VACÍO (SOLO estos casos):**
-Devuelve citizen_summary vacío Y SOLO si el artículo es una de estas cosas:
-  1. Declara la entrada en vigor de la norma (ej. "Esta ley entrará en vigor el día siguiente al de su publicación").
-  2. Deroga o modifica otra norma (ej. "Se deroga el artículo X de la Ley Y").
-  3. Asigna rango de ley orgánica a algo.
-  4. Contenido puramente organizativo interno sin efecto sobre derechos u obligaciones ciudadanas.
-
-**IMPORTANTE — Los siguientes SÍ requieren resumen (genera SIEMPRE):**
-- Artículos que describen procedimientos, reglas de funcionamiento, composición de órganos, requisitos administrativos, plazos, competencias, o cualquier contenido sustantivo.
-- Artículos sobre financiación, presupuestos, organización de organismos públicos.
-- En caso de duda, genera siempre un resumen breve. Es mejor un resumen corto que ninguno. Nunca devuelvas vacío por duda.
-
-**FORMATO DE PENSAMIENTO INTERNO (obligatorio):**
-Antes de generar el JSON, piensa brevemente en este formato EXACTO:
-<think>
-OBJETIVO: [1 frase: qué derecho u obligación describe este artículo]
-HECHOS: [datos concretos: plazos, cantidades, requisitos — solo lo que dice el artículo]
-ETIQUETAS: [3-5 palabras clave en llano]
-RESUMEN: [borrador de 1 línea en 3ª persona]
-VERIFICACIÓN: [¿uso 3ª persona? ¿añado algo que no está en el artículo? ¿este artículo SÍ merece resumen?]
-</think>
-
-NO escribas razonamiento extenso. NO inventes datos. Si un dato no está en el artículo, no lo inventes. El output debe ser SOLO el JSON, sin texto adicional.
-
-**EJEMPLOS (estudia cada uno cuidadosamente):**
-
-Ejemplo 1 (composición de órgano — SÍ resumen, NO vacío):
+Ejemplo 1 (composición de órgano — incluir números y autoridad):
 ARTÍCULO: El Consejo de Administración estará compuesto por un mínimo de cinco y un máximo de quince miembros, nombrados por el Consejo de Gobierno por un período de cuatro años, con posibilidad de reelegirles.
-RESUMEN: El Consejo de Administración tiene entre 5 y 15 miembros, nombrados por el Consejo de Gobierno por 4 años con posibilidad de reelección.
+RESUMEN: El Consejo de Administración tiene entre 5 y 15 miembros, nombrados por el Consejo de Gobierno por un período de 4 años, con posibilidad de reelección.
 
-Ejemplo 2 (plazos de prescripción — SÍ resumen, NO vacío):
+Ejemplo 2 (plazos enumerados — listar todos):
 ARTÍCULO: Las infracciones muy graves prescribirán a los tres años, las graves a los dos y las leves a los doce meses, contado desde el día en que se cometió la infracción.
-RESUMEN: Las infracciones prescriben en: 3 años (muy graves), 2 años (graves), 12 meses (leves), desde la fecha de la infracción.
+RESUMEN: Las infracciones prescriben en: 3 años (muy graves), 2 años (graves) y 12 meses (leves), contado desde el día de la infracción.
 
-Ejemplo 3 (procedimiento administrativo — SÍ resumen, NO vacío):
-ARTÍCULO: La solicitud de beca deberá presentarse en el registro del organismo competente junto con la documentación acreditativa de los requisitos económicos y académicos en el plazo del 1 de marzo al 30 de junio.
-RESUMEN: La solicitud de beca debe presentarse en el registro del organismo competente, con documentación acreditativa, del 1 de marzo al 30 de junio.
+Ejemplo 3 (procedimiento con plazos diferenciados):
+ARTÍCULO: Si se admitiere el recurso en ambos efectos, el Secretario judicial remitirá los autos al Tribunal que hubiere de conocer de la apelación, y emplazará a las partes para que se personen ante éste en quince días si el Tribunal fuere el Supremo, o diez días si fuere inferior.
+RESUMEN: El recurso admitido en ambos efectos se remite al Tribunal competente. Las partes deben personarse en 15 días si es el Tribunal Supremo o en 10 días si es un tribunal inferior.
 
-Ejemplo 4 (entrada en vigor — vacío SÍ es correcto):
+Ejemplo 4 (entrada en vigor — siempre con detalle):
 ARTÍCULO: Esta ley entrará en vigor el día siguiente al de su publicación en el Boletín Oficial del Estado.
-RESUMEN: _(vacío)_
+RESUMEN: La ley entra en vigor el día siguiente al de su publicación en el Boletín Oficial del Estado.
 
-Ejemplo 5 (derechos procesales — SÍ resumen, NO vacío):
-ARTÍCULO: La defensa de una persona investigada podrá solicitar que se practiquen diligencias de investigación que complementen las ya practicadas. El Fiscal Europeo acordará las diligencias si son relevantes para la investigación. Si las deniega, se podrán impugnar ante el Juez de Garantías.
-RESUMEN: La persona investigada puede solicitar diligencias complementarias. El Fiscal Europeo las acordará si son relevantes. La denegación se puede impugnar ante el Juez de Garantías.`;
+Ejemplo 5 (derogación con referencia normativa):
+ARTÍCULO: Se deroga el artículo 45 de la Ley 25/2009, de 22 de diciembre, de obligaciones de facturación.
+RESUMEN: Se deroga el artículo 45 de la Ley 25/2009, de 22 de diciembre, sobre obligaciones de facturación.
+
+Ejemplo 6 (derechos procesales — todos los actores):
+ARTÍCULO: La defensa de una persona investigada podrá solicitar diligencias de investigación que complementen las ya practicadas. El Fiscal Europeo acordará las diligencias si son relevantes. Si las deniega, se podrán impugnar ante el Juez de Garantías.
+RESUMEN: La defensa de la persona investigada puede solicitar diligencias complementarias. El Fiscal Europeo las acuerda si son relevantes. Su denegación se puede impugnar ante el Juez de Garantías.
+
+Ejemplo 7 (modificación normativa con destino):
+ARTÍCULO: Se derogan las disposiciones en contrario y se establece que las tarifas de almacenamiento se calcularán conforme al anexo I de esta ley.
+RESUMEN: Se derogan las disposiciones en contrario. Las tarifas de almacenamiento se calculan conforme al anexo I de esta ley.
+
+Ejemplo 8 (objeto amplio — enumerar todas las materias):
+ARTÍCULO: La presente ley regula la pesca marítima, la acuicultura, el marisqueo, la pesca recreativa, la actividad comercial de productos pesqueros, la investigación pesquera y el régimen de infracciones y sanciones en la Región de Murcia.
+RESUMEN: Esta ley regula en la Región de Murcia: pesca marítima, acuicultura, marisqueo, pesca recreativa, actividad comercial de productos pesqueros, investigación pesquera y régimen de infracciones y sanciones.
+
+Ejemplo 9 (procedimiento con ramificación):
+ARTÍCULO: El Mapa Farmacéutico se revisará cada cinco años. Excepcionalmente, podrá modificarse antes si concurren circunstancias extraordinarias. Las revisiones y modificaciones siguen el mismo procedimiento de aprobación.
+RESUMEN: El Mapa Farmacéutico se revisa cada 5 años. Puede modificarse antes si concurren circunstancias extraordinarias. Las revisiones y modificaciones siguen el mismo procedimiento de aprobación.
+
+Ejemplo 10 (obligaciones plurales):
+ARTÍCULO: Los cuerpos policiales deberán informar a las víctimas y a los detenidos de sus derechos y garantías en la forma que reglamentariamente se determine.
+RESUMEN: Los cuerpos policiales deben informar a las víctimas y a los detenidos sobre sus derechos y garantías, en la forma que se determine reglamentariamente.`;
 
 // Single-article schema (kept for reference, not used in batch mode)
 const _SCHEMA = {
@@ -232,8 +249,14 @@ const BATCH_SCHEMA = {
 			type: "object",
 			properties: {
 				article_id: { type: "string" },
-				citizen_summary: { type: "string" },
-				citizen_tags: { type: "array", items: { type: "string" } },
+				// minLength forces the model to emit a real summary; the schema
+				// engine will reject empty strings before we ever see them.
+				citizen_summary: { type: "string", minLength: 10 },
+				citizen_tags: {
+					type: "array",
+					items: { type: "string" },
+					minItems: 1,
+				},
 			},
 			required: ["article_id", "citizen_summary", "citizen_tags"],
 			additionalProperties: false,
@@ -275,7 +298,14 @@ async function callQwenBatch(
 					{ role: "user", content: prompt },
 				],
 				temperature: 0.2,
-				max_tokens: 32000,
+				// 2000 is plenty without thinking. Output content is ~500 tokens
+				// max for a batch of 5 summaries; the rest is safety margin.
+				max_tokens: 2000,
+				// Disable Qwen thinking: A/B with Sonnet judge showed thinking-OFF
+				// is ~9x faster (3s vs 28s), 0% errors (vs 20% with 524s), and
+				// slightly higher quality (8.56 vs 8.44/10). The reasoning chain
+				// added latency without translating into better summaries.
+				chat_template_kwargs: { enable_thinking: false },
 				response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
 			}),
 		});
@@ -344,12 +374,24 @@ async function callQwenBatch(
 			};
 		}
 
-		// Map by position (model returns article_id as "ARTÍCULO_1", "ARTÍCULO_2", etc.)
-		const outputs: (BatchSummary | null)[] = parsed?.map((p) => ({
-			article_id: "",
-			citizen_summary: p.citizen_summary,
-			citizen_tags: p.citizen_tags,
-		})) ?? articles.map(() => null);
+		// Map by article_id (the model returns "ARTÍCULO_1", "ARTÍCULO_2", ...).
+		// Position-based mapping silently dropped trailing articles when the
+		// model returned fewer items than were sent — that's how 18% of the
+		// corpus ended up as fake "empty" rows.
+		const byId = new Map<string, BatchSummary>();
+		for (const p of parsed) {
+			if (p.article_id) byId.set(p.article_id, p);
+		}
+		const outputs: (BatchSummary | null)[] = articles.map((_a, i) => {
+			const key = `ARTÍCULO_${i + 1}`;
+			const hit = byId.get(key);
+			if (!hit) return null;
+			return {
+				article_id: hit.article_id,
+				citizen_summary: hit.citizen_summary,
+				citizen_tags: hit.citizen_tags,
+			};
+		});
 
 		return { outputs, error: null };
 	} catch (e) {
@@ -362,47 +404,88 @@ async function callQwenBatch(
 	}
 }
 
+// Single-article fallback: if the batch left some positions as null
+// (the model occasionally returns N-1 items for a batch of N), retry the
+// missing items one by one before giving up.
+async function fillMissingWithSingles(
+	articles: Article[],
+	outputs: (BatchSummary | null)[],
+): Promise<(BatchSummary | null)[]> {
+	for (let i = 0; i < articles.length; i++) {
+		if (outputs[i] !== null) continue;
+		// Single-article batch retains the same prompt/schema and lets the
+		// id-based mapping resolve the result back into position i.
+		const single = await callQwenBatch([articles[i]]);
+		if (!single.error && single.outputs[0]) {
+			outputs[i] = single.outputs[0];
+		}
+	}
+	return outputs;
+}
+
 async function callQwenBatchWithRetry(
 	articles: Article[],
 ): Promise<{ outputs: (BatchSummary | null)[]; error: string | null }> {
 	const result = await callQwenBatch(articles);
 
-	if (result.error) {
-		// Retry on 524 (gateway timeout) — 2-4s wait with jitter
-		if (result.error.includes("524")) {
-			const jitter = Math.random() * 2000;
-			await new Promise((r) => setTimeout(r, 2000 + jitter));
-			const r2 = await callQwenBatch(articles);
-			if (r2.error) {
-				const jitter2 = Math.random() * 2000;
-				await new Promise((r) => setTimeout(r, 2000 + jitter2));
-				return callQwenBatch(articles); // final attempt
-			}
-			return r2;
+	if (!result.error) {
+		// Fill in any missing items the batch dropped.
+		const hasMissing = result.outputs.some((o) => o === null);
+		if (hasMissing) {
+			result.outputs = await fillMissingWithSingles(articles, result.outputs);
 		}
-		// Retry on 429 (rate limit) — 65-70s wait with jitter
-		if (result.error.includes("429")) {
-			const jitter = Math.random() * 5000;
-			await new Promise((r) => setTimeout(r, 65_000 + jitter));
-			return callQwenBatch(articles);
-		}
-		// JSON parse errors — retry up to 3 times with increasing jitter
-		if (result.error.includes("json_parse")) {
-			for (let attempt = 0; attempt < 3; attempt++) {
-				const jitter = Math.random() * 1500 + (attempt * 1000);
-				await new Promise((r) => setTimeout(r, jitter));
-				const r = await callQwenBatch(articles);
-				if (!r.error) return r;
-			}
-			return result; // all retries failed
-		}
-		// Other errors — retry once with 1-2s jitter
-		const jitter3 = Math.random() * 1000;
-		await new Promise((r) => setTimeout(r, 1000 + jitter3));
-		return callQwenBatch(articles);
+		return result;
 	}
 
-	return result;
+	// Aggressive retry strategy: timeout/5xx → long exponential backoff up to
+	// 6 attempts (NaN endpoint occasionally serves persistent 502s for ~1-2
+	// minutes when the upstream is overloaded); 429 → fixed 65s wait;
+	// json_parse → quick retries.
+	let last = result;
+	for (let attempt = 1; attempt <= 6; attempt++) {
+		const err = last.error ?? "";
+		let waitMs: number;
+		if (err.includes("429")) {
+			waitMs = 65_000 + Math.random() * 5000;
+		} else if (
+			err.includes("timeout") ||
+			err.includes("524") ||
+			/http_5\d\d/.test(err)
+		) {
+			// 10s, 30s, 60s, 120s, 180s, 240s with jitter — total ~10min
+			const schedule = [10_000, 30_000, 60_000, 120_000, 180_000, 240_000];
+			const base = schedule[Math.min(attempt - 1, schedule.length - 1)] ?? 10_000;
+			waitMs = base + Math.random() * (base / 4);
+		} else if (err.includes("json_parse")) {
+			waitMs = 1500 + Math.random() * 1500 + attempt * 1000;
+		} else {
+			waitMs = 1000 + Math.random() * 1000;
+		}
+		await new Promise((r) => setTimeout(r, waitMs));
+		const next = await callQwenBatch(articles);
+		if (!next.error) {
+			const hasMissing = next.outputs.some((o) => o === null);
+			if (hasMissing) {
+				next.outputs = await fillMissingWithSingles(articles, next.outputs);
+			}
+			return next;
+		}
+		last = next;
+	}
+
+	// All batch retries exhausted. Last resort: try each article individually.
+	// A persistent 5xx on a 5-item batch sometimes succeeds when split (one
+	// of the articles may be triggering server-side issues).
+	const singles: (BatchSummary | null)[] = articles.map(() => null);
+	const filled = await fillMissingWithSingles(articles, singles);
+	const recovered = filled.filter((o) => o !== null).length;
+	if (recovered > 0) {
+		// At least one recovered → return without error so writes happen.
+		// Items still null become per-article errors via the existing
+		// missing_in_batch_response path in main.
+		return { outputs: filled, error: null };
+	}
+	return last;
 }
 
 // ── Concurrency Pool ───────────────────────────────────────────────────────
@@ -552,6 +635,8 @@ async function main() {
 	let progress: Progress;
 	if (existsSync(PROGRESS_FILE)) {
 		progress = loadProgress();
+		// Reset startedAt to now so ETA is based on current run
+		progress.startedAt = new Date().toISOString();
 		console.log(
 			`Resuming progress: ${progress.success} success, ${progress.errors} errors, ${progress.empty} empty`,
 		);
@@ -580,30 +665,33 @@ async function main() {
 
 		console.log(`  ${apiBatches.length} API batch(es) of ${API_BATCH_SIZE} articles`);
 
-		// Process API batches with live progress bar
-		let lastDraw = -1;
+		// Process API batches concurrently with live progress bar
 		const allResults: { article: Article; outputs: (BatchSummary | null)[]; error: string | null }[] = [];
+		let completedApiBatches = 0;
+		const totalApiBatches = apiBatches.length;
 
-		for (let apiBatchIdx = 0; apiBatchIdx < apiBatches.length; apiBatchIdx++) {
-			const apiBatch = apiBatches[apiBatchIdx];
-			const result = await callQwenBatchWithRetry(apiBatch);
-			allResults.push({ article: apiBatch[0], outputs: result.outputs, error: result.error });
+		await mapPool(
+			apiBatches,
+			CONCURRENCY,
+			async (apiBatch, idx) => {
+				const result = await callQwenBatchWithRetry(apiBatch);
+				allResults[idx] = { article: apiBatch[0], outputs: result.outputs, error: result.error };
 
-			// Progress per API batch
-			const totalApiBatches = apiBatches.length;
-			const completedApiBatches = apiBatchIdx + 1;
-			const articlesProcessed = Math.min((apiBatchIdx + 1) * API_BATCH_SIZE, batch.length);
-			const pct = (articlesProcessed / batch.length) * 100;
-			const filled = Math.round(50 * (pct / 100));
-			const bar = "█".repeat(filled) + "░".repeat(50 - filled);
-			const barLine = `[${bar}] ${pct.toFixed(1).padStart(5)}% (${articlesProcessed}/${batch.length})`;
-
-			if (apiBatchIdx < apiBatches.length - 1) {
+				// Progress per API batch
+				completedApiBatches++;
+				const articlesProcessed = Math.min(completedApiBatches * API_BATCH_SIZE, batch.length);
+				const pct = (articlesProcessed / batch.length) * 100;
+				const filled = Math.round(50 * (pct / 100));
+				const bar = "█".repeat(filled) + "░".repeat(50 - filled);
+				const barLine = `[${bar}] ${pct.toFixed(1).padStart(5)}% (${articlesProcessed}/${batch.length})`;
 				process.stdout.write(`\r${barLine}   `);
-			} else {
-				console.log(`\r${barLine}`);
-			}
-		}
+
+				return allResults[idx];
+			},
+		);
+
+		// Final newline after progress bar
+		console.log();
 
 		// Flatten results: map each article to its summary
 		const flatResults: { article: Article; output: BatchSummary | null; error: string | null }[] = [];
@@ -624,28 +712,34 @@ async function main() {
 		for (const { article, output, error } of flatResults) {
 			progress.processed++;
 
-			if (error) {
+			// `null` output means the model dropped this article from the batch
+			// (article_id mismatch, partial response, etc). Treat as error so it
+			// gets logged and retried — never as a silent "empty".
+			const realError = error ?? (output === null ? "missing_in_batch_response" : null);
+
+			if (realError) {
 				progress.errors++;
-				// Log failure
 				writeFileSync(
 					FAILURE_LOG,
 					`${JSON.stringify({
 						norm_id: article.norm_id,
 						block_id: article.block_id,
-						error,
+						error: realError,
 						timestamp: new Date().toISOString(),
 					})}\n`,
 					{ flag: "a" },
 				);
 				console.log(
-					`  ✗ ${article.norm_id}::${article.block_id}: ${error.slice(0, 60)}`,
+					`  ✗ ${article.norm_id}::${article.block_id}: ${realError.slice(0, 60)}`,
 				);
-			} else if (!output || output.citizen_summary === "") {
+			} else if (output && output.citizen_summary === "") {
+				// True empty: model explicitly returned "". With minLength:10 in the
+				// schema this should be unreachable, but kept as a safety net.
 				progress.empty++;
 				console.log(
-					`  ○ ${article.norm_id}::${article.block_id}: empty (valid for procedural)`,
+					`  ○ ${article.norm_id}::${article.block_id}: empty (model returned "")`,
 				);
-			} else {
+			} else if (output) {
 				progress.success++;
 
 				if (!DRY_RUN) {
@@ -713,7 +807,15 @@ async function main() {
 	console.log(`Failure log: ${FAILURE_LOG}`);
 }
 
+// Write real-time error log for debugging
+const ERROR_LOG = "data/backfill-error-debug.log";
+function logError(msg: string) {
+	try {
+		Bun.write(ERROR_LOG, `[${new Date().toISOString()}] ${msg}\n`, { append: true });
+	} catch {}
+}
+
 main().catch((err) => {
-	console.error("Fatal error:", err);
+	logError(`Fatal error: ${(err as Error).message}\n${(err as Error).stack}`);
 	process.exit(1);
 });

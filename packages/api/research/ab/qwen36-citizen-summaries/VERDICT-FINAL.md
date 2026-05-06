@@ -39,10 +39,30 @@ The key insight: Qwen needed to see concrete examples where the article has proc
 | 5 | Structured thinking + 32k tokens | 8 | 10 | 12 | 0 | 0% |
 | 6 | Hardened prompt (3rd person, no editorial) | 8 | 10 | 12 | 0 | 0% |
 | **7** | **Few-shot examples** | **7** | **2** | **21** | **0** | **3.3%** |
+| 8 | Few-shot + 2nd person (no thinking) | 1 | 2 | 27 | 0 | 93.3% |
+| 9 | Few-shot + 2nd person + thinking | 2 | 4 | 24 | 0 | 93.3% |
+| 10 | Few-shot 2nd person + thinking | 8 | 2 | 20 | 0 | 70% |
+| 11 | Few-shot 3rd person + tone AFTER | 4 | 2 | 24 | 0 | 80% |
 
 Note: Iteration 7 has more ties (21 vs 12 in earlier runs) because the sample was fixed across iterations (same 30 articles), so the judge had more context. The key metric is Qwen wins ≥ Gemini wins, which is now 7 ≥ 2.
 
-## Why It Worked
+## Second Person Tone — Definitive Result
+
+**After Iterations 8-11, we now have a complete picture of the second person tone question:**
+
+| Attempt | Empty Rate | Result |
+|---------|-----------|--------|
+| No examples + 2nd person | 73% | Broken |
+| Few-shot 3rd person + 2nd person instruction | 93.3% | Worse than nothing |
+| Few-shot 3rd person + 2nd person + thinking | 93.3% | Same |
+| Few-shot rewritten in 2nd person + thinking | 70% | Better but still broken |
+| Few-shot 3rd person + tone instruction AFTER | 80% | Worse than 10 |
+
+**Conclusion: Qwen 3.6 CANNOT reliably use second person tone.** Every attempt to add second person instruction to the prompt breaks the model's ability to classify articles. The few-shot examples are calibrated for third person, and the model cannot separate classification behavior from output tone.
+
+**Recommendation: Accept third person tone.** Iteration 7 already proved that Qwen produces summaries of equal or better quality than Gemini with the third person prompt. The blind judging showed Qwen winning 7-2 with 21 ties. The quality is the priority — the tone is a secondary concern.
+
+The Iteration 7 prompt (few-shot examples + thinking format, third person) is the canonical prompt for the backfill. Do NOT add second person tone instructions.
 
 1. **Few-shot learning overrode the over-aggressive empty behavior.** Qwen had been consistently returning empty for borderline substantive articles despite explicit instructions not to. The examples showed it exactly what "borderline but must summarize" looks like.
 
