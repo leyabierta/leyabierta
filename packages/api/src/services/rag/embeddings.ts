@@ -31,6 +31,10 @@ export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
 		id: "qwen3-embedding-8b-q8_0-local",
 		dimensions: 4096,
 	},
+	"qwen3-nan": {
+		id: "qwen3-embedding",
+		dimensions: 4096,
+	},
 	"embgemma-local": {
 		id: "embeddinggemma-300m-bf16-local",
 		dimensions: 768,
