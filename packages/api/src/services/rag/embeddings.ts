@@ -27,6 +27,18 @@ export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
 		id: "qwen/qwen3-embedding-8b",
 		dimensions: 4096,
 	},
+	"qwen3-local-q8": {
+		id: "qwen3-embedding-8b-q8_0-local",
+		dimensions: 4096,
+	},
+	"qwen3-nan": {
+		id: "qwen3-embedding",
+		dimensions: 4096,
+	},
+	"embgemma-local": {
+		id: "embeddinggemma-300m-bf16-local",
+		dimensions: 768,
+	},
 	"gemini-embedding-2": {
 		id: "google/gemini-embedding-2-preview",
 		dimensions: 3072,
