@@ -263,7 +263,9 @@ const BATCH_SCHEMA = {
 				article_id: { type: "string" },
 				// minLength forces the model to emit a real summary; the schema
 				// engine will reject empty strings before we ever see them.
-				citizen_summary: { type: "string", minLength: 10 },
+				// maxLength matches the prompt's hard cap (300) so the schema engine
+				// rejects overly verbose responses instead of silently storing them.
+				citizen_summary: { type: "string", minLength: 10, maxLength: 300 },
 				citizen_tags: {
 					type: "array",
 					items: { type: "string" },
@@ -600,9 +602,18 @@ interface Progress {
 	finishedAt?: string;
 }
 
-function loadProgress(): Progress {
-	const existing = readFileSync(PROGRESS_FILE, "utf-8");
-	return JSON.parse(existing) as Progress;
+function loadProgress(): Progress | null {
+	try {
+		const existing = readFileSync(PROGRESS_FILE, "utf-8");
+		return JSON.parse(existing) as Progress;
+	} catch (e) {
+		// Corrupted/partial file from a crash mid-write: fall back to a fresh
+		// Progress instead of crashing the resume.
+		console.warn(
+			`Could not load progress file (${(e as Error).message}); starting fresh.`,
+		);
+		return null;
+	}
 }
 
 function saveProgress(p: Progress) {
@@ -659,8 +670,9 @@ async function main() {
 
 	// Load or create progress
 	let progress: Progress;
-	if (existsSync(PROGRESS_FILE)) {
-		progress = loadProgress();
+	const existing = existsSync(PROGRESS_FILE) ? loadProgress() : null;
+	if (existing) {
+		progress = existing;
 		// Reset startedAt to now so ETA is based on current run
 		progress.startedAt = new Date().toISOString();
 		console.log(
@@ -703,7 +715,6 @@ async function main() {
 			error: string | null;
 		}[] = [];
 		let completedApiBatches = 0;
-		const _totalApiBatches = apiBatches.length;
 
 		await mapPool(apiBatches, CONCURRENCY, async (apiBatch, idx) => {
 			const result = await callQwenBatchWithRetry(apiBatch);
@@ -820,9 +831,12 @@ async function main() {
 			saveProgress(progress);
 		}
 
-		// ETA
-		const elapsed =
-			(Date.now() - new Date(progress.startedAt).getTime()) / 1000;
+		// ETA — guard against zero elapsed (first batch in a fast dry-run can
+		// finish in <1ms, which would make rate=Infinity and ETA=NaN).
+		const elapsed = Math.max(
+			(Date.now() - new Date(progress.startedAt).getTime()) / 1000,
+			1,
+		);
 		const rate = progress.processed / elapsed;
 		const remaining = articles.length - progress.processed;
 		const etaSeconds = remaining / rate;
