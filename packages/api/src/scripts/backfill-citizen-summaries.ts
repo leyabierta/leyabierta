@@ -11,7 +11,7 @@
  *
  * - --limit N: process only N articles (for testing)
  * - --dry-run: sample articles but don't write to DB
- * - --force: skip articles that already have a summary (default: skip)
+ * - --force: also reprocess articles that already have a summary (default: skip them)
  *
  * Checkpoints every 100 articles. Resume from last checkpoint on restart.
  *
@@ -36,10 +36,13 @@ const API_BATCH_SIZE = Math.max(
 	Math.min(10, Number(process.env.QWEN_BATCH_SIZE ?? 5)),
 ); // articles per API call (batching)
 const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
-const _TIMEOUT_MS = 300_000; // 5 minutes per batch (5 articles × ~60s each)
 const REQUEST_TIMEOUT_MS = 180_000; // 3 minutes per individual request
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const HERMES_API_KEY = process.env.HERMES_API_KEY ?? "";
+const HERMES_API_KEY = process.env.HERMES_API_KEY;
+if (!HERMES_API_KEY) {
+	console.error("Error: HERMES_API_KEY env var is required");
+	process.exit(1);
+}
 
 // ── Qwen 3.6 Prompt v10 (anti-invention + force detail) ──────────────────────
 
@@ -145,7 +148,7 @@ const LIMIT = args.includes("--limit")
 	? Number(args[args.indexOf("--limit") + 1] ?? 100)
 	: 0;
 const DRY_RUN = args.includes("--dry-run");
-const _FORCE = args.includes("--force");
+const FORCE = args.includes("--force");
 const CONCURRENCY = args.includes("--concurrency")
 	? Math.max(
 			1,
@@ -184,6 +187,15 @@ const stmtUpsertCheckpoint = db.prepare(
 	                                last_updated=excluded.last_updated`,
 );
 
+// Write statements: hoisted to module level so we don't recompile the same SQL
+// ~1.5M times during a 433K-article run.
+const stmtInsertSummary = db.prepare(
+	"INSERT OR REPLACE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+);
+const stmtInsertTag = db.prepare(
+	"INSERT OR REPLACE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
+);
+
 // ── Article Sampling ───────────────────────────────────────────────────────
 
 interface Article {
@@ -198,25 +210,31 @@ function sampleArticles(startFrom?: {
 	norm_id: string;
 	block_id: string;
 }): Article[] {
+	let where = `
+		WHERE n.status = 'vigente'
+		  AND b.block_type = 'precepto'
+		  AND length(b.current_text) BETWEEN 200 AND 2000`;
+	const params: (string | number)[] = [];
+
+	if (!FORCE) {
+		where += `
+		  AND NOT EXISTS (
+			SELECT 1 FROM citizen_article_summaries c
+			WHERE c.norm_id = n.id AND c.block_id = b.block_id
+		  )`;
+	}
+
+	if (startFrom) {
+		where += ` AND (n.id > ? OR (n.id = ? AND b.block_id > ?))`;
+		params.push(startFrom.norm_id, startFrom.norm_id, startFrom.block_id);
+	}
+
 	let query = `
 		SELECT n.id AS norm_id, n.title AS norm_title, b.block_id, b.title AS block_title, b.current_text
 		FROM norms n
 		JOIN blocks b ON b.norm_id = n.id
-		WHERE n.status = 'vigente'
-		  AND b.block_type = 'precepto'
-		  AND length(b.current_text) BETWEEN 200 AND 2000
-		  AND NOT EXISTS (
-			SELECT 1 FROM citizen_article_summaries c
-			WHERE c.norm_id = n.id AND c.block_id = b.block_id
-		  )
-		ORDER BY n.id, b.block_id
-	`;
-	let params: (string | number)[] = [];
-
-	if (startFrom) {
-		query += ` AND (n.id > ? OR (n.id = ? AND b.block_id > ?))`;
-		params = [startFrom.norm_id, startFrom.norm_id, startFrom.block_id];
-	}
+		${where}
+		ORDER BY n.id, b.block_id`;
 
 	if (LIMIT > 0) {
 		query += ` LIMIT ?`;
@@ -768,16 +786,13 @@ async function main() {
 				progress.success++;
 
 				if (!DRY_RUN) {
-					// Write to DB
-					db.prepare(
-						"INSERT OR REPLACE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
-					).run(article.norm_id, article.block_id, output.citizen_summary);
-
-					// Write tags
+					stmtInsertSummary.run(
+						article.norm_id,
+						article.block_id,
+						output.citizen_summary,
+					);
 					for (const tag of output.citizen_tags) {
-						db.prepare(
-							"INSERT OR REPLACE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
-						).run(article.norm_id, article.block_id, tag);
+						stmtInsertTag.run(article.norm_id, article.block_id, tag);
 					}
 				}
 
@@ -801,7 +816,9 @@ async function main() {
 			);
 		}
 
-		saveProgress(progress);
+		if (!DRY_RUN) {
+			saveProgress(progress);
+		}
 
 		// ETA
 		const elapsed =
