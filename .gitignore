@@ -60,3 +60,12 @@ packages/api/research/ab/qwen36-citizen-summaries/build-cache.ts
 
 # Temporary judge prompts
 judge-prompt-*.md
+
+# Local-only ad-hoc artifacts
+tmp/
+tmp-*.ts
+backups/
+data/backfill-progress.json
+data/backfill-failures.jsonl
+data/backfill-error-debug.log
+data/reprocess-failures.jsonl
