@@ -8,160 +8,237 @@ import Base from "../../layouts/Base.astro";
 	canonicalUrl="/sobre/"
 >
 	<style>
-		.sobre-page { max-width: 40rem; margin: 0 auto; }
+		.sobre-wrap {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 40px 24px 64px;
+		}
 
 		.sobre-kicker {
 			font-family: var(--font-mono);
-			font-size: 0.6875rem;
+			font-size: 11px;
 			text-transform: uppercase;
-			letter-spacing: 0.12em;
+			letter-spacing: 2.4px;
 			color: var(--text-muted);
-			margin-bottom: 0.75rem;
+			margin-bottom: 12px;
+			font-weight: 500;
 		}
 
-		.sobre-page h1 {
+		.sobre-wrap h1 {
 			font-family: var(--font-serif);
-			font-size: 2rem;
+			font-size: 36px;
 			font-weight: 700;
-			line-height: 1.2;
+			line-height: 1.15;
 			color: var(--text);
-			margin: 0 0 0.25rem;
+			margin: 0 0 6px;
+			letter-spacing: -0.4px;
 		}
 		@media (max-width: 640px) {
-			.sobre-page h1 { font-size: 1.625rem; }
+			.sobre-wrap h1 { font-size: 28px; }
 		}
 
 		.sobre-subtitle {
-			font-size: 1rem;
+			font-size: 16px;
 			color: var(--text-muted);
-			margin-bottom: 2.5rem;
+			margin-bottom: 36px;
+			line-height: 1.55;
 		}
 
-		.sobre-page h2 {
+		.sobre-wrap h2 {
 			font-family: var(--font-serif);
-			font-size: 1.2rem;
+			font-size: 19px;
 			font-weight: 600;
 			color: var(--text);
-			margin: 2rem 0 0.75rem;
-			padding-bottom: 0.5rem;
-			border-bottom: 1px solid var(--border);
+			margin: 32px 0 14px;
+			padding-bottom: 8px;
+			border-bottom: 1px solid var(--border-light);
 		}
 
-		.sobre-page p {
-			font-size: 0.9375rem;
+		.sobre-wrap p {
+			font-size: 15px;
 			line-height: 1.7;
 			color: var(--text-secondary);
-			margin: 0 0 1rem;
+			margin: 0 0 14px;
 		}
 
-		.principios-list {
-			list-style: none;
-			padding: 0;
-			margin: 0 0 1.5rem;
-			display: flex;
-			flex-direction: column;
-			gap: 1rem;
-		}
-
-		.principio-item {
-			background: var(--surface);
-			border: 1px solid var(--border);
-			border-radius: 10px;
-			padding: 1rem 1.25rem;
-		}
-
-		.principio-titulo {
-			font-size: 0.9375rem;
-			font-weight: 600;
-			color: var(--text);
-			margin: 0 0 0.25rem;
-		}
-
-		.principio-texto {
-			font-size: 0.875rem;
-			line-height: 1.6;
-			color: var(--text-secondary);
-			margin: 0;
-		}
-
+		/* ── Highlight / cita ── */
 		.sobre-highlight {
-			background: var(--accent-faint);
-			border: 1px solid var(--border);
+			background: var(--tierra-warm);
+			border: 1px solid var(--tierra-deep);
 			border-radius: 10px;
-			padding: 1rem 1.25rem;
-			margin: 1.5rem 0;
+			padding: 16px 22px;
+			margin: 20px 0;
 		}
 
 		.sobre-highlight p {
 			font-family: var(--font-serif);
 			font-style: italic;
-			font-size: 1rem;
+			font-size: 16px;
 			color: var(--text);
 			margin: 0;
+			line-height: 1.55;
+		}
+
+		/* ── Principios (sin cards, solo separadores) ── */
+		.principios-list {
+			list-style: none;
+			padding: 0;
+			margin: 0;
+		}
+
+		.principio-item {
+			padding: 18px 0;
+		}
+
+		.principio-item:not(:first-child) {
+			border-top: 1px solid #ebe8e0;
+		}
+
+		.principio-header {
+			display: flex;
+			align-items: baseline;
+			gap: 10px;
+			margin-bottom: 6px;
+		}
+
+		.principio-num {
+			font-family: var(--font-mono);
+			font-size: 13px;
+			font-weight: 500;
+			color: #a89c80;
+			letter-spacing: 0.4;
+		}
+
+		.principio-titulo {
+			font-size: 15px;
+			font-weight: 700;
+			color: var(--text);
+			letter-spacing: -0.1px;
+		}
+
+		.principio-texto {
+			font-size: 14.5px;
+			line-height: 1.65;
+			color: var(--text-muted);
+			margin: 0;
+		}
+
+		/* ── Audiencias (sin cards, solo separadores) ── */
+		.audiencias-intro {
+			font-size: 14px;
+			line-height: 1.6;
+			color: var(--text-muted);
+			margin: 0 0 18px;
 		}
 
 		.audiencias-grid {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
-			gap: 0.75rem;
-			margin-bottom: 1.5rem;
+			gap: 0;
 		}
 		@media (max-width: 480px) {
 			.audiencias-grid { grid-template-columns: 1fr; }
 		}
 
 		.audiencia-item {
-			background: var(--surface);
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			padding: 0.875rem 1rem;
+			padding: 16px 0;
+		}
+
+		.audiencia-item:nth-child(odd) {
+			padding-right: 20px;
+		}
+		.audiencia-item:nth-child(even) {
+			padding-left: 20px;
+		}
+
+		.audiencia-item:first-child,
+		.audiencia-item:nth-child(2) {
+			border-top: 1px solid #ebe8e0;
+		}
+
+		.audiencia-item:nth-child(3),
+		.audiencia-item:nth-child(4),
+		.audiencia-item:nth-child(5),
+		.audiencia-item:nth-child(6) {
+			border-bottom: 1px solid #ebe8e0;
+		}
+
+		.audiencia-item:nth-child(1),
+		.audiencia-item:nth-child(3),
+		.audiencia-item:nth-child(5) {
+			border-right: 1px solid #ebe8e0;
+		}
+
+		.audiencia-header {
+			display: flex;
+			align-items: baseline;
+			gap: 8px;
+			margin-bottom: 4px;
+		}
+
+		.audiencia-num {
+			font-family: var(--font-mono);
+			font-size: 11px;
+			color: #a89c80;
+			letter-spacing: 0.4;
 		}
 
 		.audiencia-rol {
-			font-size: 0.8125rem;
-			font-weight: 600;
-			color: var(--accent);
-			margin: 0 0 0.25rem;
+			font-size: 14.5px;
+			font-weight: 700;
+			color: var(--text);
 		}
 
 		.audiencia-desc {
-			font-size: 0.8125rem;
-			line-height: 1.5;
-			color: var(--text-secondary);
+			font-size: 13.5px;
+			line-height: 1.55;
+			color: var(--text-muted);
 			margin: 0;
+			padding-left: 22px;
 		}
 
+		/* ── Nav inferior ── */
 		.sobre-nav {
 			display: flex;
 			flex-wrap: wrap;
-			gap: 0.75rem;
-			margin-top: 2.5rem;
-			padding-top: 1.5rem;
-			border-top: 1px solid var(--border);
+			gap: 10px;
+			margin-top: 36px;
+			padding-top: 22px;
+			border-top: 1px solid var(--border-light);
 		}
 
 		.sobre-nav-link {
 			display: inline-flex;
 			align-items: center;
-			gap: 0.5rem;
-			padding: 0.625rem 1rem;
-			font-size: 0.875rem;
+			gap: 6px;
+			padding: 9px 14px;
+			font-size: 13px;
 			font-weight: 600;
 			color: var(--accent);
 			border: 1.5px solid var(--border);
 			border-radius: 6px;
 			text-decoration: none;
+			cursor: pointer;
+			background: var(--surface);
 			transition: border-color 0.15s ease-out, background 0.15s ease-out;
 		}
 
 		.sobre-nav-link:hover {
 			border-color: var(--accent);
-			background: var(--accent-faint);
+			background: var(--surface);
 			text-decoration: none;
+		}
+
+		.sobre-wrap ul {
+			padding-left: 20px;
+			margin: 0 0 14px;
+		}
+		.sobre-wrap li {
+			margin: 0 0 8px;
 		}
 	</style>
 
-	<div class="sobre-page prose">
+	<div class="sobre-wrap prose">
 		<div class="sobre-kicker">PROYECTO</div>
 		<h1>Sobre Ley Abierta</h1>
 		<p class="sobre-subtitle">Por qué existe este proyecto y los principios que lo guían.</p>
@@ -179,13 +256,16 @@ import Base from "../../layouts/Base.astro";
 		</p>
 
 		<div class="sobre-highlight">
-			<p>Las leyes pertenecen al pueblo. Su evolución debería ser visible para todos.</p>
+			<p>«Las leyes pertenecen al pueblo. Su evolución debería ser visible para todos.»</p>
 		</div>
 
 		<h2>Principios</h2>
 		<ul class="principios-list">
 			<li class="principio-item">
-				<p class="principio-titulo">Neutralidad factual</p>
+				<div class="principio-header">
+					<span class="principio-num">01</span>
+					<span class="principio-titulo">Neutralidad factual</span>
+				</div>
 				<p class="principio-texto">
 					Ley Abierta informa, no opina. Nunca diremos si una ley es buena o mala. Presentamos
 					los hechos — el texto, los cambios, las relaciones entre normas — y cada persona forma
@@ -193,7 +273,10 @@ import Base from "../../layouts/Base.astro";
 				</p>
 			</li>
 			<li class="principio-item">
-				<p class="principio-titulo">Accesibilidad universal</p>
+				<div class="principio-header">
+					<span class="principio-num">02</span>
+					<span class="principio-titulo">Accesibilidad universal</span>
+				</div>
 				<p class="principio-texto">
 					La legislación es de todos. Su evolución debería ser visible, comprensible y gratuita.
 					Ley Abierta debe funcionar para cualquier ciudadano, independientemente de su edad,
@@ -201,14 +284,20 @@ import Base from "../../layouts/Base.astro";
 				</p>
 			</li>
 			<li class="principio-item">
-				<p class="principio-titulo">Privacidad mínima</p>
+				<div class="principio-header">
+					<span class="principio-num">03</span>
+					<span class="principio-titulo">Privacidad mínima</span>
+				</div>
 				<p class="principio-texto">
 					Solo recabamos los datos estrictamente necesarios para dar el servicio. No vendemos
 					datos, no hacemos perfiles, no monetizamos a los usuarios.
 				</p>
 			</li>
 			<li class="principio-item">
-				<p class="principio-titulo">Código abierto, siempre</p>
+				<div class="principio-header">
+					<span class="principio-num">04</span>
+					<span class="principio-titulo">Código abierto, siempre</span>
+				</div>
 				<p class="principio-texto">
 					Todo el código, los datos y las herramientas de Ley Abierta son públicos. Usamos la
 					licencia AGPL-3.0 para garantizar que cualquier versión derivada mantenga este
@@ -216,7 +305,10 @@ import Base from "../../layouts/Base.astro";
 				</p>
 			</li>
 			<li class="principio-item">
-				<p class="principio-titulo">Sin ánimo de lucro</p>
+				<div class="principio-header">
+					<span class="principio-num">05</span>
+					<span class="principio-titulo">Sin ánimo de lucro</span>
+				</div>
 				<p class="principio-texto">
 					Este proyecto no busca beneficio monetario. Busca hacer un bien a la comunidad. Si
 					aceptamos ayudas, será exclusivamente para cubrir costes operativos y nunca
@@ -226,29 +318,48 @@ import Base from "../../layouts/Base.astro";
 		</ul>
 
 		<h2>Para quién</h2>
+		<p class="audiencias-intro">No hace falta ser jurista para usar Ley Abierta. Está pensado para:</p>
 		<div class="audiencias-grid">
 			<div class="audiencia-item">
-				<p class="audiencia-rol">Ciudadanos</p>
+				<div class="audiencia-header">
+					<span class="audiencia-num">01</span>
+					<strong class="audiencia-rol">Ciudadanos</strong>
+				</div>
 				<p class="audiencia-desc">Entender qué leyes les afectan sin necesitar un abogado.</p>
 			</div>
 			<div class="audiencia-item">
-				<p class="audiencia-rol">Periodistas</p>
+				<div class="audiencia-header">
+					<span class="audiencia-num">02</span>
+					<strong class="audiencia-rol">Periodistas</strong>
+				</div>
 				<p class="audiencia-desc">Investigar cambios legislativos con datos comparables.</p>
 			</div>
 			<div class="audiencia-item">
-				<p class="audiencia-rol">Juristas</p>
+				<div class="audiencia-header">
+					<span class="audiencia-num">03</span>
+					<strong class="audiencia-rol">Juristas</strong>
+				</div>
 				<p class="audiencia-desc">Consultar y comparar versiones con una herramienta abierta.</p>
 			</div>
 			<div class="audiencia-item">
-				<p class="audiencia-rol">Investigadores</p>
+				<div class="audiencia-header">
+					<span class="audiencia-num">04</span>
+					<strong class="audiencia-rol">Investigadores</strong>
+				</div>
 				<p class="audiencia-desc">Estudiar la evolución del ordenamiento jurídico.</p>
 			</div>
 			<div class="audiencia-item">
-				<p class="audiencia-rol">Organizaciones civiles</p>
+				<div class="audiencia-header">
+					<span class="audiencia-num">05</span>
+					<strong class="audiencia-rol">Organizaciones civiles</strong>
+				</div>
 				<p class="audiencia-desc">Trabajar en transparencia y rendición de cuentas.</p>
 			</div>
 			<div class="audiencia-item">
-				<p class="audiencia-rol">Desarrolladores</p>
+				<div class="audiencia-header">
+					<span class="audiencia-num">06</span>
+					<strong class="audiencia-rol">Desarrolladores</strong>
+				</div>
 				<p class="audiencia-desc">Construir herramientas sobre datos legislativos abiertos.</p>
 			</div>
 		</div>
@@ -257,24 +368,21 @@ import Base from "../../layouts/Base.astro";
 		<p>Algunas ideas que queremos explorar:</p>
 		<ul>
 			<li>
-				<strong>Flujo legislativo completo</strong> — Seguir una ley desde su propuesta hasta su
-				aprobación, con todo el proceso parlamentario visible.
+				<strong>Flujo legislativo completo</strong> — Seguir una ley desde su propuesta hasta su aprobación, con todo el proceso parlamentario visible.
 			</li>
 			<li>
-				<strong>Visualización de reformas pendientes</strong> — Ver los cambios propuestos como si
-				fueran borradores: qué cambia, qué se añade, qué se elimina.
+				<strong>Visualización de reformas pendientes</strong> — Ver los cambios propuestos como si fueran borradores: qué cambia, qué se añade, qué se elimina.
 			</li>
 			<li>
-				<strong>Más países</strong> — El foco actual es España, pero la arquitectura está
-				diseñada para que cualquiera pueda adaptarla a su país.
+				<strong>Más países</strong> — El foco actual es España, pero la arquitectura está diseñada para que cualquiera pueda adaptarla a su país.
 			</li>
 		</ul>
 
 		<nav class="sobre-nav" aria-label="Más sobre el proyecto">
-			<a href="/sobre/contribuir/" class="sobre-nav-link">Cómo contribuir &rarr;</a>
-			<a href="/sobre/apoyar/" class="sobre-nav-link">Apoyar el proyecto &rarr;</a>
-			<a href="/sobre/api/" class="sobre-nav-link">API y datos abiertos &rarr;</a>
-			<a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener" class="sobre-nav-link">GitHub &rarr;</a>
+			<a href="/sobre/contribuir/" class="sobre-nav-link">Cómo contribuir →</a>
+			<a href="/sobre/apoyar/" class="sobre-nav-link">Apoyar el proyecto →</a>
+			<a href="/sobre/api/" class="sobre-nav-link">API y datos abiertos →</a>
+			<a href="https://github.com/leyabierta/leyabierta" target="_blank" rel="noopener" class="sobre-nav-link">GitHub →</a>
 		</nav>
 	</div>
 </Base>

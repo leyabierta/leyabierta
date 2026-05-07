@@ -8,114 +8,144 @@ import Base from "../../layouts/Base.astro";
 	canonicalUrl="/sobre/apoyar/"
 >
 	<style>
-		.apoyar-page { max-width: 40rem; margin: 0 auto; }
+		.apoyar-wrap {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 40px 24px 64px;
+		}
 
 		.sobre-kicker {
 			font-family: var(--font-mono);
-			font-size: 0.6875rem;
+			font-size: 11px;
 			text-transform: uppercase;
-			letter-spacing: 0.12em;
+			letter-spacing: 2.4px;
 			color: var(--text-muted);
-			margin-bottom: 0.75rem;
+			margin-bottom: 12px;
+			font-weight: 500;
 		}
 
-		.apoyar-page h1 {
+		.back-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			font-size: 14px;
+			font-weight: 500;
+			color: var(--text-muted);
+			text-decoration: none;
+			transition: color 0.15s ease-out;
+			margin-bottom: 16px;
+		}
+
+		.back-link:hover {
+			color: var(--accent);
+			text-decoration: none;
+		}
+
+		.back-link .arrow {
+			font-size: 16px;
+			line-height: 1;
+		}
+
+		.apoyar-wrap h1 {
 			font-family: var(--font-serif);
-			font-size: 2rem;
+			font-size: 36px;
 			font-weight: 700;
-			line-height: 1.2;
+			line-height: 1.15;
 			color: var(--text);
-			margin: 0 0 0.25rem;
+			margin: 0 0 6px;
+			letter-spacing: -0.4px;
 		}
 		@media (max-width: 640px) {
-			.apoyar-page h1 { font-size: 1.625rem; }
+			.apoyar-wrap h1 { font-size: 28px; }
 		}
 
 		.page-subtitle {
-			font-size: 1rem;
+			font-size: 16px;
 			color: var(--text-muted);
-			margin-bottom: 2.5rem;
+			margin-bottom: 36px;
+			line-height: 1.55;
 		}
 
-		.apoyar-page h2 {
+		.apoyar-wrap h2 {
 			font-family: var(--font-serif);
-			font-size: 1.2rem;
+			font-size: 19px;
 			font-weight: 600;
 			color: var(--text);
-			margin: 2rem 0 0.75rem;
-			padding-bottom: 0.5rem;
-			border-bottom: 1px solid var(--border);
+			margin: 32px 0 14px;
+			padding-bottom: 8px;
+			border-bottom: 1px solid var(--border-light);
 		}
 
-		.apoyar-page p {
-			font-size: 0.9375rem;
+		.apoyar-wrap p {
+			font-size: 15px;
 			line-height: 1.7;
 			color: var(--text-secondary);
-			margin: 0 0 1rem;
+			margin: 0 0 14px;
 		}
 
 		.apoyar-intro {
-			background: var(--accent-faint);
-			border: 1px solid #d9e3ef;
+			background: var(--tierra-warm);
+			border: 1px solid var(--tierra-deep);
 			border-radius: 10px;
-			padding: 1.25rem 1.5rem;
-			margin-bottom: 2rem;
+			padding: 16px 22px;
+			margin-bottom: 28px;
 		}
 
 		.apoyar-intro p {
 			margin: 0;
-			font-size: 0.9375rem;
+			font-size: 15px;
 			line-height: 1.7;
 			color: var(--text);
+			font-style: normal;
 		}
 
 		.vias-list {
 			list-style: none;
 			padding: 0;
-			margin: 0 0 1.5rem;
+			margin: 0 0 12px;
 			display: flex;
 			flex-direction: column;
-			gap: 0.875rem;
+			gap: 12px;
 		}
 
 		.via-item {
 			display: flex;
-			gap: 1rem;
+			gap: 14px;
 			align-items: flex-start;
 			background: var(--surface);
-			border: 1px solid var(--border);
+			border: 1px solid var(--border-light);
 			border-radius: 10px;
-			padding: 1.125rem 1.25rem;
+			padding: 16px 20px;
 		}
 
 		.via-num {
 			font-family: var(--font-mono);
-			font-size: 0.75rem;
+			font-size: 12px;
 			font-weight: 600;
-			color: var(--text-muted);
+			color: var(--accent);
 			background: var(--accent-bg);
 			border-radius: 50%;
-			width: 1.5rem;
-			height: 1.5rem;
+			width: 26px;
+			height: 26px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			flex-shrink: 0;
-			margin-top: 0.125rem;
+			margin-top: 2px;
 		}
 
 		.via-content strong {
 			display: block;
-			font-size: 0.9375rem;
+			font-size: 15px;
 			font-weight: 600;
 			color: var(--text);
-			margin-bottom: 0.25rem;
+			margin-bottom: 4px;
 		}
 
 		.via-content p {
-			font-size: 0.875rem;
+			font-size: 13.5px;
 			line-height: 1.6;
-			color: var(--text-secondary);
+			color: var(--text-muted);
 			margin: 0;
 		}
 
@@ -125,14 +155,14 @@ import Base from "../../layouts/Base.astro";
 
 		.futuro-box {
 			background: var(--surface);
-			border: 1px solid var(--border);
+			border: 1px solid var(--border-light);
 			border-radius: 10px;
-			padding: 1.25rem 1.5rem;
-			margin-top: 1.5rem;
+			padding: 16px 22px;
+			margin-top: 22px;
 		}
 
 		.futuro-box p {
-			font-size: 0.875rem;
+			font-size: 13.5px;
 			line-height: 1.6;
 			color: var(--text-muted);
 			margin: 0;
@@ -143,16 +173,23 @@ import Base from "../../layouts/Base.astro";
 		}
 	</style>
 
-	<div class="apoyar-page prose">
+	<div class="apoyar-wrap prose">
+		<nav class="breadcrumb" aria-label="Breadcrumb">
+			<a href="/sobre/">Sobre</a>
+			<span class="breadcrumb-sep">›</span>
+			<span>Apoyar el proyecto</span>
+		</nav>
+
 		<div class="sobre-kicker">PROYECTO</div>
 		<h1>Apoyar el proyecto</h1>
 		<p class="page-subtitle">Ley Abierta es voluntario, abierto y sin ánimo de lucro.</p>
 
 		<div class="apoyar-intro">
 			<p>
-				Ley Abierta es un proyecto sin ánimo de lucro mantenido por personas voluntarias. No hay
-				empresa detrás, no hay publicidad, no hay venta de datos. Los costes operativos
-				(servidores, herramientas de IA) los asume quien mantiene el proyecto en este momento.
+				Ley Abierta es un proyecto sin ánimo de lucro mantenido por personas
+				voluntarias. No hay empresa detrás, no hay publicidad, no hay venta de datos.
+				Los costes operativos (servidores, herramientas de IA) los asume quien
+				mantiene el proyecto en este momento.
 			</p>
 		</div>
 
@@ -162,52 +199,38 @@ import Base from "../../layouts/Base.astro";
 				<div class="via-num">1</div>
 				<div class="via-content">
 					<strong>Contribuir en GitHub</strong>
-					<p>
-						Código, documentación, traducciones, revisión de resúmenes legales. Cualquier
-						mejora suma. <a href="/sobre/contribuir/">Ver cómo contribuir &rarr;</a>
-					</p>
+					<p>Código, documentación, traducciones, revisión de resúmenes legales. Cualquier mejora suma.</p>
 				</div>
 			</li>
 			<li class="via-item">
 				<div class="via-num">2</div>
 				<div class="via-content">
 					<strong>Reportar errores en leyes o resúmenes</strong>
-					<p>
-						Si encuentras una ley mal categorizada, un resumen impreciso o cualquier dato
-						incorrecto, <a href="https://github.com/leyabierta/leyabierta/issues/new/choose" target="_blank" rel="noopener">abre un issue en GitHub</a>.
-						Mejorar la calidad de los datos es una de las contribuciones más valiosas.
-					</p>
+					<p>Si encuentras una ley mal categorizada, un resumen impreciso o cualquier dato incorrecto, abre un issue en GitHub. Mejorar la calidad de los datos es una de las contribuciones más valiosas.</p>
 				</div>
 			</li>
 			<li class="via-item">
 				<div class="via-num">3</div>
 				<div class="via-content">
 					<strong>Difundir el proyecto</strong>
-					<p>
-						Comparte Ley Abierta con periodistas, juristas, profesores o cualquier persona
-						que trabaje con legislación. El proyecto crece gracias a quienes lo conocen y lo
-						usan.
-					</p>
+					<p>Comparte Ley Abierta con periodistas, juristas, profesores o cualquier persona que trabaje con legislación. El proyecto crece gracias a quienes lo conocen y lo usan.</p>
 				</div>
 			</li>
 			<li class="via-item">
 				<div class="via-num">4</div>
 				<div class="via-content">
 					<strong>Dar feedback directo</strong>
-					<p>
-						Escríbenos a <a href="mailto:contacto@leyabierta.es">contacto@leyabierta.es</a>.
-						Las ideas y críticas directas ayudan más que los votos en producción.
-					</p>
+					<p>Escríbenos a contacto@leyabierta.es. Las ideas y críticas directas ayudan más que los votos en producción.</p>
 				</div>
 			</li>
 		</ul>
 
 		<div class="futuro-box">
 			<p>
-				<strong>Sobre donaciones económicas:</strong> cuando exista la fundación legal del proyecto,
-				abriremos una vía de donaciones aquí. Por ahora, no aceptamos dinero directamente para
-				evitar cualquier ambigüedad sobre quién se beneficia y en qué condiciones. La
-				transparencia es parte del proyecto.
+				<strong>Sobre donaciones económicas:</strong> cuando exista
+				la fundación legal del proyecto, abriremos una vía de donaciones aquí. Por ahora,
+				no aceptamos dinero directamente para evitar cualquier ambigüedad sobre quién se
+				beneficia y en qué condiciones. La transparencia es parte del proyecto.
 			</p>
 		</div>
 	</div>

@@ -8,109 +8,139 @@ import Base from "../../layouts/Base.astro";
 	canonicalUrl="/sobre/api/"
 >
 	<style>
-		.api-page { max-width: 40rem; margin: 0 auto; }
+		.api-wrap {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 40px 24px 64px;
+		}
 
 		.sobre-kicker {
 			font-family: var(--font-mono);
-			font-size: 0.6875rem;
+			font-size: 11px;
 			text-transform: uppercase;
-			letter-spacing: 0.12em;
+			letter-spacing: 2.4px;
 			color: var(--text-muted);
-			margin-bottom: 0.75rem;
+			margin-bottom: 12px;
+			font-weight: 500;
 		}
 
-		.api-page h1 {
+		.back-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			font-size: 14px;
+			font-weight: 500;
+			color: var(--text-muted);
+			text-decoration: none;
+			transition: color 0.15s ease-out;
+			margin-bottom: 16px;
+		}
+
+		.back-link:hover {
+			color: var(--accent);
+			text-decoration: none;
+		}
+
+		.back-link .arrow {
+			font-size: 16px;
+			line-height: 1;
+		}
+
+		.api-wrap h1 {
 			font-family: var(--font-serif);
-			font-size: 2rem;
+			font-size: 36px;
 			font-weight: 700;
-			line-height: 1.2;
+			line-height: 1.15;
 			color: var(--text);
-			margin: 0 0 0.25rem;
+			margin: 0 0 6px;
+			letter-spacing: -0.4px;
 		}
 		@media (max-width: 640px) {
-			.api-page h1 { font-size: 1.625rem; }
+			.api-wrap h1 { font-size: 28px; }
 		}
 
 		.page-subtitle {
-			font-size: 1rem;
+			font-size: 16px;
 			color: var(--text-muted);
-			margin-bottom: 2.5rem;
+			margin-bottom: 36px;
+			line-height: 1.55;
 		}
 
-		.api-page p {
-			font-size: 0.9375rem;
+		.api-wrap p {
+			font-size: 15px;
 			line-height: 1.7;
 			color: var(--text-secondary);
-			margin: 0 0 1rem;
+			margin: 0 0 14px;
 		}
 
 		.cta-banner {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
-			gap: 1rem;
-			background: var(--accent-faint);
-			border: 1px solid #d9e3ef;
+			gap: 16px;
+			background: var(--tierra-warm);
+			border: 1px solid var(--tierra-deep);
 			border-radius: 10px;
-			padding: 1.25rem 1.5rem;
-			margin-bottom: 2rem;
+			padding: 18px 22px;
+			margin-bottom: 28px;
 			flex-wrap: wrap;
 		}
 
 		.cta-banner-text strong {
 			display: block;
-			font-size: 1rem;
 			font-family: var(--font-serif);
+			font-size: 16px;
 			font-weight: 600;
 			color: var(--text);
-			margin-bottom: 0.25rem;
+			margin-bottom: 4px;
 		}
 
 		.cta-banner-text p {
-			font-size: 0.875rem;
-			color: var(--text-secondary);
+			font-size: 13.5px;
+			color: var(--text-muted);
 			margin: 0;
+			line-height: 1.5;
 		}
 
 		.cta-btn {
 			display: inline-block;
-			padding: 0.625rem 1.25rem;
+			padding: 10px 16px;
 			background: var(--accent);
-			color: white;
+			color: #fff;
 			border-radius: 6px;
-			font-size: 0.875rem;
+			font-size: 13.5px;
 			font-weight: 600;
 			text-decoration: none;
 			white-space: nowrap;
+			cursor: pointer;
 			transition: opacity 0.15s ease-out;
 		}
-
 		.cta-btn:hover {
 			opacity: 0.88;
 			text-decoration: none;
-			color: white;
+			color: #fff;
 		}
 
 		.recursos-list {
 			list-style: none;
 			padding: 0;
-			margin: 0 0 1.5rem;
+			margin: 0 0 16px;
 			display: flex;
 			flex-direction: column;
-			gap: 0.75rem;
+			gap: 10px;
 		}
 
 		.recurso-link {
 			display: flex;
 			align-items: center;
-			gap: 0.875rem;
-			padding: 0.875rem 1rem;
+			gap: 14px;
+			padding: 14px 16px;
 			background: var(--surface);
-			border: 1px solid var(--border);
+			border: 1px solid var(--border-light);
 			border-radius: 8px;
 			text-decoration: none;
 			color: var(--text-secondary);
-			font-size: 0.9375rem;
+			font-size: 15px;
 			transition: border-color 0.15s ease-out, color 0.15s ease-out;
 		}
 
@@ -121,8 +151,8 @@ import Base from "../../layouts/Base.astro";
 		}
 
 		.recurso-icon {
-			width: 1.25rem;
-			height: 1.25rem;
+			width: 20px;
+			height: 20px;
 			flex-shrink: 0;
 			color: var(--text-muted);
 		}
@@ -133,19 +163,32 @@ import Base from "../../layouts/Base.astro";
 
 		.recurso-texto strong {
 			display: block;
-			font-size: 0.9375rem;
+			font-size: 14.5px;
 			font-weight: 600;
-			color: inherit;
-			margin-bottom: 0.125rem;
+			color: var(--text);
+			margin-bottom: 2px;
 		}
 
 		.recurso-texto span {
-			font-size: 0.8125rem;
+			font-size: 12.5px;
 			color: var(--text-muted);
+		}
+
+		.recurso-link:hover .recurso-texto span {
+			color: var(--accent);
+		}
+
+		.api-bold {
+			font-weight: 500;
+			color: var(--text);
 		}
 	</style>
 
-	<div class="api-page prose">
+	<div class="api-wrap prose">
+		<a href="/sobre/" class="back-link">
+			<span class="arrow">←</span> Volver a Sobre
+		</a>
+
 		<div class="sobre-kicker">DESARROLLADORES</div>
 		<h1>API y datos abiertos</h1>
 		<p class="page-subtitle">Toda la legislación española, accesible sin registro ni límites.</p>
@@ -163,8 +206,7 @@ import Base from "../../layouts/Base.astro";
 			la API REST, clonar el repositorio Git con toda la legislación en formato Markdown, o
 			suscribirte a los feeds RSS para recibir actualizaciones automáticas.
 		</p>
-
-		<p>Sin autenticación. Sin límites de uso. Sin registro.</p>
+		<p class="api-bold">Sin autenticación. Sin límites de uso. Sin registro.</p>
 
 		<ul class="recursos-list">
 			<li>
