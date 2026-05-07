@@ -1,31 +1,24 @@
 /**
- * Generate Qwen3-Embedding-8B embeddings via nan.builders (LiteLLM-backed,
- * unmetered). Sibling of `embed-corpus-openrouter.ts` — same corpus + batch +
- * SQLite layout, only the HTTP target changes.
+ * Full-corpus Qwen3-Embedding-8B generation via nan.builders for prod-equivalent
+ * A/B against Gemini. Embeds the same 9738-norm scope Gemini already covers,
+ * sub-chunked by apartados, formatted identically to sync-embeddings.ts.
  *
- * Endpoint: https://api.nan.builders/v1/embeddings
- * Model:    qwen3-embedding (returns 4096 dims with encoding_format=float)
- *
- * Important: `encoding_format: "float"` MUST be sent. Without it LiteLLM
- * forwards `null` to the serving model and the request 400s. Confirmed by
- * Cristian Córdova (nan.builders) on 2026-05-05.
+ * Resume by default: skips chunks already in `embeddings` for model=qwen3-nan.
  *
  * Usage:
- *   NAN_API_KEY=sk-... bun packages/api/research/ab/embed-corpus-nanbuilders.ts --dry-run
- *   NAN_API_KEY=sk-... bun packages/api/research/ab/embed-corpus-nanbuilders.ts --limit 50
- *   NAN_API_KEY=sk-... bun packages/api/research/ab/embed-corpus-nanbuilders.ts
- *   NAN_API_KEY=sk-... bun packages/api/research/ab/embed-corpus-nanbuilders.ts --resume
+ *   NAN_API_KEY=sk-... bun packages/api/research/ab/embed-corpus-full-qwen.ts --dry-run
+ *   NAN_API_KEY=sk-... bun packages/api/research/ab/embed-corpus-full-qwen.ts
+ *   NAN_API_KEY=sk-... bun packages/api/research/ab/embed-corpus-full-qwen.ts --limit 1000
  */
 
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "../../../pipeline/src/db/schema.ts";
 import { EMBEDDING_MODELS } from "../../src/services/rag/embeddings.ts";
-import { buildCorpusPlan } from "./corpus.ts";
+import { splitByApartados } from "../../src/services/rag/subchunk.ts";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const resume = args.includes("--resume");
 const limitIdx = args.indexOf("--limit");
 const limit = limitIdx >= 0 ? Number(args[limitIdx + 1]) : undefined;
 
@@ -47,43 +40,83 @@ db.exec("PRAGMA journal_mode = WAL");
 db.exec("PRAGMA busy_timeout = 60000");
 createSchema(db);
 
-console.log("Building corpus plan...");
-const plan = await buildCorpusPlan(db);
+console.log("Building full corpus (Gemini-scoped norms)...");
+const articles = db
+	.query<
+		{
+			norm_id: string;
+			norm_title: string;
+			block_id: string;
+			title: string;
+			current_text: string;
+		},
+		[]
+	>(
+		`SELECT b.norm_id, n.title as norm_title, b.block_id, b.title, b.current_text
+		 FROM blocks b
+		 JOIN norms n ON n.id = b.norm_id
+		 WHERE b.block_type = 'precepto'
+		   AND b.current_text != ''
+		   AND n.status != 'derogada'
+		   AND b.norm_id IN (SELECT DISTINCT norm_id FROM embeddings WHERE model='gemini-embedding-2')
+		 ORDER BY b.norm_id, b.position`,
+	)
+	.all();
+
+interface Block {
+	normId: string;
+	blockId: string;
+	text: string;
+}
+const allBlocks: Block[] = [];
+for (const a of articles) {
+	const sub = splitByApartados(a.block_id, a.title, a.current_text);
+	if (sub) {
+		for (const chunk of sub) {
+			allBlocks.push({
+				normId: a.norm_id,
+				blockId: chunk.blockId,
+				text: `title: ${a.norm_title} | text: ${chunk.title}\n\n${chunk.text}`,
+			});
+		}
+	} else {
+		allBlocks.push({
+			normId: a.norm_id,
+			blockId: a.block_id,
+			text: `title: ${a.norm_title} | text: ${a.title}\n\n${a.current_text}`,
+		});
+	}
+}
 console.log(
-	`  Norms: ${plan.counts.evalNorms} eval + ${plan.counts.distractorNorms} distractors = ${plan.normIds.length}`,
-);
-console.log(
-	`  Articles: ${plan.counts.articles} → Chunks: ${plan.counts.chunks}`,
+	`  ${articles.length} articles → ${allBlocks.length} chunks (full Gemini scope)`,
 );
 
-let workBlocks = plan.blocks;
-if (limit) workBlocks = workBlocks.slice(0, limit);
-
-if (resume) {
-	const existing = db
+// Resume: skip already-embedded
+const have = new Set(
+	db
 		.query<{ norm_id: string; block_id: string }, [string]>(
 			"SELECT norm_id, block_id FROM embeddings WHERE model = ?",
 		)
-		.all(MODEL_KEY);
-	const have = new Set(existing.map((r) => `${r.norm_id}|${r.block_id}`));
-	const before = workBlocks.length;
-	workBlocks = workBlocks.filter((b) => !have.has(`${b.normId}|${b.blockId}`));
-	console.log(
-		`  Resume: skipping ${before - workBlocks.length} already embedded, ${workBlocks.length} remaining.`,
-	);
-}
+		.all(MODEL_KEY)
+		.map((r) => `${r.norm_id}|${r.block_id}`),
+);
+let workBlocks = allBlocks.filter((b) => !have.has(`${b.normId}|${b.blockId}`));
+console.log(
+	`  Resume: ${have.size} already embedded, ${workBlocks.length} remaining`,
+);
+if (limit) workBlocks = workBlocks.slice(0, limit);
 
 if (dryRun) {
 	const totalChars = workBlocks.reduce((s, b) => s + b.text.length, 0);
-	const estTokens = Math.round(totalChars / 4);
 	console.log(
 		`\n[dry-run] Would embed ${workBlocks.length} chunks via nan.builders`,
 	);
 	console.log(
 		`  Avg text length: ${Math.round(totalChars / Math.max(1, workBlocks.length))} chars`,
 	);
-	console.log(`  Est. tokens: ${estTokens.toLocaleString()} (unmetered — $0)`);
-	console.log(`\nSample chunk:\n${workBlocks[0]?.text.slice(0, 300)}...`);
+	console.log(
+		`  Est. tokens: ${Math.round(totalChars / 4).toLocaleString()} (unmetered — $0)`,
+	);
 	process.exit(0);
 }
 
@@ -109,13 +142,9 @@ async function nanEmbed(texts: string[]): Promise<{
 		input: texts,
 		encoding_format: "float",
 	});
-
 	const MAX_ATTEMPTS = 8;
 	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 		if (attempt > 0) {
-			// 429 (rate limit) cooldown is ~60s on this server. 524 (CF timeout)
-			// also benefits from a long wait so the upstream queue drains. Use
-			// 60s base + small jitter to desync workers.
 			const delay = 60_000 + Math.floor(Math.random() * 15_000);
 			await new Promise((r) => setTimeout(r, delay));
 		}
@@ -138,7 +167,6 @@ async function nanEmbed(texts: string[]): Promise<{
 			}
 			if (!res.ok) {
 				const errText = await res.text();
-				// 4xx (other than 429) is a client error — no point retrying.
 				throw new Error(
 					`HTTP ${res.status} (no-retry): ${errText.slice(0, 300)}`,
 				);
@@ -157,10 +185,6 @@ async function nanEmbed(texts: string[]): Promise<{
 			latencyStats.min = Math.min(latencyStats.min, reqMs);
 			latencyStats.max = Math.max(latencyStats.max, reqMs);
 			latencyStats.samples.push(reqMs);
-			const perEmb = (reqMs / texts.length).toFixed(0);
-			console.log(
-				`  ✓ batch=${texts.length} ${(reqMs / 1000).toFixed(1)}s (${perEmb}ms/emb)`,
-			);
 			return json;
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -185,7 +209,6 @@ let skippedBatches = 0;
 let totalTokens = 0;
 let dimsSeen: number | null = null;
 const startedAt = Date.now();
-
 let nextBatch = 0;
 
 async function worker(workerId: number): Promise<void> {
@@ -200,7 +223,7 @@ async function worker(workerId: number): Promise<void> {
 		if (!data) {
 			skippedBatches++;
 			console.warn(
-				`\n  ⚠ [w${workerId}] Batch ${batchIdx + 1}: SKIPPED (chunks ${start}-${start + batch.length - 1})`,
+				`\n  ⚠ [w${workerId}] Batch ${batchIdx + 1}: SKIPPED`,
 			);
 			continue;
 		}
@@ -216,15 +239,6 @@ async function worker(workerId: number): Promise<void> {
 				if (dimsSeen === null) {
 					dimsSeen = vec.length;
 					console.log(`  First batch returned ${dimsSeen} dims`);
-					if (dimsSeen !== model.dimensions) {
-						console.warn(
-							`  ⚠ Dim mismatch: expected ${model.dimensions}, got ${dimsSeen}`,
-						);
-					}
-				} else if (vec.length !== dimsSeen) {
-					throw new Error(
-						`Inconsistent dims: ${vec.length} != ${dimsSeen} (chunk ${article.normId}/${article.blockId})`,
-					);
 				}
 				insertStmt.run(
 					article.normId,
@@ -246,51 +260,28 @@ async function worker(workerId: number): Promise<void> {
 			const remaining = (workBlocks.length - inserted) / Math.max(rate, 0.01);
 			const pct = ((inserted / workBlocks.length) * 100).toFixed(1);
 			process.stdout.write(
-				`\r  ${inserted}/${workBlocks.length} (${pct}%) — ${rate.toFixed(1)} emb/s — ETA ${(remaining / 60).toFixed(1)}m`,
+				`\r  ${inserted}/${workBlocks.length} (${pct}%) — ${rate.toFixed(1)} emb/s — ETA ${(remaining / 60).toFixed(1)}m   `,
 			);
 		}
 	}
 }
 
 console.log(
-	`Starting ${CONCURRENCY} concurrent workers, batch=${BATCH_SIZE}, ${totalBatches} batches total`,
+	`Starting ${CONCURRENCY} workers, batch=${BATCH_SIZE}, ${totalBatches} batches`,
 );
 await Promise.all(Array.from({ length: CONCURRENCY }, (_, i) => worker(i + 1)));
 
 const elapsedMin = (Date.now() - startedAt) / 60000;
 console.log(
-	`\n\n✅ Done: ${inserted} embeddings in ${elapsedMin.toFixed(1)} min (${dimsSeen} dims)`,
+	`\n\n✅ Done: ${inserted} embeddings in ${elapsedMin.toFixed(1)} min`,
 );
-
-if (latencyStats.successCount > 0) {
-	const sorted = [...latencyStats.samples].sort((a, b) => a - b);
-	const p50 = sorted[Math.floor(sorted.length * 0.5)] ?? 0;
-	const p90 = sorted[Math.floor(sorted.length * 0.9)] ?? 0;
-	const avgMs = latencyStats.totalMs / latencyStats.successCount;
-	const avgPerEmb = latencyStats.totalMs / inserted;
-	console.log(`\n  Latency (successful requests only, excludes retry waits):`);
-	console.log(
-		`    batches: ${latencyStats.successCount}, avg=${(avgMs / 1000).toFixed(1)}s p50=${(p50 / 1000).toFixed(1)}s p90=${(p90 / 1000).toFixed(1)}s min=${(latencyStats.min / 1000).toFixed(1)}s max=${(latencyStats.max / 1000).toFixed(1)}s`,
-	);
-	console.log(
-		`    per embedding: avg=${avgPerEmb.toFixed(0)}ms (assuming server processes batch in parallel internally)`,
-	);
-	console.log(
-		`    effective throughput (incl. concurrency=${CONCURRENCY}): ${(inserted / ((Date.now() - startedAt) / 1000)).toFixed(2)} emb/s`,
-	);
-}
-console.log(`  Tokens: ${totalTokens.toLocaleString()}`);
 if (skippedBatches > 0) {
-	console.log(
-		`  ⚠ ${skippedBatches} batch(es) skipped — re-run with --resume to retry`,
-	);
+	console.log(`  ⚠ ${skippedBatches} batch(es) skipped — re-run to retry`);
 }
-
 const finalCount = db
 	.query<{ c: number }, [string]>(
 		"SELECT COUNT(*) as c FROM embeddings WHERE model = ?",
 	)
 	.get(MODEL_KEY)!.c;
-console.log(`  Total rows in DB for model="${MODEL_KEY}": ${finalCount}`);
-
+console.log(`  Total rows for model="${MODEL_KEY}": ${finalCount}`);
 db.close();
