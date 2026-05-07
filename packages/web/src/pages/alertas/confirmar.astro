@@ -64,9 +64,18 @@ import Base from "../../layouts/Base.astro";
 			var params = new URLSearchParams(window.location.search);
 			var email = params.get("email");
 			var code = params.get("code");
+			var token = params.get("token");
 			var el = document.getElementById("confirm-content");
 
-			if (!email || !code) {
+			// Two valid shapes:
+			//   ?email=...&code=...   → POST /subscribe confirmation flow
+			//   ?token=...            → POST /follow confirmation flow
+			var url;
+			if (email && code) {
+				url = API + "/v1/alerts/confirm?email=" + encodeURIComponent(email) + "&code=" + encodeURIComponent(code);
+			} else if (token) {
+				url = API + "/v1/alerts/follow/confirm?token=" + encodeURIComponent(token);
+			} else {
 				el.innerHTML =
 					'<div class="confirm-icon error">&#10007;</div>' +
 					'<h1>Enlace no válido</h1>' +
@@ -75,10 +84,24 @@ import Base from "../../layouts/Base.astro";
 				return;
 			}
 
-			fetch(API + "/v1/alerts/confirm?email=" + encodeURIComponent(email) + "&code=" + encodeURIComponent(code))
+			function setLbCookie(value) {
+				if (!value) return;
+				// 1 year, root path. Not httpOnly because no real auth — this is a
+				// convenience cookie that lets returning users see their subscriptions.
+				var expires = new Date();
+				expires.setFullYear(expires.getFullYear() + 1);
+				document.cookie =
+					"lb_token=" + encodeURIComponent(value) +
+					"; expires=" + expires.toUTCString() +
+					"; path=/; SameSite=Lax";
+			}
+
+			fetch(url)
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
-					if (data.ok) {
+					var ok = data && (data.success === true || data.ok === true);
+					if (ok) {
+						setLbCookie(data.token);
 						if (window.la) {
 							window.la.track("digest_subscribe_success", { source: "email_confirm" });
 						}
@@ -86,7 +109,7 @@ import Base from "../../layouts/Base.astro";
 							'<div class="confirm-icon success">&#10003;</div>' +
 							'<h1>Suscripción confirmada</h1>' +
 							'<p>Tu alerta legislativa está activa. Recibirás una notificación cuando se publiquen cambios que te afecten.</p>' +
-							'<a href="/cambios/mias/" class="btn btn-primary">Ver mis cambios</a>';
+							'<a href="/cambios/para-mi/" class="btn btn-primary">Ver mis cambios</a>';
 					} else {
 						el.innerHTML =
 							'<div class="confirm-icon error">&#10007;</div>' +

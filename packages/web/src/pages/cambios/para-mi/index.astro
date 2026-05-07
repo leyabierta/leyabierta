@@ -435,6 +435,27 @@ import Base from "../../../layouts/Base.astro";
 				perfil = JSON.parse(localStorage.getItem("leyabierta_perfil") || "null");
 			} catch (e) {}
 
+			// Cookie-based recognition: if the user has confirmed an email
+			// before, lb_token is set. We fetch their subscriptions to pre-fill
+			// the email form and skip re-asking for it.
+			function readLbToken() {
+				var match = document.cookie.match(/(?:^|; )lb_token=([^;]+)/);
+				return match ? decodeURIComponent(match[1]) : null;
+			}
+			window.__lbToken = readLbToken();
+			if (window.__lbToken) {
+				fetch(API + "/v1/alerts/me?token=" + encodeURIComponent(window.__lbToken))
+					.then(function (r) { return r.json(); })
+					.then(function (data) {
+						window.__lbMe = data;
+						if (data && data.email) {
+							var emailInput = document.getElementById("alert-email");
+							if (emailInput && !emailInput.value) emailInput.value = data.email;
+						}
+					})
+					.catch(function () {});
+			}
+
 			var answersObj = perfil ? (perfil.answers || {}) : {};
 			if (!perfil || !answersObj.workStatus) {
 				window.location.href = "/mi-situacion/";

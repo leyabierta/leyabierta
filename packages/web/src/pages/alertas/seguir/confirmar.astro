@@ -1,0 +1,23 @@
+---
+// Backwards-compatible target for confirmation links sent before the
+// unified subscription flow landed. Forwards the token to the unified
+// /alertas/confirmar page so the same client-side logic runs (cookie set,
+// success UI, redirect to /cambios/para-mi).
+---
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<title>Confirmando suscripción…</title>
+		<meta http-equiv="refresh" content="0;url=/alertas/confirmar/" />
+		<script is:inline>
+			(function () {
+				var qs = window.location.search || "";
+				window.location.replace("/alertas/confirmar/" + qs);
+			})();
+		</script>
+	</head>
+	<body>
+		<p>Redirigiendo…</p>
+	</body>
+</html>
