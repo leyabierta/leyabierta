@@ -950,6 +950,22 @@ export class DbService {
 		return result.changes;
 	}
 
+	getSubscriptionByConfirmToken(token: string): {
+		email: string;
+		type: string;
+		scope: string;
+	} | null {
+		const row = this.db
+			.query(
+				`SELECT email, type, scope FROM subscriptions
+				 WHERE confirm_token = ? LIMIT 1`,
+			)
+			.get(token) as
+			| { email: string; type: string; scope: string }
+			| null;
+		return row;
+	}
+
 	getSubscriptionsByUnsubToken(token: string): Array<{
 		id: number;
 		email: string;

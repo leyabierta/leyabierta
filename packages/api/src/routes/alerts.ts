@@ -26,6 +26,44 @@ import { createRateLimiter, getClientIp } from "../services/rate-limiter.ts";
 
 const MAX_MATERIAS = 60;
 
+// Per-email unsubscribe token. Deterministic per email so all subscriptions
+// share one cookie value for the user. Used by /alerts/me and as the
+// `lb_token` cookie set after confirmation.
+async function unsubTokenForEmail(email: string): Promise<string> {
+	return generateHmac(`${email}:unsub`);
+}
+
+// Mirrors a set of (type, scope) pairs into the unified subscriptions table.
+// Idempotent: upsert preserves prior `confirmed=1` state. Best effort — never
+// throws into the request handler.
+async function mirrorToSubscriptions(
+	dbService: DbService | undefined,
+	email: string,
+	items: Array<{
+		type: "materia" | "jurisdiccion" | "norma";
+		scope: string;
+	}>,
+	confirmToken: string,
+	confirmed: boolean,
+): Promise<void> {
+	if (!dbService || items.length === 0) return;
+	try {
+		const unsubToken = await unsubTokenForEmail(email);
+		for (const item of items) {
+			dbService.upsertSubscription({
+				email,
+				type: item.type,
+				scope: item.scope,
+				confirmToken,
+				unsubToken,
+				confirmed,
+			});
+		}
+	} catch (err) {
+		console.error("[alerts] Failed to mirror to subscriptions:", err);
+	}
+}
+
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const postLimiter = createRateLimiter(3, RATE_LIMIT_WINDOW_MS); // 3/hour for POST
 const getLimiter = createRateLimiter(10, RATE_LIMIT_WINDOW_MS); // 10/hour for GET
@@ -164,6 +202,27 @@ export function alertRoutes(_dbService?: DbService) {
 					}
 				}
 
+				// Mirror to unified subscriptions table. Same confirm token as the
+				// email link (HMAC of email) so a single click confirms every row.
+				const confirmToken = await generateHmac(email);
+				const items: Array<{
+					type: "materia" | "jurisdiccion";
+					scope: string;
+				}> = [
+					...materias.map((m: string) => ({
+						type: "materia" as const,
+						scope: m,
+					})),
+					{ type: "jurisdiccion" as const, scope: jurisdiction },
+				];
+				await mirrorToSubscriptions(
+					_dbService,
+					email,
+					items,
+					confirmToken,
+					false,
+				);
+
 				// Send confirmation email (best effort — always return generic 200)
 				const topicCount =
 					materias.length > 0 ? materias.length : legacySituations.length;
@@ -241,12 +300,28 @@ export function alertRoutes(_dbService?: DbService) {
 					};
 				}
 
+				// Confirm all subscription rows for this email in the unified table.
+				if (_dbService) {
+					try {
+						_dbService.confirmSubscriptionsByToken(code);
+					} catch (err) {
+						console.error("[alerts] Failed to confirm subscriptions:", err);
+					}
+				}
+
 				// Send welcome email (best effort)
 				await sendWelcomeEmail(email).catch((err) => {
 					console.error("[alerts] Failed to send welcome email:", err);
 				});
 
-				return { success: true, message: "Suscripción confirmada" };
+				// Cookie value the frontend will set on the confirmation page so
+				// returning users are recognized without typing their email again.
+				const lbToken = await unsubTokenForEmail(email);
+				return {
+					success: true,
+					message: "Suscripción confirmada",
+					token: lbToken,
+				};
 			},
 			{
 				query: t.Object({
@@ -256,7 +331,7 @@ export function alertRoutes(_dbService?: DbService) {
 				detail: {
 					summary: "Confirm alert subscription",
 					description:
-						"Confirms a subscription via HMAC-signed email link. Marks contact as subscribed in Resend.",
+						"Confirms a subscription via HMAC-signed email link. Marks contact as subscribed in Resend and in subscriptions table. Returns the per-email cookie token.",
 					tags: ["Alertas"],
 				},
 			},
@@ -307,6 +382,15 @@ export function alertRoutes(_dbService?: DbService) {
 							"No pudimos procesar tu solicitud. Inténtalo de nuevo en unos minutos.",
 					};
 				}
+
+				// Mirror into unified subscriptions table.
+				await mirrorToSubscriptions(
+					dbService,
+					email,
+					[{ type: "norma", scope: normId }],
+					token,
+					false,
+				);
 
 				// Send confirmation email (best effort)
 				await sendFollowConfirmationEmail(
@@ -371,7 +455,27 @@ export function alertRoutes(_dbService?: DbService) {
 					return { error: "Enlace no válido o expirado" };
 				}
 
-				return { success: true, message: "Suscripción confirmada" };
+				// Mirror confirmation into unified subscriptions table. Look up the
+				// email so we can return its cookie token to the confirmation page.
+				let lbToken: string | undefined;
+				try {
+					const row = dbService.getSubscriptionByConfirmToken(token);
+					dbService.confirmSubscriptionsByToken(token);
+					if (row?.email) {
+						lbToken = await unsubTokenForEmail(row.email);
+					}
+				} catch (err) {
+					console.error(
+						"[alerts] Failed to confirm subscription mirror:",
+						err,
+					);
+				}
+
+				return {
+					success: true,
+					message: "Suscripción confirmada",
+					token: lbToken,
+				};
 			},
 			{
 				query: t.Object({
@@ -380,7 +484,7 @@ export function alertRoutes(_dbService?: DbService) {
 				detail: {
 					summary: "Confirm law follow",
 					description:
-						"Confirms a law-follow subscription via token from the confirmation email.",
+						"Confirms a law-follow subscription via token from the confirmation email. Mirrors confirmation in unified subscriptions table.",
 					tags: ["Alertas"],
 				},
 			},
@@ -429,12 +533,17 @@ export function alertRoutes(_dbService?: DbService) {
 					// If the contact doesn't exist, that's fine — treat as success
 				}
 
-				// GDPR: also remove norm follow records for this email
+				// GDPR: also remove norm follow records and unified subscriptions
 				if (_dbService) {
 					try {
 						_dbService.deleteNormFollowsByEmail(email);
 					} catch (err) {
 						console.error("[alerts] Failed to delete norm_follows:", err);
+					}
+					try {
+						_dbService.deleteSubscriptionsByEmail(email);
+					} catch (err) {
+						console.error("[alerts] Failed to delete subscriptions:", err);
 					}
 				}
 
@@ -448,7 +557,97 @@ export function alertRoutes(_dbService?: DbService) {
 				detail: {
 					summary: "Unsubscribe from alerts",
 					description:
-						"Unsubscribes an email from all alerts. Removes contact from Resend and deletes law-follow records (GDPR).",
+						"Unsubscribes an email from all alerts. Removes contact from Resend and deletes law-follow records and unified subscriptions (GDPR).",
+					tags: ["Alertas"],
+				},
+			},
+		)
+
+		// ── /v1/alerts/me ─────────────────────────────────────────────────
+		// Reads the user's confirmed subscriptions by unsubscribe token (cookie).
+		// No email leak: caller must already possess the per-email token.
+
+		.get(
+			"/alerts/me",
+			({ query, set, request }) => {
+				const ip = getClientIp(request);
+				if (isGetRateLimited(ip)) {
+					set.status = 429;
+					return { error: "Demasiados intentos. Inténtalo más tarde." };
+				}
+
+				const dbService = _dbService;
+				if (!dbService) {
+					set.status = 503;
+					return { error: "Servicio temporalmente no disponible." };
+				}
+
+				const rows = dbService.getSubscriptionsByUnsubToken(query.token);
+				if (rows.length === 0) {
+					return { email: null, items: [] };
+				}
+
+				return {
+					email: rows[0]?.email ?? null,
+					items: rows.map((r) => ({
+						id: r.id,
+						type: r.type,
+						scope: r.scope,
+						confirmed: r.confirmed === 1,
+					})),
+				};
+			},
+			{
+				query: t.Object({
+					token: t.String({ minLength: 16 }),
+				}),
+				detail: {
+					summary: "List my subscriptions (cookie-authenticated)",
+					description:
+						"Returns the subscriptions belonging to the email associated with the given unsub token. The token is set as cookie `lb_token` on confirmation.",
+					tags: ["Alertas"],
+				},
+			},
+		)
+
+		.delete(
+			"/alerts/me",
+			({ query, set, request }) => {
+				const ip = getClientIp(request);
+				if (isRateLimited(ip)) {
+					set.status = 429;
+					return { error: "Demasiados intentos. Inténtalo más tarde." };
+				}
+
+				const dbService = _dbService;
+				if (!dbService) {
+					set.status = 503;
+					return { error: "Servicio temporalmente no disponible." };
+				}
+
+				const id = Number.parseInt(query.id, 10);
+				if (!Number.isFinite(id) || id <= 0) {
+					set.status = 400;
+					return { error: "Identificador inválido." };
+				}
+
+				const ok = dbService.deleteSubscription(id, query.token);
+				if (!ok) {
+					set.status = 404;
+					return { error: "Suscripción no encontrada." };
+				}
+
+				return { success: true };
+			},
+			{
+				query: t.Object({
+					id: t.String({ minLength: 1 }),
+					token: t.String({ minLength: 16 }),
+				}),
+				detail: {
+					summary: "Delete a single subscription",
+					description:
+						"Removes one subscription row by id, gated by the per-email unsub token (cookie).",
 					tags: ["Alertas"],
 				},
 			},
