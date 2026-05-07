@@ -28,9 +28,7 @@ const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 
 if (!RESEND_API_KEY || !RESEND_AUDIENCE_ID) {
-	console.error(
-		"RESEND_API_KEY and RESEND_AUDIENCE_ID must be set. Aborting.",
-	);
+	console.error("RESEND_API_KEY and RESEND_AUDIENCE_ID must be set. Aborting.");
 	process.exit(1);
 }
 
@@ -123,9 +121,7 @@ async function migrateNormFollows(): Promise<{
 		.query<
 			{ email: string; norm_id: string; confirmed: number; token: string },
 			[]
-		>(
-			`SELECT email, norm_id, confirmed, token FROM norm_follows`,
-		)
+		>(`SELECT email, norm_id, confirmed, token FROM norm_follows`)
 		.all();
 
 	let written = 0;

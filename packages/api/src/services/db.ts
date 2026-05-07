@@ -960,9 +960,7 @@ export class DbService {
 				`SELECT email, type, scope FROM subscriptions
 				 WHERE confirm_token = ? LIMIT 1`,
 			)
-			.get(token) as
-			| { email: string; type: string; scope: string }
-			| null;
+			.get(token) as { email: string; type: string; scope: string } | null;
 		return row;
 	}
 
@@ -1046,9 +1044,7 @@ export class DbService {
 		scope: string;
 	}> {
 		return this.db
-			.query(
-				`SELECT email, type, scope FROM subscriptions WHERE confirmed = 1`,
-			)
+			.query(`SELECT email, type, scope FROM subscriptions WHERE confirmed = 1`)
 			.all() as Array<{ email: string; type: string; scope: string }>;
 	}
 
