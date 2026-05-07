@@ -329,6 +329,64 @@ const JURISDICTION_OPTIONS = [
 			opacity: 0.5;
 			cursor: not-allowed;
 		}
+
+		/* ── Dark mode overrides for radio/checkbox pills ── */
+		:global([data-theme="dark"]) .radio-pill[data-astro-cid-rihwri6v] {
+			background: var(--surface, #1a1d27);
+			color: var(--text, #e8eaf0);
+			border: 1px solid var(--border, #2a3040);
+		}
+		:global([data-theme="dark"]) .radio-pill[data-astro-cid-rihwri6v]::before {
+			border-color: var(--text-muted, #8494a7);
+			background: transparent;
+		}
+		:global([data-theme="dark"]) .radio-pill[data-astro-cid-rihwri6v]:hover {
+			background: #22263a;
+		}
+		:global([data-theme="dark"]) .radio-pill[data-astro-cid-rihwri6v][aria-checked="true"] {
+			background: var(--accent, #6ba3d6);
+			color: white;
+		}
+		:global([data-theme="dark"]) .radio-pill[data-astro-cid-rihwri6v][aria-checked="true"]::before {
+			background: white;
+			border-color: white;
+			box-shadow: inset 0 0 0 2.5px var(--accent, #6ba3d6);
+		}
+
+		:global([data-theme="dark"]) .checkbox-pill[data-astro-cid-rihwri6v] {
+			background: var(--surface, #1a1d27);
+			color: var(--text, #e8eaf0);
+			border: 1px solid var(--border, #2a3040);
+		}
+		:global([data-theme="dark"]) .checkbox-pill[data-astro-cid-rihwri6v]::before {
+			border-color: var(--text-muted, #8494a7);
+			background: transparent;
+		}
+		:global([data-theme="dark"]) .checkbox-pill[data-astro-cid-rihwri6v]:hover {
+			background: #22263a;
+		}
+		:global([data-theme="dark"]) .checkbox-pill[data-astro-cid-rihwri6v][aria-checked="true"] {
+			background: var(--accent, #6ba3d6);
+			color: white;
+		}
+		:global([data-theme="dark"]) .checkbox-pill[data-astro-cid-rihwri6v][aria-checked="true"]::before {
+			background: white;
+			border-color: white;
+			box-shadow: inset 0 0 0 2px var(--accent, #6ba3d6);
+		}
+
+		:global([data-theme="dark"]) .jurisdiction-pill[data-astro-cid-rihwri6v] {
+			background: var(--surface, #1a1d27);
+			color: var(--text, #e8eaf0);
+			border: 1px solid var(--border, #2a3040);
+		}
+		:global([data-theme="dark"]) .jurisdiction-pill[data-astro-cid-rihwri6v]:hover {
+			background: #22263a;
+		}
+		:global([data-theme="dark"]) .jurisdiction-pill[data-astro-cid-rihwri6v][aria-checked="true"] {
+			background: var(--accent, #6ba3d6);
+			color: white;
+		}
 		.btn-skip {
 			background: none;
 			border: none;

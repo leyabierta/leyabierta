@@ -57,16 +57,14 @@ const NAV_LINKS = [
 	<!-- Fila principal -->
 	<nav class="nav-row" aria-label="Principal">
 		<a href="/" class="logo" aria-label="Ley Abierta — Inicio">
-			<picture>
-				<source srcset="/logo-navbar.webp" type="image/webp" />
-				<img
-					src="/logo-navbar.png"
-					alt="Ley Abierta"
-					width="180"
-					height="28"
-					fetchpriority="high"
-				/>
-			</picture>
+			<img
+				src="/logo-navbar.png"
+				alt="Ley Abierta"
+				width="180"
+				height="28"
+				fetchpriority="high"
+				class="logo-img"
+			/>
 		</a>
 
 		<!-- Hamburguesa mobile -->
@@ -227,6 +225,9 @@ const NAV_LINKS = [
 		height: 28px;
 		width: auto;
 		display: block;
+	}
+	:root[data-theme="dark"] .logo-img {
+		filter: invert(1) hue-rotate(180deg);
 	}
 	.logo:hover {
 		text-decoration: none;

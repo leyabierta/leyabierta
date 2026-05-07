@@ -618,7 +618,8 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 	/* ── Code blocks ───────────────────────────────────────── */
 	.code-block {
 		position: relative;
-		background: #0f172a;
+		background: var(--surface);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		overflow: hidden;
 	}
@@ -632,17 +633,17 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
 		line-height: 1.6;
-		color: #e2e8f0;
+		color: var(--text);
 		white-space: pre;
 	}
 	.copy-btn {
 		position: absolute;
 		top: 0.625rem;
 		right: 0.625rem;
-		background: rgba(255, 255, 255, 0.08);
-		border: 1px solid rgba(255, 255, 255, 0.15);
+		background: var(--bg-muted, var(--surface));
+		border: 1px solid var(--border);
 		border-radius: 4px;
-		color: #94a3b8;
+		color: var(--text-secondary);
 		font-family: var(--font-sans);
 		font-size: 0.75rem;
 		padding: 0.25rem 0.625rem;
@@ -651,8 +652,8 @@ git log --before="2011-01-01" --format="%H" -1 es/BOE-A-1978-31229.md \
 		z-index: 1;
 	}
 	.copy-btn:hover {
-		background: rgba(255, 255, 255, 0.15);
-		color: #e2e8f0;
+		background: var(--border);
+		color: var(--text);
 	}
 	.copy-btn.copied {
 		color: #4ade80;

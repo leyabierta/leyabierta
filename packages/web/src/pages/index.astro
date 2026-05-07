@@ -425,47 +425,48 @@ const TOPICS = [
 		.faq-item[open] .faq-icon { transform: rotate(45deg); }
 		.faq-answer { font-size: 0.96875rem; color: var(--text-secondary); line-height: 1.65; padding: 0 3.75rem 1.375rem 0; }
 
-		/* ── CTA ── */
-		.cta-section { background: var(--text); color: var(--bg); margin-top: 5rem; padding: 5rem 3rem; margin-bottom: -4rem; }
-		.cta-inner { max-width: 57.5rem; margin: 0 auto; text-align: center; }
-		.cta-eyebrow {
-			font-family: var(--font-mono);
-			font-size: 0.6875rem;
-			letter-spacing: 0.15em;
-			text-transform: uppercase;
-			color: var(--text-muted);
-		}
-		:root[data-theme="dark"] .cta-eyebrow { color: #8fa3bf; }
-		.cta-section h2 {
-			font-family: var(--font-serif);
-			font-size: 3rem;
-			font-weight: 700;
-			color: var(--bg);
-			margin: 0.875rem 0 1.125rem;
-			letter-spacing: -0.02em;
-			line-height: 1.1;
-		}
-		:root[data-theme="dark"] .cta-section h2 { color: var(--text); }
-		.cta-copy {
-			font-size: 1.0625rem;
-			color: var(--text-muted);
-			line-height: 1.55;
-			max-width: 38.75rem;
-			margin: 0 auto 2rem;
-		}
-		:root[data-theme="dark"] .cta-copy { color: #c7d3e0; }
+	/* ── CTA ── */
+	.cta-section { background: var(--text); color: var(--bg); margin-top: 5rem; padding: 5rem 3rem; margin-bottom: -4rem; }
+	:root[data-theme="dark"] .cta-section { background: var(--bg); color: var(--text); border-top: 1px solid var(--border); }
+	.cta-inner { max-width: 57.5rem; margin: 0 auto; text-align: center; }
+	.cta-eyebrow {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+	}
+	:root[data-theme="dark"] .cta-eyebrow { color: var(--text-secondary); }
+	.cta-section h2 {
+		font-family: var(--font-serif);
+		font-size: 3rem;
+		font-weight: 700;
+		color: var(--bg);
+		margin: 0.875rem 0 1.125rem;
+		letter-spacing: -0.02em;
+		line-height: 1.1;
+	}
+	:root[data-theme="dark"] .cta-section h2 { color: var(--text); }
+	.cta-copy {
+		font-size: 1.0625rem;
+		color: var(--text-muted);
+		line-height: 1.55;
+		max-width: 38.75rem;
+		margin: 0 auto 2rem;
+	}
+	:root[data-theme="dark"] .cta-copy { color: var(--text-secondary); }
 		.cta-box {
 			display: flex;
 			align-items: center;
 			gap: 0.625rem;
-			background: #1a2842;
-			border: 1px solid #2a3548;
+			background: var(--surface);
+			border: 1px solid var(--border);
 			border-radius: 6px;
 			padding: 0.375rem 0.375rem 0.375rem 1.125rem;
 			max-width: 40rem;
 			margin: 0 auto;
 		}
-		.cta-box svg { width: 20px; height: 20px; color: #c7d3e0; flex: 0 0 auto; }
+		.cta-box svg { width: 20px; height: 20px; color: var(--text-secondary); flex: 0 0 auto; }
 		.cta-box input {
 			flex: 1;
 			border: none;
@@ -474,9 +475,9 @@ const TOPICS = [
 			font-size: 1rem;
 			font-family: var(--font-sans);
 			outline: none;
-			color: #fff;
+			color: var(--text);
 		}
-		.cta-box input::placeholder { color: #6b8299; }
+		.cta-box input::placeholder { color: var(--text-muted); }
 		.cta-box button {
 			background: var(--bg);
 			color: var(--text);
@@ -570,7 +571,7 @@ const TOPICS = [
 		}
 		.badge-reform {
 			background: var(--warning-bg); color: var(--warning-text); font-size: 0.6875rem; padding: 0.1875rem 0.5rem;
-			border-radius: 3px; font-weight: 500; border: 1px solid #f0e2b5;
+			border-radius: 3px; font-weight: 500; border: 1px solid var(--border);
 		}
 		.change-date { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); }
 		.change-title {
@@ -936,6 +937,26 @@ const TOPICS = [
 		// Region list + map interaction
 		var regionData = {};
 		var REGION_NAMES = JURISDICTION_LABELS;
+
+		// ── Map colors: re-applied on theme change ──
+		function applyMapColors() {
+			var surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+			var border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2a3040';
+			var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+			if (isDark) border = '#3a4255';
+			document.querySelectorAll("#spain-map [data-region]").forEach(function (p) {
+				p.setAttribute("fill", surface);
+				p.setAttribute("stroke", border);
+				p.setAttribute("stroke-width", isDark ? "1.2" : "1");
+			});
+		}
+
+		// Listen for theme changes (localStorage + attribute)
+		window.addEventListener('storage', function (e) {
+			if (e.key === 'theme') applyMapColors();
+		});
+		var observer = new MutationObserver(function () { applyMapColors(); });
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 		document.querySelectorAll("#region-list li").forEach(function (li) {
 			var jur = li.dataset.jurisdiction;
 			regionData[jur] = {
@@ -953,11 +974,15 @@ const TOPICS = [
 
 		// SVG map hover
 		var initSurface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
-		var mapStroke = "#9ba8b5";
+		var mapStroke = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2a3040';
+		var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+		if (isDark) {
+			mapStroke = '#3a4255';
+		}
 		document.querySelectorAll("#spain-map [data-region]").forEach(function (path) {
 			path.setAttribute("fill", initSurface);
 			path.setAttribute("stroke", mapStroke);
-			path.setAttribute("stroke-width", "1");
+			path.setAttribute("stroke-width", isDark ? "1.2" : "1");
 			path.style.cursor = "pointer";
 			path.style.transition = "fill 100ms";
 			path.addEventListener("mouseenter", function () { highlightRegion(this.dataset.region); });
@@ -970,14 +995,16 @@ const TOPICS = [
 		});
 
 		function highlightRegion(jur) {
+			// Start from base colors
+			applyMapColors();
 			// Update map
 			var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-			var surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
 			document.querySelectorAll("#spain-map [data-region]").forEach(function (p) {
-				var isActive = p.dataset.region === jur;
-				p.setAttribute("fill", isActive ? accent : surface);
-				p.setAttribute("stroke", isActive ? accent : "#9ba8b5");
-				p.setAttribute("stroke-width", isActive ? "1.5" : "1");
+				if (p.dataset.region === jur) {
+					p.setAttribute("fill", accent);
+					p.setAttribute("stroke", accent);
+					p.setAttribute("stroke-width", "1.5");
+				}
 			});
 
 			// Update list
