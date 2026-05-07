@@ -899,6 +899,143 @@ export class DbService {
 		return result.changes > 0;
 	}
 
+	// ── Subscriptions (unified) ──
+	//
+	// Single source of truth for all email subscriptions. Replaces the split
+	// between Resend Audiences (materias + jurisdiccion) and norm_follows.
+	// `type` is one of: materia | jurisdiccion | norma | query.
+
+	upsertSubscription(args: {
+		email: string;
+		type: "materia" | "jurisdiccion" | "norma" | "query";
+		scope: string;
+		confirmToken: string;
+		unsubToken: string;
+		confirmed?: boolean;
+	}): void {
+		const confirmedFlag = args.confirmed ? 1 : 0;
+		const confirmedAt = args.confirmed ? new Date().toISOString() : null;
+		this.db
+			.query(
+				`INSERT INTO subscriptions
+					(email, type, scope, confirmed, confirm_token, unsub_token, confirmed_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?)
+				 ON CONFLICT(email, type, scope) DO UPDATE SET
+					confirm_token = excluded.confirm_token,
+					unsub_token   = CASE WHEN subscriptions.confirmed = 1
+						THEN subscriptions.unsub_token ELSE excluded.unsub_token END,
+					confirmed     = CASE WHEN subscriptions.confirmed = 1
+						THEN 1 ELSE excluded.confirmed END,
+					confirmed_at  = COALESCE(subscriptions.confirmed_at, excluded.confirmed_at)`,
+			)
+			.run(
+				args.email,
+				args.type,
+				args.scope,
+				confirmedFlag,
+				args.confirmToken,
+				args.unsubToken,
+				confirmedAt,
+			);
+	}
+
+	confirmSubscriptionsByToken(token: string): number {
+		const result = this.db
+			.query(
+				`UPDATE subscriptions
+				 SET confirmed = 1, confirmed_at = datetime('now')
+				 WHERE confirm_token = ? AND confirmed = 0`,
+			)
+			.run(token);
+		return result.changes;
+	}
+
+	getSubscriptionsByUnsubToken(token: string): Array<{
+		id: number;
+		email: string;
+		type: string;
+		scope: string;
+		confirmed: number;
+	}> {
+		return this.db
+			.query(
+				`SELECT id, email, type, scope, confirmed
+				 FROM subscriptions WHERE unsub_token = ?`,
+			)
+			.all(token) as Array<{
+			id: number;
+			email: string;
+			type: string;
+			scope: string;
+			confirmed: number;
+		}>;
+	}
+
+	getSubscriptionsByEmail(email: string): Array<{
+		id: number;
+		type: string;
+		scope: string;
+		confirmed: number;
+		created_at: string;
+	}> {
+		return this.db
+			.query(
+				`SELECT id, type, scope, confirmed, created_at
+				 FROM subscriptions WHERE email = ? ORDER BY created_at DESC`,
+			)
+			.all(email) as Array<{
+			id: number;
+			type: string;
+			scope: string;
+			confirmed: number;
+			created_at: string;
+		}>;
+	}
+
+	deleteSubscription(id: number, unsubToken: string): boolean {
+		const result = this.db
+			.query("DELETE FROM subscriptions WHERE id = ? AND unsub_token = ?")
+			.run(id, unsubToken);
+		return result.changes > 0;
+	}
+
+	deleteSubscriptionsByEmail(email: string): void {
+		this.db.query("DELETE FROM subscriptions WHERE email = ?").run(email);
+	}
+
+	deleteSubscriptionsByUnsubToken(token: string): number {
+		const result = this.db
+			.query("DELETE FROM subscriptions WHERE unsub_token = ?")
+			.run(token);
+		return result.changes;
+	}
+
+	// Returns confirmed emails subscribed to a given (type, scope) tuple.
+	// Used by the notification cron to find recipients per match dimension.
+	getConfirmedEmailsForScope(type: string, scope: string): string[] {
+		const rows = this.db
+			.query(
+				`SELECT DISTINCT email FROM subscriptions
+				 WHERE type = ? AND scope = ? AND confirmed = 1`,
+			)
+			.all(type, scope) as Array<{ email: string }>;
+		return rows.map((r) => r.email);
+	}
+
+	// All confirmed subscriptions grouped by email. Used by the cron to build
+	// per-recipient match sets in a single pass.
+	getAllConfirmedSubscriptions(): Array<{
+		email: string;
+		type: string;
+		scope: string;
+	}> {
+		return this.db
+			.query(
+				`SELECT email, type, scope FROM subscriptions WHERE confirmed = 1`,
+			)
+			.all() as Array<{ email: string; type: string; scope: string }>;
+	}
+
 	getRecentReformsByMaterias(
 		materias: string[],
 		jurisdiction: string,
