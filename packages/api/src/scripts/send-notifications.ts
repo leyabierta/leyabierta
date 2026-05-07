@@ -146,23 +146,27 @@ function reformUrl(r: ReformItem): string {
 
 function getMatchingReforms(
 	materias: string[],
-	jurisdiction: string,
+	jurisdictions: string[],
 ): ReformItem[] {
-	// Query by materia+jurisdiction, then filter to only pending (un-notified) reforms
-	const all = dbService.getRecentReformsByMaterias(
-		materias,
-		jurisdiction,
-		"1900-01-01",
+	// Query by materia+jurisdiction (one call per jurisdiction the user follows),
+	// then filter to only pending (un-notified) reforms.
+	const all = jurisdictions.flatMap((j) =>
+		dbService.getRecentReformsByMaterias(materias, j, "1900-01-01"),
 	);
 
 	const matches = all.filter(
 		(r) => pendingKeys.has(`${r.id}::${r.date}`) && r.headline && r.summary,
 	);
 
-	// Deduplicate by headline
+	// Deduplicate by (id, date) first (multiple jurisdictions may surface the
+	// same reform), then by headline.
+	const idSeen = new Set<string>();
 	const seen = new Set<string>();
 	const deduped: ReformItem[] = [];
 	for (const r of matches) {
+		const idKey = `${r.id}::${r.date}`;
+		if (idSeen.has(idKey)) continue;
+		idSeen.add(idKey);
 		const key = r.headline ?? r.title;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -347,7 +351,7 @@ if (previewMode) {
 		`Preview: ${previewMaterias.length} materias, jurisdiction=${previewJurisdiction}`,
 	);
 
-	const reforms = getMatchingReforms(previewMaterias, previewJurisdiction);
+	const reforms = getMatchingReforms(previewMaterias, [previewJurisdiction]);
 	if (reforms.length === 0) {
 		console.log("No un-notified reforms match. Nothing to preview.");
 		db.close();
@@ -385,7 +389,7 @@ if (!RESEND_API_KEY) {
 interface ContactInfo {
 	email: string;
 	materias: string[];
-	jurisdiction: string;
+	jurisdictions: string[];
 	followedNormIds: string[];
 }
 
@@ -397,13 +401,18 @@ for (const s of allSubs) {
 	const info = byEmail.get(s.email) ?? {
 		email: s.email,
 		materias: [],
-		jurisdiction: "es",
+		jurisdictions: [],
 		followedNormIds: [],
 	};
 	if (s.type === "materia") info.materias.push(s.scope);
-	else if (s.type === "jurisdiccion") info.jurisdiction = s.scope;
+	else if (s.type === "jurisdiccion") info.jurisdictions.push(s.scope);
 	else if (s.type === "norma") info.followedNormIds.push(s.scope);
 	byEmail.set(s.email, info);
+}
+
+// Default to state-level ("es") when a recipient hasn't picked any jurisdiction.
+for (const info of byEmail.values()) {
+	if (info.jurisdictions.length === 0) info.jurisdictions.push("es");
 }
 
 const contactInfos = [...byEmail.values()].filter(
@@ -458,8 +467,8 @@ function getReformsByNormIds(normIds: string[]): ReformItem[] {
 
 const materiaCache = new Map<string, ReformItem[]>();
 
-function getCacheKey(materias: string[], jurisdiction: string): string {
-	return `${jurisdiction}::${[...materias].sort().join("|")}`;
+function getCacheKey(materias: string[], jurisdictions: string[]): string {
+	return `${[...jurisdictions].sort().join(",")}::${[...materias].sort().join("|")}`;
 }
 
 let sent = 0;
@@ -469,14 +478,14 @@ for (const contact of contactInfos) {
 	// Materias + jurisdiccion matches (cached across recipients).
 	let materiaMatches: ReformItem[] = [];
 	if (contact.materias.length > 0) {
-		const cacheKey = getCacheKey(contact.materias, contact.jurisdiction);
+		const cacheKey = getCacheKey(contact.materias, contact.jurisdictions);
 		const cached = materiaCache.get(cacheKey);
 		if (cached) {
 			materiaMatches = cached;
 		} else {
 			materiaMatches = getMatchingReforms(
 				contact.materias,
-				contact.jurisdiction,
+				contact.jurisdictions,
 			);
 			materiaCache.set(cacheKey, materiaMatches);
 		}
@@ -485,10 +494,12 @@ for (const contact of contactInfos) {
 	// Followed-law matches (always per-recipient — typically a small set).
 	const followMatches = getReformsByNormIds(contact.followedNormIds);
 
-	// Merge and deduplicate by (id, date).
+	// Merge and deduplicate by (id, date). Followed laws first: an explicit
+	// follow is a stronger signal than a materia match, so when MAX_REFORMS_PER_EMAIL
+	// caps the list we keep the user-curated picks ahead of broad-topic hits.
 	const seen = new Set<string>();
 	const merged: ReformItem[] = [];
-	for (const r of [...materiaMatches, ...followMatches]) {
+	for (const r of [...followMatches, ...materiaMatches]) {
 		const k = `${r.id}::${r.date}`;
 		if (seen.has(k)) continue;
 		seen.add(k);
