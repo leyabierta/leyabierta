@@ -66,7 +66,7 @@ async function mirrorToSubscriptions(
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const postLimiter = createRateLimiter(3, RATE_LIMIT_WINDOW_MS); // 3/hour for POST
-const getLimiter = createRateLimiter(10, RATE_LIMIT_WINDOW_MS); // 10/hour for GET
+const getLimiter = createRateLimiter(60, RATE_LIMIT_WINDOW_MS); // 60/hour for GET (one /alerts/me lookup per leyes/[id] visit)
 
 function isRateLimited(ip: string): boolean {
 	return postLimiter.isLimited(ip);

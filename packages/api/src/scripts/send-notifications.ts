@@ -282,7 +282,7 @@ function buildMultiReformHtml(
 	const cards = reforms.map(buildReformCard).join("\n");
 	const overflow =
 		overflowCount > 0
-			? `<tr><td style="padding:4px 0 12px;font-size:13px;color:#576b80;font-family:Arial,Helvetica,sans-serif;">y ${overflowCount} m\u00E1s en <a href="${SITE_URL}/mis-cambios" style="color:#2b5797;">leyabierta.es/mis-cambios</a></td></tr>`
+			? `<tr><td style="padding:4px 0 12px;font-size:13px;color:#576b80;font-family:Arial,Helvetica,sans-serif;">y ${overflowCount} m\u00E1s en <a href="${SITE_URL}/cambios/para-mi/" style="color:#2b5797;">leyabierta.es/cambios/para-mi</a></td></tr>`
 			: "";
 
 	return `<!DOCTYPE html>
@@ -313,7 +313,7 @@ function buildMultiReformHtml(
   </table>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
     <tr><td style="padding:24px 28px;text-align:center;">
-      <a href="${SITE_URL}/mis-cambios" style="display:inline-block;padding:12px 28px;background:#1a365d;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Ver todos tus cambios</a>
+      <a href="${SITE_URL}/cambios/para-mi/" style="display:inline-block;padding:12px 28px;background:#1a365d;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Ver todos tus cambios</a>
     </td></tr>
   </table>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:0 0 8px 8px;">
@@ -414,21 +414,30 @@ console.log(`Processing ${contactInfos.length} unique recipients.`);
 
 // ── Reform lookup helpers ───────────────────────────────────────────────
 
+// Build reformByKey directly from `pending`, which already carries
+// headline/summary/reform_type/importance from getUnnotifiedReforms.
+// Fetching by jurisdiction would silently drop autonomic-community laws,
+// and per-row CTE queries are wasteful when we have the data in hand.
 const reformByKey = new Map<string, ReformItem>(
 	pending
 		.map((p): [string, ReformItem | undefined] => {
-			// Pending rows already have summaries — fetch the full ReformItem via
-			// the materias query, joined to summaries. We simulate by grabbing
-			// data from the existing reform record.
-			const all = dbService.getRecentReformsByMaterias(
-				materiasMap.get(p.norm_id) ?? [],
-				"es",
-				"1900-01-01",
-			);
-			const row = all.find(
-				(r) => r.id === p.norm_id && r.date === p.reform_date,
-			);
-			return [`${p.norm_id}::${p.reform_date}`, row];
+			const norm = dbService.getLaw(p.norm_id);
+			if (!norm) return [`${p.norm_id}::${p.reform_date}`, undefined];
+			return [
+				`${p.norm_id}::${p.reform_date}`,
+				{
+					id: p.norm_id,
+					title: norm.title,
+					rank: norm.rank,
+					status: norm.status,
+					date: p.reform_date,
+					source_id: p.source_id,
+					headline: p.headline,
+					summary: p.summary,
+					reform_type: p.reform_type,
+					importance: p.importance,
+				},
+			];
 		})
 		.filter((entry): entry is [string, ReformItem] => entry[1] != null),
 );
