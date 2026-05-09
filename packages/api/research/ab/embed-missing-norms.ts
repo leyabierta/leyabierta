@@ -36,7 +36,9 @@ const dbPath = join(repoRoot, "data", "leyabierta.db");
 const missingPath = join(repoRoot, "data/ab-results/phase2-missing-norms.json");
 
 const missingNormIds = (await Bun.file(missingPath).json()) as string[];
-console.log(`Loaded ${missingNormIds.length} missing norm IDs from ${missingPath}`);
+console.log(
+	`Loaded ${missingNormIds.length} missing norm IDs from ${missingPath}`,
+);
 
 const db = new Database(dbPath);
 db.exec("PRAGMA journal_mode = WAL");
@@ -103,7 +105,9 @@ if (emptyNorms.length > 0) {
 				"SELECT status, title FROM norms WHERE id = ?",
 			)
 			.get(n);
-		console.warn(`    ${n} — ${status?.status ?? "MISSING"} — ${status?.title ?? ""}`);
+		console.warn(
+			`    ${n} — ${status?.status ?? "MISSING"} — ${status?.title ?? ""}`,
+		);
 	}
 }
 
@@ -116,14 +120,18 @@ const have = new Set(
 		.all(MODEL_KEY)
 		.map((r) => `${r.norm_id}|${r.block_id}`),
 );
-const workBlocks = allBlocks.filter((b) => !have.has(`${b.normId}|${b.blockId}`));
+const workBlocks = allBlocks.filter(
+	(b) => !have.has(`${b.normId}|${b.blockId}`),
+);
 console.log(
 	`  Resume: ${allBlocks.length - workBlocks.length} already embedded, ${workBlocks.length} remaining`,
 );
 
 if (dryRun) {
 	const totalChars = workBlocks.reduce((s, b) => s + b.text.length, 0);
-	console.log(`\n[dry-run] Would embed ${workBlocks.length} chunks via nan.builders`);
+	console.log(
+		`\n[dry-run] Would embed ${workBlocks.length} chunks via nan.builders`,
+	);
 	console.log(
 		`  Avg text length: ${Math.round(totalChars / Math.max(1, workBlocks.length))} chars`,
 	);
@@ -164,12 +172,16 @@ async function nanEmbed(texts: string[]): Promise<{
 				signal: AbortSignal.timeout(300_000),
 			});
 			if (res.status === 429 || res.status >= 500) {
-				console.warn(`  HTTP ${res.status} — retrying (${attempt + 1}/${MAX_ATTEMPTS})`);
+				console.warn(
+					`  HTTP ${res.status} — retrying (${attempt + 1}/${MAX_ATTEMPTS})`,
+				);
 				continue;
 			}
 			if (!res.ok) {
 				const errText = await res.text();
-				throw new Error(`HTTP ${res.status} (no-retry): ${errText.slice(0, 300)}`);
+				throw new Error(
+					`HTTP ${res.status} (no-retry): ${errText.slice(0, 300)}`,
+				);
 			}
 			const json = (await res.json()) as {
 				data: Array<{ index: number; embedding: number[] }>;
@@ -257,7 +269,9 @@ console.log(
 await Promise.all(Array.from({ length: CONCURRENCY }, (_, i) => worker(i + 1)));
 
 const elapsedMin = (Date.now() - startedAt) / 60000;
-console.log(`\n\n✅ Done: ${inserted} embeddings in ${elapsedMin.toFixed(1)} min`);
+console.log(
+	`\n\n✅ Done: ${inserted} embeddings in ${elapsedMin.toFixed(1)} min`,
+);
 if (skippedBatches > 0) {
 	console.log(`  ⚠ ${skippedBatches} batch(es) skipped — re-run to retry`);
 }

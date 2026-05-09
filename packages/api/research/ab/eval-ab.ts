@@ -162,9 +162,7 @@ async function embedQwen3(
 
 const NAN_KEY = process.env.NAN_API_KEY;
 
-async function embedQwenNanCustom(
-	input: string,
-): Promise<Float32Array> {
+async function embedQwenNanCustom(input: string): Promise<Float32Array> {
 	if (!NAN_KEY) throw new Error("NAN_API_KEY required for Qwen-NAN variants");
 	const body = JSON.stringify({
 		model: EMBEDDING_MODELS[QWEN3_NAN_KEY]!.id,
@@ -191,8 +189,11 @@ async function embedQwenNanCustom(
 				lastErr = new Error(`nan.builders ${res.status}`);
 				continue;
 			}
-			if (!res.ok) throw new Error(`nan.builders ${res.status}: ${await res.text()}`);
-			const data = (await res.json()) as { data: Array<{ embedding: number[] }> };
+			if (!res.ok)
+				throw new Error(`nan.builders ${res.status}: ${await res.text()}`);
+			const data = (await res.json()) as {
+				data: Array<{ embedding: number[] }>;
+			};
 			return new Float32Array(data.data[0]!.embedding);
 		} catch (err) {
 			lastErr = err;

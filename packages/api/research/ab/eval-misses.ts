@@ -36,7 +36,9 @@ if (inputArg) {
 console.log(`Reading: ${path}\n`);
 
 const blob = (await Bun.file(path).json()) as { results: VariantBlob[] };
-const byId = new Map<string, VariantBlob>(blob.results.map((r) => [r.variant, r]));
+const byId = new Map<string, VariantBlob>(
+	blob.results.map((r) => [r.variant, r]),
+);
 
 const A = byId.get("A"); // Gemini
 const H = byId.get("H"); // Qwen + Instruct (4096)
@@ -48,7 +50,7 @@ if (!A || !H || !I) {
 
 const map = (v: VariantBlob): Map<number, PerQ> =>
 	new Map(v.perQuestion.map((q) => [q.id, q]));
-const aMap = map(A);
+const _aMap = map(A);
 const hMap = map(H);
 const iMap = map(I);
 
@@ -81,13 +83,17 @@ for (const a of A.perQuestion) {
 	}
 }
 
-console.log(`Found ${cases.length} cases where Gemini=R@1 but Qwen (H & I) missed R@1\n`);
+console.log(
+	`Found ${cases.length} cases where Gemini=R@1 but Qwen (H & I) missed R@1\n`,
+);
 console.log("=".repeat(100));
 
 for (const c of cases) {
 	console.log(`\n[#${c.id}] ${c.question}`);
 	console.log(`  expected: ${c.expected.join(", ")}`);
-	console.log(`  Gemini   rank=${c.gemini.rank}  top5=[${c.gemini.top.join(", ")}]`);
+	console.log(
+		`  Gemini   rank=${c.gemini.rank}  top5=[${c.gemini.top.join(", ")}]`,
+	);
 	console.log(
 		`  Qwen4096 rank=${c.qwen4096.rank}  top5=[${c.qwen4096.top.join(", ")}]`,
 	);

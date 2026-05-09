@@ -17,19 +17,19 @@ import { join } from "node:path";
 // ── Imports from prod code ──
 import { createSchema } from "../../../pipeline/src/db/schema.ts";
 import {
-	embedQuery as prodEmbedQuery,
 	EMBEDDING_MODELS,
 	type EmbeddingStore,
+	type ensureVectorIndex,
+	embedQuery as prodEmbedQuery,
 } from "../../src/services/rag/embeddings.ts";
 import {
-	runRetrievalCore,
-	type RunRetrievalCoreOpts,
-	type RetrievalResult,
 	type EmbedQueryFn,
+	type RetrievalResult,
+	type RunRetrievalCoreOpts,
+	runRetrievalCore,
 } from "../../src/services/rag/retrieval.ts";
-import { getVectorPool, shutdownVectorPool } from "../../src/services/rag/vector-pool.ts";
 import { _resetSharedVectorIndexForTests } from "../../src/services/rag/vector-index-singleton.ts";
-import { ensureVectorIndex } from "../../src/services/rag/embeddings.ts";
+import { shutdownVectorPool } from "../../src/services/rag/vector-pool.ts";
 
 // ── Qwen3-Embedding-8B via OpenRouter (nan.builders blocked by Cloudflare) ──
 
@@ -70,7 +70,9 @@ async function qwenOpenRouterEmbedQuery(
 
 		if (!res.ok) {
 			const errText = await res.text();
-			throw new Error(`OpenRouter embeddings ${res.status}: ${errText.slice(0, 200)}`);
+			throw new Error(
+				`OpenRouter embeddings ${res.status}: ${errText.slice(0, 200)}`,
+			);
 		}
 
 		const data = await res.json();
@@ -89,7 +91,7 @@ async function qwenOpenRouterEmbedQuery(
 async function buildModelIndex(
 	db: Database,
 	modelKey: string,
-	dataDir: string,
+	_dataDir: string,
 	// If provided, restrict to these norm_ids only
 	normFilter?: string[],
 ): Promise<{
@@ -100,11 +102,12 @@ async function buildModelIndex(
 	const model = EMBEDDING_MODELS[modelKey];
 	if (!model) return null;
 
-	const count = db
-		.query<{ cnt: number }, [string]>(
-			"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
-		)
-		.get(modelKey)?.cnt ?? 0;
+	const count =
+		db
+			.query<{ cnt: number }, [string]>(
+				"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
+			)
+			.get(modelKey)?.cnt ?? 0;
 
 	if (count === 0) return null;
 
@@ -157,8 +160,7 @@ function loadEmbeddingsFromDb(
 
 	// Use prepare() instead of query() — bun:sqlite query() with string params
 	// returns 0 rows due to a binding issue. prepare() works correctly.
-	let sql =
-		"SELECT norm_id, block_id, vector FROM embeddings WHERE model = ?";
+	let sql = "SELECT norm_id, block_id, vector FROM embeddings WHERE model = ?";
 	const params: (string | number)[] = [modelKey];
 
 	if (normFilter && normFilter.length > 0) {
@@ -299,7 +301,9 @@ console.log(
 
 // Phase 1: restrict both indexes to the 138 norms covered by Qwen-NAN.
 // This ensures fair comparison AND avoids OOM (full Gemini store = 484k vectors ~ 5.7GB).
-console.log("\nBuilding Gemini vector index (restricted to Qwen-NAN coverage)...");
+console.log(
+	"\nBuilding Gemini vector index (restricted to Qwen-NAN coverage)...",
+);
 _resetSharedVectorIndexForTests();
 const geminiIndex = await buildModelIndex(
 	db,
@@ -312,7 +316,11 @@ console.log(
 );
 
 console.log("Building Qwen-NAN vector index (full coverage)...");
-const qwenIndex = await buildModelIndex(db, "qwen3-nan", join(repoRoot, "data"));
+const qwenIndex = await buildModelIndex(
+	db,
+	"qwen3-nan",
+	join(repoRoot, "data"),
+);
 console.log(
 	`  Qwen-NAN: ${qwenIndex?.vectors.totalVectors ?? 0} vectors, ${qwenIndex?.dims ?? 0} dims`,
 );
@@ -337,7 +345,7 @@ type QueryResult = {
 	score: number;
 };
 
-const results: QueryResult[] = [];
+const _results: QueryResult[] = [];
 
 async function runVariant(
 	question: EvalQuery,
@@ -388,7 +396,7 @@ async function runVariant(
 	}
 
 	const articles = result.type === "ready" ? result.articles : [];
-	const allFused = result.type === "ready" ? result.allFusedArticles : [];
+	const _allFused = result.type === "ready" ? result.allFusedArticles : [];
 
 	const topNormIds = articles.slice(0, 10).map((a) => a.normId);
 	const topBlockIds = articles.slice(0, 10).map((a) => a.blockId);
@@ -423,7 +431,9 @@ const geminiEmbedFn = (apiKey: string, _modelKey: string, q: string) =>
 
 // Qwen-NAN embedder (nan.builders)
 if (!nanApiKey && !onlyLocal) {
-	console.error("HERMES_API_KEY required for Qwen-NAN variant (or use --only-local)");
+	console.error(
+		"HERMES_API_KEY required for Qwen-NAN variant (or use --only-local)",
+	);
 	process.exit(1);
 }
 
@@ -446,11 +456,16 @@ const qwenResults: QueryResult[] = [];
 console.log("\n== Pass 1: Gemini ==");
 for (let i = 0; i < coveredQueries.length; i++) {
 	const q = coveredQueries[i]!;
-	const pct = ((i + 1) / coveredQueries.length * 100).toFixed(0);
+	const pct = (((i + 1) / coveredQueries.length) * 100).toFixed(0);
 	process.stdout.write(
 		`\r  Gemini progress: ${i + 1}/${coveredQueries.length} (${pct}%)   `,
 	);
-	const gResult = await runVariant(q, "gemini-embedding-2", geminiIndex, geminiEmbedFn);
+	const gResult = await runVariant(
+		q,
+		"gemini-embedding-2",
+		geminiIndex,
+		geminiEmbedFn,
+	);
 	geminiResults.push(gResult);
 }
 console.log("\n");
@@ -462,11 +477,16 @@ _resetSharedVectorIndexForTests();
 console.log("== Pass 2: Qwen-NAN ==");
 for (let i = 0; i < coveredQueries.length; i++) {
 	const q = coveredQueries[i]!;
-	const pct = ((i + 1) / coveredQueries.length * 100).toFixed(0);
+	const pct = (((i + 1) / coveredQueries.length) * 100).toFixed(0);
 	process.stdout.write(
 		`\r  Qwen progress: ${i + 1}/${coveredQueries.length} (${pct}%)   `,
 	);
-	const qResult = await runVariant(q, "qwen3-nan", qwenIndex, qwenOpenRouterEmbedQuery);
+	const qResult = await runVariant(
+		q,
+		"qwen3-nan",
+		qwenIndex,
+		qwenOpenRouterEmbedQuery,
+	);
 	qwenResults.push(qResult);
 }
 console.log("\n");
@@ -488,9 +508,9 @@ function computeMetrics(results: QueryResult[]) {
 
 	return {
 		total,
-		r1: (hits1 / total * 100).toFixed(1),
-		r5: (hits5 / total * 100).toFixed(1),
-		r10: (hits10 / total * 100).toFixed(1),
+		r1: ((hits1 / total) * 100).toFixed(1),
+		r5: ((hits5 / total) * 100).toFixed(1),
+		r10: ((hits10 / total) * 100).toFixed(1),
 		mrr: mrr.toFixed(3),
 	};
 }
@@ -500,19 +520,23 @@ const qwenMetrics = computeMetrics(qwenResults);
 
 // ── Report ──
 
-console.log("\n" + "=".repeat(70));
+console.log(`\n${"=".repeat(70)}`);
 console.log("PHASE 1 EVAL RESULTS — End-to-End Prod Replica");
 console.log("=".repeat(70));
-console.log(`Queries evaluated: ${coveredQueries.length} (fully covered by Qwen-NAN)`);
-console.log(`Gemini index: ${geminiIndex.vectors.totalVectors} vectors, ${geminiIndex.dims} dims`);
-console.log(`Qwen-NAN index: ${qwenIndex.vectors.totalVectors} vectors, ${qwenIndex.dims} dims`);
+console.log(
+	`Queries evaluated: ${coveredQueries.length} (fully covered by Qwen-NAN)`,
+);
+console.log(
+	`Gemini index: ${geminiIndex.vectors.totalVectors} vectors, ${geminiIndex.dims} dims`,
+);
+console.log(
+	`Qwen-NAN index: ${qwenIndex.vectors.totalVectors} vectors, ${qwenIndex.dims} dims`,
+);
 console.log(`Cohere reranker: disabled (--cohere-api-key not set)`);
-console.log("\n" + "-".repeat(70));
+console.log(`\n${"-".repeat(70)}`);
 console.log("Metrics (hit@K on articles — post-rerank):");
 console.log("-".repeat(70));
-console.log(
-	`Model          R@1      R@5      R@10     MRR@10`,
-);
+console.log(`Model          R@1      R@5      R@10     MRR@10`);
 console.log(
 	`Gemini-2       ${geminiMetrics.r1.padStart(6)}%   ${geminiMetrics.r5.padStart(6)}%   ${geminiMetrics.r10.padStart(6)}%   ${geminiMetrics.mrr.padStart(6)}`,
 );
@@ -524,7 +548,7 @@ const gapR1 = parseFloat(geminiMetrics.r1) - parseFloat(qwenMetrics.r1);
 const gapR5 = parseFloat(geminiMetrics.r5) - parseFloat(qwenMetrics.r5);
 const gapR10 = parseFloat(geminiMetrics.r10) - parseFloat(qwenMetrics.r10);
 
-console.log("\n" + "-".repeat(70));
+console.log(`\n${"-".repeat(70)}`);
 console.log("Gaps (Gemini - Qwen):");
 console.log("-".repeat(70));
 console.log(`  R@1 gap:   ${gapR1.toFixed(1)} pp`);
@@ -532,11 +556,13 @@ console.log(`  R@5 gap:   ${gapR5.toFixed(1)} pp`);
 console.log(`  R@10 gap:  ${gapR10.toFixed(1)} pp`);
 
 // Decision gate
-console.log("\n" + "=".repeat(70));
+console.log(`\n${"=".repeat(70)}`);
 console.log("DECISION GATE — Phase 1");
 console.log("=".repeat(70));
 if (gapR1 <= 3) {
-	console.log("GAP ≤ 3pp → PROCEED to Phase 2 (pilot embed for remaining queries)");
+	console.log(
+		"GAP ≤ 3pp → PROCEED to Phase 2 (pilot embed for remaining queries)",
+	);
 } else if (gapR1 > 5) {
 	console.log("GAP > 5pp → SKIP to Phase 4 (interventions), no pilot embed");
 } else {
@@ -545,12 +571,12 @@ if (gapR1 <= 3) {
 
 // ── Per-question miss analysis ──
 
-console.log("\n" + "=".repeat(70));
+console.log(`\n${"=".repeat(70)}`);
 console.log("PER-QUESTION MISS ANALYSIS (where Qwen misses but Gemini hits)");
 console.log("=".repeat(70));
 
-const misses = qwenResults.filter(
-	(q, i) => qwenResults[i]!.hitsAt1 && !geminiResults[i]!.hitsAt1
+const _misses = qwenResults.filter((_q, i) =>
+	qwenResults[i]!.hitsAt1 && !geminiResults[i]!.hitsAt1
 		? false
 		: !qwenResults[i]!.hitsAt1 && geminiResults[i]!.hitsAt1,
 );
@@ -575,7 +601,9 @@ for (let i = 0; i < coveredQueries.length; i++) {
 if (qwenMisses.length === 0) {
 	console.log("  No misses — Qwen matches Gemini on all queries!");
 } else {
-	console.log(`\n  ${qwenMisses.length} queries where Gemini hits@1 but Qwen misses:\n`);
+	console.log(
+		`\n  ${qwenMisses.length} queries where Gemini hits@1 but Qwen misses:\n`,
+	);
 	for (const m of qwenMisses.slice(0, 10)) {
 		console.log(`  q${m.id}: "${m.question}"`);
 		console.log(`    Expected: ${m.expected?.join(", ")}`);
@@ -602,7 +630,9 @@ await Bun.write(
 	`${outDir}/eval-prod-replica-${new Date().toISOString().slice(0, 10)}.json`,
 	JSON.stringify(report, null, 2),
 );
-console.log(`\nFull report saved to ${outDir}/eval-prod-replica-${new Date().toISOString().slice(0, 10)}.json`);
+console.log(
+	`\nFull report saved to ${outDir}/eval-prod-replica-${new Date().toISOString().slice(0, 10)}.json`,
+);
 
 // ── Cleanup ──
 

@@ -15,7 +15,10 @@ import {
 	fetchWithRetry,
 	vectorSearch,
 } from "../../src/services/rag/embeddings.ts";
-import { rerank, type RerankerCandidate } from "../../src/services/rag/reranker.ts";
+import {
+	type RerankerCandidate,
+	rerank,
+} from "../../src/services/rag/reranker.ts";
 import { reciprocalRankFusion } from "../../src/services/rag/rrf.ts";
 import { buildCorpusPlan } from "./corpus.ts";
 
@@ -27,11 +30,13 @@ ensureBlocksFts(db);
 
 const evalData = (await Bun.file(
 	join(repoRoot, "data", "eval-answers-504-omnibus.json"),
-).json()) as { results: Array<{ id: number; question: string; expectedNorms?: string[] }> };
+).json()) as {
+	results: Array<{ id: number; question: string; expectedNorms?: string[] }>;
+};
 
 const Q_ID = Number(process.argv[2] ?? "13"); // default: police+phone case
 const q = evalData.results.find((r) => r.id === Q_ID);
-if (!q || !q.expectedNorms) {
+if (!q?.expectedNorms) {
 	console.error(`Question ${Q_ID} not found or has no expectedNorms`);
 	process.exit(1);
 }
@@ -76,31 +81,55 @@ console.log(`Loaded ${count} Gemini vectors`);
 
 // Embed query (Gemini)
 const OR = process.env.OPENROUTER_API_KEY!;
-const res = await fetchWithRetry(OR, model.id, `task: question answering | query: ${q.question}`);
+const res = await fetchWithRetry(
+	OR,
+	model.id,
+	`task: question answering | query: ${q.question}`,
+);
 const data = (await res.json()) as { data: Array<{ embedding: number[] }> };
 const qVec = new Float32Array(data.data[0]!.embedding);
 
 // Stage 1: vector search
 const vec = vectorSearch(qVec, store, 60);
-function normRank(arr: Array<{ normId: string }>): { rank: number; normId: string } | null {
+function normRank(
+	arr: Array<{ normId: string }>,
+): { rank: number; normId: string } | null {
 	for (let i = 0; i < arr.length; i++) {
-		if (expected.has(arr[i]!.normId)) return { rank: i + 1, normId: arr[i]!.normId };
+		if (expected.has(arr[i]!.normId))
+			return { rank: i + 1, normId: arr[i]!.normId };
 	}
 	return null;
 }
-console.log(`Stage 1 (vector top-60): expected first hit at rank ${normRank(vec)?.rank ?? "MISS"}`);
-console.log(`  top-5 norms: ${[...new Set(vec.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`);
+console.log(
+	`Stage 1 (vector top-60): expected first hit at rank ${normRank(vec)?.rank ?? "MISS"}`,
+);
+console.log(
+	`  top-5 norms: ${[...new Set(vec.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`,
+);
 
 // Stage 2: BM25
 const bm = bm25ArticleSearch(db, q.question, 60, plan.normIds);
-console.log(`Stage 2 (BM25 top-60):   expected first hit at rank ${normRank(bm)?.rank ?? "MISS"}`);
-console.log(`  top-5 norms: ${[...new Set(bm.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`);
+console.log(
+	`Stage 2 (BM25 top-60):   expected first hit at rank ${normRank(bm)?.rank ?? "MISS"}`,
+);
+console.log(
+	`  top-5 norms: ${[...new Set(bm.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`,
+);
 
 // Stage 3: RRF
 const fused = reciprocalRankFusion(
 	new Map([
-		["vector", vec.map((h) => ({ key: `${h.normId}:${h.blockId}`, score: h.similarity }))],
-		["bm25", bm.map((h) => ({ key: `${h.normId}:${h.blockId}`, score: h.score }))],
+		[
+			"vector",
+			vec.map((h) => ({
+				key: `${h.normId}:${h.blockId}`,
+				score: h.similarity,
+			})),
+		],
+		[
+			"bm25",
+			bm.map((h) => ({ key: `${h.normId}:${h.blockId}`, score: h.score })),
+		],
 	]),
 	60,
 	30,
@@ -109,8 +138,12 @@ const keyToNorm = new Map<string, string>();
 for (const v of vec) keyToNorm.set(`${v.normId}:${v.blockId}`, v.normId);
 for (const v of bm) keyToNorm.set(`${v.normId}:${v.blockId}`, v.normId);
 const rrfNorms = fused.map((f) => ({ normId: keyToNorm.get(f.key) ?? "?" }));
-console.log(`Stage 3 (RRF top-30):    expected first hit at rank ${normRank(rrfNorms)?.rank ?? "MISS"}`);
-console.log(`  top-5 norms: ${[...new Set(rrfNorms.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`);
+console.log(
+	`Stage 3 (RRF top-30):    expected first hit at rank ${normRank(rrfNorms)?.rank ?? "MISS"}`,
+);
+console.log(
+	`  top-5 norms: ${[...new Set(rrfNorms.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`,
+);
 
 // Stage 4: rerank
 const blockTextStmt = db.prepare<
@@ -137,16 +170,24 @@ const rerankResult = await rerank(q.question, candidates, 10, {
 	openrouterApiKey: OR,
 });
 console.log(`  Rerank backend: ${rerankResult.backend}`);
-const rerankNorms = rerankResult.results.map((r) => ({ normId: keyToNorm.get(r.key) ?? "?" }));
-console.log(`Stage 4 (Rerank top-10): expected first hit at rank ${normRank(rerankNorms)?.rank ?? "MISS"}`);
-console.log(`  top-5 norms: ${[...new Set(rerankNorms.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`);
+const rerankNorms = rerankResult.results.map((r) => ({
+	normId: keyToNorm.get(r.key) ?? "?",
+}));
+console.log(
+	`Stage 4 (Rerank top-10): expected first hit at rank ${normRank(rerankNorms)?.rank ?? "MISS"}`,
+);
+console.log(
+	`  top-5 norms: ${[...new Set(rerankNorms.slice(0, 5).map((v) => v.normId))].slice(0, 5).join(", ")}`,
+);
 
 // Show what rerank put at top
 console.log(`\nRerank top-5 details:`);
 for (let i = 0; i < Math.min(5, rerankResult.results.length); i++) {
 	const r = rerankResult.results[i]!;
 	const c = candidates.find((c) => c.key === r.key);
-	console.log(`  ${i + 1}. score=${r.relevanceScore.toFixed(4)} [${r.key}] ${c?.title.slice(0, 60)}`);
+	console.log(
+		`  ${i + 1}. score=${r.relevanceScore.toFixed(4)} [${r.key}] ${c?.title.slice(0, 60)}`,
+	);
 }
 
 db.close();

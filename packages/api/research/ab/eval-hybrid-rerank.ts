@@ -28,7 +28,10 @@ import {
 	fetchWithRetry,
 	vectorSearch,
 } from "../../src/services/rag/embeddings.ts";
-import { rerank, type RerankerCandidate } from "../../src/services/rag/reranker.ts";
+import {
+	type RerankerCandidate,
+	rerank,
+} from "../../src/services/rag/reranker.ts";
 import { reciprocalRankFusion } from "../../src/services/rag/rrf.ts";
 import { buildCorpusPlan } from "./corpus.ts";
 
@@ -84,7 +87,9 @@ const OR_KEY = process.env.OPENROUTER_API_KEY;
 const NAN_KEY = process.env.NAN_API_KEY;
 const COHERE_KEY = process.env.COHERE_API_KEY;
 if (!OR_KEY) {
-	console.error("OPENROUTER_API_KEY required (for Gemini variants and as rerank fallback)");
+	console.error(
+		"OPENROUTER_API_KEY required (for Gemini variants and as rerank fallback)",
+	);
 	process.exit(1);
 }
 
@@ -126,7 +131,9 @@ async function embedQwenNan(q: string): Promise<Float32Array> {
 			});
 			if (res.status === 429 || res.status >= 500) continue;
 			if (!res.ok) throw new Error(`nan ${res.status}: ${await res.text()}`);
-			const data = (await res.json()) as { data: Array<{ embedding: number[] }> };
+			const data = (await res.json()) as {
+				data: Array<{ embedding: number[] }>;
+			};
 			return new Float32Array(data.data[0]!.embedding);
 		} catch {}
 	}
@@ -178,7 +185,7 @@ function getBlocks(
 	return keys
 		.map(({ normId, blockId }) => {
 			const row = blockTextStmt.get(normId, blockId);
-			if (!row || !row.text) return null;
+			if (!row?.text) return null;
 			return {
 				key: `${normId}:${blockId}`,
 				title: row.title || normId,
@@ -325,9 +332,7 @@ async function evalVariant(v: Variant) {
 			}
 		}
 		// Also track at each stage for diagnostics
-		const findRank = (
-			arr: Array<{ normId: string }>,
-		): number | null => {
+		const findRank = (arr: Array<{ normId: string }>): number | null => {
 			for (let r = 0; r < arr.length; r++) {
 				if (expected.has(arr[r]!.normId)) return r + 1;
 			}
@@ -393,7 +398,9 @@ for (const v of active) {
 	);
 }
 
-console.log(`\n${"=".repeat(100)}\nSUMMARY (end-to-end with BM25+RRF${noRerank ? "" : "+Rerank"})`);
+console.log(
+	`\n${"=".repeat(100)}\nSUMMARY (end-to-end with BM25+RRF${noRerank ? "" : "+Rerank"})`,
+);
 console.log("=".repeat(100));
 console.log(`Var      ${"Label".padEnd(54)}R@1   R@5   R@10  MRR@10`);
 for (const r of results) {
@@ -405,7 +412,10 @@ for (const r of results) {
 
 // Save
 const outPath = `${outDir}/eval-e2e-${Date.now()}.json`;
-await Bun.write(outPath, JSON.stringify({ questions: questions.length, results }, null, 2));
+await Bun.write(
+	outPath,
+	JSON.stringify({ questions: questions.length, results }, null, 2),
+);
 console.log(`\nSaved: ${outPath}`);
 
 db.close();

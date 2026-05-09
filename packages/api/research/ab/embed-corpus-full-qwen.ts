@@ -206,7 +206,7 @@ const CONCURRENCY = 5;
 const totalBatches = Math.ceil(workBlocks.length / BATCH_SIZE);
 let inserted = 0;
 let skippedBatches = 0;
-let totalTokens = 0;
+let _totalTokens = 0;
 let dimsSeen: number | null = null;
 const startedAt = Date.now();
 let nextBatch = 0;
@@ -222,14 +222,12 @@ async function worker(workerId: number): Promise<void> {
 		const data = await nanEmbed(texts);
 		if (!data) {
 			skippedBatches++;
-			console.warn(
-				`\n  ⚠ [w${workerId}] Batch ${batchIdx + 1}: SKIPPED`,
-			);
+			console.warn(`\n  ⚠ [w${workerId}] Batch ${batchIdx + 1}: SKIPPED`);
 			continue;
 		}
 
 		const usage = (data.usage ?? {}) as { total_tokens?: number };
-		totalTokens += usage.total_tokens ?? 0;
+		_totalTokens += usage.total_tokens ?? 0;
 
 		db.exec("BEGIN IMMEDIATE");
 		try {
