@@ -500,6 +500,32 @@ export type EmbedQueryFn = (
 	query: string,
 ) => Promise<{ embedding: Float32Array; cost: number; tokens: number }>;
 
+// ── Discriminated union for progress event payloads ──
+
+export type ProgressMetaAnalyzing = {
+	jurisdiction?: string;
+	materias?: string[];
+};
+
+export type ProgressMetaRetrieving = {
+	corpusSize: number;
+	candidatesCount?: number;
+};
+
+export type ProgressMetaRanking = {
+	finalistsCount: number;
+};
+
+export type ProgressMetaWriting = {
+	citationsExpected: number;
+};
+
+export type ProgressEventPayload =
+	| { step: "analyzing"; meta?: ProgressMetaAnalyzing }
+	| { step: "retrieving"; meta?: ProgressMetaRetrieving }
+	| { step: "ranking"; meta?: ProgressMetaRanking }
+	| { step: "writing"; meta?: ProgressMetaWriting };
+
 export type RunRetrievalCoreOpts = {
 	db: Database;
 	apiKey: string;
@@ -528,7 +554,7 @@ export type RunRetrievalCoreOpts = {
 	 * before the Cohere/LLM rerank). The streaming route consumes these to
 	 * surface SSE `progress` events; non-streaming callers can omit.
 	 */
-	onProgress?: (step: ProgressStep) => void;
+	onProgress?: (payload: ProgressEventPayload) => void;
 };
 
 /**
@@ -625,7 +651,14 @@ export async function runRetrievalCore(
 		embeddingDims: queryResult.embedding.length,
 	});
 
-	onProgress?.("retrieving");
+	try {
+		onProgress?.({
+			step: "retrieving",
+			meta: { corpusSize: embeddedNormIds.length },
+		});
+	} catch {
+		/* safe-to-fail */
+	}
 
 	const parallelStart = Date.now();
 	const bm25BreakT = performance.now();
@@ -850,6 +883,19 @@ export async function runRetrievalCore(
 		{ durationMs: Date.now() - fusionStart },
 	);
 
+	// Emit enriched retrieving update now that we know the candidates count.
+	try {
+		onProgress?.({
+			step: "retrieving",
+			meta: {
+				corpusSize: embeddedNormIds.length,
+				candidatesCount: allFusedArticles.length,
+			},
+		});
+	} catch {
+		/* safe-to-fail */
+	}
+
 	// 11. Rerank to TOP_K.
 	const rerankSpan = trace?.span("rerank", "tool", {
 		inputCandidates: allFusedArticles.length,
@@ -861,7 +907,14 @@ export async function runRetrievalCore(
 	let rerankerBackend = "none";
 
 	if (allFusedArticles.length > TOP_K) {
-		onProgress?.("ranking");
+		try {
+			onProgress?.({
+				step: "ranking",
+				meta: { finalistsCount: Math.min(TOP_K, allFusedArticles.length) },
+			});
+		} catch {
+			/* safe-to-fail */
+		}
 		const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
 			key: `${a.normId}:${a.blockId}`,
 			title: `${a.blockTitle} — ${describeNormScope(a.rank, resolveJurisdiction(a.sourceUrl, a.normId))}: ${a.normTitle}`,
