@@ -493,11 +493,27 @@ const ANCHOR_RANKS = new Set([
 
 export type ProgressStep = "analyzing" | "retrieving" | "ranking" | "writing";
 
+/** Embedding function signature for `runRetrievalCore` injection. */
+export type EmbedQueryFn = (
+	apiKey: string,
+	modelKey: string,
+	query: string,
+) => Promise<{ embedding: Float32Array; cost: number; tokens: number }>;
+
 export type RunRetrievalCoreOpts = {
 	db: Database;
 	apiKey: string;
 	cohereApiKey: string | null;
 	question: string;
+	/** Override the embedding model key (default: EMBEDDING_MODEL_KEY = "gemini-embedding-2"). */
+	embeddingModelKey?: string;
+	/** Override the query embedding function (default: embedQuery). */
+	embedQueryFn?: EmbedQueryFn;
+	/**
+	 * Override the low-confidence early-return threshold (default: LOW_CONFIDENCE_THRESHOLD = 0.38).
+	 * Set to 0 to disable the gate (used by A/B eval harnesses where score scales differ across models).
+	 */
+	lowConfidenceThreshold?: number;
 	requestJurisdiction?: string;
 	embeddedNormIds: string[];
 	vectorIndex: {
@@ -532,6 +548,9 @@ export async function runRetrievalCore(
 		apiKey,
 		cohereApiKey,
 		question,
+		embeddingModelKey = EMBEDDING_MODEL_KEY,
+		embedQueryFn = embedQuery,
+		lowConfidenceThreshold = LOW_CONFIDENCE_THRESHOLD,
 		requestJurisdiction,
 		embeddedNormIds,
 		vectorIndex,
@@ -543,7 +562,7 @@ export async function runRetrievalCore(
 	const analysisSpan = trace?.span("query-analysis", "llm", { question });
 	const [analysisResult, queryResult] = await Promise.all([
 		analyzeQuery(apiKey, question),
-		embedQuery(apiKey, EMBEDDING_MODEL_KEY, question),
+		embedQueryFn(apiKey, embeddingModelKey, question),
 	]);
 	const analyzed = analysisResult.query;
 	if (requestJurisdiction && !analyzed.jurisdiction) {
@@ -886,7 +905,7 @@ export async function runRetrievalCore(
 		};
 	}
 
-	if (bestScore < LOW_CONFIDENCE_THRESHOLD) {
+	if (bestScore < lowConfidenceThreshold) {
 		return {
 			type: "early",
 			reason: "low_confidence",
