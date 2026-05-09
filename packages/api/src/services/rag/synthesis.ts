@@ -98,8 +98,12 @@ PREGUNTAS DE SEGUIMIENTO (next_questions):
 
 Responde con JSON: {"answer": "...", "citations": [...], "declined": false, "tldr": "...", "next_questions": ["...", "...", "..."]}`;
 
+// In streaming mode, tldr + next_questions are produced by a separate
+// post-synthesis call (`generatePostSynthExtras`). Strip both sections from
+// the streamed prompt so the model doesn't dump "tldr\n..." and
+// "next_questions\n..." inline in the plain-text answer.
 export const SYSTEM_PROMPT_STREAM = SYSTEM_PROMPT.replace(
-	/\nResponde con JSON:.*$/s,
+	/\nRESPUESTA CORTA \(tldr\):[\s\S]*$/,
 	"\nResponde directamente en texto plano. NO envuelvas en JSON. Usa citas inline [norm_id, Artículo N] como se indica arriba.",
 );
 
