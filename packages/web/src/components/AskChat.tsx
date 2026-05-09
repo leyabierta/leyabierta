@@ -6,24 +6,14 @@
  * Uses SSE streaming for real-time text display.
  */
 
-import MarkdownIt from "markdown-it";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-
-// ── Markdown renderer ──
-// `html: false` means raw HTML inside the markdown is escaped — Gemini output
-// is trusted but we still keep the guard. `linkify: false` so we don't
-// auto-link random URLs (the rendered text is already very citation-heavy).
-const md = new MarkdownIt({ html: false, breaks: true, linkify: false });
-
-interface Citation {
-	normId: string;
-	normTitle: string;
-	articleTitle: string;
-	/** Predictable HTML anchor ID (e.g. "articulo-90") for deep-linking */
-	anchor?: string;
-	citizenSummary?: string;
-	verified?: boolean;
-}
+import { config } from "../config/env";
+import {
+	buildCitationMap,
+	type Citation,
+	renderMarkdownWithCitations,
+	TextWithCitations,
+} from "../lib/citations";
 
 interface AskMeta {
 	articlesRetrieved: number;
@@ -51,6 +41,8 @@ const PROGRESS_ORDER: ProgressStep[] = [
 	"writing",
 ];
 
+const PROGRESS_STEPS = new Set(PROGRESS_ORDER);
+
 const PROGRESS_LABELS: Record<ProgressStep, string> = {
 	analyzing: "Analizando tu pregunta",
 	retrieving: "Buscando artículos relevantes",
@@ -59,6 +51,7 @@ const PROGRESS_LABELS: Record<ProgressStep, string> = {
 };
 
 interface Turn {
+	id: string;
 	question: string;
 	response: AskResponse | null;
 	error: string | null;
@@ -67,8 +60,8 @@ interface Turn {
 
 const API_BASE =
 	typeof document !== "undefined"
-		? (document.documentElement.dataset.api ?? "https://api.leyabierta.es")
-		: "https://api.leyabierta.es";
+		? (document.documentElement.dataset.api ?? config.api.baseUrl)
+		: config.api.baseUrl;
 
 const EXAMPLE_CATEGORIES: { name: string; questions: string[] }[] = [
 	{
@@ -101,114 +94,6 @@ const EXAMPLE_CATEGORIES: { name: string; questions: string[] }[] = [
 	},
 ];
 
-// ── Citation parsing ──
-
-const CITE_PATTERN =
-	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
-
-function buildCitationMap(
-	citations: Citation[],
-): Map<string, Map<string, Citation>> {
-	const map = new Map<string, Map<string, Citation>>();
-	for (const c of citations) {
-		if (!map.has(c.normId)) map.set(c.normId, new Map());
-		map.get(c.normId)!.set(c.articleTitle.toLowerCase(), c);
-	}
-	return map;
-}
-
-/**
- * Render a plain text run, splitting out citation matches and replacing them
- * with interactive React links + tooltips. Used both for the markdown path
- * (per text-node) and as a fallback during SSR / pre-hydration.
- */
-function renderTextWithCitations(
-	text: string,
-	citationMap: Map<string, Map<string, Citation>>,
-	keyPrefix: string,
-): ReactNode[] {
-	const parts: ReactNode[] = [];
-	let lastIndex = 0;
-	let matchIdx = 0;
-
-	for (const match of text.matchAll(CITE_PATTERN)) {
-		const start = match.index;
-		if (start > lastIndex) {
-			parts.push(text.slice(lastIndex, start));
-		}
-
-		const normId = match[1]!;
-		const articleRef = match[2]!;
-		const fullMatch = match[0];
-		const citationByArticle = citationMap.get(normId);
-		const citation =
-			citationByArticle?.get(articleRef.toLowerCase()) ??
-			[...(citationByArticle?.values() ?? [])][0];
-
-		if (citation) {
-			parts.push(
-				<span
-					key={`${keyPrefix}-cite-${matchIdx}`}
-					className="ask-cite-wrapper"
-				>
-					<a
-						href={`/leyes/${normId}/${citation.anchor ? `#${citation.anchor}` : ""}`}
-						target="_blank"
-						rel="noopener noreferrer"
-						className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}
-						title={
-							citation.verified === false ? "Referencia aproximada" : undefined
-						}
-					>
-						{articleRef}
-						<svg
-							className="ask-cite-icon"
-							width="12"
-							height="12"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2.5"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							aria-hidden="true"
-						>
-							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-							<polyline points="15 3 21 3 21 9" />
-							<line x1="10" y1="14" x2="21" y2="3" />
-						</svg>
-					</a>
-					<span className="ask-cite-tooltip" role="tooltip">
-						<span className="ask-cite-tooltip-norm">
-							{citation.normTitle || normId}
-						</span>
-						<span className="ask-cite-tooltip-article">
-							{citation.articleTitle}
-						</span>
-						{citation.citizenSummary && (
-							<span className="ask-cite-tooltip-summary">
-								{citation.citizenSummary}
-							</span>
-						)}
-						<span className="ask-cite-tooltip-action">Ver en Ley Abierta</span>
-					</span>
-				</span>,
-			);
-		} else {
-			parts.push(fullMatch);
-		}
-
-		lastIndex = start + fullMatch.length;
-		matchIdx++;
-	}
-
-	if (lastIndex < text.length) {
-		parts.push(text.slice(lastIndex));
-	}
-
-	return parts;
-}
-
 /**
  * Convert a DOM node tree (from markdown-it output, parsed via DOMParser) into
  * a React element tree. Text nodes go through `renderTextWithCitations` so the
@@ -223,12 +108,13 @@ function domToReact(
 	if (node.nodeType === Node.TEXT_NODE) {
 		const text = node.nodeValue ?? "";
 		if (!text) return null;
-		const rendered = renderTextWithCitations(text, citationMap, keyPrefix);
-		// Single string fragment: return as-is (React handles it fine).
-		if (rendered.length === 1 && typeof rendered[0] === "string") {
-			return rendered[0];
-		}
-		return <>{rendered}</>;
+		return (
+			<TextWithCitations
+				text={text}
+				citationMap={citationMap}
+				keyPrefix={keyPrefix}
+			/>
+		);
 	}
 
 	if (node.nodeType !== Node.ELEMENT_NODE) return null;
@@ -308,22 +194,23 @@ function domToReact(
 	);
 }
 
-function renderAnswerWithCitations(
-	text: string,
-	citations: Citation[],
+function AnswerWithCitations({
+	text,
+	citations,
 	streaming = false,
-): ReactNode {
-	const citationMap = buildCitationMap(citations);
-
+}: {
+	text: string;
+	citations: Citation[];
+	streaming?: boolean;
+}) {
 	// During streaming, skip the expensive markdown parse + DOMParser round-trip.
 	// Citations aren't available yet (they arrive with the `done` event), so we
 	// just render plain paragraphs split by newline.
 	if (streaming) {
 		return (
 			<>
-				{text.split("\n").map((line, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: streaming lines have no stable ID
-					<p key={i} className="ask-answer-paragraph">
+				{text.split("\n").map((line) => (
+					<p key={line || "empty"} className="ask-answer-paragraph">
 						{line}
 					</p>
 				))}
@@ -331,32 +218,7 @@ function renderAnswerWithCitations(
 		);
 	}
 
-	// SSR / no DOMParser (shouldn't happen in this island, but be defensive):
-	// render as a single paragraph with citation replacement only.
-	if (typeof DOMParser === "undefined") {
-		return (
-			<p className="ask-answer-paragraph">
-				{renderTextWithCitations(text, citationMap, "ssr")}
-			</p>
-		);
-	}
-
-	const html = md.render(text);
-	const doc = new DOMParser().parseFromString(
-		`<div>${html}</div>`,
-		"text/html",
-	);
-	const root = doc.body.firstElementChild;
-	if (!root) return null;
-
-	const children: ReactNode[] = [];
-	for (let i = 0; i < root.childNodes.length; i++) {
-		const child = root.childNodes[i];
-		if (!child) continue;
-		const rendered = domToReact(child, citationMap, `md-${i}`);
-		if (rendered !== null && rendered !== undefined) children.push(rendered);
-	}
-	return <>{children}</>;
+	return renderMarkdownWithCitations(text, citations);
 }
 
 // ── SSE parsing ──
@@ -399,7 +261,12 @@ function loadTurns(): Turn[] {
 		const raw = sessionStorage.getItem(STORAGE_KEY);
 		if (!raw) return [];
 		const parsed = JSON.parse(raw);
-		if (Array.isArray(parsed)) return parsed;
+		if (Array.isArray(parsed)) {
+			// Add ids to any turns that don't have them (migration)
+			return parsed.map((turn) =>
+				turn.id ? turn : { ...turn, id: crypto.randomUUID() },
+			);
+		}
 	} catch {
 		/* ignore */
 	}
@@ -717,9 +584,10 @@ export default function AskChat() {
 		if (!text || text.length < 3 || loading) return;
 
 		const turnIndex = turns.length;
+		const turnId = crypto.randomUUID();
 		setTurns((prev) => [
 			...prev,
-			{ question: text, response: null, error: null },
+			{ id: turnId, question: text, response: null, error: null },
 		]);
 		setQuestion("");
 		setLoading(true);
@@ -809,7 +677,7 @@ export default function AskChat() {
 						const progress = JSON.parse(sseEvent.data) as {
 							step: ProgressStep;
 						};
-						if (PROGRESS_ORDER.includes(progress.step)) {
+						if (PROGRESS_STEPS.has(progress.step)) {
 							setTurns((prev) => {
 								const updated = [...prev];
 								const turn = updated[turnIndex];
@@ -889,6 +757,7 @@ export default function AskChat() {
 				const updated = [...prev];
 				updated[turnIndex] = {
 					...updated[turnIndex],
+					response: null,
 					error:
 						"No se ha podido conectar con el servidor. Comprueba tu conexión.",
 				};
@@ -939,15 +808,14 @@ export default function AskChat() {
 
 			{hasHistory && (
 				<div className="ask-conversation">
-					{turns.map((turn, turnIdx) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: turns have no stable ID
-						<div key={turnIdx} className="ask-turn">
+					{turns.map((turn) => (
+						<div key={turn.id} className="ask-turn">
 							<div className="ask-turn-question">
 								<span className="ask-turn-label">Tu pregunta</span>
 								<p>{turn.question}</p>
 							</div>
 
-							{turn.response && (
+							{turn.response && (turn.response.answer || turn.response.declined) && (
 								<div
 									className={`ask-turn-answer${turn.response.declined ? " ask-turn-declined" : ""}`}
 								>
@@ -961,11 +829,11 @@ export default function AskChat() {
 											</h2>
 											<div className="ask-declined-body">
 												{turn.response.answer ? (
-													renderAnswerWithCitations(
-														turn.response.answer,
-														[],
-														false,
-													)
+													<AnswerWithCitations
+														text={turn.response.answer}
+														citations={[]}
+														streaming={false}
+													/>
 												) : (
 													<p>
 														Solo respondo basándome en la legislación española.
@@ -1005,12 +873,34 @@ export default function AskChat() {
 												</div>
 											)}
 											<div className="ask-answer-text">
-												{renderAnswerWithCitations(
-													turn.response.answer,
-													turn.response.citations,
-													loading && turn === lastTurn,
-												)}
+												<AnswerWithCitations
+													text={turn.response.answer}
+													citations={turn.response.citations}
+													streaming={loading && turn === lastTurn}
+												/>
 											</div>
+
+											{turn.response.nextQuestions &&
+												turn.response.nextQuestions.length > 0 && (
+													<div className="ask-next">
+														<p className="ask-next-label">Continuar con</p>
+														<div className="ask-next-chips">
+															{turn.response.nextQuestions.map((q) => (
+																<button
+																	key={q}
+																	type="button"
+																	className="ask-next-chip"
+																	onClick={() => handleSubmit(q)}
+																	disabled={loading}
+																>
+																	{q}
+																</button>
+															))}
+														</div>
+													</div>
+												)}
+
+											<TurnActions turn={turn} />
 
 											{turn.response.citations.length > 0 && (
 												<div className="ask-turn-citations">
@@ -1056,28 +946,6 @@ export default function AskChat() {
 												</div>
 											)}
 
-											{turn.response.nextQuestions &&
-												turn.response.nextQuestions.length > 0 && (
-													<div className="ask-next">
-														<p className="ask-next-label">Continuar con</p>
-														<div className="ask-next-chips">
-															{turn.response.nextQuestions.map((q) => (
-																<button
-																	key={q}
-																	type="button"
-																	className="ask-next-chip"
-																	onClick={() => handleSubmit(q)}
-																	disabled={loading}
-																>
-																	{q}
-																</button>
-															))}
-														</div>
-													</div>
-												)}
-
-											<TurnActions turn={turn} />
-
 											{turn.response.meta.model && (
 												<details className="ask-meta-details">
 													<summary className="ask-meta-summary">
@@ -1108,10 +976,10 @@ export default function AskChat() {
 								</div>
 							)}
 
-							{turn.response && !turn.response.declined && (
+							{turn.response && turn.response.answer && !turn.response.declined && (
 								<p className="ask-turn-disclaimer">
 									Respuestas generadas automáticamente a partir del texto
-									oficial. No son asesoramiento jurídico — para casos serios
+									oficial. No son asesoramiento jurídico, para casos serios
 									consulta con un profesional.
 								</p>
 							)}
@@ -1130,7 +998,7 @@ export default function AskChat() {
 						) : (
 							<div className="ask-loading" role="status" aria-live="polite">
 								<span className="ask-spinner-large" aria-hidden="true" />
-								<p>Buscando en la legislación española...</p>
+								<p>Buscando en la legislación española…</p>
 							</div>
 						))}
 
@@ -1151,7 +1019,7 @@ export default function AskChat() {
 					onKeyDown={handleKeyDown}
 					placeholder={
 						hasHistory
-							? "Haz otra pregunta..."
+							? "Haz otra pregunta…"
 							: "¿Mi casero puede subirme el alquiler un 10%?"
 					}
 					rows={hasHistory ? 1 : 2}
@@ -1180,7 +1048,7 @@ export default function AskChat() {
 						disabled={loading || question.trim().length < 3}
 						aria-label="Enviar pregunta"
 					>
-						{loading ? (
+						{loading && !showStepper ? (
 							<span className="ask-spinner" aria-hidden="true" />
 						) : (
 							<svg

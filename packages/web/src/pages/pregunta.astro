@@ -117,7 +117,8 @@ import AskChat from "../components/AskChat.tsx";
 		bottom: 1rem;
 		z-index: 10;
 		margin-top: 0.5rem;
-		box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
+		box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08), 0 -2px 8px rgba(0, 0, 0, 0.04);
+		border-top: 2px solid var(--border);
 	}
 
 	:global(.ask-textarea) {
@@ -541,6 +542,7 @@ import AskChat from "../components/AskChat.tsx";
 	/* ── Progress stepper (during loading) ── */
 	:global(.ask-progress-stepper) {
 		padding: 1rem 1.25rem;
+		margin-top: 1rem;
 		background: var(--surface);
 		border: 1px solid var(--border-light);
 		border-radius: 12px;
@@ -745,6 +747,7 @@ import AskChat from "../components/AskChat.tsx";
 		align-items: center;
 		gap: 0.75rem;
 		padding: 1rem 1.25rem;
+		margin-top: 1rem;
 		background: var(--surface);
 		border: 1px solid var(--border-light);
 		border-radius: 12px;
