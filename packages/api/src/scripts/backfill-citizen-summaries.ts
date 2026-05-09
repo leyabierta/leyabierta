@@ -280,15 +280,14 @@ const BATCH_SCHEMA = {
 			type: "object",
 			properties: {
 				article_id: { type: "string" },
-				// minLength forces the model to emit a real summary; the schema
-				// engine will reject empty strings before we ever see them.
-				// maxLength matches the prompt's hard cap (300) so the schema engine
-				// rejects overly verbose responses instead of silently storing them.
-				citizen_summary: { type: "string", minLength: 10, maxLength: 300 },
+				// NaN endpoint hangs (>60s, never returns) when the schema
+				// includes minLength/maxLength/minItems — keeps regenerating
+				// until they match. Length/tag-count are validated downstream
+				// and reinforced via the prompt. See ADR 2026-05-06.
+				citizen_summary: { type: "string" },
 				citizen_tags: {
 					type: "array",
 					items: { type: "string" },
-					minItems: 1,
 				},
 			},
 			required: ["article_id", "citizen_summary", "citizen_tags"],
@@ -422,20 +421,35 @@ async function callQwenBatch(
 		// Position-based mapping silently dropped trailing articles when the
 		// model returned fewer items than were sent — that's how 18% of the
 		// corpus ended up as fake "empty" rows.
-		const byId = new Map<string, BatchSummary>();
-		for (const p of parsed) {
-			if (p.article_id) byId.set(p.article_id, p);
-		}
-		const outputs: (BatchSummary | null)[] = articles.map((_a, i) => {
-			const key = `ARTÍCULO_${i + 1}`;
-			const hit = byId.get(key);
-			if (!hit) return null;
-			return {
-				article_id: hit.article_id,
-				citizen_summary: hit.citizen_summary,
-				citizen_tags: hit.citizen_tags,
-			};
-		});
+		// Single-article calls have no position-drift risk: if exactly one
+		// item came back, use it regardless of article_id (the model often
+		// returns the article number from the TÍTULO line, e.g. "118",
+		// instead of the requested "ARTÍCULO_1" prefix).
+		const outputs: (BatchSummary | null)[] = (() => {
+			if (articles.length === 1 && parsed.length === 1 && parsed[0]) {
+				return [
+					{
+						article_id: parsed[0].article_id,
+						citizen_summary: parsed[0].citizen_summary,
+						citizen_tags: parsed[0].citizen_tags,
+					},
+				];
+			}
+			const byId = new Map<string, BatchSummary>();
+			for (const p of parsed) {
+				if (p.article_id) byId.set(p.article_id, p);
+			}
+			return articles.map((_a, i) => {
+				const key = `ARTÍCULO_${i + 1}`;
+				const hit = byId.get(key);
+				if (!hit) return null;
+				return {
+					article_id: hit.article_id,
+					citizen_summary: hit.citizen_summary,
+					citizen_tags: hit.citizen_tags,
+				};
+			});
+		})();
 
 		return { outputs, error: null };
 	} catch (e) {
