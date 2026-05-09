@@ -728,7 +728,7 @@ function AskProgressStepper({
 					) : (
 						<Suspense fallback={<DocScanFallback />}>
 							<DotLottieReact
-								src="/lottie/doc-scan.json"
+								src="/lottie/doc-scan.lottie"
 								loop
 								autoplay
 								style={{ width: 140, height: 140 }}
