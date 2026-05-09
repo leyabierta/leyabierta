@@ -15,7 +15,13 @@
  *
  * Checkpoints every 100 articles. Resume from last checkpoint on restart.
  *
- * Estimated runtime: ~433K articles × 30s / 5 concurrent ≈ 77 hours ≈ 3.2 days
+ * Target scope: vigentes + block_type='precepto' + length >= 200 chars
+ * = ~335K articles. Lower bound 200 skips placeholders ("(Derogado)", entry-
+ * into-force boilerplate). No upper bound: Qwen 3.6 has 256K context and the
+ * longest article in the corpus is ~327K chars; long articles (> 5K chars)
+ * are dispatched solo per call, small ones batched in groups of 5.
+ *
+ * Estimated runtime: ~335K articles × 30s / 5 concurrent ≈ 56 hours ≈ 2.3 days
  * Cost: $0 (unlimited tokens on Qwen endpoint)
  */
 
@@ -35,6 +41,12 @@ const API_BATCH_SIZE = Math.max(
 	1,
 	Math.min(10, Number(process.env.QWEN_BATCH_SIZE ?? 5)),
 ); // articles per API call (batching)
+// Articles longer than this go solo (1 per API call) instead of being grouped
+// in a batch of 5. Qwen 3.6 has 256K context so any single article fits, but
+// stuffing several huge articles into one call wastes throughput on retries
+// when the response gets truncated. 5K chars (~1.7K tokens) is the soft
+// threshold where solo dispatch starts paying off.
+const SOLO_THRESHOLD_CHARS = Number(process.env.QWEN_SOLO_THRESHOLD ?? 5000);
 const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
 const REQUEST_TIMEOUT_MS = 180_000; // 3 minutes per individual request
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
@@ -210,10 +222,17 @@ function sampleArticles(startFrom?: {
 	norm_id: string;
 	block_id: string;
 }): Article[] {
+	// Lower bound 200: articles below that are usually placeholder text
+	// ("(Derogado)", "esta Ley entra en vigor...") with no substance to summarize.
+	// No upper bound: long articles (Código Penal, leyes orgánicas, "Artículo
+	// único" containing whole laws) are exactly where citizens benefit most from
+	// a plain-language summary. Qwen 3.6's 256K context fits any article in the
+	// corpus (max observed: 327K chars). Long articles are dispatched solo, see
+	// SOLO_THRESHOLD_CHARS.
 	let where = `
 		WHERE n.status = 'vigente'
 		  AND b.block_type = 'precepto'
-		  AND length(b.current_text) BETWEEN 200 AND 2000`;
+		  AND length(b.current_text) >= 200`;
 	const params: (string | number)[] = [];
 
 	if (!FORCE) {
@@ -279,11 +298,15 @@ const BATCH_SCHEMA = {
 };
 
 function buildBatchPrompt(articles: Article[]): string {
+	// No artificial truncation: Qwen 3.6 has 256K-token context, the longest
+	// vigente article in the corpus is ~327K chars (~110K tokens). Long articles
+	// are dispatched solo (see SOLO_THRESHOLD_CHARS) so a single huge article
+	// never has to share the call with others.
 	return (
 		articles
 			.map(
 				(a, i) =>
-					`ARTÍCULO_${i + 1}:\nLEY: ${a.norm_title}\nTÍTULO: ${a.block_title}\nTEXTO:\n${a.current_text.slice(0, 2000)}`,
+					`ARTÍCULO_${i + 1}:\nLEY: ${a.norm_title}\nTÍTULO: ${a.block_title}\nTEXTO:\n${a.current_text}`,
 			)
 			.join("\n\n") +
 		"\n\nGenera un resumen para cada artículo. Usa article_id como identificador único."
@@ -312,8 +335,9 @@ async function callQwenBatch(
 					{ role: "user", content: prompt },
 				],
 				temperature: 0.2,
-				// 2000 is plenty without thinking. Output content is ~500 tokens
-				// max for a batch of 5 summaries; the rest is safety margin.
+				// Output is ~500 tokens per summary. A solo huge article still
+				// produces only one summary, so 2K is enough for any solo call;
+				// keep the cap as a safety against runaway generation.
 				max_tokens: 2000,
 				// Disable Qwen thinking: A/B with Sonnet judge showed thinking-OFF
 				// is ~9x faster (3s vs 28s), 0% errors (vs 20% with 524s), and
@@ -323,10 +347,6 @@ async function callQwenBatch(
 				response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
 			}),
 		});
-
-		console.error(
-			`[DEBUG] callQwenBatch: response status ${res.status} (${Date.now()}ms)`,
-		);
 
 		if (!res.ok) {
 			const body = await res.text();
@@ -633,10 +653,76 @@ function createProgress(total: number): Progress {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
+function getTargetTotal(): number {
+	// Total articles matching the same WHERE clause as `sampleArticles`, ignoring
+	// the resume checkpoint and the FORCE flag. Used to render an absolute
+	// progress bar (X/335K) instead of one relative to the current run only.
+	return (
+		db
+			.query<{ c: number }, []>(
+				`SELECT COUNT(*) c FROM norms n JOIN blocks b ON b.norm_id=n.id
+				 WHERE n.status='vigente' AND b.block_type='precepto'
+				   AND length(b.current_text) >= 200`,
+			)
+			.get()?.c ?? 0
+	);
+}
+
+function getDoneTotal(): number {
+	// Only count summaries on articles still in scope. Without this the absolute
+	// bar drifts when the scope changes (e.g. lifting the upper bound).
+	return (
+		db
+			.query<{ c: number }, []>(
+				`SELECT COUNT(*) c FROM citizen_article_summaries c
+				 JOIN norms n ON n.id = c.norm_id
+				 JOIN blocks b ON b.norm_id = c.norm_id AND b.block_id = c.block_id
+				 WHERE n.status='vigente' AND b.block_type='precepto'
+				   AND length(b.current_text) >= 200`,
+			)
+			.get()?.c ?? 0
+	);
+}
+
+function renderGlobalBar(opts: {
+	doneAbs: number;
+	targetAbs: number;
+	successRun: number;
+	errorsRun: number;
+	emptyRun: number;
+	processedRun: number;
+	totalRun: number;
+	startedAt: string;
+}): void {
+	const pct = opts.targetAbs > 0 ? (opts.doneAbs / opts.targetAbs) * 100 : 0;
+	const filled = Math.round(40 * (pct / 100));
+	const bar = "█".repeat(filled) + "░".repeat(40 - filled);
+	const elapsed = Math.max(
+		(Date.now() - new Date(opts.startedAt).getTime()) / 1000,
+		1,
+	);
+	const rate = opts.processedRun / elapsed;
+	const remaining = opts.targetAbs - opts.doneAbs;
+	const etaH = rate > 0 ? remaining / rate / 3600 : 0;
+	const line = `[${bar}] ${pct.toFixed(1).padStart(5)}%  ${opts.doneAbs.toLocaleString()}/${opts.targetAbs.toLocaleString()}  ✓${opts.successRun} ✗${opts.errorsRun} ○${opts.emptyRun}  ${rate.toFixed(1)}/s  ETA ${etaH.toFixed(1)}h`;
+	process.stdout.write(`\r${line}   `);
+}
+
 async function main() {
 	console.log(`=== Citizen Summaries Backfill ===`);
-	console.log(`Limit: ${LIMIT > 0 ? LIMIT : "all (~433K)"}`);
+	const targetTotal = getTargetTotal();
+	const doneAtStart = getDoneTotal();
+	console.log(
+		`Target scope: ${targetTotal.toLocaleString()} vigentes (≥200 chars, no upper bound)`,
+	);
+	console.log(
+		`Already done: ${doneAtStart.toLocaleString()} (${((doneAtStart / Math.max(targetTotal, 1)) * 100).toFixed(1)}%)`,
+	);
+	console.log(`Limit: ${LIMIT > 0 ? LIMIT : "all"}`);
 	console.log(`Dry run: ${DRY_RUN}`);
+	console.log(
+		`Batching: groups of ${API_BATCH_SIZE}, articles > ${SOLO_THRESHOLD_CHARS.toLocaleString()} chars go solo`,
+	);
 	console.log(`Concurrency: ${CONCURRENCY}`);
 	console.log(``);
 
@@ -668,7 +754,11 @@ async function main() {
 		return;
 	}
 
-	// Load or create progress
+	// Load or create progress. The persisted counters (`progress.success`,
+	// `progress.errors`, `progress.processed`, `progress.empty`) are CUMULATIVE
+	// across runs — they survive in `data/backfill-progress.json`. For the
+	// progress bar we need the *current run's* deltas, so capture a baseline
+	// here and subtract it whenever we render.
 	let progress: Progress;
 	const existing = existsSync(PROGRESS_FILE) ? loadProgress() : null;
 	if (existing) {
@@ -681,6 +771,22 @@ async function main() {
 	} else {
 		progress = createProgress(articles.length);
 	}
+	const baselineSuccess = progress.success;
+	const baselineErrors = progress.errors;
+	const baselineEmpty = progress.empty;
+	const baselineProcessed = progress.processed;
+
+	// Render initial bar so the user sees something immediately.
+	renderGlobalBar({
+		doneAbs: doneAtStart,
+		targetAbs: targetTotal,
+		successRun: 0,
+		errorsRun: 0,
+		emptyRun: 0,
+		processedRun: 0,
+		totalRun: articles.length,
+		startedAt: progress.startedAt,
+	});
 
 	// Process in batches
 	for (
@@ -694,27 +800,35 @@ async function main() {
 		);
 		const batch = articles.slice(batchStart, batchEnd);
 
-		console.log(
-			`\nBatch ${Math.floor(batchStart / CHECKPOINT_INTERVAL) + 1}: processing ${batch.length} articles (${batchStart + 1}–${batchEnd} of ${articles.length})`,
-		);
-
-		// Split into API batches of API_BATCH_SIZE articles
+		// Dynamic batching: long articles (> SOLO_THRESHOLD_CHARS) are dispatched
+		// solo, small articles are grouped up to API_BATCH_SIZE. Order is
+		// preserved so the checkpoint cursor stays meaningful.
 		const apiBatches: Article[][] = [];
-		for (let i = 0; i < batch.length; i += API_BATCH_SIZE) {
-			apiBatches.push(batch.slice(i, i + API_BATCH_SIZE));
+		let acc: Article[] = [];
+		for (const article of batch) {
+			if (article.current_text.length > SOLO_THRESHOLD_CHARS) {
+				if (acc.length > 0) {
+					apiBatches.push(acc);
+					acc = [];
+				}
+				apiBatches.push([article]);
+			} else {
+				acc.push(article);
+				if (acc.length >= API_BATCH_SIZE) {
+					apiBatches.push(acc);
+					acc = [];
+				}
+			}
 		}
+		if (acc.length > 0) apiBatches.push(acc);
 
-		console.log(
-			`  ${apiBatches.length} API batch(es) of ${API_BATCH_SIZE} articles`,
-		);
-
-		// Process API batches concurrently with live progress bar
+		// Process API batches concurrently. Progress is rendered after the whole
+		// checkpoint batch finishes — per-API-batch updates were too noisy.
 		const allResults: {
 			article: Article;
 			outputs: (BatchSummary | null)[];
 			error: string | null;
 		}[] = [];
-		let completedApiBatches = 0;
 
 		await mapPool(apiBatches, CONCURRENCY, async (apiBatch, idx) => {
 			const result = await callQwenBatchWithRetry(apiBatch);
@@ -723,24 +837,8 @@ async function main() {
 				outputs: result.outputs,
 				error: result.error,
 			};
-
-			// Progress per API batch
-			completedApiBatches++;
-			const articlesProcessed = Math.min(
-				completedApiBatches * API_BATCH_SIZE,
-				batch.length,
-			);
-			const pct = (articlesProcessed / batch.length) * 100;
-			const filled = Math.round(50 * (pct / 100));
-			const bar = "█".repeat(filled) + "░".repeat(50 - filled);
-			const barLine = `[${bar}] ${pct.toFixed(1).padStart(5)}% (${articlesProcessed}/${batch.length})`;
-			process.stdout.write(`\r${barLine}   `);
-
 			return allResults[idx];
 		});
-
-		// Final newline after progress bar
-		console.log();
 
 		// Flatten results: map each article to its summary
 		const flatResults: {
@@ -783,16 +881,10 @@ async function main() {
 					})}\n`,
 					{ flag: "a" },
 				);
-				console.log(
-					`  ✗ ${article.norm_id}::${article.block_id}: ${realError.slice(0, 60)}`,
-				);
 			} else if (output && output.citizen_summary === "") {
 				// True empty: model explicitly returned "". With minLength:10 in the
 				// schema this should be unreachable, but kept as a safety net.
 				progress.empty++;
-				console.log(
-					`  ○ ${article.norm_id}::${article.block_id}: empty (model returned "")`,
-				);
 			} else if (output) {
 				progress.success++;
 
@@ -805,13 +897,6 @@ async function main() {
 					for (const tag of output.citizen_tags) {
 						stmtInsertTag.run(article.norm_id, article.block_id, tag);
 					}
-				}
-
-				// Progress indicator every 10 articles
-				if (progress.processed % 10 === 0) {
-					console.log(
-						`  ✓ ${progress.processed}/${articles.length} processed (${progress.success} success, ${progress.errors} errors, ${progress.empty} empty)`,
-					);
 				}
 			}
 		}
@@ -831,18 +916,22 @@ async function main() {
 			saveProgress(progress);
 		}
 
-		// ETA — guard against zero elapsed (first batch in a fast dry-run can
-		// finish in <1ms, which would make rate=Infinity and ETA=NaN).
-		const elapsed = Math.max(
-			(Date.now() - new Date(progress.startedAt).getTime()) / 1000,
-			1,
-		);
-		const rate = progress.processed / elapsed;
-		const remaining = articles.length - progress.processed;
-		const etaSeconds = remaining / rate;
-		const etaHours = etaSeconds / 3600;
-		console.log(`  ETA: ${etaHours.toFixed(1)}h remaining`);
+		// Re-render the global progress bar after each checkpoint batch.
+		// `*Run` counters are deltas vs the resume baseline, so the bar reflects
+		// THIS run's throughput while `doneAbs` reflects total completion.
+		renderGlobalBar({
+			doneAbs: doneAtStart + (progress.success - baselineSuccess),
+			targetAbs: targetTotal,
+			successRun: progress.success - baselineSuccess,
+			errorsRun: progress.errors - baselineErrors,
+			emptyRun: progress.empty - baselineEmpty,
+			processedRun: progress.processed - baselineProcessed,
+			totalRun: articles.length,
+			startedAt: progress.startedAt,
+		});
 	}
+	// Newline after the final bar so the summary that follows is on its own line.
+	console.log();
 
 	// Final summary
 	console.log(`\n=== Backfill Complete ===`);
