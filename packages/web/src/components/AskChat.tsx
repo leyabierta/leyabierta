@@ -51,18 +51,103 @@ const PROGRESS_ORDER: ProgressStep[] = [
 	"writing",
 ];
 
-const PROGRESS_LABELS: Record<ProgressStep, string> = {
-	analyzing: "Analizando tu pregunta",
-	retrieving: "Buscando artículos relevantes",
-	ranking: "Seleccionando las fuentes más fiables",
-	writing: "Redactando la respuesta",
-};
+// ── Progress metadata types (discriminated union, mirrors API) ──
+
+export interface ProgressMetaAnalyzing {
+	jurisdiction?: string;
+	materias?: string[];
+}
+
+export interface ProgressMetaRetrieving {
+	corpusSize: number;
+	candidatesCount?: number;
+}
+
+export interface ProgressMetaRanking {
+	finalistsCount: number;
+}
+
+export interface ProgressMetaWriting {
+	citationsExpected: number;
+}
+
+export type ProgressMeta =
+	| ProgressMetaAnalyzing
+	| ProgressMetaRetrieving
+	| ProgressMetaRanking
+	| ProgressMetaWriting;
+
+/**
+ * Returns a dynamic, human-readable label for a progress step.
+ * Falls back gracefully when meta is missing or partial.
+ */
+export function getProgressLabel(
+	step: ProgressStep,
+	meta?: ProgressMeta,
+): string {
+	const fmt = new Intl.NumberFormat("es-ES");
+
+	if (step === "analyzing") {
+		const m = meta as ProgressMetaAnalyzing | undefined;
+		const jurisdiction = m?.jurisdiction;
+		const materia =
+			m?.materias && m.materias.length > 0 ? m.materias[0] : undefined;
+		if (jurisdiction && materia) {
+			return `Analizando tu pregunta · ${jurisdiction} · **${materia.toLowerCase()}**`;
+		}
+		if (jurisdiction) {
+			return `Analizando tu pregunta · **${jurisdiction}**`;
+		}
+		if (materia) {
+			return `Analizando tu pregunta · **${materia.toLowerCase()}**`;
+		}
+		return "Analizando tu pregunta";
+	}
+
+	if (step === "retrieving") {
+		const m = meta as ProgressMetaRetrieving | undefined;
+		const corpus = m?.corpusSize && m.corpusSize > 0 ? m.corpusSize : undefined;
+		const candidates =
+			m?.candidatesCount && m.candidatesCount > 0
+				? m.candidatesCount
+				: undefined;
+		if (candidates && corpus) {
+			return `**${fmt.format(candidates)} candidatos encontrados** entre ${fmt.format(corpus)} artículos`;
+		}
+		if (corpus) {
+			return `Buscando entre **${fmt.format(corpus)} artículos**…`;
+		}
+		return "Buscando artículos relevantes";
+	}
+
+	if (step === "ranking") {
+		const m = meta as ProgressMetaRanking | undefined;
+		const count =
+			m?.finalistsCount && m.finalistsCount > 0 ? m.finalistsCount : undefined;
+		if (count) {
+			return `Seleccionando las **${count} fuentes** más fiables`;
+		}
+		return "Seleccionando las fuentes más fiables";
+	}
+
+	// writing
+	const m = meta as ProgressMetaWriting | undefined;
+	const cites =
+		m?.citationsExpected && m.citationsExpected > 0
+			? m.citationsExpected
+			: undefined;
+	if (cites) {
+		return `Redactando la respuesta · citando **${cites} artículos**`;
+	}
+	return "Redactando la respuesta";
+}
 
 interface Turn {
 	question: string;
 	response: AskResponse | null;
 	error: string | null;
 	currentStep?: ProgressStep;
+	progressMeta?: Partial<Record<ProgressStep, ProgressMeta>>;
 }
 
 const API_BASE =
@@ -576,13 +661,38 @@ function StepIcon({
 	);
 }
 
-function AskProgressStepper({ current }: { current: ProgressStep }) {
+/**
+ * Render a progress label that may contain **bold** markdown spans.
+ * Only the variable parts use bold, so screen readers read the full sentence.
+ */
+function renderProgressLabel(raw: string): ReactNode {
+	// Split on **text** markers and render bold spans inline.
+	const parts = raw.split(/\*\*([^*]+)\*\*/g);
+	if (parts.length === 1) return raw;
+	return (
+		<>
+			{parts.map((part, i) =>
+				// biome-ignore lint/suspicious/noArrayIndexKey: static split segments
+				i % 2 === 0 ? part : <strong key={i}>{part}</strong>,
+			)}
+		</>
+	);
+}
+
+function AskProgressStepper({
+	current,
+	progressMeta,
+}: {
+	current: ProgressStep;
+	progressMeta?: Partial<Record<ProgressStep, ProgressMeta>>;
+}) {
 	const currentIdx = PROGRESS_ORDER.indexOf(current);
 	return (
 		<div
 			className="ask-progress-stepper"
 			role="status"
 			aria-live="polite"
+			aria-atomic="false"
 			aria-label="Progreso de la respuesta"
 		>
 			<ol className="ask-progress-list">
@@ -593,6 +703,8 @@ function AskProgressStepper({ current }: { current: ProgressStep }) {
 							: idx === currentIdx
 								? "active"
 								: "pending";
+					const meta = progressMeta?.[step];
+					const label = getProgressLabel(step, meta);
 					return (
 						<li
 							key={step}
@@ -602,7 +714,7 @@ function AskProgressStepper({ current }: { current: ProgressStep }) {
 								<StepIcon step={step} state={state} />
 							</span>
 							<span className="ask-progress-label">
-								{PROGRESS_LABELS[step]}
+								{renderProgressLabel(label)}
 							</span>
 						</li>
 					);
@@ -808,15 +920,23 @@ export default function AskChat() {
 					try {
 						const progress = JSON.parse(sseEvent.data) as {
 							step: ProgressStep;
+							meta?: ProgressMeta;
 						};
 						if (PROGRESS_ORDER.includes(progress.step)) {
 							setTurns((prev) => {
 								const updated = [...prev];
 								const turn = updated[turnIndex];
 								if (turn) {
+									const newMeta: Partial<Record<ProgressStep, ProgressMeta>> = {
+										...(turn.progressMeta ?? {}),
+									};
+									if (progress.meta !== undefined) {
+										newMeta[progress.step] = progress.meta;
+									}
 									updated[turnIndex] = {
 										...turn,
 										currentStep: progress.step,
+										progressMeta: newMeta,
 									};
 								}
 								return updated;
@@ -1126,7 +1246,10 @@ export default function AskChat() {
 
 					{showStepper &&
 						(lastTurn?.currentStep ? (
-							<AskProgressStepper current={lastTurn.currentStep} />
+							<AskProgressStepper
+								current={lastTurn.currentStep}
+								progressMeta={lastTurn.progressMeta}
+							/>
 						) : (
 							<div className="ask-loading" role="status" aria-live="polite">
 								<span className="ask-spinner-large" aria-hidden="true" />
