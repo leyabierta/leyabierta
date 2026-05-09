@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	delete process.env.BUILD_MANIFEST_PATH;
+	process.env.BUILD_MANIFEST_PATH = undefined;
 	if (existsSync(TEST_DIR)) {
 		rmSync(TEST_DIR, { recursive: true });
 	}
@@ -53,7 +53,7 @@ afterEach(() => {
 
 describe("loadManifest()", () => {
 	it("returns null when BUILD_MANIFEST_PATH is not set", () => {
-		delete process.env.BUILD_MANIFEST_PATH;
+		process.env.BUILD_MANIFEST_PATH = undefined;
 		expect(loadManifest()).toBeNull();
 	});
 

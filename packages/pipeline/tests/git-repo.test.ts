@@ -491,7 +491,7 @@ describe("Idempotency and TZ-stability", () => {
 			await writeCommit(repoA, info);
 		} finally {
 			if (origTZ === undefined) {
-				delete process.env.TZ;
+				process.env.TZ = undefined;
 			} else {
 				process.env.TZ = origTZ;
 			}
@@ -503,7 +503,7 @@ describe("Idempotency and TZ-stability", () => {
 			await writeCommit(repoB, info);
 		} finally {
 			if (origTZ === undefined) {
-				delete process.env.TZ;
+				process.env.TZ = undefined;
 			} else {
 				process.env.TZ = origTZ;
 			}

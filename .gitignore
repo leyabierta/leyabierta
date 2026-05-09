@@ -74,3 +74,4 @@ data/reprocess-failures.jsonl
 tmp_*.py
 __pycache__/
 *.pyc
+.oc/

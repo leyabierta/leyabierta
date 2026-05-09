@@ -66,7 +66,7 @@ class ValidationError extends Error {
  * @throws NetworkError for network failures
  * @throws Error for unknown errors
  */
-function handleApiError(err: unknown, path: string): never {
+function _handleApiError(err: unknown, path: string): never {
 	if (err instanceof ApiError) {
 		throw err;
 	}
@@ -86,7 +86,11 @@ function handleApiError(err: unknown, path: string): never {
 			// Already formatted as API error
 			const match = err.message.match(/API (\d+):/);
 			const status = match ? Number.parseInt(match[1], 10) : 500;
-			throw new ApiError(status, err.message.replace(`API ${status}: `, ""), path);
+			throw new ApiError(
+				status,
+				err.message.replace(`API ${status}: `, ""),
+				path,
+			);
 		}
 
 		// Generic error
@@ -133,7 +137,7 @@ export function isRetryableError(err: unknown): boolean {
  * @param err - The error to format
  * @returns User-friendly error message in Spanish
  */
-function formatErrorMessage(err: unknown): string {
+function _formatErrorMessage(err: unknown): string {
 	if (err instanceof ApiError) {
 		if (err.status >= 500) {
 			return "Error del servidor. Por favor, inténtalo de nuevo más tarde.";

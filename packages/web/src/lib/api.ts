@@ -5,13 +5,8 @@
  */
 
 import { config } from "../config/env";
-import { ApiError, isRetryableError, NetworkError } from "./errors";
-import {
-	LawDetailSchema,
-	OmnibusTopicSchema,
-	type LawDetail,
-	type OmnibusTopic,
-} from "./schemas";
+import { ApiError, isRetryableError } from "./errors";
+import { type LawDetail, LawDetailSchema, type OmnibusTopic } from "./schemas";
 
 /**
  * Internal fetch function with retry logic.
@@ -22,11 +17,7 @@ import {
  * @throws ApiError on API errors
  * @throws NetworkError on network failures
  */
-async function fetchApi<T>(
-	path: string,
-	retries = 3,
-	attempt = 1,
-): Promise<T> {
+async function fetchApi<T>(path: string, retries = 3, attempt = 1): Promise<T> {
 	const headers: Record<string, string> = {};
 	if (config.api.bypassKey) headers["x-api-key"] = config.api.bypassKey;
 
@@ -61,12 +52,10 @@ async function fetchApi<T>(
  * @throws ApiError if the law is not found or API error occurs
  */
 export function getLaw(id: string): Promise<LawDetail> {
-	return fetchApi(`/v1/laws/${id}`).then((data) =>
-		LawDetailSchema.parse(data),
-	);
+	return fetchApi(`/v1/laws/${id}`).then((data) => LawDetailSchema.parse(data));
 }
 
 // ── Omnibus endpoints ──
 
 /** Omnibus topic type */
-export { type OmnibusTopic };
+export type { OmnibusTopic };

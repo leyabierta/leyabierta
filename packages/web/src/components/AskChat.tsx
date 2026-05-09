@@ -9,7 +9,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { config } from "../config/env";
 import {
-	buildCitationMap,
 	type Citation,
 	renderMarkdownWithCitations,
 	TextWithCitations,
@@ -100,7 +99,7 @@ const EXAMPLE_CATEGORIES: { name: string; questions: string[] }[] = [
  * `[BOE-A-XXXX-XXXX, Artículo N]` patterns become tooltipped links even when
  * they appear inside list items, paragraphs, headings, etc.
  */
-function domToReact(
+function _domToReact(
 	node: Node,
 	citationMap: Map<string, Map<string, Citation>>,
 	keyPrefix: string,
@@ -130,7 +129,7 @@ function domToReact(
 	for (let i = 0; i < el.childNodes.length; i++) {
 		const child = el.childNodes[i];
 		if (!child) continue;
-		const rendered = domToReact(child, citationMap, `${keyPrefix}-${i}`);
+		const rendered = _domToReact(child, citationMap, `${keyPrefix}-${i}`);
 		if (rendered !== null && rendered !== undefined) children.push(rendered);
 	}
 
@@ -815,168 +814,173 @@ export default function AskChat() {
 								<p>{turn.question}</p>
 							</div>
 
-							{turn.response && (turn.response.answer || turn.response.declined) && (
-								<div
-									className={`ask-turn-answer${turn.response.declined ? " ask-turn-declined" : ""}`}
-								>
-									{turn.response.declined ? (
-										<>
-											<p className="ask-declined-eyebrow">
-												Esto está fuera de mi alcance
-											</p>
-											<h2 className="ask-declined-heading">
-												No puedo darte una respuesta fiable a esta pregunta.
-											</h2>
-											<div className="ask-declined-body">
-												{turn.response.answer ? (
+							{turn.response &&
+								(turn.response.answer || turn.response.declined) && (
+									<div
+										className={`ask-turn-answer${turn.response.declined ? " ask-turn-declined" : ""}`}
+									>
+										{turn.response.declined ? (
+											<>
+												<p className="ask-declined-eyebrow">
+													Esto está fuera de mi alcance
+												</p>
+												<h2 className="ask-declined-heading">
+													No puedo darte una respuesta fiable a esta pregunta.
+												</h2>
+												<div className="ask-declined-body">
+													{turn.response.answer ? (
+														<AnswerWithCitations
+															text={turn.response.answer}
+															citations={[]}
+															streaming={false}
+														/>
+													) : (
+														<p>
+															Solo respondo basándome en la legislación
+															española. Reformula la pregunta dando más contexto
+															sobre tu situación concreta y lo intentamos de
+															nuevo.
+														</p>
+													)}
+												</div>
+												{turn.response.suggestedQuestions &&
+													turn.response.suggestedQuestions.length > 0 && (
+														<div className="ask-declined-suggestions">
+															<p className="ask-declined-suggestions-label">
+																¿Quizá querías saber…?
+															</p>
+															<div className="ask-declined-suggestions-list">
+																{turn.response.suggestedQuestions.map((q) => (
+																	<button
+																		key={q}
+																		type="button"
+																		className="ask-declined-suggestion"
+																		onClick={() => handleSubmit(q)}
+																		disabled={loading}
+																	>
+																		→ {q}
+																	</button>
+																))}
+															</div>
+														</div>
+													)}
+											</>
+										) : (
+											<>
+												{turn.response.tldr && (
+													<div className="ask-tldr">
+														<p className="ask-tldr-eyebrow">Respuesta corta</p>
+														<p className="ask-tldr-body">
+															{turn.response.tldr}
+														</p>
+													</div>
+												)}
+												<div className="ask-answer-text">
 													<AnswerWithCitations
 														text={turn.response.answer}
-														citations={[]}
-														streaming={false}
+														citations={turn.response.citations}
+														streaming={loading && turn === lastTurn}
 													/>
-												) : (
-													<p>
-														Solo respondo basándome en la legislación española.
-														Reformula la pregunta dando más contexto sobre tu
-														situación concreta y lo intentamos de nuevo.
-													</p>
-												)}
-											</div>
-											{turn.response.suggestedQuestions &&
-												turn.response.suggestedQuestions.length > 0 && (
-													<div className="ask-declined-suggestions">
-														<p className="ask-declined-suggestions-label">
-															¿Quizá querías saber…?
-														</p>
-														<div className="ask-declined-suggestions-list">
-															{turn.response.suggestedQuestions.map((q) => (
-																<button
-																	key={q}
-																	type="button"
-																	className="ask-declined-suggestion"
-																	onClick={() => handleSubmit(q)}
-																	disabled={loading}
-																>
-																	→ {q}
-																</button>
-															))}
-														</div>
-													</div>
-												)}
-										</>
-									) : (
-										<>
-											{turn.response.tldr && (
-												<div className="ask-tldr">
-													<p className="ask-tldr-eyebrow">Respuesta corta</p>
-													<p className="ask-tldr-body">{turn.response.tldr}</p>
 												</div>
-											)}
-											<div className="ask-answer-text">
-												<AnswerWithCitations
-													text={turn.response.answer}
-													citations={turn.response.citations}
-													streaming={loading && turn === lastTurn}
-												/>
-											</div>
 
-											{turn.response.nextQuestions &&
-												turn.response.nextQuestions.length > 0 && (
-													<div className="ask-next">
-														<p className="ask-next-label">Continuar con</p>
-														<div className="ask-next-chips">
-															{turn.response.nextQuestions.map((q) => (
-																<button
-																	key={q}
-																	type="button"
-																	className="ask-next-chip"
-																	onClick={() => handleSubmit(q)}
-																	disabled={loading}
-																>
-																	{q}
-																</button>
-															))}
-														</div>
-													</div>
-												)}
-
-											<TurnActions turn={turn} />
-
-											{turn.response.citations.length > 0 && (
-												<div className="ask-turn-citations">
-													<p className="ask-turn-citations-label">
-														Fuentes citadas:
-													</p>
-													<ul className="ask-citations-list">
-														{turn.response.citations.map((c) => (
-															<li
-																key={`${c.normId}-${c.articleTitle}`}
-																className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
-															>
-																<a
-																	href={`/leyes/${c.normId}/${c.anchor ? `#${c.anchor}` : ""}`}
-																	target="_blank"
-																	rel="noopener noreferrer"
-																	className="ask-citation-link"
-																>
-																	<span className="ask-citation-norm">
-																		{c.normId}
-																	</span>
-																	<span className="ask-citation-article">
-																		{c.articleTitle}
-																	</span>
-																	<svg
-																		className="ask-citation-chevron"
-																		width="14"
-																		height="14"
-																		viewBox="0 0 24 24"
-																		fill="none"
-																		stroke="currentColor"
-																		strokeWidth="2"
-																		strokeLinecap="round"
-																		strokeLinejoin="round"
-																		aria-hidden="true"
+												{turn.response.nextQuestions &&
+													turn.response.nextQuestions.length > 0 && (
+														<div className="ask-next">
+															<p className="ask-next-label">Continuar con</p>
+															<div className="ask-next-chips">
+																{turn.response.nextQuestions.map((q) => (
+																	<button
+																		key={q}
+																		type="button"
+																		className="ask-next-chip"
+																		onClick={() => handleSubmit(q)}
+																		disabled={loading}
 																	>
-																		<polyline points="9 18 15 12 9 6" />
-																	</svg>
-																</a>
-															</li>
-														))}
-													</ul>
-												</div>
-											)}
+																		{q}
+																	</button>
+																))}
+															</div>
+														</div>
+													)}
 
-											{turn.response.meta.model && (
-												<details className="ask-meta-details">
-													<summary className="ask-meta-summary">
-														{turn.response.meta.articlesRetrieved} artículos
-														consultados en{" "}
-														{(turn.response.meta.latencyMs / 1000).toFixed(1)}s
-													</summary>
-													<div className="ask-meta-content">
-														<dl className="ask-meta-list">
-															<div className="ask-meta-item">
-																<dt>Contexto temporal</dt>
-																<dd>
-																	{turn.response.meta.temporalEnriched
-																		? "Sí (incluye historial de cambios)"
-																		: "No"}
-																</dd>
-															</div>
-															<div className="ask-meta-item">
-																<dt>Modelo</dt>
-																<dd>{turn.response.meta.model}</dd>
-															</div>
-														</dl>
+												<TurnActions turn={turn} />
+
+												{turn.response.citations.length > 0 && (
+													<div className="ask-turn-citations">
+														<p className="ask-turn-citations-label">
+															Fuentes citadas:
+														</p>
+														<ul className="ask-citations-list">
+															{turn.response.citations.map((c) => (
+																<li
+																	key={`${c.normId}-${c.articleTitle}`}
+																	className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
+																>
+																	<a
+																		href={`/leyes/${c.normId}/${c.anchor ? `#${c.anchor}` : ""}`}
+																		target="_blank"
+																		rel="noopener noreferrer"
+																		className="ask-citation-link"
+																	>
+																		<span className="ask-citation-norm">
+																			{c.normId}
+																		</span>
+																		<span className="ask-citation-article">
+																			{c.articleTitle}
+																		</span>
+																		<svg
+																			className="ask-citation-chevron"
+																			width="14"
+																			height="14"
+																			viewBox="0 0 24 24"
+																			fill="none"
+																			stroke="currentColor"
+																			strokeWidth="2"
+																			strokeLinecap="round"
+																			strokeLinejoin="round"
+																			aria-hidden="true"
+																		>
+																			<polyline points="9 18 15 12 9 6" />
+																		</svg>
+																	</a>
+																</li>
+															))}
+														</ul>
 													</div>
-												</details>
-											)}
-										</>
-									)}
-								</div>
-							)}
+												)}
 
-							{turn.response && turn.response.answer && !turn.response.declined && (
+												{turn.response.meta.model && (
+													<details className="ask-meta-details">
+														<summary className="ask-meta-summary">
+															{turn.response.meta.articlesRetrieved} artículos
+															consultados en{" "}
+															{(turn.response.meta.latencyMs / 1000).toFixed(1)}
+															s
+														</summary>
+														<div className="ask-meta-content">
+															<dl className="ask-meta-list">
+																<div className="ask-meta-item">
+																	<dt>Contexto temporal</dt>
+																	<dd>
+																		{turn.response.meta.temporalEnriched
+																			? "Sí (incluye historial de cambios)"
+																			: "No"}
+																	</dd>
+																</div>
+																<div className="ask-meta-item">
+																	<dt>Modelo</dt>
+																	<dd>{turn.response.meta.model}</dd>
+																</div>
+															</dl>
+														</div>
+													</details>
+												)}
+											</>
+										)}
+									</div>
+								)}
+
+							{turn.response?.answer && !turn.response.declined && (
 								<p className="ask-turn-disclaimer">
 									Respuestas generadas automáticamente a partir del texto
 									oficial. No son asesoramiento jurídico, para casos serios

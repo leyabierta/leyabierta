@@ -49,7 +49,11 @@ export function lawsLoader(options: { path: string }): Loader {
 			let errors = 0;
 			for (const result of results) {
 				if (result.success) {
-					store.set({ id: result.id!, data: result.data!, body: result.filePath! });
+					store.set({
+						id: result.id!,
+						data: result.data!,
+						body: result.filePath!,
+					});
 					loaded++;
 				} else {
 					errors++;
