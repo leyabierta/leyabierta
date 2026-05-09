@@ -7,7 +7,20 @@
  */
 
 import MarkdownIt from "markdown-it";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	lazy,
+	type ReactNode,
+	Suspense,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
+
+// ── Lottie (lazy-loaded to avoid blocking first paint, ~30KB) ──
+const DotLottieReact = lazy(async () => {
+	const mod = await import("@lottiefiles/dotlottie-react");
+	return { default: mod.DotLottieReact };
+});
 
 // ── Markdown renderer ──
 // `html: false` means raw HTML inside the markdown is escaped — Gemini output
@@ -415,6 +428,146 @@ function saveTurns(turns: Turn[]) {
 	}
 }
 
+// ── Rotating facts ──
+
+const LOADING_FACTS = [
+	"El Boletín Oficial del Estado existe desde 1661. Es una de las publicaciones oficiales más antiguas del mundo.",
+	"España tiene más de 12.000 leyes vigentes, desde estatales hasta autonómicas.",
+	"La Constitución Española ha sido reformada solo dos veces desde su aprobación en 1978.",
+	"Esta consulta solo usa legislación oficial vigente. Sin opiniones, sin invenciones.",
+	"Cada artículo que citamos enlaza directamente al BOE. Puedes verificarlo todo.",
+	"El sistema busca entre casi medio millón de fragmentos de artículos para encontrar los más relevantes.",
+	"Las leyes autonómicas conviven con las estatales: hay 17 ordenamientos jurídicos regionales en España.",
+	"El Código Civil español data de 1889 y sigue en vigor, aunque profundamente reformado.",
+	"Ninguna respuesta aquí es asesoramiento jurídico. El sistema informa; los abogados asesoran.",
+	"Los derechos fundamentales de la Constitución solo pueden modificarse con mayoría de dos tercios en ambas cámaras.",
+	"Las leyes orgánicas regulan los derechos fundamentales y requieren mayoría absoluta del Congreso para aprobarse.",
+	"El Estatuto de los Trabajadores lleva más de cuatro décadas regulando las relaciones laborales en España.",
+	"Una ley puede modificar cientos de artículos de otras leyes en una sola publicación en el BOE.",
+	"El sistema aplica búsqueda híbrida: semántica y por palabras clave, combinadas para mayor precisión.",
+	"Las leyes no tienen autor: son aprobadas colectivamente por el Parlamento en nombre de la ciudadanía.",
+	"El derecho a la vivienda quedó reconocido expresamente en la Constitución tras la reforma de 2011.",
+	"Ley Abierta es código abierto. Puedes ver exactamente cómo funciona en GitHub.",
+	"El derecho español distingue entre ley ordinaria, ley orgánica, decreto-ley y decreto legislativo.",
+	"Las comunidades autónomas pueden legislar en materias transferidas, como sanidad o educación.",
+	"El sistema clasifica cada artículo por materia para mejorar la relevancia de los resultados.",
+	"Las disposiciones transitorias de una ley regulan la adaptación al nuevo régimen jurídico.",
+	"España transpone continuamente directivas europeas: muchas leyes tienen origen en Bruselas.",
+	"El Tribunal Constitucional puede anular leyes que contravengan la Constitución.",
+	"Las reformas laborales de 2012 y 2021 cambiaron profundamente el Estatuto de los Trabajadores.",
+	"El derecho al olvido digital fue reconocido en España antes de que existiera el RGPD europeo.",
+	"El sistema verifica cada cita contra el texto real del artículo antes de mostrártela.",
+	"Una consulta típica evalúa entre 50 y 80 artículos candidatos antes de seleccionar los más fiables.",
+	"El Código Penal español ha sido reformado más de 30 veces desde su aprobación en 1995.",
+	"Las leyes de protección de datos, consumidores y medio ambiente han crecido significativamente en la última década.",
+	"Los datos legislativos de Ley Abierta se actualizan a diario desde el BOE.",
+] as const;
+
+// ── Static SVG fallback (shown when prefers-reduced-motion is active) ──
+function DocScanFallback() {
+	return (
+		<svg
+			width="120"
+			height="120"
+			viewBox="0 0 160 160"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			aria-hidden="true"
+			className="ask-lottie-fallback"
+		>
+			{/* Document */}
+			<rect
+				x="44"
+				y="36"
+				width="72"
+				height="88"
+				rx="6"
+				fill="#edf2f7"
+				stroke="#1a365d"
+				strokeWidth="2.5"
+			/>
+			{/* Lines inside document */}
+			<line
+				x1="58"
+				y1="60"
+				x2="102"
+				y2="60"
+				stroke="#1a365d"
+				strokeWidth="2"
+				strokeOpacity="0.35"
+				strokeLinecap="round"
+			/>
+			<line
+				x1="58"
+				y1="72"
+				x2="102"
+				y2="72"
+				stroke="#1a365d"
+				strokeWidth="2"
+				strokeOpacity="0.35"
+				strokeLinecap="round"
+			/>
+			<line
+				x1="58"
+				y1="84"
+				x2="86"
+				y2="84"
+				stroke="#1a365d"
+				strokeWidth="2"
+				strokeOpacity="0.35"
+				strokeLinecap="round"
+			/>
+			{/* Magnifier */}
+			<circle
+				cx="105"
+				cy="105"
+				r="14"
+				fill="#e6eef8"
+				stroke="#1a365d"
+				strokeWidth="2.5"
+			/>
+			<line
+				x1="115"
+				y1="115"
+				x2="127"
+				y2="127"
+				stroke="#1a365d"
+				strokeWidth="3"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+// ── Loading composition: Lottie + stepper + rotating facts ──
+function RotatingFact() {
+	const [idx, setIdx] = useState(() =>
+		Math.floor(Math.random() * LOADING_FACTS.length),
+	);
+	const [visible, setVisible] = useState(true);
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setVisible(false);
+			setTimeout(() => {
+				setIdx((prev) => (prev + 1) % LOADING_FACTS.length);
+				setVisible(true);
+			}, 400);
+		}, 3500);
+		return () => clearInterval(interval);
+	}, []);
+
+	return (
+		<p
+			className={`ask-fact-text${visible ? " ask-fact-visible" : " ask-fact-hidden"}`}
+			aria-live="polite"
+			aria-atomic="true"
+		>
+			{LOADING_FACTS[idx]}
+		</p>
+	);
+}
+
 // ── Progress stepper ──
 
 function StepIcon({
@@ -578,6 +731,12 @@ function StepIcon({
 
 function AskProgressStepper({ current }: { current: ProgressStep }) {
 	const currentIdx = PROGRESS_ORDER.indexOf(current);
+
+	// prefers-reduced-motion detection
+	const prefersReducedMotion =
+		typeof window !== "undefined" &&
+		window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 	return (
 		<div
 			className="ask-progress-stepper"
@@ -585,29 +744,58 @@ function AskProgressStepper({ current }: { current: ProgressStep }) {
 			aria-live="polite"
 			aria-label="Progreso de la respuesta"
 		>
-			<ol className="ask-progress-list">
-				{PROGRESS_ORDER.map((step, idx) => {
-					const state =
-						idx < currentIdx
-							? "done"
-							: idx === currentIdx
-								? "active"
-								: "pending";
-					return (
-						<li
-							key={step}
-							className={`ask-progress-item ask-progress-${state}`}
-						>
-							<span className="ask-progress-icon-wrap" aria-hidden="true">
-								<StepIcon step={step} state={state} />
-							</span>
-							<span className="ask-progress-label">
-								{PROGRESS_LABELS[step]}
-							</span>
-						</li>
-					);
-				})}
-			</ol>
+			<div className="ask-loading-composition">
+				{/* Lottie hero visual — lazy-loaded, fallback for reduced-motion */}
+				<div className="ask-lottie-wrap" aria-hidden="true">
+					{prefersReducedMotion ? (
+						<DocScanFallback />
+					) : (
+						<Suspense fallback={<DocScanFallback />}>
+							<DotLottieReact
+								src="/lottie/doc-scan.json"
+								loop
+								autoplay
+								style={{ width: 140, height: 140 }}
+							/>
+						</Suspense>
+					)}
+				</div>
+
+				{/* Stepper + fact column */}
+				<div className="ask-loading-right">
+					<ol className="ask-progress-list">
+						{PROGRESS_ORDER.map((step, idx) => {
+							const state =
+								idx < currentIdx
+									? "done"
+									: idx === currentIdx
+										? "active"
+										: "pending";
+							return (
+								<li
+									key={step}
+									className={`ask-progress-item ask-progress-${state}`}
+								>
+									<span className="ask-progress-icon-wrap" aria-hidden="true">
+										<StepIcon step={step} state={state} />
+									</span>
+									<span
+										className={`ask-progress-label${state === "active" ? " ask-progress-label-active" : ""}`}
+									>
+										{PROGRESS_LABELS[step]}
+									</span>
+								</li>
+							);
+						})}
+					</ol>
+
+					{/* Rotating facts */}
+					<div className="ask-facts-wrap">
+						<span className="ask-facts-kicker">¿Sabías que…?</span>
+						<RotatingFact />
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }

@@ -46,6 +46,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@astrojs/react": "^5.0.3",
+        "@lottiefiles/dotlottie-react": "^0.19.2",
         "astro": "6.1.9",
         "diff2html": "3.4.56",
         "js-yaml": "4.1.1",
@@ -281,6 +282,10 @@
     "@leyabierta/pipeline": ["@leyabierta/pipeline@workspace:packages/pipeline"],
 
     "@leyabierta/web": ["@leyabierta/web@workspace:packages/web"],
+
+    "@lottiefiles/dotlottie-react": ["@lottiefiles/dotlottie-react@0.19.2", "", { "dependencies": { "@lottiefiles/dotlottie-web": "0.72.1" }, "peerDependencies": { "react": "^17 || ^18 || ^19" } }, "sha512-qXvCU5Wm/BNYfoS/+MzeVqn03yu2v3XTJ+ik8kKgyHlbf6Vcgz3byOQk9H/mOciedjhGr+YmZXZ+ItqFUmA3Iw=="],
+
+    "@lottiefiles/dotlottie-web": ["@lottiefiles/dotlottie-web@0.72.1", "", {}, "sha512-TPHCTQHw4oZBiIi/JPd6CtjPzsazpyRVUloO7kA5khF6IX/sCIfBa8l/Tav333pskO6gFMtlnfRPwEOatMZS/A=="],
 
     "@napi-rs/canvas": ["@napi-rs/canvas@0.1.80", "", { "optionalDependencies": { "@napi-rs/canvas-android-arm64": "0.1.80", "@napi-rs/canvas-darwin-arm64": "0.1.80", "@napi-rs/canvas-darwin-x64": "0.1.80", "@napi-rs/canvas-linux-arm-gnueabihf": "0.1.80", "@napi-rs/canvas-linux-arm64-gnu": "0.1.80", "@napi-rs/canvas-linux-arm64-musl": "0.1.80", "@napi-rs/canvas-linux-riscv64-gnu": "0.1.80", "@napi-rs/canvas-linux-x64-gnu": "0.1.80", "@napi-rs/canvas-linux-x64-musl": "0.1.80", "@napi-rs/canvas-win32-x64-msvc": "0.1.80" } }, "sha512-DxuT1ClnIPts1kQx8FBmkk4BQDTfI5kIzywAaMjQSXfNnra5UFU9PwurXrl+Je3bJ6BGsp/zmshVVFbCmyI+ww=="],
 

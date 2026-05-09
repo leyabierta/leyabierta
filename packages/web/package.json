@@ -9,6 +9,7 @@
 	},
 	"dependencies": {
 		"@astrojs/react": "^5.0.3",
+		"@lottiefiles/dotlottie-react": "^0.19.2",
 		"astro": "6.1.9",
 		"diff2html": "3.4.56",
 		"js-yaml": "4.1.1",
