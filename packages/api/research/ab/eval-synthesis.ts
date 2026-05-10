@@ -77,7 +77,7 @@ process.env.NAN_STACK = "true";
 // ── Load eval set ──
 
 interface EvalQuery {
-	id: number;
+	id: number | string;
 	question: string;
 	expectedNorms?: string[];
 	category?: string;
@@ -204,7 +204,7 @@ interface CandidateResult {
 }
 
 interface QueryEvalResult {
-	id: number;
+	id: number | string;
 	question: string;
 	expectedNorms: string[];
 	retrievedNormIds: string[];

@@ -278,10 +278,15 @@ const tag = tagParts.join("-");
 
 const repoRoot = join(import.meta.dir, "../../../../");
 const dbPath = join(repoRoot, "data", "leyabierta.db");
-const evalPath = join(
-	repoRoot,
-	"packages/api/research/datasets/citizen-queries.json",
-);
+// Allow overriding the eval dataset (e.g. --dataset packages/api/research/datasets/citizen-queries-v3.json).
+// Default keeps the legacy path so existing scripts/CI runs are unchanged.
+const datasetArgIdx = args.indexOf("--dataset");
+const datasetArg = datasetArgIdx >= 0 ? args[datasetArgIdx + 1] : undefined;
+const evalPath = datasetArg
+	? datasetArg.startsWith("/")
+		? datasetArg
+		: join(repoRoot, datasetArg)
+	: join(repoRoot, "packages/api/research/datasets/citizen-queries.json");
 const outDir = join(repoRoot, "data", "ab-results");
 await Bun.write(`${outDir}/.keep`, "");
 
@@ -310,7 +315,8 @@ createSchema(db);
 // ── Load eval set ──
 
 interface EvalQuery {
-	id: number;
+	// v3 dataset uses string ids ("q_d08970e3"); legacy citizen-queries.json uses numbers.
+	id: number | string;
 	question: string;
 	expectedNorms?: string[];
 	category?: string;
@@ -394,7 +400,7 @@ const haystackFilter = fullCorpus ? undefined : qwenNormIds;
 // ── Run eval ──
 
 type QueryResult = {
-	id: number;
+	id: number | string;
 	question: string;
 	category: string;
 	model: string;
