@@ -75,3 +75,4 @@ tmp_*.py
 __pycache__/
 *.pyc
 .oc/
+packages/api/src/data/
