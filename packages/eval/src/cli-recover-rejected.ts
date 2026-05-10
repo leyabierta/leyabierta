@@ -180,6 +180,10 @@ for (const s of stats) {
 	);
 }
 console.log(`\nCandidates written: ${candidates.length} → ${outPath}`);
-console.log(`\nReminder: candidates are NOT fully accepted. They still need to`);
+console.log(
+	`\nReminder: candidates are NOT fully accepted. They still need to`,
+);
 console.log(`pass rare-overlap + LLM critic + answerability + voice + 5-judge`);
-console.log(`panel + dedup. Re-feed via the pipeline starting at rare-overlap.`);
+console.log(
+	`panel + dedup. Re-feed via the pipeline starting at rare-overlap.`,
+);

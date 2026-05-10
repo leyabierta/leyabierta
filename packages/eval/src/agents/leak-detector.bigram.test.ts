@@ -155,7 +155,9 @@ describe("detectBigramOverlap", () => {
 		// Default with whitelist active: passes because "comunidad autonoma" is whitelisted.
 		expect(detectBigramOverlap(question, article)).toBeNull();
 		// Empty whitelist forces a strict comparison.
-		const strict = detectBigramOverlap(question, article, { whitelist: new Set() });
+		const strict = detectBigramOverlap(question, article, {
+			whitelist: new Set(),
+		});
 		// "comunidad autonoma" is the only shared bigram → still below min=2.
 		expect(strict).toBeNull();
 	});
