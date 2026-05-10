@@ -11,6 +11,8 @@
  * Temperature 0 (we want deterministic verdicts).
  */
 
+import { DOMAIN_INEVITABLE_BIGRAMS } from "./leak-detector-whitelist.ts";
+
 export const LEAK_DETECTOR_PROMPT_ID = "leak-detector-v1";
 
 // ── Regex layer (run before LLM, free) ────────────────────────────────────
@@ -245,9 +247,20 @@ function bigramSet(tokens: string[]): Set<string> {
 export function detectBigramOverlap(
 	question: string,
 	articleText: string,
-	opts: { minOverlapBigrams?: number; minBigramFreqRatio?: number } = {},
+	opts: {
+		minOverlapBigrams?: number;
+		minBigramFreqRatio?: number;
+		/**
+		 * Bigrams that count as "domain-inevitable" and should NOT contribute
+		 * to the overlap count. Defaults to `DOMAIN_INEVITABLE_BIGRAMS`
+		 * (data-driven, see leak-detector-whitelist.ts). Pass `new Set()` to
+		 * disable the whitelist entirely (e.g. for legacy tests).
+		 */
+		whitelist?: ReadonlySet<string>;
+	} = {},
 ): { matched: string[] } | null {
 	const minOverlapBigrams = opts.minOverlapBigrams ?? 2;
+	const whitelist = opts.whitelist ?? DOMAIN_INEVITABLE_BIGRAMS;
 	// `minBigramFreqRatio` reserved for v2 corpus-frequency filtering;
 	// v1 treats every shared bigram as suspicious.
 
@@ -257,7 +270,14 @@ export function detectBigramOverlap(
 
 	const matched: string[] = [];
 	for (const bg of qBigrams) {
-		if (aBigrams.has(bg)) matched.push(bg);
+		if (!aBigrams.has(bg)) continue;
+		// Drop domain-inevitable bigrams: they share a collocation by
+		// necessity (any citizen asking about "comunidad autonoma X" will
+		// share that bigram with the article, regardless of whether they
+		// have seen it). The downstream LLM critic still inspects the
+		// question as a whole for subtler leak patterns.
+		if (whitelist.has(bg)) continue;
+		matched.push(bg);
 	}
 
 	if (matched.length < minOverlapBigrams) return null;

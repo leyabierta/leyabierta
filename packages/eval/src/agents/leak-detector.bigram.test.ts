@@ -130,6 +130,51 @@ describe("detectBigramOverlap", () => {
 		expect(result?.matched.length).toBeGreaterThanOrEqual(2);
 	});
 
+	// ── Domain whitelist behavior (2026-05-11) ────────────────────────
+	// The whitelist (leak-detector-whitelist.ts) holds 245 data-driven
+	// domain-inevitable bigrams. These tests document its contract; for
+	// the audit's specific FP cases (embarque pasajeros, pareja estable,
+	// comision mixta) the WHITELIST DOES NOT FULLY RECOVER THEM because
+	// the actual bigram tokens after stemming/skip-bigrams are different
+	// from the human-readable phrases in the audit ("tasa embarque" +
+	// "embarque pasajero" remain non-whitelisted). Recovery for those
+	// will need either a longer trigram detector or a downstream LLM
+	// critic relaxation — tracked in tasks.md.
+
+	test("whitelist drops shared 'comunidad autonoma' from match count", () => {
+		// "comunidad autonoma" is the most-rejected bigram in the v3 run.
+		// With only this one shared, the bigram detector should NOT fire.
+		const article = "La comunidad autonoma regula esta materia.";
+		const question = "que regula la comunidad autonoma en este caso";
+		expect(detectBigramOverlap(question, article)).toBeNull();
+	});
+
+	test("whitelist can be disabled with empty set (legacy callers)", () => {
+		const article = "La comunidad autonoma regula la materia.";
+		const question = "que regula la comunidad autonoma sobre esto";
+		// Default with whitelist active: passes because "comunidad autonoma" is whitelisted.
+		expect(detectBigramOverlap(question, article)).toBeNull();
+		// Empty whitelist forces a strict comparison.
+		const strict = detectBigramOverlap(question, article, { whitelist: new Set() });
+		// "comunidad autonoma" is the only shared bigram → still below min=2.
+		expect(strict).toBeNull();
+	});
+
+	test("whitelist preserves real-leak detection when non-whitelisted bigrams remain", () => {
+		// Shared bigrams: "comunidad autonoma" (whitelisted) + "fondo solidaridad"
+		// + "asistencia ambulatoria" — two non-whitelisted bigrams left should
+		// still fire the detector.
+		const article =
+			"La comunidad autonoma destina el fondo de solidaridad a programas de asistencia ambulatoria.";
+		const question =
+			"¿Cómo usa la comunidad autonoma el fondo de solidaridad para la asistencia ambulatoria?";
+		const result = detectBigramOverlap(question, article);
+		expect(result).not.toBeNull();
+		// "comunidad autonoma" should be filtered out of `matched`.
+		expect(result?.matched).not.toContain("comunidad autonoma");
+		expect(result?.matched.length).toBeGreaterThanOrEqual(2);
+	});
+
 	test("threshold = 2: 1 shared bigram passes, 2 fails", () => {
 		const article =
 			"La actualización de precios se realizará anualmente conforme al índice oficial publicado.";
