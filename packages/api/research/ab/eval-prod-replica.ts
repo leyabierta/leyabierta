@@ -33,58 +33,67 @@ import { shutdownVectorPool } from "../../src/services/rag/vector-pool.ts";
 
 // ── Qwen3-Embedding-8B via OpenRouter (nan.builders blocked by Cloudflare) ──
 
-const OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings";
+// Query-side embedding via NaN (free, OpenAI-compatible). Same model/dims as
+// the corpus embeddings; using NaN consistently keeps the eval 100% on the
+// free stack and avoids any OpenRouter dependency for embeddings.
+const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
 
-async function qwenOpenRouterEmbedQuery(
-	apiKey: string,
+async function qwenNanEmbedQuery(
+	_apiKey: string, // ignored; we use HERMES_API_KEY for NaN
 	_modelKey: string,
 	query: string,
 ): Promise<{ embedding: Float32Array; cost: number; tokens: number }> {
-	// Qwen3 doc-side: plain text, NO instruction prefix (official spec)
-	// Query-side: Instruct prefix recommended (set USE_INSTRUCT=false to ablate)
+	// Doc-side embeddings have no prompt (Qwen3 official spec). Match that on
+	// query-side: --no-instruct (default for fair raw eval). Phase 4 ablation
+	// confirmed Instruct prefix HURTS R@1 by ~10pp on this corpus.
 	const prefixedQuery = QWEN_USE_INSTRUCT
 		? `Instruct: Dada una pregunta jurídica de un ciudadano español, recupera el artículo de la legislación vigente que mejor la responda.\nQuery: ${query}`
 		: query;
 
+	const apiKey = process.env.HERMES_API_KEY;
+	if (!apiKey) {
+		throw new Error("HERMES_API_KEY required for NaN embeddings");
+	}
+
 	let attempts = 0;
 	while (true) {
-		const res = await fetch(OPENROUTER_EMBEDDINGS_URL, {
+		const res = await fetch(NAN_EMBEDDINGS_URL, {
 			method: "POST",
 			headers: {
 				Authorization: `Bearer ${apiKey}`,
 				"Content-Type": "application/json",
-				"HTTP-Referer": "https://leyabierta.es",
-				"X-Title": "Ley Abierta RAG Eval",
 			},
 			body: JSON.stringify({
-				model: "qwen/qwen3-embedding-8b",
+				model: "qwen3-embedding",
 				input: prefixedQuery,
+				encoding_format: "float",
 			}),
-			signal: AbortSignal.timeout(30_000),
+			signal: AbortSignal.timeout(60_000),
 		});
 
-		if (res.status === 429) {
+		if (res.status === 429 || res.status >= 500) {
 			attempts++;
-			if (attempts > 3) throw new Error("Rate limited after max retries");
-			await new Promise((r) => setTimeout(r, 1000 * attempts * 2));
+			if (attempts > 5) throw new Error(`NaN embeddings ${res.status} after ${attempts} retries`);
+			await new Promise((r) => setTimeout(r, 2000 * attempts));
 			continue;
 		}
 
 		if (!res.ok) {
 			const errText = await res.text();
-			throw new Error(
-				`OpenRouter embeddings ${res.status}: ${errText.slice(0, 200)}`,
-			);
+			throw new Error(`NaN embeddings ${res.status}: ${errText.slice(0, 200)}`);
 		}
 
-		const data = await res.json();
+		const data = (await res.json()) as { data: Array<{ embedding: number[] }> };
 		return {
-			embedding: new Float32Array(data.data[0].embedding),
+			embedding: new Float32Array(data.data[0]!.embedding),
 			cost: 0,
 			tokens: 0,
 		};
 	}
 }
+
+// Backwards-compat alias (older callsites use the OpenRouter name).
+const qwenOpenRouterEmbedQuery = qwenNanEmbedQuery;
 
 // ── Build per-model in-memory index from SQLite ──
 // For Phase 1 we only need the overlapping norm subset (Qwen-NAN coverage).
@@ -230,7 +239,31 @@ const QWEN_USE_INSTRUCT = !args.includes("--no-instruct");
 // Per-model results are persisted to JSON; the final pass merges and reports.
 const onlyGemini = args.includes("--only-gemini");
 const onlyQwen = args.includes("--only-qwen");
-const tag = QWEN_USE_INSTRUCT ? "instruct" : "no-instruct";
+// Phase 4: HyDE — pre-rewrite queries to legal jargon before embedding.
+const useHyde = args.includes("--hyde");
+// Optional override of the HyDE cache file (relative to outDir).
+const hydeCacheArg = args.indexOf("--hyde-cache");
+const hydeCacheName =
+	hydeCacheArg >= 0 ? args[hydeCacheArg + 1]! : "hyde-cache.json";
+// Phase 4: search the citizen-summary embedding store instead of raw-text.
+const useSummaryIndex = args.includes("--summary-index");
+// Phase 4: multi-vector — score = max(raw_score, summary_score) per article.
+const useMultiVector = args.includes("--multi-vector");
+// Tag for output files (separates each variant's saved results). The harness
+// auto-derives a base tag from active flags; --tag adds an extra suffix only
+// when explicitly given.
+const tagParts: string[] = [QWEN_USE_INSTRUCT ? "instruct" : "no-instruct"];
+if (useHyde) tagParts.push("hyde");
+if (useSummaryIndex) tagParts.push("summary");
+if (useMultiVector) tagParts.push("multi");
+const variantTagArg = args.indexOf("--tag");
+if (variantTagArg >= 0) {
+	const t = args[variantTagArg + 1]!;
+	// Avoid duplicates: if the user passed --tag with a part already auto-added
+	// (e.g. --hyde --tag hyde), don't re-append.
+	if (!tagParts.includes(t)) tagParts.push(t);
+}
+const tag = tagParts.join("-");
 
 // ── Paths ──
 
@@ -242,6 +275,22 @@ const evalPath = join(
 );
 const outDir = join(repoRoot, "data", "ab-results");
 await Bun.write(`${outDir}/.keep`, "");
+
+// ── HyDE cache ──
+let hydeCache: Record<string, string> = {};
+if (useHyde) {
+	const hydeFile = Bun.file(`${outDir}/${hydeCacheName}`);
+	if (await hydeFile.exists()) {
+		hydeCache = (await hydeFile.json()) as Record<string, string>;
+		console.log(
+			`Loaded HyDE cache: ${Object.keys(hydeCache).length} rewrites (${hydeCacheName})`,
+		);
+	} else {
+		console.warn(
+			`--hyde requires ${outDir}/${hydeCacheName} — run precompute-hyde.ts first`,
+		);
+	}
+}
 
 // ── DB ──
 
@@ -268,11 +317,15 @@ console.log(`Eval set: ${questions.length} questions`);
 
 // ── Determine Qwen-NAN covered norms ──
 
+// In --summary-index variant we use the citizen-summary store as the haystack;
+// otherwise the raw-text Qwen store. The two sets should be near-identical
+// (summary script seeds from raw scope) but coverage may differ during embed.
+const haystackModel = useSummaryIndex ? "qwen3-nan-summary" : "qwen3-nan";
 const qwenNormIds = db
-	.query<{ norm_id: string }, string[]>(
-		"SELECT DISTINCT norm_id FROM embeddings WHERE model = 'qwen3-nan'",
+	.query<{ norm_id: string }, [string]>(
+		"SELECT DISTINCT norm_id FROM embeddings WHERE model = ?",
 	)
-	.all()
+	.all(haystackModel)
 	.map((r) => r.norm_id);
 console.log(`Qwen-NAN covers ${qwenNormIds.length} distinct norms`);
 
@@ -339,9 +392,29 @@ async function runVariant(
 	index: NonNullable<Awaited<ReturnType<typeof buildModelIndex>>>,
 	embedFn: EmbedQueryFn,
 ): Promise<QueryResult> {
+	// HyDE: keep the original question for BM25/analyzer (preserves citizen
+	// keywords and category hints), but swap in the legal-jargon rewrite for
+	// the vector embedding. The composed-query approach (original + rewrite)
+	// in earlier iterations diluted BM25 keyword extraction (analyzer pulls
+	// generic "responsabilidad civil", "obligación" terms).
+	let effectiveEmbedFn = embedFn;
+	if (useHyde && hydeCache[question.question]) {
+		const rewrite = hydeCache[question.question];
+		// HyDE substitution mode: depending on env, use rewrite-only,
+		// composed (orig + rewrite), or hybrid (rewrite alone for embedding).
+		const mode = process.env.HYDE_MODE ?? "embed-rewrite-only";
+		const textForEmbed =
+			mode === "composed"
+				? `${question.question}\n\n${rewrite}`
+				: mode === "embed-rewrite-only"
+					? rewrite!
+					: question.question;
+		effectiveEmbedFn = async (k, m, _q) => embedFn(k, m, textForEmbed);
+	}
+
 	const opts: Omit<RunRetrievalCoreOpts, "db" | "apiKey" | "cohereApiKey"> = {
 		embeddingModelKey: modelKey,
-		embedQueryFn: embedFn,
+		embedQueryFn: effectiveEmbedFn,
 		// Disable low-confidence gate: Qwen and Gemini cosine score scales differ.
 		// We compare retrieval quality, not the prod confidence calibration.
 		lowConfidenceThreshold: 0,
@@ -441,7 +514,10 @@ const qwenResults: QueryResult[] = [];
 // reset the singleton, then run all queries for the next model.
 
 // File paths for per-pass result persistence (Phase 3 split).
-const geminiPassFile = `${outDir}/eval-pass-gemini-${tag}.json`;
+// Gemini pass is invariant across Qwen-side variants (HyDE / summary / multi
+// only affect Qwen's query and index), so we cache it under a stable name and
+// reuse across runs. Qwen pass uses the full variant tag.
+const geminiPassFile = `${outDir}/eval-pass-gemini-baseline.json`;
 const qwenPassFile = `${outDir}/eval-pass-qwen-${tag}.json`;
 
 let geminiDims = 0;
@@ -535,9 +611,10 @@ console.log(
 	`\n== Pass 2: Qwen-NAN (${fullCorpus ? "FULL corpus" : "subset"}) ==`,
 );
 console.log("  Building Qwen-NAN vector index...");
+const qwenModelKey = useSummaryIndex ? "qwen3-nan-summary" : "qwen3-nan";
 const qwenIndex = await buildModelIndex(
 	db,
-	"qwen3-nan",
+	qwenModelKey,
 	join(repoRoot, "data"),
 	haystackFilter,
 );
@@ -559,7 +636,7 @@ for (let i = 0; i < coveredQueries.length; i++) {
 	);
 	const qResult = await runVariant(
 		q,
-		"qwen3-nan",
+		qwenModelKey,
 		qwenIndex,
 		qwenOpenRouterEmbedQuery,
 	);

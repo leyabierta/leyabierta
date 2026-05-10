@@ -35,6 +35,14 @@ export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
 		id: "qwen3-embedding",
 		dimensions: 4096,
 	},
+	"qwen3-nan-summary": {
+		// Same Qwen3-Embedding-8B as qwen3-nan, but the corpus side embeds
+		// citizen summaries (plain Spanish) instead of raw legal text. Used by
+		// Phase 4 multi-vector retrieval as a "vocabulary bridge" between
+		// citizen queries and ancient legalese.
+		id: "qwen3-embedding",
+		dimensions: 4096,
+	},
 	"embgemma-local": {
 		id: "embeddinggemma-300m-bf16-local",
 		dimensions: 768,
