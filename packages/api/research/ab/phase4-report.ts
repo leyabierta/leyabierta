@@ -42,37 +42,70 @@ const variants: Array<{ tag: string; label: string; description: string }> = [
 	{
 		tag: "gemini-baseline",
 		label: "Gemini-2 (control)",
-		description: "Phase 3 prod-replica baseline; OpenRouter embed; rerank cohere/rerank-4-pro.",
+		description:
+			"Phase 3 prod-replica baseline; OpenRouter embed; rerank cohere/rerank-4-pro.",
 	},
 	{
 		tag: "qwen-no-instruct",
-		label: "Qwen no-instruct (NaN)",
-		description: "Qwen3-Embedding-8B via NaN, no Instruct prefix, raw-text index.",
+		label: "Qwen no-instruct (NaN baseline)",
+		description:
+			"Qwen3-Embedding-8B via NaN, no Instruct prefix, raw-text index. Citizen query embedded as-is.",
 	},
 	{
 		tag: "qwen-no-instruct-hyde",
-		label: "Qwen + HyDE",
-		description: "qwen3.6 (NaN) rewrites query → legal jargon, composed with original.",
+		label: "Qwen + HyDE base",
+		description:
+			"qwen3.6 (NaN) rewrites citizen query → 4-sentence legal-jargon paragraph, embed-rewrite-only mode.",
+	},
+	{
+		tag: "qwen-no-instruct-hyde-short",
+		label: "Qwen + HyDE short",
+		description: "qwen3.6 (NaN) rewrites query → 1 sentence in legal Spanish.",
+	},
+	{
+		tag: "qwen-no-instruct-hyde-keywords",
+		label: "Qwen + HyDE keywords",
+		description: "qwen3.6 (NaN) rewrites query → comma-list of legal terms (no prose).",
+	},
+	{
+		tag: "qwen-no-instruct-hyde-gemma4",
+		label: "Qwen + HyDE gemma4",
+		description: "gemma4 (NaN) rewrites query with same base prompt.",
 	},
 	{
 		tag: "qwen-no-instruct-summary",
 		label: "Qwen + summary index",
-		description: "Search citizen-summary embedding store (plain-Spanish vocab bridge).",
+		description:
+			"Search citizen-summary embedding store (plain-Spanish vocab bridge). Note: PARTIAL coverage at run time.",
+	},
+	{
+		tag: "qwen-multi-no-instruct",
+		label: "Qwen multi-vector (raw + summary)",
+		description:
+			"Post-hoc merge: top-K from raw + summary indexes, min(rank) per norm.",
 	},
 	{
 		tag: "qwen-no-instruct-hyde-summary",
 		label: "Qwen + HyDE + summary",
-		description: "HyDE query + summary index.",
+		description: "HyDE query × summary index (only run if best HyDE scored well).",
 	},
 	{
-		tag: "qwen-multi",
-		label: "Qwen multi-vector (raw+summary)",
-		description: "Post-hoc merge: top-K from raw and summary, min(rank) per norm.",
+		tag: "qwen-no-instruct-nan-analyzer",
+		label: "Qwen + NaN analyzer",
+		description:
+			"qwen3.6 (NaN) replaces gemini-2.5-flash-lite as the query analyzer. Same prompt, swapped LLM provider.",
 	},
 	{
-		tag: "qwen-hyde-multi",
-		label: "Qwen multi + HyDE",
-		description: "Post-hoc merge of HyDE-raw + HyDE-summary.",
+		tag: "qwen-no-instruct-nan-rerank",
+		label: "Qwen + NaN rerank",
+		description:
+			"qwen3.6 (NaN) cross-encoder rerank replaces cohere/rerank-4-pro via OpenRouter.",
+	},
+	{
+		tag: "qwen-no-instruct-nan-analyzer-nan-rerank",
+		label: "🏆 Full NaN stack (analyzer + rerank)",
+		description:
+			"100% NaN: qwen3-embedding + qwen3.6 analyzer + qwen3.6 LLM rerank. Zero cost, zero external dependencies.",
 	},
 ];
 

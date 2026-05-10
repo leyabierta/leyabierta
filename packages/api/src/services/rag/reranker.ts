@@ -30,6 +30,10 @@ interface RerankerConfig {
 	cohereApiKey?: string;
 	openrouterApiKey?: string;
 	openrouterModel?: string;
+	/** When set, use the NaN qwen3.6 LLM reranker instead of OpenRouter/Cohere. */
+	nanApiKey?: string;
+	/** Force a specific backend regardless of credentials present. */
+	preferredBackend?: "cohere" | "openrouter" | "nan-llm";
 }
 
 /**
@@ -65,18 +69,38 @@ export async function rerank(
 		};
 	}
 
-	if (config.cohereApiKey) {
+	// Forced backend takes precedence
+	if (config.preferredBackend === "nan-llm" && config.nanApiKey) {
+		return rerankWithNanLLM(query, candidates, topK, config.nanApiKey);
+	}
+	if (config.preferredBackend === "cohere" && config.cohereApiKey) {
 		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
 	}
-
-	if (config.openrouterApiKey) {
-		// Prefer purpose-built reranker over LLM-based reranking
+	if (config.preferredBackend === "openrouter" && config.openrouterApiKey) {
 		return rerankViaOpenRouter(
 			query,
 			candidates,
 			topK,
 			config.openrouterApiKey,
 		);
+	}
+
+	// Auto-select: cohere → openrouter → nan-llm
+	if (config.cohereApiKey) {
+		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
+	}
+
+	if (config.openrouterApiKey) {
+		return rerankViaOpenRouter(
+			query,
+			candidates,
+			topK,
+			config.openrouterApiKey,
+		);
+	}
+
+	if (config.nanApiKey) {
+		return rerankWithNanLLM(query, candidates, topK, config.nanApiKey);
 	}
 
 	// No API keys — return candidates as-is (no reranking)
@@ -89,6 +113,21 @@ export async function rerank(
 		backend: "none",
 		cost: 0,
 	};
+}
+
+// ── NaN qwen3.6 LLM rerank ──
+
+async function rerankWithNanLLM(
+	query: string,
+	candidates: RerankerCandidate[],
+	topK: number,
+	nanApiKey: string,
+): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
+	// Lazy import: keeps prod runtime tree-shakable when NaN isn't used.
+	const { qwenLLMRerank } = await import(
+		"../../../research/ab/qwen-llm-rerank.ts"
+	);
+	return qwenLLMRerank(nanApiKey, query, candidates, topK);
 }
 
 // ── Cohere Rerank ──

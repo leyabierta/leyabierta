@@ -30,6 +30,7 @@ import {
 } from "../../src/services/rag/retrieval.ts";
 import { _resetSharedVectorIndexForTests } from "../../src/services/rag/vector-index-singleton.ts";
 import { shutdownVectorPool } from "../../src/services/rag/vector-pool.ts";
+import { callNan } from "../../src/services/nan.ts";
 
 // ── Qwen3-Embedding-8B via OpenRouter (nan.builders blocked by Cloudflare) ──
 
@@ -249,6 +250,10 @@ const hydeCacheName =
 const useSummaryIndex = args.includes("--summary-index");
 // Phase 4: multi-vector — score = max(raw_score, summary_score) per article.
 const useMultiVector = args.includes("--multi-vector");
+// Phase 5: NaN-only stack — replace OpenRouter analyzer with qwen3.6 NaN.
+const useNanAnalyzer = args.includes("--nan-analyzer");
+// Phase 5: NaN-only stack — replace Cohere/OpenRouter rerank with qwen3.6 NaN.
+const useNanRerank = args.includes("--nan-rerank");
 // Tag for output files (separates each variant's saved results). The harness
 // auto-derives a base tag from active flags; --tag adds an extra suffix only
 // when explicitly given.
@@ -256,6 +261,8 @@ const tagParts: string[] = [QWEN_USE_INSTRUCT ? "instruct" : "no-instruct"];
 if (useHyde) tagParts.push("hyde");
 if (useSummaryIndex) tagParts.push("summary");
 if (useMultiVector) tagParts.push("multi");
+if (useNanAnalyzer) tagParts.push("nan-analyzer");
+if (useNanRerank) tagParts.push("nan-rerank");
 const variantTagArg = args.indexOf("--tag");
 if (variantTagArg >= 0) {
 	const t = args[variantTagArg + 1]!;
@@ -425,6 +432,22 @@ async function runVariant(
 		effectiveEmbedFn = async (k, m, _q) => embedFn(k, m, textForEmbed);
 	}
 
+	// Optional analyzer override (qwen3.6 via NaN instead of OpenRouter).
+	const analyzerOverrides = useNanAnalyzer
+		? {
+				apiKey: nanApiKey!,
+				model: "qwen3.6",
+				llmFn: callNan as import("../../src/services/rag/analyzer.ts").AnalyzerLlmFn,
+			}
+		: undefined;
+	// Optional reranker override (qwen3.6 LLM rerank via NaN).
+	const rerankerOverrides = useNanRerank
+		? {
+				nanApiKey: nanApiKey!,
+				preferredBackend: "nan-llm" as const,
+			}
+		: undefined;
+
 	const opts: Omit<RunRetrievalCoreOpts, "db" | "apiKey" | "cohereApiKey"> = {
 		embeddingModelKey: modelKey,
 		embedQueryFn: effectiveEmbedFn,
@@ -440,6 +463,8 @@ async function runVariant(
 			vectors: index.vectors,
 			dims: index.dims,
 		},
+		analyzerOverrides,
+		rerankerOverrides,
 	};
 
 	let result: RetrievalResult;

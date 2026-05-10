@@ -549,6 +549,25 @@ export type RunRetrievalCoreOpts = {
 	} | null;
 	trace?: RagTrace;
 	/**
+	 * Override the analyzer LLM. When set, replaces the default OpenRouter
+	 * gemini-2.5-flash-lite with the provided model + llmFn. Used by A/B
+	 * harnesses to swap to NaN qwen3.6.
+	 */
+	analyzerOverrides?: {
+		apiKey?: string; // override apiKey for analyzer (e.g. NaN key vs OpenRouter)
+		model?: string;
+		llmFn?: import("./analyzer.ts").AnalyzerLlmFn;
+	};
+	/**
+	 * Override the reranker config. When set, replaces the default Cohere/
+	 * OpenRouter reranker selection. Set `nanApiKey` + `preferredBackend:"nan-llm"`
+	 * to force the qwen3.6 NaN LLM rerank.
+	 */
+	rerankerOverrides?: {
+		nanApiKey?: string;
+		preferredBackend?: "cohere" | "openrouter" | "nan-llm";
+	};
+	/**
 	 * Optional progress callback. Fired at phase boundaries inside the
 	 * retrieval pipeline (`retrieving` before vector/BM25 fan-out, `ranking`
 	 * before the Cohere/LLM rerank). The streaming route consumes these to
@@ -581,13 +600,19 @@ export async function runRetrievalCore(
 		embeddedNormIds,
 		vectorIndex,
 		trace,
+		analyzerOverrides,
+		rerankerOverrides,
 		onProgress,
 	} = opts;
 
 	// 1. Analyze + embed query in parallel.
 	const analysisSpan = trace?.span("query-analysis", "llm", { question });
+	const analyzerApiKey = analyzerOverrides?.apiKey ?? apiKey;
 	const [analysisResult, queryResult] = await Promise.all([
-		analyzeQuery(apiKey, question),
+		analyzeQuery(analyzerApiKey, question, {
+			model: analyzerOverrides?.model,
+			llmFn: analyzerOverrides?.llmFn,
+		}),
 		embedQueryFn(apiKey, embeddingModelKey, question),
 	]);
 	const analyzed = analysisResult.query;
@@ -923,6 +948,8 @@ export async function runRetrievalCore(
 		const reranked = await rerank(question, candidates, TOP_K, {
 			cohereApiKey: cohereApiKey ?? undefined,
 			openrouterApiKey: apiKey,
+			nanApiKey: rerankerOverrides?.nanApiKey,
+			preferredBackend: rerankerOverrides?.preferredBackend,
 		});
 		rerankerBackend = reranked.backend;
 		const rerankedKeys = new Set(reranked.results.map((r) => r.key));

@@ -214,17 +214,36 @@ export function normalizePeriodicTitle(title: string): string | null {
 
 // ── Query analysis ──
 
+/**
+ * LLM call signature shared by callOpenRouter and callNan. The harness can
+ * inject a NaN-backed function via `analyzerLlmFn` to swap providers without
+ * touching the prompt or parsing logic.
+ */
+export type AnalyzerLlmFn = <T>(
+	apiKey: string,
+	options: {
+		model: string;
+		messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+		temperature?: number;
+		maxTokens?: number;
+		jsonResponse?: boolean;
+	},
+) => Promise<{ data: T; cost: number; tokensIn: number; tokensOut: number }>;
+
 export async function analyzeQuery(
 	apiKey: string,
 	question: string,
+	overrides: { model?: string; llmFn?: AnalyzerLlmFn } = {},
 ): Promise<{
 	query: AnalyzedQuery;
 	cost: number;
 	tokensIn: number;
 	tokensOut: number;
 }> {
+	const llmFn = overrides.llmFn ?? callOpenRouter;
+	const model = overrides.model ?? ANALYZER_MODEL;
 	try {
-		const result = await callOpenRouter<{
+		const result = await llmFn<{
 			keywords: string[];
 			legal_synonyms?: string[];
 			materias: string[];
@@ -233,7 +252,7 @@ export async function analyzeQuery(
 			jurisdiction: string | null;
 			norm_name_hint: string | null;
 		}>(apiKey, {
-			model: ANALYZER_MODEL,
+			model,
 			messages: [
 				{
 					role: "system",
