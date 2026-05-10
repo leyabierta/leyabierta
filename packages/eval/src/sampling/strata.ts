@@ -111,6 +111,59 @@ export function normalizeRank(raw: string): RankLabel {
 	}
 }
 
+/**
+ * Picks the most relevant materia for an article by scoring each candidate
+ * materia against the article text via token overlap.
+ *
+ * Score = number of materia content tokens (length >= 4) that appear in the
+ * article text. Tiebreaker: prefer materias that are in `topSet` (corpus
+ * top materias), so that on a tie we still favor the "canonical" topic.
+ * Falls back to legacy "first-in-top-set" then "first overall" when the
+ * scoring is uninformative (every materia scores 0).
+ *
+ * Used by `toSeed` when EVAL_MATERIA_RELEVANCE=1. Tested in
+ * sampling/strata.materia.test.ts. The default behavior is left unchanged
+ * pending a larger labeled audit set.
+ */
+export function pickMostRelevantMateria(
+	materias: readonly string[],
+	articleText: string,
+	topSet: ReadonlySet<string> | null | undefined,
+): string {
+	const fallback =
+		materias.find((m) => topSet?.has(m)) ?? materias[0] ?? UNCLASSIFIED_BUCKET;
+	if (materias.length <= 1) return fallback;
+
+	const normalize = (s: string) =>
+		s
+			.toLowerCase()
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "")
+			.replace(/[^a-z0-9\s]/g, " ")
+			.split(/\s+/)
+			.filter((t) => t.length >= 4);
+
+	const articleTokens = new Set(normalize(articleText));
+	if (articleTokens.size === 0) return fallback;
+
+	let bestScore = -1;
+	let bestMateria = fallback;
+	for (const m of materias) {
+		const materiaTokens = normalize(m);
+		if (materiaTokens.length === 0) continue;
+		let score = 0;
+		for (const t of materiaTokens) if (articleTokens.has(t)) score++;
+		// Tiebreaker: in-top-set wins by a tiny margin.
+		const adjusted = score + (topSet?.has(m) ? 0.01 : 0);
+		if (adjusted > bestScore) {
+			bestScore = adjusted;
+			bestMateria = m;
+		}
+	}
+	// If nothing scored, use the legacy fallback.
+	return bestScore > 0 ? bestMateria : fallback;
+}
+
 export function decadeOf(publishedAt: string): DecadeLabel | null {
 	const m = /^(\d{4})/.exec(publishedAt);
 	if (!m) return null;
@@ -694,15 +747,25 @@ export class StratifiedSampler implements Sampler {
 			c.articleText.length > ARTICLE_TEXT_TRUNCATE
 				? `${c.articleText.slice(0, ARTICLE_TEXT_TRUNCATE)}…`
 				: c.articleText;
-		// Pick the first non-_other materia tag (the "primary" topic) for the
-		// seed. `c.materias` has already been stripped of geographic tags in
-		// `ensureLoaded`. If nothing thematic remains, surface
-		// `_unclassified` (not `_other`) so downstream consumers can tell
-		// "had no thematic materia" from "had a tail thematic materia".
+		// Pick the "primary" materia for this article seed.
+		//
+		// Default (legacy v3 behavior): first materia that is in the corpus
+		// top-set, else first available. The v3-50 audit (2026-05-11) found
+		// this rule produces ~40% materia mislabels because `c.materias` is
+		// the BOE's list for the WHOLE norm, not the specific article — and
+		// the "first in top-set" tiebreak is arbitrary.
+		//
+		// Opt-in (EVAL_MATERIA_RELEVANCE=1): scores each candidate materia
+		// against the article's text via simple token overlap, picking the
+		// highest scorer. Falls back to the legacy first-in-top-set rule on
+		// ties or when no materia tokens overlap. Off by default until
+		// validated on a larger labeled set; see overnight log 2026-05-11.
 		const primaryMateria =
-			c.materias.find((m) => this.topMateriaSet?.has(m)) ??
-			c.materias[0] ??
-			UNCLASSIFIED_BUCKET;
+			process.env.EVAL_MATERIA_RELEVANCE === "1"
+				? pickMostRelevantMateria(c.materias, c.articleText, this.topMateriaSet)
+				: (c.materias.find((m) => this.topMateriaSet?.has(m)) ??
+					c.materias[0] ??
+					UNCLASSIFIED_BUCKET);
 		return {
 			normId: c.normId,
 			articleId: c.articleId,
