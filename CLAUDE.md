@@ -180,7 +180,7 @@ When `NAN_STACK=true` (Phase 5 default — free, full NaN qwen3 stack):
 - **Reranking:** `qwen3.6` LLM rerank via NaN, $0
 - **Query analyzer:** `qwen3.6` via NaN, $0
 - **Switch:** set `NAN_STACK=true` and `HERMES_API_KEY` in env. A/B Phase 5 result on 50 citizen queries × 9.7k norms: **+30 pp R@1, +14 pp R@5, +10 pp R@10 vs the gemini stack**.
-- **Threshold note:** Qwen produces higher-magnitude cosines (~0.55-0.65) than Gemini (~0.38). `LOW_CONFIDENCE_THRESHOLD` auto-switches based on `NAN_STACK`; override with `LOW_CONFIDENCE_THRESHOLD_QWEN`.
+- **Threshold note:** raw `bestScore` is NOT informative about correctness with the qwen×qwen×qwen stack (hit/miss score distributions overlap, separation ~0.04 on the eval). Gate is kept at 0.40 (effectively off) to catch catastrophic embedding failures only. Override with `LOW_CONFIDENCE_THRESHOLD_QWEN`. For real "low-confidence" UX warnings we'd need a different signal (rerank top-1 score, candidate diversity, etc.) — TBD.
 
 **Embedding store:**
 - 483,983 Gemini embeddings + 486,145 Qwen embeddings from 9,737-9,738 vigente norms

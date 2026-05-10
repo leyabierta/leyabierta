@@ -50,13 +50,24 @@ export const TOP_K = 15;
 export const RRF_K = 60;
 export const MIN_SIMILARITY = 0.35;
 /**
- * Threshold below which RAG returns "no confident answer" early. Calibrated
- * for Gemini cosines (~0.38). Qwen produces higher-magnitude cosines so when
- * NAN_STACK=true we use a higher gate. Override per-call via opts.
+ * Threshold below which RAG returns "no confident answer" early.
+ *
+ * Gemini stack: 0.38, calibrated against the historical Gemini cosines.
+ *
+ * Qwen NaN stack: 0.40 (essentially "off"). Calibration on the Phase 5 eval
+ * (50 queries × 9.7k norms) showed that for the qwen-embed + qwen-analyzer +
+ * qwen-rerank stack, `bestScore` (max raw vector similarity) is NOT informative
+ * about correctness — hit@1 and miss@1 queries have indistinguishable score
+ * distributions (avg hit 0.586 vs avg miss 0.543, separation only +0.04 on the
+ * full stack and NEGATIVE on simpler configs). Setting the gate higher than
+ * the corpus minimum (0.428) abandons more correct answers than false ones.
+ * We keep the gate at 0.40 only to catch catastrophic embedding failures.
+ *
+ * Override via env: LOW_CONFIDENCE_THRESHOLD_QWEN.
  */
 const NAN_STACK = process.env.NAN_STACK === "true";
 export const LOW_CONFIDENCE_THRESHOLD = NAN_STACK
-	? Number(process.env.LOW_CONFIDENCE_THRESHOLD_QWEN ?? "0.55")
+	? Number(process.env.LOW_CONFIDENCE_THRESHOLD_QWEN ?? "0.40")
 	: 0.38;
 /**
  * Default embedding model key. Phase 5 default for prod is qwen3-nan when
