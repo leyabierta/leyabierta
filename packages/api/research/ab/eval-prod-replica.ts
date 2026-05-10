@@ -242,6 +242,12 @@ const QWEN_USE_INSTRUCT = !args.includes("--no-instruct");
 // Per-model results are persisted to JSON; the final pass merges and reports.
 const onlyGemini = args.includes("--only-gemini");
 const onlyQwen = args.includes("--only-qwen");
+// 100% NaN mode: skip the Gemini baseline entirely (no embed via OpenRouter,
+// no comparison gaps). Reports only Qwen-side metrics. Useful for scale-
+// stability checks when re-evaluating on the v3 synthetic set without
+// spending OpenRouter budget. Implies --only-qwen but does NOT require an
+// existing eval-pass-gemini-baseline.json.
+const noBaseline = args.includes("--no-baseline");
 // Phase 4: HyDE — pre-rewrite queries to legal jargon before embedding.
 const useHyde = args.includes("--hyde");
 // Optional override of the HyDE cache file (relative to outDir).
@@ -572,7 +578,7 @@ let geminiTotal = 0;
 let qwenDims = 0;
 let qwenTotal = 0;
 
-if (!onlyQwen) {
+if (!onlyQwen && !noBaseline) {
 	console.log(
 		`\n== Pass 1: Gemini (${fullCorpus ? "FULL corpus" : "subset"}) ==`,
 	);
@@ -633,11 +639,11 @@ if (onlyGemini) {
 }
 
 // If we skipped Pass 1, load saved Gemini results from disk.
-if (onlyQwen) {
+if (onlyQwen && !noBaseline) {
 	const file = Bun.file(geminiPassFile);
 	if (!(await file.exists())) {
 		console.error(
-			`FATAL: --only-qwen requires ${geminiPassFile} (run --only-gemini first)`,
+			`FATAL: --only-qwen requires ${geminiPassFile} (run --only-gemini first, or pass --no-baseline to skip Gemini entirely)`,
 		);
 		process.exit(1);
 	}
@@ -651,6 +657,10 @@ if (onlyQwen) {
 	geminiResults.push(...saved.results);
 	console.log(
 		`Loaded Gemini pass from disk: ${geminiResults.length} results, ${geminiTotal} vectors`,
+	);
+} else if (noBaseline) {
+	console.log(
+		"\n== --no-baseline: skipping Gemini pass entirely (100% NaN run) ==",
 	);
 }
 
@@ -736,90 +746,100 @@ console.log("=".repeat(70));
 console.log(
 	`Queries evaluated: ${coveredQueries.length} (fully covered by Qwen-NAN)`,
 );
-console.log(`Gemini index: ${geminiTotal} vectors, ${geminiDims} dims`);
+if (!noBaseline) {
+	console.log(`Gemini index: ${geminiTotal} vectors, ${geminiDims} dims`);
+}
 console.log(`Qwen-NAN index: ${qwenTotal} vectors, ${qwenDims} dims`);
 console.log(`Cohere reranker: disabled (--cohere-api-key not set)`);
 console.log(`\n${"-".repeat(70)}`);
 console.log("Metrics (hit@K on articles — post-rerank):");
 console.log("-".repeat(70));
 console.log(`Model          R@1      R@5      R@10     MRR@10`);
-console.log(
-	`Gemini-2       ${geminiMetrics.r1.padStart(6)}%   ${geminiMetrics.r5.padStart(6)}%   ${geminiMetrics.r10.padStart(6)}%   ${geminiMetrics.mrr.padStart(6)}`,
-);
+if (!noBaseline) {
+	console.log(
+		`Gemini-2       ${geminiMetrics.r1.padStart(6)}%   ${geminiMetrics.r5.padStart(6)}%   ${geminiMetrics.r10.padStart(6)}%   ${geminiMetrics.mrr.padStart(6)}`,
+	);
+}
 console.log(
 	`Qwen-NAN       ${qwenMetrics.r1.padStart(6)}%   ${qwenMetrics.r5.padStart(6)}%   ${qwenMetrics.r10.padStart(6)}%   ${qwenMetrics.mrr.padStart(6)}`,
 );
 
-const gapR1 = parseFloat(geminiMetrics.r1) - parseFloat(qwenMetrics.r1);
-const gapR5 = parseFloat(geminiMetrics.r5) - parseFloat(qwenMetrics.r5);
-const gapR10 = parseFloat(geminiMetrics.r10) - parseFloat(qwenMetrics.r10);
+let gapR1 = 0;
+let gapR5 = 0;
+let gapR10 = 0;
+const qwenMisses: Array<{
+	id: number | string;
+	question: string;
+	expected: string[] | undefined;
+	geminiTop: string[];
+	qwenTop: string[];
+}> = [];
 
-console.log(`\n${"-".repeat(70)}`);
-console.log("Gaps (Gemini - Qwen):");
-console.log("-".repeat(70));
-console.log(`  R@1 gap:   ${gapR1.toFixed(1)} pp`);
-console.log(`  R@5 gap:   ${gapR5.toFixed(1)} pp`);
-console.log(`  R@10 gap:  ${gapR10.toFixed(1)} pp`);
+if (!noBaseline) {
+	gapR1 = parseFloat(geminiMetrics.r1) - parseFloat(qwenMetrics.r1);
+	gapR5 = parseFloat(geminiMetrics.r5) - parseFloat(qwenMetrics.r5);
+	gapR10 = parseFloat(geminiMetrics.r10) - parseFloat(qwenMetrics.r10);
 
-// Decision gate
-console.log(`\n${"=".repeat(70)}`);
-console.log("DECISION GATE — Phase 1");
-console.log("=".repeat(70));
-if (gapR1 <= 3) {
-	console.log(
-		"GAP ≤ 3pp → PROCEED to Phase 2 (pilot embed for remaining queries)",
-	);
-} else if (gapR1 > 5) {
-	console.log("GAP > 5pp → SKIP to Phase 4 (interventions), no pilot embed");
+	console.log(`\n${"-".repeat(70)}`);
+	console.log("Gaps (Gemini - Qwen):");
+	console.log("-".repeat(70));
+	console.log(`  R@1 gap:   ${gapR1.toFixed(1)} pp`);
+	console.log(`  R@5 gap:   ${gapR5.toFixed(1)} pp`);
+	console.log(`  R@10 gap:  ${gapR10.toFixed(1)} pp`);
+
+	console.log(`\n${"=".repeat(70)}`);
+	console.log("DECISION GATE — Phase 1");
+	console.log("=".repeat(70));
+	if (gapR1 <= 3) {
+		console.log(
+			"GAP ≤ 3pp → PROCEED to Phase 2 (pilot embed for remaining queries)",
+		);
+	} else if (gapR1 > 5) {
+		console.log("GAP > 5pp → SKIP to Phase 4 (interventions), no pilot embed");
+	} else {
+		console.log("GAP 3-5pp → DISCUSS before proceeding");
+	}
+
+	console.log(`\n${"=".repeat(70)}`);
+	console.log("PER-QUESTION MISS ANALYSIS (where Qwen misses but Gemini hits)");
+	console.log("=".repeat(70));
+
+	for (let i = 0; i < coveredQueries.length; i++) {
+		const g = geminiResults[i]!;
+		const q = qwenResults[i]!;
+		if (g.hitsAt1 && !q.hitsAt1) {
+			const query = coveredQueries[i]!;
+			qwenMisses.push({
+				id: query.id,
+				question: query.question,
+				expected: query.expectedNorms,
+				geminiTop: g.topNormIds.slice(0, 3),
+				qwenTop: q.topNormIds.slice(0, 3),
+			});
+		}
+	}
+
+	if (qwenMisses.length === 0) {
+		console.log("  No misses — Qwen matches Gemini on all queries!");
+	} else {
+		console.log(
+			`\n  ${qwenMisses.length} queries where Gemini hits@1 but Qwen misses:\n`,
+		);
+		for (const m of qwenMisses.slice(0, 10)) {
+			console.log(`  q${m.id}: "${m.question}"`);
+			console.log(`    Expected: ${m.expected?.join(", ")}`);
+			console.log(`    Gemini top: ${m.geminiTop.join(", ")}`);
+			console.log(`    Qwen top:   ${m.qwenTop.join(", ")}`);
+			console.log();
+		}
+		if (qwenMisses.length > 10) {
+			console.log(`  ... and ${qwenMisses.length - 10} more\n`);
+		}
+	}
 } else {
-	console.log("GAP 3-5pp → DISCUSS before proceeding");
-}
-
-// ── Per-question miss analysis ──
-
-console.log(`\n${"=".repeat(70)}`);
-console.log("PER-QUESTION MISS ANALYSIS (where Qwen misses but Gemini hits)");
-console.log("=".repeat(70));
-
-const _misses = qwenResults.filter((_q, i) =>
-	qwenResults[i]!.hitsAt1 && !geminiResults[i]!.hitsAt1
-		? false
-		: !qwenResults[i]!.hitsAt1 && geminiResults[i]!.hitsAt1,
-);
-
-// Actually: Qwen misses where Gemini hits
-const qwenMisses = [];
-for (let i = 0; i < coveredQueries.length; i++) {
-	const g = geminiResults[i]!;
-	const q = qwenResults[i]!;
-	if (g.hitsAt1 && !q.hitsAt1) {
-		const query = coveredQueries[i]!;
-		qwenMisses.push({
-			id: query.id,
-			question: query.question,
-			expected: query.expectedNorms,
-			geminiTop: g.topNormIds.slice(0, 3),
-			qwenTop: q.topNormIds.slice(0, 3),
-		});
-	}
-}
-
-if (qwenMisses.length === 0) {
-	console.log("  No misses — Qwen matches Gemini on all queries!");
-} else {
 	console.log(
-		`\n  ${qwenMisses.length} queries where Gemini hits@1 but Qwen misses:\n`,
+		`\n--no-baseline run: skipping Gemini comparison + miss analysis.`,
 	);
-	for (const m of qwenMisses.slice(0, 10)) {
-		console.log(`  q${m.id}: "${m.question}"`);
-		console.log(`    Expected: ${m.expected?.join(", ")}`);
-		console.log(`    Gemini top: ${m.geminiTop.join(", ")}`);
-		console.log(`    Qwen top:   ${m.qwenTop.join(", ")}`);
-		console.log();
-	}
-	if (qwenMisses.length > 10) {
-		console.log(`  ... and ${qwenMisses.length - 10} more\n`);
-	}
 }
 
 // ── Save results ──
@@ -827,9 +847,11 @@ if (qwenMisses.length === 0) {
 const report = {
 	date: new Date().toISOString().slice(0, 10),
 	totalQueries: coveredQueries.length,
-	gemini: { metrics: geminiMetrics, results: geminiResults },
+	gemini: noBaseline
+		? null
+		: { metrics: geminiMetrics, results: geminiResults },
 	qwen: { metrics: qwenMetrics, results: qwenResults },
-	gaps: { r1: gapR1, r5: gapR5, r10: gapR10 },
+	gaps: noBaseline ? null : { r1: gapR1, r5: gapR5, r10: gapR10 },
 	qwenMisses: qwenMisses.slice(0, 20),
 };
 await Bun.write(
