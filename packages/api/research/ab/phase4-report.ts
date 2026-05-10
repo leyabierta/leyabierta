@@ -65,7 +65,8 @@ const variants: Array<{ tag: string; label: string; description: string }> = [
 	{
 		tag: "qwen-no-instruct-hyde-keywords",
 		label: "Qwen + HyDE keywords",
-		description: "qwen3.6 (NaN) rewrites query → comma-list of legal terms (no prose).",
+		description:
+			"qwen3.6 (NaN) rewrites query → comma-list of legal terms (no prose).",
 	},
 	{
 		tag: "qwen-no-instruct-hyde-gemma4",
@@ -87,7 +88,8 @@ const variants: Array<{ tag: string; label: string; description: string }> = [
 	{
 		tag: "qwen-no-instruct-hyde-summary",
 		label: "Qwen + HyDE + summary",
-		description: "HyDE query × summary index (only run if best HyDE scored well).",
+		description:
+			"HyDE query × summary index (only run if best HyDE scored well).",
 	},
 	{
 		tag: "qwen-no-instruct-nan-analyzer",
@@ -114,13 +116,17 @@ interface Metrics {
 	r5: number;
 	r10: number;
 	mrr: number;
-	misses: Array<{ id: number; question: string; expected: string[]; top3: string[] }>;
+	misses: Array<{
+		id: number;
+		question: string;
+		expected: string[];
+		top3: string[];
+	}>;
 }
 
 function compute(results: QueryResult[]): Metrics {
 	const total = results.length;
-	if (total === 0)
-		return { r1: 0, r5: 0, r10: 0, mrr: 0, misses: [] };
+	if (total === 0) return { r1: 0, r5: 0, r10: 0, mrr: 0, misses: [] };
 	const h1 = results.filter((r) => r.hitsAt1).length;
 	const h5 = results.filter((r) => r.hitsAt5).length;
 	const h10 = results.filter((r) => r.hitsAt10).length;
@@ -166,7 +172,8 @@ const rows: Array<{
 		rows.push({
 			tag: "gemini-baseline",
 			label: "Gemini-2 (control)",
-			description: "Phase 3 prod-replica baseline; OpenRouter embed; rerank cohere/rerank-4-pro.",
+			description:
+				"Phase 3 prod-replica baseline; OpenRouter embed; rerank cohere/rerank-4-pro.",
 			metrics: compute(data.results),
 			count: data.results.length,
 		});
@@ -251,7 +258,8 @@ for (const r of rows) {
 	lines.push("| q | Question | Expected | Top-3 returned |");
 	lines.push("|---|---|---|---|");
 	for (const m of misses) {
-		const q = m.question.length > 60 ? `${m.question.slice(0, 57)}…` : m.question;
+		const q =
+			m.question.length > 60 ? `${m.question.slice(0, 57)}…` : m.question;
 		lines.push(
 			`| q${m.id} | ${q} | ${m.expected.join(", ")} | ${m.top3.join(", ")} |`,
 		);
@@ -274,23 +282,29 @@ if (qwenVariants.length > 0) {
 			`**Winner: ${best.label}** with R@1 ${m.r1.toFixed(1)}% (+${delta.toFixed(1)} pp vs Gemini).`,
 		);
 		lines.push("");
-		lines.push(`Recommend: migrate prod \`EMBEDDING_MODEL_KEY\` to \`qwen3-nan\` and apply the ${best.label} setup.`);
+		lines.push(
+			`Recommend: migrate prod \`EMBEDDING_MODEL_KEY\` to \`qwen3-nan\` and apply the ${best.label} setup.`,
+		);
 	} else if (delta >= -2) {
 		lines.push(
 			`**Tie**: ${best.label} matches Gemini within 2pp R@1 (${m.r1.toFixed(1)}% vs ${gemR1.toFixed(1)}%).`,
 		);
 		lines.push("");
-		lines.push(`Recommend: migrate to free Qwen-NAN; the small R@1 cost is offset by R@5/R@10 wins and zero embedding cost. Re-evaluate on a larger eval set before final commit.`);
+		lines.push(
+			`Recommend: migrate to free Qwen-NAN; the small R@1 cost is offset by R@5/R@10 wins and zero embedding cost. Re-evaluate on a larger eval set before final commit.`,
+		);
 	} else {
 		lines.push(
 			`Best Qwen variant (${best.label}) still trails Gemini by ${(-delta).toFixed(1)} pp R@1.`,
 		);
 		lines.push("");
-		lines.push("Recommend: keep Gemini for now; revisit when more interventions are tried.");
+		lines.push(
+			"Recommend: keep Gemini for now; revisit when more interventions are tried.",
+		);
 	}
 }
 
 const outPath = join(outDir, "phase4-results.md");
 await Bun.write(outPath, lines.join("\n"));
 console.log(`✅ Wrote ${outPath}`);
-console.log("\n" + lines.slice(0, 30).join("\n"));
+console.log(`\n${lines.slice(0, 30).join("\n")}`);

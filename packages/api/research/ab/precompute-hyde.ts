@@ -56,7 +56,9 @@ for (const q of questions) {
 			await Bun.write(outPath, JSON.stringify(cache, null, 2));
 		}
 	} catch (err) {
-		console.warn(`\n  Failed q${q.id}: ${err instanceof Error ? err.message : err}`);
+		console.warn(
+			`\n  Failed q${q.id}: ${err instanceof Error ? err.message : err}`,
+		);
 	}
 }
 

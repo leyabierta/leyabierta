@@ -16,9 +16,9 @@ import { join } from "node:path";
 
 // ── Imports from prod code ──
 import { createSchema } from "../../../pipeline/src/db/schema.ts";
+import { callNan } from "../../src/services/nan.ts";
 import {
 	EMBEDDING_MODELS,
-	type EmbeddingStore,
 	type ensureVectorIndex,
 	embedQuery as prodEmbedQuery,
 } from "../../src/services/rag/embeddings.ts";
@@ -30,7 +30,6 @@ import {
 } from "../../src/services/rag/retrieval.ts";
 import { _resetSharedVectorIndexForTests } from "../../src/services/rag/vector-index-singleton.ts";
 import { shutdownVectorPool } from "../../src/services/rag/vector-pool.ts";
-import { callNan } from "../../src/services/nan.ts";
 
 // ── Qwen3-Embedding-8B via OpenRouter (nan.builders blocked by Cloudflare) ──
 
@@ -74,7 +73,10 @@ async function qwenNanEmbedQuery(
 
 		if (res.status === 429 || res.status >= 500) {
 			attempts++;
-			if (attempts > 5) throw new Error(`NaN embeddings ${res.status} after ${attempts} retries`);
+			if (attempts > 5)
+				throw new Error(
+					`NaN embeddings ${res.status} after ${attempts} retries`,
+				);
 			await new Promise((r) => setTimeout(r, 2000 * attempts));
 			continue;
 		}
@@ -124,9 +126,9 @@ async function buildModelIndex(
 		countSql += ` AND norm_id IN (${ph})`;
 		for (const n of normFilter) countParams.push(n);
 	}
-	const totalCount = (
-		db.prepare(countSql).get(...countParams) as { cnt: number } | null
-	)?.cnt ?? 0;
+	const totalCount =
+		(db.prepare(countSql).get(...countParams) as { cnt: number } | null)?.cnt ??
+		0;
 	if (totalCount === 0) return null;
 
 	// Stream rows from SQLite in chunks, allocating one Float32Array per chunk.
@@ -336,11 +338,11 @@ const qwenNormIds = db
 	.all("qwen3-nan")
 	.map((r) => r.norm_id);
 const summaryNormCount = useSummaryIndex
-	? db
+	? (db
 			.query<{ c: number }, [string]>(
 				"SELECT COUNT(DISTINCT norm_id) as c FROM embeddings WHERE model = ?",
 			)
-			.get("qwen3-nan-summary")?.c ?? 0
+			.get("qwen3-nan-summary")?.c ?? 0)
 	: 0;
 console.log(
 	`Qwen-NAN BM25/RRF haystack: ${qwenNormIds.length} norms` +
@@ -437,7 +439,8 @@ async function runVariant(
 		? {
 				apiKey: nanApiKey!,
 				model: "qwen3.6",
-				llmFn: callNan as import("../../src/services/rag/analyzer.ts").AnalyzerLlmFn,
+				llmFn:
+					callNan as import("../../src/services/rag/analyzer.ts").AnalyzerLlmFn,
 			}
 		: undefined;
 	// Optional reranker override (qwen3.6 LLM rerank via NaN).
@@ -727,12 +730,8 @@ console.log("=".repeat(70));
 console.log(
 	`Queries evaluated: ${coveredQueries.length} (fully covered by Qwen-NAN)`,
 );
-console.log(
-	`Gemini index: ${geminiTotal} vectors, ${geminiDims} dims`,
-);
-console.log(
-	`Qwen-NAN index: ${qwenTotal} vectors, ${qwenDims} dims`,
-);
+console.log(`Gemini index: ${geminiTotal} vectors, ${geminiDims} dims`);
+console.log(`Qwen-NAN index: ${qwenTotal} vectors, ${qwenDims} dims`);
 console.log(`Cohere reranker: disabled (--cohere-api-key not set)`);
 console.log(`\n${"-".repeat(70)}`);
 console.log("Metrics (hit@K on articles — post-rerank):");

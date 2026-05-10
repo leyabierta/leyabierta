@@ -73,7 +73,9 @@ export const LOW_CONFIDENCE_THRESHOLD = NAN_STACK
  * Default embedding model key. Phase 5 default for prod is qwen3-nan when
  * NAN_STACK=true (free, +30 pp R@1 with full NaN stack), else gemini-embedding-2.
  */
-export const EMBEDDING_MODEL_KEY = NAN_STACK ? "qwen3-nan" : "gemini-embedding-2";
+export const EMBEDDING_MODEL_KEY = NAN_STACK
+	? "qwen3-nan"
+	: "gemini-embedding-2";
 
 // ── Types ──
 

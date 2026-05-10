@@ -77,7 +77,9 @@ export async function hydeRewrite(
 			return content;
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			console.warn(`  HyDE attempt ${attempts + 1}/${MAX_ATTEMPTS}: ${msg.slice(0, 200)}`);
+			console.warn(
+				`  HyDE attempt ${attempts + 1}/${MAX_ATTEMPTS}: ${msg.slice(0, 200)}`,
+			);
 			attempts++;
 			if (attempts >= MAX_ATTEMPTS) throw err;
 			await new Promise((r) => setTimeout(r, 2000 * attempts));

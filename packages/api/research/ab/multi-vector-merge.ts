@@ -53,7 +53,8 @@ const evalPath = join(
 );
 
 const rawFile = flag("raw") ?? "eval-pass-qwen-no-instruct.json";
-const summaryFile = flag("summary") ?? "eval-pass-qwen-no-instruct-summary.json";
+const summaryFile =
+	flag("summary") ?? "eval-pass-qwen-no-instruct-summary.json";
 const geminiFile = flag("gemini") ?? "eval-pass-gemini-baseline.json";
 const label = flag("label") ?? "qwen-multi";
 
@@ -180,9 +181,7 @@ const summaryMetrics = metrics(summary.results);
 console.log(`\n${"=".repeat(70)}`);
 console.log(`MULTI-VECTOR ANALYSIS — ${label}`);
 console.log("=".repeat(70));
-console.log(
-	`Model              R@1      R@5      R@10     MRR@10`,
-);
+console.log(`Model              R@1      R@5      R@10     MRR@10`);
 const fmt = (x: { r1: number; r5: number; r10: number; mrr: number }) =>
 	`${x.r1.toFixed(1).padStart(6)}%  ${x.r5.toFixed(1).padStart(6)}%  ${x.r10.toFixed(1).padStart(6)}%   ${x.mrr.toFixed(3).padStart(6)}`;
 console.log(`Gemini-2 baseline   ${fmt(gemMetrics)}`);
@@ -199,10 +198,6 @@ console.log(`  R@10: ${(m.r10 - gemMetrics.r10).toFixed(1).padStart(6)} pp`);
 const outPath = join(outDir, `eval-pass-qwen-${label}.json`);
 await Bun.write(
 	outPath,
-	JSON.stringify(
-		{ dims: 4096, total: -1, results: mergedResults },
-		null,
-		2,
-	),
+	JSON.stringify({ dims: 4096, total: -1, results: mergedResults }, null, 2),
 );
 console.log(`\nSaved merged pass → ${outPath}`);

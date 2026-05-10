@@ -10,10 +10,10 @@
  */
 
 import {
+	OpenRouterError,
 	type OpenRouterMessage,
 	type OpenRouterOptions,
 	type OpenRouterResult,
-	OpenRouterError,
 } from "./openrouter.ts";
 
 const NAN_URL = "https://api.nan.builders/v1/chat/completions";

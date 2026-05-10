@@ -51,21 +51,30 @@ const scores = results.map((r) => r.score).sort((a, b) => a - b);
 const min = scores[0]!;
 const max = scores[scores.length - 1]!;
 const median = scores[Math.floor(scores.length / 2)]!;
-console.log(`Score distribution: min=${min.toFixed(3)} median=${median.toFixed(3)} max=${max.toFixed(3)}`);
+console.log(
+	`Score distribution: min=${min.toFixed(3)} median=${median.toFixed(3)} max=${max.toFixed(3)}`,
+);
 
 const hitScores = results.filter((r) => r.hitsAt1).map((r) => r.score);
 const missScores = results.filter((r) => !r.hitsAt1).map((r) => r.score);
-const avgHit = hitScores.reduce((a, b) => a + b, 0) / Math.max(1, hitScores.length);
-const avgMiss = missScores.reduce((a, b) => a + b, 0) / Math.max(1, missScores.length);
-console.log(`  Among hit@1 queries (n=${hitScores.length}): avg score = ${avgHit.toFixed(3)}`);
-console.log(`  Among miss@1 queries (n=${missScores.length}): avg score = ${avgMiss.toFixed(3)}`);
+const avgHit =
+	hitScores.reduce((a, b) => a + b, 0) / Math.max(1, hitScores.length);
+const avgMiss =
+	missScores.reduce((a, b) => a + b, 0) / Math.max(1, missScores.length);
+console.log(
+	`  Among hit@1 queries (n=${hitScores.length}): avg score = ${avgHit.toFixed(3)}`,
+);
+console.log(
+	`  Among miss@1 queries (n=${missScores.length}): avg score = ${avgMiss.toFixed(3)}`,
+);
 console.log(
 	`  Hit-miss separation: ${(avgHit - avgMiss).toFixed(3)} (positive = score is informative)\n`,
 );
 
 // Sweep
 const thresholds = [
-	0.0, 0.30, 0.35, 0.40, 0.42, 0.44, 0.46, 0.48, 0.50, 0.52, 0.54, 0.55, 0.56, 0.58, 0.60, 0.62, 0.65, 0.70, 0.75, 0.80,
+	0.0, 0.3, 0.35, 0.4, 0.42, 0.44, 0.46, 0.48, 0.5, 0.52, 0.54, 0.55, 0.56,
+	0.58, 0.6, 0.62, 0.65, 0.7, 0.75, 0.8,
 ];
 console.log(
 	`Threshold | Coverage | Hit@1 above | Hit@5 above | Hit@1 below (abandoned-but-correct)`,

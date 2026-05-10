@@ -161,9 +161,7 @@ export async function fetchWithRetry(
 			if (provider === "nan" && response.status >= 500) {
 				attempts++;
 				if (attempts > maxRetries) {
-					throw new Error(
-						`NaN ${response.status} after ${attempts} retries`,
-					);
+					throw new Error(`NaN ${response.status} after ${attempts} retries`);
 				}
 				const delay = BACKOFF_MS * attempts * 2;
 				await new Promise((r) => setTimeout(r, delay));

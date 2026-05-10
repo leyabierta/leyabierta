@@ -254,7 +254,8 @@ export async function analyzeQuery(
 	tokensOut: number;
 }> {
 	const llmFn =
-		overrides.llmFn ?? (NAN_STACK ? (callNan as AnalyzerLlmFn) : callOpenRouter);
+		overrides.llmFn ??
+		(NAN_STACK ? (callNan as AnalyzerLlmFn) : callOpenRouter);
 	const model = overrides.model ?? ANALYZER_MODEL;
 	// When using NaN by default, swap apiKey for HERMES_API_KEY unless caller
 	// explicitly passed an apiKey override via overrides.

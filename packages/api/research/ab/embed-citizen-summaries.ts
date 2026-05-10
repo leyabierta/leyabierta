@@ -25,8 +25,7 @@ const limit = limitIdx >= 0 ? Number(args[limitIdx + 1]) : undefined;
 // are embedded first; everything else follows in default order. Used to get
 // quick eval signal on the 33 expected norms before all 9.7k complete.
 const priorityIdx = args.indexOf("--priority-norms");
-const priorityFile =
-	priorityIdx >= 0 ? args[priorityIdx + 1] : undefined;
+const priorityFile = priorityIdx >= 0 ? args[priorityIdx + 1] : undefined;
 
 const SOURCE_MODEL = "qwen3-nan"; // raw-text embeddings (provides scope)
 const TARGET_MODEL = "qwen3-nan-summary";
@@ -85,7 +84,9 @@ const allBlocks: Block[] = rows.map((r) => ({
 	text: `title: ${r.norm_title}\n\n${r.summary}`,
 }));
 
-console.log(`  ${allBlocks.length} citizen summaries to embed (target=${TARGET_MODEL})`);
+console.log(
+	`  ${allBlocks.length} citizen summaries to embed (target=${TARGET_MODEL})`,
+);
 
 // Priority sort: if a priority list is given, those norms go first.
 if (priorityFile) {

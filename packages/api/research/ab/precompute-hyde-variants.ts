@@ -144,13 +144,20 @@ for (const task of tasks) {
 			continue;
 		}
 		try {
-			const rewrite = await chat(task.model, task.system, q.question, task.maxTokens);
+			const rewrite = await chat(
+				task.model,
+				task.system,
+				q.question,
+				task.maxTokens,
+			);
 			if (rewrite) cache[q.question] = rewrite;
 			done++;
 			if (done % 5 === 0) {
 				const elapsed = (Date.now() - startedAt) / 1000;
 				const rate = done / Math.max(elapsed, 0.1);
-				process.stdout.write(`\r  ${done}/${questions.length} — ${rate.toFixed(2)}/s   `);
+				process.stdout.write(
+					`\r  ${done}/${questions.length} — ${rate.toFixed(2)}/s   `,
+				);
 				await Bun.write(task.outFile, JSON.stringify(cache, null, 2));
 			}
 		} catch (err) {
