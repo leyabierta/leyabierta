@@ -15,11 +15,24 @@
  */
 
 import type { Database } from "bun:sqlite";
+import { callNan } from "../nan.ts";
 import { callOpenRouter } from "../openrouter.ts";
 import { JURISDICTION_NAMES } from "./jurisdiction.ts";
 
-/** Analyzer model — cheap and fast, only extracts keywords/materias/flags */
-export const ANALYZER_MODEL = "google/gemini-2.5-flash-lite";
+/**
+ * Analyzer model — cheap and fast, only extracts keywords/materias/flags.
+ *
+ * When NAN_STACK=true (Phase 5 default for prod), we use qwen3.6 via NaN
+ * instead of gemini-2.5-flash-lite via OpenRouter. The Phase 5 A/B showed
+ * +4 pp R@1 from this swap alone (Spanish corpus, citizen queries).
+ */
+const NAN_STACK = process.env.NAN_STACK === "true";
+export const ANALYZER_MODEL = NAN_STACK
+	? "qwen3.6"
+	: "google/gemini-2.5-flash-lite";
+
+/** API-key environment variable to use for the default analyzer call. */
+const NAN_API_KEY_ENV = "HERMES_API_KEY";
 
 export interface AnalyzedQuery {
 	keywords: string[];
@@ -240,8 +253,15 @@ export async function analyzeQuery(
 	tokensIn: number;
 	tokensOut: number;
 }> {
-	const llmFn = overrides.llmFn ?? callOpenRouter;
+	const llmFn =
+		overrides.llmFn ?? (NAN_STACK ? (callNan as AnalyzerLlmFn) : callOpenRouter);
 	const model = overrides.model ?? ANALYZER_MODEL;
+	// When using NaN by default, swap apiKey for HERMES_API_KEY unless caller
+	// explicitly passed an apiKey override via overrides.
+	const effectiveKey =
+		!overrides.llmFn && NAN_STACK
+			? (process.env[NAN_API_KEY_ENV] ?? apiKey)
+			: apiKey;
 	try {
 		const result = await llmFn<{
 			keywords: string[];
@@ -251,7 +271,7 @@ export async function analyzeQuery(
 			non_legal: boolean;
 			jurisdiction: string | null;
 			norm_name_hint: string | null;
-		}>(apiKey, {
+		}>(effectiveKey, {
 			model,
 			messages: [
 				{

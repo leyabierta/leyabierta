@@ -39,7 +39,12 @@ import { startHybridTrace } from "./rag/tracing.ts";
 import { getSharedVectorIndex } from "./rag/vector-index-singleton.ts";
 import { vectorSearchPooled } from "./rag/vector-pool.ts";
 
-export const HYBRID_EMBEDDING_MODEL_KEY = "gemini-embedding-2";
+/**
+ * Embedding model used by /v1/laws hybrid search. Tracks the same Phase 5
+ * default as retrieval.ts: qwen3-nan when NAN_STACK=true.
+ */
+export const HYBRID_EMBEDDING_MODEL_KEY =
+	process.env.NAN_STACK === "true" ? "qwen3-nan" : "gemini-embedding-2";
 
 /**
  * Bounded LRU for query embeddings. Keys are the raw user query; values are

@@ -1,18 +1,24 @@
 /**
  * Reranker — rescores candidate articles by relevance to the query.
  *
- * Supports two backends:
- * 1. Cohere Rerank 3.5 (if COHERE_API_KEY is set) — fast, cheap, purpose-built
- * 2. LLM-based reranking via OpenRouter (fallback) — uses existing API key
+ * Three backends, selected by configuration:
+ * 1. NaN qwen3.6 LLM rerank (when NAN_STACK=true) — Phase 5 default for prod.
+ *    +18 pp R@1 over Cohere on Spanish legal corpus. Free, slower than xenc.
+ * 2. Cohere Rerank 3.5 (if COHERE_API_KEY is set, NAN_STACK=false)
+ * 3. OpenRouter cohere/rerank-4-pro (if openrouterApiKey is set, no Cohere)
  *
  * The reranker takes top-N candidates from retrieval (e.g. RRF output)
  * and returns a reranked top-K with relevance scores.
  */
 
+import { qwenLLMRerank } from "./qwen-llm-rerank.ts";
+
 const COHERE_RERANK_URL = "https://api.cohere.com/v2/rerank";
 const OPENROUTER_RERANK_URL = "https://openrouter.ai/api/v1/rerank";
 const COHERE_MODEL = "rerank-v3.5";
 const OPENROUTER_RERANK_MODEL = "cohere/rerank-4-pro";
+
+const NAN_STACK = process.env.NAN_STACK === "true";
 
 export interface RerankerCandidate {
 	key: string; // "normId:blockId"
@@ -69,9 +75,10 @@ export async function rerank(
 		};
 	}
 
-	// Forced backend takes precedence
-	if (config.preferredBackend === "nan-llm" && config.nanApiKey) {
-		return rerankWithNanLLM(query, candidates, topK, config.nanApiKey);
+	// Forced backend takes precedence over auto-selection.
+	if (config.preferredBackend === "nan-llm") {
+		const key = config.nanApiKey ?? process.env.HERMES_API_KEY;
+		if (key) return rerankWithNanLLM(query, candidates, topK, key);
 	}
 	if (config.preferredBackend === "cohere" && config.cohereApiKey) {
 		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
@@ -83,6 +90,13 @@ export async function rerank(
 			topK,
 			config.openrouterApiKey,
 		);
+	}
+
+	// Phase 5 default: when NAN_STACK=true and a NaN key is reachable, prefer
+	// the qwen3.6 LLM rerank (+18 pp R@1 vs Cohere on Spanish legal corpus).
+	if (NAN_STACK) {
+		const key = config.nanApiKey ?? process.env.HERMES_API_KEY;
+		if (key) return rerankWithNanLLM(query, candidates, topK, key);
 	}
 
 	// Auto-select: cohere → openrouter → nan-llm
@@ -115,7 +129,7 @@ export async function rerank(
 	};
 }
 
-// ── NaN qwen3.6 LLM rerank ──
+// ── NaN qwen3.6 LLM rerank (Phase 5 default) ──
 
 async function rerankWithNanLLM(
 	query: string,
@@ -123,10 +137,6 @@ async function rerankWithNanLLM(
 	topK: number,
 	nanApiKey: string,
 ): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
-	// Lazy import: keeps prod runtime tree-shakable when NaN isn't used.
-	const { qwenLLMRerank } = await import(
-		"../../../research/ab/qwen-llm-rerank.ts"
-	);
 	return qwenLLMRerank(nanApiKey, query, candidates, topK);
 }
 

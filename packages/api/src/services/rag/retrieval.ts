@@ -49,8 +49,20 @@ import { vectorSearchPooled } from "./vector-pool.ts";
 export const TOP_K = 15;
 export const RRF_K = 60;
 export const MIN_SIMILARITY = 0.35;
-export const LOW_CONFIDENCE_THRESHOLD = 0.38;
-export const EMBEDDING_MODEL_KEY = "gemini-embedding-2";
+/**
+ * Threshold below which RAG returns "no confident answer" early. Calibrated
+ * for Gemini cosines (~0.38). Qwen produces higher-magnitude cosines so when
+ * NAN_STACK=true we use a higher gate. Override per-call via opts.
+ */
+const NAN_STACK = process.env.NAN_STACK === "true";
+export const LOW_CONFIDENCE_THRESHOLD = NAN_STACK
+	? Number(process.env.LOW_CONFIDENCE_THRESHOLD_QWEN ?? "0.55")
+	: 0.38;
+/**
+ * Default embedding model key. Phase 5 default for prod is qwen3-nan when
+ * NAN_STACK=true (free, +30 pp R@1 with full NaN stack), else gemini-embedding-2.
+ */
+export const EMBEDDING_MODEL_KEY = NAN_STACK ? "qwen3-nan" : "gemini-embedding-2";
 
 // ── Types ──
 

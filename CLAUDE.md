@@ -166,15 +166,27 @@ Citation-grounded legal Q&A. Citizens ask plain-language questions, the system r
 5. **Synthesis** — LLM generates answer with inline citations `[BOE-A-XXXX-XXXX, Artículo N]`
 6. **Citation verification** — Post-hoc check that every citation maps to a real article
 
-**Models and costs:**
-- **Embeddings:** `google/gemini-embedding-2-preview` via OpenRouter, 3072 dimensions, $0.20/M tokens
+**Models and costs (NAN_STACK toggle):**
+
+When `NAN_STACK=false` (legacy default — paid OpenRouter stack):
+- **Embeddings:** `google/gemini-embedding-2-preview` via OpenRouter, 3072 dims, $0.20/M tokens
 - **Synthesis:** `google/gemini-2.5-flash` via OpenRouter (configurable)
-- **Reranking:** `cohere/rerank-v4-pro` (free tier, 1000 req/month)
-- **Query analysis:** Same as synthesis model
+- **Reranking:** `cohere/rerank-4-pro` via OpenRouter (or direct Cohere if `COHERE_API_KEY` set)
+- **Query analyzer:** `google/gemini-2.5-flash-lite` via OpenRouter
+
+When `NAN_STACK=true` (Phase 5 default — free, full NaN qwen3 stack):
+- **Embeddings:** `qwen3-embedding` via `api.nan.builders`, 4096 dims, $0
+- **Synthesis:** still `google/gemini-2.5-flash` via OpenRouter (Phase 6 candidate)
+- **Reranking:** `qwen3.6` LLM rerank via NaN, $0
+- **Query analyzer:** `qwen3.6` via NaN, $0
+- **Switch:** set `NAN_STACK=true` and `HERMES_API_KEY` in env. A/B Phase 5 result on 50 citizen queries × 9.7k norms: **+30 pp R@1, +14 pp R@5, +10 pp R@10 vs the gemini stack**.
+- **Threshold note:** Qwen produces higher-magnitude cosines (~0.55-0.65) than Gemini (~0.38). `LOW_CONFIDENCE_THRESHOLD` auto-switches based on `NAN_STACK`; override with `LOW_CONFIDENCE_THRESHOLD_QWEN`.
 
 **Embedding store:**
-- 483,983 embeddings from 9,738 vigente norms (all vigente norms with articles)
-- Stored as BLOBs in SQLite `embeddings` table (crash-safe, incremental add/remove)
+- 483,983 Gemini embeddings + 486,145 Qwen embeddings from 9,737-9,738 vigente norms
+- Both live concurrently in the SQLite `embeddings` table keyed by `(norm_id, block_id, model)`
+- Switching the prod model is purely a config flip — no re-embed needed at switch time
+- Stored as BLOBs (crash-safe, incremental add/remove)
 - For search: exported to flat binary file (`data/vectors.bin` + `data/vectors.meta.jsonl`), read in ~1GB chunks to avoid 6GB in-memory allocation
 - Sync script: `bun run packages/api/research/sync-embeddings.ts` (--add-only --all --dry-run --remove-only --migrate)
 
