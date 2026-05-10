@@ -225,6 +225,9 @@ case "$BEST_HYDE_TAG" in
 	*-hyde-gemma4) run_multi_vector "no-instruct-hyde-gemma4" "no-instruct-hyde-gemma4-summary" "multi-hyde-gemma4" ;;
 esac
 
-log "=== Phase 4 done — running final report ==="
+log "=== Phase 4 done — extra merges + final report ==="
+bash packages/api/research/ab/phase4-extra-merges.sh >>"$RUN_LOG" 2>&1 || true
 bun packages/api/research/ab/phase4-report.ts >>"$RUN_LOG" 2>&1 || true
+bun packages/api/research/ab/phase4-vault-summary.ts >>"$RUN_LOG" 2>&1 || true
 log "Final report: $LOG_DIR/phase4-results.md"
+log "Vault summary: ~/Documents/Obsidian Vault/10-Projects/Ley-Abierta/research/2026-05-10-phase4-results.md"

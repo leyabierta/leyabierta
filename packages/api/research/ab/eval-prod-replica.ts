@@ -317,17 +317,30 @@ console.log(`Eval set: ${questions.length} questions`);
 
 // ── Determine Qwen-NAN covered norms ──
 
-// In --summary-index variant we use the citizen-summary store as the haystack;
-// otherwise the raw-text Qwen store. The two sets should be near-identical
-// (summary script seeds from raw scope) but coverage may differ during embed.
-const haystackModel = useSummaryIndex ? "qwen3-nan-summary" : "qwen3-nan";
+// Always use the FULL raw-text Qwen scope as the BM25 haystack so that
+// summary-index variants are comparable against Gemini's full coverage. The
+// vector index of summary-index variants may be smaller (partial embed); the
+// retrieval simply returns no vector hit for un-embedded norms, while BM25
+// still searches the full 9.7k corpus through embeddedNormIds.
 const qwenNormIds = db
 	.query<{ norm_id: string }, [string]>(
 		"SELECT DISTINCT norm_id FROM embeddings WHERE model = ?",
 	)
-	.all(haystackModel)
+	.all("qwen3-nan")
 	.map((r) => r.norm_id);
-console.log(`Qwen-NAN covers ${qwenNormIds.length} distinct norms`);
+const summaryNormCount = useSummaryIndex
+	? db
+			.query<{ c: number }, [string]>(
+				"SELECT COUNT(DISTINCT norm_id) as c FROM embeddings WHERE model = ?",
+			)
+			.get("qwen3-nan-summary")?.c ?? 0
+	: 0;
+console.log(
+	`Qwen-NAN BM25/RRF haystack: ${qwenNormIds.length} norms` +
+		(useSummaryIndex
+			? ` · summary vector index: ${summaryNormCount} norms`
+			: ""),
+);
 
 // Find queries fully covered by Qwen-NAN (all expectedNorms in store)
 const qwenNormSet = new Set(qwenNormIds);
