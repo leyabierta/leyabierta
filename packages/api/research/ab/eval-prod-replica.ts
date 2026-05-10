@@ -41,8 +41,10 @@ async function qwenOpenRouterEmbedQuery(
 	query: string,
 ): Promise<{ embedding: Float32Array; cost: number; tokens: number }> {
 	// Qwen3 doc-side: plain text, NO instruction prefix (official spec)
-	// Query-side: Instruct prefix recommended
-	const prefixedQuery = `Instruct: Dada una pregunta jurídica de un ciudadano español, recupera el artículo de la legislación vigente que mejor la responda.\nQuery: ${query}`;
+	// Query-side: Instruct prefix recommended (set USE_INSTRUCT=false to ablate)
+	const prefixedQuery = QWEN_USE_INSTRUCT
+		? `Instruct: Dada una pregunta jurídica de un ciudadano español, recupera el artículo de la legislación vigente que mejor la responda.\nQuery: ${query}`
+		: query;
 
 	let attempts = 0;
 	while (true) {
@@ -102,35 +104,100 @@ async function buildModelIndex(
 	const model = EMBEDDING_MODELS[modelKey];
 	if (!model) return null;
 
-	const count =
-		db
-			.query<{ cnt: number }, [string]>(
-				"SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?",
-			)
-			.get(modelKey)?.cnt ?? 0;
-
-	if (count === 0) return null;
-
-	// Load from SQLite, optionally filtered to norm subset
-	const store = loadEmbeddingsFromDb(db, modelKey, normFilter);
-	if (!store) return null;
-
 	const dims = model.dimensions;
-	const vectorsPerChunk = Math.floor(2_500_000_000 / (dims * 4)); // ~2.5GB per chunk
+
+	// Count rows first to size chunks. Apply same filter as the streaming load.
+	let countSql = "SELECT COUNT(*) as cnt FROM embeddings WHERE model = ?";
+	const countParams: (string | number)[] = [modelKey];
+	if (normFilter && normFilter.length > 0) {
+		const ph = normFilter.map(() => "?").join(",");
+		countSql += ` AND norm_id IN (${ph})`;
+		for (const n of normFilter) countParams.push(n);
+	}
+	const totalCount = (
+		db.prepare(countSql).get(...countParams) as { cnt: number } | null
+	)?.cnt ?? 0;
+	if (totalCount === 0) return null;
+
+	// Stream rows from SQLite in chunks, allocating one Float32Array per chunk.
+	// Chunk size ~1 GB (well under JSC's per-allocation limit) keeps both
+	// indexes loadable sequentially on 48 GB hosts.
+	const vectorsPerChunk = Math.max(1, Math.floor(1_000_000_000 / (dims * 4)));
+	const articles: Array<{ normId: string; blockId: string }> = [];
 	const chunks: Float32Array[] = [];
 	const normsPerChunk: Float32Array[] = [];
 	const vpc: number[] = [];
 
-	for (let i = 0; i < store.count; i += vectorsPerChunk) {
-		const end = Math.min(i + vectorsPerChunk, store.count);
-		const numVecs = end - i;
-		chunks.push(store.vectors.subarray(i * dims, end * dims));
-		normsPerChunk.push(store.norms.subarray(i, end));
-		vpc.push(numVecs);
+	let sql = "SELECT norm_id, block_id, vector FROM embeddings WHERE model = ?";
+	const params: (string | number)[] = [modelKey];
+	if (normFilter && normFilter.length > 0) {
+		const ph = normFilter.map(() => "?").join(",");
+		sql += ` AND norm_id IN (${ph})`;
+		for (const n of normFilter) params.push(n);
 	}
+	sql += " ORDER BY norm_id, block_id";
+	const stmt = db.prepare(sql);
+
+	let chunkVecs = new Float32Array(
+		Math.min(vectorsPerChunk, totalCount) * dims,
+	);
+	let chunkNorms = new Float32Array(Math.min(vectorsPerChunk, totalCount));
+	let inChunk = 0;
+	let loaded = 0;
+
+	const flushChunk = () => {
+		if (inChunk === 0) return;
+		// Trim to actual size used, then attach.
+		const trimmedVecs =
+			inChunk * dims === chunkVecs.length
+				? chunkVecs
+				: chunkVecs.slice(0, inChunk * dims);
+		const trimmedNorms =
+			inChunk === chunkNorms.length ? chunkNorms : chunkNorms.slice(0, inChunk);
+		chunks.push(trimmedVecs);
+		normsPerChunk.push(trimmedNorms);
+		vpc.push(inChunk);
+		inChunk = 0;
+	};
+
+	for (const row of stmt.iterate(...params) as IterableIterator<{
+		norm_id: string;
+		block_id: string;
+		vector: Buffer;
+	}>) {
+		articles.push({ normId: row.norm_id, blockId: row.block_id });
+
+		// Copy vector into current chunk, computing norm inline.
+		const rowVector = new Float32Array(
+			row.vector.buffer,
+			row.vector.byteOffset,
+			dims,
+		);
+		const offset = inChunk * dims;
+		let sum = 0;
+		for (let j = 0; j < dims; j++) {
+			const v = rowVector[j] ?? 0;
+			chunkVecs[offset + j] = v;
+			sum += v * v;
+		}
+		chunkNorms[inChunk] = Math.sqrt(sum);
+		inChunk++;
+		loaded++;
+
+		if (inChunk >= vectorsPerChunk) {
+			flushChunk();
+			const remaining = totalCount - loaded;
+			const nextSize = Math.min(vectorsPerChunk, remaining);
+			if (nextSize > 0) {
+				chunkVecs = new Float32Array(nextSize * dims);
+				chunkNorms = new Float32Array(nextSize);
+			}
+		}
+	}
+	flushChunk();
 
 	return {
-		meta: store.articles,
+		meta: articles,
 		vectors: {
 			kind: "f32" as const,
 			chunks,
@@ -138,85 +205,11 @@ async function buildModelIndex(
 			scalesPerChunk: [],
 			vectorsPerChunk: vpc,
 			normsPerChunk,
-			totalVectors: store.count,
+			totalVectors: loaded,
 			dim: dims,
 		},
 		dims,
 	};
-}
-
-/**
- * Load all embeddings from SQLite into the same EmbeddingStore format.
- * (Copied from embeddings.ts to avoid import issues in eval context)
- * Optionally filter to a subset of norm_ids.
- */
-function loadEmbeddingsFromDb(
-	db: Database,
-	modelKey: string,
-	normFilter?: string[],
-): EmbeddingStore | null {
-	const model = EMBEDDING_MODELS[modelKey];
-	if (!model) return null;
-
-	// Use prepare() instead of query() — bun:sqlite query() with string params
-	// returns 0 rows due to a binding issue. prepare() works correctly.
-	let sql = "SELECT norm_id, block_id, vector FROM embeddings WHERE model = ?";
-	const params: (string | number)[] = [modelKey];
-
-	if (normFilter && normFilter.length > 0) {
-		const ph = normFilter.map(() => "?").join(",");
-		sql += ` AND norm_id IN (${ph})`;
-		for (const n of normFilter) {
-			params.push(n);
-		}
-	}
-	sql += " ORDER BY norm_id, block_id";
-
-	const stmt = db.prepare(sql);
-	const rows = stmt.all(...params) as Array<{
-		norm_id: string;
-		block_id: string;
-		vector: Buffer;
-	}>;
-
-	if (rows.length === 0) return null;
-
-	const dims = model.dimensions;
-	const count = rows.length;
-	const articles: Array<{ normId: string; blockId: string }> = [];
-	const vectors = new Float32Array(count * dims);
-
-	for (let i = 0; i < count; i++) {
-		const row = rows[i]!;
-		articles.push({ normId: row.norm_id, blockId: row.block_id });
-		const rowVector = new Float32Array(
-			row.vector.buffer,
-			row.vector.byteOffset,
-			dims,
-		);
-		vectors.set(rowVector, i * dims);
-	}
-
-	const norms = computeNorms(vectors, count, dims);
-	return { model: modelKey, dimensions: dims, count, articles, vectors, norms };
-}
-
-function computeNorms(
-	vectors: Float32Array,
-	count: number,
-	dims: number,
-): Float32Array {
-	const norms = new Float32Array(count);
-	for (let i = 0; i < count; i++) {
-		const offset = i * dims;
-		let sum = 0;
-		for (let j = 0; j < dims; j++) {
-			const v = vectors[offset + j] ?? 0;
-			sum += v * v;
-		}
-		norms[i] = Math.sqrt(sum);
-	}
-	return norms;
 }
 
 // ── Args ──
@@ -228,6 +221,16 @@ const nanApiKey = process.env.HERMES_API_KEY;
 const limitArg = args.indexOf("--limit");
 const limit = limitArg >= 0 ? Number(args[limitArg + 1]) : undefined;
 const onlyLocal = args.includes("--only-local");
+// Phase 3: full-corpus eval (no qwenNormIds filter on Gemini, all 50 queries)
+const fullCorpus = args.includes("--full");
+// Ablation: run Qwen without Instruct prefix to isolate prompt contribution
+const QWEN_USE_INSTRUCT = !args.includes("--no-instruct");
+// Phase 3: full-corpus eval OOMs when both indexes live in memory simultaneously.
+// Use --only-gemini / --only-qwen to run each pass in its own process.
+// Per-model results are persisted to JSON; the final pass merges and reports.
+const onlyGemini = args.includes("--only-gemini");
+const onlyQwen = args.includes("--only-qwen");
+const tag = QWEN_USE_INSTRUCT ? "instruct" : "no-instruct";
 
 // ── Paths ──
 
@@ -275,11 +278,19 @@ console.log(`Qwen-NAN covers ${qwenNormIds.length} distinct norms`);
 
 // Find queries fully covered by Qwen-NAN (all expectedNorms in store)
 const qwenNormSet = new Set(qwenNormIds);
-const coveredQueries = questions.filter((q) =>
+const coveredQueriesSubset = questions.filter((q) =>
 	q.expectedNorms?.every((n) => qwenNormSet.has(n)),
 );
 console.log(
-	`Fully covered by Qwen-NAN: ${coveredQueries.length} / ${questions.length}`,
+	`Fully covered by Qwen-NAN: ${coveredQueriesSubset.length} / ${questions.length}`,
+);
+// Phase 3: --full uses ALL queries with full haystack (Qwen now covers same scope as Gemini)
+const coveredQueries = fullCorpus ? questions : coveredQueriesSubset;
+console.log(
+	`Eval mode: ${fullCorpus ? "FULL corpus" : "Qwen-NAN subset"} → ${coveredQueries.length} queries`,
+);
+console.log(
+	`Qwen prompt: ${QWEN_USE_INSTRUCT ? "WITH Instruct prefix" : "NO instruct (ablation)"}`,
 );
 
 // Also find partial coverage for diagnostics
@@ -299,36 +310,11 @@ console.log(
 
 // ── Build vector indexes ──
 
-// Phase 1: restrict both indexes to the 138 norms covered by Qwen-NAN.
-// This ensures fair comparison AND avoids OOM (full Gemini store = 484k vectors ~ 5.7GB).
-console.log(
-	"\nBuilding Gemini vector index (restricted to Qwen-NAN coverage)...",
-);
-_resetSharedVectorIndexForTests();
-const geminiIndex = await buildModelIndex(
-	db,
-	"gemini-embedding-2",
-	join(repoRoot, "data"),
-	qwenNormIds,
-);
-console.log(
-	`  Gemini: ${geminiIndex?.vectors.totalVectors ?? 0} vectors, ${geminiIndex?.dims ?? 0} dims`,
-);
-
-console.log("Building Qwen-NAN vector index (full coverage)...");
-const qwenIndex = await buildModelIndex(
-	db,
-	"qwen3-nan",
-	join(repoRoot, "data"),
-);
-console.log(
-	`  Qwen-NAN: ${qwenIndex?.vectors.totalVectors ?? 0} vectors, ${qwenIndex?.dims ?? 0} dims`,
-);
-
-if (!geminiIndex || !qwenIndex) {
-	console.error("FATAL: Could not build both indexes");
-	process.exit(1);
-}
+// Phase 1/2: restrict both indexes to the norms covered by Qwen-NAN (subset).
+// Phase 3 (--full): no restriction — Qwen now covers same scope as Gemini, but
+// loading both indexes simultaneously OOMs (~13 GB combined). We build & evaluate
+// one model at a time, freeing the index between passes.
+const haystackFilter = fullCorpus ? undefined : qwenNormIds;
 
 // ── Run eval ──
 
@@ -350,7 +336,7 @@ const _results: QueryResult[] = [];
 async function runVariant(
 	question: EvalQuery,
 	modelKey: string,
-	index: NonNullable<typeof geminiIndex>,
+	index: NonNullable<Awaited<ReturnType<typeof buildModelIndex>>>,
 	embedFn: EmbedQueryFn,
 ): Promise<QueryResult> {
 	const opts: Omit<RunRetrievalCoreOpts, "db" | "apiKey" | "cohereApiKey"> = {
@@ -361,6 +347,7 @@ async function runVariant(
 		lowConfidenceThreshold: 0,
 		question: question.question,
 		requestJurisdiction: undefined,
+		// In --full mode Qwen covers same scope as Gemini, so qwenNormIds is the full haystack.
 		embeddedNormIds: qwenNormIds,
 		vectorIndex: {
 			meta: index.meta,
@@ -453,28 +440,117 @@ const qwenResults: QueryResult[] = [];
 // Workaround: run all queries for one model, then `shutdownVectorPool()` to
 // reset the singleton, then run all queries for the next model.
 
-console.log("\n== Pass 1: Gemini ==");
-for (let i = 0; i < coveredQueries.length; i++) {
-	const q = coveredQueries[i]!;
-	const pct = (((i + 1) / coveredQueries.length) * 100).toFixed(0);
-	process.stdout.write(
-		`\r  Gemini progress: ${i + 1}/${coveredQueries.length} (${pct}%)   `,
+// File paths for per-pass result persistence (Phase 3 split).
+const geminiPassFile = `${outDir}/eval-pass-gemini-${tag}.json`;
+const qwenPassFile = `${outDir}/eval-pass-qwen-${tag}.json`;
+
+let geminiDims = 0;
+let geminiTotal = 0;
+let qwenDims = 0;
+let qwenTotal = 0;
+
+if (!onlyQwen) {
+	console.log(
+		`\n== Pass 1: Gemini (${fullCorpus ? "FULL corpus" : "subset"}) ==`,
 	);
-	const gResult = await runVariant(
-		q,
+	console.log("  Building Gemini vector index...");
+	_resetSharedVectorIndexForTests();
+	const geminiIndex = await buildModelIndex(
+		db,
 		"gemini-embedding-2",
-		geminiIndex,
-		geminiEmbedFn,
+		join(repoRoot, "data"),
+		haystackFilter,
 	);
-	geminiResults.push(gResult);
+	if (!geminiIndex) {
+		console.error("FATAL: Could not build Gemini index");
+		process.exit(1);
+	}
+	console.log(
+		`  Gemini: ${geminiIndex.vectors.totalVectors} vectors, ${geminiIndex.dims} dims`,
+	);
+	geminiDims = geminiIndex.dims;
+	geminiTotal = geminiIndex.vectors.totalVectors;
+
+	for (let i = 0; i < coveredQueries.length; i++) {
+		const q = coveredQueries[i]!;
+		const pct = (((i + 1) / coveredQueries.length) * 100).toFixed(0);
+		process.stdout.write(
+			`\r  Gemini progress: ${i + 1}/${coveredQueries.length} (${pct}%)   `,
+		);
+		const gResult = await runVariant(
+			q,
+			"gemini-embedding-2",
+			geminiIndex,
+			geminiEmbedFn,
+		);
+		geminiResults.push(gResult);
+	}
+	console.log("\n");
+
+	await Bun.write(
+		geminiPassFile,
+		JSON.stringify(
+			{ dims: geminiDims, total: geminiTotal, results: geminiResults },
+			null,
+			2,
+		),
+	);
+	console.log(`  Saved Gemini pass results → ${geminiPassFile}`);
+
+	shutdownVectorPool();
+	_resetSharedVectorIndexForTests();
 }
-console.log("\n");
 
-console.log("== Resetting vector pool for Qwen ==");
-shutdownVectorPool();
-_resetSharedVectorIndexForTests();
+if (onlyGemini) {
+	console.log(
+		"\nDone Gemini pass. Run again with --only-qwen to complete the eval.",
+	);
+	db.close();
+	process.exit(0);
+}
 
-console.log("== Pass 2: Qwen-NAN ==");
+// If we skipped Pass 1, load saved Gemini results from disk.
+if (onlyQwen) {
+	const file = Bun.file(geminiPassFile);
+	if (!(await file.exists())) {
+		console.error(
+			`FATAL: --only-qwen requires ${geminiPassFile} (run --only-gemini first)`,
+		);
+		process.exit(1);
+	}
+	const saved = (await file.json()) as {
+		dims: number;
+		total: number;
+		results: QueryResult[];
+	};
+	geminiDims = saved.dims;
+	geminiTotal = saved.total;
+	geminiResults.push(...saved.results);
+	console.log(
+		`Loaded Gemini pass from disk: ${geminiResults.length} results, ${geminiTotal} vectors`,
+	);
+}
+
+console.log(
+	`\n== Pass 2: Qwen-NAN (${fullCorpus ? "FULL corpus" : "subset"}) ==`,
+);
+console.log("  Building Qwen-NAN vector index...");
+const qwenIndex = await buildModelIndex(
+	db,
+	"qwen3-nan",
+	join(repoRoot, "data"),
+	haystackFilter,
+);
+if (!qwenIndex) {
+	console.error("FATAL: Could not build Qwen index");
+	process.exit(1);
+}
+console.log(
+	`  Qwen-NAN: ${qwenIndex.vectors.totalVectors} vectors, ${qwenIndex.dims} dims`,
+);
+qwenDims = qwenIndex.dims;
+qwenTotal = qwenIndex.vectors.totalVectors;
+
 for (let i = 0; i < coveredQueries.length; i++) {
 	const q = coveredQueries[i]!;
 	const pct = (((i + 1) / coveredQueries.length) * 100).toFixed(0);
@@ -490,6 +566,16 @@ for (let i = 0; i < coveredQueries.length; i++) {
 	qwenResults.push(qResult);
 }
 console.log("\n");
+
+await Bun.write(
+	qwenPassFile,
+	JSON.stringify(
+		{ dims: qwenDims, total: qwenTotal, results: qwenResults },
+		null,
+		2,
+	),
+);
+console.log(`  Saved Qwen pass results → ${qwenPassFile}`);
 
 // ── Compute metrics ──
 
@@ -527,10 +613,10 @@ console.log(
 	`Queries evaluated: ${coveredQueries.length} (fully covered by Qwen-NAN)`,
 );
 console.log(
-	`Gemini index: ${geminiIndex.vectors.totalVectors} vectors, ${geminiIndex.dims} dims`,
+	`Gemini index: ${geminiTotal} vectors, ${geminiDims} dims`,
 );
 console.log(
-	`Qwen-NAN index: ${qwenIndex.vectors.totalVectors} vectors, ${qwenIndex.dims} dims`,
+	`Qwen-NAN index: ${qwenTotal} vectors, ${qwenDims} dims`,
 );
 console.log(`Cohere reranker: disabled (--cohere-api-key not set)`);
 console.log(`\n${"-".repeat(70)}`);
