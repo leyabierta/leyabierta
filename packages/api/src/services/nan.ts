@@ -14,6 +14,8 @@ import {
 	type OpenRouterMessage,
 	type OpenRouterOptions,
 	type OpenRouterResult,
+	type StreamDelta,
+	type StreamDone,
 } from "./openrouter.ts";
 
 const NAN_URL = "https://api.nan.builders/v1/chat/completions";
@@ -183,3 +185,100 @@ export async function callNan<T>(
 }
 
 export type NanMessage = OpenRouterMessage;
+
+/**
+ * Streaming chat completion via NaN. Same SSE protocol as OpenRouter; we
+ * mirror `callOpenRouterStream` so the synthesis route can treat both
+ * providers identically.
+ */
+export async function* callNanStream(
+	apiKey: string,
+	options: Omit<OpenRouterOptions, "jsonResponse" | "jsonSchema"> & {
+		disableThinking?: boolean;
+	},
+): AsyncGenerator<StreamDelta | StreamDone> {
+	const {
+		model,
+		messages,
+		temperature = 0.2,
+		maxTokens = 4000,
+		disableThinking = true,
+	} = options;
+
+	let response: Response | null = null;
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		if (attempt > 0) {
+			await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
+		}
+		const res = await fetch(NAN_URL, {
+			method: "POST",
+			signal: AbortSignal.timeout(180_000),
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				model,
+				messages,
+				temperature,
+				max_tokens: maxTokens,
+				stream: true,
+				...(disableThinking
+					? { chat_template_kwargs: { enable_thinking: false } }
+					: {}),
+			}),
+		});
+		if (res.status === 429) continue;
+		if (res.status >= 500) continue;
+		if (!res.ok) {
+			const errorText = await res.text();
+			throw new OpenRouterError(
+				`http_${res.status}`,
+				`NaN stream error ${res.status}: ${errorText.slice(0, 200)}`,
+			);
+		}
+		response = res;
+		break;
+	}
+	if (!response) {
+		throw new OpenRouterError("rate_limit", "NaN rate limited after retries");
+	}
+	if (!response.body) {
+		throw new OpenRouterError("no_body", "NaN response has no body");
+	}
+
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let tokensIn = 0;
+	let tokensOut = 0;
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+		const lines = buffer.split("\n");
+		buffer = lines.pop() ?? "";
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed?.startsWith("data: ")) continue;
+			const payload = trimmed.slice(6);
+			if (payload === "[DONE]") continue;
+			try {
+				const parsed = JSON.parse(payload) as {
+					choices?: Array<{ delta?: { content?: string } }>;
+					usage?: { prompt_tokens?: number; completion_tokens?: number };
+				};
+				const content = parsed.choices?.[0]?.delta?.content;
+				if (content) yield { type: "delta", text: content };
+				if (parsed.usage) {
+					tokensIn = parsed.usage.prompt_tokens ?? 0;
+					tokensOut = parsed.usage.completion_tokens ?? 0;
+				}
+			} catch {
+				// skip unparseable lines
+			}
+		}
+	}
+	yield { type: "done", tokensIn, tokensOut, cost: 0 };
+}

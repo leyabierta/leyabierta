@@ -52,30 +52,27 @@ export const MIN_SIMILARITY = 0.35;
 /**
  * Threshold below which RAG returns "no confident answer" early.
  *
- * Gemini stack: 0.38, calibrated against the historical Gemini cosines.
+ * 0.40 is essentially "off" — Phase 5 calibration showed that with the full
+ * qwen×qwen×qwen NaN stack, raw vector `bestScore` is NOT informative about
+ * correctness. Hit@1 vs miss@1 score distributions overlap (separation +0.04
+ * on the full stack and NEGATIVE on simpler configs). Setting the gate higher
+ * than the corpus minimum (0.428) abandons more correct answers than false
+ * ones. We keep 0.40 just to catch catastrophic embedding failures.
  *
- * Qwen NaN stack: 0.40 (essentially "off"). Calibration on the Phase 5 eval
- * (50 queries × 9.7k norms) showed that for the qwen-embed + qwen-analyzer +
- * qwen-rerank stack, `bestScore` (max raw vector similarity) is NOT informative
- * about correctness — hit@1 and miss@1 queries have indistinguishable score
- * distributions (avg hit 0.586 vs avg miss 0.543, separation only +0.04 on the
- * full stack and NEGATIVE on simpler configs). Setting the gate higher than
- * the corpus minimum (0.428) abandons more correct answers than false ones.
- * We keep the gate at 0.40 only to catch catastrophic embedding failures.
+ * For real "low-confidence" UX warnings we need a different signal (rerank
+ * top-1 score, candidate diversity) — TBD.
  *
- * Override via env: LOW_CONFIDENCE_THRESHOLD_QWEN.
+ * Override via env: LOW_CONFIDENCE_THRESHOLD.
  */
-const NAN_STACK = process.env.NAN_STACK === "true";
-export const LOW_CONFIDENCE_THRESHOLD = NAN_STACK
-	? Number(process.env.LOW_CONFIDENCE_THRESHOLD_QWEN ?? "0.40")
-	: 0.38;
+export const LOW_CONFIDENCE_THRESHOLD = Number(
+	process.env.LOW_CONFIDENCE_THRESHOLD ?? "0.40",
+);
 /**
- * Default embedding model key. Phase 5 default for prod is qwen3-nan when
- * NAN_STACK=true (free, +30 pp R@1 with full NaN stack), else gemini-embedding-2.
+ * Default embedding model key. Phase 5 verdict: qwen3-nan beats Gemini by
+ * +30 pp R@1 on this Spanish-legal corpus with the full NaN stack, $0 cost.
+ * Override per-call via opts.embeddingModelKey.
  */
-export const EMBEDDING_MODEL_KEY = NAN_STACK
-	? "qwen3-nan"
-	: "gemini-embedding-2";
+export const EMBEDDING_MODEL_KEY = "qwen3-nan";
 
 // ── Types ──
 

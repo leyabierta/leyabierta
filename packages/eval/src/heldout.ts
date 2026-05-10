@@ -33,11 +33,6 @@ function mulberry32(a: number): () => number {
 	};
 }
 
-interface HoldoutTarget {
-	voice: Voice;
-	count: number;
-}
-
 function pickStratified(
 	pool: EvalQuestion[],
 	target: number,
@@ -95,11 +90,8 @@ export function carveHeldout(opts: { citizen: number; formal: number }): {
 		qs: EvalQuestion[],
 		description: string,
 	): Dataset["meta"] => {
-		const empty = { citizen: 0, formal: 0 };
-		const byVoice = qs.reduce(
-			(acc, q) => ({ ...acc, [q.voice]: (acc[q.voice] ?? 0) + 1 }),
-			empty as Record<Voice, number>,
-		);
+		const byVoice: Record<Voice, number> = { citizen: 0, formal: 0 };
+		for (const q of qs) byVoice[q.voice]++;
 		const byMateria: Record<string, number> = {};
 		const byJurisdiction: Record<string, number> = {};
 		const bySource: Record<string, number> = {
