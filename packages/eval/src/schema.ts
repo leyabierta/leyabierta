@@ -19,11 +19,28 @@ export type ProvenanceSource =
 
 export type JudgeVerdict = "accept" | "reject";
 
+export type JudgeConcernType =
+	| "leak"
+	| "answer-fit"
+	| "voice"
+	| "specificity"
+	| "ambiguity";
+
+export type JudgeConcernSeverity = "minor" | "major";
+
+export interface JudgeConcern {
+	type: JudgeConcernType;
+	severity: JudgeConcernSeverity;
+	text: string;
+}
+
 export interface JudgeVote {
 	model: string; // e.g. "qwen3.6-nan", "gemma4-nan"
 	prompt: string; // prompt id used (e.g. "judge-strict-v1")
 	verdict: JudgeVerdict;
 	reason: string;
+	/** Typed concerns (since v2). Older rows may have empty array. */
+	concerns: JudgeConcern[];
 	tookMs: number;
 }
 

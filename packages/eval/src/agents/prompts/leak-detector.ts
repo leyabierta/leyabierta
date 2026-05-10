@@ -47,6 +47,223 @@ export function detectLeaksRegex(question: string): RegexLeak[] {
 	return leaks;
 }
 
+/**
+ * Tokenize for rare-term overlap analysis. Lowercases, strips diacritics,
+ * splits on non-letter/digit characters, and keeps tokens with length
+ * `>= minLength` (default 4) so we ignore stop words and short particles.
+ */
+export function tokenizeForRareOverlap(text: string, minLength = 4): string[] {
+	return text
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[^a-z0-9]+/g, " ")
+		.split(" ")
+		.filter((t) => t.length >= minLength);
+}
+
+/**
+ * Detects rare-term lifting: tokens shared between the question and the
+ * article whose corpus document-frequency falls below `rareThreshold`.
+ *
+ * `rareTermFrequency` maps token → fraction of articles in the corpus that
+ * contain the token (0..1). Tokens absent from the map are treated as
+ * extremely rare (frequency = 0), since an unseen token in a 5k sample
+ * is by definition uncommon. If there are at least `minRareCooccurrence`
+ * such overlaps (default 2), we consider it a leak.
+ *
+ * Returns the matched rare tokens (deduplicated), or null if below the
+ * threshold.
+ */
+export function detectRareTermOverlap(
+	question: string,
+	articleText: string,
+	rareTermFrequency: Map<string, number>,
+	opts: { minRareCooccurrence?: number; rareThreshold?: number } = {},
+): { matched: string[] } | null {
+	const minRareCooccurrence = opts.minRareCooccurrence ?? 2;
+	const rareThreshold = opts.rareThreshold ?? 0.005; // <0.5% of articles
+
+	const qTokens = new Set(tokenizeForRareOverlap(question));
+	if (qTokens.size === 0) return null;
+	const aTokens = new Set(tokenizeForRareOverlap(articleText));
+
+	const matched: string[] = [];
+	for (const token of qTokens) {
+		if (!aTokens.has(token)) continue;
+		const freq = rareTermFrequency.get(token) ?? 0;
+		if (freq < rareThreshold) matched.push(token);
+	}
+
+	if (matched.length < minRareCooccurrence) return null;
+	return { matched };
+}
+
+// ── Bigram-substring overlap layer ────────────────────────────────────────
+
+/**
+ * Spanish stoplist for bigram tokenization. We drop these tokens BEFORE
+ * forming bigrams, so "organización de productores" → bigram
+ * "organizacion productores" (after stripping "de"). This mirrors how a
+ * human reader would treat the phrase as a single multi-word concept.
+ */
+const BIGRAM_STOPLIST: ReadonlySet<string> = new Set([
+	"el",
+	"la",
+	"los",
+	"las",
+	"un",
+	"una",
+	"de",
+	"del",
+	"en",
+	"y",
+	"o",
+	"para",
+	"por",
+	"con",
+	"sin",
+	"sobre",
+	"bajo",
+	"ante",
+	"entre",
+	"contra",
+	"durante",
+	"segun",
+	"mediante",
+	"hasta",
+	"hacia",
+	"desde",
+	"que",
+	"como",
+	"cuando",
+	"donde",
+	"lo",
+	"le",
+	"su",
+	"sus",
+	"mi",
+	"mis",
+	"este",
+	"esta",
+	"estos",
+	"estas",
+	"ese",
+	"esa",
+	"esos",
+	"esas",
+	"ya",
+	"no",
+	"si",
+]);
+
+/**
+ * Tokenize for bigram overlap analysis. Lowercases, strips diacritics,
+ * splits on non-letter/digit characters, drops tokens shorter than
+ * `minLength` (default 3), and removes a small Spanish stoplist of
+ * particles, articles, prepositions, and pronouns. The stoplist is
+ * applied AFTER diacritic stripping (so "según" → "segun" is recognised).
+ */
+/**
+ * Crude Spanish plural stemmer: collapses regular plurals onto their
+ * singular form so "investigaciones clínicas" matches "investigación
+ * clínica" after diacritic stripping. Only handles the two most common
+ * patterns (-es and -s); irregulars are accepted as-is. The aim is
+ * recall on collocation overlap, not linguistic correctness.
+ */
+function stemPlural(token: string): string {
+	if (token.length > 5 && token.endsWith("es")) {
+		const stem = token.slice(0, -2);
+		// Avoid collisions where the stem turns into a stopword
+		// (e.g. "antes" → "ante"). Keep the original surface form.
+		if (BIGRAM_STOPLIST.has(stem)) return token;
+		return stem;
+	}
+	if (token.length > 4 && token.endsWith("s")) {
+		const stem = token.slice(0, -1);
+		if (BIGRAM_STOPLIST.has(stem)) return token;
+		return stem;
+	}
+	return token;
+}
+
+/**
+ * Returns the FULL token stream (including stopwords). Stopwords are kept
+ * here so the bigram builder can see the gaps between content tokens and
+ * form skip-bigrams over them. Filtering happens inside `bigramSet`.
+ */
+export function tokenizeForBigramOverlap(
+	text: string,
+	minLength = 3,
+): string[] {
+	return text
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[^a-z0-9]+/g, " ")
+		.split(" ")
+		.filter((t) => t.length >= minLength)
+		.map(stemPlural);
+}
+
+/**
+ * Build a set of bigrams over the content tokens, allowing at most one
+ * stopword token between two content tokens (so "Fondo de mejora" yields
+ * "fondo mejora"). Adjacent content-content pairs are also captured.
+ *
+ * Pure adjacent bigrams that contain a stopword are NOT emitted: those
+ * tend to be noise like "fondo de", "de mejora" that match too eagerly.
+ * The skip-bigram is the one that carries the collocational signal.
+ */
+function bigramSet(tokens: string[]): Set<string> {
+	const set = new Set<string>();
+	for (let i = 0; i < tokens.length; i++) {
+		const a = tokens[i]!;
+		if (BIGRAM_STOPLIST.has(a)) continue;
+		// Look at the next 1 or 2 positions; skip up to 1 stopword.
+		for (let j = i + 1; j <= Math.min(i + 2, tokens.length - 1); j++) {
+			const b = tokens[j]!;
+			if (BIGRAM_STOPLIST.has(b)) continue;
+			set.add(`${a} ${b}`);
+			break;
+		}
+	}
+	return set;
+}
+
+/**
+ * Detects shared multi-word collocations (bigrams) between the question
+ * and the source article. Single tokens are too noisy ("articulo",
+ * "persona"), but consecutive 2-token sequences capture the kind of
+ * domain-specific phrasing that makes a question trivially answerable
+ * by lexical retrieval (e.g. "organizacion productores", "importe
+ * recuperado", "investigacion clinica", "seleccion final").
+ *
+ * Returns the matched bigrams (deduplicated) if at least
+ * `minOverlapBigrams` bigrams (default 2) are shared, else null.
+ */
+export function detectBigramOverlap(
+	question: string,
+	articleText: string,
+	opts: { minOverlapBigrams?: number; minBigramFreqRatio?: number } = {},
+): { matched: string[] } | null {
+	const minOverlapBigrams = opts.minOverlapBigrams ?? 2;
+	// `minBigramFreqRatio` reserved for v2 corpus-frequency filtering;
+	// v1 treats every shared bigram as suspicious.
+
+	const qBigrams = bigramSet(tokenizeForBigramOverlap(question));
+	if (qBigrams.size === 0) return null;
+	const aBigrams = bigramSet(tokenizeForBigramOverlap(articleText));
+
+	const matched: string[] = [];
+	for (const bg of qBigrams) {
+		if (aBigrams.has(bg)) matched.push(bg);
+	}
+
+	if (matched.length < minOverlapBigrams) return null;
+	return { matched };
+}
+
 /** Detects long literal substrings (>=6 consecutive words) shared with the article. */
 export function detectLongLiteralOverlap(
 	question: string,

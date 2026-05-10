@@ -1,8 +1,10 @@
 import type { NanLlmClient } from "../llm/nan-client.ts";
 import type { EvalTrace } from "../llm/tracing.ts";
 import {
+	detectBigramOverlap,
 	detectLeaksRegex,
 	detectLongLiteralOverlap,
+	detectRareTermOverlap,
 	LEAK_DETECTOR_JSON_SCHEMA,
 	LEAK_DETECTOR_PROMPT_ID,
 	LEAK_DETECTOR_SYSTEM,
@@ -11,15 +13,49 @@ import {
 } from "./prompts/leak-detector.ts";
 import type { ArticleSeed, LeakDetectorAgent, QuestionDraft } from "./types.ts";
 
+export interface LeakDetectorOpts {
+	/** Returns the article text to compare against the question, lazily. */
+	articleText?: () => string;
+	/**
+	 * Optional global corpus document-frequency map. If provided AND
+	 * `articleText` is provided, we run the rare-term overlap layer
+	 * between regex and LLM. Pass via `cli.ts` after building once at
+	 * pipeline startup.
+	 */
+	rareTermFrequency?: Map<string, number>;
+	/** Tunables for `detectRareTermOverlap`. */
+	rareOverlap?: {
+		minRareCooccurrence?: number;
+		rareThreshold?: number;
+	};
+	/**
+	 * Tunables for `detectBigramOverlap`. Enabled by default whenever
+	 * article text is available; pass `enabled: false` to disable in
+	 * tests or for explicit opt-out.
+	 */
+	bigramOverlap?: {
+		enabled?: boolean;
+		minOverlapBigrams?: number;
+	};
+}
+
 /**
- * Two-layer leak detector: cheap regex first (catches BOE-IDs, "art. N",
- * "ley N/YYYY"), then LLM for subtler leaks. If regex fires, we short-circuit
- * with `passed=false` and skip the LLM call (saves NaN budget).
+ * Three-layer leak detector:
+ *  1. Deterministic regex (BOE-IDs, "art. N", "ley N/YYYY", "según el ...").
+ *  2. Article-grounded checks against the source article text:
+ *     a) long literal overlap (>=6 consecutive words shared).
+ *     b) rare-term overlap (TF-IDF style: tokens shared between question
+ *        and article whose corpus document-frequency is below
+ *        `rareThreshold`). Requires the corpus frequency map.
+ *  3. LLM critic for subtler leaks the deterministic layers miss.
+ *
+ * If any deterministic layer fires, we short-circuit with `passed=false`
+ * and skip the LLM call (saves NaN budget).
  */
 export function makeLeakDetectorAgent(
 	llm: NanLlmClient,
 	trace?: EvalTrace,
-	opts: { articleText?: () => string } = {},
+	opts: LeakDetectorOpts = {},
 ): LeakDetectorAgent {
 	return {
 		async check(draft: QuestionDraft) {
@@ -31,13 +67,44 @@ export function makeLeakDetectorAgent(
 				};
 			}
 
-			if (opts.articleText) {
-				const overlap = detectLongLiteralOverlap(
-					draft.text,
-					opts.articleText(),
-				);
+			const articleText = opts.articleText
+				? opts.articleText()
+				: draft.articleText;
+			if (articleText) {
+				const overlap = detectLongLiteralOverlap(draft.text, articleText);
 				if (overlap) {
 					return { passed: false, reasons: [`literal-overlap:"${overlap}"`] };
+				}
+
+				if (opts.bigramOverlap?.enabled !== false) {
+					const bigram = detectBigramOverlap(draft.text, articleText, {
+						minOverlapBigrams: opts.bigramOverlap?.minOverlapBigrams,
+					});
+					if (bigram) {
+						return {
+							passed: false,
+							reasons: [
+								`bigram-overlap: ${bigram.matched
+									.map((b) => `"${b}"`)
+									.join(", ")}`,
+							],
+						};
+					}
+				}
+
+				if (opts.rareTermFrequency) {
+					const rare = detectRareTermOverlap(
+						draft.text,
+						articleText,
+						opts.rareTermFrequency,
+						opts.rareOverlap,
+					);
+					if (rare) {
+						return {
+							passed: false,
+							reasons: [`rare-overlap: ${rare.matched.join(", ")}`],
+						};
+					}
 				}
 			}
 
@@ -71,8 +138,10 @@ export function makeLeakDetectorAgentForSeed(
 	llm: NanLlmClient,
 	seed: ArticleSeed,
 	trace?: EvalTrace,
+	opts: { rareTermFrequency?: Map<string, number> } = {},
 ): LeakDetectorAgent {
 	return makeLeakDetectorAgent(llm, trace, {
 		articleText: () => seed.articleText,
+		rareTermFrequency: opts.rareTermFrequency,
 	});
 }

@@ -61,3 +61,73 @@ bun run packages/eval/src/cli.ts review-borderline
 # producir splits train/val/test desde el set aceptado
 bun run packages/eval/src/cli.ts split
 ```
+
+## Pilot review workflow
+
+Mientras el pipeline no sea completamente fiable, **toda pregunta aceptada pasa
+por una revisión estructurada** antes de incorporarse al dataset. La revisión
+la realiza un subagente (Devin/Claude) sobre un Markdown autocontenido que
+incluye texto de los artículos relevantes, votos del jurado y una plantilla
+para verdict + score.
+
+Flujo end-to-end:
+
+1. **Generar el batch**
+
+   ```bash
+   bun run packages/eval/src/cli.ts generate --pilot
+   ```
+
+   Produce `packages/eval/datasets/pilot/accepted-<stamp>.jsonl`.
+
+2. **Construir el input de revisión**
+
+   ```bash
+   bun run packages/eval/src/cli.ts review-batch \
+     packages/eval/datasets/pilot/accepted-<stamp>.jsonl
+   ```
+
+   Genera `review-input-<stamp>.md` con una sección por pregunta. Cada sección
+   trae texto del artículo seed, alternativas, votos del jurado y un bloque
+   `Reviewer task` con `Verdict: KEEP | MARGINAL | DROP` y `Score (0-3 each):
+   C / A / L / S = ?/?/?/? = ?/12` para rellenar.
+
+3. **Lanzar el subagente de revisión**
+
+   El orquestador (Devin/Claude) llama a `run_subagent` con instrucciones del
+   tipo: "lee este Markdown, rellena cada bloque Reviewer task con tu
+   verdict (KEEP/MARGINAL/DROP), las cuatro puntuaciones C/A/L/S y una
+   rationale de una línea, y escribe el resultado en
+   `<misma-ruta>-reviewed.md`". El subagente devuelve el Markdown completo con
+   los bloques `Verdict: <valor>` rellenos.
+
+4. **Resumir y filtrar**
+
+   ```bash
+   bun run packages/eval/src/cli.ts review-batch-summarize \
+     packages/eval/datasets/pilot/review-input-<stamp>-reviewed.md
+   ```
+
+   Produce:
+
+   - `review-summary-<stamp>.md` — distribución de verdicts, medias por eje,
+     desglose por voice/materia entre los KEEP, tabla por pregunta.
+   - `keep-<stamp>.jsonl` — subconjunto de `EvalQuestion` con verdict KEEP
+     (apto para integrar al dataset).
+   - `marginal-drop-<stamp>.jsonl` — borderline + descartes (cola para iterar
+     prompts o anotación humana).
+
+   El parser tolera secciones malformadas: avisa por stderr y las omite en vez
+   de fallar.
+
+## Monitoring long runs
+
+A full `generate --target 2000+` run can take hours. The pipeline writes
+`packages/eval/datasets/.progress.json` (atomically updated every ≈1s).
+In a second terminal:
+
+    bun run packages/eval/src/cli.ts watch
+
+You'll see a live dashboard with progress bar, acceptance rate, ETA,
+drop reasons, last accepted, last borderline. Safe to run at any time
+(renders whatever's in the file) and to leave unattended.

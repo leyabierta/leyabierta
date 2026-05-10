@@ -44,10 +44,18 @@ export interface Sampler {
 	 * Returns up to `n` `(norm, article)` candidates, stratified by
 	 * (materia × jurisdiction × rank × decade). Avoids previously sampled
 	 * seeds via `seenSeeds`.
+	 *
+	 * `maxPerNorm` caps how many seeds may share the same norm across the
+	 * lifetime of a sampling run. The cap is enforced by deriving per-norm
+	 * draw counts from `seenSeeds` (every entry is `normId#articleId`), so
+	 * the caller only has to thread `seenSeeds` through subsequent calls.
 	 */
 	sample(opts: {
 		n: number;
 		seenSeeds: Set<string>; // "normId#articleId"
+		maxPerNorm?: number;
+		/** Norm IDs that must NEVER be sampled (held-out eval set). */
+		excludeNormIds?: Set<string>;
 	}): Promise<ArticleSeed[]>;
 }
 
@@ -69,6 +77,12 @@ export interface QuestionDraft {
 	text: string;
 	persona: Persona;
 	generator: { model: string; prompt: string };
+	/**
+	 * Article text from the seed, threaded through so downstream agents
+	 * (e.g. leak detector's rare-term overlap) can compare without needing
+	 * the seed reference.
+	 */
+	articleText?: string;
 }
 
 export interface QuestionGeneratorAgent {
@@ -124,11 +138,23 @@ export interface JudgePanelDecision {
 	votes: JudgeVote[];
 	accepts: number;
 	rejects: number;
+	/**
+	 * Concern types (leak / answer-fit / ambiguity) raised at severity="major"
+	 * by ANY judge. Used to apply Fix A: if any of these are present and the
+	 * panel is not unanimous-accept, the verdict is downgraded to borderline.
+	 */
+	criticalConcernsRaised: string[];
 }
 
 export interface JudgePanel {
 	judges: JudgeAgent[];
-	/** Decide. 3 judges, 3/3 → accept, 0/3 → reject, 1-2 → borderline. */
+	/**
+	 * Decide. 3 judges. Default majority rule (3/3 or 2/3 → accept,
+	 * 0/3 → reject, 1/3 → borderline) is overridden by Fix A: if any judge
+	 * raised a major concern of a critical type (leak / answer-fit /
+	 * ambiguity) AND the panel is not 3/3 accept, the verdict is downgraded
+	 * to borderline so a human can review.
+	 */
 	decide(input: {
 		question: string;
 		voice: Voice;
@@ -148,7 +174,16 @@ export interface DifficultyScorerAgent {
 // ── Dedup ─────────────────────────────────────────────────────────────────
 
 export interface DedupAgent {
-	/** Returns true if the question is too similar to one already accepted. */
-	isDuplicate(question: string): Promise<boolean>;
-	add(question: string): Promise<void>;
+	/**
+	 * Returns true if the question is too similar to one already accepted,
+	 * OR if `primary` is provided and the (norm, article) cap has been hit.
+	 */
+	isDuplicate(
+		question: string,
+		primary?: { norm: string; article: string },
+	): Promise<boolean>;
+	add(
+		question: string,
+		primary?: { norm: string; article: string },
+	): Promise<void>;
 }

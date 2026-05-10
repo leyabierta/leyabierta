@@ -66,6 +66,160 @@ export const DEFAULT_MAX = 50;
 export const DEFAULT_ALPHA = 0.7;
 export const DEFAULT_MATERIA_DECADE_FLOOR = 5;
 
+/**
+ * Bucket name used when a norm has no thematic materias (either because the
+ * BOE never tagged it, or because the only tags it had were geographic — see
+ * `GEOGRAPHIC_MATERIAS` below). Distinct from `_other` (which is the long
+ * tail of legitimate thematic materias outside the top-N) so the inspector
+ * surfaces it as its own bucket.
+ */
+export const UNCLASSIFIED_BUCKET = "_unclassified";
+
+/**
+ * Materia values that are actually geographic tags (autonomous community
+ * names) rather than thematic subject areas. The BOE materia table mixes
+ * geographic + thematic tags; we drop these when bucketing a norm because
+ * jurisdiction is already its own axis. A state-level Real Decreto tagged
+ * "Cataluña" should not end up filed under materia=Cataluña.
+ *
+ * Hand-curated to keep filtering deterministic (no fuzzy matching). If we
+ * ever miss one, add it here.
+ */
+export const GEOGRAPHIC_MATERIAS: ReadonlySet<string> = new Set<string>([
+	"Andalucía",
+	"Aragón",
+	"Asturias",
+	"Baleares",
+	"Illes Balears",
+	"Canarias",
+	"Cantabria",
+	"Castilla-La Mancha",
+	"Castilla La Mancha", // pilot 100 had this un-hyphenated form (DB row q_284da20b)
+	"Castilla y León",
+	"Cataluña",
+	"Catalunya",
+	"Ceuta",
+	"Comunidad Valenciana",
+	"Comunitat Valenciana",
+	"Extremadura",
+	"Galicia",
+	"La Rioja",
+	"Madrid",
+	"Melilla",
+	"Murcia",
+	"Navarra",
+	"País Vasco",
+	"Euskadi",
+]);
+
+/**
+ * Prefix patterns for geographic materias too numerous / variable to
+ * enumerate exhaustively. Anything starting with one of these is a
+ * jurisdictional/territorial tag, not a thematic subject area:
+ *   - "Comunidad Autónoma de [region]"        — generic CCAA prefix
+ *   - "Régimen económico de [region]"          — fiscal regime per region
+ *   - "Régimen económico fiscal de [region]"   — variant
+ */
+const GEOGRAPHIC_MATERIA_PREFIXES: readonly string[] = [
+	"Comunidad Autónoma de ",
+	"Comunidad Autónoma del ",
+	"Régimen económico de ",
+	"Régimen Económico de ",
+	"Régimen económico fiscal de ",
+	"Régimen Económico Fiscal de ",
+];
+
+/** True if the materia tag is a geographic (autonomous community) value. */
+export function isGeographicMateria(materia: string): boolean {
+	if (GEOGRAPHIC_MATERIAS.has(materia)) return true;
+	for (const prefix of GEOGRAPHIC_MATERIA_PREFIXES) {
+		if (materia.startsWith(prefix)) return true;
+	}
+	return false;
+}
+
+/**
+ * Multiplicative boosts applied to the per-cell raw weight in `computeQuotas`,
+ * keyed by exact materia name. Real citizen pain ≠ corpus density: the BOE
+ * tags hundreds of small administrative norms with materias like
+ * "Asistencia social" or "Comunidades Autónomas", which inflates their cell
+ * counts and crowds out the materias citizens actually need help with
+ * (employment, housing, taxes…). The boosts re-weight the quota table so
+ * those high-pain materias get proportionally more seats — and a few
+ * administrative-heavy ones get fewer — without touching the candidate pool
+ * itself.
+ *
+ * Anything not in the map is treated as 1.0× (no change).
+ */
+export const MATERIA_BOOSTS: ReadonlyMap<string, number> = new Map<
+	string,
+	number
+>([
+	// ↑ Citizen-pain materias (multiply the density-derived weight). Names
+	// must match BOE's exact materia tags — these are the ones citizens
+	// actually call us about: jobs, housing, taxes, immigration, traffic.
+	["Trabajadores", 2.0],
+	["Trabajo", 2.0],
+	["Trabajadores autónomos", 2.0],
+	["Contratos de trabajo", 2.0],
+	["Estatuto de los Trabajadores", 2.0],
+	["Seguridad Social", 1.5],
+	["Seguridad e higiene en el trabajo", 1.5],
+	["Viviendas", 2.0],
+	["Viviendas de Protección Oficial", 2.0],
+	["Arrendamientos urbanos", 2.0],
+	["Extranjeros", 2.0],
+	["Tráfico", 2.0],
+	["Consumidores y usuarios", 1.5],
+	["Impuesto sobre la Renta de las Personas Físicas", 2.0],
+	["Impuesto sobre el Valor Añadido", 2.0],
+	["Impuesto sobre Sucesiones y Donaciones", 1.5],
+	["Impuesto sobre Bienes Inmuebles", 1.5],
+	// ↓ Administrative-heavy materias that dominate the corpus by count but
+	// rarely surface in citizen questions.
+	["Asistencia social", 0.7],
+	["Autorizaciones", 0.7],
+	["Comunidades Autónomas", 0.7],
+	["Organización de las Comunidades Autónomas", 0.5],
+	["Organización de la Administración del Estado", 0.7],
+	["Formularios administrativos", 0.5],
+	["Registros administrativos", 0.7],
+]);
+
+/**
+ * Materias that must keep their own bucket even when they fall outside the
+ * top-N most common materias by corpus count. Without this, low-volume but
+ * high-citizen-pain materias (Vivienda, Arrendamientos urbanos, Extranjeros,
+ * IVA, Trabajo, …) get collapsed into `_other`, where the materia boost
+ * cannot reach them anymore. The strata loader unions this set with the
+ * top-N set when deciding what stays its own cell vs goes to `_other`.
+ */
+export const ALWAYS_KEEP_MATERIAS: ReadonlySet<string> = new Set<string>([
+	"Trabajo",
+	"Trabajadores autónomos",
+	"Contratos de trabajo",
+	"Estatuto de los Trabajadores",
+	"Seguridad e higiene en el trabajo",
+	"Viviendas",
+	"Viviendas de Protección Oficial",
+	"Arrendamientos urbanos",
+	"Extranjeros",
+	"Inversiones extranjeras",
+	"Tráfico",
+	"Impuesto sobre el Valor Añadido",
+	"Impuesto sobre Sucesiones y Donaciones",
+	"Impuesto sobre Bienes Inmuebles",
+	"Impuesto sobre Transmisiones Patrimoniales y Actos Jurídicos Documentados",
+	"Impuesto sobre el Patrimonio",
+	"Accidentes de trabajo y enfermedades profesionales",
+	"Inspección de Trabajo y Seguridad Social",
+]);
+
+/** Look up the multiplicative weight boost for a materia (defaults to 1.0). */
+export function materiaBoost(materia: string): number {
+	return MATERIA_BOOSTS.get(materia) ?? 1.0;
+}
+
 export function cellKey(c: CellKey): string {
 	return `${c.materia}|${c.jurisdiction}|${c.rank}|${c.decade}`;
 }
@@ -99,13 +253,16 @@ export function computeQuotas(input: QuotaInputs): QuotaResult {
 		return { targets: new Map(), totalTarget: 0 };
 	}
 
-	// Step 1: raw weights ∝ density^alpha, capped at `max` per cell.
+	// Step 1: raw weights ∝ density^alpha × materiaBoost, capped at `max`
+	// per cell. The materia boost expresses the gap between corpus density
+	// and citizen pain (see `MATERIA_BOOSTS`).
 	const rawWeights = new Map<string, number>();
 	let weightSum = 0;
 	for (const [k, count] of input.cellCounts) {
 		if (count <= 0) continue;
 		const density = count / totalArticles;
-		const w = density ** alpha;
+		const c = parseCellKey(k);
+		const w = density ** alpha * materiaBoost(c.materia);
 		rawWeights.set(k, w);
 		weightSum += w;
 	}

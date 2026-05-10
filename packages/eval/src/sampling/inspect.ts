@@ -145,6 +145,141 @@ async function main(): Promise<void> {
 		[42, 8, 24, 8, 10, 6],
 	);
 
+	// ── Smoke: per-norm cap (Task 1 / fix #6.1) ───────────────────────────
+	// Three back-to-back batches of 20 with maxPerNorm=2, threading
+	// `seenSeeds` between calls. Verifies no norm appears more than 2 times
+	// across the 60 total seeds.
+	{
+		const seen = new Set<string>();
+		const allSeeds: { normId: string; jurisdiction: string }[] = [];
+		for (let i = 0; i < 3; i++) {
+			const batch = await sampler.sample({
+				n: 20,
+				seenSeeds: seen,
+				maxPerNorm: 2,
+			});
+			for (const s of batch) {
+				seen.add(`${s.normId}#${s.articleId}`);
+				allSeeds.push({ normId: s.normId, jurisdiction: s.jurisdiction });
+			}
+		}
+		const normCounts = new Map<string, number>();
+		for (const s of allSeeds)
+			normCounts.set(s.normId, (normCounts.get(s.normId) ?? 0) + 1);
+		const overCap = Array.from(normCounts.entries()).filter(([, n]) => n > 2);
+		const distinctNorms = normCounts.size;
+		console.log(
+			`\n=== Smoke: per-norm cap (3×n=20, maxPerNorm=2) ===\n` +
+				`total seeds: ${allSeeds.length}   distinct norms: ${distinctNorms}   ` +
+				`norms over cap: ${overCap.length}   ` +
+				`(max draws on a single norm: ${Math.max(0, ...normCounts.values())})`,
+		);
+	}
+
+	// ── Smoke: jurisdiction diversity (Task 3 / fix #6.3) ─────────────────
+	// Single batch of 20 should now contain at least 3 distinct jurisdictions
+	// when the corpus has them, instead of the all-`es` we saw in the pilot.
+	{
+		const batch = await sampler.sample({ n: 20, seenSeeds: new Set() });
+		const byJur = new Map<string, number>();
+		for (const s of batch)
+			byJur.set(s.jurisdiction, (byJur.get(s.jurisdiction) ?? 0) + 1);
+		const dist = Array.from(byJur.entries())
+			.sort((a, b) => b[1] - a[1])
+			.map(([j, n]) => `${j}=${n}`)
+			.join(", ");
+		console.log(
+			`\n=== Smoke: jurisdiction diversity (n=20) ===\n` +
+				`distinct jurisdictions: ${byJur.size}   distribution: ${dist}`,
+		);
+	}
+
+	// ── Realistic pilot simulation ────────────────────────────────────────
+	// Smoke tests above use a single 60-seed run with maxPerNorm=2 and a
+	// single 20-seed batch — neither catches multi-batch bugs because the
+	// run-level state (jurisdiction emitted counts, per-norm counters) is
+	// effectively reset within one call. The pilot 50 actually issued ~25
+	// batches of n=2 from the pipeline, and it's the *interaction* of
+	// those batches that produced the all-(es,es-ct) outcome.
+	//
+	// This block reproduces that workload: 34 batches of 2 = 68 seeds
+	// (matches the actual pilot 50 seed budget given dropouts), with the
+	// production-default `maxPerNorm: 3` and the default jurisdiction
+	// shares. We re-instantiate the sampler so its run-level state is
+	// fresh, independent of the smoke runs above.
+	{
+		const realSampler = new StratifiedSampler({ dbPath });
+		const seen = new Set<string>();
+		const allSeeds: {
+			normId: string;
+			jurisdiction: string;
+			materia: string;
+		}[] = [];
+		for (let i = 0; i < 34; i++) {
+			const batch = await realSampler.sample({
+				n: 2,
+				seenSeeds: seen,
+				maxPerNorm: 3,
+			});
+			for (const s of batch) {
+				seen.add(`${s.normId}#${s.articleId}`);
+				allSeeds.push({
+					normId: s.normId,
+					jurisdiction: s.jurisdiction,
+					materia: s.materia,
+				});
+			}
+		}
+
+		const normCounts = new Map<string, number>();
+		const jurCounts = new Map<string, number>();
+		const materiaCounts = new Map<string, number>();
+		for (const s of allSeeds) {
+			normCounts.set(s.normId, (normCounts.get(s.normId) ?? 0) + 1);
+			jurCounts.set(s.jurisdiction, (jurCounts.get(s.jurisdiction) ?? 0) + 1);
+			materiaCounts.set(s.materia, (materiaCounts.get(s.materia) ?? 0) + 1);
+		}
+		const total = allSeeds.length;
+		const maxNorm = Math.max(0, ...normCounts.values());
+		const distinctJurs = jurCounts.size;
+		const jurDist = Array.from(jurCounts.entries())
+			.sort((a, b) => b[1] - a[1])
+			.map(([j, n]) => `${j}=${n} (${((n / total) * 100).toFixed(0)}%)`)
+			.join(", ");
+		const topMat = Array.from(materiaCounts.entries())
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 10)
+			.map(([m, n]) => `${m}=${n}`)
+			.join(", ");
+
+		console.log(
+			`\n=== Realistic pilot simulation (34 batches × n=2, maxPerNorm=3) ===`,
+		);
+		console.log(`  total seeds: ${total}`);
+		console.log(`  distinct norms: ${normCounts.size}`);
+		console.log(`  max draws on a single norm: ${maxNorm}  (target ≤ 3)`);
+		console.log(`  distinct jurisdictions: ${distinctJurs}  (target ≥ 4)`);
+		console.log(`  jurisdiction distribution: ${jurDist}`);
+		console.log(`  top materias: ${topMat}`);
+
+		// Citizen-pain materias surfaced (case-insensitive substring match;
+		// the boost map uses canonical names but corpus tags vary).
+		const painPatterns = [
+			["Trabajo", /trabaj/i],
+			["Vivienda", /vivienda|arrenda/i],
+			["IRPF/IVA", /irpf|iva|impuesto/i],
+		] as const;
+		for (const [label, rx] of painPatterns) {
+			let hits = 0;
+			for (const [m, n] of materiaCounts) {
+				if (rx.test(m)) hits += n;
+			}
+			console.log(`  pain check — ${label}: ${hits} seed(s)`);
+		}
+
+		realSampler.close();
+	}
+
 	sampler.close();
 }
 

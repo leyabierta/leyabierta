@@ -6,3 +6,4 @@ export * from "./judges.ts";
 export * from "./leak-detector.ts";
 export * from "./personas.ts";
 export * from "./question-gen.ts";
+export * from "./question-self-critique.ts";

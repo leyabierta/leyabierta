@@ -7,9 +7,12 @@ export {
 	DEFAULT_MATERIA_DECADE_FLOOR,
 	DEFAULT_MAX,
 	DEFAULT_MIN,
+	GEOGRAPHIC_MATERIAS,
+	isGeographicMateria,
 	parseCellKey,
 	type QuotaInputs,
 	type QuotaResult,
+	UNCLASSIFIED_BUCKET,
 } from "./quotas.ts";
 export {
 	ARTICLE_TEXT_TRUNCATE,

@@ -60,6 +60,9 @@ export function loadNormArticles(
 			)
 			.get(normId, minTextLen) as { n: number }
 	).n;
+	// Threshold = 50 chosen empirically on the 64 human seeds: ET (60 art),
+	// LAU (39), TR-LGSS (380) all see better recall WITH BM25 prefilter.
+	// Smaller norms run position-order with maxArticles=60 (everything fits).
 	const useBm25 = total > 50 && query && query.trim().length >= 4;
 
 	if (useBm25) {

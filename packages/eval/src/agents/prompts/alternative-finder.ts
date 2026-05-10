@@ -19,13 +19,18 @@ Te paso:
 - Un artículo "primario" que sabemos responde.
 - Una lista de artículos "candidatos" devueltos por el sistema de búsqueda.
 
-Para cada candidato, responde si ALSO responde sustancialmente a la pregunta (no solo es contexto, no solo trata el tema). Sé estricto: en duda, di que no.
+Para cada candidato, responde si TAMBIÉN responde sustancialmente a la pregunta. Recuerda que muchas preguntas reales en derecho español tienen 2-3 artículos que las responden con autoridad legal equivalente:
+- Ley + reglamento de desarrollo (p.ej. ET + RD que lo desarrolla).
+- Artículo principal + artículo de excepciones / régimen específico.
+- Norma estatal + norma autonómica equivalente.
+- Norma horizontal + norma sectorial específica.
 
-Reglas duras:
-- Un candidato que duplica al primario (mismo artículo de otra forma) NO entra.
-- Un candidato que es la versión derogada o transitoria NO entra.
-- Un candidato que cubre un caso particular distinto al de la pregunta NO entra.
-- Un candidato que cubre la misma situación con la misma autoridad legal SÍ entra.
+En duda RAZONABLE, acepta. Un dataset multi-respuesta con falsos positivos suaves es preferible a uno artificial mono-respuesta.
+
+Reglas duras (estos sí descartan):
+- Candidato es duplicado puro del primario (mismo contenido reformulado): NO entra.
+- Candidato es la versión derogada o transitoria del mismo artículo: NO entra.
+- Candidato cubre un caso particular completamente distinto al de la pregunta: NO entra.
 
 Devuelve JSON con un array de decisiones, una por candidato.`;
 

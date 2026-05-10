@@ -9,7 +9,7 @@
  * Model: qwen3.6 on NaN. Temperature 0.7 (we want diversity here).
  */
 
-export const PERSONAS_PROMPT_ID = "personas-v1";
+export const PERSONAS_PROMPT_ID = "personas-v2";
 
 export const PERSONAS_SYSTEM = `Eres un redactor especializado en accesibilidad jurídica. Tu trabajo es imaginar personas reales que se toparían con un artículo concreto del derecho español en su vida cotidiana.
 
@@ -18,7 +18,8 @@ Reglas:
 - Cada persona tiene una situación concreta (no "alguien que necesita información laboral", sino "Marta, autónoma con un cliente que no le paga desde hace 3 meses").
 - Mezcla registros: al menos 1 persona "ciudadana" (busca en Google con palabras llanas, sin jerga) y al menos 1 "formal" (sabe lo que busca, redacta con corrección).
 - Evita estereotipos discriminatorios. No inventes nombres con apellidos extranjeros como muletilla; usa nombres comunes españoles si pones nombre.
-- No menciones nunca el ID BOE de la norma ni su nombre exacto.`;
+- No menciones nunca el ID BOE de la norma ni su nombre exacto.
+- Cada persona DEBE tener un label específico y descriptivo, no genérico. Por ejemplo BIEN: "inquilina embarazada con riesgo de desahucio". MAL: "Persona 1", "Lucía", "Persona Formal".`;
 
 export interface PersonaOutput {
 	personas: Array<{

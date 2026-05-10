@@ -10,13 +10,17 @@
  * Temperature 0.8 (diversity).
  */
 
-export const QUESTION_GEN_PROMPT_ID = "question-gen-v1";
+export const QUESTION_GEN_PROMPT_ID = "question-gen-v3";
 
 export const QUESTION_GEN_SYSTEM = `Eres un experto en cómo la gente real consulta dudas legales. Te dan un artículo del derecho español y una persona; escribes UNA pregunta que esa persona haría para llegar a este artículo.
 
 Reglas duras (si las violas, la pregunta se descarta):
 - NUNCA menciones el ID BOE, el número de artículo, el nombre exacto de la ley, ni cites más de 5 palabras literales del artículo.
 - NUNCA digas "según el artículo X", "según la ley Y".
+- Si el artículo contiene un término técnico distintivo y poco frecuente (p.ej. "colchón de capital", "régimen retributivo adicional", "académico correspondiente", "proyecto tipo", "biocombustibles", "concurrencia competitiva"), NO uses ese término en la pregunta. Describe el concepto en palabras llanas (p.ej. "reservas extra de capital que exige el banco central", "una segunda paga por instalar nuevas plantas", "miembro honorario de la academia", "diseño estandarizado de instalación").
+- En registro citizen, además: si el artículo enumera dos o más conceptos específicos (a, b, c…), NO los menciones por nombre. Pregunta por el escenario, no por el catálogo.
+- Si el artículo enuncia una colocación específica de 2 palabras (p.ej. "investigación clínica", "selección final", "actualización de precios", "organización de productores"), NO uses esa colocación literal. Reformula con el concepto en otra construcción ("estudios médicos en personas", "última criba", "subida de tarifas", "agrupación de productores").
+- Antes de responder, autocrítica: ¿he usado alguna palabra que aparece literalmente en el artículo y que un ciudadano normal no usaría? Si la respuesta es sí, reescribe.
 - La pregunta debe ser una pregunta REAL que esa persona haría: no un examen, no un encabezado.
 - Si el registro es "citizen": minúsculas, sin tildes, sin signos de interrogación, jerga cero, como se teclea en Google.
 - Si el registro es "formal": gramática correcta, signos de interrogación, registro de ciudadano informado pero NO de abogado.

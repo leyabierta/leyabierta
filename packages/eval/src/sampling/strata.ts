@@ -10,11 +10,15 @@
 import { Database } from "bun:sqlite";
 import type { ArticleSeed, Sampler } from "../agents/types.ts";
 import {
+	ALWAYS_KEEP_MATERIAS,
 	type CellKey,
 	cellKey,
 	computeQuotas,
 	DEFAULT_BUDGET,
+	GEOGRAPHIC_MATERIAS,
+	parseCellKey,
 	type QuotaResult,
+	UNCLASSIFIED_BUCKET,
 } from "./quotas.ts";
 
 // ── Tunables ──────────────────────────────────────────────────────────────
@@ -57,6 +61,38 @@ export const DECADE_LABELS = [
 export type DecadeLabel = (typeof DECADE_LABELS)[number];
 
 export const OTHER_BUCKET = "_other";
+
+/**
+ * Default run-level target shares per jurisdiction. The pilot 50 spent all
+ * 50 seats on `es` and `es-ct` because per-batch jurisdiction allocation
+ * with n=2 only ever reached the top-2 quota holders. Tracking emitted
+ * counts across all `sample()` calls and re-deriving deficits before each
+ * batch is what fixes this.
+ *
+ * Values are renormalized over the *populated* jurisdictions at runtime so
+ * a missing community (e.g. a small one with no cells) doesn't waste seats.
+ * Override via `StratifiedSamplerOptions.targetJurisdictionShares`.
+ */
+export const DEFAULT_JURISDICTION_SHARES: Readonly<Record<string, number>> = {
+	es: 0.5,
+	"es-ct": 0.1,
+	"es-an": 0.05,
+	"es-pv": 0.05,
+	"es-vc": 0.05,
+	"es-ga": 0.05,
+	"es-ar": 0.05,
+	"es-cm": 0.03,
+	"es-cl": 0.03,
+	"es-mc": 0.02,
+	"es-ib": 0.02,
+	"es-cn": 0.02,
+	"es-nc": 0.01,
+	"es-ex": 0.01,
+	"es-ri": 0.01,
+	"es-ast": 0.01,
+	"es-cb": 0.01,
+	"es-md": 0.01,
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -141,6 +177,13 @@ export interface StratifiedSamplerOptions {
 	dbPath?: string;
 	budget?: number;
 	seed?: number; // deterministic randomness
+	/**
+	 * Run-level target shares per jurisdiction (must sum to ≤ 1). The
+	 * sampler renormalizes over jurisdictions that actually have populated
+	 * cells before applying. If omitted, `DEFAULT_JURISDICTION_SHARES` is
+	 * used. Useful for pilots where you want a specific geographic mix.
+	 */
+	targetJurisdictionShares?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -168,11 +211,24 @@ export class StratifiedSampler implements Sampler {
 	private candidatesByCell: Map<string, Candidate[]> | null = null;
 	private snapshot: CorpusSnapshot | null = null;
 
+	/**
+	 * Run-level state: total seeds emitted, broken down by jurisdiction.
+	 * Persists across `sample()` calls so the deficit-based allocation can
+	 * see the *cumulative* shortfall, not just per-batch counts. This is the
+	 * fix for the pilot 50 jurisdiction-coverage bug.
+	 */
+	private emittedByJur: Map<string, number> = new Map();
+	private totalEmitted = 0;
+
+	private readonly targetJurisdictionShares: Readonly<Record<string, number>>;
+
 	constructor(opts: StratifiedSamplerOptions = {}) {
 		this.dbPath = opts.dbPath ?? DEFAULT_DB_PATH;
 		this.db = new Database(this.dbPath, { readonly: true });
 		this.budget = opts.budget ?? DEFAULT_BUDGET;
 		this.rng = mulberry32(opts.seed ?? 0xc0ffee);
+		this.targetJurisdictionShares =
+			opts.targetJurisdictionShares ?? DEFAULT_JURISDICTION_SHARES;
 	}
 
 	close(): void {
@@ -184,58 +240,218 @@ export class StratifiedSampler implements Sampler {
 	async sample(opts: {
 		n: number;
 		seenSeeds: Set<string>;
+		maxPerNorm?: number;
+		/**
+		 * Norm IDs to NEVER sample as primary seeds. Used for the held-out
+		 * eval set: those normIds back the human gold-standard questions and
+		 * must stay invisible to the agentic generator so the final eval is
+		 * unbiased. Caller (cli.ts) passes the set from `heldoutNormIds()`.
+		 */
+		excludeNormIds?: Set<string>;
 	}): Promise<ArticleSeed[]> {
 		this.ensureLoaded();
 		const cells = this.candidatesByCell!;
 		const targets = this.snapshot!.quotas.targets;
 
-		// Cell ordering: largest target first, so smaller cells aren't starved
-		// when the global cap `n` is tight.
-		const cellOrder = Array.from(targets.entries())
-			.filter(([, t]) => t > 0)
-			.sort((a, b) => b[1] - a[1])
-			.map(([k]) => k);
+		// Per-norm cap. Default 3 — caller can override. The sampler
+		// enforces the cap itself by deriving per-norm counts from
+		// `seenSeeds` (every entry is `normId#articleId`), so the caller
+		// only needs to thread `seenSeeds` through subsequent batches.
+		// Previous default `ceil(budget/200)`=25 was effectively no cap and
+		// is what let BOE-A-2010-13312 dominate the pilot 50.
+		const maxPerNorm = opts.maxPerNorm ?? 3;
+
+		const normDrawCounts = new Map<string, number>();
+		for (const sk of opts.seenSeeds) {
+			const hash = sk.indexOf("#");
+			const normId = hash >= 0 ? sk.slice(0, hash) : sk;
+			normDrawCounts.set(normId, (normDrawCounts.get(normId) ?? 0) + 1);
+		}
 
 		const out: ArticleSeed[] = [];
 		const used = new Set<string>(opts.seenSeeds);
 
-		// Per-cell usage counters relative to the requested n.
-		const totalQuota = Array.from(targets.values()).reduce((a, b) => a + b, 0);
-		const scale = totalQuota > 0 ? opts.n / totalQuota : 0;
+		const excludeNormIds = opts.excludeNormIds;
+		const accept = (c: Candidate): boolean => {
+			const seedKey = `${c.normId}#${c.articleId}`;
+			if (used.has(seedKey)) return false;
+			if (excludeNormIds?.has(c.normId)) return false;
+			if ((normDrawCounts.get(c.normId) ?? 0) >= maxPerNorm) return false;
+			used.add(seedKey);
+			normDrawCounts.set(c.normId, (normDrawCounts.get(c.normId) ?? 0) + 1);
+			out.push(this.toSeed(c));
+			this.emittedByJur.set(
+				c.jurisdiction,
+				(this.emittedByJur.get(c.jurisdiction) ?? 0) + 1,
+			);
+			this.totalEmitted += 1;
+			return true;
+		};
 
-		for (const key of cellOrder) {
-			if (out.length >= opts.n) break;
-			const target = targets.get(key) ?? 0;
-			// Scale per-cell target down to the requested n.
-			const scaled = Math.max(1, Math.round(target * scale));
-			const want = Math.min(scaled, opts.n - out.length);
+		// ── Run-level deficit-based jurisdiction allocation ──
+		// The pilot 50 lost all non-(es,es-ct) coverage because each batch
+		// (n=2) re-ran a per-batch allocation that always rounded down to
+		// the top two quota holders. We now keep cumulative emitted counts
+		// in `this.emittedByJur` and, on each batch, compute how far each
+		// populated jurisdiction is *behind* its target share assuming the
+		// new batch lands. Seats are distributed across jurisdictions in
+		// proportion to their cumulative deficit (largest-remainder
+		// rounding), so under-served communities catch up over time even
+		// when individual batches are tiny.
+		const populatedJurs = new Set<string>();
+		const cellsByJur = new Map<string, string[]>();
+		for (const [k, t] of targets) {
+			if (t <= 0) continue;
+			const c = parseCellKey(k);
+			populatedJurs.add(c.jurisdiction);
+			const arr = cellsByJur.get(c.jurisdiction);
+			if (arr) arr.push(k);
+			else cellsByJur.set(c.jurisdiction, [k]);
+		}
+		for (const arr of cellsByJur.values()) {
+			arr.sort((a, b) => (targets.get(b) ?? 0) - (targets.get(a) ?? 0));
+		}
+
+		const wantByJur = this.allocateByDeficit(populatedJurs, opts.n);
+		// Iterate from largest want to smallest — this lets the bigger
+		// jurisdiction (`es`) take its share early and leaves the tail of
+		// the batch for under-represented ones.
+		const jurOrder = Array.from(wantByJur.entries()).sort(
+			(a, b) => b[1] - a[1],
+		);
+
+		for (const [j] of jurOrder) {
+			const want = wantByJur.get(j) ?? 0;
 			if (want <= 0) continue;
-			const pool = cells.get(key);
-			if (!pool || pool.length === 0) continue;
-			const picked = this.weightedReservoir(pool, want, used);
-			for (const c of picked) {
-				const seedKey = `${c.normId}#${c.articleId}`;
-				if (used.has(seedKey)) continue;
-				used.add(seedKey);
-				out.push(this.toSeed(c));
+			const startedAt = out.length;
+			for (const key of cellsByJur.get(j) ?? []) {
+				if (out.length - startedAt >= want) break;
 				if (out.length >= opts.n) break;
+				const pool = cells.get(key);
+				if (!pool || pool.length === 0) continue;
+				const remaining = want - (out.length - startedAt);
+				const picked = this.weightedReservoir(
+					pool,
+					remaining,
+					used,
+					normDrawCounts,
+					maxPerNorm,
+				);
+				for (const c of picked) {
+					if (out.length - startedAt >= want) break;
+					if (out.length >= opts.n) break;
+					accept(c);
+				}
 			}
 		}
 
-		// If we still have budget left (cells were exhausted), do a second
-		// pass over all cells, ignoring per-cell quotas, weighted by reforms.
+		// Fallback fill: if some jurisdictions couldn't supply their share
+		// (cell exhausted, norm cap hit), top up with any remaining
+		// candidates weighted by reforms_count.
 		if (out.length < opts.n) {
 			const all = Array.from(cells.values()).flat();
-			const picked = this.weightedReservoir(all, opts.n - out.length, used);
+			const picked = this.weightedReservoir(
+				all,
+				opts.n - out.length,
+				used,
+				normDrawCounts,
+				maxPerNorm,
+			);
 			for (const c of picked) {
-				const seedKey = `${c.normId}#${c.articleId}`;
-				if (used.has(seedKey)) continue;
-				used.add(seedKey);
-				out.push(this.toSeed(c));
 				if (out.length >= opts.n) break;
+				accept(c);
 			}
 		}
 
+		return out;
+	}
+
+	/**
+	 * Distribute `n` seats across `populatedJurs` proportional to each
+	 * jurisdiction's run-level deficit (target_share × (totalEmitted+n) −
+	 * already_emitted). Uses largest-remainder rounding so the integer
+	 * counts sum exactly to `n` (modulo zero-deficit cases). When every
+	 * jurisdiction is already at or above target, we fall back to the bare
+	 * target-share split so the batch still gets work done.
+	 */
+	private allocateByDeficit(
+		populatedJurs: Set<string>,
+		n: number,
+	): Map<string, number> {
+		const out = new Map<string, number>();
+		if (n <= 0 || populatedJurs.size === 0) return out;
+
+		// Step 1: build the share table restricted to populated jurisdictions.
+		const rawShares = new Map<string, number>();
+		let shareSum = 0;
+		for (const j of populatedJurs) {
+			const s = this.targetJurisdictionShares[j] ?? 0;
+			if (s > 0) {
+				rawShares.set(j, s);
+				shareSum += s;
+			}
+		}
+		// Any populated jurisdiction missing from the share table gets a
+		// tiny default share — enough to surface eventually but not enough
+		// to crowd out explicit shares.
+		const fallbackShare = 0.005;
+		for (const j of populatedJurs) {
+			if (!rawShares.has(j)) {
+				rawShares.set(j, fallbackShare);
+				shareSum += fallbackShare;
+			}
+		}
+		// Renormalize to sum to 1.
+		const shares = new Map<string, number>();
+		for (const [j, s] of rawShares) shares.set(j, s / shareSum);
+
+		// Step 2: cumulative deficit assuming the batch lands.
+		const horizon = this.totalEmitted + n;
+		const deficits = new Map<string, number>();
+		let deficitSum = 0;
+		for (const [j, s] of shares) {
+			const expected = s * horizon;
+			const actual = this.emittedByJur.get(j) ?? 0;
+			const d = Math.max(0, expected - actual);
+			deficits.set(j, d);
+			deficitSum += d;
+		}
+
+		// Step 3: distribute seats by largest-remainder over deficits, or
+		// fall back to plain shares if everyone is at target already.
+		const weights = deficitSum > 0 ? deficits : new Map(shares);
+		const weightSum =
+			deficitSum > 0
+				? deficitSum
+				: Array.from(weights.values()).reduce((a, b) => a + b, 0);
+		if (weightSum <= 0) return out;
+
+		const fractional: { j: string; floor: number; rem: number }[] = [];
+		let assigned = 0;
+		for (const [j, w] of weights) {
+			const exact = (w / weightSum) * n;
+			const fl = Math.floor(exact);
+			fractional.push({ j, floor: fl, rem: exact - fl });
+			assigned += fl;
+			out.set(j, fl);
+		}
+		// Hand out the remaining `n - assigned` seats to the largest
+		// fractional remainders (classic largest-remainder method).
+		fractional.sort((a, b) => b.rem - a.rem);
+		let i = 0;
+		while (assigned < n && i < fractional.length) {
+			const { j } = fractional[i]!;
+			out.set(j, (out.get(j) ?? 0) + 1);
+			assigned += 1;
+			i += 1;
+		}
+		// Edge case: if n > fractional.length (huge batch), keep cycling.
+		while (assigned < n) {
+			const { j } = fractional[i % fractional.length]!;
+			out.set(j, (out.get(j) ?? 0) + 1);
+			assigned += 1;
+			i += 1;
+		}
 		return out;
 	}
 
@@ -277,16 +493,26 @@ export class StratifiedSampler implements Sampler {
 			const jurisdiction = this.jurisdictionSet!.has(n.jurisdiction)
 				? n.jurisdiction
 				: OTHER_BUCKET;
+			// Drop geographic materia tags ("Cataluña", "Canarias", …) — they
+			// are jurisdictions, not subject areas, and the BOE materia table
+			// mixes them in. Jurisdiction is already its own axis, so keeping
+			// them would produce nonsensical cells like
+			// (materia=Cataluña × jurisdiction=es).
 			const materiaList = n.materias
-				? n.materias.split("\t").filter(Boolean)
+				? n.materias
+						.split("\t")
+						.filter(Boolean)
+						.filter((m) => !GEOGRAPHIC_MATERIAS.has(m))
 				: [];
-			// If the norm has no materias, file under "_other" so it still gets
-			// covered (e.g. early constitutional norms with no analisis tags).
+			// If the norm has no thematic materias (either never tagged, or
+			// only tagged geographically), file it under `_unclassified` —
+			// distinct from `_other` (long-tail thematic) so the inspector
+			// can tell them apart.
 			const bucketed = materiaList.length
 				? materiaList.map((m) =>
 						this.topMateriaSet!.has(m) ? m : OTHER_BUCKET,
 					)
-				: [OTHER_BUCKET];
+				: [UNCLASSIFIED_BUCKET];
 			// De-dup so a norm tagged with multiple "_other" materias doesn't
 			// double-count in its own cell.
 			const materiaBuckets = Array.from(new Set(bucketed));
@@ -336,6 +562,9 @@ export class StratifiedSampler implements Sampler {
 	// ── DB queries ────────────────────────────────────────────────────────
 
 	private loadTopMaterias(): Set<string> {
+		// Pull more than TOP_MATERIAS rows and filter geographic tags client-
+		// side, then truncate. We avoid a SQL `NOT IN (?, ?, ?, ...)` to keep
+		// the query string static; the over-fetch is small.
 		const rows = this.db
 			.query<{ materia: string }, []>(
 				`SELECT m.materia AS materia
@@ -344,10 +573,19 @@ export class StratifiedSampler implements Sampler {
 				  WHERE n.status = 'vigente'
 			   GROUP BY m.materia
 			   ORDER BY COUNT(DISTINCT m.norm_id) DESC
-				  LIMIT $limit`.replace("$limit", String(TOP_MATERIAS)),
+				  LIMIT ${TOP_MATERIAS + GEOGRAPHIC_MATERIAS.size + 5}`,
 			)
 			.all();
-		return new Set(rows.map((r) => r.materia));
+		const filtered = rows
+			.filter((r) => !GEOGRAPHIC_MATERIAS.has(r.materia))
+			.slice(0, TOP_MATERIAS);
+		// Union with ALWAYS_KEEP so high-citizen-pain but low-volume
+		// materias (Vivienda, Arrendamientos urbanos, Trabajo, IVA, …)
+		// keep their own bucket instead of getting buried in `_other`,
+		// which would render their MATERIA_BOOSTS entries unreachable.
+		const set = new Set(filtered.map((r) => r.materia));
+		for (const m of ALWAYS_KEEP_MATERIAS) set.add(m);
+		return set;
 	}
 
 	private loadTopMateriasOrdered(): { materia: string; norms: number }[] {
@@ -359,10 +597,13 @@ export class StratifiedSampler implements Sampler {
 				  WHERE n.status = 'vigente'
 			   GROUP BY m.materia
 			   ORDER BY n DESC
-				  LIMIT ${TOP_MATERIAS}`,
+				  LIMIT ${TOP_MATERIAS + GEOGRAPHIC_MATERIAS.size + 5}`,
 			)
 			.all();
-		return rows.map((r) => ({ materia: r.materia, norms: r.n }));
+		return rows
+			.filter((r) => !GEOGRAPHIC_MATERIAS.has(r.materia))
+			.slice(0, TOP_MATERIAS)
+			.map((r) => ({ materia: r.materia, norms: r.n }));
 	}
 
 	private loadActiveJurisdictions(): Set<string> {
@@ -453,11 +694,15 @@ export class StratifiedSampler implements Sampler {
 			c.articleText.length > ARTICLE_TEXT_TRUNCATE
 				? `${c.articleText.slice(0, ARTICLE_TEXT_TRUNCATE)}…`
 				: c.articleText;
-		// Pick the first non-_other materia tag (the "primary" topic) for the seed.
+		// Pick the first non-_other materia tag (the "primary" topic) for the
+		// seed. `c.materias` has already been stripped of geographic tags in
+		// `ensureLoaded`. If nothing thematic remains, surface
+		// `_unclassified` (not `_other`) so downstream consumers can tell
+		// "had no thematic materia" from "had a tail thematic materia".
 		const primaryMateria =
 			c.materias.find((m) => this.topMateriaSet?.has(m)) ??
 			c.materias[0] ??
-			OTHER_BUCKET;
+			UNCLASSIFIED_BUCKET;
 		return {
 			normId: c.normId,
 			articleId: c.articleId,
@@ -483,12 +728,21 @@ export class StratifiedSampler implements Sampler {
 		pool: Candidate[],
 		k: number,
 		used: Set<string>,
+		normDrawCounts?: Map<string, number>,
+		maxPerNorm?: number,
 	): Candidate[] {
 		if (k <= 0 || pool.length === 0) return [];
 		const heap: { key: number; c: Candidate }[] = [];
 		for (const c of pool) {
 			const seedKey = `${c.normId}#${c.articleId}`;
 			if (used.has(seedKey)) continue;
+			if (
+				maxPerNorm !== undefined &&
+				normDrawCounts !== undefined &&
+				(normDrawCounts.get(c.normId) ?? 0) >= maxPerNorm
+			) {
+				continue;
+			}
 			const w = 1 + c.reformsCount;
 			const u = Math.max(this.rng(), 1e-12);
 			const key = Math.log(u) / w; // equivalent ordering, avoids u^(1/w)=0

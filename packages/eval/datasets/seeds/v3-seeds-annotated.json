@@ -1,7 +1,7 @@
 {
 	"meta": {
 		"version": 3,
-		"createdAt": "2026-05-10T11:35:23.148Z",
+		"createdAt": "2026-05-10T11:55:05.100Z",
 		"description": "Human seeds remaining after held-out carve. Available for prompt calibration, generator seeding, and article-level annotation. Annotated at article level by qwen3.6 (NaN) on 2026-05-10.",
 		"totalQuestions": 64,
 		"bySource": {
@@ -43,7 +43,13 @@
 			"question": "no me devuelven la fianza del piso",
 			"voice": "citizen",
 			"expectedNorms": ["BOE-A-1994-26003"],
-			"expectedArticles": [],
+			"expectedArticles": [
+				{
+					"norm": "BOE-A-1994-26003",
+					"article": "a36",
+					"primary": true
+				}
+			],
 			"materia": "vivienda-arrendamiento",
 			"jurisdiction": "es",
 			"difficulty": "medium",
@@ -92,11 +98,6 @@
 					"norm": "BOE-A-1960-10906",
 					"article": "aseptimo",
 					"primary": true
-				},
-				{
-					"norm": "BOE-A-1960-10906",
-					"article": "anoveno",
-					"primary": false
 				}
 			],
 			"materia": "vivienda-comunidad",
@@ -120,7 +121,7 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2015-11430",
-					"article": "a50",
+					"article": "a41",
 					"primary": true
 				}
 			],
@@ -277,7 +278,7 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2021-11472",
-					"article": "a5",
+					"article": "a2",
 					"primary": true
 				}
 			],
@@ -324,7 +325,23 @@
 			"question": "darme de alta como autónomo",
 			"voice": "citizen",
 			"expectedNorms": ["BOE-A-2007-13409"],
-			"expectedArticles": [],
+			"expectedArticles": [
+				{
+					"norm": "BOE-A-2007-13409",
+					"article": "a24",
+					"primary": true
+				},
+				{
+					"norm": "BOE-A-2007-13409",
+					"article": "a25",
+					"primary": false
+				},
+				{
+					"norm": "BOE-A-2007-13409",
+					"article": "a5",
+					"primary": false
+				}
+			],
 			"materia": "trabajo",
 			"jurisdiction": "es",
 			"difficulty": "medium",
@@ -346,17 +363,17 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-1995-24292",
-					"article": "a4",
+					"article": "a42",
 					"primary": true
 				},
 				{
 					"norm": "BOE-A-2015-11724",
-					"article": "a173",
+					"article": "a156",
 					"primary": false
 				},
 				{
 					"norm": "BOE-A-2015-11724",
-					"article": "a156",
+					"article": "a173",
 					"primary": false
 				},
 				{
@@ -400,7 +417,12 @@
 				},
 				{
 					"norm": "BOE-A-2015-11724",
-					"article": "a215",
+					"article": "a206",
+					"primary": false
+				},
+				{
+					"norm": "BOE-A-2015-11724",
+					"article": "a205",
 					"primary": false
 				},
 				{
@@ -460,8 +482,18 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2004-21760",
-					"article": "a37",
+					"article": "a20",
 					"primary": true
+				},
+				{
+					"norm": "BOE-A-2004-21760",
+					"article": "a1",
+					"primary": false
+				},
+				{
+					"norm": "BOE-A-2004-21760",
+					"article": "a37",
+					"primary": false
 				}
 			],
 			"materia": "violencia-genero",
@@ -485,12 +517,12 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2021-4628",
-					"article": "a4",
+					"article": "a5",
 					"primary": true
 				},
 				{
 					"norm": "BOE-A-2021-4628",
-					"article": "a1",
+					"article": "a4",
 					"primary": false
 				}
 			],
@@ -525,7 +557,7 @@
 				},
 				{
 					"norm": "BOE-A-2000-544",
-					"article": "a29",
+					"article": "a31",
 					"primary": false
 				}
 			],
@@ -571,16 +603,6 @@
 					"norm": "BOE-A-2021-9233",
 					"article": "as-2",
 					"primary": true
-				},
-				{
-					"norm": "BOE-A-2021-9233",
-					"article": "as",
-					"primary": false
-				},
-				{
-					"norm": "BOE-A-2021-9233",
-					"article": "ac",
-					"primary": false
 				}
 			],
 			"materia": "familia",
@@ -606,11 +628,6 @@
 					"norm": "BOE-A-2015-10565",
 					"article": "a24",
 					"primary": true
-				},
-				{
-					"norm": "BOE-A-2015-10565",
-					"article": "a21",
-					"primary": false
 				}
 			],
 			"materia": "administrativo",
@@ -636,6 +653,11 @@
 					"norm": "BOE-A-2018-16673",
 					"article": "a7-4",
 					"primary": true
+				},
+				{
+					"norm": "BOE-A-2018-16673",
+					"article": "a6",
+					"primary": false
 				}
 			],
 			"materia": "datos-personales",
@@ -656,13 +678,7 @@
 			"question": "garantía de un producto que se rompió a los meses",
 			"voice": "citizen",
 			"expectedNorms": ["BOE-A-2007-20555"],
-			"expectedArticles": [
-				{
-					"norm": "BOE-A-2007-20555",
-					"article": "a127",
-					"primary": true
-				}
-			],
+			"expectedArticles": [],
 			"materia": "consumo",
 			"jurisdiction": "es",
 			"difficulty": "medium",
@@ -726,13 +742,7 @@
 			"question": "¿Cuánto dura la baja por paternidad?",
 			"voice": "formal",
 			"expectedNorms": ["BOE-A-2015-11430"],
-			"expectedArticles": [
-				{
-					"norm": "BOE-A-2015-11430",
-					"article": "a45",
-					"primary": true
-				}
-			],
+			"expectedArticles": [],
 			"materia": "unclassified",
 			"jurisdiction": "es",
 			"difficulty": "medium",
@@ -752,7 +762,13 @@
 			"question": "¿Cuánto tiempo tiene el casero para devolverme la fianza?",
 			"voice": "formal",
 			"expectedNorms": ["BOE-A-1994-26003"],
-			"expectedArticles": [],
+			"expectedArticles": [
+				{
+					"norm": "BOE-A-1994-26003",
+					"article": "a36",
+					"primary": true
+				}
+			],
 			"materia": "unclassified",
 			"jurisdiction": "es",
 			"difficulty": "medium",
@@ -827,8 +843,18 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2007-13409",
-					"article": "a23",
+					"article": "a33",
 					"primary": true
+				},
+				{
+					"norm": "BOE-A-2007-13409",
+					"article": "a34",
+					"primary": false
+				},
+				{
+					"norm": "BOE-A-2007-13409",
+					"article": "a39",
+					"primary": false
 				},
 				{
 					"norm": "BOE-A-2015-11724",
@@ -1030,9 +1056,19 @@
 			"expectedNorms": ["BOE-A-2015-11430", "BOE-A-2015-11724"],
 			"expectedArticles": [
 				{
-					"norm": "BOE-A-2015-11724",
-					"article": "a294",
+					"norm": "BOE-A-2015-11430",
+					"article": "a56",
 					"primary": true
+				},
+				{
+					"norm": "BOE-A-2015-11430",
+					"article": "a49",
+					"primary": false
+				},
+				{
+					"norm": "BOE-A-2015-11724",
+					"article": "a269",
+					"primary": false
 				}
 			],
 			"materia": "unclassified",
@@ -1057,17 +1093,22 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2000-544",
-					"article": "a23",
+					"article": "a3",
 					"primary": true
 				},
 				{
-					"norm": "BOE-A-2015-11430",
-					"article": "a4",
+					"norm": "BOE-A-2000-544",
+					"article": "a10",
 					"primary": false
 				},
 				{
 					"norm": "BOE-A-2015-11430",
-					"article": "a1",
+					"article": "a7",
+					"primary": false
+				},
+				{
+					"norm": "BOE-A-2015-11430",
+					"article": "a4",
 					"primary": false
 				}
 			],
@@ -1098,7 +1139,7 @@
 				},
 				{
 					"norm": "BOE-A-2015-11430",
-					"article": "a45",
+					"article": "a34",
 					"primary": false
 				}
 			],
@@ -1150,12 +1191,17 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-1994-26003",
-					"article": "a32",
+					"article": "a3",
 					"primary": true
 				},
 				{
 					"norm": "BOE-A-1994-26003",
-					"article": "a9",
+					"article": "a5",
+					"primary": false
+				},
+				{
+					"norm": "BOE-A-1994-26003",
+					"article": "a4",
 					"primary": false
 				}
 			],
@@ -1183,11 +1229,6 @@
 					"norm": "BOE-A-2015-11430",
 					"article": "a38",
 					"primary": true
-				},
-				{
-					"norm": "BOE-A-2015-11430",
-					"article": "a12",
-					"primary": false
 				}
 			],
 			"materia": "unclassified",
@@ -1211,9 +1252,14 @@
 			"expectedNorms": ["BOE-A-2015-11430", "BOE-A-2015-11724"],
 			"expectedArticles": [
 				{
+					"norm": "BOE-A-2015-11430",
+					"article": "a33",
+					"primary": true
+				},
+				{
 					"norm": "BOE-A-2015-11724",
 					"article": "a281",
-					"primary": true
+					"primary": false
 				}
 			],
 			"materia": "unclassified",
@@ -1261,7 +1307,13 @@
 			"question": "¿Es verdad que si te despiden el viernes no cobras indemnización?",
 			"voice": "formal",
 			"expectedNorms": ["BOE-A-2015-11430"],
-			"expectedArticles": [],
+			"expectedArticles": [
+				{
+					"norm": "BOE-A-2015-11430",
+					"article": "a56",
+					"primary": true
+				}
+			],
 			"materia": "unclassified",
 			"jurisdiction": "es",
 			"difficulty": "medium",
@@ -1284,7 +1336,7 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2015-11430",
-					"article": "a45",
+					"article": "a4-3",
 					"primary": true
 				}
 			],
@@ -1502,7 +1554,13 @@
 			"question": "¿Qué ley de servicios sociales se aplica en Andalucía?",
 			"voice": "formal",
 			"expectedNorms": ["BOE-A-2017-657"],
-			"expectedArticles": [],
+			"expectedArticles": [
+				{
+					"norm": "BOE-A-2017-657",
+					"article": "a1",
+					"primary": true
+				}
+			],
 			"materia": "unclassified",
 			"jurisdiction": "es",
 			"difficulty": "medium",
@@ -1525,7 +1583,7 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2010-13312",
-					"article": "a2111",
+					"article": "a2312",
 					"primary": true
 				}
 			],
@@ -1551,18 +1609,8 @@
 			"expectedArticles": [
 				{
 					"norm": "BOE-A-2021-13605",
-					"article": "a8-2",
+					"article": "a1",
 					"primary": true
-				},
-				{
-					"norm": "BOE-A-2021-13605",
-					"article": "a2-4",
-					"primary": false
-				},
-				{
-					"norm": "BOE-A-2021-13605",
-					"article": "a3-7",
-					"primary": false
 				}
 			],
 			"materia": "unclassified",
@@ -1667,11 +1715,6 @@
 					"norm": "BOE-A-2023-12203",
 					"article": "a1-10",
 					"primary": true
-				},
-				{
-					"norm": "BOE-A-2023-12203",
-					"article": "a1-11",
-					"primary": false
 				}
 			],
 			"materia": "unclassified",
@@ -1693,13 +1736,7 @@
 			"question": "¿Pueden obligarme a hacer un test de drogas en el trabajo?",
 			"voice": "formal",
 			"expectedNorms": ["BOE-A-2015-11430", "BOE-A-1978-31229"],
-			"expectedArticles": [
-				{
-					"norm": "BOE-A-2015-11430",
-					"article": "a18",
-					"primary": true
-				}
-			],
+			"expectedArticles": [],
 			"materia": "unclassified",
 			"jurisdiction": "es",
 			"difficulty": "medium",
