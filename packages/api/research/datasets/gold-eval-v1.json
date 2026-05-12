@@ -1,0 +1,1816 @@
+{
+  "results": [
+    {
+      "id": "qd_5457e7c1",
+      "question": "Si es posible la presentación de las declaraciones del Impuesto sobre el Valor Añadido con periodicidad trimestral, y si está obligada, a efectos del Impuesto, al Suministro Inmediato de Información.",
+      "expectedNorms": [
+        "BOE-A-1992-28925",
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Tributario",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0007-19",
+        "fechaSalida": "14/02/2019",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 121, 104-Tres- . RIVA RD 1624/1992 art. 62 y 71-3-",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante tiene consideración de gran empresa a efectos del Impuesto General Indirecto Canario, pero no a efectos del Impuesto sobre el Valor Añadido en atención al volumen de operaciones efectuado en el territorio de aplicación del Impuesto. La entidad dispone de establecimientos permanentes en ambos territorios y manifiesta que los costes relativos a las operaciones realizadas fuera del territorio de aplicación del Impuesto son soportados por el establecimiento que a su vez, está situado fuera de dicho territorio.",
+        "contestacionSnippet": "1.- El Real Decreto 596/2016, de 2 de diciembre, para la modernización, mejora e impulso del uso de medios electrónicos en la gestión del Impuesto sobre el Valor Añadido, por el que se modifican el Reglamento del Impuesto sobre el Valor Añadido, aprobado por el Real Decreto 1624/1992, de 29 de dicie"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_0c277049",
+      "question": "La entidad consultante se dedica a la impresión de texto o imágenes por cualquier procedimiento o sistema; para lo cual corta bobinas de papel, aplica colorantes, hace agujeros o raya, e imprime los datos proporcionados por sus clientes. Posible aplicación a la actividad descrita de la bonificación prevista en el artículo 26 de la Ley 19/1994.",
+      "expectedNorms": [
+        "BOE-A-1994-15794"
+      ],
+      "category": "Asesoría Tributaria",
+      "style": "corporate",
+      "topic": "Tributario",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0005-00",
+        "fechaSalida": "10/01/2000",
+        "organo": "Asesoría Tributaria",
+        "rawNormativa": "Ley 19/1994, Art. 26",
+        "mappingMethod": "regex",
+        "descripcion": "La entidad consultante se dedica a la impresión de texto o imágenes por cualquier procedimiento o sistema; para lo cual corta bobinas de papel, aplica colorantes, hace agujeros o raya, e imprime los datos proporcionados por sus clientes.",
+        "contestacionSnippet": "El apartado 1 del artículo 26 de la Ley 19/1994, de 6 de julio, de Modificación del Régimen Económico y Fiscal de Canarias, según la redacción dada por el Real Decreto-Ley 7//1998 de 19 de junio, establece que los sujetos pasivos del Impuesto sobre Sociedades gozarán de una bonificación de la cuota "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_80818666",
+      "question": "Tratamiento de dichas operaciones en relación con el gravamen de Actos Jurídicos Documentados, documentos mercantiles.",
+      "expectedNorms": [
+        "BOE-A-1995-15071"
+      ],
+      "category": "SG de Impuestos Patrimoniales, Tasas y Precios Públicos",
+      "style": "corporate",
+      "topic": "Tributario",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-98",
+        "fechaSalida": "08/01/1998",
+        "organo": "SG de Impuestos Patrimoniales, Tasas y Precios Públicos",
+        "rawNormativa": "RDL 1/1993, art 33; RD 828/1995, art 76",
+        "mappingMethod": "regex",
+        "descripcion": "La Sociedad tiene proyectado entregar a una entidad bancaria el soporte o listado dónde figuran relacionadas los créditos que detenta contra sus clientes para que ésta gestione su cobro. El Banco, una vez conformado dicho listado, concedería a la empresa un anticipo del importe de estos créditos sin asumir responsabilidad alguna, comunicando a aquella, en un documento, los créditos anticipados y los gastos de financiación.\n\nLos créditos impagados serán devueltos por el Banco a la empresa mediante carta de adeudo.",
+        "contestacionSnippet": "El artículo 33 del Texto Refundido del Impuesto sobre Transmisiones Patrimoniales y Actos Jurídicos Documentados, aprobado por Real Decreto Legislativo 1/1993, de 24 de septiembre, dispone:\n\n\"1. Están sujetas las letras de cambio, los documentos que realicen función de giro...\" \"2. Se entenderá que "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_71146c37",
+      "question": "Si las entregas efectuadas por la consultante están exentas del impuesto en virtud del artículo 21 de la Ley 37/1992 así como forma en que debe rellenarse el Documento Único Administrativo a estos efectos y si debe nombrar a un representante aduanero y consecuencias de dicho nombramiento en los formalismos a seguir para la exportación.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "tributary",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0003-19",
+        "fechaSalida": "03/01/2019",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 4, 5 y 21-",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante es una sociedad mercantil con sede en Suiza, que no está establecida en el territorio de aplicación del impuesto, que adquiere de proveedores establecidos en dicho ámbito espacial determinados bienes.\n\nDichos bienes serán revendidos por la consultante a clientes suyos establecidos asimismo fuera de la Comunidad hacia donde los transporta. Puede ocurrir también que los clientes de la consultante sean los que expidan los bienes fuera de la Comunidad, o bien sea un tercero el que los expida, en su nombre y por su cuenta.",
+        "contestacionSnippet": "A) En relación con las cuestiones relacionadas con los Tributos sobre el Comercio Exterior, se informa lo siguiente.\n\n1.- El apartado 1 del artículo 158 del Reglamento (UE) 952/2013 del Parlamento Europeo y del Consejo, de 9 de octubre de 2013, por el que se establece el Código Aduanero de la Unión "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_80f920b4",
+      "question": "Sujeto pasivo que por insuficiencia de cuotas del Impuesto sobre el Valor Añadido devengado ha ido compensando cuotas soportadas de ejercicios anteriores. Plazo para la deducción de las cuotas soportadas y, en su caso, plazo para solicitar su devolución.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "professional",
+      "topic": "IVA",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-05",
+        "fechaSalida": "12/01/2005",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 98, 99, 100 y 115",
+        "mappingMethod": "regex",
+        "descripcion": "Sujeto pasivo que por insuficiencia de cuotas del Impuesto sobre el Valor Añadido devengado ha ido compensando cuotas soportadas de ejercicios anteriores.",
+        "contestacionSnippet": "1.- El artículo 98, apartado uno de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (Boletín Oficial del Estado del 29), establece que el derecho a la deducción del Impuesto sobre el Valor Añadido soportado nace en el momento en que se devengan las cuotas deducibles, salvo en"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_08b8f0f9",
+      "question": "Casos en que dichos tractores podrían utilizar gasóleo bonificado como carburante.",
+      "expectedNorms": [
+        "BOE-A-1992-28741"
+      ],
+      "category": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+      "style": "professional",
+      "topic": "gasóleo bonificado",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-11",
+        "fechaSalida": "17/01/2011",
+        "organo": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+        "rawNormativa": "Ley 38/1992, art. 54-2",
+        "mappingMethod": "regex",
+        "descripcion": "El consultante, persona física, es rematante de madera. Su actividad consiste en la corta y tala de explotaciones forestales, cuya titularidad corresponde a un tercero, realizando el transporte de la madera cortada con vehículos tractores, desde el bosque hasta el camino o pista maderera, en donde camiones de titularidad propia o ajena se encargan de transportarla al aserradero.",
+        "contestacionSnippet": "Con efectos a partir del 1 de enero de 2001, el apartado 2 del artículo 54 de la Ley 38/1992, de 28 de diciembre, en su redacción dada por la Ley 14/2000, de 29 de diciembre de 2000, de Medidas fiscales, administrativas y del orden social, establece:\n\n\"2. La utilización de gasóleo como carburante, c"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_88ff2c4e",
+      "question": "Obligado tributario al que se realiza una comprobación de valor. Exigencia de intereses de demora cuando la Administración incumple el plazo para notificar la liquidación.",
+      "expectedNorms": [
+        "BOE-A-2003-23186"
+      ],
+      "category": "SG de Tributos",
+      "style": "professional",
+      "topic": "Intereses de demora por incumplimiento de plazos administrativos",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-08",
+        "fechaSalida": "28/03/2008",
+        "organo": "SG de Tributos",
+        "rawNormativa": "Ley 58/2003, arts. 134 y 26",
+        "mappingMethod": "regex",
+        "descripcion": "Obligado tributario al que se realiza una comprobación de valor.",
+        "contestacionSnippet": "El artículo 89.2 de la Ley 58/2003, de 17 de diciembre, General Tributaria, establece:\n\n“No tendrán efectos vinculantes para la Administración tributaria las contestaciones a las consultas formuladas en el plazo al que se refiere el apartado 2 del artículo anterior que planteen cuestiones relacionad"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_6c12ea77",
+      "question": "Efectos de la falta de repercusión del IVA en factura.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Efectos de la falta de repercusión del IVA en factura",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-14",
+        "fechaSalida": "22/01/2014",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 art. 4-69-Uno y Dos; 88-",
+        "mappingMethod": "regex",
+        "descripcion": "La mercantil consultante es una entidad establecida en el territorio de aplicación del Impuesto y que presta servicios por vía electrónica a consumidores finales situados en todo el mundo que factura el mismo precio por sus servicios con independencia del lugar donde esté situado su cliente, sin repercusión del IVA en factura.\n\nNo obstante, si el cliente se encuentra establecido en la Comunidad calcula una cuota devengada como si el importe facturado hubiera incluido el IVA de la operación que no se repercutió.",
+        "contestacionSnippet": "1.- A efectos de determinar cuándo los servicios prestados por vía electrónica que efectúa la consultante deben considerarse realizados en el territorio de aplicación del Impuesto, habrá que analizar las reglas de localización contempladas en la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_e85fb54b",
+      "question": "Ejecuciones de obras de rehabilitación de un edificio destinado a viviendas y promovido por una comunidad de propietarios, consistentes en la reparación de la cubierta y tejado, cerramientos de fachadas, y otros daños menores, causados por una explosión de gas. Tipo impositivo aplicable.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Impuestos",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0004-98",
+        "fechaSalida": "09/01/1998",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992, Arts. 90-1, 91-1-3, 20-1-22",
+        "mappingMethod": "regex",
+        "descripcion": "Ejecuciones de obras de rehabilitación de un edificio destinado a viviendas y promovido por una comunidad de propietarios, consistentes en la reparación de la cubierta y tejado, cerramientos de fachadas, y otros daños menores, causados por una explosión de gas.",
+        "contestacionSnippet": "A) Fundamentos de derecho.\n\n1.- De conformidad con lo establecido por el artículo 90, apartado uno, de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (Boletín Oficial del Estado de 29 de diciembre), el tributo se exigirá al tipo del 16 por ciento, salvo lo dispuesto en el ar"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_4e877390",
+      "question": "La consultante, que tiene doble nacionalidad, española y chilena, quiere trasladar su residencia definitiva desde Chile a España, si bien actualmente se encuentra viviendo en Yakarta con su cónyuge que tiene estatuto diplomático. Definir si, a efectos de la franquicia de derechos de importación por traslado de residencia, la certificación consular que acredite la residencia fuera del territorio aduanero de la Unión Europea puede solicitarse en Yakarta, donde actualmente se encuentra residiendo la consultante.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+      "style": "professional",
+      "topic": "Derechos de importación por traslado de residencia",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0004-17",
+        "fechaSalida": "14/02/2017",
+        "organo": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+        "rawNormativa": "Directiva 83/182/CEE;\n\nLey 37/1992, artículo 28.",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante, que tiene doble nacionalidad, española y chilena, quiere trasladar su residencia definitiva desde Chile a España, si bien actualmente se encuentra viviendo en Yakarta con su cónyuge que tiene estatuto diplomático.",
+        "contestacionSnippet": "El Reglamento (CE) nº 1186/2009 del Consejo, de 16 de noviembre de 2009, relativo al establecimiento de un régimen comunitario de franquicias aduaneros (DO L 324 de 10 de diciembre), establece en su Capítulo I, artículos 3 al 11 la franquicia de derechos de importación a los bienes y efectos persona"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_7a207a45",
+      "question": "¿A qué periodo de tiempo está referido el límite de 80 cigarrillos establecido para la importación con franquicia de labores de tabaco por los residentes fronterizos? ¿Cuál es el criterio para determinar si una persona es residente en zona fronteriza?",
+      "expectedNorms": [
+        "BOE-A-1992-28740",
+        "BOE-A-1992-28741"
+      ],
+      "category": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+      "style": "professional",
+      "topic": "Impuestos Especiales",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-13",
+        "fechaSalida": "25/02/2013",
+        "organo": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+        "rawNormativa": "art. 35.tres Ley 37/1992\n\nart. 41 Reglamento (CE) 1186/2009\n\nart. 61.2.a) Ley 38/1992\n\nDirectiva 2007/74/CE",
+        "mappingMethod": "regex",
+        "descripcion": "La Disposición Adicional Vigésima Tercera de la Ley 17/2012, reduce las exenciones fiscales previstas en la Ley 37/1992, del Impuesto sobre el Valor Añadido y en la Ley 38/1992, de Impuestos Especiales, en relación con la importación de labores de tabaco, en régimen de viajeros, efectuada por los residentes en la zona fronteriza de Gibraltar.",
+        "contestacionSnippet": "El primer párrafo del artículo 41 del Reglamento (CE) nº 1186/2009, del Consejo de 16 de noviembre de 2009 relativo al establecimiento de un régimen comunitario de franquicias aduaneras (DOUE de 10 de diciembre), dispone:\n\n“Serán admitidas con franquicia de derechos de importación las mercancías con"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_a7ae8642",
+      "question": "Si es procedente la liquidación de intereses de demora practicada por el ayuntamiento.",
+      "expectedNorms": [
+        "BOE-A-2004-4214"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "professional",
+      "topic": "liquidación de intereses de demora en el IIVTNU",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0005-15",
+        "fechaSalida": "03/03/2015",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "TRLRHL RD Leg. 2/2004. Artículo 110.",
+        "mappingMethod": "regex",
+        "descripcion": "En fecha 09/12/13 falleció el cónyuge de la consultante. Con objeto de liquidar el IIVTNU correspondiente a unos inmuebles comprendidos en la herencia y sitos en un municipio, solicitó en el plazo voluntario, prórroga del mismo por otros 6 meses, de acuerdo con el artículo 110.2.b) del TRLRHL. En fecha 10/11/14 solicitó al ayuntamiento que le fueran practicadas las liquidaciones correspondientes. Dichas liquidaciones incluyen intereses de demora por el período comprendido desde el vencimiento del plazo inicial de 6 meses hasta el 10/11/2014.",
+        "contestacionSnippet": "El Impuesto sobre el Incremento de Valor de los Terrenos de Naturaleza Urbana (IIVTNU) se regula en los artículos 104 a 110 del texto refundido de la Ley Reguladora de las Haciendas Locales (TRLRHL), aprobado por el Real Decreto Legislativo 2/2004, de 5 de marzo.\n\nEl artículo 104 del TRLRHL, en su a"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_08793a09",
+      "question": "Teniendo en cuenta la demora de más de 3 años, entre el 18/01/2018 y el 12/02/2021, en responder y el error de la comunicación, no habiendo recibido ninguno de los copropietarios su liquidación individual. Si el procedimiento está terminado por caducidad, si ha prescrito. ¿Quién es el sujeto pasivo del IIVTNU? ¿A quién se debe liquidar el impuesto? Si se puede exigir las liquidaciones individuales para cada copropietario y si el ayuntamiento, sin haber respondido a la solicitud de liquidaciones individuales, puede exigir el pago por la vía de apremio.",
+      "expectedNorms": [
+        "BOE-A-2004-4214",
+        "BOE-A-2003-23186"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "professional",
+      "topic": "Impuesto sobre el Incremento de Valor de los Terrenos de Naturaleza Urbana (IIVTNU)",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0001-22",
+        "fechaSalida": "04/01/2022",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "TRLRHL RDLeg 2/2004 Artículos 104, 106, 107, 109 y 110. LGT Ley 58/2003. Artículos 66 a 68, 128 a 130.",
+        "mappingMethod": "regex",
+        "descripcion": "Los vecinos de la comunidad de propietarios consultante enajenaron la vivienda de la portería. En fecha 18/01/2018 se presentó ante el ayuntamiento documento de autoliquidación del Impuesto sobre el Incremento de Valor de los Terrenos de Naturaleza Urbana, para que el ayuntamiento procediera a realizar las liquidaciones correspondientes. En fecha 12/02/2021, el ayuntamiento liquidó el impuesto a la comunidad de propietarios como sujeto pasivo. Se ha solicitado varias veces las liquidaciones individuales para cada copropietario, ya que cada uno de ellos exige su liquidación individual y no la conjunta a la comunidad. El ayuntamiento no ha respondido.",
+        "contestacionSnippet": "El Impuesto sobre el Incremento de Valor de los Terrenos de Naturaleza Urbana (IIVTNU) se regula en los artículos 104 a 110 del texto refundido de la Ley Reguladora de las Haciendas Locales (TRLRHL), aprobado por el Real Decreto Legislativo 2/2004, de 5 de marzo.\n\nEl artículo 104 del TRLRHL en su ap"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_bb3be915",
+      "question": "Si las entregas de bienes efectuadas por la consultante a la entidad adquirente están exentas del Impuesto sobre el Valor Añadido en virtud del artículo 21 de la Ley 37/1992.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "IVA",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-19",
+        "fechaSalida": "03/01/2019",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 art. 22-",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante es una sociedad mercantil establecida en el territorio de aplicación del impuesto dedicada al comercio al mayor de productos de ferretería.\n\nLa consultante transmite una seria de mercancía a otra entidad establecida también en el territorio de aplicación del impuesto, la Sociedad B. Según han acordado las partes, la consultante envía la mercancía a los almacenes de la Sociedad B, también situados en el territorio de aplicación del impuesto.\n\nPosteriormente, la Sociedad B revende dicha mercancía, junto con otra que era ya de su propiedad, a un adquirente final establecido fuera del territorio de la Comunidad hacia donde la transporta y despacha con el DUA correspondiente para la exportación. En dicho DUA figura la consultante en la casilla 44.",
+        "contestacionSnippet": "A) En relación con las cuestiones relacionadas con los Tributos sobre el Comercio Exterior, se informa lo siguiente.\n\n1.- El apartado 1 del artículo 158 del Reglamento (UE) 952/2013 del Parlamento Europeo y del Consejo, de 9 de octubre de 2013, por el que se establece el Código Aduanero de la Unión "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_c580c1e2",
+      "question": "Si puede considerarse a la entidad consultante comparable al Banco de España y, en consecuencia, y por aplicación del articulo 63 del TFUE, seria de aplicación la exención subjetiva prevista en el articulo 9.1.c) de la Ley 27/2014 de forma que estén exentos los dividendos percibidos por la entidad consultante de sociedades cotizadas españolas.",
+      "expectedNorms": [
+        "BOE-A-2004-4527",
+        "BOE-A-2014-12328"
+      ],
+      "category": "SG de Fiscalidad Internacional",
+      "style": "professional",
+      "topic": "tributary",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0003-18",
+        "fechaSalida": "30/01/2018",
+        "organo": "SG de Fiscalidad Internacional",
+        "rawNormativa": "CDI España-China\n\nLey 27/2014, del Impuesto sobre Sociedades\n\nTexto Refundido de la Ley del Impuesto sobre la Renta de no Residentes, aprobado po Real Decreto Legislativo 5/2004",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante, residente fiscal en la República Popular de China, se encarga de formular y mantener la politica monetaria, así como de prevenir y mitigar los riesgos financieros y mantener la estabilidad financiera. Como parte de las funciones que tiene asignadas, invierte parte de sus activos en determinados mercados financieros, incluido el español. En consecuencia, es propietario de participaciones en el capital social de sociedades cotizadas españolas, habiedo percibido dividendos de dichas sociedades.",
+        "contestacionSnippet": "De acuerdo a la información proporcionada en el escrito de consulta, la entidad consultante es residente fiscal en la República Popular de China, y así lo acredita, por lo que será de aplicación el Convenio entre el Gobierno de España y el Gobierno de la República Popular China para evitar la doble "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_ecc43e28",
+      "question": "Peluquería, salón de belleza y venta de pelo. Se desea saber el Epígrafe de las Tarifas del Impuesto sobre Actividades Económicas en el que se debe clasificar la actividad consistente en venta de pelo humano o artificial para confeccionar pelucas o postizos.",
+      "expectedNorms": [
+        "BOE-A-1990-23930"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "professional",
+      "topic": "clasificacion_actividades_economicas",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0003-04",
+        "fechaSalida": "08/01/2004",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "RD Legislativo 1175/1990 Epígrafes 972-1, 972-2 y 659-9 Sección Primera Reglas 2ª, 4ª-1 y 8ª Instrucción",
+        "mappingMethod": "regex",
+        "descripcion": "Peluquería, salón de belleza y venta de pelo.",
+        "contestacionSnippet": "La Regla 2ª de la Instrucción para la aplicación de las Tarifas del Impuesto sobre Actividades Económicas, aprobadas ambas (Instrucción y Tarifas) por Real Decreto Legislativo 1175/1990, de 28 de septiembre, establece que el “mero ejercicio de cualquier actividad económica especificada en las Tarifa"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_d0073670",
+      "question": "Procedencia de la aplicación del supuesto de inversión del sujeto pasivo previsto en el artículo 84.Uno.2º.f) de la Ley 37/1992 a las ejecuciones de obras de construcción de una vivienda para su promotor, persona física, que no tiene la condición de empresario o profesional. Tipo impositivo aplicable a dichas obras.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Inversión del sujeto pasivo en obras de construcción",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-17",
+        "fechaSalida": "07/02/2017",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 84-Uno-2º-f), 90, 91-Uno-3-1º-",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante es una entidad mercantil que se dedica a efectuar trabajos de hormigonado de estructuras para la construcción. Va a realizar una obra de cimentación y fraguado de estructuras para la construcción de una vivienda contratada directamente con su promotor, persona física, que construye en autopromoción para usarla como su vivienda habitual.",
+        "contestacionSnippet": "1.- En relación con la cuestión planteada, cabe señalar que, con fecha 27 de diciembre de 2012, ha tenido lugar contestación vinculante a consulta con número de referencia V2583-12, planteada en relación con el tratamiento en el Impuesto sobre el Valor Añadido derivado de la aplicación de la letra f"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_a424c90a",
+      "question": "-Si en el momento de la venta puede deducir las cuotas soportadas previamente en la construcción y en qué porcentaje a efectos del Impuesto sobre el Valor Añadido.\n\n-Tipo Impositivo aplicable a la compra de la parcela y a las obras de construcción a efectos del Impuesto sobre el Valor Añadido.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "IVA deducibilidad construcción vivienda socios",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0006-24",
+        "fechaSalida": "16/04/2024",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 artículos 4º y 5º, 20, 90, 91",
+        "mappingMethod": "regex",
+        "descripcion": "La entidad mercantil consultante, entre otras actividades, está realizando un proyecto de construcción de vivienda unifamiliar con piscina cuyo destino final será la venta a los propios socios de la entidad. La consultante manifiesta que la Agencia Tributaria rechaza la deducibilidad de las cuotas soportadas derivadas de la construcción de la vivienda, así como las correspondientes a la compra de la parcela realizada por la consultante, donde se está construyendo la misma, al considerar que no se encuentran afectas a una actividad empresarial. En la citada construcción y compra de la parcela, le han aplicado el tipo general del Impuesto sobre el Valor Añadido.",
+        "contestacionSnippet": "1.- El artículo 4, apartado uno de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (BOE de 29 de diciembre), establece que “estarán sujetas al Impuesto las entregas de bienes y prestaciones de servicios realizadas en el ámbito espacial del Impuesto por empresarios o profesion"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_2dfb3cd4",
+      "question": "Clínica privada que presta servicios de cirugía oftalmológica ambulatoria sin hospitalización. Clasificación en las Tarifas del Impuesto sobre Actividades Económicas.",
+      "expectedNorms": [
+        "BOE-A-1990-23930"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "corporate",
+      "topic": "clasificacion_iae",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0005-17",
+        "fechaSalida": "14/02/2017",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "TAR/INST IAE, RDLeg. 1175/1990: epígrafe 942.1, sección primera (Tarifas); reglas 2ª, 4ª, 6ª y 10ª (Instrucción).",
+        "mappingMethod": "regex",
+        "descripcion": "Clínica privada que presta servicios de cirugía oftalmológica ambulatoria sin hospitalización.",
+        "contestacionSnippet": "La regla 2ª de la Instrucción para la aplicación de las Tarifas del Impuesto sobre Actividades Económicas, aprobadas por el Real Decreto Legislativo 1175/1990, de 28 de septiembre, establece que “El mero ejercicio de cualquier actividad económica especificada en las Tarifas, así como el mero ejercic"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_a0840fff",
+      "question": "Sujeción al Impuesto sobre el Valor Añadido de la venta de las fincas.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Sujeción al IVA en la transmisión de fincas urbanas con derramas de junta de compensación",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0003-08",
+        "fechaSalida": "03/04/2008",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 art. 4 y 5",
+        "mappingMethod": "regex",
+        "descripcion": "La sociedad consultante adquirió una serie de fincas urbanas a personas físicas integrantes de una junta de compensación. La junta había girado a cada uno de los vendedores una derrama para cubrir gastos de urbanización imputables a las fincas objeto de venta y estas derramas fueron satisfechas por los vendedores con anterioridad a la compra de las fincas por la sociedad.",
+        "contestacionSnippet": "1.- De acuerdo con lo dispuesto en el artículo 4, apartado uno, de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (BOE de 29) “estarán sujetas al Impuesto las entregas de bienes y prestaciones de servicios realizadas en el ámbito espacial del Impuesto por empresarios o profe"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_642eb741",
+      "question": "Sujeción al Impuesto sobre el Valor Añadido de la transmisión del referido crédito. Exención del mismo.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "professional",
+      "topic": "Sujeción al IVA de la transmisión de créditos",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0006-98",
+        "fechaSalida": "09/01/1998",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992, Art. 20-1-18-e",
+        "mappingMethod": "regex",
+        "descripcion": "Una entidad tiene una deuda con un Ayuntamiento, en garantía de cuyo pago se encuentran afectas determinadas edificaciones propiedad de aquélla.\n\nLa consultante va a transmitir al referido Ayuntamiento dos solares a cambio del derecho de crédito que éste mantiene frente a la entidad anteriormente citada.",
+        "contestacionSnippet": "A) Fundamentos de derecho\n\n1. El artículo 4, apartado uno de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (Boletín Oficial del Estado del 29), dispone que \"estarán sujetas al Impuesto las entregas de bienes y prestaciones de servicios realizadas en el ámbito espacial del I"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_3a9452a5",
+      "question": "El consultante desea saber si es posible la entrega con exención de unos bienes que van a ser exportados, presentando el DUA el transmitente, pero realizando el transporte internacional el adquirente español, quien figurará como destinatario en el documento aduanero. La que figura en la descripción.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "professional",
+      "topic": "IVA y aduanas",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0003-05",
+        "fechaSalida": "12/01/2005",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 art. 21-1º",
+        "mappingMethod": "regex",
+        "descripcion": "El consultante desea saber si es posible la entrega con exención de unos bienes que van a ser exportados, presentando el DUA el transmitente, pero realizando el transporte internacional el adquirente español, quien figurará como destinatario en el documento aduanero.",
+        "contestacionSnippet": "1. - El artículo 21 de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido ( Boletín Oficial del Estado del 29), establece:\n\n\" Estarán exentas del Impuesto, en las condiciones y con los requisitos que se establezcan reglamentariamente, las siguientes operaciones:\n\n1º. Las entrega"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_3c6e7b88",
+      "question": "1.- Determinar cuál es la fecha de devengo del IIVTNU derivado de la transmisión mortis causa de la finca a favor de los herederos.\n\n2.- Determinar las fechas inicial y final del período de generación del incremento de valor gravado por el IIVTNU que se devengó en la compraventa de la finca el 22/09/06.\n\n3.- Determinar si es correcto el importe de la liquidación girada por el Ayuntamiento.\n\n4.- Determinar si el otorgamiento de la escritura de aceptación y adjudicación de herencia tiene alguna incidencia en el devengo o en el período de generación del incremento de valor de cualquiera de las dos plusvalías, la devengada por la transmisión hereditaria y la de la compraventa.\n\n5.- Determinar la existencia y el contenido de las obligaciones tributarias de la compañía compradora en relación con la gestión y liquidación del IIVTNU devengado por la compraventa, en función de lo dispuesto en la ordenanza fiscal.",
+      "expectedNorms": [
+        "BOE-A-2004-4214"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "professional",
+      "topic": "IIVTNU",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0003-12",
+        "fechaSalida": "15/02/2012",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "TRLRHL RD Leg. 2/2004. Artículos 104, 106 y 109.",
+        "mappingMethod": "regex",
+        "descripcion": "El causante falleció el 07/12/1977, dejando en herencia una finca urbana. Con fecha 15/12/2005, los herederos (hijos, nietos y bisnietos) aceptaron la herencia, adjudicándose la finca en común pro indiviso y en proporción a sus respectivas participaciones hereditarias, mediante escritura pública.\n\nLos herederos vendieron el pleno dominio de la finca a una sociedad mercantil, mediante escritura pública, el 22/09/2006. En la escritura se pactó que el IIVTNU sería abonado por la compañía compradora.\n\nNo se realizó el pago del IIVTNU, por lo que el Ayuntamiento procedió a practicar liquidación del impuesto a los transmitentes en fecha 13/07/2009.\n\nLos consultantes han demandado a la sociedad compradora por el incumplimiento de su obligación.",
+        "contestacionSnippet": "El Impuesto sobre el Incremento de Valor de los Terrenos de Naturaleza Urbana (IIVTNU) se regula en los artículos 104 a 110 del texto refundido de la Ley Reguladora de las Haciendas Locales (TRLRHL), aprobado por el Real Decreto Legislativo 2/2004, de 5 de marzo (BOE 9 de marzo).\n\nEl artículo 104 de"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_7fb5c9c8",
+      "question": "- Posible prescripción del requerimiento de la Administración de octubre de 2006.\n\n- Deducción de las cuotas soportadas en la adquisición del inmueble objeto de arrendamiento.",
+      "expectedNorms": [
+        "BOE-A-1992-28740",
+        "BOE-A-2003-23186"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "professional",
+      "topic": "Tributario",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0006-09",
+        "fechaSalida": "24/02/2009",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 4, 5, 83, 92, 97. Ley 58/2003 artículos 66, 67, 68",
+        "mappingMethod": "regex",
+        "descripcion": "El consultante, casado en régimen de gananciales, adquiere, junto a su cónyuge, un inmueble para destinarlo a la actividad de arrendamiento, si bien desde su adquisición hasta el año 2002 sólo se ha dado de alta como arrendador el consultante.\n\nCon posterioridad, es el cónyuge del consultante el que con fecha 1 de enero de 2003 se da de alta en el epígrafe correspondiente a alquileres de locales comerciales.\n\nEl consultante solicitó la compensación del IVA soportado en el 2T de 2002 y la devolución del mismo en el 4T/2002. La Administración procedió a devolverle las citadas cantidades. Con posterioridad el 4 de octubre de 2006 se han iniciado actuaciones de comprobación por la AEAT referentes a la citada devolución.",
+        "contestacionSnippet": "1.- En relación con la aplicación de la prescripción en el Impuesto sobre el Valor Añadido, el artículo 66 de la Ley 58/2003, de 17 de diciembre, General Tributaria, establece que prescribirá a los 4 años el derecho de la Administración para determinar la deuda tributaria mediante la oportuna liquid"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_9ffe6cc1",
+      "question": "1. Sujeción al Impuesto de la cesión de uso de infraestructuras realizada por la consultante sin contraprestación.\n\n2. Condición de empresario o profesional de la consultante.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Tributaria",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0005-09",
+        "fechaSalida": "23/02/2009",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 4-uno: 5-uno y dos; 78-dos-3º, 20-uno-8º, 94 y 95",
+        "mappingMethod": "regex",
+        "descripcion": "Una Fundación en el ejercicio de sus fines realiza prestaciones de servicios de interés general a título gratuito, en particular, la elaboración de informes y la cesión de uso de infraestructuras e inmovilizado cuya construcción y realización ha sido financiada a través de determinados convenios de colaboración con una Administración autonómica.\n\nLa consultante también realiza actividades formativas percibiendo, en ocasiones, contraprestación de los destinatarios de las mismas.",
+        "contestacionSnippet": "1.- El artículo 4, apartado uno de la Ley 37/1922, de 28 de diciembre, del Impuesto sobre el Valor Añadido, establece que \"estarán sujetas al Impuesto las entregas de bienes y prestaciones de servicios realizadas en el ámbito espacial del Impuesto por empresarios o profesionales a título oneroso, co"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_ad3093c5",
+      "question": "Transmisión onerosa de un bien inmueble urbano adquirido en 2002 y vendido en 2010. Si para la determinación de la base imponible del IIVTNU sólo se tiene en cuenta el valor catastral del terreno en la fecha de la transmisión o el incremento de valor se obtiene por diferencia entre dicho valor catastral y el valor catastral en la fecha de la adquisición.",
+      "expectedNorms": [
+        "BOE-A-2004-4214"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "professional",
+      "topic": "IIVTNU",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0003-14",
+        "fechaSalida": "27/01/2014",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "TRLRHL RD Leg. 2/2004. Artículos 104 y 107.",
+        "mappingMethod": "regex",
+        "descripcion": "Transmisión onerosa de un bien inmueble urbano adquirido en 2002 y vendido en 2010.",
+        "contestacionSnippet": "El Impuesto sobre el Incremento de Valor de los Terrenos de Naturaleza Urbana (IIVTNU) se regula en los artículos 104 a 110 del texto refundido de la Ley Reguladora de las Haciendas Locales (TRLRHL), aprobado por el Real Decreto Legislativo 2/2004, de 5 de marzo.\n\nEl artículo 104 del TRLRHL, en su a"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_9b7595a4",
+      "question": "La empresa consultante suministra productos de avituallamiento a un buque cuyo destino es única y exclusivamente el salvamento y protección de la Familia Real. Exención de los suministros efectuados.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Exención de IVA en suministros a buques de salvamento de la Familia Real",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0004-97",
+        "fechaSalida": "07/01/1997",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992, Art. 22-uno-2, 22-tres",
+        "mappingMethod": "regex",
+        "descripcion": "La empresa consultante suministra productos de avituallamiento a un buque cuyo destino es única y exclusivamente el salvamento y protección de la Familia Real.",
+        "contestacionSnippet": "1.- El artículo 22, apartados Uno, 2º y Tres de la Ley 37/1992, de 28 de Diciembre, del Impuesto sobre el Valor Añadido (Boletín Oficial del Estado del 29), establece lo siguiente:\n\n\"Artículo 22.- Exenciones en las operaciones asimiladas a las exportaciones.\n\nEstarán exentas del Impuesto, en las con"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_9c94bcf4",
+      "question": "Tributación derivada de la regularización para la entidad distribuidora (B) no establecida que no repercutió el impuesto correspondiente. Rectificación de la repercusión\n\nTributación derivada de la regularización para la entidad fabricante (A) no establecida. Devolución de las cuotas soportadas en España.",
+      "expectedNorms": [
+        "BOE-A-2003-21845",
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "IVA en operaciones intracomunitarias y garantías comerciales",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0007-08",
+        "fechaSalida": "10/06/2008",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 70-uno-7º, 78-uno, 84, 88, 89, 97, 98, 114, 115, 119. Real Decreto 1496/2003 art. 13",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante (B) es una entidad que se dedica a la distribución de automóviles. Esta entidad se encuentra establecida en el Reino Unido y no cuenta en el territorio de aplicación del impuesto español con ningún establecimiento permanente a efectos del IVA.\n\nLa cadena en la distribución de los vehículos funciona de la siguiente manera: el fabricante del vehículo (entidad A), residente en el Reino Unido y sin establecimiento permanente en España, vende a la entidad B, a su vez, la entidad B vende a un distribuidor C, entidad establecida en el territorio de aplicación del impuesto español y constituida con arreglo a las normas mercantiles españolas. Finalmente el distribuidor español (C) vende los vehículos a los concesionarios españoles (D).\n\nLas entidades A, B y C forman parte del mismo grupo empresarial. Por el contrario la entidad D es una entidad no vinculada.\n\nLos vehículos en cuestión cuentan con una garantía que se ofrece por el fabricante (entidad A) a los adquirentes de los vehículos. Cuando los vehículos tienen que ser reparados al amparo de esta garantía, dicha reparación se efectúa por el concesionario español (entidad D) que a su vez le factura el coste al distribuidor español (entidad C) que a su vez se lo factura a la entidad consultante B que a su vez lo factura a la entidad inglesa fabricante (entidad A).\n\nLa garantía ofrecida al comprador del vehículo se encuadra en una \"garantía comercial\". Se trata de una garantía del fabricante, que completa, sin menoscabar, las obligaciones contraídas bajo el contrato de compra del vehículo celebrado con el concesionario D. Las prestaciones cubiertas por la garantía exceden de las legales y cubren prestaciones adicionales (garantía de pintura protección anticorrosión, piezas, servicios de asistencia, etc..). La garantía se extiende más allá de los 2 años (incluso alcanzar los 5 ó 6 años en algunos casos), es aplicable incluso fuera del ámbito territorial español y determinada prestaciones alcanzan a adquirentes posteriores del vehículo.",
+        "contestacionSnippet": "1.- La doctrina tradicional de este Centro Directivo en relación con el tema objeto de la consulta, la reparación de bienes en periodo de garantía, partía de lo dispuesto en el artículo 78, apartado Uno, de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (Boletín Oficial del "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_4ec9429e",
+      "question": "Posibilidad de que el impuesto sobre hidrocarburos implícito en los productos derramados y vertidos sea objeto de devolución.",
+      "expectedNorms": [
+        "BOE-A-1992-28741"
+      ],
+      "category": "SG de Impuestos Especiales",
+      "style": "professional",
+      "topic": "Devolución del Impuesto sobre Hidrocarburos por pérdida accidental",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0006-00",
+        "fechaSalida": "10/01/2000",
+        "organo": "SG de Impuestos Especiales",
+        "rawNormativa": "Ley 38/1992, art. 52",
+        "mappingMethod": "regex",
+        "descripcion": "Debido a un accidente durante su transporte fuera de régimen suspensivo, la totalidad de los hidrocarburos (gasolina y gasóleo) transportados en un camión trailer se perdió, una parte derramada y otra desechada por considerarla comercialmente irrecuperable y finalmente vertida en un lugar habilitado al efecto. La Ley de Impuestos Especiales reconoce el derecho a la devolución de las cuotas del Impuesto sobre Hidrocarburos satisfecho, mediante la devolución a fábrica o depósito fiscal de productos objeto del impuesto que accidentalmente hayan resultado mezclados con otros o contaminados.",
+        "contestacionSnippet": "Con efectos a partir del 1 de enero de 1995, la Ley 42/1994, de 30 de diciembre, de Medidas fiscales, administrativas y de orden social, dio nueva redacción al artículo 52 de la Ley 38/1992, de 28 de diciembre, de Impuestos Especiales, que establece:\n\n\"Se reconocerá el derecho a la devolución de las"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_d25b399f",
+      "question": "En el Impuesto sobre Bienes Inmuebles, ante la falta de pago en período voluntario, se inicia el período ejecutivo. Si al IBI le resulta de aplicación el recargo ejecutivo del 5 por ciento en el caso de que se haya iniciado el período ejecutivo y aún no se ha notificado la providencia de apremio.\n\nEn caso afirmativo, y ante la negativa de la Administración tributaria de facilitar una carta de pago de la deuda del IBI con el recargo ejecutivo del 5%, señalando que hay que esperar a la notificación de la providencia de apremio, si es posible ingresar el importe de la deuda tributaria mediante transferencia a la cuenta de la Administración tributaria, comunicándolo a la misma.",
+      "expectedNorms": [
+        "BOE-A-2004-4214",
+        "BOE-A-2005-14803",
+        "BOE-A-2003-23186"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "professional",
+      "topic": "tributary",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0005-22",
+        "fechaSalida": "24/03/2022",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "TRLRHL RD Leg. 2/2004. Artículos 10, 12, 75 y 77. LGT Ley 58/2003. Artículos 28, 34, 37, 58, 60, 62, 64, 160 y 161. RGR RD 939/2005. Artículos 43, 68 y 69.",
+        "mappingMethod": "regex",
+        "descripcion": "En el Impuesto sobre Bienes Inmuebles, ante la falta de pago en período voluntario, se inicia el período ejecutivo.",
+        "contestacionSnippet": "El Impuesto sobre Bienes Inmuebles (IBI) se regula en los artículos 60 a 77 del texto refundido de la Ley Reguladora de las Haciendas Locales (TRLRHL), aprobado por Real Decreto Legislativo 2/2004, de 5 de marzo (BOE de 9 de marzo).\n\nDe acuerdo con el artículo 75 del TRLRHL, el impuesto se devenga e"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_e02a60ca",
+      "question": "La consultante constituida en 2014 firma un contrato de franquicia con una cadena de supermercados para la explotación de un supermercado en un local titularidad de la citada cadena y explotado anteriormente por otro sujeto pasivo. Si resulta de aplicación a la consultante la exención en el IAE regulada en el artículo 82.1.b) del TRLRHL durante los dos primeros períodos impositivos de actividad.",
+      "expectedNorms": [
+        "BOE-A-2004-4214"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "corporate",
+      "topic": "exención IAE franquicias",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0001-15",
+        "fechaSalida": "08/01/2015",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "TRLRHL RD Leg. 2/2004. Artículo 82.",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante constituida en 2014 firma un contrato de franquicia con una cadena de supermercados para la explotación de un supermercado en un local titularidad de la citada cadena y explotado anteriormente por otro sujeto pasivo.",
+        "contestacionSnippet": "El Impuesto sobre Actividades Económicas (IAE) se regula en los artículos 78 a 91 del texto refundido de la Ley Reguladora de las Haciendas Locales (TRLRHL), aprobado por el Real Decreto Legislativo 2/2004, de 5 de marzo.\n\nEl artículo 82 del TRLRHL regula las exenciones en el IAE, estableciendo en l"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_ff54751f",
+      "question": "El consultante es tomador y asegurado de un seguro de vida que contrató en el año 2002, que cubre las contingencias de supervivencia, fallecimiento e invalidez absoluta y permanente. En 2023, como consecuencia del vencimiento del seguro, el consultante percibió la prestación en forma de capital. Posibilidad de aplicar exención a los rendimientos obtenidos.",
+      "expectedNorms": [
+        "BOE-A-2006-20764"
+      ],
+      "category": "SG de Operaciones Financieras",
+      "style": "professional",
+      "topic": "Exención de rendimientos en seguros de vida por vencimiento",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0002-25",
+        "fechaSalida": "02/06/2025",
+        "organo": "SG de Operaciones Financieras",
+        "rawNormativa": "Ley 35/2006 arts. 7-ñ, DA 26",
+        "mappingMethod": "regex",
+        "descripcion": "El consultante es tomador y asegurado de un seguro de vida que contrató en el año 2002, que cubre las contingencias de supervivencia, fallecimiento e invalidez absoluta y permanente. En 2023, como consecuencia del vencimiento del seguro, el consultante percibió la prestación en forma de capital.",
+        "contestacionSnippet": "En primer lugar, debe señalarse que el consultante manifiesta haber presentado la declaración del Impuesto sobre la Renta de las Personas Físicas correspondiente al periodo impositivo en el que se ha percibido la prestación del seguro. Por consiguiente, de conformidad con el artículo 89.2 de la Ley "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_68e3cbf5",
+      "question": "Régimen de deducción aplicable a entes duales a efectos del Impuesto sobre el Valor Añadido.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Régimen de deducción aplicable a entes duales a efectos del Impuesto sobre el Valor Añadido",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0007-21",
+        "fechaSalida": "29/04/2021",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 4,5, 7.8º, 78.Uno.3º y 93.Cinco",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante es una entidad pública, matriz de un grupo que está compuesto por otra entidad pública, en concreto, una sociedad mercantil de capital público, creadas por una Comunidad Autónoma para la gestión de los servicios públicos de radiodifusión y televisión.\n\nLa consultante centraliza los servicios de dirección general y los departamentos financiero, jurídico y técnico de la filial, siendo el objeto social de esta última la prestación la gestión mercantil del servicio público de radiodifusión y televisión de la Comunidad Autónoma.",
+        "contestacionSnippet": "1.- El artículo 4, apartado uno de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (BOE de 29 de diciembre), establece que \"estarán sujetas al Impuesto las entregas de bienes y prestaciones de servicios realizadas en el ámbito espacial del Impuesto por empresarios o profesion"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_d3017a23",
+      "question": "Diversas cuestiones relativas a la tributación por el Impuesto sobre el Valor Añadido de las operaciones que se efectúan en dicho mercado.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Tributación IVA en mercados de futuros",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0007-06",
+        "fechaSalida": "27/02/2006",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 artículo 20-uno-18º, 24-1º-e), Anexo Quinto",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante es una mercantil que se constituyó para preparar la puesta en funcionamiento de un mercado de contratos de futuro cuyo activo subyacente será el aceite de oliva. La entidad consultante actuará como Sociedad Rectora del mercado de Futuros y Opciones y como cámara de compensación, asimismo, actuará por expresa disposición normativa como contraparte en todos los contratos que se registren. Los contratos de futuros negociados en este mercado, que serán representados mediante anotaciones en cuenta, son contratos normalizados, a plazo, por el cual el comprador se obliga a comprar el activo subyacente (aceite de oliva) y el vendedor a venderlo a un precio pactado (precio futuro) en una fecha futura (precio de vencimiento), estableciéndose como sistema de liquidación a vencimiento, la liquidación por entrega de activo subyacente.",
+        "contestacionSnippet": "1. - El artículo 59 de la Ley 24/1988, de 28 de julio, del Mercado de Valores, dispone en su apartado 1 que “podrán crearse Mercados Secundarios Oficiales de Futuros y Opciones, de ámbito estatal, cuya forma de representación sea la de anotaciones en cuenta. Corresponderá al Gobierno, a propuesta de"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_cb4fb9eb",
+      "question": "Aplicación a dichas transmisiones de la regla de inversión del sujeto pasivo prevista en el artículo 84.Uno.2º, letra g), de la Ley del Impuesto sobre el Valor Añadido.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "IVA",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0006-17",
+        "fechaSalida": "14/02/2017",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 4, 5 y 84",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante es una sociedad mercantil dedicada al comercio al por mayor de equipos informáticos. Entre sus clientes se encuentran determinados instaladores de redes y equipos informáticos a los que transmite tabletas digitales, ordenadores portátiles y, ocasionalmente, teléfonos móviles, quedando éstos incorporados a las instalaciones efectuadas por estos últimos.\n\nEstos instaladores no efectúan, al margen de dichas instalaciones informáticas, ninguna actividad de venta de equipos electrónicos de los mencionados.",
+        "contestacionSnippet": "1.- De conformidad con el artículo 4.Uno de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (BOE de 29 de diciembre) “Estarán sujetas al impuesto las entregas de bienes y prestaciones de servicios realizadas en el ámbito espacial del impuesto por empresarios o profesionales a"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_2517a6a7",
+      "question": "Construcciones de arquetas y colocación de aceras. Se desea saber el Epígrafe de las Tarifas del Impuesto sobre Actividades Económicas en el que debe darse de alta la actividad de colocación de aceras y construcción de arquetas para la red del gas.",
+      "expectedNorms": [
+        "BOE-A-1990-23930"
+      ],
+      "category": "SG de Tributos Locales",
+      "style": "professional",
+      "topic": "Impuesto sobre Actividades Económicas (IAE)",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0004-04",
+        "fechaSalida": "08/01/2004",
+        "organo": "SG de Tributos Locales",
+        "rawNormativa": "RD Legislativo 1175/1990 Epígrafe 502-3 Sección 1ª",
+        "mappingMethod": "regex",
+        "descripcion": "Construcciones de arquetas y colocación de aceras.",
+        "contestacionSnippet": "Las Tarifas del Impuesto sobre Actividades Económicas, aprobadas junto a la Instrucción para su aplicación por Real Decreto Legislativo 1175/1990, de 28 de septiembre, clasifican en el Epígrafe 502.3 de la Sección Primera la “consolidación y preparación de terrenos para la realización de obras civil"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_4ce9fc34",
+      "question": "La consultante compra a particulares joyas usadas con contenido de oro superior a 325 milésimas que destruye y vende el resultado a empresas dedicadas a la fabricación de láminas o lingotes de oro. Tributación en el Impuesto sobre el Valor Añadido de las ventas realizadas.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "professional",
+      "topic": "IVA",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0006-11",
+        "fechaSalida": "15/02/2011",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 4-Uno, 5-Uno y Dos, 84-Uno y 164-Uno",
+        "mappingMethod": "regex",
+        "descripcion": "La consultante compra a particulares joyas usadas con contenido de oro superior a 325 milésimas que destruye y vende el resultado a empresas dedicadas a la fabricación de láminas o lingotes de oro.",
+        "contestacionSnippet": "1.- De acuerdo con la descripción de hechos contenida en el escrito de consulta, el consultante compra joyas usadas a particulares que luego destruye obteniendo un producto con un contenido de oro superior a 325 milésimas.\n\nNo obstante lo anterior, al escrito de consulta se incorpora una diligencia "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_cd4f96b4",
+      "question": "Se pregunta si a las futuras entregas de garajes, para los adquirentes de las viviendas de la primera fase, se les aplica el tipo reducido del 7 por ciento.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "IVA en promociones inmobiliarias",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0004-06",
+        "fechaSalida": "12/01/2006",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 art. 91-Uno-1-7º",
+        "mappingMethod": "regex",
+        "descripcion": "La entidad consultante es una promotora que va a entregar unas viviendas en dos fases. En la primera fase se van a rehabilitar unas viviendas de un edificio parcialmente construido, y en la segunda fase se van a construir nuevas viviendas y garajes, éstos últimos tanto para la primer fase como para la segunda. A los adquirentes de la primera fase se les entrega la vivienda sola, con el compromiso de entregar el garaje cuando se construya en la segunda fase.",
+        "contestacionSnippet": "1.- El artículo 90, apartado uno, de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (Boletín Oficial del Estado del 29), dispone que el Impuesto se exigirá al tipo del 16 por ciento, salvo lo dispuesto en el artículo siguiente.\n\nEl artículo 91, apartado uno, número 7º, dispo"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_090bae4c",
+      "question": "Empresario individual que se dedica a la adaptación de vehículos a motor para su utilización por personas con minusvalía. A tal efecto, instala aceleradores manuales electrónicos para suplir deficiencias de extremidades inferiores, frenos de activación manual, embragues automáticos, etc. - Tipo impositivo aplicable.",
+      "expectedNorms": [
+        "BOE-A-1992-28740"
+      ],
+      "category": "SG de Impuestos sobre el Consumo",
+      "style": "corporate",
+      "topic": "Tipo impositivo aplicable a la adaptación de vehículos para personas con discapacidad",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0004-03",
+        "fechaSalida": "07/01/2003",
+        "organo": "SG de Impuestos sobre el Consumo",
+        "rawNormativa": "Ley 37/1992 arts. 90-uno, 91, uno-1-6º, 91-dos-1-4º y 91-dos-2",
+        "mappingMethod": "regex",
+        "descripcion": "Empresario individual que se dedica a la adaptación de vehículos a motor para su utilización por personas con minusvalía. A tal efecto, instala aceleradores manuales electrónicos para suplir deficiencias de extremidades inferiores, frenos de activación manual, embragues automáticos, etc.",
+        "contestacionSnippet": "1.- El artículo 90, apartado uno de la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido (Boletín Oficial del Estado del 29), establece que el citado tributo se exigirá el tipo impositivo del 16 por ciento, salvo lo previsto en el artículo 91 siguiente.\n\nEl artículo 91, apartado d"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qd_ae6eefaa",
+      "question": "Posibilidad de elaborar una serie de nuevos productos al amparo de la exención para fabricación de medicamentos establecida en el artículo 42.4 de la Ley de Impuestos Especiales.",
+      "expectedNorms": [
+        "BOE-A-1992-28741"
+      ],
+      "category": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+      "style": "corporate",
+      "topic": "tributario",
+      "source": {
+        "origin": "dgt-regex",
+        "numConsulta": "0005-11",
+        "fechaSalida": "04/02/2011",
+        "organo": "SG de Impuestos Especiales y de Tributos sobre el Comercio Exterior",
+        "rawNormativa": "Ley 38/1992, art. 42",
+        "mappingMethod": "regex",
+        "descripcion": "Una entidad mercantil dispone de código de actividad y establecimiento (CAE) para elaboración de especialidades farmaceúticas. Para la fabricación de estos productos utiliza alcohol no desnaturalizado que recibe con aplicación del supuesto de exención establecido en el artículo 42.4 de la Ley de Impuestos Especiales.\n\nPara beneficiarse de la exención, la firma tuvo que describir, en su día, los procesos de fabricación de medicamentos que realizaba y obtener autorización de la oficina gestora para recibir alcohol no desnaturalizado. Ahora elabora nuevos productos, para lo que desea utilizar parte del alcohol adquirido en años anteriores, que recibío con exención del impuesto por fabricación de medicamentos.",
+        "contestacionSnippet": "El número 4 del artículo 42 de la Ley 38/1992, de 28 de diciembre, de Impuestos Especiales (BOE de 29 de diciembre), establece que:\n\n\"Estarán exentas, en las condiciones que reglamentariamente se establezcan; además de las operaciones a que se refieren los artículos 9 y 21, las siguientes:\n\n(…)\n\n4. "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_ea51dcc8",
+      "question": "José y María fueron amigos desde la infancia. Cuando José cumplió 14 años, María ya tenía 16 años. Ellos dos siguieron siendo amigos, y se volvieron más cercanos a medida que crecían. Cuando José cumplió 21 años, María ya había terminado la escuela de medicina y se había graduado como doctora, y tenía 25 años. Ellos dos empezaron a salir, y con el tiempo se enamoraron. María y José se comprometieron y planeaban casarse cuando María recibió una oferta para trabajar en el hospital de París. Ella aceptó la oferta y se fue a París. José sigue estudiando medicina en la Universidad de Granada. Ahora, ¿Pueden José y María contraer matrimonio?\n¿Tienen que esperar hasta que José tenga 25 años?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 3,
+        "answerSnippet": "Los requisitos mínimos para contraer matrimonio en España están establecidos en el Código Civil. Para la celebración de un matrimonio, los contrayentes deben cumplir con las condiciones establecidas en el artículo 83.\n\nEn primer lugar, ambos contrayentes deben haber cumplido la edad mínima estableci"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_d4c7108b",
+      "question": "José y Manuel son dos hermanos que heredaron de su difunto padre una finca rural dividida en dos partes iguales. A partir de ahí, José se mudó a vivir a esa finca y ha estado administrando la propiedad como si fuera su único dueño. Manuel, en cambio, continuó residiendo en la ciudad y simplemente recibió los ingresos procedentes de la finca cada mes.\n\n¿Quién tiene la propiedad útil de la finca?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 20,
+        "answerSnippet": "En virtud del derecho de herencia, José y Manuel son los dueños de igual rango de la finca rural heredada de su difunto padre. Como la propiedad fue dividida en dos partes iguales, cada hermano tiene derecho a explotar y disfrutar de su mitad de la finca, que incluye el dominio directo y el dominio "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_d2dbd860",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José le donó su casa a Luis para vivir allí con su familia. Luis aceptó la donación. Sin embargo, Luis se fue de viaje durante un mes y alquiló la casa a otra persona. José está molesto porque Luis no está usufructuando la casa como él había esperado.\n¿Qué podría hacer José para resolver este problema?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 21,
+        "answerSnippet": "Primero es necesario determinar si la donación de la casa de José a Luis fue válida. La donación de una cosa inmueble debe hacerse en escritura pública y expresar individuamente los bienes donados y el valor de las cargas que deba satisfacer el donatario, según el artículo 633 del Nuevo Código Civil"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_03c5c071",
+      "question": "José y Manuel son hermanos gemelos. José se va a vivir a Estados Unidos y Manuel permanece en España. José fallece en su nuevo país sin dejar testamento. Manuel hereda de forma legal todos los bienes de su hermano. Como heredero, Manuel puede disponer libremente de los bienes de José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 26,
+        "answerSnippet": "En virtud del código civil español, Manuel, como hermano de José, es un heredero forzoso, es decir, una persona a la que el testador no puede excluir de su sucesión. Debido a esto, Manuel hereda de forma legal todos los bienes de José, independientemente del hecho de que José falleciera sin dejar te"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_c103f8ab",
+      "question": "José y María fueron novios durante mucho tiempo. Finalmente, José propuso María y ella aceptó. El día de sus bodas, José y María se casaron, sin embargo, como la ley dice, la prohibición del artículo 45, se casaron las personas comprendidas en él. Ahora, ¿qué le pasa a José si María muere?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 1,
+        "answerSnippet": "José y María estaban sometidos a las disposiciones del artículo 50 del Código Civil, debido a que contrajeron matrimonio en contraído la prohibición del artículo 45 del mismo Código. De acuerdo a lo dispuesto en dicho artículo, su matrimonio es válido, pero sujeto a ciertas restricciones en caso de "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_0bae7142",
+      "question": "José y Luis fueron amigos durante mucho tiempo. Cuando José falleció, dejó toda su herencia a Luis. Sin embargo, sus herederos no estuvieron de acuerdo con esto, y tomaron acciones legales. Durante el transcurso de estas acciones, Luis fue invitado a cenar a casa de Pedro, quien era uno de los herederos de José. Durante la cena, Pedro le mostró a Luis las muestras preliminares de una bebida embriagadora que tenía preparada. Luis se encontraba en estado de embriaguez cuando se dirigió a casa. Mientras se encontraba bebiendo en estado de embriaguez, Pedro le mostró un antiguo testamento que José había preparado, dejando su herencia a Pedro. Más tarde, Pedro le dijo a Luis que el testamento era falso, y que no tendría efecto alguno. Luis le pregunto a Pedro si José le había hecho un testamento real y Pedro respondió que sí. Sin embargo, Pedro negó firmemente que el testamento fuera para Luis. Luis insistió en que el testamento era para él, y que no sabía por qué Pedro lo estaba negando. Luis, en ese momento, no tenía ninguna evidencia física del testamento, pero Pedro lo había mostrado a Luis durante la cena. ¿Qué debería Luis hacer?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 35,
+        "answerSnippet": "En primer lugar, es importante mencionar que el presente no es un reemplazo de la asesoría jurídica, sino solo una ayuda legal básica. Sin embargo, proporcionaremos una respuesta general sobre cómo Luis debería proceder en este caso.\n\nLos herederos de José no estuvieron de acuerdo con que José dejar"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_b65696bf",
+      "question": "José y Luis fueron amigos durante mucho tiempo. Un día José le pidió a Luis que le prestara 3000€. Luis aceptó y le presto el dinero. Ese mismo día José se fue a vivir a Londres.\n¿Quién tendría que pagar los gastos de conservación de la cosa prestada, Luis o José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 56,
+        "answerSnippet": "La relación entre Luis y José, al menos en este contexto, puede considerarse la de prestamista y prestatario. De acuerdo con el artículo 1749 del Código Civil, el prestatario tiene la responsabilidad de abonar los gastos ordinarios que sean de necesidad para el uso y conservación de la cosa prestada"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_d90112b0",
+      "question": "José y Pedro fueron amigos de toda la vida. Cuando José falleció, sus herederos no querían la casa familiar, así que la vendieron a Ana. Pedro heredó de José la mitad de la casa, y Ana compró la otra mitad. Tristemente, Pedro falleció poco después. Su esposa, Sofía, heredó la mitad de la casa familiar de Pedro. Ellas tres, Sofía, Ana y Sofía, heredera de Pedro, deciden vivir juntas en la casa familiar.\nPero hay un problema: la casa está en malas condiciones y necesita reparaciones urgentes. A quien corresponde gastar los dinero para reparar la casa, las tres herederas o las tres dueñas de la casa?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 13,
+        "answerSnippet": "Los hechos que describes plantean un caso de comunidad de bienes. En efecto, la casa familiar es una cosa común que pertenece pro indiviso a las tres herederas de José y Pedro, además de la esposa de éste, Sofía.\n\nEn virtud del artículo 393 de Código Civil, el concurso de los partícipes, tanto en lo"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_9ea8ecd0",
+      "question": "José y María contrajeron matrimonio en 2020. José aportó 5.000€ en efectivo y una casa familiar que valía 100.000€ a la dotación. María aportó una casa familiar que valía 120.000€ y 30.000€ en efectivo. En 2021 María heredó de su abuela una importante fortuna, que incluía 2 viviendas en Madrid y 40.000€ en efectivo.\nCuando María heredó, ya existía la ley 34/2021, de 29 de diciembre, por la que se modificaba el Código Civil para mejorar la situación de las mujeres. A partir de ese momento, los bienes inmuebles adquiridos durante el matrimonio no tendrán carácter dotal.\n¿Qué bienes forman parte de la dotación de María?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 42,
+        "answerSnippet": "Según el Código Civil, la dote se compone de los bienes y derechos que la mujer aporta al matrimonio al tiempo de contraerlo y de los que durante él adquiera por donación, herencia o legado con el carácter dotal. Además, también entrarán en el concepto de dotales los bienes inmuebles adquiridos dura"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_b5edef42",
+      "question": "Luis y Maria contrajeron matrimonio en la iglesia de su pueblo. Maria estaba menor de edad, pero tenia 17 años y era muy madura para su edad. Luis es un hombre casado previamente.\n¿Tiene Luis la administración de los bienes de Maria?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 2,
+        "answerSnippet": "Luis y Maria contrajeron matrimonio en el marco de la Iglesia Católica, por lo que su unión está regulada por las disposiciones de la Iglesia Católica y del Santo Concilio de Trento, reconocidas como Leyes del Reino.\n\nEl Código Civil dispone específicamente sobre matrimonios celebrados antes de la e"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_b3538d25",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José vendió su casa a Luis. Sin embargo, después de la venta, José no recibió el precio del inmueble. Cuando Luis se quedó con la casa, José se entristeció y decidió reclamar el inmueble de Luis.\n ¿Tiene José derecho a reclamar la casa de Luis?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 48,
+        "answerSnippet": "En España, los derechos y obligaciones de los compradores y vendedores en operaciones inmuebles se rigen por el Código Civil, específicamente el título segundo del libro tercero.\n\nEl Código Civil estipula que el comprador está obligado a pagar el precio de la cosa vendida en el tiempo y lugar fijado"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_d0732e7a",
+      "question": "José y María fueron declarados incapaces por la justicia en una fecha, a causa de enfermedades mentales. José tiene 3 hijos: Juan, Pedro y Miguel. María tiene 2 hijos: Carlos y Beatriz. Los 7 hermanos heredarán de sus padres cuando fallezcan, pues no hubo ningún testamento que modificara la herencia a los parientes más lejanos.\n\n¿Quién administra los bienes de Juan?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 7,
+        "answerSnippet": "José y María fueron declarados incapaces por la justicia a causa de enfermedades mentales. Esto significa que no tienen capacidad para administrar sus bienes. En este caso, la administración de sus bienes recae sobre sus tutores.\n\nEn España, la tutela legítima corresponde únicamente a ciertas person"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_3319cb87",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José le prestó dinero a Luis para comprar una imprenta. En la contratación de este préstamo, no se especificó cuál era el plazo para devolver el dinero. Luis usó el dinero para comprar la imprenta, pero nunca le devolvió el dinero a José. Luis vendió la imprenta recientemente y obtuvo una considerable ganancia.\nJosé, viéndolo en una oportunidad perfecta para reclamar su dinero, acude a un abogado para que le represente. El abogado le dice que Luis no pagará nunca el dinero porque no existe un plazo establecido para devolver el dinero. José está muy triste y se pregunta si hay alguna manera de reclamar su dinero.\n\nPor otro lado, Pedro prestó dinero a Paul, para que comprara acciones de una compañía de tecnología. El plazo para devolver el dinero fue establecido en un año. Sin embargo, Paul nunca le devolvió el dinero a Pedro. Paul vendió las acciones y obtuvo una enorme ganancia.\nPedro, también, vio una oportunidad para reclamar su dinero, y contrata a un abogado. El abogado le dice que podrá reclamar su dinero porque estaba establecido un plazo para devolverlo. Pedro se siente más tranquilo y está esperanzado de que pueda reclamar su dinero.\n¿Por qué Luis no paga a José su dinero mientras que Pedro si podrá reclamar su dinero a Paul?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 36,
+        "answerSnippet": "La respuesta a tu pregunta está en el concepto de plazo establecido en la obligación. Si no se especifica un plazo para el cumplimiento de la obligación, el deudor tendrá indefinidamente largo tiempo para devolver el dinero prestado. En el caso de José y Luis, no se había establecido un plazo para d"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_bf6b3753",
+      "question": "José y María fueron hermanos. En 1886 José contrajo matrimonio con Maria. Dos años después, José falleció. María heredó de José una casa y una tienda. Tras el fallecimiento de José, María contrajo matrimonio con Pedro. En 1894, Pedro falleció. María heredó de Pedro una granja. María falleció en 1900.\n\n¿Qué sucedería con la granja heredada de Pedro si María no aceptara la herencia?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 32,
+        "answerSnippet": "José y María fueron hermanos. En 1886, José contrajo matrimonio con María. Dos años después, José falleció. María heredó de José una casa y una tienda. Tras el fallecimiento de José, María contrató matrimonio con Pedro. En 1894, Pedro falleció. María heredó de Pedro una granja. María falleció en 190"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_6f6e6c1e",
+      "question": "José y Luis fueron amigos durante mucho tiempo. Cuando José falleció, sus bienes pasaron a formar parte del patrimonio de Luis. En cuanto a las propiedades de Luis, eran muy numerosas y variadas, teniendo incluso propiedades inmuebles en ciudades de otras provincias.\n¿Hace parte del patrimonio de Luis el inmueble que José poseía?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 11,
+        "answerSnippet": "De acuerdo con el artículo 334 del Código Civil español, los bienes inmuebles son aquellos que incluyen:\n1.ª Las tierras, edificios, caminos y construcciones de todo género adheridas al suelo.\n2.º Los árboles y plantas y los frutos pendientes, mientras estuvieren unidos a la tierra o formaren parte "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_f99a2201",
+      "question": "José y María contrajeron matrimonio en 2010. En 2016 María emigró a los Estados Unidos y nunca volvió a hablar con José. El bienio 2018 y 2019 fue difícil para José y no podía comunicarse con María. José falleció en 2020 sin haber recibido noticias de María desde 2016. Ahora en 2022, un pariente lejano de José y María, Pedro, quiere hacerse cargo de los negocios de José.\n¿Tiene Pedro derecho a tomar posesión de los negocios de José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 6,
+        "answerSnippet": "En primer lugar, debemos establecer que José y María contrajeron matrimonio en 2010 y María emigró a los Estados Unidos en 2016, nunca volviendo a comunicarse con José. Esto significa que María perdió la patria potestad sobre sus hijos no emancipados, a menos que el difunto marido, padre de estos, h"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_7f9eec15",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José le prestó dinero a Luis para comprar una imprenta usada, que costó 12.000 euros. El precio de la imprenta era muy bajo, porque tenía muchas cosas rotas y no funcionaba bien. Luis juró que le pagaría la deuda cuando pudiese. Poco después, Luis vendió su departamento y compró una casa en la playa. Pronto encontró empleo mejor pagado y trabajó duro para pagar la deuda. José se sentía orgulloso de que Luis estuviera haciendo bien. Sin embargo, Luis nunca pudo pagar la deuda.\n¿Puede José demandar a Luis para que le devuelva el dinero prestado?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 37,
+        "answerSnippet": "José y Luis establecieron una obligación en la que Luis debía reembolsarle a José la cantidad de dinero prestado para la compra de la imprenta. Sin embargo, Luis nunca pudo pagar la deuda.\n\nEn el Código Civil, el artículo 1156 establece las circunstancias en las que una obligación se extingue. En es"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_7745fc1f",
+      "question": "José y Manuel son hermanos gemelos. José se va a vivir a Estados Unidos y Manuel permanece en España. José muere sin haber dejado testamento en Estados Unidos. Manuel fallece en España dejando un testamento.\n¿Quién hereda más rápido los bienes de José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 30,
+        "answerSnippet": "En primer lugar, debemos establecer cuál es la sucesión de José y cuál es la de Manuel.\n\nJosé murió sin testamento en Estados Unidos, por lo que su herencia se regirá por la ley de ese país, ya que es donde falleció. Esto significa que la herencia de José se distribuirá entre sus parientes legítimos"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_9c3a5afb",
+      "question": "José y Manuel fueron hermanos. Manuel falleció recientemente, sin dejar testamento. ¿Puede José heredar las acciones de Manuel?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 22,
+        "answerSnippet": "Como Manuel falleció sin dejar testamento, su herencia se regirá por disposición de la ley, dado que no existió voluntad del fallecido manifestada en testamento. Dado que José y Manuel eran hermanos, José heredará la parte alícuota de la herencia de Manuel por razón de consanguinidad. En virtud de l"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-codigo-civil_7fbb22fb",
+      "question": "José y Manuel fueron amigos inseparables durante toda su vida. José falleció recientemente sin dejar ningún tipo de testamento. Manuel heredará el 100% del patrimonio de José, correcto?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-codigo-civil",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 25,
+        "answerSnippet": "José falleció sin haber realizado un testamento, por lo que las disposiciones testamentarias no serán válidas. En virtud de la legislación española, la herencia o sucesión se regula por la ley intestina, donde se establece que los familiares más próximos del fallecido son los que tienen derecho a he"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-ley-vivienda_58aa4f2e",
+      "question": "José y María fueron amigos desde la infancia. Cuando José se casó comprá una casa con dos habitaciones en Madrid, la ciudad donde ambos nacieron. María también se casó y comprá una casa en Barcelona, también con dos habitaciones. Ambos amigos trabajan en empresas diferentes, pero ambos tienen un rendimiento neto positivo de capital inmobiliario derivado de sus contratos de arrendamiento de vivienda.\n\n¿Qué diferencias tendrán José y María debido a la Ley 12/2023?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 34,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, modifica el texto refundido de la Ley de Suelo y Rehabilitación Urbana y la Ley Reguladora de las Haciendas Locales, entre otras leyes.\n\nEn el caso de José, que posee una vivienda en Madrid, la Ley 12/2023 introduce una disposición transitoria trigésima octava, que mod"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-ley-vivienda_83de5ac1",
+      "question": "Ley 12/2023 establece una reserva de suelo para la vivienda. ¿Qué porcentaje de la edificabilidad residencial prevista es esta reserva?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 35,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, establece una reserva de suelo adecuado y suficiente para usos productivos y para uso residencial, para garantizar la disponibilidad de suelo para la construcción de viviendas. Esta reserva debe cumplir con ciertas condiciones para garantizar una distribución respetuos"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-ley-vivienda_ec680223",
+      "question": "José y Lourdes son una pareja casada con dos hijos, Tom y Andy. Ambos hijos viven con sus padres y cursan sus estudios en el colegio. Tom tiene 17 años y Andy tiene 14 años. José trabaja como empleado de comercio y Lourdes no realiza actividad económica.\n\nEn un momento dado, José y Lourdes quieren alquilar una vivienda de un particular que está dispuesto a arrendar una unidad a los dos matrimonios sin tener en cuenta la edad de los niños. ¿Cumplen el límite establecido en la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 38,
+        "answerSnippet": "Los requisitos establecidos en la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda deben ser cumplidos por cualquier persona que desee alquilar una unidad habitacional. En este caso, José y Lourdes, como una pareja casada con dos hijos, deben determinarse las aplicables incrementos al límite"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-ley-vivienda_94ab9071",
+      "question": "Juan y Pedro fueron amigos durante muchos años. Juan compra una parcela de tierra en Madrid y la construye casita. Pedro compra una propiedad en Barcelona. Cuando Juan visita Pedro, le pregunta si le puede mostrar la casa que compro en Barcelona. Pedro le muestra la casa y les muestran sus viviendas. Juan le pregunta si puede ver la casa que compro en Madrid. Pedro le dice que en su barrio no hay casas de alquiler, solo propiedades.\nAlgunos meses después, Juan y Pedro venden sus casas y se mudan a viviendas de alquiler. Juan se muda a un piso en un edificio en la calle Diego de Siloé, 27, Madrid, y Pedro se muda a un apartamento en la calle Estruc, 17, Barcelona.\n¿Cual de los pisos y apartamentos son de mercado residencial tensionado?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 28,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, sobre derecho a la vivienda establece una disposición adicional segunda referida a prioridad de política de vivienda en la gestión patrimonial del Estado. Según este dispositivo normativo, la Comisión de Coordinación financiera de Actuaciones Inmobiliarias y Patrimonia"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_fbef82a0",
+      "question": "José y María fueron amigos desde la infancia. José se fue de viaje a Europa durante un año. Al regresar, descubrió que María había comprado una casa y se había mudado. José no tenía donde vivir. Ante esto, José acudió a la oficina de vivienda de su Ayuntamiento para pedir ayuda. Inmediatamente, José fue a un departamento vacío que estaba siendo alquilado por la oficina. El departamento estaba muy bien equipado y Joseph se sintió muy agradecido.\n¿Tiene José derecho a vivienda digna y adecuada?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 13,
+        "answerSnippet": "La cuestión sobre el derecho de José a vivienda digna y adecuada se encuentra regulada por la Ley 12/2023, de 24 de mayo, sobre el derecho a la vivienda.\n\nEn este marco legal, se entiende que la vivienda digna y adecuada es aquella que, por diversas razones, responde a las necesidades de residencia "
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_ce63bb62",
+      "question": "José y María son dos amigos que viven en la misma ciudad. José está casado y es padre de 4 hijos, adquiere una vivienda en 2018. María es soltera y estudia en la universidad. No puede pagar alquileres y vive en diferentes albergues de la ciudad.\n¿José y María tienen derechos iguales a la vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 18,
+        "answerSnippet": "Los derechos a la vivienda están garantizados por la Ley Ororgánica 5/1997, de 29 de mayo, del Régimen Jurídico de las Administraciones Públicas y sus funcionarios, en su artículo 1.1, que establece:\n\"Todas las personas son iguales ante la ley y tienen derechos y deberes que respetan la libre determ"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_e88eb0b2",
+      "question": "Carlos y Juan, hermanos gemelos, han llegado a una situación muy diferente en la vida. Juan tiene buena situación laboral y económica, tiene una buena casa en un buen barrio y sus hijos van a un colegio privado. Carlos, no ha tenido tanta suerte. Perdió su trabajo y no logra encontrar otro, está a punto de quedarse sin casa y sus hijos no van a un colegio bueno.\n¿Tiene Carlos más o menos derecho a la vivienda que Juan?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 2,
+        "answerSnippet": "La protección jurídica del derecho a la vivienda se aplica a todos los individuos sin excepción, sin importar su situación social, económica, laboral o familiar. No existe en la legislación española una distinción en el acceso a este derecho según los logros, condiciones o situación personal de cada"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_7c03a9e3",
+      "question": "Rafael es un juez español. Este año, ha de dictar sentencia sobre una demanda de un grupo de personas que demandan sus derechos a vivienda, ya que afirman que el municipio en el que viven no ha tenido en cuenta las necesidades de vivienda asequible en el planeamiento urbanístico de la zona. El municipio afirma que ya desarrolló un Plan Especial de Vivienda, conocido como PEV, que proporciona los requisitos necesarios para la construcción de viviendas asequibles. Quieren saber si el PEV cumple con las obligaciones del municipio en materia de vivienda asequible. ¿Cuál es la posición de Rafael, como juez, respecto a estos asuntos?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 7,
+        "answerSnippet": "Rafael, en su calidad de juez, tendrá que evaluar si el Plan Especial de Vivienda (PEV) del municipio cumple con las obligaciones de este en materia de vivienda asequible. La Ley 12/2023, de 24 de mayo, por el derecho a la vivienda es clara en este aspecto, estableciendo que los planes estatales en "
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_b8478ec9",
+      "question": "José y Luis son dos amigos que están haciendo una pasantía en una administración pública. José ha estado trabajando en la oficina de la secretaría general del Ayuntamiento de Madrid, mientras que Luis ha estado en la dirección general de vivienda.\n\nAmbos son actualmente convocados a formar parte de la comisión que evalúa la presentación de una ley sobre la vivienda. Dicha ley propondrá que se incluya la vivienda en el ámbito de los derechos fundamentales.\n\nQuienes son los que tienen legitimación para ejercer la acción pública sobre la vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 15,
+        "answerSnippet": "En primer lugar, es importante conocer que la vivienda tiene un carácter de bien social, ya que cumple con la necesidad básica de alojamiento de las personas, familias y unidades de convivencia. Las Administraciones públicas tienen la responsabilidad de promover las condiciones necesarias para garan"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_32450456",
+      "question": "Luis y Alberto fueron amigos desde la infancia. Cuando Luis creció, comprá una casa en la que ha vivido durante más de 30 años. Alberto optó por vivir en alquiler durante toda su vida, y desde hace unos años, ha estado viviendo en un departamento que arrenda en una empresa de inversión inmobiliaria.\n\n¿Quien tiene más derechos con su vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 16,
+        "answerSnippet": "Los derechos que se deriven de la propiedad de una vivienda y los derechos que surgen del alquiler de una vivienda difieren en su contenido. Propiedad de una vivienda implica derechos como el uso, disfrute y disposición de la misma, en función de su calificación, estado y características objetivas. "
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_47e9f566",
+      "question": "José y María son dos amigas que buscan vivienda. María logra un departamento en un parque público de vivienda, mientras que José alquila una vivienda en el mercado privado.\n¿Quien tiene más garantías de renta estable?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 25,
+        "answerSnippet": "En España, las viviendas integrantes de los parques públicos de vivienda están destinadas a garantizar el derecho de acceso a la vivienda de las personas y hogares con mayores dificultades para acceder a una vivienda en el mercado, en razón de sus circunstancias sociales y económicas, atendiendo a f"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_633fc85d",
+      "question": "José y Luis son vecinos de una misma urbanización. José es un jubilado con una pensión económica, mientras que Luis es un empresario con una buena situación económica. José ha estado viviendo en la misma vivienda desde que se mudó a esta urbanización 30 años atrás, y Luis ha comprado y vendido diferentes viviendas dentro de la urbanización durante los últimos 10 años, según le gustaba cambiar de ambiente.\nRecientemente, una empresa inmobiliaria ha comprado una parcela de tierra contigua a la urbanización y está planeando construir un complejo de oficinas. Como parte de este plan, la empresa inmobiliaria está ofreciendo a los propietarios de la urbanización la oportunidad de mudarse a una nueva vivienda en el complejo de oficinas que están construyendo. Ambos José y Luis han recibido esta oferta.\nAmbos tienen la opción de mudarse a una nueva vivienda en el complejo de oficinas, pero José no puede aceptar debido a que su situación económica no le permite afrontar el alquiler más alto de la nueva vivienda. Luis, sin embargo, acepta la oferta y se muda a la nueva vivienda en el complejo de oficinas.\nJosé está triste porque quiere seguir viviendo en la urbanización, pero no tiene otra opción.\nEn su situación, José podría demandar a la empresa inmobiliaria por discriminación?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 19,
+        "answerSnippet": "José y Luis son vecinos en una misma urbanización. José es un jubilado con una renta modesta, mientras que Luis es un empresario con una buena situación económica. José ha estado viviendo en la misma vivienda desde que se mudó a esta urbanización hace 30 años, mientras que Luis ha comprado y vendido"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_72824417",
+      "question": "José y María son dos amigos que se conocieron hace años en la universidad. José se graduó de ingeniería civil y actualmente trabaja en un estudio de arquitectura y urbanismo. María se graduó de derecho y actualmente trabaja en la administración local de Madrid. José le ha presentado un proyecto de desarrollo urbano a María para que valorase la viabilidad de los proyectos desde un punto de vista legal. El proyecto consiste en un parque de viviendas sociales. María lee el proyecto y se da cuenta de que los proyectistas están siguiendo los principios establecidos en la Ley 12/2023.\n¿Cuál de los principios no relacionados con la seguridad jurídica y transparencia se están siguiendo en este proyecto?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 12,
+        "answerSnippet": "En relación con los principios establecidos en la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda, se puede decir que se busca regular, en el ámbito de competencias del Estado, las condiciones básicas que garantizan la igualdad en el ejercicio de los derechos y en el cumplimiento de los deb"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_f7e722dc",
+      "question": "José y María son amigos desde la infancia. José se trasladó a vivir a Madrid, mientras que María se quedó en su pueblo natal, en la provincia de Burgos. El año pasado, María decidió comprar una casa en el centro de su pueblo, ya que este estaba incluido en una zona de mercado residencial tensionado, declarada por la Consejería de Vivienda de la Junta de Castilla y León. El precio de la casa fue de 120.000 euros. José no comprende por qué María compró una casa en un área declarada como zona de mercado residencial tensionado, ya que él está de acuerdo con el servicio público en la materia y cree que es una medida innecesaria.\n¿Está María en su derecho de comprar una casa en una zona declarada como zona de mercado residencial tensionado?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 21,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, por el derecho a la vivienda establece un procedimiento para la declaración de un ámbito territorial como zona de mercado residencial tensionado, con el fin de adaptar las medidas y acciones públicas necesarias a estas circunstancias. Según esta ley, la declaración de "
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-ley-vivienda_a20862a9",
+      "question": "Rafael y Diego fueron amigos desde la infancia. Cuando Rafael cumplió 18 años, su madre compró una casa para él. Diego, por otro lado, no tuvo tan buena suerte. Su madre era inmigrante ilegal y no podía comprar una casa para él. Por eso, Diego no ha podido tener una vida tan cómoda como Rafael.\n\nAhora, Rafael tiene 30 años y Diego tiene 28. Quieres saber si la ley española protege a los inmigrantes ilegales y su descendencia, asegurando sus derechos a la vivienda.",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-vivienda",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 4,
+        "answerSnippet": "Rafael y Diego tienen una situación muy diferente, sin embargo, ambos comparten un derecho constitucional fundamental: el derecho a la vivienda digna y adecuada. Este derecho reconocido en el artículo 47 de la Constitución española es garantía básica de igualdad de todos los españoles en relación co"
+      },
+      "confidence": 1
+    },
+    {
+      "id": "g-constitucion_a6409d15",
+      "question": "¿Cuál es el requisito para que el Rey nombre al candidato como Presidente del Gobierno?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 99,
+        "answerSnippet": "Que el Congreso de los Diputados otorgue su confianza al candidato por el voto de la mayoría absoluta de sus miembros."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_b5c6a01a",
+      "question": "¿Cuál debe ser la estructura interna y el funcionamiento de los Colegios Profesionales?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 36,
+        "answerSnippet": "La estructura interna y el funcionamiento de los Colegios deberán ser democráticos."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_6555884c",
+      "question": "¿Qué deben hacer los poderes públicos para hacer efectivo el derecho a una vivienda digna y adecuada?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 47,
+        "answerSnippet": "Promover las condiciones necesarias y establecer las normas pertinentes."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_31012feb",
+      "question": "¿Cuál es el plazo máximo para que una persona detenida sea puesta en libertad o a disposición de la autoridad judicial?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 17,
+        "answerSnippet": "Setenta y dos horas"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_398a0356",
+      "question": "¿Qué principios garantiza la Constitución según el artículo 9?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 9,
+        "answerSnippet": "El principio de legalidad, la jerarquía normativa, la publicidad de las normas, la irretroactividad de las disposiciones sancionadoras no favorables o restrictivas de derechos individuales, la seguridad jurídica, la responsabilidad y la interdicción de la arbitrariedad de los poderes públicos"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_221b465b",
+      "question": "¿Qué sucede si el Congreso adopta una moción de censura?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 114,
+        "answerSnippet": "El Gobierno presentará su dimisión al Rey y el candidato incluido en la moción de censura se entenderá investido de la confianza de la Cámara, siendo nombrado Presidente del Gobierno por el Rey."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_f76b2c88",
+      "question": "¿Cuál es la circunscripción electoral para la elección de Diputados en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 68,
+        "answerSnippet": "La provincia."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_8f9dfe0b",
+      "question": "¿Cuál es el principio fundamental del sistema tributario en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 31,
+        "answerSnippet": "El principio fundamental del sistema tributario en España es la justicia, inspirado en los principios de igualdad y progresividad."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_33b0635d",
+      "question": "¿Ante quién responde solidariamente el Gobierno en su gestión política?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 108,
+        "answerSnippet": "El Congreso de los Diputados"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "g-constitucion_51b188c6",
+      "question": "¿Quiénes son los responsables de organizar y tutelar la salud pública?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-constitucion",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 43,
+        "answerSnippet": "Los poderes públicos."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_63301462",
+      "question": "¿Tengo derecho a paro si soy autónomo?",
+      "expectedNorms": [
+        "BOE-A-2015-11724",
+        "BOE-A-2020-3824"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 44,
+        "citationsCount": 14,
+        "answerExcerpt": "Sí, como autónomo, puedes tener derecho a una prestación por cese de actividad, que es el equivalente al paro para los trabajadores por cuenta propia. Para acceder a esta prestación, debes cumplir una serie de requisitos [BOE-A-2015-11724, Artículo 330].\n\nLos requisitos principales son:\n\n*   Estar a"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_18030485",
+      "question": "¿Me pueden hacer un test de drogas en el trabajo?",
+      "expectedNorms": [
+        "BOE-A-2020-13115",
+        "BOE-A-2006-8213",
+        "BOE-A-2014-12408",
+        "BOE-A-2026-2726",
+        "BOE-A-2008-12494",
+        "BOE-A-2011-15623"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 1,
+        "citationsCount": 15,
+        "answerExcerpt": "Sí, en determinados trabajos te pueden hacer pruebas para detectar drogas, alcohol u otras sustancias. Esto depende de tu puesto y de la normativa específica que te aplique.\n\nPor ejemplo, si trabajas en el sector ferroviario, te pueden hacer controles aleatorios o si ha habido un accidente, para det"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_cb1d47de",
+      "question": "¿Cuánto dura la garantía de un producto nuevo?",
+      "expectedNorms": [
+        "BOE-A-2007-20555",
+        "BOE-A-2017-2466"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 20,
+        "citationsCount": 9,
+        "answerExcerpt": "La garantía de un producto nuevo dura 3 años desde que te lo entregan, siempre que se trate de bienes o de contenidos o servicios digitales que se suministran de una vez o en varias partes separadas [BOE-A-2007-20555, Artículo 120]. Si son bienes de segunda mano, se puede pactar un plazo menor, pero"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_b71458ab",
+      "question": "¿Qué derechos tiene una embarazada en el trabajo?",
+      "expectedNorms": [
+        "BOE-A-1995-24292",
+        "BOE-A-1999-21568",
+        "BOE-A-2021-9719",
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 2,
+        "citationsCount": 5,
+        "answerExcerpt": "Una trabajadora embarazada tiene varios derechos en el trabajo. Puede ausentarse para hacerse exámenes prenatales y para prepararse para el parto, siempre avisando con antelación y justificando la necesidad dentro de su jornada laboral. Durante estas ausencias, tiene derecho a seguir cobrando su sue"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_7138054c",
+      "question": "¿Puedo teletrabajar si tengo hijos menores?",
+      "expectedNorms": [
+        "BOE-A-2015-11719",
+        "BOE-A-2021-5136",
+        "BOE-A-2021-11472",
+        "BOE-A-2013-10074",
+        "BOE-A-2020-3824"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 1,
+        "citationsCount": 6,
+        "answerExcerpt": "Sí, puedes teletrabajar si tienes hijos menores, pero la ley establece algunas condiciones y limitaciones dependiendo de la situación.\n\nEn general, las Administraciones Públicas deben adoptar medidas para facilitar la conciliación de la vida familiar y laboral de los empleados públicos que tengan a "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_4cdf6a83",
+      "question": "¿Pueden obligarme a hacer un test de drogas en el trabajo?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2014-12408",
+        "BOE-A-2020-13115",
+        "BOE-A-2006-8213",
+        "BOE-A-2018-5396",
+        "BOE-A-2021-21650",
+        "BOE-A-2008-12494",
+        "BOE-A-2001-9342",
+        "BOE-A-2016-4170"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 24,
+        "citationsCount": 15,
+        "answerExcerpt": "Sí, en determinados trabajos y circunstancias, te pueden obligar a hacerte pruebas para detectar drogas o alcohol. Esto puede ocurrir en el ámbito laboral general, especialmente si tu trabajo implica riesgos o si hay sospechas de consumo [BOE-A-2015-11430, Artículo 20]. En profesiones específicas co"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_f40b1899",
+      "question": "¿Cuántos días de vacaciones me corresponden por ley?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2003-23101",
+        "BOE-A-2007-18391",
+        "BOE-A-1985-12666",
+        "BOE-A-2018-16673",
+        "BOE-A-2019-7414",
+        "BOE-A-2019-2861",
+        "BOE-A-2015-5016",
+        "BOE-A-2023-12918",
+        "BOE-A-2021-8880",
+        "BOE-A-2005-11757",
+        "BORM-s-2001-90010",
+        "BOE-A-2011-7752",
+        "BOE-A-2025-24253"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 2,
+        "citationsCount": 8,
+        "answerExcerpt": "La cantidad de días de vacaciones que te corresponden por ley depende de tu situación laboral.\n\nSi eres un trabajador por cuenta ajena, el periodo de vacaciones anuales retribuidas será el pactado en tu convenio colectivo o contrato individual, pero en ningún caso será inferior a 30 días naturales ["
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_fd729d9a",
+      "question": "¿Cuántos días de vacaciones me corresponden al año?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2002-25412",
+        "BOE-A-2019-7414",
+        "BOE-A-2019-2861",
+        "BOE-A-1985-12666",
+        "BOE-A-2003-23101",
+        "BOE-A-2007-18391",
+        "BOE-A-2021-8880",
+        "BOE-A-2023-12918",
+        "BOE-A-2015-5016",
+        "BOE-A-2005-11757",
+        "BORM-s-2001-90010"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 143,
+        "citationsCount": 13,
+        "answerExcerpt": "Depende del tipo de relación laboral que tengas. Si eres trabajador del sector privado (por cuenta ajena), tienes derecho como mínimo a 30 días naturales de vacaciones retribuidas al año [BOE-A-2015-11430, Artículo 38]. Si eres funcionario público (por ejemplo, de la Administración General del Estad"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_f349dc9f",
+      "question": "Mi gimnasio fue comprado por otra empresa y me cambiaron el contrato sin mi consentimiento. ¿Es legal?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2016-7566",
+        "BOE-A-2023-13669",
+        "BOE-A-2007-20555",
+        "BOE-A-2017-2466",
+        "BOE-A-2023-13537"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 40,
+        "citationsCount": 9,
+        "answerExcerpt": "No, no es legal que te cambien el contrato sin tu consentimiento. Si una empresa compra tu gimnasio, la nueva empresa se subroga en tus derechos y obligaciones laborales y de Seguridad Social, lo que implica que debe respetar las condiciones de tu contrato anterior [BOE-A-2015-11430, Artículo 44.1]."
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_9482ce5c",
+      "question": "¿Cuántos días de vacaciones me corresponden?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2019-2861",
+        "BOE-A-2025-24253",
+        "BOE-A-2019-7414",
+        "BOE-A-2021-8880",
+        "BOE-A-2023-12918",
+        "BOE-A-2015-5016",
+        "BOE-A-2005-11757",
+        "BORM-s-2001-90010",
+        "BOE-A-2023-16066",
+        "BOE-A-2011-7752",
+        "BOE-A-2015-5677"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 2,
+        "citationsCount": 9,
+        "answerExcerpt": "La cantidad de días de vacaciones que te corresponden depende de tu situación laboral y de si eres funcionario o trabajador por cuenta ajena.\n\nSi eres un trabajador por cuenta ajena, en general, el periodo de vacaciones anuales retribuidas no puede ser inferior a 30 días naturales [BOE-A-2015-11430,"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_a6e43084",
+      "question": "¿Cuánto es la indemnización por despido improcedente?",
+      "expectedNorms": [
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 2,
+        "citationsCount": 2,
+        "answerExcerpt": "La indemnización por despido improcedente depende de la fecha en que se firmó tu contrato. Si tu contrato se firmó a partir del 12 de febrero de 2012, la indemnización es de 33 días de salario por cada año trabajado, prorrateándose por meses los periodos inferiores a un año, hasta un máximo de 24 me"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_c9bea531",
+      "question": "Mi casero quiere hacer obras en mi piso y yo no quiero. ¿Puede obligarme?",
+      "expectedNorms": [
+        "BOE-A-1994-26003",
+        "BOE-A-1889-4763"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 22,
+        "citationsCount": 13,
+        "answerExcerpt": "Sí, tu casero puede obligarte a soportar obras en tu piso, pero depende del tipo de obra: \n\n*   **Obras de mejora:** Si son obras de mejora que no pueden esperar a que termine tu contrato, debes permitir que se hagan [BOE-A-1994-26003, Artículo 22.1]. Tu casero debe avisarte por escrito con 3 meses "
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_c43c6293",
+      "question": "¿A qué edad me puedo jubilar?",
+      "expectedNorms": [
+        "BOE-A-2015-11724",
+        "BOE-A-2013-2874",
+        "BOE-A-2011-13242",
+        "BOE-A-2009-20652",
+        "BOE-A-2003-23401",
+        "BOE-A-1984-17387",
+        "BOE-A-2003-23101",
+        "BOE-A-2025-24253",
+        "BOE-A-1984-165",
+        "BOE-A-1991-7270"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 20,
+        "citationsCount": 11,
+        "answerExcerpt": "La edad a la que te puedes jubilar depende de varios factores, como tu año de nacimiento y los años que hayas cotizado. La edad ordinaria de jubilación está aumentando gradualmente.\n\nPara la jubilación ordinaria:\n* Si has cotizado 38 años o más, puedes jubilarte a los 65 años en 2024. Si has cotizad"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_f42e9cd7",
+      "question": "He comprado un piso y tiene vicios ocultos. ¿Qué puedo hacer contra el vendedor y contra el constructor?",
+      "expectedNorms": [
+        "BOE-A-1889-4763",
+        "BOE-A-1999-21567",
+        "BOE-A-2017-12902",
+        "BOE-A-2023-7936"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 37,
+        "citationsCount": 12,
+        "answerExcerpt": "Si has comprado un piso y tiene vicios ocultos, puedes reclamar al vendedor y, en ciertos casos, al constructor. El vendedor está obligado a responder por los defectos ocultos que tenga la cosa vendida si la hacen impropia para el uso al que se destina o si disminuyen su valor de tal forma que, de h"
+      },
+      "confidence": 2
+    },
+    {
+      "id": "qg_21c36285",
+      "question": "¿Qué protección tienen los menores en Andalucía según la legislación autonómica?",
+      "expectedNorms": [
+        "BOE-A-2007-5825",
+        "BOE-A-2021-13605"
+      ],
+      "source": {
+        "origin": "asklog",
+        "freq": 29,
+        "citationsCount": 15,
+        "answerExcerpt": "Los menores en Andalucía tienen derecho a recibir de los poderes públicos protección y atención integral para su desarrollo y bienestar, tanto en el ámbito familiar, escolar como social [BOE-A-2007-5825, Artículo 18]. El interés superior del menor es el principio fundamental que guía todas las polít"
+      },
+      "confidence": 2
+    }
+  ]
+}

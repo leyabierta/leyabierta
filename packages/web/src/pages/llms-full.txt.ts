@@ -49,7 +49,7 @@ export const GET: APIRoute = async () => {
 		jurisdictionCounts.set(j, (jurisdictionCounts.get(j) ?? 0) + 1);
 	}
 	const jurisdictionLines = [...jurisdictionCounts.entries()]
-		.sort((a, b) => b[1] - a[1])
+		.toSorted((a, b) => b[1] - a[1])
 		.map(([code, count]) => {
 			const label = JURISDICTION_LABELS[code] ?? code;
 			return `- ${label} (${code}): ${fmt(count)} leyes`;
@@ -63,7 +63,7 @@ export const GET: APIRoute = async () => {
 		rankCounts.set(r, (rankCounts.get(r) ?? 0) + 1);
 	}
 	const rankLines = [...rankCounts.entries()]
-		.sort((a, b) => b[1] - a[1])
+		.toSorted((a, b) => b[1] - a[1])
 		.map(([rank, count]) => `- ${rank}: ${fmt(count)}`)
 		.join("\n");
 

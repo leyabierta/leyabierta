@@ -1,13 +1,15 @@
 /**
  * Reranker — rescores candidate articles by relevance to the query.
  *
- * Supports two backends:
- * 1. Cohere Rerank 3.5 (if COHERE_API_KEY is set) — fast, cheap, purpose-built
- * 2. LLM-based reranking via OpenRouter (fallback) — uses existing API key
+ * Default backend: qwen3.6 LLM rerank via NaN. Phase 5 A/B showed +18 pp R@1
+ * over cohere/rerank-4-pro on this Spanish-legal corpus, with $0 cost.
  *
- * The reranker takes top-N candidates from retrieval (e.g. RRF output)
- * and returns a reranked top-K with relevance scores.
+ * Cohere and OpenRouter backends remain available as opt-in fallbacks for
+ * comparison testing only — set `preferredBackend` and provide the
+ * corresponding key.
  */
+
+import { qwenLLMRerank } from "./qwen-llm-rerank.ts";
 
 const COHERE_RERANK_URL = "https://api.cohere.com/v2/rerank";
 const OPENROUTER_RERANK_URL = "https://openrouter.ai/api/v1/rerank";
@@ -30,6 +32,10 @@ interface RerankerConfig {
 	cohereApiKey?: string;
 	openrouterApiKey?: string;
 	openrouterModel?: string;
+	/** When set, use the NaN qwen3.6 LLM reranker instead of OpenRouter/Cohere. */
+	nanApiKey?: string;
+	/** Force a specific backend regardless of credentials present. */
+	preferredBackend?: "cohere" | "openrouter" | "nan-llm";
 }
 
 /**
@@ -65,12 +71,11 @@ export async function rerank(
 		};
 	}
 
-	if (config.cohereApiKey) {
+	// Opt-in legacy backends for comparison/A-B only.
+	if (config.preferredBackend === "cohere" && config.cohereApiKey) {
 		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
 	}
-
-	if (config.openrouterApiKey) {
-		// Prefer purpose-built reranker over LLM-based reranking
+	if (config.preferredBackend === "openrouter" && config.openrouterApiKey) {
 		return rerankViaOpenRouter(
 			query,
 			candidates,
@@ -79,7 +84,27 @@ export async function rerank(
 		);
 	}
 
-	// No API keys — return candidates as-is (no reranking)
+	// Default: qwen3.6 LLM rerank via NaN. Read HERMES_API_KEY from the env
+	// when the caller didn't pass one — same pattern as embeddings/analyzer.
+	const nanKey = config.nanApiKey ?? process.env.HERMES_API_KEY;
+	if (nanKey) {
+		return rerankWithNanLLM(query, candidates, topK, nanKey);
+	}
+
+	// Last-resort fallbacks if HERMES_API_KEY is genuinely missing.
+	if (config.cohereApiKey) {
+		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
+	}
+	if (config.openrouterApiKey) {
+		return rerankViaOpenRouter(
+			query,
+			candidates,
+			topK,
+			config.openrouterApiKey,
+		);
+	}
+
+	// No keys → passthrough (preserves order from RRF).
 	return {
 		results: candidates.slice(0, topK).map((c, i) => ({
 			key: c.key,
@@ -89,6 +114,17 @@ export async function rerank(
 		backend: "none",
 		cost: 0,
 	};
+}
+
+// ── NaN qwen3.6 LLM rerank (Phase 5 default) ──
+
+async function rerankWithNanLLM(
+	query: string,
+	candidates: RerankerCandidate[],
+	topK: number,
+	nanApiKey: string,
+): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
+	return qwenLLMRerank(nanApiKey, query, candidates, topK);
 }
 
 // ── Cohere Rerank ──

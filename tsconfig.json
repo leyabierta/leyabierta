@@ -22,6 +22,7 @@
 		"noImplicitOverride": true,
 
 		// Some stricter flags (disabled by default)
+		// Disabled for now due to research scripts; can be re-enabled later
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false

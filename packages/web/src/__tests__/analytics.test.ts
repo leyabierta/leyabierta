@@ -193,7 +193,7 @@ describe("sendOutboundClick()", () => {
 	it("calls sendBeacon with a Blob of application/json type", () => {
 		const beacon = mock(() => true);
 		(
-			globalThis as { navigator: { sendBeacon: typeof beacon } }
+			globalThis as unknown as { navigator: { sendBeacon: typeof beacon } }
 		).navigator.sendBeacon = beacon;
 
 		sendOutboundClick("https://www.boe.es/eli/es/c/1978/12/27/(1)", {
@@ -201,7 +201,7 @@ describe("sendOutboundClick()", () => {
 		});
 
 		expect(beacon).toHaveBeenCalledTimes(1);
-		const [url, body] = beacon.mock.calls[0] as [string, Blob];
+		const [url, body] = beacon.mock.calls[0] as unknown as [string, Blob];
 		expect(url).toBe("https://analytics.leyabierta.es/data/event");
 		// Bun's Blob normalizes the MIME type; just verify the prefix.
 		expect((body as { type: string }).type.startsWith("application/json")).toBe(
@@ -222,7 +222,7 @@ describe("sendOutboundClick()", () => {
 		).PUBLIC_UMAMI_WEBSITE_ID = undefined;
 		const beacon = mock(() => true);
 		(
-			globalThis as { navigator: { sendBeacon: typeof beacon } }
+			globalThis as unknown as { navigator: { sendBeacon: typeof beacon } }
 		).navigator.sendBeacon = beacon;
 		sendOutboundClick("https://example.com");
 		expect(beacon).not.toHaveBeenCalled();

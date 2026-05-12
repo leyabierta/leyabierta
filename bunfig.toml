@@ -1,0 +1,20 @@
+# Bun install configuration.
+
+[install]
+# Refuse to install package versions published less than 3 days ago.
+# Defense against supply-chain attacks where a malicious version is
+# published and yanked within hours (nx-style, eslint-config-prettier
+# compromise, etc.). Override per-command with `--minimum-release-age=0`
+# if you really need a fresh release.
+#
+# Unit: seconds. 3 days = 3 * 24 * 60 * 60 = 259200.
+minimumReleaseAge = 259200
+
+# Local workspace packages are not published to a registry — the age
+# check doesn't apply and would block fresh internal links.
+minimumReleaseAgeExcludes = [
+  "@leyabierta/api",
+  "@leyabierta/eval",
+  "@leyabierta/pipeline",
+  "@leyabierta/web",
+]

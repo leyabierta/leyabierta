@@ -36,7 +36,22 @@ import {
 import { buildCorpusPlan } from "./corpus.ts";
 import { matryoshkaTruncate, qwen3QueryPrefix } from "./ollama-embeddings.ts";
 
+// Candidate prompts to A/B against the baseline qwen3QueryPrefix.
+// Hypothesis from miss analysis: Qwen prefers historical/general codes
+// (Código Civil 1889, LECrim 1882) over modern specific laws.
+function qwen3PromptES(query: string): string {
+	return `Instruct: Dada una pregunta jurídica de un ciudadano español, recupera el artículo de la legislación vigente que mejor la responda.\nQuery: ${query}`;
+}
+function qwen3PromptModernBias(query: string): string {
+	return `Instruct: Given a Spanish citizen's legal question, retrieve the article of Spanish law that best answers it. Prefer modern specific laws (Estatuto, LOPDGDD, LAU, LOE) over historical general codes (Código Civil, Código Penal, LECrim) when both apply.\nQuery: ${query}`;
+}
+function qwen3PromptShort(query: string): string {
+	return `Instruct: Retrieve Spanish legal articles relevant to the citizen's question.\nQuery: ${query}`;
+}
+
 const QWEN3_KEY = "qwen3"; // OpenRouter qwen/qwen3-embedding-8b (already registered)
+const QWEN3_NAN_KEY = "qwen3-nan"; // nan.builders qwen3-embedding (4096 dims, encoding_format=float)
+const NAN_URL = "https://api.nan.builders/v1/embeddings";
 
 /**
  * Load embeddings for ONE model, restricted to a set of norm_ids.
@@ -145,6 +160,55 @@ async function embedQwen3(
 	return new Float32Array(data.data[0]!.embedding);
 }
 
+const NAN_KEY = process.env.NAN_API_KEY;
+
+async function embedQwenNanCustom(input: string): Promise<Float32Array> {
+	if (!NAN_KEY) throw new Error("NAN_API_KEY required for Qwen-NAN variants");
+	const body = JSON.stringify({
+		model: EMBEDDING_MODELS[QWEN3_NAN_KEY]!.id,
+		input,
+		encoding_format: "float",
+	});
+	let lastErr: unknown;
+	for (let attempt = 0; attempt < 4; attempt++) {
+		if (attempt > 0) {
+			const delay = 30_000 + Math.floor(Math.random() * 10_000);
+			await new Promise((r) => setTimeout(r, delay));
+		}
+		try {
+			const res = await fetch(NAN_URL, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${NAN_KEY}`,
+					"Content-Type": "application/json",
+				},
+				body,
+				signal: AbortSignal.timeout(60_000),
+			});
+			if (res.status === 429 || res.status >= 500) {
+				lastErr = new Error(`nan.builders ${res.status}`);
+				continue;
+			}
+			if (!res.ok)
+				throw new Error(`nan.builders ${res.status}: ${await res.text()}`);
+			const data = (await res.json()) as {
+				data: Array<{ embedding: number[] }>;
+			};
+			return new Float32Array(data.data[0]!.embedding);
+		} catch (err) {
+			lastErr = err;
+		}
+	}
+	throw lastErr;
+}
+
+async function embedQwenNan(
+	q: string,
+	withInstruct: boolean,
+): Promise<Float32Array> {
+	return embedQwenNanCustom(withInstruct ? qwen3QueryPrefix(q) : q);
+}
+
 // ── Variant definitions ──
 interface Variant {
 	id: string;
@@ -153,6 +217,7 @@ interface Variant {
 	embedQuery: (q: string) => Promise<Float32Array>;
 	truncateTo?: number; // Matryoshka target dim
 	requiresOpenrouter: boolean;
+	requiresNan?: boolean;
 }
 
 const ALL_VARIANTS: Variant[] = [
@@ -200,6 +265,64 @@ const ALL_VARIANTS: Variant[] = [
 		truncateTo: 1024,
 		requiresOpenrouter: true,
 	},
+	{
+		id: "G",
+		label: "Qwen-NAN raw query (4096)",
+		modelKey: QWEN3_NAN_KEY,
+		embedQuery: (q) => embedQwenNan(q, false),
+		requiresOpenrouter: false,
+		requiresNan: true,
+	},
+	{
+		id: "H",
+		label: "Qwen-NAN + Instruct (4096)",
+		modelKey: QWEN3_NAN_KEY,
+		embedQuery: (q) => embedQwenNan(q, true),
+		requiresOpenrouter: false,
+		requiresNan: true,
+	},
+	{
+		id: "I",
+		label: "Qwen-NAN + Instruct + MRL@3072 (dim-matched vs Gemini)",
+		modelKey: QWEN3_NAN_KEY,
+		embedQuery: (q) => embedQwenNan(q, true),
+		truncateTo: 3072,
+		requiresOpenrouter: false,
+		requiresNan: true,
+	},
+	{
+		id: "J",
+		label: "Qwen-NAN + Instruct + MRL@2048",
+		modelKey: QWEN3_NAN_KEY,
+		embedQuery: (q) => embedQwenNan(q, true),
+		truncateTo: 2048,
+		requiresOpenrouter: false,
+		requiresNan: true,
+	},
+	{
+		id: "K",
+		label: "Qwen-NAN + Instruct ES (4096)",
+		modelKey: QWEN3_NAN_KEY,
+		embedQuery: (q) => embedQwenNanCustom(qwen3PromptES(q)),
+		requiresOpenrouter: false,
+		requiresNan: true,
+	},
+	{
+		id: "L",
+		label: "Qwen-NAN + Instruct modern-bias (4096)",
+		modelKey: QWEN3_NAN_KEY,
+		embedQuery: (q) => embedQwenNanCustom(qwen3PromptModernBias(q)),
+		requiresOpenrouter: false,
+		requiresNan: true,
+	},
+	{
+		id: "M",
+		label: "Qwen-NAN + Instruct short (4096)",
+		modelKey: QWEN3_NAN_KEY,
+		embedQuery: (q) => embedQwenNanCustom(qwen3PromptShort(q)),
+		requiresOpenrouter: false,
+		requiresNan: true,
+	},
 ];
 
 const activeVariants = ALL_VARIANTS.filter((v) => {
@@ -207,6 +330,10 @@ const activeVariants = ALL_VARIANTS.filter((v) => {
 	if (onlyLocal && v.requiresOpenrouter) return false;
 	if (!OR_KEY && v.requiresOpenrouter) {
 		console.log(`  (skipping ${v.id}: no OPENROUTER_API_KEY)`);
+		return false;
+	}
+	if (v.requiresNan && !NAN_KEY) {
+		console.log(`  (skipping ${v.id}: no NAN_API_KEY)`);
 		return false;
 	}
 	return true;

@@ -56,7 +56,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	delete process.env.BUILD_MANIFEST_PATH;
+	process.env.BUILD_MANIFEST_PATH = undefined;
 	if (existsSync(TEST_DIR)) {
 		rmSync(TEST_DIR, { recursive: true });
 	}
@@ -119,7 +119,7 @@ describe("Build manifest integration", () => {
 	});
 
 	it("falls back to null when no manifest is present", () => {
-		delete process.env.BUILD_MANIFEST_PATH;
+		process.env.BUILD_MANIFEST_PATH = undefined;
 		const manifest = loadManifest();
 		expect(manifest).toBeNull();
 	});

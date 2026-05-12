@@ -14,18 +14,19 @@ interface Rule {
 }
 
 function parseRedirects(text: string): Rule[] {
-	return text
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0 && !line.startsWith("#"))
-		.map((line) => {
-			const parts = line.split(/\s+/);
-			return {
+	const rules: Rule[] = [];
+	for (const line of text.split("\n")) {
+		const trimmed = line.trim();
+		if (trimmed.length > 0 && !trimmed.startsWith("#")) {
+			const parts = trimmed.split(/\s+/);
+			rules.push({
 				from: parts[0]!,
 				to: parts[1]!,
 				status: Number(parts[2] ?? 301),
-			};
-		});
+			});
+		}
+	}
+	return rules;
 }
 
 const rules = parseRedirects(REDIRECTS);
@@ -55,8 +56,9 @@ describe("/_redirects: /laws/ → /leyes/ migration", () => {
 	test("both /laws/ rules land on /-terminated destination (no 2-hop chain)", () => {
 		// trailingSlash: "always" in astro.config means /leyes/X would 301 to /leyes/X/.
 		// Both migration rules must land on the canonical /-terminated form directly.
+		const rulesByFrom = new Map(rules.map((r) => [r.from, r]));
 		for (const from of ["/laws/:id", "/laws/:id/"]) {
-			const rule = rules.find((r) => r.from === from);
+			const rule = rulesByFrom.get(from);
 			expect(rule?.to.endsWith("/")).toBe(true);
 		}
 	});

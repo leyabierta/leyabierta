@@ -20,10 +20,11 @@ import {
 	ensureBlocksFtsVocab,
 } from "./blocks-fts.ts";
 import { getEmbeddedNormIds, getEmbeddingCount } from "./embeddings.ts";
+import { JURISDICTION_NAMES } from "./jurisdiction.ts";
 import {
 	EMBEDDING_MODEL_KEY,
 	LOW_CONFIDENCE_THRESHOLD,
-	type ProgressStep,
+	type ProgressEventPayload,
 	type RetrievedArticle,
 	runRetrievalCore,
 	TOP_K,
@@ -413,7 +414,7 @@ export class RagPipeline {
 	async *askStream(request: AskRequest): AsyncGenerator<
 		| { type: "chunk"; text: string }
 		| { type: "keepalive" }
-		| { type: "progress"; step: ProgressStep }
+		| ({ type: "progress" } & ProgressEventPayload)
 		| {
 				type: "done";
 				citations: Citation[];
@@ -440,7 +441,7 @@ export class RagPipeline {
 			// Buffer for `progress` events emitted from inside runRetrievalCore.
 			// The callback fires synchronously from a worker awaiting context;
 			// we drain the buffer between awaits in the keepalive loop.
-			const progressBuffer: Array<{ step: ProgressStep }> = [];
+			const progressBuffer: Array<ProgressEventPayload> = [];
 
 			// Retrieval can take >100s on the production server, longer than the
 			// Cloudflare Tunnel idle timeout. Interleave keepalive events every
@@ -455,8 +456,8 @@ export class RagPipeline {
 				embeddedNormIds: this.getEmbeddedNormIdsCached(),
 				vectorIndex: await this.getVectorIndex(),
 				trace,
-				onProgress: (step) => {
-					progressBuffer.push({ step });
+				onProgress: (payload) => {
+					progressBuffer.push(payload);
 				},
 			});
 			let retrievalDone = false;
@@ -474,7 +475,7 @@ export class RagPipeline {
 				// Drain buffered progress events before yielding keepalive/done.
 				while (progressBuffer.length > 0) {
 					const p = progressBuffer.shift()!;
-					yield { type: "progress", step: p.step };
+					yield { type: "progress", ...p };
 				}
 				if (winner === "tick" && !retrievalDone) {
 					yield { type: "keepalive" };
@@ -484,7 +485,7 @@ export class RagPipeline {
 			// tick race resolved but before the loop re-checked the buffer.
 			while (progressBuffer.length > 0) {
 				const p = progressBuffer.shift()!;
-				yield { type: "progress", step: p.step };
+				yield { type: "progress", ...p };
 			}
 			const retrieval = await retrievalPromise;
 
@@ -554,9 +555,40 @@ export class RagPipeline {
 				return;
 			}
 
-			const { articles, useTemporal, bestScore } = retrieval;
+			const { articles, useTemporal, bestScore, analyzed } = retrieval;
 
-			yield { type: "progress", step: "writing" };
+			// Emit enriched "analyzing" retroactively now that we have the analyzed
+			// query metadata (jurisdiction + materias). The client updates the label
+			// for the already-completed step.
+			try {
+				const analyzingMeta: import("./retrieval.ts").ProgressMetaAnalyzing =
+					{};
+				if (analyzed.jurisdiction) {
+					analyzingMeta.jurisdiction =
+						JURISDICTION_NAMES[analyzed.jurisdiction] ??
+						(analyzed.jurisdiction === "es"
+							? "estatal"
+							: analyzed.jurisdiction);
+				} else if (!analyzed.jurisdiction) {
+					analyzingMeta.jurisdiction = "estatal";
+				}
+				if (analyzed.materias.length > 0) {
+					analyzingMeta.materias = analyzed.materias.slice(0, 2);
+				}
+				yield {
+					type: "progress",
+					step: "analyzing" as const,
+					meta: analyzingMeta,
+				};
+			} catch {
+				/* safe-to-fail */
+			}
+
+			yield {
+				type: "progress",
+				step: "writing" as const,
+				meta: { citationsExpected: articles.length },
+			};
 
 			const { evidenceText, systemPrompt } = buildEvidence({
 				db: this.db,

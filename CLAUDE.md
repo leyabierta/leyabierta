@@ -166,15 +166,31 @@ Citation-grounded legal Q&A. Citizens ask plain-language questions, the system r
 5. **Synthesis** — LLM generates answer with inline citations `[BOE-A-XXXX-XXXX, Artículo N]`
 6. **Citation verification** — Post-hoc check that every citation maps to a real article
 
-**Models and costs:**
-- **Embeddings:** `google/gemini-embedding-2-preview` via OpenRouter, 3072 dimensions, $0.20/M tokens
-- **Synthesis:** `google/gemini-2.5-flash` via OpenRouter (configurable)
-- **Reranking:** `cohere/rerank-v4-pro` (free tier, 1000 req/month)
-- **Query analysis:** Same as synthesis model
+**Models and costs (Phase 5/6 prod default — full NaN stack):**
+
+All RAG components run on `api.nan.builders` (free, OpenAI-compatible). Requires `HERMES_API_KEY`.
+
+| Component | Model | Provider | Cost |
+|---|---|---|---|
+| Embeddings | `qwen3-embedding` (4096 dims) | NaN | $0 |
+| Query analyzer | `qwen3.6` | NaN | $0 |
+| Reranker | `qwen3.6` LLM rerank | NaN | $0 |
+| Synthesis | `qwen3.6` (streaming) | NaN | $0 |
+
+**A/B verdict (Phase 5+6, 50 citizen queries × 9.7k norms):**
+- Retrieval: +30 pp R@1, +14 pp R@5, +10 pp R@10 vs the legacy `gemini-embedding-2 + gemini-flash-lite analyzer + cohere/rerank-4-pro` stack.
+- Synthesis: judge overall 8.82 vs 7.17 (gemma4 NaN as cross-family judge), 99.6% citation precision vs 97.1%.
+- Latency trade: synthesis 13s vs 2.5s. Acceptable for SSE streaming; first-token-time is what users perceive.
+
+Legacy OpenRouter/Cohere paths remain importable as opt-in fallbacks for future A/B tests (set `preferredBackend` on the reranker, swap `llmFn` on the analyzer/synthesis), but they are no longer the default. The `NAN_STACK` env flag was removed in the Phase 6 cleanup; Qwen NaN is unconditional.
+
+**Threshold note:** raw `bestScore` is NOT informative about correctness with this stack (hit/miss score distributions overlap, separation ~0.04 on the eval). The `LOW_CONFIDENCE_THRESHOLD` gate is kept at 0.40 (effectively off) to catch catastrophic embedding failures only. For real "low-confidence" UX warnings we need a different signal (rerank top-1 score, candidate diversity) — TBD.
 
 **Embedding store:**
-- 483,983 embeddings from 9,738 vigente norms (all vigente norms with articles)
-- Stored as BLOBs in SQLite `embeddings` table (crash-safe, incremental add/remove)
+- 483,983 Gemini embeddings + 486,145 Qwen embeddings from 9,737-9,738 vigente norms
+- Both live concurrently in the SQLite `embeddings` table keyed by `(norm_id, block_id, model)`
+- Switching the prod model is purely a config flip — no re-embed needed at switch time
+- Stored as BLOBs (crash-safe, incremental add/remove)
 - For search: exported to flat binary file (`data/vectors.bin` + `data/vectors.meta.jsonl`), read in ~1GB chunks to avoid 6GB in-memory allocation
 - Sync script: `bun run packages/api/research/sync-embeddings.ts` (--add-only --all --dry-run --remove-only --migrate)
 

@@ -44,6 +44,7 @@ const repoRoot = join(import.meta.dir, "../../../../");
 const dbPath = join(repoRoot, "data", "leyabierta.db");
 const db = new Database(dbPath);
 db.exec("PRAGMA journal_mode = WAL");
+db.exec("PRAGMA busy_timeout = 60000");
 createSchema(db);
 
 console.log("Building corpus plan...");
@@ -176,8 +177,8 @@ const insertStmt = db.prepare(
 	"INSERT OR REPLACE INTO embeddings (norm_id, block_id, model, vector) VALUES (?, ?, ?, ?)",
 );
 
-const BATCH_SIZE = 16;
-const CONCURRENCY = 3;
+const BATCH_SIZE = 32;
+const CONCURRENCY = 5;
 const totalBatches = Math.ceil(workBlocks.length / BATCH_SIZE);
 let inserted = 0;
 let skippedBatches = 0;

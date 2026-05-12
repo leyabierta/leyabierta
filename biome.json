@@ -7,7 +7,15 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.json"]
+		"includes": [
+			"**/*.ts",
+			"**/*.tsx",
+			"**/*.js",
+			"**/*.mjs",
+			"**/*.json",
+			"!**/research/datasets/**",
+			"!**/data/ab-results/**"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -18,10 +26,24 @@
 		"rules": {
 			"recommended": true,
 			"style": {
-				"noNonNullAssertion": "off"
+				"noNonNullAssertion": "off",
+				"noUselessElse": "error",
+				"useTemplate": "warn"
 			},
 			"suspicious": {
-				"noAssignInExpressions": "off"
+				"noAssignInExpressions": "off",
+				"noExplicitAny": "warn"
+			},
+			"complexity": {
+				"noForEach": "warn",
+				"useLiteralKeys": "warn"
+			},
+			"correctness": {
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "warn"
+			},
+			"performance": {
+				"noDelete": "warn"
 			}
 		}
 	},

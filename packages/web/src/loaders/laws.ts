@@ -25,27 +25,41 @@ export function lawsLoader(options: { path: string }): Loader {
 
 			store.clear();
 
+			const results = await Promise.all(
+				files.map(async (filePath) => {
+					try {
+						const raw = await fs.readFile(filePath, "utf-8");
+						const { data: frontmatter } = matter(raw);
+
+						const id = relative(basePath, filePath).replace(/\.md$/, "");
+
+						const data = await parseData({
+							id,
+							data: frontmatter,
+						});
+
+						return { success: true, id, data, filePath };
+					} catch (err) {
+						return { success: false, filePath, error: err };
+					}
+				}),
+			);
+
 			let loaded = 0;
 			let errors = 0;
-			for (const filePath of files) {
-				try {
-					const raw = await fs.readFile(filePath, "utf-8");
-					const { data: frontmatter } = matter(raw);
-
-					const id = relative(basePath, filePath).replace(/\.md$/, "");
-
-					const data = await parseData({
-						id,
-						data: frontmatter,
+			for (const result of results) {
+				if (result.success) {
+					store.set({
+						id: result.id!,
+						data: result.data!,
+						body: result.filePath!,
 					});
-
-					store.set({ id, data, body: filePath });
 					loaded++;
-				} catch (err) {
+				} else {
 					errors++;
 					if (errors <= 3) {
 						logger.warn(
-							`Failed to load ${filePath}: ${err instanceof Error ? err.message : err}`,
+							`Failed to load ${result.filePath}: ${result.error instanceof Error ? result.error.message : result.error}`,
 						);
 					}
 				}
@@ -57,17 +71,20 @@ export function lawsLoader(options: { path: string }): Loader {
 }
 
 async function findMarkdownFiles(dir: string): Promise<string[]> {
-	const files: string[] = [];
 	const entries = await fs.readdir(dir, { withFileTypes: true });
 
-	for (const entry of entries) {
-		const fullPath = join(dir, entry.name);
-		if (entry.isDirectory()) {
-			files.push(...(await findMarkdownFiles(fullPath)));
-		} else if (entry.name.endsWith(".md")) {
-			files.push(fullPath);
-		}
-	}
+	const results = await Promise.all(
+		entries.map(async (entry) => {
+			const fullPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				return findMarkdownFiles(fullPath);
+			}
+			if (entry.name.endsWith(".md")) {
+				return [fullPath];
+			}
+			return [] as string[];
+		}),
+	);
 
-	return files;
+	return results.flat();
 }

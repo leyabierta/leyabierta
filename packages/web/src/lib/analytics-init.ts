@@ -94,9 +94,7 @@ function wireScrollDepthIfArticle() {
 	requestAnimationFrame(() => {
 		const totalHeight = article.scrollHeight;
 		// Floats from absolute positioning don't disturb layout for the parent.
-		sentinel.style.position = "absolute";
-		sentinel.style.top = `${Math.floor(totalHeight * 0.75)}px`;
-		sentinel.style.left = "0";
+		sentinel.style.cssText = `position: absolute; top: ${Math.floor(totalHeight * 0.75)}px; left: 0;`;
 		// Ensure parent is positioned for absolute child.
 		if (getComputedStyle(article).position === "static") {
 			(article as HTMLElement).style.position = "relative";

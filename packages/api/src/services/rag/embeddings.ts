@@ -6,42 +6,67 @@
  */
 
 const OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings";
+const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
 const BATCH_SIZE = 50; // articles per API call
 const BACKOFF_MS = 1000;
+
+export type EmbeddingProvider = "openrouter" | "nan" | "local";
 
 export interface EmbeddingModel {
 	id: string;
 	dimensions: number;
+	/**
+	 * Where the embedding API lives. Defaults to OpenRouter for backwards
+	 * compat. NaN models hit api.nan.builders (free, no auth via OpenRouter)
+	 * and read HERMES_API_KEY from the environment instead of the apiKey arg.
+	 */
+	provider?: EmbeddingProvider;
 }
 
 export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
 	"openai-small": {
 		id: "openai/text-embedding-3-small",
 		dimensions: 1536,
+		provider: "openrouter",
 	},
 	"openai-large": {
 		id: "openai/text-embedding-3-large",
 		dimensions: 3072,
+		provider: "openrouter",
 	},
 	qwen3: {
 		id: "qwen/qwen3-embedding-8b",
 		dimensions: 4096,
+		provider: "openrouter",
 	},
 	"qwen3-local-q8": {
 		id: "qwen3-embedding-8b-q8_0-local",
 		dimensions: 4096,
+		provider: "local",
 	},
 	"qwen3-nan": {
 		id: "qwen3-embedding",
 		dimensions: 4096,
+		provider: "nan",
+	},
+	"qwen3-nan-summary": {
+		// Same Qwen3-Embedding-8B as qwen3-nan, but the corpus side embeds
+		// citizen summaries (plain Spanish) instead of raw legal text. Used by
+		// Phase 4 multi-vector retrieval as a "vocabulary bridge" between
+		// citizen queries and ancient legalese.
+		id: "qwen3-embedding",
+		dimensions: 4096,
+		provider: "nan",
 	},
 	"embgemma-local": {
 		id: "embeddinggemma-300m-bf16-local",
 		dimensions: 768,
+		provider: "local",
 	},
 	"gemini-embedding-2": {
 		id: "google/gemini-embedding-2-preview",
 		dimensions: 3072,
+		provider: "openrouter",
 	},
 };
 
@@ -84,28 +109,65 @@ export async function fetchWithRetry(
 	apiKey: string,
 	modelId: string,
 	input: string | string[],
+	provider: EmbeddingProvider = "openrouter",
 ): Promise<Response> {
 	const maxRetries = 3;
 	let attempts = 0;
 
+	if (provider === "local") {
+		throw new Error(
+			`fetchWithRetry: provider "local" has no HTTP endpoint — local models must be served separately. modelId=${modelId}`,
+		);
+	}
+
+	// Pick endpoint + auth per provider. NaN reads HERMES_API_KEY from env so
+	// callers don't have to thread a separate key.
+	const url =
+		provider === "nan" ? NAN_EMBEDDINGS_URL : OPENROUTER_EMBEDDINGS_URL;
+	const effectiveKey =
+		provider === "nan" ? (process.env.HERMES_API_KEY ?? "") : apiKey;
+	if (provider === "nan" && !effectiveKey) {
+		throw new Error(
+			"HERMES_API_KEY not set; required for NaN embedding provider",
+		);
+	}
+
 	while (true) {
 		let response: Response;
 		try {
-			response = await fetch(OPENROUTER_EMBEDDINGS_URL, {
+			const headers: Record<string, string> = {
+				Authorization: `Bearer ${effectiveKey}`,
+				"Content-Type": "application/json",
+			};
+			if (provider === "openrouter") {
+				headers["HTTP-Referer"] = "https://leyabierta.es";
+				headers["X-Title"] = "Ley Abierta RAG";
+			}
+			response = await fetch(url, {
 				method: "POST",
-				headers: {
-					Authorization: `Bearer ${apiKey}`,
-					"Content-Type": "application/json",
-					"HTTP-Referer": "https://leyabierta.es",
-					"X-Title": "Ley Abierta RAG",
-				},
-				body: JSON.stringify({ model: modelId, input }),
+				headers,
+				body: JSON.stringify({
+					model: modelId,
+					input,
+					...(provider === "nan" ? { encoding_format: "float" } : {}),
+				}),
 			});
 
 			if (response.status === 429) {
 				attempts++;
 				if (attempts > maxRetries) {
 					throw new Error("Rate limited after max retries");
+				}
+				const delay = BACKOFF_MS * attempts * 2;
+				await new Promise((r) => setTimeout(r, delay));
+				continue;
+			}
+
+			// Cloudflare 5xx (NaN) is transient — retry like 429.
+			if (provider === "nan" && response.status >= 500) {
+				attempts++;
+				if (attempts > maxRetries) {
+					throw new Error(`NaN ${response.status} after ${attempts} retries`);
 				}
 				const delay = BACKOFF_MS * attempts * 2;
 				await new Promise((r) => setTimeout(r, delay));
@@ -178,7 +240,12 @@ export async function generateEmbeddings(
 				);
 				await new Promise((r) => setTimeout(r, delay));
 			}
-			const response = await fetchWithRetry(apiKey, model.id, texts);
+			const response = await fetchWithRetry(
+				apiKey,
+				model.id,
+				texts,
+				model.provider,
+			);
 			data = await response.json();
 			if (data.data && Array.isArray(data.data)) break;
 			console.warn(
@@ -1023,8 +1090,13 @@ export async function embedQuery(
 			? `task: question answering | query: ${query}`
 			: query;
 
-	const response = await fetchWithRetry(apiKey, model.id, prefixedQuery);
-	// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
+	const response = await fetchWithRetry(
+		apiKey,
+		model.id,
+		prefixedQuery,
+		model.provider,
+	);
+	// biome-ignore lint/suspicious/noExplicitAny: API response shape
 	const data: any = await response.json();
 	const usage = data.usage ?? {};
 	return {

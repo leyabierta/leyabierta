@@ -115,7 +115,13 @@ export function askRoutes(pipeline: RagPipeline | null) {
 							// event types per the SSE spec.
 							yield `event: keepalive\ndata: ${JSON.stringify({})}\n\n`;
 						} else if (event.type === "progress") {
-							yield `event: progress\ndata: ${JSON.stringify({ step: event.step })}\n\n`;
+							const progressPayload: Record<string, unknown> = {
+								step: event.step,
+							};
+							if ("meta" in event && event.meta !== undefined) {
+								progressPayload.meta = event.meta;
+							}
+							yield `event: progress\ndata: ${JSON.stringify(progressPayload)}\n\n`;
 						} else {
 							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined, tldr: event.tldr, nextQuestions: event.nextQuestions, suggestedQuestions: event.suggestedQuestions })}\n\n`;
 						}

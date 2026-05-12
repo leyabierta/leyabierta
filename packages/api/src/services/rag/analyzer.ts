@@ -15,11 +15,22 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { callOpenRouter } from "../openrouter.ts";
+import { callNan } from "../nan.ts";
 import { JURISDICTION_NAMES } from "./jurisdiction.ts";
 
-/** Analyzer model — cheap and fast, only extracts keywords/materias/flags */
-export const ANALYZER_MODEL = "google/gemini-2.5-flash-lite";
+/**
+ * Analyzer model — qwen3.6 via NaN. Extracts keywords, legal synonyms,
+ * materias, jurisdiction, temporal intent, named-law hints from the citizen
+ * query.
+ *
+ * Phase 5 A/B (50 queries × 9.7k norms): swapping the analyzer from
+ * gemini-2.5-flash-lite (OpenRouter, paid) to qwen3.6 (NaN, free) added
+ * +4 pp R@1, +4 pp R@5, +2 pp R@10 to the retrieval pipeline. The free
+ * provider was strictly better on this Spanish-legal corpus.
+ *
+ * Override the model per call via the `overrides` arg if needed.
+ */
+export const ANALYZER_MODEL = "qwen3.6";
 
 export interface AnalyzedQuery {
 	keywords: string[];
@@ -214,17 +225,42 @@ export function normalizePeriodicTitle(title: string): string | null {
 
 // ── Query analysis ──
 
+/**
+ * LLM call signature shared by callOpenRouter and callNan. The harness can
+ * inject a NaN-backed function via `analyzerLlmFn` to swap providers without
+ * touching the prompt or parsing logic.
+ */
+export type AnalyzerLlmFn = <T>(
+	apiKey: string,
+	options: {
+		model: string;
+		messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+		temperature?: number;
+		maxTokens?: number;
+		jsonResponse?: boolean;
+	},
+) => Promise<{ data: T; cost: number; tokensIn: number; tokensOut: number }>;
+
 export async function analyzeQuery(
 	apiKey: string,
 	question: string,
+	overrides: { model?: string; llmFn?: AnalyzerLlmFn } = {},
 ): Promise<{
 	query: AnalyzedQuery;
 	cost: number;
 	tokensIn: number;
 	tokensOut: number;
 }> {
+	const llmFn = (overrides.llmFn ?? callNan) as AnalyzerLlmFn;
+	const model = overrides.model ?? ANALYZER_MODEL;
+	// Default path uses NaN qwen3.6 → read HERMES_API_KEY. If the caller
+	// supplied a custom llmFn (e.g. callOpenRouter for legacy A/B harnesses),
+	// respect whatever key they passed.
+	const effectiveKey = overrides.llmFn
+		? apiKey
+		: (process.env.HERMES_API_KEY ?? apiKey);
 	try {
-		const result = await callOpenRouter<{
+		const result = await llmFn<{
 			keywords: string[];
 			legal_synonyms?: string[];
 			materias: string[];
@@ -232,8 +268,8 @@ export async function analyzeQuery(
 			non_legal: boolean;
 			jurisdiction: string | null;
 			norm_name_hint: string | null;
-		}>(apiKey, {
-			model: ANALYZER_MODEL,
+		}>(effectiveKey, {
+			model,
 			messages: [
 				{
 					role: "system",

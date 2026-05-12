@@ -6,24 +6,26 @@
  * Uses SSE streaming for real-time text display.
  */
 
-import MarkdownIt from "markdown-it";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	lazy,
+	type ReactNode,
+	Suspense,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
+import { config } from "../config/env";
+import {
+	type Citation,
+	renderMarkdownWithCitations,
+	TextWithCitations,
+} from "../lib/citations";
 
-// ── Markdown renderer ──
-// `html: false` means raw HTML inside the markdown is escaped — Gemini output
-// is trusted but we still keep the guard. `linkify: false` so we don't
-// auto-link random URLs (the rendered text is already very citation-heavy).
-const md = new MarkdownIt({ html: false, breaks: true, linkify: false });
-
-interface Citation {
-	normId: string;
-	normTitle: string;
-	articleTitle: string;
-	/** Predictable HTML anchor ID (e.g. "articulo-90") for deep-linking */
-	anchor?: string;
-	citizenSummary?: string;
-	verified?: boolean;
-}
+// ── Lottie (lazy-loaded to avoid blocking first paint, ~30KB) ──
+const DotLottieReact = lazy(async () => {
+	const mod = await import("@lottiefiles/dotlottie-react");
+	return { default: mod.DotLottieReact };
+});
 
 interface AskMeta {
 	articlesRetrieved: number;
@@ -51,24 +53,112 @@ const PROGRESS_ORDER: ProgressStep[] = [
 	"writing",
 ];
 
-const PROGRESS_LABELS: Record<ProgressStep, string> = {
-	analyzing: "Analizando tu pregunta",
-	retrieving: "Buscando artículos relevantes",
-	ranking: "Seleccionando las fuentes más fiables",
-	writing: "Redactando la respuesta",
-};
+const PROGRESS_STEPS = new Set(PROGRESS_ORDER);
+
+// ── Progress metadata types (discriminated union, mirrors API) ──
+
+export interface ProgressMetaAnalyzing {
+	jurisdiction?: string;
+	materias?: string[];
+}
+
+export interface ProgressMetaRetrieving {
+	corpusSize: number;
+	candidatesCount?: number;
+}
+
+export interface ProgressMetaRanking {
+	finalistsCount: number;
+}
+
+export interface ProgressMetaWriting {
+	citationsExpected: number;
+}
+
+export type ProgressMeta =
+	| ProgressMetaAnalyzing
+	| ProgressMetaRetrieving
+	| ProgressMetaRanking
+	| ProgressMetaWriting;
+
+/**
+ * Returns a dynamic, human-readable label for a progress step.
+ * Falls back gracefully when meta is missing or partial.
+ */
+export function getProgressLabel(
+	step: ProgressStep,
+	meta?: ProgressMeta,
+): string {
+	const fmt = new Intl.NumberFormat("es-ES");
+
+	if (step === "analyzing") {
+		const m = meta as ProgressMetaAnalyzing | undefined;
+		const jurisdiction = m?.jurisdiction;
+		const materia =
+			m?.materias && m.materias.length > 0 ? m.materias[0] : undefined;
+		if (jurisdiction && materia) {
+			return `Analizando tu pregunta · ${jurisdiction} · **${materia.toLowerCase()}**`;
+		}
+		if (jurisdiction) {
+			return `Analizando tu pregunta · **${jurisdiction}**`;
+		}
+		if (materia) {
+			return `Analizando tu pregunta · **${materia.toLowerCase()}**`;
+		}
+		return "Analizando tu pregunta";
+	}
+
+	if (step === "retrieving") {
+		const m = meta as ProgressMetaRetrieving | undefined;
+		const corpus = m?.corpusSize && m.corpusSize > 0 ? m.corpusSize : undefined;
+		const candidates =
+			m?.candidatesCount && m.candidatesCount > 0
+				? m.candidatesCount
+				: undefined;
+		if (candidates && corpus) {
+			return `**${fmt.format(candidates)} candidatos encontrados** entre ${fmt.format(corpus)} artículos`;
+		}
+		if (corpus) {
+			return `Buscando entre **${fmt.format(corpus)} artículos**…`;
+		}
+		return "Buscando artículos relevantes";
+	}
+
+	if (step === "ranking") {
+		const m = meta as ProgressMetaRanking | undefined;
+		const count =
+			m?.finalistsCount && m.finalistsCount > 0 ? m.finalistsCount : undefined;
+		if (count) {
+			return `Seleccionando las **${count} fuentes** más fiables`;
+		}
+		return "Seleccionando las fuentes más fiables";
+	}
+
+	// writing
+	const m = meta as ProgressMetaWriting | undefined;
+	const cites =
+		m?.citationsExpected && m.citationsExpected > 0
+			? m.citationsExpected
+			: undefined;
+	if (cites) {
+		return `Redactando la respuesta · citando **${cites} artículos**`;
+	}
+	return "Redactando la respuesta";
+}
 
 interface Turn {
+	id: string;
 	question: string;
 	response: AskResponse | null;
 	error: string | null;
 	currentStep?: ProgressStep;
+	progressMeta?: Partial<Record<ProgressStep, ProgressMeta>>;
 }
 
 const API_BASE =
 	typeof document !== "undefined"
-		? (document.documentElement.dataset.api ?? "https://api.leyabierta.es")
-		: "https://api.leyabierta.es";
+		? (document.documentElement.dataset.api ?? config.api.baseUrl)
+		: config.api.baseUrl;
 
 const EXAMPLE_CATEGORIES: { name: string; questions: string[] }[] = [
 	{
@@ -101,121 +191,13 @@ const EXAMPLE_CATEGORIES: { name: string; questions: string[] }[] = [
 	},
 ];
 
-// ── Citation parsing ──
-
-const CITE_PATTERN =
-	/\[([A-Z]{2,5}-[A-Za-z]-\d{4}-\d+),\s*(Art(?:ículo|\.)\s*\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?[^[\]]*?)\]/g;
-
-function buildCitationMap(
-	citations: Citation[],
-): Map<string, Map<string, Citation>> {
-	const map = new Map<string, Map<string, Citation>>();
-	for (const c of citations) {
-		if (!map.has(c.normId)) map.set(c.normId, new Map());
-		map.get(c.normId)!.set(c.articleTitle.toLowerCase(), c);
-	}
-	return map;
-}
-
-/**
- * Render a plain text run, splitting out citation matches and replacing them
- * with interactive React links + tooltips. Used both for the markdown path
- * (per text-node) and as a fallback during SSR / pre-hydration.
- */
-function renderTextWithCitations(
-	text: string,
-	citationMap: Map<string, Map<string, Citation>>,
-	keyPrefix: string,
-): ReactNode[] {
-	const parts: ReactNode[] = [];
-	let lastIndex = 0;
-	let matchIdx = 0;
-
-	for (const match of text.matchAll(CITE_PATTERN)) {
-		const start = match.index;
-		if (start > lastIndex) {
-			parts.push(text.slice(lastIndex, start));
-		}
-
-		const normId = match[1]!;
-		const articleRef = match[2]!;
-		const fullMatch = match[0];
-		const citationByArticle = citationMap.get(normId);
-		const citation =
-			citationByArticle?.get(articleRef.toLowerCase()) ??
-			[...(citationByArticle?.values() ?? [])][0];
-
-		if (citation) {
-			parts.push(
-				<span
-					key={`${keyPrefix}-cite-${matchIdx}`}
-					className="ask-cite-wrapper"
-				>
-					<a
-						href={`/leyes/${normId}/${citation.anchor ? `#${citation.anchor}` : ""}`}
-						target="_blank"
-						rel="noopener noreferrer"
-						className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}
-						title={
-							citation.verified === false ? "Referencia aproximada" : undefined
-						}
-					>
-						{articleRef}
-						<svg
-							className="ask-cite-icon"
-							width="12"
-							height="12"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2.5"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							aria-hidden="true"
-						>
-							<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-							<polyline points="15 3 21 3 21 9" />
-							<line x1="10" y1="14" x2="21" y2="3" />
-						</svg>
-					</a>
-					<span className="ask-cite-tooltip" role="tooltip">
-						<span className="ask-cite-tooltip-norm">
-							{citation.normTitle || normId}
-						</span>
-						<span className="ask-cite-tooltip-article">
-							{citation.articleTitle}
-						</span>
-						{citation.citizenSummary && (
-							<span className="ask-cite-tooltip-summary">
-								{citation.citizenSummary}
-							</span>
-						)}
-						<span className="ask-cite-tooltip-action">Ver en Ley Abierta</span>
-					</span>
-				</span>,
-			);
-		} else {
-			parts.push(fullMatch);
-		}
-
-		lastIndex = start + fullMatch.length;
-		matchIdx++;
-	}
-
-	if (lastIndex < text.length) {
-		parts.push(text.slice(lastIndex));
-	}
-
-	return parts;
-}
-
 /**
  * Convert a DOM node tree (from markdown-it output, parsed via DOMParser) into
  * a React element tree. Text nodes go through `renderTextWithCitations` so the
  * `[BOE-A-XXXX-XXXX, Artículo N]` patterns become tooltipped links even when
  * they appear inside list items, paragraphs, headings, etc.
  */
-function domToReact(
+function _domToReact(
 	node: Node,
 	citationMap: Map<string, Map<string, Citation>>,
 	keyPrefix: string,
@@ -223,12 +205,13 @@ function domToReact(
 	if (node.nodeType === Node.TEXT_NODE) {
 		const text = node.nodeValue ?? "";
 		if (!text) return null;
-		const rendered = renderTextWithCitations(text, citationMap, keyPrefix);
-		// Single string fragment: return as-is (React handles it fine).
-		if (rendered.length === 1 && typeof rendered[0] === "string") {
-			return rendered[0];
-		}
-		return <>{rendered}</>;
+		return (
+			<TextWithCitations
+				text={text}
+				citationMap={citationMap}
+				keyPrefix={keyPrefix}
+			/>
+		);
 	}
 
 	if (node.nodeType !== Node.ELEMENT_NODE) return null;
@@ -244,7 +227,7 @@ function domToReact(
 	for (let i = 0; i < el.childNodes.length; i++) {
 		const child = el.childNodes[i];
 		if (!child) continue;
-		const rendered = domToReact(child, citationMap, `${keyPrefix}-${i}`);
+		const rendered = _domToReact(child, citationMap, `${keyPrefix}-${i}`);
 		if (rendered !== null && rendered !== undefined) children.push(rendered);
 	}
 
@@ -308,22 +291,23 @@ function domToReact(
 	);
 }
 
-function renderAnswerWithCitations(
-	text: string,
-	citations: Citation[],
+function AnswerWithCitations({
+	text,
+	citations,
 	streaming = false,
-): ReactNode {
-	const citationMap = buildCitationMap(citations);
-
+}: {
+	text: string;
+	citations: Citation[];
+	streaming?: boolean;
+}) {
 	// During streaming, skip the expensive markdown parse + DOMParser round-trip.
 	// Citations aren't available yet (they arrive with the `done` event), so we
 	// just render plain paragraphs split by newline.
 	if (streaming) {
 		return (
 			<>
-				{text.split("\n").map((line, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: streaming lines have no stable ID
-					<p key={i} className="ask-answer-paragraph">
+				{text.split("\n").map((line) => (
+					<p key={line || "empty"} className="ask-answer-paragraph">
 						{line}
 					</p>
 				))}
@@ -331,32 +315,7 @@ function renderAnswerWithCitations(
 		);
 	}
 
-	// SSR / no DOMParser (shouldn't happen in this island, but be defensive):
-	// render as a single paragraph with citation replacement only.
-	if (typeof DOMParser === "undefined") {
-		return (
-			<p className="ask-answer-paragraph">
-				{renderTextWithCitations(text, citationMap, "ssr")}
-			</p>
-		);
-	}
-
-	const html = md.render(text);
-	const doc = new DOMParser().parseFromString(
-		`<div>${html}</div>`,
-		"text/html",
-	);
-	const root = doc.body.firstElementChild;
-	if (!root) return null;
-
-	const children: ReactNode[] = [];
-	for (let i = 0; i < root.childNodes.length; i++) {
-		const child = root.childNodes[i];
-		if (!child) continue;
-		const rendered = domToReact(child, citationMap, `md-${i}`);
-		if (rendered !== null && rendered !== undefined) children.push(rendered);
-	}
-	return <>{children}</>;
+	return renderMarkdownWithCitations(text, citations);
 }
 
 // ── SSE parsing ──
@@ -399,7 +358,12 @@ function loadTurns(): Turn[] {
 		const raw = sessionStorage.getItem(STORAGE_KEY);
 		if (!raw) return [];
 		const parsed = JSON.parse(raw);
-		if (Array.isArray(parsed)) return parsed;
+		if (Array.isArray(parsed)) {
+			// Add ids to any turns that don't have them (migration)
+			return parsed.map((turn) =>
+				turn.id ? turn : { ...turn, id: crypto.randomUUID() },
+			);
+		}
 	} catch {
 		/* ignore */
 	}
@@ -413,6 +377,146 @@ function saveTurns(turns: Turn[]) {
 	} catch {
 		/* ignore */
 	}
+}
+
+// ── Rotating facts ──
+
+const LOADING_FACTS = [
+	"El Boletín Oficial del Estado existe desde 1661. Es una de las publicaciones oficiales más antiguas del mundo.",
+	"España tiene más de 12.000 leyes vigentes, desde estatales hasta autonómicas.",
+	"La Constitución Española ha sido reformada solo dos veces desde su aprobación en 1978.",
+	"Esta consulta solo usa legislación oficial vigente. Sin opiniones, sin invenciones.",
+	"Cada artículo que citamos enlaza directamente al BOE. Puedes verificarlo todo.",
+	"El sistema busca entre casi medio millón de fragmentos de artículos para encontrar los más relevantes.",
+	"Las leyes autonómicas conviven con las estatales: hay 17 ordenamientos jurídicos regionales en España.",
+	"El Código Civil español data de 1889 y sigue en vigor, aunque profundamente reformado.",
+	"Ninguna respuesta aquí es asesoramiento jurídico. El sistema informa; los abogados asesoran.",
+	"Los derechos fundamentales de la Constitución solo pueden modificarse con mayoría de dos tercios en ambas cámaras.",
+	"Las leyes orgánicas regulan los derechos fundamentales y requieren mayoría absoluta del Congreso para aprobarse.",
+	"El Estatuto de los Trabajadores lleva más de cuatro décadas regulando las relaciones laborales en España.",
+	"Una ley puede modificar cientos de artículos de otras leyes en una sola publicación en el BOE.",
+	"El sistema aplica búsqueda híbrida: semántica y por palabras clave, combinadas para mayor precisión.",
+	"Las leyes no tienen autor: son aprobadas colectivamente por el Parlamento en nombre de la ciudadanía.",
+	"El derecho a la vivienda quedó reconocido expresamente en la Constitución tras la reforma de 2011.",
+	"Ley Abierta es código abierto. Puedes ver exactamente cómo funciona en GitHub.",
+	"El derecho español distingue entre ley ordinaria, ley orgánica, decreto-ley y decreto legislativo.",
+	"Las comunidades autónomas pueden legislar en materias transferidas, como sanidad o educación.",
+	"El sistema clasifica cada artículo por materia para mejorar la relevancia de los resultados.",
+	"Las disposiciones transitorias de una ley regulan la adaptación al nuevo régimen jurídico.",
+	"España transpone continuamente directivas europeas: muchas leyes tienen origen en Bruselas.",
+	"El Tribunal Constitucional puede anular leyes que contravengan la Constitución.",
+	"Las reformas laborales de 2012 y 2021 cambiaron profundamente el Estatuto de los Trabajadores.",
+	"El derecho al olvido digital fue reconocido en España antes de que existiera el RGPD europeo.",
+	"El sistema verifica cada cita contra el texto real del artículo antes de mostrártela.",
+	"Una consulta típica evalúa entre 50 y 80 artículos candidatos antes de seleccionar los más fiables.",
+	"El Código Penal español ha sido reformado más de 30 veces desde su aprobación en 1995.",
+	"Las leyes de protección de datos, consumidores y medio ambiente han crecido significativamente en la última década.",
+	"Los datos legislativos de Ley Abierta se actualizan a diario desde el BOE.",
+] as const;
+
+// ── Static SVG fallback (shown when prefers-reduced-motion is active) ──
+function DocScanFallback() {
+	return (
+		<svg
+			width="120"
+			height="120"
+			viewBox="0 0 160 160"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			aria-hidden="true"
+			className="ask-lottie-fallback"
+		>
+			{/* Document */}
+			<rect
+				x="44"
+				y="36"
+				width="72"
+				height="88"
+				rx="6"
+				fill="#edf2f7"
+				stroke="#1a365d"
+				strokeWidth="2.5"
+			/>
+			{/* Lines inside document */}
+			<line
+				x1="58"
+				y1="60"
+				x2="102"
+				y2="60"
+				stroke="#1a365d"
+				strokeWidth="2"
+				strokeOpacity="0.35"
+				strokeLinecap="round"
+			/>
+			<line
+				x1="58"
+				y1="72"
+				x2="102"
+				y2="72"
+				stroke="#1a365d"
+				strokeWidth="2"
+				strokeOpacity="0.35"
+				strokeLinecap="round"
+			/>
+			<line
+				x1="58"
+				y1="84"
+				x2="86"
+				y2="84"
+				stroke="#1a365d"
+				strokeWidth="2"
+				strokeOpacity="0.35"
+				strokeLinecap="round"
+			/>
+			{/* Magnifier */}
+			<circle
+				cx="105"
+				cy="105"
+				r="14"
+				fill="#e6eef8"
+				stroke="#1a365d"
+				strokeWidth="2.5"
+			/>
+			<line
+				x1="115"
+				y1="115"
+				x2="127"
+				y2="127"
+				stroke="#1a365d"
+				strokeWidth="3"
+				strokeLinecap="round"
+			/>
+		</svg>
+	);
+}
+
+// ── Loading composition: Lottie + stepper + rotating facts ──
+function RotatingFact() {
+	const [idx, setIdx] = useState(() =>
+		Math.floor(Math.random() * LOADING_FACTS.length),
+	);
+	const [visible, setVisible] = useState(true);
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setVisible(false);
+			setTimeout(() => {
+				setIdx((prev) => (prev + 1) % LOADING_FACTS.length);
+				setVisible(true);
+			}, 400);
+		}, 3500);
+		return () => clearInterval(interval);
+	}, []);
+
+	return (
+		<p
+			className={`ask-fact-text${visible ? " ask-fact-visible" : " ask-fact-hidden"}`}
+			aria-live="polite"
+			aria-atomic="true"
+		>
+			{LOADING_FACTS[idx]}
+		</p>
+	);
 }
 
 // ── Progress stepper ──
@@ -576,38 +680,100 @@ function StepIcon({
 	);
 }
 
-function AskProgressStepper({ current }: { current: ProgressStep }) {
+/**
+ * Render a progress label that may contain **bold** markdown spans.
+ * Only the variable parts use bold, so screen readers read the full sentence.
+ */
+function renderProgressLabel(raw: string): ReactNode {
+	// Split on **text** markers and render bold spans inline.
+	const parts = raw.split(/\*\*([^*]+)\*\*/g);
+	if (parts.length === 1) return raw;
+	return (
+		<>
+			{parts.map((part, i) =>
+				// biome-ignore lint/suspicious/noArrayIndexKey: static split segments
+				i % 2 === 0 ? part : <strong key={i}>{part}</strong>,
+			)}
+		</>
+	);
+}
+
+function AskProgressStepper({
+	current,
+	progressMeta,
+}: {
+	current: ProgressStep;
+	progressMeta?: Partial<Record<ProgressStep, ProgressMeta>>;
+}) {
 	const currentIdx = PROGRESS_ORDER.indexOf(current);
+
+	// prefers-reduced-motion detection
+	const prefersReducedMotion =
+		typeof window !== "undefined" &&
+		window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 	return (
 		<div
 			className="ask-progress-stepper"
 			role="status"
 			aria-live="polite"
+			aria-atomic="false"
 			aria-label="Progreso de la respuesta"
 		>
-			<ol className="ask-progress-list">
-				{PROGRESS_ORDER.map((step, idx) => {
-					const state =
-						idx < currentIdx
-							? "done"
-							: idx === currentIdx
-								? "active"
-								: "pending";
-					return (
-						<li
-							key={step}
-							className={`ask-progress-item ask-progress-${state}`}
-						>
-							<span className="ask-progress-icon-wrap" aria-hidden="true">
-								<StepIcon step={step} state={state} />
-							</span>
-							<span className="ask-progress-label">
-								{PROGRESS_LABELS[step]}
-							</span>
-						</li>
-					);
-				})}
-			</ol>
+			<div className="ask-loading-composition">
+				{/* Lottie hero visual — lazy-loaded, fallback for reduced-motion */}
+				<div className="ask-lottie-wrap" aria-hidden="true">
+					{prefersReducedMotion ? (
+						<DocScanFallback />
+					) : (
+						<Suspense fallback={<DocScanFallback />}>
+							<DotLottieReact
+								src="/lottie/doc-scan.lottie"
+								loop
+								autoplay
+								style={{ width: 140, height: 140 }}
+							/>
+						</Suspense>
+					)}
+				</div>
+
+				{/* Stepper + fact column */}
+				<div className="ask-loading-right">
+					<ol className="ask-progress-list">
+						{PROGRESS_ORDER.map((step, idx) => {
+							const state =
+								idx < currentIdx
+									? "done"
+									: idx === currentIdx
+										? "active"
+										: "pending";
+							const meta = progressMeta?.[step];
+							const label = getProgressLabel(step, meta);
+							return (
+								<li
+									key={step}
+									className={`ask-progress-item ask-progress-${state}`}
+								>
+									<span className="ask-progress-icon-wrap" aria-hidden="true">
+										<StepIcon step={step} state={state} />
+									</span>
+									<span
+										className={`ask-progress-label${state === "active" ? " ask-progress-label-active" : ""}`}
+									>
+										{renderProgressLabel(label)}
+									</span>
+								</li>
+							);
+						})}
+					</ol>
+
+					{/* Rotating facts */}
+					<div className="ask-facts-wrap">
+						<span className="ask-facts-kicker">¿Sabías que…?</span>
+						<RotatingFact />
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }
@@ -717,9 +883,10 @@ export default function AskChat() {
 		if (!text || text.length < 3 || loading) return;
 
 		const turnIndex = turns.length;
+		const turnId = crypto.randomUUID();
 		setTurns((prev) => [
 			...prev,
-			{ question: text, response: null, error: null },
+			{ id: turnId, question: text, response: null, error: null },
 		]);
 		setQuestion("");
 		setLoading(true);
@@ -808,15 +975,23 @@ export default function AskChat() {
 					try {
 						const progress = JSON.parse(sseEvent.data) as {
 							step: ProgressStep;
+							meta?: ProgressMeta;
 						};
-						if (PROGRESS_ORDER.includes(progress.step)) {
+						if (PROGRESS_STEPS.has(progress.step)) {
 							setTurns((prev) => {
 								const updated = [...prev];
 								const turn = updated[turnIndex];
 								if (turn) {
+									const newMeta: Partial<Record<ProgressStep, ProgressMeta>> = {
+										...(turn.progressMeta ?? {}),
+									};
+									if (progress.meta !== undefined) {
+										newMeta[progress.step] = progress.meta;
+									}
 									updated[turnIndex] = {
 										...turn,
 										currentStep: progress.step,
+										progressMeta: newMeta,
 									};
 								}
 								return updated;
@@ -889,6 +1064,7 @@ export default function AskChat() {
 				const updated = [...prev];
 				updated[turnIndex] = {
 					...updated[turnIndex],
+					response: null,
 					error:
 						"No se ha podido conectar con el servidor. Comprueba tu conexión.",
 				};
@@ -939,179 +1115,183 @@ export default function AskChat() {
 
 			{hasHistory && (
 				<div className="ask-conversation">
-					{turns.map((turn, turnIdx) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: turns have no stable ID
-						<div key={turnIdx} className="ask-turn">
+					{turns.map((turn) => (
+						<div key={turn.id} className="ask-turn">
 							<div className="ask-turn-question">
 								<span className="ask-turn-label">Tu pregunta</span>
 								<p>{turn.question}</p>
 							</div>
 
-							{turn.response && (
-								<div
-									className={`ask-turn-answer${turn.response.declined ? " ask-turn-declined" : ""}`}
-								>
-									{turn.response.declined ? (
-										<>
-											<p className="ask-declined-eyebrow">
-												Esto está fuera de mi alcance
-											</p>
-											<h2 className="ask-declined-heading">
-												No puedo darte una respuesta fiable a esta pregunta.
-											</h2>
-											<div className="ask-declined-body">
-												{turn.response.answer ? (
-													renderAnswerWithCitations(
-														turn.response.answer,
-														[],
-														false,
-													)
-												) : (
-													<p>
-														Solo respondo basándome en la legislación española.
-														Reformula la pregunta dando más contexto sobre tu
-														situación concreta y lo intentamos de nuevo.
-													</p>
-												)}
-											</div>
-											{turn.response.suggestedQuestions &&
-												turn.response.suggestedQuestions.length > 0 && (
-													<div className="ask-declined-suggestions">
-														<p className="ask-declined-suggestions-label">
-															¿Quizá querías saber…?
+							{turn.response &&
+								(turn.response.answer || turn.response.declined) && (
+									<div
+										className={`ask-turn-answer${turn.response.declined ? " ask-turn-declined" : ""}`}
+									>
+										{turn.response.declined ? (
+											<>
+												<p className="ask-declined-eyebrow">
+													Esto está fuera de mi alcance
+												</p>
+												<h2 className="ask-declined-heading">
+													No puedo darte una respuesta fiable a esta pregunta.
+												</h2>
+												<div className="ask-declined-body">
+													{turn.response.answer ? (
+														<AnswerWithCitations
+															text={turn.response.answer}
+															citations={[]}
+															streaming={false}
+														/>
+													) : (
+														<p>
+															Solo respondo basándome en la legislación
+															española. Reformula la pregunta dando más contexto
+															sobre tu situación concreta y lo intentamos de
+															nuevo.
 														</p>
-														<div className="ask-declined-suggestions-list">
-															{turn.response.suggestedQuestions.map((q) => (
-																<button
-																	key={q}
-																	type="button"
-																	className="ask-declined-suggestion"
-																	onClick={() => handleSubmit(q)}
-																	disabled={loading}
-																>
-																	→ {q}
-																</button>
-															))}
-														</div>
-													</div>
-												)}
-										</>
-									) : (
-										<>
-											{turn.response.tldr && (
-												<div className="ask-tldr">
-													<p className="ask-tldr-eyebrow">Respuesta corta</p>
-													<p className="ask-tldr-body">{turn.response.tldr}</p>
+													)}
 												</div>
-											)}
-											<div className="ask-answer-text">
-												{renderAnswerWithCitations(
-													turn.response.answer,
-													turn.response.citations,
-													loading && turn === lastTurn,
-												)}
-											</div>
-
-											{turn.response.citations.length > 0 && (
-												<div className="ask-turn-citations">
-													<p className="ask-turn-citations-label">
-														Fuentes citadas:
-													</p>
-													<ul className="ask-citations-list">
-														{turn.response.citations.map((c) => (
-															<li
-																key={`${c.normId}-${c.articleTitle}`}
-																className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
-															>
-																<a
-																	href={`/leyes/${c.normId}/${c.anchor ? `#${c.anchor}` : ""}`}
-																	target="_blank"
-																	rel="noopener noreferrer"
-																	className="ask-citation-link"
-																>
-																	<span className="ask-citation-norm">
-																		{c.normId}
-																	</span>
-																	<span className="ask-citation-article">
-																		{c.articleTitle}
-																	</span>
-																	<svg
-																		className="ask-citation-chevron"
-																		width="14"
-																		height="14"
-																		viewBox="0 0 24 24"
-																		fill="none"
-																		stroke="currentColor"
-																		strokeWidth="2"
-																		strokeLinecap="round"
-																		strokeLinejoin="round"
-																		aria-hidden="true"
+												{turn.response.suggestedQuestions &&
+													turn.response.suggestedQuestions.length > 0 && (
+														<div className="ask-declined-suggestions">
+															<p className="ask-declined-suggestions-label">
+																¿Quizá querías saber…?
+															</p>
+															<div className="ask-declined-suggestions-list">
+																{turn.response.suggestedQuestions.map((q) => (
+																	<button
+																		key={q}
+																		type="button"
+																		className="ask-declined-suggestion"
+																		onClick={() => handleSubmit(q)}
+																		disabled={loading}
 																	>
-																		<polyline points="9 18 15 12 9 6" />
-																	</svg>
-																</a>
-															</li>
-														))}
-													</ul>
-												</div>
-											)}
-
-											{turn.response.nextQuestions &&
-												turn.response.nextQuestions.length > 0 && (
-													<div className="ask-next">
-														<p className="ask-next-label">Continuar con</p>
-														<div className="ask-next-chips">
-															{turn.response.nextQuestions.map((q) => (
-																<button
-																	key={q}
-																	type="button"
-																	className="ask-next-chip"
-																	onClick={() => handleSubmit(q)}
-																	disabled={loading}
-																>
-																	{q}
-																</button>
-															))}
+																		→ {q}
+																	</button>
+																))}
+															</div>
 														</div>
+													)}
+											</>
+										) : (
+											<>
+												{turn.response.tldr && (
+													<div className="ask-tldr">
+														<p className="ask-tldr-eyebrow">Respuesta corta</p>
+														<p className="ask-tldr-body">
+															{turn.response.tldr}
+														</p>
+													</div>
+												)}
+												<div className="ask-answer-text">
+													<AnswerWithCitations
+														text={turn.response.answer}
+														citations={turn.response.citations}
+														streaming={loading && turn === lastTurn}
+													/>
+												</div>
+
+												{turn.response.nextQuestions &&
+													turn.response.nextQuestions.length > 0 && (
+														<div className="ask-next">
+															<p className="ask-next-label">Continuar con</p>
+															<div className="ask-next-chips">
+																{turn.response.nextQuestions.map((q) => (
+																	<button
+																		key={q}
+																		type="button"
+																		className="ask-next-chip"
+																		onClick={() => handleSubmit(q)}
+																		disabled={loading}
+																	>
+																		{q}
+																	</button>
+																))}
+															</div>
+														</div>
+													)}
+
+												<TurnActions turn={turn} />
+
+												{turn.response.citations.length > 0 && (
+													<div className="ask-turn-citations">
+														<p className="ask-turn-citations-label">
+															Fuentes citadas:
+														</p>
+														<ul className="ask-citations-list">
+															{turn.response.citations.map((c) => (
+																<li
+																	key={`${c.normId}-${c.articleTitle}`}
+																	className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
+																>
+																	<a
+																		href={`/leyes/${c.normId}/${c.anchor ? `#${c.anchor}` : ""}`}
+																		target="_blank"
+																		rel="noopener noreferrer"
+																		className="ask-citation-link"
+																	>
+																		<span className="ask-citation-norm">
+																			{c.normId}
+																		</span>
+																		<span className="ask-citation-article">
+																			{c.articleTitle}
+																		</span>
+																		<svg
+																			className="ask-citation-chevron"
+																			width="14"
+																			height="14"
+																			viewBox="0 0 24 24"
+																			fill="none"
+																			stroke="currentColor"
+																			strokeWidth="2"
+																			strokeLinecap="round"
+																			strokeLinejoin="round"
+																			aria-hidden="true"
+																		>
+																			<polyline points="9 18 15 12 9 6" />
+																		</svg>
+																	</a>
+																</li>
+															))}
+														</ul>
 													</div>
 												)}
 
-											<TurnActions turn={turn} />
+												{turn.response.meta.model && (
+													<details className="ask-meta-details">
+														<summary className="ask-meta-summary">
+															{turn.response.meta.articlesRetrieved} artículos
+															consultados en{" "}
+															{(turn.response.meta.latencyMs / 1000).toFixed(1)}
+															s
+														</summary>
+														<div className="ask-meta-content">
+															<dl className="ask-meta-list">
+																<div className="ask-meta-item">
+																	<dt>Contexto temporal</dt>
+																	<dd>
+																		{turn.response.meta.temporalEnriched
+																			? "Sí (incluye historial de cambios)"
+																			: "No"}
+																	</dd>
+																</div>
+																<div className="ask-meta-item">
+																	<dt>Modelo</dt>
+																	<dd>{turn.response.meta.model}</dd>
+																</div>
+															</dl>
+														</div>
+													</details>
+												)}
+											</>
+										)}
+									</div>
+								)}
 
-											{turn.response.meta.model && (
-												<details className="ask-meta-details">
-													<summary className="ask-meta-summary">
-														{turn.response.meta.articlesRetrieved} artículos
-														consultados en{" "}
-														{(turn.response.meta.latencyMs / 1000).toFixed(1)}s
-													</summary>
-													<div className="ask-meta-content">
-														<dl className="ask-meta-list">
-															<div className="ask-meta-item">
-																<dt>Contexto temporal</dt>
-																<dd>
-																	{turn.response.meta.temporalEnriched
-																		? "Sí (incluye historial de cambios)"
-																		: "No"}
-																</dd>
-															</div>
-															<div className="ask-meta-item">
-																<dt>Modelo</dt>
-																<dd>{turn.response.meta.model}</dd>
-															</div>
-														</dl>
-													</div>
-												</details>
-											)}
-										</>
-									)}
-								</div>
-							)}
-
-							{turn.response && !turn.response.declined && (
+							{turn.response?.answer && !turn.response.declined && (
 								<p className="ask-turn-disclaimer">
 									Respuestas generadas automáticamente a partir del texto
-									oficial. No son asesoramiento jurídico — para casos serios
+									oficial. No son asesoramiento jurídico, para casos serios
 									consulta con un profesional.
 								</p>
 							)}
@@ -1126,11 +1306,14 @@ export default function AskChat() {
 
 					{showStepper &&
 						(lastTurn?.currentStep ? (
-							<AskProgressStepper current={lastTurn.currentStep} />
+							<AskProgressStepper
+								current={lastTurn.currentStep}
+								progressMeta={lastTurn.progressMeta}
+							/>
 						) : (
 							<div className="ask-loading" role="status" aria-live="polite">
 								<span className="ask-spinner-large" aria-hidden="true" />
-								<p>Buscando en la legislación española...</p>
+								<p>Buscando en la legislación española…</p>
 							</div>
 						))}
 
@@ -1151,7 +1334,7 @@ export default function AskChat() {
 					onKeyDown={handleKeyDown}
 					placeholder={
 						hasHistory
-							? "Haz otra pregunta..."
+							? "Haz otra pregunta…"
 							: "¿Mi casero puede subirme el alquiler un 10%?"
 					}
 					rows={hasHistory ? 1 : 2}
@@ -1180,7 +1363,7 @@ export default function AskChat() {
 						disabled={loading || question.trim().length < 3}
 						aria-label="Enviar pregunta"
 					>
-						{loading ? (
+						{loading && !showStepper ? (
 							<span className="ask-spinner" aria-hidden="true" />
 						) : (
 							<svg

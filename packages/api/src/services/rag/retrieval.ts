@@ -49,8 +49,30 @@ import { vectorSearchPooled } from "./vector-pool.ts";
 export const TOP_K = 15;
 export const RRF_K = 60;
 export const MIN_SIMILARITY = 0.35;
-export const LOW_CONFIDENCE_THRESHOLD = 0.38;
-export const EMBEDDING_MODEL_KEY = "gemini-embedding-2";
+/**
+ * Threshold below which RAG returns "no confident answer" early.
+ *
+ * 0.40 is essentially "off" — Phase 5 calibration showed that with the full
+ * qwen×qwen×qwen NaN stack, raw vector `bestScore` is NOT informative about
+ * correctness. Hit@1 vs miss@1 score distributions overlap (separation +0.04
+ * on the full stack and NEGATIVE on simpler configs). Setting the gate higher
+ * than the corpus minimum (0.428) abandons more correct answers than false
+ * ones. We keep 0.40 just to catch catastrophic embedding failures.
+ *
+ * For real "low-confidence" UX warnings we need a different signal (rerank
+ * top-1 score, candidate diversity) — TBD.
+ *
+ * Override via env: LOW_CONFIDENCE_THRESHOLD.
+ */
+export const LOW_CONFIDENCE_THRESHOLD = Number(
+	process.env.LOW_CONFIDENCE_THRESHOLD ?? "0.40",
+);
+/**
+ * Default embedding model key. Phase 5 verdict: qwen3-nan beats Gemini by
+ * +30 pp R@1 on this Spanish-legal corpus with the full NaN stack, $0 cost.
+ * Override per-call via opts.embeddingModelKey.
+ */
+export const EMBEDDING_MODEL_KEY = "qwen3-nan";
 
 // ── Types ──
 
@@ -493,11 +515,53 @@ const ANCHOR_RANKS = new Set([
 
 export type ProgressStep = "analyzing" | "retrieving" | "ranking" | "writing";
 
+/** Embedding function signature for `runRetrievalCore` injection. */
+export type EmbedQueryFn = (
+	apiKey: string,
+	modelKey: string,
+	query: string,
+) => Promise<{ embedding: Float32Array; cost: number; tokens: number }>;
+
+// ── Discriminated union for progress event payloads ──
+
+export type ProgressMetaAnalyzing = {
+	jurisdiction?: string;
+	materias?: string[];
+};
+
+export type ProgressMetaRetrieving = {
+	corpusSize: number;
+	candidatesCount?: number;
+};
+
+export type ProgressMetaRanking = {
+	finalistsCount: number;
+};
+
+export type ProgressMetaWriting = {
+	citationsExpected: number;
+};
+
+export type ProgressEventPayload =
+	| { step: "analyzing"; meta?: ProgressMetaAnalyzing }
+	| { step: "retrieving"; meta?: ProgressMetaRetrieving }
+	| { step: "ranking"; meta?: ProgressMetaRanking }
+	| { step: "writing"; meta?: ProgressMetaWriting };
+
 export type RunRetrievalCoreOpts = {
 	db: Database;
 	apiKey: string;
 	cohereApiKey: string | null;
 	question: string;
+	/** Override the embedding model key (default: EMBEDDING_MODEL_KEY = "gemini-embedding-2"). */
+	embeddingModelKey?: string;
+	/** Override the query embedding function (default: embedQuery). */
+	embedQueryFn?: EmbedQueryFn;
+	/**
+	 * Override the low-confidence early-return threshold (default: LOW_CONFIDENCE_THRESHOLD = 0.38).
+	 * Set to 0 to disable the gate (used by A/B eval harnesses where score scales differ across models).
+	 */
+	lowConfidenceThreshold?: number;
 	requestJurisdiction?: string;
 	embeddedNormIds: string[];
 	vectorIndex: {
@@ -507,12 +571,31 @@ export type RunRetrievalCoreOpts = {
 	} | null;
 	trace?: RagTrace;
 	/**
+	 * Override the analyzer LLM. When set, replaces the default OpenRouter
+	 * gemini-2.5-flash-lite with the provided model + llmFn. Used by A/B
+	 * harnesses to swap to NaN qwen3.6.
+	 */
+	analyzerOverrides?: {
+		apiKey?: string; // override apiKey for analyzer (e.g. NaN key vs OpenRouter)
+		model?: string;
+		llmFn?: import("./analyzer.ts").AnalyzerLlmFn;
+	};
+	/**
+	 * Override the reranker config. When set, replaces the default Cohere/
+	 * OpenRouter reranker selection. Set `nanApiKey` + `preferredBackend:"nan-llm"`
+	 * to force the qwen3.6 NaN LLM rerank.
+	 */
+	rerankerOverrides?: {
+		nanApiKey?: string;
+		preferredBackend?: "cohere" | "openrouter" | "nan-llm";
+	};
+	/**
 	 * Optional progress callback. Fired at phase boundaries inside the
 	 * retrieval pipeline (`retrieving` before vector/BM25 fan-out, `ranking`
 	 * before the Cohere/LLM rerank). The streaming route consumes these to
 	 * surface SSE `progress` events; non-streaming callers can omit.
 	 */
-	onProgress?: (step: ProgressStep) => void;
+	onProgress?: (payload: ProgressEventPayload) => void;
 };
 
 /**
@@ -532,18 +615,27 @@ export async function runRetrievalCore(
 		apiKey,
 		cohereApiKey,
 		question,
+		embeddingModelKey = EMBEDDING_MODEL_KEY,
+		embedQueryFn = embedQuery,
+		lowConfidenceThreshold = LOW_CONFIDENCE_THRESHOLD,
 		requestJurisdiction,
 		embeddedNormIds,
 		vectorIndex,
 		trace,
+		analyzerOverrides,
+		rerankerOverrides,
 		onProgress,
 	} = opts;
 
 	// 1. Analyze + embed query in parallel.
 	const analysisSpan = trace?.span("query-analysis", "llm", { question });
+	const analyzerApiKey = analyzerOverrides?.apiKey ?? apiKey;
 	const [analysisResult, queryResult] = await Promise.all([
-		analyzeQuery(apiKey, question),
-		embedQuery(apiKey, EMBEDDING_MODEL_KEY, question),
+		analyzeQuery(analyzerApiKey, question, {
+			model: analyzerOverrides?.model,
+			llmFn: analyzerOverrides?.llmFn,
+		}),
+		embedQueryFn(apiKey, embeddingModelKey, question),
 	]);
 	const analyzed = analysisResult.query;
 	if (requestJurisdiction && !analyzed.jurisdiction) {
@@ -606,7 +698,14 @@ export async function runRetrievalCore(
 		embeddingDims: queryResult.embedding.length,
 	});
 
-	onProgress?.("retrieving");
+	try {
+		onProgress?.({
+			step: "retrieving",
+			meta: { corpusSize: embeddedNormIds.length },
+		});
+	} catch {
+		/* safe-to-fail */
+	}
 
 	const parallelStart = Date.now();
 	const bm25BreakT = performance.now();
@@ -831,6 +930,19 @@ export async function runRetrievalCore(
 		{ durationMs: Date.now() - fusionStart },
 	);
 
+	// Emit enriched retrieving update now that we know the candidates count.
+	try {
+		onProgress?.({
+			step: "retrieving",
+			meta: {
+				corpusSize: embeddedNormIds.length,
+				candidatesCount: allFusedArticles.length,
+			},
+		});
+	} catch {
+		/* safe-to-fail */
+	}
+
 	// 11. Rerank to TOP_K.
 	const rerankSpan = trace?.span("rerank", "tool", {
 		inputCandidates: allFusedArticles.length,
@@ -842,7 +954,14 @@ export async function runRetrievalCore(
 	let rerankerBackend = "none";
 
 	if (allFusedArticles.length > TOP_K) {
-		onProgress?.("ranking");
+		try {
+			onProgress?.({
+				step: "ranking",
+				meta: { finalistsCount: Math.min(TOP_K, allFusedArticles.length) },
+			});
+		} catch {
+			/* safe-to-fail */
+		}
 		const candidates: RerankerCandidate[] = allFusedArticles.map((a) => ({
 			key: `${a.normId}:${a.blockId}`,
 			title: `${a.blockTitle} — ${describeNormScope(a.rank, resolveJurisdiction(a.sourceUrl, a.normId))}: ${a.normTitle}`,
@@ -851,6 +970,8 @@ export async function runRetrievalCore(
 		const reranked = await rerank(question, candidates, TOP_K, {
 			cohereApiKey: cohereApiKey ?? undefined,
 			openrouterApiKey: apiKey,
+			nanApiKey: rerankerOverrides?.nanApiKey,
+			preferredBackend: rerankerOverrides?.preferredBackend,
 		});
 		rerankerBackend = reranked.backend;
 		const rerankedKeys = new Set(reranked.results.map((r) => r.key));
@@ -886,7 +1007,7 @@ export async function runRetrievalCore(
 		};
 	}
 
-	if (bestScore < LOW_CONFIDENCE_THRESHOLD) {
+	if (bestScore < lowConfidenceThreshold) {
 		return {
 			type: "early",
 			reason: "low_confidence",
