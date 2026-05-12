@@ -16,7 +16,6 @@
 
 import { Database } from "bun:sqlite";
 import { createSchema } from "@leyabierta/pipeline";
-import { Resend } from "resend";
 import { DbService } from "../services/db.ts";
 import {
 	buildUnsubscribeUrl,
@@ -29,7 +28,6 @@ import {
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const SITE_URL = process.env.SITE_URL ?? "https://leyabierta.es";
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const RESEND_AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID ?? "";
 const MAX_REFORMS_PER_EMAIL = 10;
 
 const args = process.argv.slice(2);
@@ -148,23 +146,27 @@ function reformUrl(r: ReformItem): string {
 
 function getMatchingReforms(
 	materias: string[],
-	jurisdiction: string,
+	jurisdictions: string[],
 ): ReformItem[] {
-	// Query by materia+jurisdiction, then filter to only pending (un-notified) reforms
-	const all = dbService.getRecentReformsByMaterias(
-		materias,
-		jurisdiction,
-		"1900-01-01",
+	// Query by materia+jurisdiction (one call per jurisdiction the user follows),
+	// then filter to only pending (un-notified) reforms.
+	const all = jurisdictions.flatMap((j) =>
+		dbService.getRecentReformsByMaterias(materias, j, "1900-01-01"),
 	);
 
 	const matches = all.filter(
 		(r) => pendingKeys.has(`${r.id}::${r.date}`) && r.headline && r.summary,
 	);
 
-	// Deduplicate by headline
+	// Deduplicate by (id, date) first (multiple jurisdictions may surface the
+	// same reform), then by headline.
+	const idSeen = new Set<string>();
 	const seen = new Set<string>();
 	const deduped: ReformItem[] = [];
 	for (const r of matches) {
+		const idKey = `${r.id}::${r.date}`;
+		if (idSeen.has(idKey)) continue;
+		idSeen.add(idKey);
 		const key = r.headline ?? r.title;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -284,7 +286,7 @@ function buildMultiReformHtml(
 	const cards = reforms.map(buildReformCard).join("\n");
 	const overflow =
 		overflowCount > 0
-			? `<tr><td style="padding:4px 0 12px;font-size:13px;color:#576b80;font-family:Arial,Helvetica,sans-serif;">y ${overflowCount} m\u00E1s en <a href="${SITE_URL}/mis-cambios" style="color:#2b5797;">leyabierta.es/mis-cambios</a></td></tr>`
+			? `<tr><td style="padding:4px 0 12px;font-size:13px;color:#576b80;font-family:Arial,Helvetica,sans-serif;">y ${overflowCount} m\u00E1s en <a href="${SITE_URL}/cambios/para-mi/" style="color:#2b5797;">leyabierta.es/cambios/para-mi</a></td></tr>`
 			: "";
 
 	return `<!DOCTYPE html>
@@ -315,7 +317,7 @@ function buildMultiReformHtml(
   </table>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
     <tr><td style="padding:24px 28px;text-align:center;">
-      <a href="${SITE_URL}/mis-cambios" style="display:inline-block;padding:12px 28px;background:#1a365d;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Ver todos tus cambios</a>
+      <a href="${SITE_URL}/cambios/para-mi/" style="display:inline-block;padding:12px 28px;background:#1a365d;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Ver todos tus cambios</a>
     </td></tr>
   </table>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:0 0 8px 8px;">
@@ -349,7 +351,7 @@ if (previewMode) {
 		`Preview: ${previewMaterias.length} materias, jurisdiction=${previewJurisdiction}`,
 	);
 
-	const reforms = getMatchingReforms(previewMaterias, previewJurisdiction);
+	const reforms = getMatchingReforms(previewMaterias, [previewJurisdiction]);
 	if (reforms.length === 0) {
 		console.log("No un-notified reforms match. Nothing to preview.");
 		db.close();
@@ -373,88 +375,137 @@ if (previewMode) {
 
 // ── Send mode ───────────────────────────────────────────────────────────
 
-if (!RESEND_API_KEY || !RESEND_AUDIENCE_ID) {
-	console.error("RESEND_API_KEY and RESEND_AUDIENCE_ID must be set.");
+if (!RESEND_API_KEY) {
+	console.error("RESEND_API_KEY must be set.");
 	db.close();
 	process.exit(1);
 }
 
-const resend = new Resend(RESEND_API_KEY);
-
-interface ResendContact {
-	id: string;
-	email: string;
-	unsubscribed: boolean;
-	properties?: Record<string, string>;
-}
-
-let contacts: ResendContact[] = [];
-try {
-	const response = await resend.contacts.list({
-		audienceId: RESEND_AUDIENCE_ID,
-	});
-	contacts = (response.data?.data ?? []).filter(
-		(c: ResendContact) => !c.unsubscribed,
-	);
-} catch (err) {
-	console.error("Failed to fetch contacts from Resend:", err);
-	db.close();
-	process.exit(1);
-}
-
-console.log(`Found ${contacts.length} subscribed contacts.`);
+// Source of truth: unified `subscriptions` table. Resend Audiences is no
+// longer read here. The migration script (migrate-to-subscriptions.ts)
+// backfills from Resend + norm_follows; from this point onward `subscriptions`
+// is what determines who gets what.
 
 interface ContactInfo {
 	email: string;
 	materias: string[];
-	jurisdiction: string;
+	jurisdictions: string[];
+	followedNormIds: string[];
 }
 
-const contactInfos: ContactInfo[] = [];
-let legacySkipped = 0;
+const allSubs = dbService.getAllConfirmedSubscriptions();
+console.log(`Found ${allSubs.length} confirmed subscription rows.`);
 
-for (const c of contacts) {
-	const props = c.properties ?? {};
-	let materias: string[] = [];
-	try {
-		materias = JSON.parse(props.materias ?? "[]");
-	} catch {
-		// ignore
+const byEmail = new Map<string, ContactInfo>();
+for (const s of allSubs) {
+	const info = byEmail.get(s.email) ?? {
+		email: s.email,
+		materias: [],
+		jurisdictions: [],
+		followedNormIds: [],
+	};
+	if (s.type === "materia") info.materias.push(s.scope);
+	else if (s.type === "jurisdiccion") info.jurisdictions.push(s.scope);
+	else if (s.type === "norma") info.followedNormIds.push(s.scope);
+	byEmail.set(s.email, info);
+}
+
+// Default to state-level ("es") when a recipient hasn't picked any jurisdiction.
+for (const info of byEmail.values()) {
+	if (info.jurisdictions.length === 0) info.jurisdictions.push("es");
+}
+
+const contactInfos = [...byEmail.values()].filter(
+	(c) => c.materias.length > 0 || c.followedNormIds.length > 0,
+);
+
+console.log(`Processing ${contactInfos.length} unique recipients.`);
+
+// ── Reform lookup helpers ───────────────────────────────────────────────
+
+// Build reformByKey directly from `pending`, which already carries
+// headline/summary/reform_type/importance from getUnnotifiedReforms.
+// Fetching by jurisdiction would silently drop autonomic-community laws,
+// and per-row CTE queries are wasteful when we have the data in hand.
+const reformByKey = new Map<string, ReformItem>(
+	pending
+		.map((p): [string, ReformItem | undefined] => {
+			const norm = dbService.getLaw(p.norm_id);
+			if (!norm) return [`${p.norm_id}::${p.reform_date}`, undefined];
+			return [
+				`${p.norm_id}::${p.reform_date}`,
+				{
+					id: p.norm_id,
+					title: norm.title,
+					rank: norm.rank,
+					status: norm.status,
+					date: p.reform_date,
+					source_id: p.source_id,
+					headline: p.headline,
+					summary: p.summary,
+					reform_type: p.reform_type,
+					importance: p.importance,
+				},
+			];
+		})
+		.filter((entry): entry is [string, ReformItem] => entry[1] != null),
+);
+
+function getReformsByNormIds(normIds: string[]): ReformItem[] {
+	const result: ReformItem[] = [];
+	for (const id of normIds) {
+		for (const p of pending) {
+			if (p.norm_id !== id) continue;
+			const r = reformByKey.get(`${p.norm_id}::${p.reform_date}`);
+			if (r?.headline && r?.summary) result.push(r);
+		}
 	}
-	if (materias.length === 0) {
-		legacySkipped++;
-		continue;
-	}
-	contactInfos.push({
-		email: c.email,
-		materias,
-		jurisdiction: props.jurisdiction ?? "es",
-	});
+	return result;
 }
-
-if (legacySkipped > 0) {
-	console.log(`Skipped ${legacySkipped} legacy contacts without materias.`);
-}
-console.log(`Processing ${contactInfos.length} contacts with materias.`);
 
 // ── Send per subscriber ─────────────────────────────────────────────────
 
-const reformCache = new Map<string, ReformItem[]>();
+const materiaCache = new Map<string, ReformItem[]>();
 
-function getCacheKey(materias: string[], jurisdiction: string): string {
-	return `${jurisdiction}::${[...materias].sort().join("|")}`;
+function getCacheKey(materias: string[], jurisdictions: string[]): string {
+	return `${[...jurisdictions].sort().join(",")}::${[...materias].sort().join("|")}`;
 }
 
 let sent = 0;
 let skipped = 0;
 
 for (const contact of contactInfos) {
-	const cacheKey = getCacheKey(contact.materias, contact.jurisdiction);
-	let reforms = reformCache.get(cacheKey);
-	if (!reforms) {
-		reforms = getMatchingReforms(contact.materias, contact.jurisdiction);
-		reformCache.set(cacheKey, reforms);
+	// Materias + jurisdiccion matches (cached across recipients).
+	let materiaMatches: ReformItem[] = [];
+	if (contact.materias.length > 0) {
+		const cacheKey = getCacheKey(contact.materias, contact.jurisdictions);
+		const cached = materiaCache.get(cacheKey);
+		if (cached) {
+			materiaMatches = cached;
+		} else {
+			materiaMatches = getMatchingReforms(
+				contact.materias,
+				contact.jurisdictions,
+			);
+			materiaCache.set(cacheKey, materiaMatches);
+		}
 	}
+
+	// Followed-law matches (always per-recipient — typically a small set).
+	const followMatches = getReformsByNormIds(contact.followedNormIds);
+
+	// Merge and deduplicate by (id, date). Followed laws first: an explicit
+	// follow is a stronger signal than a materia match, so when MAX_REFORMS_PER_EMAIL
+	// caps the list we keep the user-curated picks ahead of broad-topic hits.
+	const seen = new Set<string>();
+	const merged: ReformItem[] = [];
+	for (const r of [...followMatches, ...materiaMatches]) {
+		const k = `${r.id}::${r.date}`;
+		if (seen.has(k)) continue;
+		seen.add(k);
+		merged.push(r);
+	}
+	const reforms = merged.slice(0, MAX_REFORMS_PER_EMAIL);
 
 	if (reforms.length === 0) {
 		skipped++;
@@ -478,7 +529,7 @@ for (const contact of contactInfos) {
 
 	if (dryRun) {
 		console.log(
-			`[dry-run] ${maskEmail(contact.email)}: ${reforms.length} reforms, subject: "${subject}"`,
+			`[dry-run] ${maskEmail(contact.email)}: ${reforms.length} reforms (${materiaMatches.length} by materia, ${followMatches.length} by follow), subject: "${subject}"`,
 		);
 		sent++;
 		continue;

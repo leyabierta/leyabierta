@@ -941,6 +941,21 @@ const seoDescription = [
 			var form = document.getElementById('follow-form');
 			if (!form) return;
 
+			// Pre-fill email from /alerts/me if the user has a known cookie.
+			// One-click follow for returning users — they don't retype email.
+			var lbCookie = document.cookie.match(/(?:^|; )lb_token=([^;]+)/);
+			if (lbCookie) {
+				fetch(apiBase + '/v1/alerts/me?token=' + encodeURIComponent(decodeURIComponent(lbCookie[1])))
+					.then(function (r) { return r.json(); })
+					.then(function (data) {
+						if (data && data.email) {
+							var emailInput = form.querySelector('input[name="email"]');
+							if (emailInput && !emailInput.value) emailInput.value = data.email;
+						}
+					})
+					.catch(function () {});
+			}
+
 			form.addEventListener('submit', function(e) {
 				e.preventDefault();
 				var emailInput = form.querySelector('input[name="email"]');

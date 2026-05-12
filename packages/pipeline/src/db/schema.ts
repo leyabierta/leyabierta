@@ -130,6 +130,8 @@ const SCHEMA_SQL = /* sql */ `
   );
 
   -- Norm follows (users following specific laws for change notifications)
+  -- DEPRECATED: superseded by subscriptions(type='norma'). Kept for one release
+  -- so the migration script can backfill. Drop in release N+1.
   CREATE TABLE IF NOT EXISTS norm_follows (
     email       TEXT NOT NULL,
     norm_id     TEXT NOT NULL REFERENCES norms(id),
@@ -141,6 +143,32 @@ const SCHEMA_SQL = /* sql */ `
 
   CREATE INDEX IF NOT EXISTS idx_norm_follows_norm ON norm_follows(norm_id);
   CREATE INDEX IF NOT EXISTS idx_norm_follows_token ON norm_follows(token);
+
+  -- Unified subscriptions table.
+  -- One row per (email, type, scope) tuple. Replaces both Resend Audiences
+  -- (materias + jurisdiccion) and norm_follows (norma-specific subscriptions).
+  -- 'query' type is reserved for saved searches (future).
+  CREATE TABLE IF NOT EXISTS subscriptions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    email         TEXT NOT NULL,
+    type          TEXT NOT NULL CHECK(type IN ('materia','jurisdiccion','norma','query')),
+    scope         TEXT NOT NULL,
+    confirmed     INTEGER NOT NULL DEFAULT 0,
+    confirm_token TEXT NOT NULL,
+    unsub_token   TEXT NOT NULL,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    confirmed_at  TEXT,
+    UNIQUE(email, type, scope)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_subscriptions_email
+    ON subscriptions(email);
+  CREATE INDEX IF NOT EXISTS idx_subscriptions_type_scope
+    ON subscriptions(type, scope);
+  CREATE INDEX IF NOT EXISTS idx_subscriptions_confirm_token
+    ON subscriptions(confirm_token);
+  CREATE INDEX IF NOT EXISTS idx_subscriptions_unsub_token
+    ON subscriptions(unsub_token);
 
   -- AI-generated reform summaries (separate from factual reforms table)
   CREATE TABLE IF NOT EXISTS reform_summaries (
