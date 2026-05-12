@@ -1,0 +1,5860 @@
+{
+  "results": [
+    {
+      "id": "q_b4caf2b5",
+      "question": "¿Cómo se puede justificar la necesidad de renovar constantemente las normas de conexión entre sistemas para que no se queden obsoletas frente a los avances tecnológicos?",
+      "expectedNorms": [
+        "BOE-A-2010-1331"
+      ],
+      "category": "Administración electrónica",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_b0ca605b",
+      "question": "que materias enseñan en el curso de gestion forestal",
+      "expectedNorms": [
+        "BOE-A-2012-10863",
+        "BOE-A-2011-6236"
+      ],
+      "category": "Agricultura",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_72a01b73",
+      "question": "que voy a aprender en ese curso para montar mi propia tienda de comida",
+      "expectedNorms": [
+        "BOE-A-2018-4748"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_6a703997",
+      "question": "mi hijo ha estudiado operaciones a bordo de buques pero dicen que es muy polivalente y hay muchos tipos de barcos no se si es un titulo muy vago que no le da un oficio concreto",
+      "expectedNorms": [
+        "BOE-A-2012-10864",
+        "BOE-A-2014-1687",
+        "BOE-A-2021-20881"
+      ],
+      "category": "Buques",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_299629d0",
+      "question": "¿Qué elementos debe incluir el plan de prácticas de la universidad para asegurar que los estudiantes aprendan sobre la ética y el día a día del sector?",
+      "expectedNorms": [
+        "BOE-A-2011-10459"
+      ],
+      "category": "Abogados",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_3d2b4f02",
+      "question": "donde puedo ver cual es la farmacia de turno si la de mi barrio ya cerro",
+      "expectedNorms": [
+        "BOE-A-2002-915",
+        "BOE-A-2002-977",
+        "BOE-A-1997-21768",
+        "BOE-A-2008-3179",
+        "BOE-A-1997-9022"
+      ],
+      "category": "Asistencia farmacéutica",
+      "voice": "citizen",
+      "jurisdiction": "es-cb",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_2ab126b2",
+      "question": "¿Cómo podemos asegurar que las propuestas de nuestra organización sean tomadas en cuenta cuando se redacte el nuevo plan de medidas para menores y jóvenes?",
+      "expectedNorms": [
+        "BOE-A-2001-15557"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_fbec8347",
+      "question": "¿Cómo puedo acceder a los datos anuales sobre el uso de los fondos y las compensaciones pagadas en cada región para comparar la inversión pública por cada entidad?",
+      "expectedNorms": [
+        "BOE-A-2011-15567"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_f858215e",
+      "question": "¿Puede la comisión de sanciones adoptar resoluciones de forma separada o es obligatorio que se acuerden en la sesión completa del comité de disciplina?",
+      "expectedNorms": [
+        "BOE-A-2000-14000"
+      ],
+      "category": "Deporte",
+      "voice": "formal",
+      "jurisdiction": "es-cb",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_97f29628",
+      "question": "¿Cómo se garantiza que mi centro mantenga su independencia de gestión y su propia forma de trabajar frente a las decisiones de las autoridades de salud?",
+      "expectedNorms": [
+        "BOE-A-2002-4375",
+        "BOE-A-2012-415"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-md",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_2fb09589",
+      "question": "si hay sequia me pueden quitar el agua para mis uvas o me van a dejar algo para que no se mueran",
+      "expectedNorms": [
+        "BOE-A-2015-4102",
+        "BOE-A-2022-4136",
+        "BOE-A-2000-2882",
+        "DOGC-f-2003-90016",
+        "BOE-A-2023-6378"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es-ex",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_4b20315e",
+      "question": "¿Pueden los municipios crear zonas oficiales para acampar con servicios básicos sin que se consideren campings permanentes?",
+      "expectedNorms": [
+        "BOE-A-2016-8346",
+        "BOE-A-2011-3179"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_6d6e21c3",
+      "question": "dónde puedo leer el texto entero de una autorización de residuos si solo vi el anuncio en el diario oficial",
+      "expectedNorms": [
+        "BOE-A-2014-9626",
+        "BOE-A-2023-10347"
+      ],
+      "category": "Políticas de medio ambiente",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_7ad95688",
+      "question": "como puedo quitarme de la lista de prohibidos del juego si yo mismo me apunte",
+      "expectedNorms": [
+        "BOE-A-2011-17836"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_65556c71",
+      "question": "si vendo la vivienda heredada antes de cinco años tengo que devolver el descuento del impuesto",
+      "expectedNorms": [
+        "BOE-A-2010-10829",
+        "BOE-A-2024-6951"
+      ],
+      "category": "Impuesto sobre Sucesiones y Donaciones",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_6aa2a1a0",
+      "question": "cuando hago un curso tecnico me obligan a quedarme en el puesto que me den y cuanto tiempo",
+      "expectedNorms": [
+        "BOE-A-2011-6097",
+        "BOE-A-2019-4485",
+        "BOE-A-2019-11398"
+      ],
+      "category": "Ejército de Tierra",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_c6dc6274",
+      "question": "necesito permiso para reparar un vallado de caza que se ha roto sin cambiar su diseño ni los materiales originales",
+      "expectedNorms": [
+        "BOE-A-2015-6877"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es-cm",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_2289bd7d",
+      "question": "¿Puedo acceder inmediatamente a muestras de plantas con fines de investigación durante una crisis sanitaria y qué compromisos asumo si luego no obtengo la autorización definitiva?",
+      "expectedNorms": [
+        "BOE-A-2017-2743"
+      ],
+      "category": "Acuerdos internacionales",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_c6c9e7bf",
+      "question": "¿Qué procedimiento debo seguir si mi solicitud de autorización presenta deficiencias o si es necesario aportar documentación adicional?",
+      "expectedNorms": [
+        "BOE-A-2016-8044",
+        "BOE-A-2007-19249",
+        "BOE-A-2021-21662"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_cc1221af",
+      "question": "¿Qué trámites previos son necesarios para modificar el orden de prioridad de las obras en la red de carreteras?",
+      "expectedNorms": [
+        "BOE-A-2012-3401"
+      ],
+      "category": "Carreteras",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_0189d7cb",
+      "question": "puedo poner un invernadero al lado de la carretera sin permiso",
+      "expectedNorms": [
+        "BOE-A-2013-8086",
+        "BOE-A-2007-8581"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_0683e1fb",
+      "question": "¿Qué tipo de reconocimientos oficiales puede recibir nuestra organización por el trabajo que realizamos apoyando a las familias afectadas por el terrorismo?",
+      "expectedNorms": [
+        "BOE-A-2008-13419",
+        "BOE-A-2011-2550"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ddda1b60",
+      "question": "¿Cuál es el procedimiento legal que se sigue cuando se sanciona por falta de licencia de espectáculos públicos?",
+      "expectedNorms": [
+        "BOE-A-2010-20014"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_01a4e1c4",
+      "question": "¿Quién tiene la potestad de imponer multas por infracciones graves en materia de prevención de incendios?",
+      "expectedNorms": [
+        "BOE-A-2010-5882",
+        "BOE-A-1994-12665",
+        "BOE-A-2005-13891",
+        "BOE-A-2007-11324"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_13a0d429",
+      "question": "si soy la unica dueña de un edificio necesito el papel de la comunidad para pedir la ayuda de las reformas",
+      "expectedNorms": [
+        "BOE-A-2013-3780",
+        "BOE-A-2022-802"
+      ],
+      "category": "Arrendamientos urbanos",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_24f16d14",
+      "question": "puedo hacer un trato con el ayuntamiento para que me dejen ampliar mi negocio si ayudo a arreglar el edificio de al lado",
+      "expectedNorms": [
+        "BOE-A-2013-6584",
+        "BOE-A-2006-9008",
+        "BOE-A-2017-12907"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es-cn",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_b672fcc2",
+      "question": "¿Es posible que nuestra entidad delegue la gestión de sus competencias patrimoniales en la Administración de las Illes Balears y qué requisitos de validez debe cumplir dicha delegación?",
+      "expectedNorms": [
+        "BOE-A-2010-13242"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_1bdd9a27",
+      "question": "si meto pasta en la cooperativa de luz pero no soy socia puedo ir a las reuniones para preguntar cosas",
+      "expectedNorms": [
+        "BOE-A-2002-9331"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cl",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_72c670af",
+      "question": "qué requisitos necesito para poder trabajar como marinero en un barco de pesca pequeño y si se necesita algún certificado oficial",
+      "expectedNorms": [
+        "BOE-A-2014-1687"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_9ef209f2",
+      "question": "¿Puede el Presidente de la Junta de Andalucía delegar en un Vicepresidente la facultad de firmar convenios de cooperación internacional?",
+      "expectedNorms": [
+        "BOE-A-2006-20848"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_100fa0a4",
+      "question": "¿Qué información aeronáutica sobre restricciones de vuelo es válida jurídicamente para la tripulación cuando hay discrepancias con órdenes internas?",
+      "expectedNorms": [
+        "BOE-A-2018-15406",
+        "BOE-A-2022-15286",
+        "BOE-A-1998-30155"
+      ],
+      "category": "Reglamentaciones técnicas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_52279bc1",
+      "question": "¿Puedo inscribirme en el colegio profesional si mi título de nutrición es de la antigua estructura universitaria y no el nuevo?",
+      "expectedNorms": [
+        "BOE-A-2011-15728",
+        "BOE-A-2008-2989",
+        "BOE-A-2015-8777",
+        "BOE-A-2017-7176",
+        "BOE-A-2019-5821",
+        "BOE-A-2007-8714",
+        "BOE-A-2008-13686",
+        "BOE-A-2013-3093",
+        "BOE-A-2019-4295"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_6fe208cc",
+      "question": "¿Garantiza la normativa la participación de los trabajadores en el consejo de asesoramiento de la agencia de innovación y se exige igualdad de género en su composición?",
+      "expectedNorms": [
+        "BOE-A-2017-2420"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_2b53dbea",
+      "question": "en mi diploma de doctora me van a poner mi especialidad o solo sale que soy doctora",
+      "expectedNorms": [
+        "BOE-A-2010-12621",
+        "BOE-A-2019-16686"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_2af78dc2",
+      "question": "como funcionan los puestos de empleo en las delegaciones de españa en organismos internacionales y si siempre hay un jefe entre ellos",
+      "expectedNorms": [
+        "BOE-A-2015-12568"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8b53f866",
+      "question": "¿Es posible obtener un permiso especial para hacer pruebas de diagnóstico en mi propia explotación si el traslado de los animales supone un riesgo?",
+      "expectedNorms": [
+        "BOE-A-2003-8225",
+        "BOE-A-1995-19103"
+      ],
+      "category": "Animales",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_24a3b28a",
+      "question": "puedo pedir permiso pagado para hacer un curso oficial si mi jefe me dice que no por el trabajo",
+      "expectedNorms": [
+        "BOE-A-2017-7769",
+        "BOE-A-2007-14591"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_28e819d7",
+      "question": "donde puedo hacer todos los permisos para abrir negocio de una sola vez",
+      "expectedNorms": [
+        "BOE-A-2015-9208",
+        "BOE-A-2021-1662",
+        "BOE-A-2010-13313",
+        "DOGC-f-2003-90008"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_63ff23bc",
+      "question": "¿Puedo usar un certificado de salud antiguo que la autoridad marítima haya validado como equivalente para tramitar la renovación de los títulos de pesca?",
+      "expectedNorms": [
+        "BOE-A-2014-1687",
+        "BOE-A-2024-12121"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8ea2e058",
+      "question": "¿Qué información deben incluir las entradas para poder prohibir el acceso a personas bajo los efectos del alcohol o que porten objetos peligrosos?",
+      "expectedNorms": [
+        "BOE-A-2012-5596",
+        "BOE-A-2007-13408",
+        "BOE-A-2010-3904"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_3d705aaa",
+      "question": "¿Qué ocurre con mi puesto si el consejero al que sirvo deja de estar en el cargo?",
+      "expectedNorms": [
+        "BOE-A-2012-5927",
+        "BOE-A-1993-13437",
+        "BOE-A-1989-1487"
+      ],
+      "category": "Gobierno",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b9e0b88d",
+      "question": "¿Es obligatorio coordinar los proyectos con otros financiadores antes de firmar convenios con gobiernos locales extranjeros?",
+      "expectedNorms": [
+        "BOE-A-2018-99"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_b7226d6e",
+      "question": "puedo usar los servicios del coordinador de horarios sin ser socio",
+      "expectedNorms": [
+        "BOE-A-2014-508"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4555242d",
+      "question": "¿Quién debe encargarse de recoger y tratar la basura en la comarca y no en el municipio?",
+      "expectedNorms": [
+        "BOE-A-2001-13272",
+        "BOE-A-2003-5909",
+        "BOE-A-2003-6600",
+        "BOE-A-2003-5695",
+        "BOE-A-2003-8227",
+        "BOE-A-2003-6601",
+        "BOE-A-2002-24536",
+        "BOE-A-2003-1494"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_6667912f",
+      "question": "¿Quién es el dueño de los derechos de autor de un informe que he redactado por encargo de una de las comisiones de la institución?",
+      "expectedNorms": [
+        "BOE-A-2014-2599",
+        "BOE-A-2019-4359",
+        "BOE-A-2015-7853",
+        "BOE-A-1979-30655",
+        "BOE-A-1977-13080"
+      ],
+      "category": "Real Academia de Ciencias Veterinarias",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_0f68a836",
+      "question": "si cierran una farmacia por multa puede venderla el dueño mientras esta cerrada",
+      "expectedNorms": [
+        "BOE-A-2002-977",
+        "BOE-A-2023-13539",
+        "BOE-A-2007-13487"
+      ],
+      "category": "Asistencia farmacéutica",
+      "voice": "citizen",
+      "jurisdiction": "es-cl",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_91954bfe",
+      "question": "¿Qué condiciones debe cumplir nuestra fundación para que las aportaciones de los particulares tengan beneficios fiscales?",
+      "expectedNorms": [
+        "BOE-A-2010-10829",
+        "BOE-A-2024-6951"
+      ],
+      "category": "Impuesto sobre Sucesiones y Donaciones",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_0053fb92",
+      "question": "¿Cómo afecta a nuestro tope de gastos el hecho de que cambien las transferencias de dinero que nos envía el gobierno central?",
+      "expectedNorms": [
+        "BOE-A-2013-2560",
+        "BOE-A-2015-6017",
+        "BOE-A-2012-5730"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_decdc1a7",
+      "question": "me corresponde indemnizacion al acabar mi beca por sacar el doctorado o solo por cumplir el tiempo maximo",
+      "expectedNorms": [
+        "BOE-A-2019-3700",
+        "BOE-A-2011-9617"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b0ece0e6",
+      "question": "¿Quién decide el importe exacto de las cuotas que deben pagar las cámaras para financiar al consejo de cámaras y bajo qué normas se establecen?",
+      "expectedNorms": [
+        "BOE-A-2015-4789",
+        "BOE-A-2018-988",
+        "BOE-A-2019-18153"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-mc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_251523a7",
+      "question": "¿Qué comprobaciones debo hacer para asegurar que los productos eléctricos que traigo de fuera cumplen con la normativa antes de venderlos?",
+      "expectedNorms": [
+        "BOE-A-2016-4443",
+        "BOE-A-2013-3210",
+        "BOE-A-2022-19914",
+        "BOE-A-2023-11022",
+        "BOE-A-2016-2578"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6872cdef",
+      "question": "¿Pueden sancionarme administrativamente por una publicidad engañosa sobre suplementos si el fabricante ya ha sido multado por los mismos hechos?",
+      "expectedNorms": [
+        "BOE-A-2015-4332",
+        "BOE-A-2025-13560",
+        "BOE-A-2011-8403",
+        "BOE-A-2017-7178",
+        "BOE-A-2010-8326",
+        "BOE-A-1994-17681",
+        "BOE-A-2015-2295",
+        "BOE-A-2018-10760"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_fa37a7e6",
+      "question": "¿Se considera combustible de transporte a la energía eléctrica verificada que compro para mis camiones y que debo declarar en el informe de emisiones?",
+      "expectedNorms": [
+        "BOE-A-2018-5890",
+        "BOE-A-2022-4972"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4f549cf3",
+      "question": "¿Qué elementos deben incluirse en la resolución final del organismo regulador para poder interponer un recurso contencioso-administrativo directo?",
+      "expectedNorms": [
+        "BOE-A-2015-12301"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_a0765d97",
+      "question": "podemos pedir los permisos de pesca de los socios a traves de alguien de la asociacion",
+      "expectedNorms": [
+        "BOE-A-2011-6099"
+      ],
+      "category": "Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_8f14e25f",
+      "question": "tengo que pagar algo por sacar un poco de tierra o barro de mi finca para arreglar un muro",
+      "expectedNorms": [
+        "BOE-A-2015-2606",
+        "BOE-A-1997-12054",
+        "BOE-A-2012-9283",
+        "BOE-A-1973-1018"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_96649795",
+      "question": "mi padre es militar y como esta enfermo y lo tienen en un hospital cerca de la frontera puede pedir permiso para vivir fuera de donde le toca",
+      "expectedNorms": [
+        "BOE-A-2018-6895"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_34d232be",
+      "question": "puede la comarca ayudar a mi pueblo con dinero o asesores si el ayuntamiento no puede con los servicios basicos",
+      "expectedNorms": [
+        "BOE-A-2002-10791",
+        "BOE-A-2019-7788",
+        "BOE-A-2001-2504",
+        "BOE-A-2001-21720",
+        "BOE-A-2002-1223",
+        "BOE-A-2001-15558",
+        "BOE-A-2001-22769",
+        "BOE-A-2001-13272"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_37da0b31",
+      "question": "¿Qué factores tienen en cuenta las autoridades para decidir si van a abrir una investigación de seguridad tras un choque de mi barco en aguas españolas?",
+      "expectedNorms": [
+        "BOE-A-2011-10133",
+        "BOE-A-2024-15937"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_fcae616b",
+      "question": "¿Puede la administración autonómica retener el pago de la factura final de una obra pública hasta que se acredite el cumplimiento de las obligaciones de seguridad laboral?",
+      "expectedNorms": [
+        "BOE-A-2006-20767",
+        "BORM-s-2000-90008",
+        "BOE-A-2007-9829",
+        "BOE-A-2007-10666",
+        "BOE-A-2015-1952",
+        "BOE-A-2007-3825"
+      ],
+      "category": "Contabilidad",
+      "voice": "formal",
+      "jurisdiction": "es-cb",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_7f6e1ac3",
+      "question": "¿En qué momento exacto entra en vigor un plan general de ordenación urbana modificado?",
+      "expectedNorms": [
+        "BOE-A-2001-18984",
+        "BOE-A-2021-20916"
+      ],
+      "category": "Urbanismo",
+      "voice": "formal",
+      "jurisdiction": "es-md",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_593364c1",
+      "question": "que temas voy a ver en el curso de gestion forestal para saber si tengo que saber de mapas y de trabajar en alturas",
+      "expectedNorms": [
+        "BOE-A-2011-6236"
+      ],
+      "category": "Currículo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_c327960d",
+      "question": "¿Qué organismos tienen la potestad de elegir los centros de análisis autorizados para los controles de productos de protección de cultivos?",
+      "expectedNorms": [
+        "BOE-A-2015-710",
+        "BOE-A-2007-8525",
+        "BOE-A-2010-11153"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_f4880a12",
+      "question": "pueden subir a mi barco sin avisar para la inspección técnica",
+      "expectedNorms": [
+        "BOE-A-2014-10572",
+        "BOE-A-2000-21432"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_67846370",
+      "question": "¿Qué nivel de protección jurídica tienen las decisiones de un organismo autónomo frente a la administración regional y si estas cuentan con prerrogativas especiales?",
+      "expectedNorms": [
+        "BOE-A-2001-14243",
+        "DOGC-f-2003-90008"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_4cc1630c",
+      "question": "¿Qué información mínima debe contener el documento para poner en marcha el expediente tras la sanción de la Unión Europea?",
+      "expectedNorms": [
+        "BOE-A-2013-7385",
+        "BOE-A-2015-1239"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_30d39e00",
+      "question": "¿Qué trámites y profesionales necesito para arreglar la cubierta si la obra va a tocar la estructura del edificio?",
+      "expectedNorms": [
+        "BOE-A-2007-6609",
+        "BOE-A-1999-12090"
+      ],
+      "category": "Arrendamientos urbanos",
+      "voice": "formal",
+      "jurisdiction": "es-ri",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_bfa2099e",
+      "question": "¿Existe algún método oficial para que valoren mi rendimiento individual y así poder mejorar mi sueldo o mi nivel profesional?",
+      "expectedNorms": [
+        "BOE-A-2010-17861",
+        "BOE-A-2021-9175",
+        "BOE-A-2023-18911",
+        "BOE-A-2024-22298",
+        "BOE-A-2026-4518",
+        "BOE-A-2023-10348",
+        "BOE-A-2015-5677",
+        "BOE-A-2015-5016",
+        "BOE-A-2024-25789"
+      ],
+      "category": "Consejo de Seguridad Nuclear",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_463d4ae3",
+      "question": "quien recibe las denuncias de los trabajadores en galicia para que les protejan",
+      "expectedNorms": [
+        "BOE-A-2016-3190",
+        "BOE-A-1985-5205"
+      ],
+      "category": "Información",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_31795779",
+      "question": "como tengo que explicar en el examen que uso las maquinas sin dañar el monte",
+      "expectedNorms": [
+        "BOE-A-2012-10863",
+        "BOE-A-2011-6236"
+      ],
+      "category": "Agricultura",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_a8920ada",
+      "question": "quien tiene que pagar la tasa del puerto el que tiene el permiso o el que usa el sitio",
+      "expectedNorms": [
+        "BOE-A-2014-7141",
+        "BOE-A-1998-23233"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_08929438",
+      "question": "me van a quitar parte de mi terreno sin pagarme nada por el centro de ocio",
+      "expectedNorms": [
+        "BOE-A-2009-13718",
+        "BOE-A-1976-11506"
+      ],
+      "category": "Casinos",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_276502f4",
+      "question": "¿Se incluirán las quejas que hemos enviado sobre la falta de accesibilidad en el documento que el Consejo publica cada tres años?",
+      "expectedNorms": [
+        "BOE-A-2014-11992",
+        "BOE-A-2018-12699",
+        "BOE-A-2025-717"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_7e6fd454",
+      "question": "si vendo mi energia sobrante por la app es obligatorio que acepten mi precio enseguida o tienen que revisar algo primero",
+      "expectedNorms": [
+        "BOE-A-2015-11725",
+        "BOE-A-2020-15689"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_0a8f05f2",
+      "question": "si hay empate en una votacion el presidente puede decidir el resultado",
+      "expectedNorms": [
+        "BOE-A-2015-13250",
+        "BOE-A-1987-10624",
+        "BOE-A-1986-33252",
+        "BOE-A-2004-19794",
+        "BOE-A-2000-6533"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_6b77a7d9",
+      "question": "¿De qué manera puede la Xunta ayudar a mi ayuntamiento con asesoría profesional para crear el consejo de jóvenes y organizar sus planes de trabajo?",
+      "expectedNorms": [
+        "BOE-A-2012-11413"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_49a3af04",
+      "question": "¿Puedo volver a anunciar una liquidación de stock si la última vez que hice una promoción de este tipo fue hace diez meses?",
+      "expectedNorms": [
+        "BOE-A-2012-1540",
+        "BOCL-h-2014-90371"
+      ],
+      "category": "Precios",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_76a6e653",
+      "question": "si cambian las normas de mi aeropuerto pequeño para que entren aviones más grandes afecta a mi seguridad y al tráfico actual",
+      "expectedNorms": [
+        "BOE-A-2011-14118",
+        "BOE-A-2015-12893"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_052ae814",
+      "question": "puedo hacer acuerdos con otros ayuntamientos para pagar a medias las clases de los agentes y que nos valgan los titulos",
+      "expectedNorms": [
+        "BOE-A-2018-98",
+        "BOE-A-2013-9129",
+        "BOE-A-2003-8797"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_7f2a5b99",
+      "question": "¿Cómo se clasifican las titulaciones profesionales de la pesca en secciones y qué reglas internacionales de formación se aplican a cada una?",
+      "expectedNorms": [
+        "BOE-A-2014-1687"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_678d3a81",
+      "question": "de donde saca la pasta la tele de la autonoma y cuanto maximo les pueden dar de dinero publico",
+      "expectedNorms": [
+        "BOE-A-2015-1115"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cn",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_38f8119c",
+      "question": "¿Se puede aumentar la multa urbanística hasta igualar el beneficio económico que obtuvo el infractor al realizar la obra sin licencia?",
+      "expectedNorms": [
+        "BOE-A-2011-2210",
+        "DOGV-r-2021-90283"
+      ],
+      "category": "Urbanismo",
+      "voice": "formal",
+      "jurisdiction": "es-mc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ae5a163c",
+      "question": "¿Qué medidas tomará el Ministerio si no se corrigen los errores de envío de datos en el plazo indicado y qué impacto tendrá la falta de subsanación en la entidad?",
+      "expectedNorms": [
+        "BOE-A-2014-8133"
+      ],
+      "category": "Información",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_e4011fe2",
+      "question": "¿Puede el ayuntamiento regular y sancionar mi actividad de transporte privado con conductor o solo las autoridades autonómicas?",
+      "expectedNorms": [
+        "BOE-A-2014-7536",
+        "BOE-A-2022-13533"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ef602db9",
+      "question": "¿Cómo puedo solicitar que se revise si mi estado de salud actual me permite seguir desempeñando mis funciones de patrullaje o si debería pasar a otro puesto?",
+      "expectedNorms": [
+        "BOE-A-2013-3907",
+        "BOE-A-1997-20259",
+        "BOE-A-2014-12408",
+        "BOE-A-2017-5862",
+        "BOE-A-2019-4482"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_21283594",
+      "question": "¿Puede la administración aplicarme sanciones económicas recurrentes para obligarme a cumplir una orden si no he corregido el error en el tiempo previsto?",
+      "expectedNorms": [
+        "BOE-A-2011-7840",
+        "BOE-A-2020-11724",
+        "BOE-A-1993-26497",
+        "BOE-A-2006-8213",
+        "BOE-A-2022-11311",
+        "BOE-A-2016-8346",
+        "BOE-A-2014-7536",
+        "BOE-A-2015-8272",
+        "BOE-A-2019-1790"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f947dab5",
+      "question": "¿Podemos poner el sello del Ministerio en nuestros envases y qué beneficios nos da esto a la hora de solicitar subvenciones?",
+      "expectedNorms": [
+        "BOE-A-2015-1159",
+        "BOE-A-2015-13856",
+        "BOE-A-2016-3652"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ac54a22a",
+      "question": "si no pago la multa que me ponen por no arreglar las tuberías que mojan la acera, me la cobran otra vez cada quince dias",
+      "expectedNorms": [
+        "BOE-A-2011-17399",
+        "BOE-A-2017-15370",
+        "BOE-A-2023-10347",
+        "BOE-A-2006-5810",
+        "BOE-A-2008-3657",
+        "BOE-A-2023-9957",
+        "BOE-A-2003-11048",
+        "BOE-A-2024-26254",
+        "BOE-A-2003-912"
+      ],
+      "category": "Políticas de medio ambiente",
+      "voice": "citizen",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_4dcac94c",
+      "question": "¿Cómo puedo realizar una formación especializada para cambiar mi función actual y acceder a otros puestos dentro del Ministerio de Defensa?",
+      "expectedNorms": [
+        "BOE-A-2015-4781",
+        "BOE-A-2021-19798",
+        "BOE-A-2007-19880"
+      ],
+      "category": "Defensa Nacional",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_159b9e37",
+      "question": "¿Qué fundamento jurídico permite a la comarca ubicar sus puntos de atención ciudadana en municipios distintos a la capital sin necesidad de modificar los estatutos?",
+      "expectedNorms": [
+        "BOE-A-2002-10793",
+        "BOA-d-2006-90038"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_79cca393",
+      "question": "como se publican los criterios de evaluacion y puedo ver los trabajos de mi hija para comprobar que la nota es justa",
+      "expectedNorms": [
+        "BOE-A-2018-7512",
+        "BOE-A-2022-12066"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_35253103",
+      "question": "cómo se clasifican los recipientes a presión por el nivel de riesgo del gas que transportan para su comercialización",
+      "expectedNorms": [
+        "BOE-A-2015-9527",
+        "BOE-A-2021-16407"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_7f180257",
+      "question": "¿Qué medidas pueden tomar las instituciones catalanas para potenciar la importancia del diseño y el patrimonio edificado?",
+      "expectedNorms": [
+        "BOE-A-2017-9366"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_c15ad14b",
+      "question": "¿Está el ayuntamiento obligado a publicar en su web la información sobre las obras autorizadas de manera que pueda descargarla directamente en un formato digital compatible para analizarla?",
+      "expectedNorms": [
+        "BOE-A-2016-4171",
+        "BOE-A-2019-10102",
+        "BOE-A-2022-8187"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_a56d923c",
+      "question": "¿Qué documentación debo presentar a la administración antes de iniciar ventas a domicilio para evitar sanciones?",
+      "expectedNorms": [
+        "BOE-A-2010-11731",
+        "BOE-A-2011-6875",
+        "BOE-A-2002-11417",
+        "BOJA-b-2012-90003",
+        "BOCL-h-2014-90371"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6f195e12",
+      "question": "¿Cuáles son los requisitos de ubicación, precinto y señalización exterior que debe cumplir el taxímetro de un vehículo?",
+      "expectedNorms": [
+        "BOE-A-2014-13371",
+        "BOE-A-2018-7155",
+        "BOE-A-2013-7477",
+        "BOE-A-2003-15897",
+        "BOE-A-2005-13892",
+        "BOE-A-2017-15370",
+        "BOE-A-1999-1826"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-mc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_720214ee",
+      "question": "¿Quién tiene la potestad para autorizar el reglamento interno y definir cómo se organizará la nueva agencia de ciberseguridad?",
+      "expectedNorms": [
+        "BOE-A-2017-9800"
+      ],
+      "category": "Administración electrónica",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_8713f570",
+      "question": "pueden cobrarme canon por tener clientes en otras provincias o pedir pagos extras por ejercer fuera de mi municipio",
+      "expectedNorms": [
+        "BOE-A-2006-22081",
+        "BOE-A-2006-12151"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_c1fff10d",
+      "question": "como se declara un barrio saturado de turismo para parar nuevas licencias",
+      "expectedNorms": [
+        "BOE-A-2012-10610",
+        "BOE-A-1999-10364",
+        "BOA-d-2016-90440",
+        "BOE-A-1999-12089",
+        "BOE-A-2010-20073"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-ib",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_97ddb250",
+      "question": "cuales son las diferencias entre tener derecho a entrar a la uni y el proceso para conseguir plaza",
+      "expectedNorms": [
+        "BOE-A-2014-6008"
+      ],
+      "category": "Acceso a la universidad",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_25a76826",
+      "question": "¿Qué facultades tiene la comarca para gestionar servicios comunes a varios municipios y defender los intereses de la zona?",
+      "expectedNorms": [
+        "BOE-A-2002-23926"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_d454676b",
+      "question": "¿Cómo debe ser el pliego de condiciones de un concurso de servicios en el puerto para asegurar que las reglas de selección sean justas y no favorezcan a nadie?",
+      "expectedNorms": [
+        "BOE-A-2014-7141",
+        "BOE-A-2011-16467",
+        "BOE-A-2004-20890"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6e0490cd",
+      "question": "mi marido es guardia civil y le han abierto una investigación por corrupción, le van a quitar el sueldo y el puesto mientras dure el proceso",
+      "expectedNorms": [
+        "BOE-A-2017-9078",
+        "BOE-A-2014-12408",
+        "BOE-A-2019-11398",
+        "BOE-A-2010-8115"
+      ],
+      "category": "Cuerpo de la Guardia Civil",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_9891e5d7",
+      "question": "como se organiza la oficina que gestiona los bienes confiscados a corruptos y que departamentos se encargan de buscarlos y venderlos",
+      "expectedNorms": [
+        "BOE-A-2015-11427"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_96bb02d8",
+      "question": "¿Podría la administración regional permitir que tengamos un pequeño almacén de medicinas para animales en nuestra aldea si no tenemos farmacias veterinarias cerca?",
+      "expectedNorms": [
+        "BOE-A-2002-915",
+        "BOE-A-2023-16727",
+        "BOE-A-2025-18522",
+        "BOE-A-2005-14261"
+      ],
+      "category": "Asistencia farmacéutica",
+      "voice": "formal",
+      "jurisdiction": "es-cb",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_87a7f214",
+      "question": "¿Si pasan dos meses desde que publiqué la solicitud de la mancomunidad sin recibir respuesta, se entiende que me han denegado la petición?",
+      "expectedNorms": [
+        "BOE-A-2011-555"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ex",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_3aad7b4f",
+      "question": "¿Qué normas de contabilidad y de fiscalización debemos seguir en nuestra empresa pública si la comunidad autónoma es la dueña?",
+      "expectedNorms": [
+        "BOE-A-2003-6052",
+        "BOE-A-2006-14194",
+        "BOE-A-2000-444",
+        "BOE-A-2007-14405",
+        "BOE-A-2003-4607",
+        "BOE-A-2015-1236",
+        "BOE-A-2009-13566"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ri",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_d86d06ef",
+      "question": "tengo que apuntar la dirección exacta de la fábrica donde sacan la materia prima para mi compost",
+      "expectedNorms": [
+        "BOE-A-2010-11153"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_3bb3f9b5",
+      "question": "el hospital tiene que avisar a las autoridades si le pasa algo malo a un paciente con las radiaciones",
+      "expectedNorms": [
+        "BOE-A-2019-15604",
+        "BOE-A-2023-16649",
+        "BOE-A-2022-21682",
+        "BOE-A-2025-9388"
+      ],
+      "category": "Seguridad e higiene en el trabajo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_d2924a4e",
+      "question": "como registrar nuestra agrupacion de pescadores para que sea oficial ante el ministerio",
+      "expectedNorms": [
+        "BOE-A-2016-6569"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_bdf09cde",
+      "question": "¿Qué obligaciones de seguridad y límites de uso tiene el consorcio al gestionar la información de las instituciones públicas catalanas?",
+      "expectedNorms": [
+        "BOE-A-2010-13843"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_94877d4b",
+      "question": "¿Cómo se coordina la financiación y la ejecución de los planes de acción para proteger las especies en peligro cuando se trabaja con otros países?",
+      "expectedNorms": [
+        "BOE-A-2011-3582"
+      ],
+      "category": "Catálogo Nacional de Especies Amenazadas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d4595aab",
+      "question": "como se supone que sepa si el sitio donde me quedo es de lujo si no ponen nada fuera",
+      "expectedNorms": [
+        "BOE-A-2018-8950",
+        "BOJA-b-2020-90175",
+        "BOE-A-2011-19058"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_673c59f0",
+      "question": "como puede el parlamento de aragon pedir explicaciones a los senadores designados",
+      "expectedNorms": [
+        "BOE-A-2003-17779"
+      ],
+      "category": "Senado",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_de1d1f57",
+      "question": "si han cambiado muchos puestos en la junta entre los que ya estaban puede haber elecciones nuevas o es legal que los elijan asi",
+      "expectedNorms": [
+        "BOE-A-2015-5853",
+        "BOE-A-2005-12175",
+        "BOE-A-2002-24906",
+        "BOE-A-2001-24079",
+        "BOE-A-2003-19457"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_d2124383",
+      "question": "quien decide si venden las acciones de la empresa de agua de mi pueblo si es una empresa publica",
+      "expectedNorms": [
+        "BOE-A-2006-21908",
+        "BOE-A-2006-21909",
+        "BOE-A-2021-2849"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cl",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_bd7ed5a5",
+      "question": "¿Qué ayudas económicas puedo solicitar como viuda para ayudar con los gastos de mis hijos si tengo pocos ingresos?",
+      "expectedNorms": [
+        "BOE-A-2012-10756"
+      ],
+      "category": "Asistencia sanitaria",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_cf49bce0",
+      "question": "tengo derecho a cobrar la ayuda si llevo 130 dias de trabajo en el barco que paran por medioambiente",
+      "expectedNorms": [
+        "BOE-A-2015-14283",
+        "BOE-A-2020-9021"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_41dfc27b",
+      "question": "¿Dónde puedo encontrar en internet el texto completo de las ayudas digitales y la lista de empresas beneficiarias con sus importes?",
+      "expectedNorms": [
+        "BOE-A-2015-6646"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_2bcfb1f8",
+      "question": "que requisitos necesita una aerolínea para poder usar rutas de vuelos con otros paises si el pacto es de varios estados a la vez",
+      "expectedNorms": [
+        "BOE-A-2011-19527"
+      ],
+      "category": "Información",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_13dd17c8",
+      "question": "¿Qué requisitos de identificación y registro son necesarios para los polluelos de halcones y búhos antes de su venta?",
+      "expectedNorms": [
+        "BOE-A-2017-12357",
+        "BOE-A-2022-14086",
+        "BOE-A-2015-4103"
+      ],
+      "category": "Animales de compañía",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_17afd30d",
+      "question": "como me puedo pasar a otra tarea si ya no me siento apto para las guardias nocturnas por mi lesion de espalda",
+      "expectedNorms": [
+        "BOE-A-2018-98",
+        "BOE-A-2023-3295",
+        "BOE-A-2010-9108",
+        "BOE-A-2017-5194",
+        "BOE-A-2013-9129",
+        "BOE-A-2023-17647"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_480b1f13",
+      "question": "¿Cómo debe garantizarse el derecho de defensa de los menores durante la aplicación de sanciones disciplinarias en los centros de la comunidad?",
+      "expectedNorms": [
+        "BOE-A-2001-15557",
+        "BOE-A-2024-4784"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_79e4c417",
+      "question": "es obligatorio que los proveedores de alimentos perecederos estén inscritos en el registro sanitario oficial para poder comercializar en España",
+      "expectedNorms": [
+        "BOE-A-2011-1011",
+        "BOE-A-2011-971",
+        "BOE-A-2018-17776",
+        "BOE-A-2011-4293",
+        "BOE-A-2023-20563"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_a6eda512",
+      "question": "¿Qué garantías existen para que la información privada y los datos personales de los trabajadores no se compartan con otras entidades sin su permiso?",
+      "expectedNorms": [
+        "BOE-A-2015-9141",
+        "BOE-A-2003-11270",
+        "BOE-A-2013-12632",
+        "BOE-A-2018-16673"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ffb5321b",
+      "question": "puse una denuncia a un restaurante por la limpieza y quiero saber si van a ir a mirar o si van a cerrar el sitio",
+      "expectedNorms": [
+        "BOE-A-2014-750",
+        "BOE-A-2014-13371",
+        "BOE-A-2003-5702",
+        "BOE-A-2010-20073",
+        "BOE-A-1999-16377",
+        "BOE-A-2001-16538",
+        "BOE-A-2012-876"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-mc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_66d65922",
+      "question": "una vez denunciada una falta de seguridad en la señalización, ¿quién tiene la potestad para iniciar el expediente sancionador y qué departamentos de la agencia se encargan de su instrucción?",
+      "expectedNorms": [
+        "BOE-A-2014-13360",
+        "BOE-A-2008-2595",
+        "BOE-A-2011-15044"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_2cabfbbb",
+      "question": "ayudas formacion superior castilla la mancha mujeres discapacidad visual 40 por ciento informacion accesible",
+      "expectedNorms": [
+        "BOE-A-2011-2708"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cm",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f2659409",
+      "question": "¿Puedo exigir que las empresas de luz, agua y mantenimiento de vías trabajen junto con mis equipos para solucionar este desastre?",
+      "expectedNorms": [
+        "BOE-A-2007-9097",
+        "BOE-A-2012-9665",
+        "BOE-A-2007-10411",
+        "BOE-A-2005-13891",
+        "BOE-A-2011-3637"
+      ],
+      "category": "Asistencia sanitaria",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_7ffc36c3",
+      "question": "si mi padre tenia deuda con la seguridad social y me toca la herencia tengo que pagarla yo con mi propio dinero",
+      "expectedNorms": [
+        "BOE-A-2013-13811"
+      ],
+      "category": "Asistencia social",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_a6a6e70b",
+      "question": "tengo que mandar copias de mis semillas al centro estatal y como tengo que compartir la info de mis plantas para seguir en el programa",
+      "expectedNorms": [
+        "BOE-A-2017-2990",
+        "BOE-A-2006-13555"
+      ],
+      "category": "Comités consultivos",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f7580a9f",
+      "question": "¿Es posible comprar directamente un edificio protegido sin hacer licitación pública?",
+      "expectedNorms": [
+        "BOE-A-2011-17717",
+        "BOE-A-2023-7507",
+        "BOE-A-2021-2849",
+        "BOE-A-2006-14082"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_c6a20c3a",
+      "question": "quien vigila que turespaña no malgaste su presupuesto",
+      "expectedNorms": [
+        "BOE-A-2013-6482"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_f35f3568",
+      "question": "¿Es obligatorio pasar por un procedimiento interno o con un defensor del socio antes de poder demandar a la caja de previsión por la denegación de la pensión?",
+      "expectedNorms": [
+        "BOE-A-2012-3754",
+        "BOE-A-2004-3453"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_684159ea",
+      "question": "¿Es obligatorio presentar un documento que certifique que la publicidad y los folletos cumplen con las normas de la Unión Europea al pedir el cobro de la ayuda?",
+      "expectedNorms": [
+        "BOE-A-2017-913"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_f9c41d27",
+      "question": "que es una vegueria y si es un nuevo ayuntamiento o algo diferente",
+      "expectedNorms": [
+        "BOE-A-2010-14561",
+        "BOE-A-2006-13087"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b64c504c",
+      "question": "por que no se pueden ver las cuentas de mi asociacion si estan haciendo una inspeccion",
+      "expectedNorms": [
+        "BOE-A-2015-472"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_c145f1fd",
+      "question": "¿Cómo debe calcularse la revisión de tarifas de un servicio público para asegurar que solo se incluyan los costes estrictamente necesarios y cómo deben distribuirse los gastos comunes entre diferentes servicios?",
+      "expectedNorms": [
+        "BOE-A-2017-1150",
+        "BOE-A-2023-8580",
+        "BOE-A-2006-20004",
+        "BOE-A-2014-7536",
+        "BOE-A-2002-14080",
+        "BOE-A-2013-498"
+      ],
+      "category": "Arrendamientos urbanos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_7a0f7d1b",
+      "question": "¿Es legal que el ayuntamiento encargue a una empresa particular la gestión y el uso de las zonas destinadas al transporte de mercancías en el polígono?",
+      "expectedNorms": [
+        "BOE-A-2001-12771"
+      ],
+      "category": "Ayuntamientos",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_eda431fd",
+      "question": "¿Si ya he compensado al cliente y corregido el error en mi web, esto puede servir para que se detenga el expediente sancionador o me reduzcan la multa?",
+      "expectedNorms": [
+        "BOE-A-2011-19058",
+        "BOE-A-2002-14081",
+        "BOE-A-1999-12089",
+        "BOA-d-2016-90440"
+      ],
+      "category": "Turismo",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_9a9b3fbf",
+      "question": "¿Qué sucede si tras seis meses de haber solicitado un alojamiento no he recibido ninguna resolución sobre mi solicitud?",
+      "expectedNorms": [
+        "BOE-A-2017-2421"
+      ],
+      "category": "Arrendamientos urbanos",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_bea4bd64",
+      "question": "¿Es necesario autorizar el gasto con antelación para lanzar una convocatoria de proyectos financiados con ayudas comunitarias o basta con aprobarlo antes de conceder cada ayuda?",
+      "expectedNorms": [
+        "BOE-A-2006-1183",
+        "BOE-A-2011-6649"
+      ],
+      "category": "Impuesto sobre Sucesiones y Donaciones",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_0599b4d1",
+      "question": "¿Qué derechos tengo y cómo se lleva a cabo el proceso si me quieren quitar el cargo antes de que termine mi periodo por no cumplir con mis tareas?",
+      "expectedNorms": [
+        "BOE-A-2015-13250",
+        "BOE-A-2018-10581"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_662b36d1",
+      "question": "¿Tengo derecho a que un centro privado concertado cumpla con los estándares oficiales de calidad?",
+      "expectedNorms": [
+        "BOE-A-2011-2752",
+        "BOE-A-2009-13689",
+        "BOE-A-2021-21315",
+        "BOE-A-2009-807",
+        "BOE-A-2019-3489"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_1da07516",
+      "question": "¿Qué trámites debo realizar para conseguir el permiso oficial para recolectar plantas silvestres con fines de lucro y cómo se pacta el reparto de las ganancias con el Estado?",
+      "expectedNorms": [
+        "BOE-A-2017-2743",
+        "BOE-A-2007-21490"
+      ],
+      "category": "Acuerdos internacionales",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_f0865b19",
+      "question": "me he olvidado la tarjeta sanitaria del niño que puedo presentar para que me atiendan",
+      "expectedNorms": [
+        "BOE-A-2011-2493",
+        "BOE-A-2004-2591"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-mc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_a6a41ca1",
+      "question": "¿Es legal que el operador de apuestas prohíba la entrada a personas con discapacidad, o la prohibición se limita exclusivamente a los menores?",
+      "expectedNorms": [
+        "BOE-A-2010-13203",
+        "BOE-A-2007-2117",
+        "BOE-A-2014-9265"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-cn",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ea4bb318",
+      "question": "mi grupo de voluntarios solo actua en una ciudad pequena y no tiene fines lucrativos tenemos que inscribirnos en el registro nacional o basta con el autonomico",
+      "expectedNorms": [
+        "BOE-A-2015-11429"
+      ],
+      "category": "Registros administrativos",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_3179151e",
+      "question": "que requisitos tienen los contratos para que la agencia de migraciones rinda cuentas de su presupuesto y metas",
+      "expectedNorms": [
+        "BOE-A-2010-9107"
+      ],
+      "category": "Asistencia social",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_44947a41",
+      "question": "¿Qué pasa si pongo en las normas de mi fundación algo que no sea legal o que vaya en contra de lo que dice la normativa?",
+      "expectedNorms": [
+        "BOE-A-2005-11281",
+        "BOE-A-2002-25180",
+        "BOE-A-2016-6088",
+        "BOE-A-2007-885",
+        "BOE-A-2021-12827",
+        "BOE-A-1998-10523",
+        "BOE-A-1999-1367"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_911bebb0",
+      "question": "donde puedo ir para que me ayuden a presentar el documento de inicio de actividad si no quiero hacerlo por internet",
+      "expectedNorms": [
+        "BOE-A-2010-6044",
+        "BOE-A-2013-10074",
+        "BOE-A-2015-11122",
+        "BOE-A-2015-2671"
+      ],
+      "category": "Administración electrónica",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_928bf8df",
+      "question": "¿Qué normas de higiene deben cumplir el aire y el agua en las zonas de piscinas para que no dañen la salud de la gente?",
+      "expectedNorms": [
+        "BOE-A-2013-10580"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_059d4a28",
+      "question": "como unirme con otros agricultores para compartir maquinas y vender juntos",
+      "expectedNorms": [
+        "BOE-A-2021-10669",
+        "BOE-A-2012-11414"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_136f45d6",
+      "question": "mi hijo es director de la asociación de regantes y tiene que firmar certificados y levantar actas de las reuniones o no es obligatorio",
+      "expectedNorms": [
+        "BOE-A-2011-17408"
+      ],
+      "category": "Agricultura",
+      "voice": "citizen",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_a13c2c6f",
+      "question": "¿Cómo está compuesto el consejo comarcal de Bajo Aragón y cuántos miembros lo integran?",
+      "expectedNorms": [
+        "BOE-A-2003-8226"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_feebd58a",
+      "question": "mi hijo no puede caminar bien por la parálisis cerebral puede tener permiso para aparcar cerca de la guardería",
+      "expectedNorms": [
+        "BOE-A-2014-13362",
+        "BOE-A-2015-1626",
+        "BOE-A-2022-22470",
+        "BOE-A-2018-8951",
+        "BOE-A-2017-10541",
+        "BOE-A-1995-15188",
+        "BOE-A-1993-21947"
+      ],
+      "category": "Aparcamiento",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_00f1e71c",
+      "question": "¿Qué organismo autonómico tiene la obligación de restablecer el paso de los animales cuando se ha construido algo ilegalmente sobre una vía pecuaria?",
+      "expectedNorms": [
+        "BOE-A-2014-8279",
+        "BOE-A-2005-20235",
+        "BOE-A-1995-7241",
+        "BOE-A-1998-20648",
+        "BOE-A-2015-4102"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_29688e70",
+      "question": "¿Qué órgano tiene la competencia legal para imponer multas a mi asociación de utilidad pública por irregularidades en la gestión de subvenciones y qué procedimiento administrativo se aplica en estos?",
+      "expectedNorms": [
+        "BOE-A-2015-472"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_fed11fe3",
+      "question": "que papeles tengo que dar a la comunidad para que me dejen poner el cable de internet por fuera del edificio",
+      "expectedNorms": [
+        "BOE-A-2011-5834",
+        "BOE-A-1998-4769"
+      ],
+      "category": "Reglamentaciones técnicas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_c97a4a2c",
+      "question": "quien vigila que la comida que compro en el super este en buen estado",
+      "expectedNorms": [
+        "BOE-A-2006-5810",
+        "BOE-A-2015-5328"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-cb",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_886c75ac",
+      "question": "¿Qué requisitos deben cumplir las explotaciones ganaderas para ser beneficiarias de la ayuda de la agrupación?",
+      "expectedNorms": [
+        "BOE-A-2015-2049",
+        "BOE-A-2008-16386"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_a1f03135",
+      "question": "¿Qué consecuencias adicionales pueden imponer además de la multa por las infracciones graves en la gestión de la residencia?",
+      "expectedNorms": [
+        "BOE-A-2015-5017"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ex",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_07efd288",
+      "question": "¿Qué procedimiento debo seguir para informar a la autoridad sanitaria si detectamos nuevos datos que obliguen a modificar la información de seguridad de un producto?",
+      "expectedNorms": [
+        "BOE-A-2013-8191",
+        "BOE-A-2007-19249",
+        "BOE-A-2006-13554"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_3ae36be6",
+      "question": "se me va a caducar el permiso temporal del avion si no me llega por culpa de la aduana",
+      "expectedNorms": [
+        "BOE-A-2015-6704"
+      ],
+      "category": "Aeronaves",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_681ea9b9",
+      "question": "¿Pueden suspenderme la licencia federativa durante el expediente sancionador?",
+      "expectedNorms": [
+        "BOE-A-2015-6879",
+        "BOE-A-2021-21650",
+        "BOE-A-2013-6732"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_01b6eaf3",
+      "question": "¿Quién asume la responsabilidad legal ante una inspección de seguridad en un festival: la persona que organiza y cobra las entradas o la empresa externa que gestiona la logística técnica?",
+      "expectedNorms": [
+        "BOE-A-2010-20014",
+        "BOE-A-2014-655"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_db68d3fc",
+      "question": "¿Quién tiene la obligación de avisar al ayuntamiento cuando cambian los datos del padrón, si el inquilino o el propietario?",
+      "expectedNorms": [
+        "BOE-A-2016-4171",
+        "BOE-A-2007-1893"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_60749287",
+      "question": "¿Tiene el Colegio la obligación de prestar defensa al colegiado cuando sus intereses profesionales se ven afectados?",
+      "expectedNorms": [
+        "BOE-A-2018-556",
+        "BOE-A-2015-5853",
+        "BOE-A-2002-6390",
+        "BOE-A-2007-17283",
+        "BOE-A-2024-13319",
+        "BOE-A-1981-49",
+        "BOE-A-2020-10194"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d9519173",
+      "question": "¿Puede considerarse responsable de una infracción sanitaria el titular del centro cuando la actuación que la genera ha sido realizada por un profesional autónomo que operaba de forma independiente?",
+      "expectedNorms": [
+        "BOE-A-2001-9342",
+        "BOE-A-2024-4784"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_0db8bcce",
+      "question": "tengo que subir el sueldo a la chica de la limpieza cada año y cuanto si no tenemos convenio",
+      "expectedNorms": [
+        "BOE-A-2011-17975"
+      ],
+      "category": "Contratos de trabajo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_c239627c",
+      "question": "si me conceden la ayuda para modernizar las instalaciones pero no hay fondos disponibles en el presupuesto en ese momento, ¿puedo reclamar que me la paguen o pierdo el derecho?",
+      "expectedNorms": [
+        "BOE-A-2015-12051",
+        "BOE-A-2020-7311",
+        "BOE-A-2024-24840",
+        "BOE-A-2019-7429"
+      ],
+      "category": "Subvenciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_bddc0247",
+      "question": "¿Cómo deben coordinarse las distintas administraciones para recuperar objetos culturales sacados ilegalmente del país y compartir datos técnicos?",
+      "expectedNorms": [
+        "BOE-A-2016-5942",
+        "BOE-A-1986-3056"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d1cf5585",
+      "question": "normas para tratar a niños con características sexuales atípicas sin exponerlos innecesariamente",
+      "expectedNorms": [
+        "BOE-A-2019-281"
+      ],
+      "category": "Asistencia social",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_89d292e6",
+      "question": "qué pueblos forman parte de la comarca de calatayud",
+      "expectedNorms": [
+        "BOE-A-2001-13272"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_07e1a86c",
+      "question": "los inspectores me pueden pedir los papeles del club y entrar a mirar las instalaciones",
+      "expectedNorms": [
+        "BOE-A-2015-4749",
+        "BOE-A-2001-15675",
+        "BOE-A-2011-6874"
+      ],
+      "category": "Registros administrativos",
+      "voice": "citizen",
+      "jurisdiction": "es-mc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_89bb5437",
+      "question": "¿Es el Pleno la instancia encargada de validar las cuentas anuales y comprobar que se están cumpliendo los objetivos de la institución?",
+      "expectedNorms": [
+        "BOE-A-2013-7537",
+        "BOE-A-2020-16258"
+      ],
+      "category": "Academias",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_3a8b6a76",
+      "question": "¿Qué detalles técnicos y datos sobre la seguridad de los componentes debemos entregar a las autoridades sanitarias cuando lancemos nuevas variedades de productos?",
+      "expectedNorms": [
+        "BOE-A-2017-6585"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ba290f6a",
+      "question": "¿Cómo pueden un grupo de socios representar al veinticinco por ciento del censo para exigir a la administración que modifique el reglamento interno de la cámara?",
+      "expectedNorms": [
+        "BOE-A-2015-8049"
+      ],
+      "category": "Empresas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_077601fe",
+      "question": "¿Es obligatorio que la renovación de los miembros del consejo de administración se haga por mitades y respetando la proporción de los grupos accionistas?",
+      "expectedNorms": [
+        "BOE-A-2000-15424",
+        "BOE-A-2011-9622",
+        "BOE-A-1995-4581",
+        "BOE-A-2012-9009",
+        "BOE-A-1987-13785",
+        "DOGV-r-1997-90026"
+      ],
+      "category": "Cajas de Ahorro",
+      "voice": "formal",
+      "jurisdiction": "es-as",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4fbf4063",
+      "question": "necesito permiso oficial para dar cursos en mi taller y que valgan los examenes",
+      "expectedNorms": [
+        "BOE-A-2017-1679",
+        "BOE-A-2013-11797"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_c69bd81d",
+      "question": "¿Es posible establecer una oficina de abogados del Estado fija dentro de la agencia sanitaria mediante convenio para gestionar mejor la litigación, o el asesoramiento debe limitarse a la centralizada?",
+      "expectedNorms": [
+        "BOE-A-2011-15044"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_cbc2f209",
+      "question": "¿Qué ocurre si una empresa grande presenta una oferta con condiciones demasiado bajas que podrían poner en riesgo la estabilidad del servicio?",
+      "expectedNorms": [
+        "BOE-A-2017-3823",
+        "BOE-A-2018-6001"
+      ],
+      "category": "Administración electrónica",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_46fdccda",
+      "question": "mi certificado de registro de mi avioneta caduca si sigo siendo el dueño",
+      "expectedNorms": [
+        "BOE-A-2015-6704",
+        "BOE-A-2025-22950"
+      ],
+      "category": "Aeronaves",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_46bbdbed",
+      "question": "¿Dónde puedo conseguir los datos históricos de los niveles de los embalses y el agua utilizada cada mes para poder usarlos en mi investigación?",
+      "expectedNorms": [
+        "BOE-A-2014-9336",
+        "BOE-A-2023-3511"
+      ],
+      "category": "Acueducto Tajo Segura",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_5923db7b",
+      "question": "como funciona el grupo que estudia los choques en el mar y por que no buscan culpables",
+      "expectedNorms": [
+        "BOE-A-2011-10133"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_9f3fba3a",
+      "question": "¿Puedo sumar una ayuda europea y otra autonómica para comprar vehículos híbridos o el total recibido no puede superar el coste de los coches?",
+      "expectedNorms": [
+        "BOE-A-2011-8125",
+        "BOE-A-2017-7165"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_b2bd4de9",
+      "question": "¿Quién establece las normas técnicas obligatorias para los equipos y sistemas de energía renovable?",
+      "expectedNorms": [
+        "BOE-A-2007-9264",
+        "BOE-A-2007-15820"
+      ],
+      "category": "Políticas de medio ambiente",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_57ac862a",
+      "question": "como se organizan los planes para intervenir un banco grande y sus filiales sin que se cargue la deuda a todo el grupo",
+      "expectedNorms": [
+        "BOE-A-2015-12056",
+        "BOE-A-2015-6789"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_6f506d33",
+      "question": "¿Existen registros o reconocimientos oficiales de la administración gallega para grupos digitales o redes privadas que promuevan la cultura y los lazos con Galicia?",
+      "expectedNorms": [
+        "BOE-A-2013-7912"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_80a1ee85",
+      "question": "¿Si no resuelven la ayuda a la reestructuración minera en seis meses, se entiende denegada?",
+      "expectedNorms": [
+        "BOE-A-2014-8495"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_c699241a",
+      "question": "¿Puede una asociación privada que organiza eventos de este tipo ser considerada como organizadora de ferias oficiales para obtener ayudas?",
+      "expectedNorms": [
+        "BOE-A-2007-11531",
+        "BOJA-b-2012-90005",
+        "BOE-A-1998-3168"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f1eefca3",
+      "question": "si no salimos elegidos en las elecciones nos ponen un vocal que nos represente",
+      "expectedNorms": [
+        "BOE-A-2017-2063",
+        "BOE-A-2003-19457"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_16a344c7",
+      "question": "¿Qué garantías existen para asegurar que el agente que me ha inspeccionado no esté actuando con parcialidad o reciba beneficios económicos por el número de multas que ponga?",
+      "expectedNorms": [
+        "BOE-A-2017-6512"
+      ],
+      "category": "Fuerzas y Cuerpos de Seguridad del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ca5cc186",
+      "question": "¿Qué consecuencias legales puedo tener si no arreglo los problemas de seguridad de mi local o si sigo funcionando sin tener los permisos al día?",
+      "expectedNorms": [
+        "BOE-A-2011-7840",
+        "BOE-A-1998-9648"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_04c41895",
+      "question": "¿se mide la satisfacción de los vecinos con los servicios de vivienda y si se cumplen las promesas de calidad que ponen en las cartas de servicio?",
+      "expectedNorms": [
+        "BOE-A-2014-3719",
+        "BOE-A-2015-5676",
+        "BOE-A-2006-1775"
+      ],
+      "category": "Administración electrónica",
+      "voice": "citizen",
+      "jurisdiction": "es-mc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_0819417f",
+      "question": "¿Puedo ser considerado responsable conjunto por los requisitos técnicos de la aeronave y de mi cualificación durante un espectáculo aéreo?",
+      "expectedNorms": [
+        "BOE-A-2010-835"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_3d5b185b",
+      "question": "¿Qué requisitos legales debemos cumplir para asegurar que los enfermos terminales tengan su propio cuarto y puedan estar con sus seres queridos todo el tiempo?",
+      "expectedNorms": [
+        "BOE-A-2015-2295",
+        "BOE-A-2010-19960",
+        "BOE-A-2003-8796",
+        "BOE-A-2015-4332",
+        "BOE-A-2010-8326",
+        "BOE-A-2017-7178",
+        "BOE-A-2011-8403",
+        "BOE-A-2015-10200",
+        "BOE-A-2011-2493"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-cn",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b80d169b",
+      "question": "¿Qué medidas de separación y de control de documentos debo aplicar en mi planta para poder etiquetar mis embutidos como productos de raza ibérica?",
+      "expectedNorms": [
+        "BOE-A-2014-6435",
+        "BOE-A-2014-318"
+      ],
+      "category": "Carnes",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_2e97c125",
+      "question": "quien dirige el soc catalunya",
+      "expectedNorms": [
+        "BOE-A-2015-9141"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b1d62a6f",
+      "question": "¿Es legal colocar publicidad en el vehículo, como un adhesivo en la ventanilla, para promocionar servicios profesionales?",
+      "expectedNorms": [
+        "BOE-A-2017-15370",
+        "BOE-A-2013-7477",
+        "BOE-A-2018-7155",
+        "BOE-A-2014-13371",
+        "BOE-A-2005-13892"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b06fb959",
+      "question": "puedo seguir cazando en mi finca si ahora es zona protegida",
+      "expectedNorms": [
+        "BOE-A-2011-6648",
+        "BOE-A-2006-8942"
+      ],
+      "category": "Tasas",
+      "voice": "citizen",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_fa598b91",
+      "question": "¿Cómo se gestiona la unificación de las directrices y los procedimientos de control entre las distintas delegaciones para asegurar que las revisiones de los laboratorios sean uniformes?",
+      "expectedNorms": [
+        "BOE-A-2011-15044"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_3b640f31",
+      "question": "¿Qué obligaciones tienen las administraciones para que la enseñanza de la cultura y lengua de la zona del arán aparezca en los cursos para mayores en cataluña?",
+      "expectedNorms": [
+        "BOE-A-2010-17710",
+        "BOE-A-2015-2294"
+      ],
+      "category": "Lenguas españolas",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_bf3f2aef",
+      "question": "¿Qué normativa de derecho sancionador se aplica a las infracciones derivadas de la gestión de residuos?",
+      "expectedNorms": [
+        "BOE-A-2010-17038",
+        "BOE-A-2018-8953",
+        "BOE-A-2015-11268",
+        "BOE-A-2008-9608"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_75315c22",
+      "question": "¿Qué aspectos debe comprobar la intervención al revisar la justificación de los gastos subvencionados?",
+      "expectedNorms": [
+        "BOE-A-2006-15113",
+        "BOE-A-2006-9895",
+        "BOE-A-2023-14052",
+        "BOE-A-2011-6649",
+        "BOE-A-2013-11692"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es-cb",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_26991a4e",
+      "question": "si me prohíben construir en mi parcela por la línea de edificación de la autopista pero no me quitan la casa ni me pagan compensación puedo reclamar algo",
+      "expectedNorms": [
+        "BOE-A-2007-8581",
+        "BOE-A-2013-8086"
+      ],
+      "category": "Autopistas",
+      "voice": "citizen",
+      "jurisdiction": "es-nc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_02595c0e",
+      "question": "si me han cancelado una sanción militar antigua sale en el certificado de antecedentes",
+      "expectedNorms": [
+        "BOE-A-2017-3022",
+        "BOE-A-2017-9077"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_09a7fd08",
+      "question": "como soluciono los fallos de ventilacion que han puesto los inspectores para que no me inmovilicen el barco",
+      "expectedNorms": [
+        "BOE-A-2010-20055",
+        "BOE-A-2002-12505"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_7b1cf44b",
+      "question": "si la empresa constructora se niega a cumplir el contrato de mantenimiento y presenta oposición, mi departamento puede resolver el contrato unilateralmente o antes tengo que pedir informe al consejo",
+      "expectedNorms": [
+        "BOE-A-2001-11815",
+        "BOE-A-2009-7196"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-ri",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_636c5439",
+      "question": "puedo pagar la seguridad social y presentar los modelos por internet sin ir presencialmente",
+      "expectedNorms": [
+        "BOE-A-2018-9030",
+        "BOE-A-2013-12385",
+        "BOE-A-2019-13518"
+      ],
+      "category": "Administración electrónica",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_a77bfa94",
+      "question": "si soy trabajador temporal en el consejo de cuentas tengo los mismos derechos que los funcionarios de la junta",
+      "expectedNorms": [
+        "BOE-A-2002-9332"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cl",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_5c88f2f0",
+      "question": "¿cuándo puede una administracion imponer condiciones especificas o licencias individuales para el acceso a sus datos en lugar de ofrecerlos abiertamente o con estandar digital?",
+      "expectedNorms": [
+        "BOE-A-2011-17560"
+      ],
+      "category": "Administración electrónica",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_dd1a8de7",
+      "question": "¿Es posible que alguien que trabaje actualmente para las instituciones que van a ser juzgadas sea nombrado miembro de la comisión arbitral?",
+      "expectedNorms": [
+        "BOE-A-2012-1684"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_70323818",
+      "question": "¿Puedo seguir siendo parte del grupo de asesoramiento si mi propia empresa solicita una subvención que ese mismo grupo tiene que evaluar?",
+      "expectedNorms": [
+        "BOE-A-2015-13207"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_3e1e910f",
+      "question": "¿Pueden denegar la plaza en una guardería que recibe ayudas públicas alegando que sus instalaciones no son aptas para la silla de mi hijo?",
+      "expectedNorms": [
+        "BOE-A-2015-1626",
+        "BOE-A-2023-7417"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_77556805",
+      "question": "si vendo el local pero la multa es por una falta que habia antes de la venta me corresponde a mi pagarla o al nuevo dueño",
+      "expectedNorms": [
+        "BOE-A-2010-5882",
+        "BOE-A-2023-7936"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_8bd2eefb",
+      "question": "¿Es legalmente válido convocar una consulta ciudadana para decidir sobre el aumento de los impuestos municipales?",
+      "expectedNorms": [
+        "BOE-A-2010-6105",
+        "BOE-A-2019-5734"
+      ],
+      "category": "Iniciativa legislativa",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_1064a3c8",
+      "question": "¿Se incluye en el régimen de registro general la fabricación amateur de aeronaves o tienen un estatus jurídico diferente?",
+      "expectedNorms": [
+        "BOE-A-2015-6704"
+      ],
+      "category": "Aeronaves",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4d33684d",
+      "question": "¿Tengo derecho a recibir una compensación económica por las secuelas que me impiden realizar ciertas tareas tras haber sufrido el accidente durante el servicio?",
+      "expectedNorms": [
+        "BOE-A-2019-2147",
+        "BOE-A-2004-18911",
+        "BOE-A-2011-13384"
+      ],
+      "category": "Clases Pasivas Militares",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_3238c910",
+      "question": "puedo asistir a las reuniones de la academia como periodista o solo tienen acceso los socios",
+      "expectedNorms": [
+        "BOE-A-2015-7853",
+        "BOE-A-1976-6397",
+        "BOE-A-1977-13080",
+        "BOE-A-2015-6104",
+        "BOE-A-2014-2599",
+        "BOE-A-1979-30655"
+      ],
+      "category": "Real Academia de Ciencias Morales y Políticas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_5aaa7c06",
+      "question": "¿Qué derechos de reparación tienen los clientes al sufrir daños por una comercialización defectuosa de servicios?",
+      "expectedNorms": [
+        "BOE-A-2012-5595",
+        "BOE-A-2007-3601",
+        "BOE-A-2003-912",
+        "BOE-A-2014-8820",
+        "BOE-A-2010-13115",
+        "BOE-A-2013-4464",
+        "BOE-A-2004-884"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_d3b9259e",
+      "question": "¿Existe un canal anónimo para denunciar incidencias medioambientales en la extracción offshore sin que me identifiquen?",
+      "expectedNorms": [
+        "BOE-A-2018-14804",
+        "BOE-A-2017-13276"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ba271cc4",
+      "question": "¿Puede el consejo de la comarca hacerse cargo de las tareas de limpieza que ahora hace el ayuntamiento para que el servicio funcione mejor?",
+      "expectedNorms": [
+        "BOE-A-2003-1812"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_9000a3cc",
+      "question": "hay un numero de emergencia diferente al 112 en valencia",
+      "expectedNorms": [
+        "BOE-A-2010-19046"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b8cc012a",
+      "question": "tengo que pasar a español el papel de seguridad de los cargadores que traigo de china o me pueden multar",
+      "expectedNorms": [
+        "BOE-A-2016-3539",
+        "BOE-A-2016-4443"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_c99b8923",
+      "question": "¿Qué sanciones se aplican a un funcionario que manipule sobres o papeletas electorales mediante un soborno?",
+      "expectedNorms": [
+        "BOE-A-2015-468"
+      ],
+      "category": "Agricultura",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f9919599",
+      "question": "¿Qué sucede en el Pleno si se produce un empate en una votación y cuál es la función del Presidente en ese caso?",
+      "expectedNorms": [
+        "BOE-A-2014-7290"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f61d0209",
+      "question": "puede el instituto cobrar por dar cursos o asesoramientos a museos",
+      "expectedNorms": [
+        "BOE-A-2013-1927"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-mc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_59cdd011",
+      "question": "¿Cuánto tiempo debe conservar un importador la documentación de conformidad de los productos y bajo qué condiciones debe facilitar información adicional a las autoridades públicas?",
+      "expectedNorms": [
+        "BOE-A-2016-2578"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_62ad4b76",
+      "question": "¿Quién designa y cómo se elige al responsable independiente de transparencia en el gobierno canario?",
+      "expectedNorms": [
+        "BOE-A-2015-1114"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cn",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_d9c4e736",
+      "question": "¿Qué facultades legales nos permiten gestionar nuestros propios fondos y contratar personal de forma independiente a la administración central de la comunidad?",
+      "expectedNorms": [
+        "BOE-A-2010-13242",
+        "BOE-A-2015-10566"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_0c71c40c",
+      "question": "que datos tiene que poner el naviero en la factura del flete marítimo para pedir la ayuda",
+      "expectedNorms": [
+        "BOE-A-2019-4717",
+        "BOE-A-2020-6473"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_747d8bbc",
+      "question": "como puedo pagar para que mi marido tenga medico si no tiene papeles",
+      "expectedNorms": [
+        "BOE-A-2013-8190"
+      ],
+      "category": "Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_35dcfcd2",
+      "question": "¿La nueva cooperativa deja de existir oficialmente hasta que se inscriba la fusión en el registro?",
+      "expectedNorms": [
+        "BOE-A-2011-2707",
+        "BOE-A-2020-615",
+        "BOE-A-2023-13672"
+      ],
+      "category": "Cooperativas",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_2e34e979",
+      "question": "¿Puedo realizar tareas de voluntariado en mi propia fundación si ya tengo un contrato de trabajo con ellos?",
+      "expectedNorms": [
+        "BOE-A-2015-9726",
+        "BOE-A-2015-11072",
+        "BOE-A-1998-12162"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_f64a1bf7",
+      "question": "tengo un quiosco y hago recargas electronicas, tengo que poner cartel que no soy un banco?",
+      "expectedNorms": [
+        "BOE-A-2012-5993",
+        "BOE-A-2011-12909",
+        "BOE-A-2018-16036"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_fc3a4e69",
+      "question": "como no soy de alemania me pueden ayudar en la embajada de españa para hablar con las autoridades de aqui y avisar a mi familia",
+      "expectedNorms": [
+        "BOE-A-2019-14482",
+        "BOE-A-2008-13033",
+        "BOE-A-2022-3525"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_109e56ca",
+      "question": "puede un conductor de coche con chófer recogerme en la calle sin haber reservado antes",
+      "expectedNorms": [
+        "BOE-A-2013-7477",
+        "BOE-A-2007-11752",
+        "BOE-A-2022-13533",
+        "BOE-A-2014-7536"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4dce29f9",
+      "question": "¿De qué manera se establece la colaboración y el apoyo solidario entre los centros de la red de transfusión para garantizar el suministro?",
+      "expectedNorms": [
+        "BOE-A-2005-15514",
+        "BOE-A-2005-9403"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_02fb8dbe",
+      "question": "como pueden los ayuntamientos quejarse o dar ideas sobre el presupuesto de la comarca cuando se publica para que la gente lo vea",
+      "expectedNorms": [
+        "BOE-A-2001-21720"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_1d8eab12",
+      "question": "puede el organismo de comercio exterior prestar dinero a una cooperativa para comprar maquinaria en lugar de banco",
+      "expectedNorms": [
+        "BOE-A-2011-18538"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_e2e4a42d",
+      "question": "¿El nuevo plan estatal garantiza ayudas económicas y soporte profesional para las organizaciones sin que esto nos obligue a perder nuestra autonomía frente al gobierno?",
+      "expectedNorms": [
+        "BOE-A-2015-9726"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8a4f0141",
+      "question": "¿De cuánto tiempo disponemos para pagar las cuotas de la seguridad social tras recibir la notificación de lo que nos corresponde por el año pasado?",
+      "expectedNorms": [
+        "BOE-A-2012-13420"
+      ],
+      "category": "Empresas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_0ac8efbf",
+      "question": "¿Qué obligaciones tengo como empresa para ayudar a las autoridades si detectan que mis productos pueden ser peligrosos para los clientes?",
+      "expectedNorms": [
+        "BOE-A-2004-884",
+        "BOE-A-2023-26638",
+        "BOE-A-2010-17980"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_822abf04",
+      "question": "me da preferencia en las ayudas del alquiler por ser mujer aunque no tenga hijos",
+      "expectedNorms": [
+        "BOE-A-2014-884"
+      ],
+      "category": "Asistencia social",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_8bd974d7",
+      "question": "como saber si me dan mas dinero por vivir lejos de mis padres para estudiar",
+      "expectedNorms": [
+        "BOE-A-2018-10941",
+        "BOE-A-2024-3787",
+        "BOE-A-2019-10359",
+        "BOE-A-2022-2852",
+        "BOE-A-2023-4652",
+        "BOE-A-2025-4320",
+        "BOE-A-2017-8618",
+        "BOE-A-2021-10823"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_693e27ab",
+      "question": "¿Qué medidas debemos tomar si al cerrar el año nos queda menos dinero del que habíamos previsto para cubrir el presupuesto del próximo ejercicio?",
+      "expectedNorms": [
+        "BOE-A-2012-871",
+        "BOE-A-1999-23410",
+        "BOE-A-2015-6017",
+        "BORM-s-2000-90008"
+      ],
+      "category": "Financiación de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_a442c865",
+      "question": "¿Qué bienes y derechos deben integrarse en el patrimonio de la entidad para cumplir con la normativa de inventario?",
+      "expectedNorms": [
+        "BOE-A-2002-17588"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ee94349b",
+      "question": "¿cuánto tiempo tengo para presentar un recurso ante la junta rectora contra una sanción colegial y en qué plazo se resuelve?",
+      "expectedNorms": [
+        "BOE-A-2013-2608"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_1c47fbe0",
+      "question": "puedo montar una cooperativa con mis vecinos en un pueblo pequeño para comprar cosas mas baratas y compartir tractores",
+      "expectedNorms": [
+        "BOE-A-2018-986",
+        "BOE-A-2022-19625",
+        "BOE-A-1999-15681",
+        "BOE-A-2023-13762",
+        "BOE-A-2020-615"
+      ],
+      "category": "Cooperativas",
+      "voice": "citizen",
+      "jurisdiction": "es-cm",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_9455203c",
+      "question": "donde puedo ver la lista de empresas autorizadas por la seguridad social para gestionar pagos",
+      "expectedNorms": [
+        "BOE-A-2018-9030",
+        "BOE-A-1996-4581",
+        "BOE-A-2004-11836",
+        "BOE-A-2005-8986"
+      ],
+      "category": "Administración electrónica",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_f28ee70f",
+      "question": "si mi hermano tiene una enfermedad grave en el corazón y necesita salir del penal para ir al hospital quien tiene que dar el permiso el director o el juez",
+      "expectedNorms": [
+        "BOE-A-2017-1677",
+        "BOE-A-1981-14095"
+      ],
+      "category": "Cuerpo de la Guardia Civil",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_4ea7536e",
+      "question": "¿Cómo debe desglosarse la estructura de costes para evitar que la inversión en nuevos vehículos se confunda con los gastos de explotación del servicio?",
+      "expectedNorms": [
+        "BOE-A-2015-9722",
+        "BOE-A-2008-19916"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_94daac79",
+      "question": "¿Quién tiene la autoridad para llevar adelante el proceso sancionador contra mi barco si la falta ocurrió en alta mar pero mi puerto de origen es en Galicia?",
+      "expectedNorms": [
+        "BOE-A-2015-2715"
+      ],
+      "category": "Buques",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_f9bb48bf",
+      "question": "¿Puedo hacer reformas menores en mi cafetería avisando al ayuntamiento en lugar de pedir una licencia?",
+      "expectedNorms": [
+        "BOE-A-2014-13369",
+        "BOE-A-2022-13844",
+        "BOE-A-2011-2547",
+        "BOE-A-2019-1790",
+        "BOE-A-2010-20014"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-mc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_0de59f0f",
+      "question": "¿los planes de ayuda al dependencia en canarias tienen que pasar por un estudio sobre cómo afectan a mujeres y hombres?",
+      "expectedNorms": [
+        "BOE-A-2010-4518",
+        "BOE-A-2021-11382",
+        "BOE-A-2019-5578"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cn",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_b14e8e9a",
+      "question": "¿Cómo podemos justificar que nuestra estrategia local se ajuste a las metas nacionales para asegurar que el dinero público se use de forma coordinada con otras instituciones?",
+      "expectedNorms": [
+        "BOE-A-2000-843",
+        "BOE-A-2023-4512"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_23ca5f62",
+      "question": "¿Cómo puedo solicitar que se me permita usar otros métodos de seguridad para mi helipuerto si el terreno no cumple con las medidas estándar?",
+      "expectedNorms": [
+        "BOE-A-2015-12893"
+      ],
+      "category": "Reglamentaciones técnicas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_57dd2276",
+      "question": "¿Existe algún tope para el dinero que podemos gastar en anuncios de radio y periódicos privados, y qué medios están prohibidos para la campaña?",
+      "expectedNorms": [
+        "BOE-A-2015-468",
+        "BOE-A-1985-11672"
+      ],
+      "category": "Agricultura",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ffcd1e28",
+      "question": "¿Qué consecuencias legales tengo si hay un descuadre importante entre lo que dice la factura de mis vinos y lo que realmente llega en el cargamento?",
+      "expectedNorms": [
+        "BOE-A-2008-2490",
+        "BOE-A-2011-18154"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_172ebbd9",
+      "question": "quien es el jefe de la agencia tributaria",
+      "expectedNorms": [
+        "BOE-A-2014-13360"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4d2e2e05",
+      "question": "¿Podemos contratar a una empresa externa para las revisiones médicas en obras alejadas sin que la compañía pierda su obligación de supervisar la salud de todos los trabajadores?",
+      "expectedNorms": [
+        "BOE-A-2011-11428",
+        "BOE-A-1997-1853",
+        "BOE-A-1995-24292"
+      ],
+      "category": "Seguridad e higiene en el trabajo",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_a5020c2f",
+      "question": "¿Qué requisitos y documentos necesita la empresa para solicitar el certificado de exceptuación para aplicar la tarifa reducida de canon por derechos de autor al comprar equipos informáticos?",
+      "expectedNorms": [
+        "BOE-A-2018-16903"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ef7e68f7",
+      "question": "¿Se puede solicitar que ciertas informaciones técnicas del estudio de impacto sean tratadas como confidenciales para proteger secretos industriales, o se publicarán íntegramente?",
+      "expectedNorms": [
+        "BOE-A-2002-14841",
+        "BOE-A-2015-1116",
+        "BOE-A-2007-975"
+      ],
+      "category": "Evaluación de impacto ambiental",
+      "voice": "formal",
+      "jurisdiction": "es-md",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_72e48eeb",
+      "question": "mi profe de taller solo ha trabajado en empresas pero nunca ha dado clase puede dar las clases de fp legalmente",
+      "expectedNorms": [
+        "BOE-A-2011-6236"
+      ],
+      "category": "Currículo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_0d01894f",
+      "question": "¿Qué obligaciones legales tiene la administración competente cuando los niveles de dióxido de nitrógeno superan los límites máximos permitidos en una zona urbana?",
+      "expectedNorms": [
+        "BOE-A-2011-1645"
+      ],
+      "category": "Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_1bb88f91",
+      "question": "¿puede la administración regional firmar un acuerdo con mi fondo de inversión para mejorar la colocación de su deuda y definir la compensación económica por los servicios de intermediación?",
+      "expectedNorms": [
+        "BOE-A-2006-20767",
+        "BOE-A-2003-21614",
+        "BOE-A-2007-9829",
+        "BOE-A-2013-11692"
+      ],
+      "category": "Contabilidad",
+      "voice": "formal",
+      "jurisdiction": "es-cb",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_4999d95d",
+      "question": "¿Qué sanciones o devoluciones de dinero tendría que afrontar un socio si no completa las mejoras en su terreno tras el inicio del riego?",
+      "expectedNorms": [
+        "BOE-A-2015-4102",
+        "BOE-A-2004-12396"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es-ex",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_7233191d",
+      "question": "¿Cómo se solicita una reunión extraordinaria del Consejo de Personal?",
+      "expectedNorms": [
+        "BOE-A-2012-7755",
+        "BOE-A-2022-15760",
+        "BOE-A-2007-18391"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_6186cd22",
+      "question": "como saber si el informe de mi supervisor es positivo para poder registrarme",
+      "expectedNorms": [
+        "BOE-A-2010-6960"
+      ],
+      "category": "Extranjeros",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_6fcde6cc",
+      "question": "las normas de ayuda a empresas en galicia valen para un poligono logistico o hay excepciones",
+      "expectedNorms": [
+        "BOE-A-2021-5210",
+        "BOE-A-2021-462",
+        "BOE-A-2022-18601"
+      ],
+      "category": "Asistencia social",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_77c93567",
+      "question": "¿Puede sancionarse al director de un museo por consentimiento tácito al no corregir protocolos de seguridad deficientes?",
+      "expectedNorms": [
+        "BOE-A-2011-17405",
+        "BOE-A-2007-18779",
+        "BOE-A-2003-8439"
+      ],
+      "category": "Museos",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_59514405",
+      "question": "¿Qué parte de la entidad de mi jubilación tiene la autoridad para supervisar a los que manejan el dinero y castigar si hay irregularidades?",
+      "expectedNorms": [
+        "BOE-A-2019-3484",
+        "BOE-A-1997-9874"
+      ],
+      "category": "Funcionarios de la Administración de Justicia",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_fa6071f2",
+      "question": "¿es posible firmar un único contrato de acceso con la distribuidora para cubrir tanto el consumo de la comunidad como la energía auxiliar necesaria para el funcionamiento de las placas solares comunes",
+      "expectedNorms": [
+        "BOE-A-2015-10927",
+        "BOE-A-2019-5089"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_d80ce9f5",
+      "question": "me han citado para un examen medico de la seguridad social con muy poco aviso y me da miedo que me quiten la ayuda",
+      "expectedNorms": [
+        "BOE-A-2014-7684",
+        "BOE-A-2015-6839",
+        "BOE-A-2015-11724"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_317a4f5d",
+      "question": "cuanto tiempo pueden estar seguidos en el puesto los que mandan en el consejo consultivo",
+      "expectedNorms": [
+        "BOE-A-2009-7196"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_24bc4cfa",
+      "question": "tengo que pedir yo el papel ese de los incendios para ampliar mi tienda o lo hace el ayuntamiento solo",
+      "expectedNorms": [
+        "BOE-A-2010-5882",
+        "BOE-A-2007-14801"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_e9ef8601",
+      "question": "¿Qué tipo de actividades de nuestra asociación vecinal se consideran de interés general para poder solicitar subvenciones y acceder a beneficios fiscales?",
+      "expectedNorms": [
+        "BOE-A-2015-9726",
+        "BOE-A-2010-10829",
+        "BOE-A-2002-549",
+        "BOE-A-2024-6951",
+        "BOE-A-1986-33252",
+        "BOE-A-2012-550"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_fda04b01",
+      "question": "¿Cuál es la obligación legal de proteger los montes frente a plagas y enfermedades para garantizar su conservación y funciones?",
+      "expectedNorms": [
+        "BOE-A-2005-393",
+        "BOE-A-2012-11414",
+        "BOE-A-2003-21339",
+        "BOE-A-1991-7362",
+        "BOE-A-1995-19108",
+        "BOE-A-2008-13685"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es-as",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_5bfd8859",
+      "question": "me han dicho que me falta un papel de los productos que vendo y no se si tengo que quitarlos todos de la tienda o solo arreglar el error",
+      "expectedNorms": [
+        "BOE-A-2016-3539",
+        "BOE-A-2016-4443"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_3ae5db14",
+      "question": "¿Qué sanciones podrían imponerme si el comité determina que he cometido una infracción grave en mi ejercicio profesional?",
+      "expectedNorms": [
+        "BOE-A-2011-14345"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_97f3d615",
+      "question": "¿Cómo se calcula la compensación económica que le corresponde al inquilino de una tierra cuando el precio que fija la administración no se basa solo en su valor agrícola?",
+      "expectedNorms": [
+        "BOE-A-2013-9579",
+        "BOE-A-1979-2886"
+      ],
+      "category": "Agricultura",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ffe13a85",
+      "question": "¿Puede el presidente quitarme del cargo de consejero de la comisión cuando quiera o necesita una causa justificada?",
+      "expectedNorms": [
+        "BOE-A-2002-23926"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_bc166089",
+      "question": "¿Es suficiente la firma de la tesorera para operar las cuentas del colegio o requiere la cofirma del presidente?",
+      "expectedNorms": [
+        "BOE-A-2017-12982",
+        "BOE-A-2005-2529",
+        "BOE-A-2002-1370",
+        "BOE-A-2018-5616"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_d5a76beb",
+      "question": "que proteccion tiene una mujer que esta dando el pecho en una fabrica si su jefe no pone facilidades",
+      "expectedNorms": [
+        "BOE-A-2010-4518",
+        "BOE-A-2016-7994",
+        "BOE-A-2008-2492"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cn",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_12958669",
+      "question": "¿Es posible acudir directamente a la vía judicial tras recibir una decisión del tribunal deportivo o es obligatorio presentar primero una reclamación ante el mismo órgano?",
+      "expectedNorms": [
+        "BOE-A-2014-1050",
+        "BOE-A-2003-23644"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_313ce591",
+      "question": "si meto varias listas distintas en el sobre se anula mi voto",
+      "expectedNorms": [
+        "BOE-A-2010-6105",
+        "BOE-A-1980-1564",
+        "BOE-A-1981-49"
+      ],
+      "category": "Iniciativa legislativa",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_59d619de",
+      "question": "si me uno a esa asociacion me ayudan a controlar todo el proceso de mi aceite para que se vea de donde viene",
+      "expectedNorms": [
+        "BOE-A-2005-5093"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-an",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6662d93a",
+      "question": "¿Qué mecanismos de colaboración existen para que una fundación privada pueda incorporar sus documentos históricos al sistema archivístico oficial?",
+      "expectedNorms": [
+        "BOE-A-2011-18541"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_0d2b4144",
+      "question": "¿Cuál es el proceso para que el nombramiento del presidente del gobierno vasco sea oficial y en qué diarios debe aparecer publicado para que tenga validez?",
+      "expectedNorms": [
+        "BOE-A-2012-5927",
+        "BOE-A-2012-3546"
+      ],
+      "category": "Gobierno",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_78486df8",
+      "question": "¿Es obligatorio que los documentos de cumplimiento de los fabricantes europeos estén escritos en español para poder vender sus equipos aquí?",
+      "expectedNorms": [
+        "BOE-A-2015-9527",
+        "BOE-A-2016-2827"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_bba3b44c",
+      "question": "¿Si mi empresa está en proceso de cierre y ya no tiene actividad, tengo que seguir pagando el impuesto por los bienes inmuebles que todavía tiene la sociedad?",
+      "expectedNorms": [
+        "BOE-A-2017-7354"
+      ],
+      "category": "Sistema tributario",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_dd583626",
+      "question": "¿Qué criterios se deben seguir para autorizar una nueva extensión de normas en una zona donde ya existe una vigente para evitar que se contradigan o distorsionen?",
+      "expectedNorms": [
+        "BOE-A-2014-12101"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b866898d",
+      "question": "¿Existe algún fondo público para ayudas a la digitalización de archivos históricos y su puesta a disposición en internet?",
+      "expectedNorms": [
+        "BOE-A-2014-13366",
+        "BOE-A-2015-5331"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_dcea9ad1",
+      "question": "si el negocio sigue haciendo ruido despues de la primera multa me pueden poner una multa mas grande",
+      "expectedNorms": [
+        "BOE-A-2014-883",
+        "BOE-A-1991-7867"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8e756b2c",
+      "question": "me exigen entregar mis facturas y registros de siembra para el seguro agrario es obligatorio",
+      "expectedNorms": [
+        "BOE-A-2016-10461"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_07597d42",
+      "question": "¿Existe la obligación de que el Ministerio publique cada año en su web el informe sobre lo que ha hecho la oficina encargada de la normativa?",
+      "expectedNorms": [
+        "BOE-A-2018-50",
+        "BOE-A-2023-11073",
+        "BOE-A-2017-3415"
+      ],
+      "category": "Administración General del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_39d2f76a",
+      "question": "quien tiene que firmar las cuentas de la agencia y cuando estan listas para verlas",
+      "expectedNorms": [
+        "BOE-A-2014-13360",
+        "BOE-A-2023-6082"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_27a83c72",
+      "question": "¿Qué ocurre y a quién se cobra si mi clínica privada concertada no atiende a tiempo a un paciente con cita urgente derivada por la sanidad pública?",
+      "expectedNorms": [
+        "BOE-A-2014-10666"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ed60041a",
+      "question": "¿Qué puedo hacer para arreglar un fallo en la seguridad de un camión de materiales peligrosos antes de que me prohíban seguir trabajando?",
+      "expectedNorms": [
+        "BOE-A-2011-2491"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-mc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_7b28ead6",
+      "question": "mi seguro de cosechas tiene coberturas extra y quiero saber si me dan la ayuda unica",
+      "expectedNorms": [
+        "BOE-A-2016-10461",
+        "BOE-A-2026-3810"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8807ef31",
+      "question": "donde ver el plan de leyes del gobierno de canarias y si han cambiado algo de lo previsto",
+      "expectedNorms": [
+        "BOE-A-2015-1114",
+        "BOE-A-2023-12668"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-cn",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_7d04b2be",
+      "question": "si soy de la union europea pero no tengo la nacionalidad española puedo presentarme a las oposiciones del ayuntamiento",
+      "expectedNorms": [
+        "BOE-A-2018-3760",
+        "BOE-A-2008-11791",
+        "DOGC-f-1997-90001",
+        "BOE-A-2015-5677",
+        "BOE-A-2017-8652"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ecf5542d",
+      "question": "¿Cómo se adaptan las inspecciones de trabajo en barcos pequeños que solo operan en aguas nacionales?",
+      "expectedNorms": [
+        "BOE-A-2015-5163"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_e1b42ab6",
+      "question": "¿Qué ocurre si la confederación hidrográfica no responde en 30 días sobre la compatibilidad ambiental de un puerto deportivo?",
+      "expectedNorms": [
+        "BOE-A-2019-2557"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_f70624d4",
+      "question": "¿Existen manuales oficiales que me orienten sobre cómo gestionar mi granja para cumplir con la normativa y poder pedir subvenciones?",
+      "expectedNorms": [
+        "BOE-A-2010-8824",
+        "BOE-A-2022-23052",
+        "BOE-A-2023-8480",
+        "BOE-A-2014-3562",
+        "BOE-A-2008-16090"
+      ],
+      "category": "Aves de corral",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_66e3e057",
+      "question": "¿Qué tipo de ayudas y acompañamientos debe incluir obligatoriamente el nuevo servicio especializado para mujeres víctimas de violencia en Aragón?",
+      "expectedNorms": [
+        "BOE-A-2007-11593"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ac05e596",
+      "question": "¿Qué opciones tengo para impugnar la decisión de la administración sobre el error en el cálculo de mi impuesto?",
+      "expectedNorms": [
+        "BOE-A-2014-13366",
+        "BOE-A-1995-5917",
+        "BOE-A-2017-7354",
+        "BOE-A-2015-9206",
+        "BOE-A-1998-5831",
+        "BOE-A-2019-7224",
+        "BOE-A-2017-7353"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_654a29bb",
+      "question": "¿Cómo se decide quién recibe dinero para dejar de pescar temporalmente y quién se encarga de pagar esas ayudas?",
+      "expectedNorms": [
+        "BOE-A-2015-14283",
+        "BOE-A-2018-7015"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_0322a0a7",
+      "question": "puede el centro de extranjeria contarle a otras personas los problemas de salud de mi hermano",
+      "expectedNorms": [
+        "BOE-A-2014-2749",
+        "BOE-A-2026-5128"
+      ],
+      "category": "Extranjeros",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4fbb2177",
+      "question": "como influye la distancia a mi pueblo o a la capital en lo que me van a pagar por mi terreno",
+      "expectedNorms": [
+        "BOE-A-2011-17629",
+        "BOE-A-2008-3657"
+      ],
+      "category": "Urbanismo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8e91d046",
+      "question": "tengo una caldera de gasoil en mi comunidad y me preocupa el humo que sale, debo hacer revisiones de emisiones y dar los informes si me los piden las autoridades",
+      "expectedNorms": [
+        "BOE-A-2015-5490",
+        "BOE-A-2021-16407"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es-ex",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_cedd5775",
+      "question": "¿Cómo puedo solicitar que borren de mi expediente las sanciones disciplinarias que ya han caducado?",
+      "expectedNorms": [
+        "BOE-A-2017-3022",
+        "BOE-A-2022-7184",
+        "BOE-A-2023-353",
+        "BOE-A-2023-12918"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_f7c5236b",
+      "question": "¿Es posible vender las bodegas de forma directa a la cooperativa tras haber realizado dos subastas sin éxito?",
+      "expectedNorms": [
+        "BOE-A-2005-18493",
+        "BOE-A-2011-17717"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ri",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_e78ebca4",
+      "question": "¿Dónde puedo consultar la información histórica sobre los bienes y negocios que han presentado los cargos públicos de la junta?",
+      "expectedNorms": [
+        "BOE-A-2005-7987"
+      ],
+      "category": "Altos cargos",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_edcf5a48",
+      "question": "¿Quién debe demostrar que se están alcanzando las metas de uso de combustibles ecológicos en el transporte: el que vende el combustible o nosotros que lo compramos para nuestra flota?",
+      "expectedNorms": [
+        "BOE-A-2015-13208",
+        "BOE-A-2024-14545",
+        "BOE-A-2020-7796",
+        "BOE-A-2021-8447"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_cd3010ef",
+      "question": "¿Qué requisitos se deben cumplir para que mi agrupación sea considerada oficial y pueda figurar en el registro de entidades del sector?",
+      "expectedNorms": [
+        "BOE-A-2011-15731"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_256ad55c",
+      "question": "¿Qué requisitos de integridad profesional y experiencia mínima en gestión bancaria deben cumplir los miembros propuestos para el consejo de administración de la entidad en reestructuración?",
+      "expectedNorms": [
+        "BOE-A-2012-14118",
+        "BOE-A-2014-6726",
+        "BOE-A-2016-1238"
+      ],
+      "category": "Información",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_eba911ad",
+      "question": "¿Qué condiciones debo cumplir para pasar de presentar informes de control cada seis meses a presentar solo uno al año?",
+      "expectedNorms": [
+        "BOE-A-2014-13621"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_56f3f28f",
+      "question": "el banco de españa me pide un plan para recuperar los fondos propios necesarios, es suficiente con el que ha presentado la dirección o pueden imponer otras medidas",
+      "expectedNorms": [
+        "BOE-A-2012-5993",
+        "BOE-A-2015-1455"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_5298b5e0",
+      "question": "¿Tengo que pagar alguna cuota o tener que presentar trámites por el hecho de que me hayan inscrito automáticamente en la cámara de comercio?",
+      "expectedNorms": [
+        "BOE-A-2018-988"
+      ],
+      "category": "Asociaciones empresariales",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_7e861ed4",
+      "question": "¿Cómo debo organizar las visitas de control con la inspección de trabajo y el instituto de la marina para que no se solapen las revisiones en los barcos?",
+      "expectedNorms": [
+        "BOE-A-2015-5163",
+        "BOE-A-2020-13021"
+      ],
+      "category": "Formularios administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_1d237d39",
+      "question": "puedo votar en el presupuesto participativo de murcia viviendo en alemania",
+      "expectedNorms": [
+        "BOE-A-2015-184"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-mc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_32cea9f5",
+      "question": "de donde saca dinero el servicio publico de empleo de andalucia para funcionar",
+      "expectedNorms": [
+        "BOE-A-2003-707"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_dd326e00",
+      "question": "¿Qué criterios deben seguir las administraciones para decidir qué animales o plantas exóticas deben eliminarse primero, especialmente en zonas protegidas o islas?",
+      "expectedNorms": [
+        "BOE-A-2013-8565"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ce6f0a93",
+      "question": "¿Qué organismo es el máximo responsable de supervisar las cuentas públicas en el País Vasco y cuál es su relación con el Parlamento?",
+      "expectedNorms": [
+        "BOE-A-2012-3545"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_95f769fd",
+      "question": "si estoy sancionado y no tengo licencia puedo registrar las palomas que me ha dejado mi padre",
+      "expectedNorms": [
+        "BOE-A-2011-4631",
+        "BOE-A-2012-2266"
+      ],
+      "category": "Asociaciones deportivas",
+      "voice": "citizen",
+      "jurisdiction": "es-cn",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_f89e3df6",
+      "question": "si mi hermano ya cobra la pension de mi padre y yo soy menor como se reparte el aumento de la pension si somos varios beneficiarios",
+      "expectedNorms": [
+        "BOE-A-2018-16432",
+        "BOE-A-1974-1165"
+      ],
+      "category": "Clases Pasivas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_d0f46ab8",
+      "question": "¿Puede el instructor parar el reloj del plazo para resolver una denuncia por falta de revisión de seguridad en un gimnasio?",
+      "expectedNorms": [
+        "BOE-A-2014-655",
+        "BOE-A-2021-9006",
+        "BOC-j-2020-90365"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_56f6a2d9",
+      "question": "¿Puedo usar el dinero de la subvención que me han concedido para pagar lo que le debo a la administración regional?",
+      "expectedNorms": [
+        "BOE-A-2012-4187",
+        "BOE-A-2013-11691",
+        "BOE-A-2013-8989",
+        "BOE-A-2012-9062",
+        "BOE-A-2003-23186",
+        "BOE-A-2024-994",
+        "BOE-A-2005-20978"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_7bd88182",
+      "question": "tengo que llevar el permiso temporal y la prórroga a bordo para enseñarlo a la guardia civil",
+      "expectedNorms": [
+        "BOE-A-2010-9713"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_013a5200",
+      "question": "si limpio solo coches de animales del ministerio tengo que registrarme en la autonoma o directamente en el ministerio",
+      "expectedNorms": [
+        "BOE-A-2019-16637"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_0871b62f",
+      "question": "¿Es obligatorio consultar a la comisión de artesanía antes de aprobar los planes de formación profesional del sector?",
+      "expectedNorms": [
+        "BOE-A-2006-759"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_a3e05ffc",
+      "question": "¿Si el ayuntamiento lleva seis meses sin pagar las facturas pendientes, se acaba automáticamente el sistema de retención de fondos o el proceso sigue adelante?",
+      "expectedNorms": [
+        "BOE-A-2014-8132",
+        "BOE-A-2014-13613"
+      ],
+      "category": "Administraciones Públicas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_e0eb6039",
+      "question": "¿Puedo urbanizar por fases sin dejar las parcelas sin servicios básicos hasta la siguiente fase?",
+      "expectedNorms": [
+        "BOE-A-2022-18601",
+        "BOE-A-2025-2145",
+        "BOE-A-2017-12907",
+        "BOE-A-2011-17400"
+      ],
+      "category": "Empresas",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_afc6b2a9",
+      "question": "¿Cómo puedo dejar por escrito mi postura contraria a lo que se ha decidido en la reunión y de cuánto tiempo dispongo para hacerlo sin vulnerar la confidencialidad de lo tratado?",
+      "expectedNorms": [
+        "BOE-A-2009-7196",
+        "BOE-A-2004-1974",
+        "BOE-A-2014-5489",
+        "BOE-A-2004-19794",
+        "BOE-A-1993-27920",
+        "BOE-A-2002-12507",
+        "BOE-A-2024-16885",
+        "BOE-A-2002-9245"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_404ea7af",
+      "question": "¿Qué datos sobre los servicios, las acreditaciones y los idiomas de atención deben estar publicados de forma visible para los usuarios en la entrada del centro?",
+      "expectedNorms": [
+        "BOE-A-2014-1331",
+        "BOE-A-2017-8524"
+      ],
+      "category": "Asistencia sanitaria",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_06c28a19",
+      "question": "¿Es obligatorio incluir en el desglose presupuestario de la agencia mecanismos de evaluación con perspectiva de género?",
+      "expectedNorms": [
+        "DOGC-f-2019-90528"
+      ],
+      "category": "Servicios Públicos de Salud",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_064c198c",
+      "question": "me han inspeccionado la nave por lo del tejado y quiero saber si me pueden multar directamente o tienen que abrir un expediente antes",
+      "expectedNorms": [
+        "BOE-A-2007-9264",
+        "BOE-A-2007-11531"
+      ],
+      "category": "Políticas de medio ambiente",
+      "voice": "citizen",
+      "jurisdiction": "es-an",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_e2e22437",
+      "question": "¿Qué actividades de la cofradía se consideran actos privados y cuáles son administrativos para saber si están sujetas a la tutela del departamento de pesca?",
+      "expectedNorms": [
+        "BOE-A-2011-20659",
+        "BOE-A-2003-13619"
+      ],
+      "category": "Armadores de buques",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_00b8123a",
+      "question": "si tengo varios terrenos repartidos por la zona me pueden obligar a entrar en el plan de arreglar los caminos y el riego aunque no esten todos juntos",
+      "expectedNorms": [
+        "BOE-A-2015-9230",
+        "BOE-A-2019-4086",
+        "BOE-A-2002-8352"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_e303c3bf",
+      "question": "¿En qué fase del proyecto de una autovía de peaje es obligatorio realizar la evaluación de la seguridad de la infraestructura y quién establece las instrucciones técnicas para hacerlo?",
+      "expectedNorms": [
+        "BOE-A-2011-4555",
+        "BOE-A-2015-10439"
+      ],
+      "category": "Accidentes",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_44af0c6e",
+      "question": "¿Me pueden obligar a devolver todo el dinero de las ayudas de los últimos dos años por haber usado mal una parte de los fondos?",
+      "expectedNorms": [
+        "BOE-A-2008-16664",
+        "BOE-A-2020-9021",
+        "BOE-A-2023-12919",
+        "DOGC-f-2002-90024",
+        "BOE-A-2020-7440",
+        "BOE-A-2017-12725"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d44d3113",
+      "question": "si la administración autonómica obliga a bajar las tarifas del transporte por una emergencia, ¿quién paga la diferencia de coste?",
+      "expectedNorms": [
+        "BOE-A-2015-9722"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b8d299ac",
+      "question": "puedo convertir mi casa en una villa para alquilarla o hay un limite de casas de este tipo en mi zona",
+      "expectedNorms": [
+        "BOE-A-2013-6584",
+        "BOE-A-2001-16538",
+        "BOA-d-2016-90440"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es-cn",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6047933f",
+      "question": "¿Qué apoyo puede dar la administración autonómica para incluir medidas de conciliación y asegurar que los acuerdos de trabajo no perjudiquen la carrera de las mujeres?",
+      "expectedNorms": [
+        "BOE-A-2016-7994",
+        "BOE-A-2018-13193",
+        "BOE-A-2010-4518",
+        "BOE-A-2025-15047",
+        "BOE-A-2021-5136",
+        "BOE-A-2008-2492"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_898be180",
+      "question": "me pueden multar por hacer arreglos pequenos en mi cobertizo en una reserva natural si llevo años trabajando alli",
+      "expectedNorms": [
+        "BOE-A-2012-3404",
+        "BOE-A-2015-4103"
+      ],
+      "category": "Reservas Naturales",
+      "voice": "citizen",
+      "jurisdiction": "es-pv",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_037feb53",
+      "question": "como pido el dinero adelantado de la ayuda y por que tengo que dejar un deposito de garantia",
+      "expectedNorms": [
+        "BOE-A-2017-913",
+        "BOE-A-2022-23047",
+        "BOE-A-2023-11641",
+        "BOE-A-2022-17475"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_bcaf3fc7",
+      "question": "¿Podría la comarca ayudarnos con el apoyo técnico y legal que necesitamos para nuestras gestiones municipales?",
+      "expectedNorms": [
+        "BOE-A-2003-6601"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_779498de",
+      "question": "¿quien decide al final si aprueban la denominacion de origen y si hay que publicar en boe para que valga",
+      "expectedNorms": [
+        "BOE-A-2011-16351"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_9d996a67",
+      "question": "como saber si la oficina de empleo es parte de la red europea de trabajo",
+      "expectedNorms": [
+        "BOE-A-2019-4674"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_2fac819d",
+      "question": "¿Tiene el presidente la facultad de decidir en caso de que las votaciones del consejo terminen en empate?",
+      "expectedNorms": [
+        "DOGC-f-2019-90528",
+        "BOE-A-2006-19353",
+        "BOE-A-2007-9417",
+        "BOE-A-1999-18001"
+      ],
+      "category": "Servicios Públicos de Salud",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_dd2158da",
+      "question": "en una caja de ahorros para emitir nuevas cuotas hace falta mayoría absoluta o simple",
+      "expectedNorms": [
+        "BOE-A-2003-10724",
+        "BOE-A-2011-9622"
+      ],
+      "category": "Cajas de Ahorro",
+      "voice": "citizen",
+      "jurisdiction": "es-md",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_69788153",
+      "question": "¿puede la administración obligarme a recuperar el estado del terreno y a pagar daños como consecuencia de una sanción por vertidos?",
+      "expectedNorms": [
+        "BOE-A-2007-975",
+        "BOE-A-2002-14987"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es-cb",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_d20c1b9f",
+      "question": "¿Qué castigos puede recibir mi empresa si nos sancionan por no haber supervisado correctamente los informes técnicos?",
+      "expectedNorms": [
+        "BOE-A-2018-556"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_20e82d96",
+      "question": "¿Cómo puedo demostrar que he tomado medidas para arreglar el problema y que eso ayudará a reducir la multa que me quieren poner?",
+      "expectedNorms": [
+        "BOE-A-2010-16138",
+        "BOE-A-2019-3489",
+        "BOE-A-2012-2265",
+        "BOE-A-2009-12856",
+        "BOE-A-2007-6611",
+        "BOE-A-2007-15545",
+        "BOE-A-2016-729"
+      ],
+      "category": "Animales",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_7f850a6d",
+      "question": "¿dónde puedo comprar una medicación especial para mi perro hecha a medida por el veterinario ya que la tienda de mascotas me ha dicho que no la tienen?",
+      "expectedNorms": [
+        "BOE-A-2002-977",
+        "BOE-A-2006-21906",
+        "BOE-A-2025-18522",
+        "BOE-A-2008-39",
+        "BOE-A-2005-14261",
+        "BOE-A-1999-8872"
+      ],
+      "category": "Asistencia farmacéutica",
+      "voice": "citizen",
+      "jurisdiction": "es-cl",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_f9a455f5",
+      "question": "pasó un año y tres meses desde la ultima vez que me molestaron con ruidos en la comunidad puedo seguir siendo multado o ya caduco el plazo para ponerme la sancion",
+      "expectedNorms": [
+        "BOE-A-2001-20624"
+      ],
+      "category": "Asistencia social",
+      "voice": "citizen",
+      "jurisdiction": "es-ri",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_3abe7db0",
+      "question": "¿Cómo se calculan las horas de descanso obligatorio cuando hay que reorganizar los turnos por bajas para no exceder el límite mensual de vuelo?",
+      "expectedNorms": [
+        "BOE-A-2010-12620"
+      ],
+      "category": "Seguridad e higiene en el trabajo",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6614b353",
+      "question": "En una cadena hotelera se detectan prácticas irregulares en la facturación. Varios gerentes de planta son autores materiales, pero no se puede precisar quién dio la orden o su participación exacta. La administración quiere imponer sanciones. ¿Cómo se determina la responsabilidad solidaria en este?",
+      "expectedNorms": [
+        "BOE-A-2016-8346",
+        "BOE-A-2011-3179"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d381289c",
+      "question": "¿Tiene la entidad común que creamos con otros municipios capacidad jurídica propia para contratar y firmar contratos con empresas externas?",
+      "expectedNorms": [
+        "BOE-A-2018-16341",
+        "BOE-A-1990-19817"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d3d8749f",
+      "question": "¿Cómo podemos colaborar las universidades y centros privados con los hospitales públicos para crear centros de estudio conjuntos que ayuden a mejorar la sanidad?",
+      "expectedNorms": [
+        "BOE-A-2016-6474"
+      ],
+      "category": "Sanidad",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ebfc579a",
+      "question": "qué pueblos forman la comarca del aranda",
+      "expectedNorms": [
+        "BOE-A-2001-2504"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_7a2fdc8b",
+      "question": "tengo que hacer un analisis del agua de la piscina antes de abrir despues de llevarla cerrada un mes o solo con limpiar es suficiente",
+      "expectedNorms": [
+        "BOE-A-2013-10580"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f98b315e",
+      "question": "me pueden seguir metiendo multas cada dia por no haber arreglado el taller a tiempo",
+      "expectedNorms": [
+        "BOE-A-2014-8899",
+        "BOE-A-2011-2621",
+        "BOE-A-2016-8346",
+        "BOE-A-2006-8213",
+        "BOE-A-2008-14194",
+        "BOE-A-2015-10440",
+        "BOE-A-2001-16538",
+        "BOE-A-2011-7330",
+        "BOE-A-2012-876"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_3720e68f",
+      "question": "me mudo a andalucia y estaba colegiada en ceuta, sigo perteneciendo al colegio de andalucia o tengo que cambiar de adscripcion",
+      "expectedNorms": [
+        "BOE-A-2013-2608"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_22f8be5a",
+      "question": "que papeles necesito para montar una agencia de empleo",
+      "expectedNorms": [
+        "BOE-A-2015-6838",
+        "BOE-A-1994-12554",
+        "BOE-A-2010-20151",
+        "BOE-A-2012-9110",
+        "BOE-A-2014-10517"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_87b36654",
+      "question": "puedo obligar a comprar algo para participar en el sorteo de instagram",
+      "expectedNorms": [
+        "BOE-A-2010-11731",
+        "BOE-A-2001-15779"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es-cm",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_7b574f24",
+      "question": "como puedo convalidar materias de otros estudios para no repetirlas en acuicultura",
+      "expectedNorms": [
+        "BOE-A-2011-19534"
+      ],
+      "category": "Acuicultura",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8f531601",
+      "question": "¿Qué responsabilidades y composición debe tener la comisión encargada de supervisar los sueldos y la selección de directivos en la caja?",
+      "expectedNorms": [
+        "BOE-A-2000-15424",
+        "BOE-A-1999-4972",
+        "BOE-A-2011-9622",
+        "BOE-A-2003-10724",
+        "BOE-A-2013-13723",
+        "DOGC-f-2008-90015",
+        "BOE-A-1991-3403",
+        "BOE-A-2000-1011",
+        "BOE-A-2012-9009"
+      ],
+      "category": "Cajas de Ahorro",
+      "voice": "formal",
+      "jurisdiction": "es-as",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_55746b04",
+      "question": "¿qué sanción puede poner un inspector por no tener los papeles de los registros de temperatura y limpieza a la vista en el mostrador?",
+      "expectedNorms": [
+        "BOE-A-2024-2778",
+        "BOE-A-2003-14567"
+      ],
+      "category": "Alimentación",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_81b4a09c",
+      "question": "¿Es necesaria la firma del presidente para abrir cuentas bancarias de la institución y para dar facultades de representación a un abogado?",
+      "expectedNorms": [
+        "BOE-A-2014-10874",
+        "BOE-A-2015-7773",
+        "BOE-A-2015-7774",
+        "BOE-A-2007-10393",
+        "BOE-A-2001-4392"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d17a8100",
+      "question": "¿Cómo debo calcular la parte de la base para el impuesto si mi central genera electricidad tanto con el agua del río como mediante el sistema de bombeo?",
+      "expectedNorms": [
+        "BOE-A-2015-3182"
+      ],
+      "category": "Energía eléctrica",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_be77999e",
+      "question": "¿Cómo puedo volver a trabajar en mi antiguo puesto tras mi periodo de cuidado de familiares y qué debo hacer si mi plaza ya no existe?",
+      "expectedNorms": [
+        "BOE-A-2010-16551",
+        "BOE-A-2023-353",
+        "BOE-A-2023-10348",
+        "BOE-A-2015-5677"
+      ],
+      "category": "Educación",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_181814cb",
+      "question": "necesito permiso de barco para coger marisco a pie o solo vale la licencia de pesca recreativa para el cebo",
+      "expectedNorms": [
+        "BOE-A-2011-20039"
+      ],
+      "category": "Políticas de medio ambiente",
+      "voice": "citizen",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_e3b51969",
+      "question": "como se puede entrar en el consejo de juventud y si hay que cumplir con algo de paridad de hombres y mujeres para mandar representantes",
+      "expectedNorms": [
+        "BOE-A-2017-15372"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6e998fee",
+      "question": "¿es obligatorio avisar en la propuesta de resolución que la sanción conlleva puntos y anotación en el registro de infracciones para que el procedimiento sea válido?",
+      "expectedNorms": [
+        "BOE-A-2013-2209",
+        "BOE-A-2010-4179",
+        "BOE-A-2015-2715"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_9b0f14f9",
+      "question": "la autoridad de competencia trabaja en toda españa o solo en cada comunidad autonoma",
+      "expectedNorms": [
+        "BOE-A-2013-9212"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_65ff10c6",
+      "question": "¿Qué entidad es la encargada de supervisar y controlar que los organismos que nos acreditan cumplan con sus procesos de evaluación y seguimiento?",
+      "expectedNorms": [
+        "BOE-A-2016-2827",
+        "BOE-A-2011-14252",
+        "BOE-A-2016-4444"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6d08eb65",
+      "question": "puede la mutua poner a sus propios empleados para operarme en un hospital privado concertado",
+      "expectedNorms": [
+        "BOE-A-2011-18321"
+      ],
+      "category": "Seguridad Social",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f508c28d",
+      "question": "puedo pedir un acuerdo extrajudicial para las deudas de mi casa si no puedo pagar",
+      "expectedNorms": [
+        "BOE-A-2015-9725",
+        "BOE-A-2015-4747",
+        "BOE-A-2010-13115",
+        "BOE-A-2019-6772"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_e822e0fc",
+      "question": "¿Es correcto que las normas de una ayuda cultural sean aprobadas por una orden del responsable de la consejería si mi fundación es un ente privado vinculado a la administración?",
+      "expectedNorms": [
+        "BOE-A-2008-16664",
+        "BOE-A-2023-12919",
+        "BOE-A-2006-1183"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_4545e223",
+      "question": "como funcionan los contratos programa entre la junta y las universidades para financiar la investigacion",
+      "expectedNorms": [
+        "BOE-A-2012-10756",
+        "BOE-A-2020-12769"
+      ],
+      "category": "Asistencia sanitaria",
+      "voice": "citizen",
+      "jurisdiction": "es-cm",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_3de71816",
+      "question": "quien es la persona que me tiene que evaluar el examen de vuelo y que papeles tiene que tener",
+      "expectedNorms": [
+        "BOE-A-2015-2670"
+      ],
+      "category": "Aeronaves",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_3edf5a84",
+      "question": "¿Puede el ayuntamiento multar al local por no cumplir las condiciones ambientales de su licencia?",
+      "expectedNorms": [
+        "BOE-A-2014-883",
+        "BOE-A-2011-2547",
+        "BOE-A-2021-526",
+        "BOE-A-2010-563"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_90d7ae20",
+      "question": "que puedo hacer contra una sancion de exclusion de la bolsa de empleo impuesta por el presidente",
+      "expectedNorms": [
+        "BOE-A-2003-707",
+        "BORM-s-2002-90014"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_fc1f6f05",
+      "question": "quien puede obligar a las empresas de seguridad a tomar medidas extra o mejorar la coordinación con la policia",
+      "expectedNorms": [
+        "BOE-A-2012-9665"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-pv",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_412f97a4",
+      "question": "¿Qué medidas puedo tomar para cancelar el acuerdo con la entidad por dejar de prestar el servicio sin permiso y cómo asegurar que los usuarios no se queden sin atención?",
+      "expectedNorms": [
+        "BOE-A-2017-5117",
+        "BOE-A-2019-6662"
+      ],
+      "category": "Acción concertada",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_dbd274fd",
+      "question": "tengo que pagar yo los trabajos para conectar las placas solares a la red",
+      "expectedNorms": [
+        "BOE-A-2011-19242",
+        "BOE-A-2013-13767"
+      ],
+      "category": "Energía eléctrica",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_80eb720e",
+      "question": "¿Qué objetivos persigue la normativa en materia de suelo agrario para proteger las tierras de cultivo?",
+      "expectedNorms": [
+        "DOGC-f-2019-90507",
+        "BOE-A-2019-4086",
+        "BOE-A-2014-3562",
+        "BOE-A-2019-3911"
+      ],
+      "category": "Suelo",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f062a927",
+      "question": "mi hijo estudia danza y le obligan a hacer asignaturas basicas, ¿cuantos creditos deben sumar para contar en el plan de estudios?",
+      "expectedNorms": [
+        "BOE-A-2010-8954",
+        "BOE-A-2007-2956"
+      ],
+      "category": "Enseñanza Artística",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_2a1ba62c",
+      "question": "¿qué requisitos deben cumplir los índices de precios que se utilizan en las fórmulas de revisión de contratos públicos para que sean válidos?",
+      "expectedNorms": [
+        "BOE-A-2017-1150",
+        "BOE-A-2015-3443"
+      ],
+      "category": "Arrendamientos urbanos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_78a1c092",
+      "question": "como puedo saber en que se gasta el dinero de la cuota que nos obligan a pagar si no somos socios",
+      "expectedNorms": [
+        "BOE-A-2016-6569"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_e011c899",
+      "question": "¿Dónde debo publicar el informe de evaluación tras haber consultado a los interesados para poder pasar a la fase de estudio previo?",
+      "expectedNorms": [
+        "BOE-A-2017-3823",
+        "BOE-A-2015-9230"
+      ],
+      "category": "Administración electrónica",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_a4863687",
+      "question": "¿Qué sucede si la administración decide realizar por su cuenta los trabajos de excavación tras encontrar restos antiguos en mi terreno y cómo se compensan los daños económicos que esto me cause?",
+      "expectedNorms": [
+        "BOE-A-2012-2861",
+        "BOE-A-2019-7957"
+      ],
+      "category": "Patrimonio cultural",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_7efdbd44",
+      "question": "¿Cuáles son los requisitos mínimos de número de viviendas y qué documentación técnica es necesaria para acceder a las ayudas de eficiencia energética?",
+      "expectedNorms": [
+        "BOE-A-2013-3780"
+      ],
+      "category": "Arrendamientos urbanos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f29531c2",
+      "question": "como pongo las actividades de mi empresa y cual tengo que marcar como la principal",
+      "expectedNorms": [
+        "BOE-A-2015-6520",
+        "BOE-A-2015-9803",
+        "BOE-A-2013-10074",
+        "BOE-A-1996-4447"
+      ],
+      "category": "Administración electrónica",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4ee10343",
+      "question": "si pedí una ayuda para cambiar la caldera tengo que guardar solo las facturas o también los comprobantes del pago del banco",
+      "expectedNorms": [
+        "BOE-A-2017-6897",
+        "BOE-A-2020-9262"
+      ],
+      "category": "Políticas de medio ambiente",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_39c3385b",
+      "question": "¿Puedo yo mismo autorizar el desistimiento de este procedimiento judicial si fui yo quien lo inició, o necesito que me lo apruebe la autoridad que dio el permiso para demandar?",
+      "expectedNorms": [
+        "BOE-A-2003-9101",
+        "BOE-A-2005-10458",
+        "BOE-A-2005-14343",
+        "BOE-A-2014-1365"
+      ],
+      "category": "Cuerpo de Abogados del Estado",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_d0f70909",
+      "question": "¿Es necesario obtener la autorización del ministerio competente para los sistemas de seguridad de un barco de bandera europea que opera en aguas españolas?",
+      "expectedNorms": [
+        "BOE-A-2016-12273"
+      ],
+      "category": "Abanderamiento de buques",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_87409ac0",
+      "question": "¿Cómo puede el pleno decidir cancelar los acuerdos de gestión si el gobierno regional no cumple con lo pactado tras haberle reclamado formalmente?",
+      "expectedNorms": [
+        "BOE-A-2015-4621",
+        "BOE-A-2011-7339",
+        "BOE-A-2019-2863"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cn",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_cdcde296",
+      "question": "¿Es posible obtener una versión de los informes técnicos que excluya únicamente los datos privados de los profesionales, permitiendo así el acceso al resto del contenido?",
+      "expectedNorms": [
+        "BOE-A-2015-184",
+        "BOE-A-2018-5393",
+        "BOE-A-2022-8187",
+        "BOE-A-2017-1373",
+        "BOE-A-2015-1114"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-mc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_08762743",
+      "question": "¿Qué control parlamentario debe realizarse sobre el futuro responsable de la agencia antes de que su nombramiento sea definitivo?",
+      "expectedNorms": [
+        "BOE-A-2017-9800"
+      ],
+      "category": "Administración electrónica",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_2c325e63",
+      "question": "¿Qué requisitos y principios deben cumplirse en la selección del director técnico de la empresa pública para que la interventoría considere válido el proceso?",
+      "expectedNorms": [
+        "BOE-A-2010-13242",
+        "BOE-A-2023-16066",
+        "BOE-A-2025-6193",
+        "BOE-A-2014-13360",
+        "BOE-A-2016-4171",
+        "BOE-A-2007-14405"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_75926b28",
+      "question": "¿Cuál es el plazo máximo para enviar a la comunidad autónoma los datos trimestrales sobre el recuento de animales verificados por razas?",
+      "expectedNorms": [
+        "BOE-A-2014-318"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b2242a91",
+      "question": "¿Puede la academia usar fondos externos o convenios para financiar su funcionamiento además del presupuesto autonómico anual?",
+      "expectedNorms": [
+        "BOE-A-2012-9665",
+        "BOE-A-2011-16752"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-pv",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_31ff503e",
+      "question": "quien tiene que vender la luz para los coches electricos del garaje",
+      "expectedNorms": [
+        "BOE-A-2011-8910"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_726d86b9",
+      "question": "¿Podemos pasarle la gestión de nuestros impuestos a la entidad de la comarca para ahorrar en gastos de administración?",
+      "expectedNorms": [
+        "BOE-A-2001-21720",
+        "BOE-A-2019-7788",
+        "BOE-A-2003-5695",
+        "BOE-A-2002-10791",
+        "BOE-A-2003-8227"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_22163020",
+      "question": "¿Quién tiene la competencia para resolver y sancionar las faltas leves en materia de juventud dentro de la estructura de la Generalitat?",
+      "expectedNorms": [
+        "BOE-A-2017-15372"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_1cc99233",
+      "question": "¿Quién resuelve el conflicto entre el ayuntamiento y la comunidad de Madrid si no se ponen de acuerdo en las condiciones ambientales de un proyecto?",
+      "expectedNorms": [
+        "BOE-A-2002-14841"
+      ],
+      "category": "Evaluación de impacto ambiental",
+      "voice": "formal",
+      "jurisdiction": "es-md",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_da0e154a",
+      "question": "me tienen que dar los libros en braille o audio porque no puedo leer los pdf",
+      "expectedNorms": [
+        "BOE-A-2011-5297",
+        "BOE-A-2025-717",
+        "BOE-A-2022-11589"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-ex",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_273a660c",
+      "question": "¿Puede el plan urbanístico dejar para un futuro la definición exacta de las alturas, la distribución interna de las calles y la clasificación detallada de los usos en cada parcela?",
+      "expectedNorms": [
+        "BOE-A-2022-18601",
+        "BOE-A-2001-18984"
+      ],
+      "category": "Empresas",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_fea25e3e",
+      "question": "cuanto suelo publico deben ceder los promotores para parques y equipamientos en una urbanizacion",
+      "expectedNorms": [
+        "BOE-A-2018-5394",
+        "BOE-A-2010-13883"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_7d1b1ff1",
+      "question": "como saber si las empresas que me buscan trabajo son legales y si me pueden cobrar por buscarme empleo",
+      "expectedNorms": [
+        "BOE-A-2010-20151",
+        "BOE-A-2015-11431",
+        "BOE-A-2023-5365"
+      ],
+      "category": "Autorizaciones",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6add918f",
+      "question": "¿Cuál es el plazo máximo que tiene el presidente para convocar una sesión extraordinaria del consejo comarcal cuando lo solicitan sus miembros?",
+      "expectedNorms": [
+        "BOE-A-2002-11910",
+        "BOE-A-2019-7788"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b14afbc1",
+      "question": "que significa que el ron diga viejo es que esta caducado o que lleva tiempo guardado",
+      "expectedNorms": [
+        "BOE-A-2014-3251"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_cb06b3d0",
+      "question": "¿Qué garantías tenemos de que las inspecciones de seguridad en nuestra planta se realicen de forma objetiva y sin favoritismos?",
+      "expectedNorms": [
+        "BOE-A-2014-8899",
+        "BOE-A-2008-14194"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_c6113e2f",
+      "question": "¿Cómo debo justificar el uso de los fondos públicos recibidos y qué informes financieros debo presentar ante la junta directiva?",
+      "expectedNorms": [
+        "BOE-A-2015-6104",
+        "BOE-A-2015-7853",
+        "BOE-A-2003-20977",
+        "BOE-A-1995-11843",
+        "BOE-A-2014-8606"
+      ],
+      "category": "Academias",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8b119789",
+      "question": "que normas de seguridad deben cumplir los inspectores externos que vienen a mi planta",
+      "expectedNorms": [
+        "BOE-A-2019-4357",
+        "BOE-A-2018-15614"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_5e2e4b5d",
+      "question": "¿Es posible financiar la contratación de servicios externos mediante los ingresos obtenidos por la prestación de servicios a terceros, o la Agencia debe limitarse exclusivamente a las dotaciones asignadas en el presupuesto autonómico?",
+      "expectedNorms": [
+        "BOE-A-2008-3180",
+        "BOE-A-2003-19157",
+        "BOE-A-2013-1927",
+        "BOE-A-1998-10998",
+        "BOE-A-2008-20584",
+        "BOE-A-2008-8768",
+        "BOE-A-2007-14405",
+        "BOE-A-2022-757"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b9b13a1d",
+      "question": "¿La sanción por permitir que un tercero ocupe una vía pecuaria es de naturaleza administrativa o puede tener otras consecuencias legales?",
+      "expectedNorms": [
+        "BOE-A-2014-8279",
+        "BOE-A-1995-7241",
+        "BOE-A-1998-2915",
+        "BOE-A-2003-11048",
+        "BOE-A-1991-10363",
+        "BOE-A-1992-11685"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_c35e00d3",
+      "question": "puedo usar aparatos que suenan como animales o luces para cazar",
+      "expectedNorms": [
+        "BOE-A-2011-6648",
+        "BOE-A-2014-887"
+      ],
+      "category": "Tasas",
+      "voice": "citizen",
+      "jurisdiction": "es-pv",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_bbb4e11c",
+      "question": "¿Puede la comarca hacerse cargo de las obras de abastecimiento que afectan a varios pueblos para que no tengamos que pagarlas cada ayuntamiento por separado?",
+      "expectedNorms": [
+        "BOE-A-2002-13250"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ar",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8babf415",
+      "question": "si mi hijo tiene necesidades educativas especiales el colegio debe tener profesores con la cualificación adecuada para atenderlo",
+      "expectedNorms": [
+        "BOE-A-2010-4132",
+        "BOE-A-2010-11426",
+        "BOE-A-2014-9901",
+        "BOE-A-2008-1184",
+        "BOE-A-2015-1626"
+      ],
+      "category": "Centros de enseñanza",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_a65d43f6",
+      "question": "¿Me aumentan la ayuda pública si modernizo mi bodega en una zona rural prioritaria?",
+      "expectedNorms": [
+        "BOE-A-2015-4682"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_60b1494f",
+      "question": "si saco el curso de hosteleria ese me sirve para trabajar en cualquier parte de pais o solo en mi zona",
+      "expectedNorms": [
+        "BOE-A-2011-12070",
+        "BOE-A-2010-9270",
+        "BOE-A-2008-646"
+      ],
+      "category": "Capacitación profesional",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_b4c9db7d",
+      "question": "¿Mi tienda de 850 metros cuadrados en Murcia está exenta de las nuevas restricciones de horarios comerciales?",
+      "expectedNorms": [
+        "BOE-A-2014-13369",
+        "BOE-A-2012-15595"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-mc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_917bbc46",
+      "question": "como puedo obtener ayudas economicas del ministerio para mi jardin botico privado y colaborar con la conservacion de plantas en peligro",
+      "expectedNorms": [
+        "BOE-A-2011-3582",
+        "BOE-A-2007-21490"
+      ],
+      "category": "Catálogo Nacional de Especies Amenazadas",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_37fd30d4",
+      "question": "¿Qué comprobaciones debe hacer el Estado sobre la utilidad y el impacto de las obras de agua antes de empezar a construirlas?",
+      "expectedNorms": [
+        "BOE-A-2011-14985",
+        "BOE-A-2018-16674",
+        "BOE-A-2022-4920",
+        "BOE-A-2023-3607",
+        "BOE-A-2023-3608",
+        "BOE-A-2023-16875",
+        "BOE-A-2023-16879"
+      ],
+      "category": "Administración General del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ed431be6",
+      "question": "tengo que avisar cada año de cuantas patatas planto para que no me multen",
+      "expectedNorms": [
+        "BOE-A-2017-2312",
+        "BOE-A-2003-3835"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_6483ed23",
+      "question": "qué documentos tengo que adjuntar para presentar una propuesta de ley ciudadana en congreso",
+      "expectedNorms": [
+        "BOE-A-2001-14244",
+        "BOE-A-2017-7170"
+      ],
+      "category": "Iniciativa legislativa",
+      "voice": "citizen",
+      "jurisdiction": "es-cl",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_bd77c5e7",
+      "question": "¿Puede el presidente del consejo rector firmar la hipoteca en nombre de la cooperativa de forma individual o debe actuar colegiadamente?",
+      "expectedNorms": [
+        "BOE-A-2011-2707",
+        "BOE-A-2023-13762",
+        "BOE-A-2007-9417",
+        "BOE-A-2013-12424"
+      ],
+      "category": "Cooperativas",
+      "voice": "formal",
+      "jurisdiction": "es-cm",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_2a396c44",
+      "question": "¿Cuál es la estructura que debe seguir el código que nos asigna la comunidad autónoma para identificar cada uno de nuestros locales?",
+      "expectedNorms": [
+        "BOE-A-2010-8189"
+      ],
+      "category": "Registros administrativos",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_8f8d2cc5",
+      "question": "¿Cómo puedo verificar que los datos de la autorización que hemos emitido en la comunidad coinciden con los que figuran en el listado nacional de la agencia?",
+      "expectedNorms": [
+        "BOE-A-2013-10950",
+        "BOE-A-2023-16727"
+      ],
+      "category": "Autorizaciones",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_3ebc26d1",
+      "question": "¿Existe reconocimiento oficial del gobierno para el Día de la Cataluña Exterior que sirva de justificación para solicitar subvenciones?",
+      "expectedNorms": [
+        "BOE-A-2017-7817",
+        "BOE-A-2014-13367"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-ct",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_24b0d80b",
+      "question": "¿Qué requisitos debe cumplir el proceso de información y el permiso por escrito de los padres para que puedan ceder los embriones sobrantes para estudios?",
+      "expectedNorms": [
+        "BOE-A-2003-21193",
+        "BOE-A-2007-12945",
+        "BOE-A-2004-18573",
+        "BOE-A-2007-7789"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_018d3f41",
+      "question": "como calculan la ayuda por el niño si no he trabajado todos los meses y cobro poco",
+      "expectedNorms": [
+        "BOE-A-2012-15765",
+        "BOE-A-2015-11724",
+        "BOE-A-2011-13242",
+        "BOE-A-2024-1691",
+        "BOE-A-2025-3780",
+        "BOE-A-2026-7296"
+      ],
+      "category": "Asistencia social",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_a12ece68",
+      "question": "que cursos tengo que hacer para sacarme el titulo oficial para cuidar jardines y quitar bichos",
+      "expectedNorms": [
+        "BOE-A-2010-15357"
+      ],
+      "category": "Catálogo Nacional de Cualificaciones Profesionales",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_bef9a659",
+      "question": "si alguien compra la casa que el banco me quitó me tienen que dar una opcion de alquilarla barata",
+      "expectedNorms": [
+        "BOE-A-2015-9725"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "citizen",
+      "jurisdiction": "es-ct",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_d248f37f",
+      "question": "¿Qué restricciones existen para seguir usando las frecuencias que están destinadas a las redes de telefonía móvil?",
+      "expectedNorms": [
+        "BOE-A-2019-9513",
+        "BOE-A-2020-6621"
+      ],
+      "category": "Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_2ec44d71",
+      "question": "¿Quién incoa el expediente sancionador y puede el mismo órgano adoptar medidas cautelares?",
+      "expectedNorms": [
+        "BOE-A-2012-11413",
+        "BOE-A-2022-15289",
+        "BOE-A-2017-15372",
+        "BOE-A-2023-1606",
+        "BOE-A-2008-12528",
+        "BOE-A-2002-15544"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-ga",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_9f6b9778",
+      "question": "soy bombero voluntario y ya tuve una falta grave hace dos años y ahora he vuelto a infringir una falta grave la misma me va a contar como muy grave?",
+      "expectedNorms": [
+        "BOE-A-2011-7331",
+        "BOE-A-1995-10634",
+        "BOE-A-2025-10884",
+        "BOE-A-2017-10495"
+      ],
+      "category": "Bomberos",
+      "voice": "citizen",
+      "jurisdiction": "es-vc",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_15aed96d",
+      "question": "¿Puede el voluntariado en residencias de mayores sustituir la obligación de las administraciones de garantizar la atención?",
+      "expectedNorms": [
+        "BOE-A-2003-9100",
+        "BOE-A-2019-15519",
+        "BOE-A-2009-11186"
+      ],
+      "category": "Asistencia social",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_72e16b59",
+      "question": "¿Existe alguna excepción para que un grupo pequeño de cultivadores pueda registrarse como asociación oficial si su zona de cultivo es muy limitada?",
+      "expectedNorms": [
+        "BOE-A-2019-6607"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_8744a046",
+      "question": "¿La empresa puede pedir la intervención de la comisión para resolver conflictos por inaplicar el convenio?",
+      "expectedNorms": [
+        "BOE-A-2012-12136",
+        "BOE-A-2010-14301",
+        "BOE-A-2010-9542",
+        "BOE-A-2012-2655",
+        "BOE-A-2012-9110"
+      ],
+      "category": "Organización de la Administración del Estado",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_c0c6a9cd",
+      "question": "ayudas para aprender idiomas y hacer web en inglés para vender fuera",
+      "expectedNorms": [
+        "BOE-A-2012-4187",
+        "BOE-A-2013-11691",
+        "BOE-A-2019-7787"
+      ],
+      "category": "Ayudas",
+      "voice": "citizen",
+      "jurisdiction": "es-cm",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_4c32eda7",
+      "question": "puedo pedir ver los documentos de la licencia para el centro comercial",
+      "expectedNorms": [
+        "BOE-A-2015-184",
+        "BOE-A-2010-738",
+        "BOE-A-2019-10102",
+        "BOE-A-2013-6050"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "citizen",
+      "jurisdiction": "es-mc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_1a4bb0c3",
+      "question": "¿Dónde puedo consultar los temas que se tratarán en las sesiones del consejo y las decisiones tomadas con los grupos de trabajadores y empresarios?",
+      "expectedNorms": [
+        "BOE-A-2015-1114"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cn",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_365e751f",
+      "question": "¿Qué derechos adquiere la aseguradora sobre la deuda tras el pago provisional de la indemnización?",
+      "expectedNorms": [
+        "BOE-A-2014-13302",
+        "BOE-A-2020-16350"
+      ],
+      "category": "Empresas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_95dd95d4",
+      "question": "¿Cómo puedo enterarme de las fechas y las reglas para solicitar los galardones de buenas prácticas en el sector sanitario?",
+      "expectedNorms": [
+        "BOE-A-2011-7709"
+      ],
+      "category": "Administración electrónica",
+      "voice": "formal",
+      "jurisdiction": "es-ib",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_e9562682",
+      "question": "que se pretende comprobar con las pruebas finales de primaria",
+      "expectedNorms": [
+        "BOE-A-2015-12894",
+        "BOE-A-2016-3974"
+      ],
+      "category": "Educación Infantil",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_449ee92d",
+      "question": "¿Pueden prohibir la entrada a un perro guía en un restaurante?",
+      "expectedNorms": [
+        "BOE-A-2003-23292",
+        "BOE-A-2001-16538"
+      ],
+      "category": "Animales de compañía",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_0f3dfb1d",
+      "question": "a quien denuncio productos de higiene con etiqueta en ingles",
+      "expectedNorms": [
+        "BOE-A-2018-2693"
+      ],
+      "category": "Comercialización",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_4a189807",
+      "question": "¿Me pueden obligar a devolver la ayuda y además cobrarme intereses por el tiempo que he tenido el dinero desde que me lo dieron?",
+      "expectedNorms": [
+        "BOE-A-2017-1370",
+        "BOE-A-2020-16350",
+        "BOE-A-2008-16386",
+        "BOE-A-2021-14977",
+        "BOE-A-2021-3702",
+        "BOE-A-2008-19918",
+        "BOE-A-2011-8125",
+        "BOE-A-2013-12321"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_e194c6e0",
+      "question": "donde puedo ver la lista oficial de los consejeros comarcales que han salido elegidos",
+      "expectedNorms": [
+        "BOE-A-2002-7203"
+      ],
+      "category": "Administración Local",
+      "voice": "citizen",
+      "jurisdiction": "es-ar",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_6620bf72",
+      "question": "¿Puede mi asociación presentar alegaciones antes de que declaren una nueva reserva marina que afecte a nuestras zonas de faena?",
+      "expectedNorms": [
+        "BOE-A-2017-2424",
+        "BOE-A-2003-13619",
+        "BOE-A-2023-7052",
+        "BOE-A-2021-8105",
+        "BOE-A-2009-805"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es-vc",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_fb956ef8",
+      "question": "¿Puede nuestra asociación nacional recibir las ayudas si ya estamos inscritos en el registro oficial y gestionamos planes de producción y venta?",
+      "expectedNorms": [
+        "BOE-A-2017-12663"
+      ],
+      "category": "Ayudas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_bb64ae6e",
+      "question": "¿Puede un centro de internamiento de extranjeros negar la visita de un hijo menor de seis años a su padre por exceder el número de personas permitido en las normas internas?",
+      "expectedNorms": [
+        "BOE-A-2014-2749",
+        "BOE-A-2000-544"
+      ],
+      "category": "Extranjeros",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_da2d8b6c",
+      "question": "¿Es válida la transferencia de funciones de la alcaldía a otra concejalía si el pleno no ha votado para aprobarla?",
+      "expectedNorms": [
+        "BOE-A-2003-10723",
+        "BOE-A-1986-33252"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-md",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_e4f93467",
+      "question": "¿Es obligatorio tener una concesión administrativa para usar un canal de riego público que se ha venido utilizando durante décadas sin título específico?",
+      "expectedNorms": [
+        "BOE-A-2007-9893"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-nc",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_f7455dc0",
+      "question": "¿Qué tipo de sanciones me pueden imponer si el ayuntamiento considera que el aislamiento de mi local no evita correctamente el ruido?",
+      "expectedNorms": [
+        "BOE-A-2000-21563",
+        "BOE-A-2020-11046",
+        "BOE-A-2016-729",
+        "BOE-A-1991-7867",
+        "BOE-A-2002-14080"
+      ],
+      "category": "Administración Local",
+      "voice": "formal",
+      "jurisdiction": "es-ri",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_a5ac0a07",
+      "question": "¿Está permitida la montería en mi coto de caza en Extremadura y es obligatorio incluirla en el plan técnico?",
+      "expectedNorms": [
+        "BOE-A-2010-19851",
+        "BOE-A-2021-12058"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es-ex",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_cfde2ed3",
+      "question": "si aviso a la comunidad autonoma con mis datos puedo empezar a vender comida ya mismo",
+      "expectedNorms": [
+        "BOE-A-2011-4293"
+      ],
+      "category": "Procedimiento administrativo",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_410effe8",
+      "question": "¿Cuánto tiempo tengo para enviar al Consejo la memoria económica de mi empresa pública tras su aprobación por el consejo de administración?",
+      "expectedNorms": [
+        "BOE-A-2002-9332"
+      ],
+      "category": "Organización de las Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es-cl",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_8ceab911",
+      "question": "si voy como invitado a la junta de ingenieros puedo votar en todo o tengo que dejar cosas para los que ya estan colegiados",
+      "expectedNorms": [
+        "BOE-A-2017-2063"
+      ],
+      "category": "Colegios Profesionales",
+      "voice": "citizen",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_0344f2bd",
+      "question": "¿Qué normativa se aplica a las concesiones de pesca en mi territorio mientras no se apruebe la regulación propia de la comunidad autónoma?",
+      "expectedNorms": [
+        "BOE-A-2010-5037"
+      ],
+      "category": "Comunidades Autónomas",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_5ed7f520",
+      "question": "¿En qué casos las autoridades pueden decidir inspeccionar físicamente la madera para comprobar que coincide con lo declarado en los permisos?",
+      "expectedNorms": [
+        "BOE-A-2015-13437"
+      ],
+      "category": "Comercialización",
+      "voice": "formal",
+      "jurisdiction": "es",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_8d4241dc",
+      "question": "¿Qué sanciones administrativas enfrentamos si nuestros trenes no utilizan toda la capacidad de circulación que les fue asignada cuando las vías están saturadas y el retraso se debe a nuestra gestión?",
+      "expectedNorms": [
+        "BOE-A-2007-665"
+      ],
+      "category": "Consumidores y usuarios",
+      "voice": "formal",
+      "jurisdiction": "es-an",
+      "difficulty": "easy"
+    }
+  ]
+}
