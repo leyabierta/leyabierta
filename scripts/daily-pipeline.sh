@@ -207,6 +207,13 @@ log "→ Step 3: Ingest analisis"
 docker exec "$CONTAINER" bun run ingest-analisis >> "$LOG" 2>&1
 log "  ✓ Ingest-analisis done"
 
+# ── Step 3b: RAG — embed any vigente articles missing qwen3-nan embeddings ──
+# Incremental: no-op when nothing new. Keeps /v1/ask in sync with newly
+# ingested norms. Requires HERMES_API_KEY (or NAN_API_KEY) in .env.prod.
+log "→ Step 3b: Embed new corpus chunks (qwen3-nan via NaN)"
+docker exec "$CONTAINER" bun run packages/api/src/scripts/embed-corpus.ts >> "$LOG" 2>&1
+log "  ✓ Embed corpus done"
+
 # ── Step 4: AI — reform summaries ───────────────────────────────────────────
 log "→ Step 4: Reform summaries"
 docker exec "$CONTAINER" bun run packages/api/src/scripts/generate-reform-summaries.ts >> "$LOG" 2>&1
