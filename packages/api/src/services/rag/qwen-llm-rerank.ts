@@ -78,7 +78,20 @@ export async function qwenLLMRerank(
 		response_format: { type: "json_object" },
 	});
 
+	const passthrough = (
+		backend: string,
+	): { results: LLMRerankResult[]; backend: string; cost: number } => ({
+		results: candidates.slice(0, topK).map((c, i) => ({
+			key: c.key,
+			relevanceScore: 1 - i * 0.01,
+			rank: i + 1,
+		})),
+		backend,
+		cost: 0,
+	});
+
 	let attempts = 0;
+	let lastStatus = 0;
 	while (attempts < 4) {
 		try {
 			const res = await fetch(NAN_CHAT_URL, {
@@ -91,7 +104,14 @@ export async function qwenLLMRerank(
 				signal: AbortSignal.timeout(opts.timeoutMs ?? 90_000),
 			});
 			if (res.status === 429 || res.status >= 500) {
+				lastStatus = res.status;
 				attempts++;
+				if (attempts >= 4) {
+					console.warn(
+						`qwen-llm-rerank rate-limited/5xx (status=${lastStatus}) after ${attempts} attempts; passthrough`,
+					);
+					return passthrough("qwen-llm-rate-limited");
+				}
 				await new Promise((r) => setTimeout(r, 2000 * attempts));
 				continue;
 			}
@@ -124,22 +144,13 @@ export async function qwenLLMRerank(
 		} catch (err) {
 			attempts++;
 			if (attempts >= 4) {
-				// Graceful fallback: return candidates in original order
 				console.warn(
 					`qwen-llm-rerank failed after ${attempts} attempts: ${err instanceof Error ? err.message : err}`,
 				);
-				return {
-					results: candidates.slice(0, topK).map((c, i) => ({
-						key: c.key,
-						relevanceScore: 1 - i * 0.01,
-						rank: i + 1,
-					})),
-					backend: "qwen-llm-failed",
-					cost: 0,
-				};
+				return passthrough("qwen-llm-failed");
 			}
 			await new Promise((r) => setTimeout(r, 2000 * attempts));
 		}
 	}
-	throw new Error("unreachable");
+	return passthrough("qwen-llm-failed");
 }

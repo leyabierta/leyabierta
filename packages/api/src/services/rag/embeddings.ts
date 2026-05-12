@@ -114,6 +114,12 @@ export async function fetchWithRetry(
 	const maxRetries = 3;
 	let attempts = 0;
 
+	if (provider === "local") {
+		throw new Error(
+			`fetchWithRetry: provider "local" has no HTTP endpoint — local models must be served separately. modelId=${modelId}`,
+		);
+	}
+
 	// Pick endpoint + auth per provider. NaN reads HERMES_API_KEY from env so
 	// callers don't have to thread a separate key.
 	const url =

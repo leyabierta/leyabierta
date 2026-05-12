@@ -206,30 +206,49 @@ export async function* callNanStream(
 	} = options;
 
 	let response: Response | null = null;
+	let lastError: Error | null = null;
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		if (attempt > 0) {
 			await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
 		}
-		const res = await fetch(NAN_URL, {
-			method: "POST",
-			signal: AbortSignal.timeout(180_000),
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model,
-				messages,
-				temperature,
-				max_tokens: maxTokens,
-				stream: true,
-				...(disableThinking
-					? { chat_template_kwargs: { enable_thinking: false } }
-					: {}),
-			}),
-		});
-		if (res.status === 429) continue;
-		if (res.status >= 500) continue;
+		let res: Response;
+		try {
+			res = await fetch(NAN_URL, {
+				method: "POST",
+				signal: AbortSignal.timeout(180_000),
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					model,
+					messages,
+					temperature,
+					max_tokens: maxTokens,
+					stream: true,
+					...(disableThinking
+						? { chat_template_kwargs: { enable_thinking: false } }
+						: {}),
+				}),
+			});
+		} catch (err) {
+			lastError = new OpenRouterError(
+				"fetch_error",
+				`NaN stream network error: ${err}`,
+			);
+			continue;
+		}
+		if (res.status === 429) {
+			lastError = new OpenRouterError("rate_limit", "NaN stream rate limited");
+			continue;
+		}
+		if (res.status >= 500) {
+			lastError = new OpenRouterError(
+				`http_${res.status}`,
+				`NaN stream ${res.status} (transient)`,
+			);
+			continue;
+		}
 		if (!res.ok) {
 			const errorText = await res.text();
 			throw new OpenRouterError(
@@ -241,7 +260,10 @@ export async function* callNanStream(
 		break;
 	}
 	if (!response) {
-		throw new OpenRouterError("rate_limit", "NaN rate limited after retries");
+		throw (
+			lastError ??
+			new OpenRouterError("rate_limit", "NaN stream rate limited after retries")
+		);
 	}
 	if (!response.body) {
 		throw new OpenRouterError("no_body", "NaN response has no body");
