@@ -636,7 +636,7 @@ const TOPICS = [
 				<div class="search-hints" id="search-hints">
 					<span class="hint-label">Temas frecuentes:</span>
 					{TOPICS.map(t => (
-						<a data-topic={t}>{t}</a>
+						<a href={`/?q=${encodeURIComponent(t)}`} data-topic={t}>{t}</a>
 					))}
 					<a href="/mi-situacion/" class="dashed">Todos los temas &rarr;</a>
 				</div>
