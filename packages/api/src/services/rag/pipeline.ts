@@ -90,7 +90,6 @@ const DECLINE_LOW_CONFIDENCE =
 // ── Pipeline ──
 
 export class RagPipeline {
-	private cohereApiKey: string | null;
 	private embeddedNormIds: string[] | null = null;
 
 	private insertSummaryStmt: ReturnType<Database["prepare"]>;
@@ -101,8 +100,6 @@ export class RagPipeline {
 		private apiKey: string,
 		private dataDir: string = "./data",
 	) {
-		this.cohereApiKey = process.env.COHERE_API_KEY ?? null;
-
 		// Initialize article-level BM25 index for hybrid search
 		ensureBlocksFts(this.db);
 		// Vocab table powers the OR-fallback token pruning in bm25ArticleSearch.
@@ -216,7 +213,6 @@ export class RagPipeline {
 		const retrieval = await runRetrievalCore({
 			db: this.db,
 			apiKey: this.apiKey,
-			cohereApiKey: this.cohereApiKey,
 			question: request.question,
 			requestJurisdiction: request.jurisdiction,
 			embeddedNormIds: this.getEmbeddedNormIdsCached(),
@@ -450,7 +446,6 @@ export class RagPipeline {
 			const retrievalPromise = runRetrievalCore({
 				db: this.db,
 				apiKey: this.apiKey,
-				cohereApiKey: this.cohereApiKey,
 				question: request.question,
 				requestJurisdiction: request.jurisdiction,
 				embeddedNormIds: this.getEmbeddedNormIdsCached(),
@@ -746,7 +741,6 @@ export class RagPipeline {
 		const retrieval = await runRetrievalCore({
 			db: this.db,
 			apiKey: this.apiKey,
-			cohereApiKey: this.cohereApiKey,
 			question: request.question,
 			requestJurisdiction: request.jurisdiction,
 			embeddedNormIds: this.getEmbeddedNormIdsCached(),
@@ -834,7 +828,6 @@ export class RagPipeline {
 			const retrieval = await runRetrievalCore({
 				db: this.db,
 				apiKey: this.apiKey,
-				cohereApiKey: this.cohereApiKey,
 				question: request.question,
 				requestJurisdiction: request.jurisdiction,
 				embeddedNormIds: this.getEmbeddedNormIdsCached(),

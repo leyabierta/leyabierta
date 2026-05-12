@@ -1,21 +1,12 @@
 /**
  * Reranker — rescores candidate articles by relevance to the query.
  *
- * Default backend: qwen3.6 LLM rerank via NaN. Phase 5 A/B showed +18 pp R@1
+ * Backend: qwen3.6 LLM rerank via NaN. Phase 5 A/B showed +18 pp R@1
  * over cohere/rerank-4-pro on this Spanish-legal corpus, with $0 cost.
- *
- * Cohere and OpenRouter backends remain available as opt-in fallbacks for
- * comparison testing only — set `preferredBackend` and provide the
- * corresponding key.
  */
 
 import { getNanApiKey } from "../nan-api-key.ts";
 import { qwenLLMRerank } from "./qwen-llm-rerank.ts";
-
-const COHERE_RERANK_URL = "https://api.cohere.com/v2/rerank";
-const OPENROUTER_RERANK_URL = "https://openrouter.ai/api/v1/rerank";
-const COHERE_MODEL = "rerank-v3.5";
-const OPENROUTER_RERANK_MODEL = "cohere/rerank-4-pro";
 
 export interface RerankerCandidate {
 	key: string; // "normId:blockId"
@@ -30,13 +21,7 @@ export interface RerankerResult {
 }
 
 interface RerankerConfig {
-	cohereApiKey?: string;
-	openrouterApiKey?: string;
-	openrouterModel?: string;
-	/** When set, use the NaN qwen3.6 LLM reranker instead of OpenRouter/Cohere. */
 	nanApiKey?: string;
-	/** Force a specific backend regardless of credentials present. */
-	preferredBackend?: "cohere" | "openrouter" | "nan-llm";
 }
 
 /**
@@ -72,19 +57,6 @@ export async function rerank(
 		};
 	}
 
-	// Opt-in legacy backends for comparison/A-B only.
-	if (config.preferredBackend === "cohere" && config.cohereApiKey) {
-		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
-	}
-	if (config.preferredBackend === "openrouter" && config.openrouterApiKey) {
-		return rerankViaOpenRouter(
-			query,
-			candidates,
-			topK,
-			config.openrouterApiKey,
-		);
-	}
-
 	// Default: qwen3.6 LLM rerank via NaN. Resolve via getNanApiKey() when the
 	// caller didn't pass one — same pattern as embeddings/analyzer.
 	const nanKey = config.nanApiKey ?? getNanApiKey();
@@ -92,20 +64,7 @@ export async function rerank(
 		return rerankWithNanLLM(query, candidates, topK, nanKey);
 	}
 
-	// Last-resort fallbacks if NAN_API_KEY is genuinely missing.
-	if (config.cohereApiKey) {
-		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
-	}
-	if (config.openrouterApiKey) {
-		return rerankViaOpenRouter(
-			query,
-			candidates,
-			topK,
-			config.openrouterApiKey,
-		);
-	}
-
-	// No keys → passthrough (preserves order from RRF).
+	// No key → passthrough (preserves order from RRF).
 	return {
 		results: candidates.slice(0, topK).map((c, i) => ({
 			key: c.key,
@@ -126,221 +85,4 @@ async function rerankWithNanLLM(
 	nanApiKey: string,
 ): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
 	return qwenLLMRerank(nanApiKey, query, candidates, topK);
-}
-
-// ── Cohere Rerank ──
-
-async function rerankWithCohere(
-	query: string,
-	candidates: RerankerCandidate[],
-	topK: number,
-	apiKey: string,
-): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
-	const documents = candidates.map((c) => ({
-		text: `${c.title}\n\n${c.text.slice(0, 1500)}`,
-	}));
-
-	const response = await fetch(COHERE_RERANK_URL, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			model: COHERE_MODEL,
-			query,
-			documents,
-			top_n: topK,
-		}),
-	});
-
-	if (!response.ok) {
-		const err = await response.text();
-		console.warn(
-			`Cohere Rerank error ${response.status}: ${err.slice(0, 200)}`,
-		);
-		// Graceful fallback: return candidates in original order
-		return {
-			results: candidates.slice(0, topK).map((c, i) => ({
-				key: c.key,
-				relevanceScore: 1 - i * 0.01,
-				rank: i + 1,
-			})),
-			backend: "cohere-rerank-failed",
-			cost: 0,
-		};
-	}
-
-	const data = (await response.json()) as {
-		results: Array<{ index: number; relevance_score: number }>;
-	};
-
-	const results: RerankerResult[] = data.results
-		.filter((r) => r.index >= 0 && r.index < candidates.length)
-		.map((r, rank) => ({
-			key: candidates[r.index]!.key,
-			relevanceScore: r.relevance_score,
-			rank: rank + 1,
-		}));
-
-	// Cohere costs ~$0.001 per 1000 search units (1 search unit = 1 doc × 1 query)
-	const cost = (candidates.length / 1000) * 0.001;
-
-	return { results, backend: "cohere-rerank-v3.5", cost };
-}
-
-// ── OpenRouter Rerank (Cohere rerank-4-pro via OpenRouter) ──
-
-async function rerankViaOpenRouter(
-	query: string,
-	candidates: RerankerCandidate[],
-	topK: number,
-	apiKey: string,
-): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
-	const documents = candidates.map(
-		(c) => `${c.title}\n\n${c.text.slice(0, 1500)}`,
-	);
-
-	const response = await fetch(OPENROUTER_RERANK_URL, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-			"HTTP-Referer": "https://leyabierta.es",
-			"X-Title": "Ley Abierta RAG",
-		},
-		body: JSON.stringify({
-			model: OPENROUTER_RERANK_MODEL,
-			query,
-			documents,
-			top_n: topK,
-		}),
-	});
-
-	if (!response.ok) {
-		const err = await response.text();
-		console.warn(
-			`OpenRouter rerank error ${response.status}: ${err.slice(0, 200)}`,
-		);
-		// Fall back to passthrough instead of crashing
-		return {
-			results: candidates.slice(0, topK).map((c, i) => ({
-				key: c.key,
-				relevanceScore: 1 - i * 0.01,
-				rank: i + 1,
-			})),
-			backend: "openrouter-rerank-failed",
-			cost: 0,
-		};
-	}
-
-	const data = (await response.json()) as {
-		results: Array<{ index: number; relevance_score: number }>;
-		usage?: { cost?: number };
-	};
-
-	const results: RerankerResult[] = data.results
-		.filter((r) => r.index >= 0 && r.index < candidates.length)
-		.map((r, rank) => ({
-			key: candidates[r.index]!.key,
-			relevanceScore: r.relevance_score,
-			rank: rank + 1,
-		}));
-
-	const cost = data.usage?.cost ?? 0;
-	return { results, backend: "openrouter-rerank-4-pro", cost };
-}
-
-// ── LLM-based reranker (kept as fallback, not actively used) ──
-// biome-ignore lint/correctness/noUnusedVariables: kept as documented fallback
-async function rerankWithLLM(
-	query: string,
-	candidates: RerankerCandidate[],
-	topK: number,
-	apiKey: string,
-	model: string,
-): Promise<{ results: RerankerResult[]; backend: string; cost: number }> {
-	// Build a numbered list of candidate snippets
-	const snippets = candidates
-		.map((c, i) => `[${i}] ${c.title}\n${c.text.slice(0, 300)}`)
-		.join("\n\n");
-
-	const response = await fetch(
-		"https://openrouter.ai/api/v1/chat/completions",
-		{
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-				"HTTP-Referer": "https://leyabierta.es",
-				"X-Title": "Ley Abierta RAG Reranker",
-			},
-			body: JSON.stringify({
-				model,
-				temperature: 0,
-				max_tokens: 300,
-				response_format: { type: "json_object" },
-				messages: [
-					{
-						role: "system",
-						content: `Eres un reranker de documentos legales. Dada una pregunta y una lista de artículos legislativos numerados, devuelve los ${topK} más relevantes ordenados por relevancia descendente.
-
-Responde SOLO con JSON: {"ranking": [{"index": N, "score": 0.0-1.0}, ...]}
-- "index" es el número del artículo en la lista
-- "score" es la relevancia (1.0 = perfectamente relevante, 0.0 = irrelevante)
-- Devuelve exactamente ${topK} resultados (o menos si hay menos candidatos relevantes)`,
-					},
-					{
-						role: "user",
-						content: `PREGUNTA: ${query}\n\nARTÍCULOS:\n${snippets}`,
-					},
-				],
-			}),
-		},
-	);
-
-	if (!response.ok) {
-		const err = await response.text();
-		throw new Error(
-			`LLM reranker error ${response.status}: ${err.slice(0, 200)}`,
-		);
-	}
-
-	const data = (await response.json()) as {
-		usage?: { cost?: number };
-		choices?: Array<{ message?: { content?: string } }>;
-	};
-	const usage = data.usage ?? {};
-	const cost = usage.cost ?? 0;
-
-	let ranking: Array<{ index: number; score: number }>;
-	try {
-		const content = data.choices?.[0]?.message?.content ?? "{}";
-		const parsed = JSON.parse(content) as {
-			ranking?: Array<{ index: number; score: number }>;
-		};
-		ranking = parsed.ranking ?? [];
-	} catch {
-		// If LLM fails to produce valid JSON, return candidates as-is
-		return {
-			results: candidates.slice(0, topK).map((c, i) => ({
-				key: c.key,
-				relevanceScore: 1 - i * 0.01,
-				rank: i + 1,
-			})),
-			backend: `llm-reranker-${model}-failed`,
-			cost,
-		};
-	}
-
-	const results: RerankerResult[] = ranking
-		.filter((r) => r.index >= 0 && r.index < candidates.length)
-		.slice(0, topK)
-		.map((r, rank) => ({
-			key: candidates[r.index]!.key,
-			relevanceScore: r.score,
-			rank: rank + 1,
-		}));
-
-	return { results, backend: `llm-reranker-${model}`, cost };
 }

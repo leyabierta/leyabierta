@@ -42,8 +42,7 @@ import {
  * Trade-off: latency 13s avg vs 2.5s. Acceptable for Ley Abierta SSE because
  * first-token-time is what users perceive (token streaming masks the total).
  *
- * To override per call, pass `model` to `synthesizeAnswer`. To switch globally
- * back to OpenRouter, set `LEGACY_SYNTHESIS_MODEL` env var (Phase 7+ tracking).
+ * To override per call, pass `model` to `synthesizeAnswer`.
  */
 export const SYNTHESIS_MODEL = "qwen3.6";
 export const MAX_EVIDENCE_TOKENS = 8000;
@@ -256,16 +255,14 @@ export async function synthesizeAnswer(opts: {
 	systemPrompt: string;
 	/** Override the synthesis model id (default: SYNTHESIS_MODEL). */
 	model?: string;
-	/** Override the LLM transport (default: callOpenRouter; pass callNan for NaN). */
+	/** Override the LLM transport (default: callNan). Used by research/ab/ scripts. */
 	llmFn?: SynthesisLlmFn;
 }): Promise<SynthesisResult> {
 	const { question, evidenceText, systemPrompt } = opts;
 	const llmFn = (opts.llmFn ?? callNan) as SynthesisLlmFn;
 	const model = opts.model ?? SYNTHESIS_MODEL;
 	// NaN models read NAN_API_KEY (legacy HERMES_API_KEY fallback); pass it (or whatever the caller gave) to
-	// the llmFn. The synthesis path used to require an OpenRouter key; with
-	// qwen3.6 NaN as the default the prod caller's `apiKey` is ignored unless
-	// they swap llmFn back to callOpenRouter for legacy testing.
+	// the llmFn. The prod caller's `apiKey` is used as a fallback when NAN_API_KEY is unset.
 	const apiKey = getNanApiKey() ?? opts.apiKey;
 	const result = await llmFn<{
 		answer: string;

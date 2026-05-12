@@ -1,74 +1,30 @@
 /**
  * Embedding generation and vector search for RAG.
  *
- * Generates embeddings via OpenRouter API and stores them as a binary file.
- * Supports brute-force cosine similarity search (sufficient for ~13K articles).
+ * Generates embeddings via api.nan.builders (qwen3-embedding) and stores
+ * them as a binary file. Supports brute-force cosine similarity search
+ * (sufficient for ~13K articles).
  */
 
 import { getNanApiKey } from "../nan-api-key.ts";
 
-const OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings";
 const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
 const BATCH_SIZE = 50; // articles per API call
 const BACKOFF_MS = 1000;
 
-export type EmbeddingProvider = "openrouter" | "nan" | "local";
+export type EmbeddingProvider = "nan" | "local";
 
 export interface EmbeddingModel {
 	id: string;
 	dimensions: number;
-	/**
-	 * Where the embedding API lives. Defaults to OpenRouter for backwards
-	 * compat. NaN models hit api.nan.builders (free, no auth via OpenRouter)
-	 * and read HERMES_API_KEY from the environment instead of the apiKey arg.
-	 */
 	provider?: EmbeddingProvider;
 }
 
 export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
-	"openai-small": {
-		id: "openai/text-embedding-3-small",
-		dimensions: 1536,
-		provider: "openrouter",
-	},
-	"openai-large": {
-		id: "openai/text-embedding-3-large",
-		dimensions: 3072,
-		provider: "openrouter",
-	},
-	qwen3: {
-		id: "qwen/qwen3-embedding-8b",
-		dimensions: 4096,
-		provider: "openrouter",
-	},
-	"qwen3-local-q8": {
-		id: "qwen3-embedding-8b-q8_0-local",
-		dimensions: 4096,
-		provider: "local",
-	},
 	"qwen3-nan": {
 		id: "qwen3-embedding",
 		dimensions: 4096,
 		provider: "nan",
-	},
-	"qwen3-nan-summary": {
-		// Same Qwen3-Embedding-8B as qwen3-nan, but the corpus side embeds
-		// citizen summaries (plain Spanish) instead of raw legal text. Used by
-		// Phase 4 multi-vector retrieval as a "vocabulary bridge" between
-		// citizen queries and ancient legalese.
-		id: "qwen3-embedding",
-		dimensions: 4096,
-		provider: "nan",
-	},
-	"embgemma-local": {
-		id: "embeddinggemma-300m-bf16-local",
-		dimensions: 768,
-		provider: "local",
-	},
-	"gemini-embedding-2": {
-		id: "google/gemini-embedding-2-preview",
-		dimensions: 3072,
-		provider: "openrouter",
 	},
 };
 
@@ -111,7 +67,7 @@ export async function fetchWithRetry(
 	apiKey: string,
 	modelId: string,
 	input: string | string[],
-	provider: EmbeddingProvider = "openrouter",
+	provider: EmbeddingProvider = "nan",
 ): Promise<Response> {
 	const maxRetries = 3;
 	let attempts = 0;
@@ -122,12 +78,9 @@ export async function fetchWithRetry(
 		);
 	}
 
-	// Pick endpoint + auth per provider. NaN reads from getNanApiKey() so the
-	// callers don't have to thread a separate key; everyone else uses the apiKey arg.
-	const url =
-		provider === "nan" ? NAN_EMBEDDINGS_URL : OPENROUTER_EMBEDDINGS_URL;
-	const effectiveKey = provider === "nan" ? (getNanApiKey() ?? "") : apiKey;
-	if (provider === "nan" && !effectiveKey) {
+	// NaN reads from getNanApiKey() so callers don't have to thread a separate key.
+	const effectiveKey = getNanApiKey() ?? apiKey;
+	if (!effectiveKey) {
 		throw new Error(
 			"NAN_API_KEY not set (HERMES_API_KEY fallback also unset); required for NaN embedding provider",
 		);
@@ -136,21 +89,16 @@ export async function fetchWithRetry(
 	while (true) {
 		let response: Response;
 		try {
-			const headers: Record<string, string> = {
-				Authorization: `Bearer ${effectiveKey}`,
-				"Content-Type": "application/json",
-			};
-			if (provider === "openrouter") {
-				headers["HTTP-Referer"] = "https://leyabierta.es";
-				headers["X-Title"] = "Ley Abierta RAG";
-			}
-			response = await fetch(url, {
+			response = await fetch(NAN_EMBEDDINGS_URL, {
 				method: "POST",
-				headers,
+				headers: {
+					Authorization: `Bearer ${effectiveKey}`,
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					model: modelId,
 					input,
-					...(provider === "nan" ? { encoding_format: "float" } : {}),
+					encoding_format: "float",
 				}),
 			});
 
@@ -165,10 +113,12 @@ export async function fetchWithRetry(
 			}
 
 			// Cloudflare 5xx (NaN) is transient — retry like 429.
-			if (provider === "nan" && response.status >= 500) {
+			if (response.status >= 500) {
 				attempts++;
 				if (attempts > maxRetries) {
-					throw new Error(`NaN ${response.status} after ${attempts} retries`);
+					throw new Error(
+						`NaN API ${response.status} after ${attempts} retries`,
+					);
 				}
 				const delay = BACKOFF_MS * attempts * 2;
 				await new Promise((r) => setTimeout(r, delay));
@@ -223,15 +173,9 @@ export async function generateEmbeddings(
 
 	for (let i = 0; i < articles.length; i += BATCH_SIZE) {
 		const batch = articles.slice(i, i + BATCH_SIZE);
-		const texts = batch.map((a) => {
-			// Gemini Embedding 2 supports 8,192 tokens (~24K chars).
-			// Truncate to 24000 chars to stay safely within limit while using
-			// most of the available context window (previously 2000 chars / 6%).
-			const content = a.text.slice(0, 24000);
-			return content;
-		});
+		const texts = batch.map((a) => a.text.slice(0, 24000));
 
-		// biome-ignore lint/suspicious/noExplicitAny: OpenRouter API response shape
+		// biome-ignore lint/suspicious/noExplicitAny: API response shape
 		let data: any = null;
 		for (let attempt = 0; attempt < 5; attempt++) {
 			if (attempt > 0) {
@@ -1084,17 +1028,10 @@ export async function embedQuery(
 	const model = EMBEDDING_MODELS[modelKey];
 	if (!model) throw new Error(`Unknown model: ${modelKey}`);
 
-	// Gemini Embedding 2 requires inline task prefixes for asymmetric retrieval.
-	// See: https://ai.google.dev/gemini-api/docs/embeddings
-	const prefixedQuery =
-		modelKey === "gemini-embedding-2"
-			? `task: question answering | query: ${query}`
-			: query;
-
 	const response = await fetchWithRetry(
 		apiKey,
 		model.id,
-		prefixedQuery,
+		query,
 		model.provider,
 	);
 	// biome-ignore lint/suspicious/noExplicitAny: API response shape
