@@ -13,6 +13,7 @@
 
 import type { Database } from "bun:sqlite";
 import { callNan, callNanStream } from "../nan.ts";
+import { getNanApiKey } from "../nan-api-key.ts";
 import {
 	describeNormScope,
 	isModifierNorm,
@@ -261,11 +262,11 @@ export async function synthesizeAnswer(opts: {
 	const { question, evidenceText, systemPrompt } = opts;
 	const llmFn = (opts.llmFn ?? callNan) as SynthesisLlmFn;
 	const model = opts.model ?? SYNTHESIS_MODEL;
-	// NaN models read HERMES_API_KEY; pass it (or whatever the caller gave) to
+	// NaN models read NAN_API_KEY (legacy HERMES_API_KEY fallback); pass it (or whatever the caller gave) to
 	// the llmFn. The synthesis path used to require an OpenRouter key; with
 	// qwen3.6 NaN as the default the prod caller's `apiKey` is ignored unless
 	// they swap llmFn back to callOpenRouter for legacy testing.
-	const apiKey = process.env.HERMES_API_KEY ?? opts.apiKey;
+	const apiKey = getNanApiKey() ?? opts.apiKey;
 	const result = await llmFn<{
 		answer: string;
 		citations: Array<{ norm_id: string; article_title: string }>;
@@ -341,7 +342,7 @@ export function synthesizeStream(opts: {
 	systemPrompt: string;
 }) {
 	const { question, evidenceText, systemPrompt } = opts;
-	const apiKey = process.env.HERMES_API_KEY ?? opts.apiKey;
+	const apiKey = getNanApiKey() ?? opts.apiKey;
 	return callNanStream(apiKey, {
 		model: SYNTHESIS_MODEL,
 		messages: [
@@ -431,7 +432,7 @@ export function generateMissingSummaries(opts: {
 	insertSummaryStmt: ReturnType<Database["prepare"]>;
 }) {
 	const { citations, articles, insertSummaryStmt } = opts;
-	const apiKey = process.env.HERMES_API_KEY ?? opts.apiKey;
+	const apiKey = getNanApiKey() ?? opts.apiKey;
 	const missing = citations.filter((c) => !c.citizenSummary);
 	if (missing.length === 0) return;
 
@@ -504,7 +505,7 @@ export async function generatePostSynthExtras(opts: {
 	answer: string;
 }): Promise<{ tldr: string; nextQuestions: string[] }> {
 	const { question, answer } = opts;
-	const apiKey = process.env.HERMES_API_KEY ?? opts.apiKey;
+	const apiKey = getNanApiKey() ?? opts.apiKey;
 	try {
 		const result = await callNan<{
 			tldr: string;
@@ -565,7 +566,7 @@ export async function generateDeclinedSuggestions(opts: {
 	question: string;
 }): Promise<string[]> {
 	const { question } = opts;
-	const apiKey = process.env.HERMES_API_KEY ?? opts.apiKey;
+	const apiKey = getNanApiKey() ?? opts.apiKey;
 	try {
 		const result = await callNan<{ suggested_questions: string[] }>(apiKey, {
 			model: SYNTHESIS_MODEL,

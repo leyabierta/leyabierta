@@ -24,7 +24,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 const DB_PATH = "data/leyabierta.db";
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const HERMES_API_KEY = process.env.HERMES_API_KEY ?? "";
+const NAN_API_KEY = process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY ?? "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 if (!OPENROUTER_API_KEY) {
 	console.error("OPENROUTER_API_KEY not set");
@@ -324,7 +324,7 @@ async function callWithRetry(
 const callQwen = (a: Article) =>
 	callWithRetry(
 		`${HERMES_BASE_URL}/chat/completions`,
-		`Bearer ${HERMES_API_KEY}`,
+		`Bearer ${NAN_API_KEY}`,
 		{
 			model: "qwen3.6",
 			messages: [
