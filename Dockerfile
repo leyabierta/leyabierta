@@ -1,5 +1,5 @@
 # ── Build stage: compile the SIMD .so so gcc never reaches the runtime image ──
-FROM oven/bun:1-slim AS simd-builder
+FROM oven/bun:1.3.13-slim AS simd-builder
 
 WORKDIR /build
 
@@ -10,7 +10,7 @@ COPY packages/api/src/services/rag/vector-simd.c .
 RUN gcc -O3 -mavx2 -mfma -shared -fPIC -o vector-simd.linux-amd64.so vector-simd.c
 
 # ── Runtime stage: slim, no compiler toolchain ──
-FROM oven/bun:1-slim
+FROM oven/bun:1.3.13-slim
 
 WORKDIR /app
 
