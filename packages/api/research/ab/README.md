@@ -1,12 +1,8 @@
-# Embeddings A/B: Gemini-2 vs Qwen3-8B (local Ollama)
+# A/B: Gemini-2 vs Qwen3 (NaN stack)
 
-Self-contained A/B to decide whether to replace `google/gemini-embedding-2-preview`
-(OpenRouter, 3072 dim, $0.20/M tokens) with `qwen3-embedding:8b` (local Ollama,
-4096 dim, free).
+Reproducible suite for the decision that moved RAG from `google/gemini-embedding-2-preview` + Cohere Rerank 4 + Gemini synthesis (OpenRouter) to the full Qwen3 NaN stack (qwen3-embedding + qwen3.6 reranker + qwen3.6 synthesis).
 
-Zero production code is touched: this all lives in `research/ab/`. Both models
-coexist in the `embeddings` SQLite table via the `model` column of the composite
-PK.
+The verdict and the methodology are documented in `docs/qwen-vs-gemini-decision-r2.md` (private). This dir holds the scripts needed to re-run the A/B end-to-end on a fresh machine.
 
 ## Files
 
@@ -14,82 +10,58 @@ PK.
 |---|---|
 | `ollama-embeddings.ts` | Thin Ollama `/api/embed` client, Qwen3 instruction prefix helper, Matryoshka truncation |
 | `corpus.ts` | Builds the A/B corpus (eval norms + top-100 distractors → ~60k sub-chunks) with production-identical formatting |
-| `embed-corpus-qwen3.ts` | Generates Qwen3 embeddings over the corpus, writes to SQLite under `model="qwen3-ol-8b"` |
-| `eval-ab.ts` | Runs 6 variants against `eval-answers-504-omnibus.json` gold set, reports norm-level Recall@K + MRR |
+| `eval-ab.ts` | Runs the embeddings A/B (Gemini-2 vs Qwen3 variants) against the gold set, reports norm-level Recall@K + MRR |
+| `eval-2026-05-local-vs-gemini.ts` | Local-models variant of the same A/B (Qwen3-local-q8, embeddinggemma-300m via llama-server) |
+| `eval-prod-replica.ts` | End-to-end pipeline eval — replicates prod retrieval against the gold set |
+| `eval-hybrid-rerank.ts` | Reranker A/B (Cohere vs Qwen LLM-rerank vs no-rerank) |
+| `eval-synthesis.ts` | Synthesis-quality A/B with LLM judge (Gemini vs Qwen3.6, citation precision, judge score) |
+| `eval-misses.ts` | Diagnoses retrieval misses on the eval set |
+| `tune-eval.ts`, `fast-tune.ts`, `calibrate-threshold.ts` | Hyperparameter tuning (RRF weights, rerank top-K, low-confidence threshold) |
+| `nan-latency-bench.ts` | Latency benchmark for the NaN backend (qwen3.6 streaming + embedding RPS) |
+| `qwen-ab-smoke.ts`, `qwen-ab-tuned.ts` | Smaller smoke + final tuned eval runs |
+| `debug-pipeline.ts` | Step-by-step pipeline inspection for a single query (useful when a miss surprises you) |
+| `qwen36-citizen-summaries/` | Separate sub-experiment: Qwen3.6 generating citizen-language article summaries (10 iterations + post-mortem) |
 
-## Variants compared
+## Reproducing the A/B
 
-| ID | Model | Query transform | Doc |
-|---|---|---|---|
-| A | Gemini-2 | `task: question answering \| query: ...` (prod) | prod format |
-| B | Gemini-2 | raw (ablation) | prod format |
-| C | Qwen3-8B | raw | prod format |
-| D | Qwen3-8B | `Instruct: ... \nQuery: ...` (Qwen3 asymmetric) | prod format |
-| E | Qwen3-8B | Instruct + Matryoshka @2048 | MRL truncated @2048 |
-| F | Qwen3-8B | Instruct + Matryoshka @1024 | MRL truncated @1024 |
-
-## Running
+> **Heads up — script consolidation:** the embedding-generation scripts that lived in this dir (`embed-corpus-qwen3.ts`, `embed-corpus-nanbuilders.ts`, `embed-corpus-full-qwen.ts`, `embed-corpus-llamacpp.ts`, `embed-corpus-openrouter.ts`) were retired when `packages/api/src/scripts/embed-corpus.ts` took over as the single prod path. To regenerate corpus embeddings for any A/B variant, use the prod script with the right `--model` flag.
 
 Prerequisites:
-- Ollama 0.20+ running locally (`ollama serve` or Ollama.app with Metal)
+- Ollama 0.20+ running locally (for the Qwen3 local variants)
 - `qwen3-embedding:8b` pulled: `ollama pull qwen3-embedding:8b`
-- `OPENROUTER_API_KEY` env var (only for Gemini variants A/B)
+- `OPENROUTER_API_KEY` (Gemini variants)
+- `NAN_API_KEY` (Qwen3 NaN variants — production default)
 
 ```bash
-# 1. Inspect the corpus plan (no side effects)
-bun packages/api/research/ab/embed-corpus-qwen3.ts --dry-run
+# 1. Make sure both Gemini and Qwen embeddings exist for the corpus
+bun packages/api/src/scripts/embed-corpus.ts --model gemini-2
+bun packages/api/src/scripts/embed-corpus.ts --model qwen3-nan
 
-# 2. Generate Qwen3 embeddings for the full corpus (~60k chunks, ~2–3h on M4 Max)
-bun packages/api/research/ab/embed-corpus-qwen3.ts
+# 2. Run the embeddings A/B
+OPENROUTER_API_KEY=... NAN_API_KEY=... bun packages/api/research/ab/eval-ab.ts
 
-#    If interrupted, resume from where it left off:
-bun packages/api/research/ab/embed-corpus-qwen3.ts --resume
-
-# 3. Smoke test with just 50 chunks first
-bun packages/api/research/ab/embed-corpus-qwen3.ts --limit 50
-
-# 4. Run the eval (writes ab-results/eval-<timestamp>.json)
-OPENROUTER_API_KEY=... bun packages/api/research/ab/eval-ab.ts
-
-#    Or skip Gemini (local-only):
-bun packages/api/research/ab/eval-ab.ts --only-local
-
-#    Or just a subset of variants:
+#    Or subset of variants:
 bun packages/api/research/ab/eval-ab.ts --variants=A,D
+
+# 3. Run the synthesis A/B (with LLM judge)
+bun packages/api/research/ab/eval-synthesis.ts
+
+# 4. Replicate the full prod pipeline against the eval set
+bun packages/api/research/ab/eval-prod-replica.ts
 ```
 
 ## Gold set
 
-`data/eval-answers-504-omnibus.json` — 65 citizen legal questions with
-`expectedNorms` annotations. Metrics are norm-level (the eval set does not
-tag specific article IDs as ground truth).
+`data/eval-answers-504-omnibus.json` — 65 citizen legal questions with `expectedNorms` annotations. Metrics are norm-level (the eval set does not tag specific article IDs as ground truth).
 
-## Corpus
+A larger v3 dataset (~2000 questions, multi-norm + article-level) is being generated by `packages/eval/` and will replace this one as the canonical gold set.
 
-- 23 norms that appear in `expectedNorms` (guarantees all ground-truth
-  norms are embedded)
-- 100 top-cited vigente norms by `reforms * 2 + articles` (distractors, same
-  ranking formula as `sync-embeddings.ts`)
-- Total: **123 norms → ~46k articles → ~60k sub-chunks** (after `splitByApartados`)
+## Related dirs
+
+- `../archive/hyde/` — HyDE (hypothetical document embeddings) experiments. Not part of the final stack.
+- `../archive/phase4/`, `../archive/ab-misc/` — closed phases of this A/B and one-shot helpers.
+- `../../../eval/src/sources/` — DGT/Justicio/Asklog scrapers that feed the new v3 dataset. Different artifact, same family.
 
 ## Known gotcha: Tailscale / VPN
 
-If `ollama pull qwen3-embedding:8b` hangs at "pulling manifest" or times out
-against `r2.cloudflarestorage.com` (`172.64.x.x`), a VPN like Tailscale is
-likely blocking the Cloudflare R2 CDN. Disable the VPN or the exit node for
-the pull, then re-enable it after.
-
-## Expected runtime on M4 Max (48 GB)
-
-- Embedding 60k chunks: **2–3 hours** (first-call cold; once the model is
-  warm Ollama sustains ~6–10 embeddings/s per 500-token chunk)
-- Eval (65 queries × 6 variants): **~5 minutes** (most of it is Gemini HTTP
-  round-trips; Qwen3 query embeddings are ~50ms each locally)
-
-## Decision criterion
-
-> Qwen3 replaces Gemini if **Recall@5 ≥ Gemini - 2pp AND Recall@1 ≥ Gemini**.
-
-Latency and cost almost always favor Qwen3; the debate is retrieval quality.
-Report goes to `docs/embeddings-ab-report.md` (private) once all variants
-have run.
+If `ollama pull qwen3-embedding:8b` hangs at "pulling manifest" or times out against `r2.cloudflarestorage.com` (`172.64.x.x`), a VPN like Tailscale is likely blocking the Cloudflare R2 CDN. Disable the VPN or the exit node for the pull, then re-enable it after.

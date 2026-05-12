@@ -9,9 +9,11 @@
  *  - All variants run cosine search over the same 60.281-chunk filtered store.
  *
  * Pre-flight:
- *   1. Embed corpus for each local model:
- *        bun packages/api/research/ab/embed-corpus-llamacpp.ts --model qwen3-local-q8 --port 8090
- *        bun packages/api/research/ab/embed-corpus-llamacpp.ts --model embgemma-local --port 8091
+ *   1. Embed corpus for each local model. The original `embed-corpus-llamacpp.ts`
+ *      helper used to live in this dir; it was retired when the production
+ *      `packages/api/src/scripts/embed-corpus.ts` took over. To re-run this
+ *      historical A/B, point the prod script at the local llama-server backend
+ *      with the right port per variant.
  *   2. Start the right llama-server on the right port for the variant being run.
  *
  * Usage:
@@ -283,7 +285,7 @@ for (const v of activeVariants) {
 	const s = loadFilteredStore(v.corpusModel, plan.normIds);
 	if (!s) {
 		console.error(
-			`  ✗ No embeddings for "${v.corpusModel}". Run embed-corpus-llamacpp.ts first.`,
+			`  ✗ No embeddings for "${v.corpusModel}". Generate them with packages/api/src/scripts/embed-corpus.ts (or its llama-server equivalent for this historical variant).`,
 		);
 		process.exit(1);
 	}

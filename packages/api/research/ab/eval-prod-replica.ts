@@ -307,7 +307,7 @@ if (useHyde) {
 		);
 	} else {
 		console.warn(
-			`--hyde requires ${outDir}/${hydeCacheName} — run precompute-hyde.ts first`,
+			`--hyde requires ${outDir}/${hydeCacheName} — run archive/hyde/precompute-hyde.ts first`,
 		);
 	}
 }
