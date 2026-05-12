@@ -102,7 +102,9 @@ async function fetchWithCookie(url: string): Promise<string> {
 	return res.text();
 }
 
-async function primeSession(category: keyof typeof SEARCH_URLS = "generales"): Promise<void> {
+async function primeSession(
+	category: keyof typeof SEARCH_URLS = "generales",
+): Promise<void> {
 	await fetchWithCookie(`${SEARCH_URLS[category]}&page=1`);
 }
 
@@ -192,7 +194,10 @@ function extractTotalPages(html: string): number {
 	return 0;
 }
 
-async function fetchDetail(docId: string, category: string): Promise<ConsultaEntry | null> {
+async function fetchDetail(
+	docId: string,
+	category: string,
+): Promise<ConsultaEntry | null> {
 	const url = `${BASE}/consultas/do/document?query=.T&doc=${docId}&tab=1`;
 	const html = await fetchWithCookie(url);
 
@@ -207,7 +212,17 @@ async function fetchDetail(docId: string, category: string): Promise<ConsultaEnt
 	if (!cuestion || cuestion.length < 10) return null;
 	if (!normativa) return null;
 
-	return { docId, numConsulta, organo, fechaSalida, normativa, cuestion, descripcion, contestacion, category };
+	return {
+		docId,
+		numConsulta,
+		organo,
+		fechaSalida,
+		normativa,
+		cuestion,
+		descripcion,
+		contestacion,
+		category,
+	};
 }
 
 // ── Resume support ──
@@ -243,9 +258,8 @@ for (const cat of categories) {
 	await primeSession(currentCategory);
 
 	const firstPageHtml = await fetchWithCookie(`${cat.url}&page=1`);
-	const totalPages = pagesOverride > 0
-		? pagesOverride
-		: extractTotalPages(firstPageHtml) || 100;
+	const totalPages =
+		pagesOverride > 0 ? pagesOverride : extractTotalPages(firstPageHtml) || 100;
 
 	console.log(`  Total pages to fetch: ${totalPages}`);
 
@@ -259,8 +273,10 @@ for (const cat of categories) {
 		if (page % 50 === 0 || page === 1 || page === totalPages) {
 			const elapsedS = (Date.now() - pageStartTs) / 1000;
 			const pagesPerSec = page / (elapsedS || 1);
-			const etaMin = ((totalPages - page) / (pagesPerSec || 1)) / 60;
-			console.log(`  Page ${page}/${totalPages}: ${docIds.length} docs | kept=${totalKept} | ${pagesPerSec.toFixed(1)} pages/s | ETA ${etaMin.toFixed(1)}min`);
+			const etaMin = (totalPages - page) / (pagesPerSec || 1) / 60;
+			console.log(
+				`  Page ${page}/${totalPages}: ${docIds.length} docs | kept=${totalKept} | ${pagesPerSec.toFixed(1)} pages/s | ETA ${etaMin.toFixed(1)}min`,
+			);
 		}
 
 		for (const id of docIds) {
@@ -276,7 +292,9 @@ for (const cat of categories) {
 					totalSkipped++;
 				}
 			} catch (err) {
-				console.error(`  doc ${id} FAILED: ${err instanceof Error ? err.message : String(err)}`);
+				console.error(
+					`  doc ${id} FAILED: ${err instanceof Error ? err.message : String(err)}`,
+				);
 			}
 			await new Promise((r) => setTimeout(r, delayMs));
 		}
@@ -290,9 +308,18 @@ console.log(`Total docs fetched:   ${totalDocsFetched}`);
 console.log(`Output: ${outPath}`);
 
 const summaryPath = outPath.replace(".jsonl", ".summary.json");
-await Bun.write(summaryPath, JSON.stringify({
-	totalKept, totalSkipped, totalDocsFetched,
-	outputPath: outPath,
-	finishedAt: new Date().toISOString(),
-}, null, 2));
+await Bun.write(
+	summaryPath,
+	JSON.stringify(
+		{
+			totalKept,
+			totalSkipped,
+			totalDocsFetched,
+			outputPath: outPath,
+			finishedAt: new Date().toISOString(),
+		},
+		null,
+		2,
+	),
+);
 console.log(`Summary: ${summaryPath}`);

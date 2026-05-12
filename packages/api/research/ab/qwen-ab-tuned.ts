@@ -24,8 +24,14 @@ import {
 const QWEN_URL = "http://127.0.0.1:8080/v1/chat/completions";
 const QWEN_MODEL = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
 const repoRoot = join(import.meta.dir, "../../..");
-const IN_PATH = join(repoRoot, "packages/api/research/qwen-ab-smoke-results.json");
-const OUT_PATH = join(repoRoot, "packages/api/research/qwen-ab-tuned-results.json");
+const IN_PATH = join(
+	repoRoot,
+	"packages/api/research/qwen-ab-smoke-results.json",
+);
+const OUT_PATH = join(
+	repoRoot,
+	"packages/api/research/qwen-ab-tuned-results.json",
+);
 
 // ── Tuned system prompt ──
 
@@ -89,7 +95,9 @@ function shortPreview(s: string, n = 100): string {
 	return oneline.length <= n ? oneline : `${oneline.slice(0, n)}…`;
 }
 
-function parseCitationsFromText(text: string): Array<{ normId: string; articleTitle: string }> {
+function parseCitationsFromText(
+	text: string,
+): Array<{ normId: string; articleTitle: string }> {
 	const out: Array<{ normId: string; articleTitle: string }> = [];
 	const seen = new Set<string>();
 	for (const m of text.matchAll(INLINE_CITE_PATTERN)) {
@@ -169,7 +177,9 @@ async function streamQwenTuned(opts: {
 				if (d?.reasoning_content) {
 					if (firstTokenAt === null) {
 						firstTokenAt = Date.now();
-						process.stdout.write(`    [${opts.tag}] TTFT ${fmtMs(firstTokenAt - start)}\n`);
+						process.stdout.write(
+							`    [${opts.tag}] TTFT ${fmtMs(firstTokenAt - start)}\n`,
+						);
 					}
 					phase = "reasoning";
 					reasoning += d.reasoning_content;
@@ -221,7 +231,15 @@ async function streamQwenTuned(opts: {
 	process.stdout.write(
 		`    [${opts.tag}] DONE · total ${fmtMs(elapsedMs)} · prompt=${tokensIn} reasoning≈${reasoningTokens} answer_out=${tokensOut} · ${citations.length} citations\n`,
 	);
-	return { answer, citations, reasoning, reasoningTokens, tokensIn, tokensOut, elapsedMs };
+	return {
+		answer,
+		citations,
+		reasoning,
+		reasoningTokens,
+		tokensIn,
+		tokensOut,
+		elapsedMs,
+	};
 }
 
 // ── Main ──
@@ -272,9 +290,16 @@ for (const q of prior.results) {
 	// validCitations metadata to reconstruct the article pool for verifyCitations.
 	const articlePool = new Map<
 		string,
-		{ normId: string; blockTitle: string; normTitle: string; citizenSummary?: string }
+		{
+			normId: string;
+			blockTitle: string;
+			normTitle: string;
+			citizenSummary?: string;
+		}
 	>();
-	for (const variant of [q.gemini, q.qwen] as Array<Record<string, unknown> | undefined>) {
+	for (const variant of [q.gemini, q.qwen] as Array<
+		Record<string, unknown> | undefined
+	>) {
 		if (!variant) continue;
 		const valid = variant.validCitations as
 			| Array<{
@@ -307,7 +332,9 @@ for (const q of prior.results) {
 		});
 		const valid = verifyCitations(r.citations, articles);
 		const verified = valid.filter((c) => c.verified).length;
-		console.log(`    [Q${q.id}] cites=${r.citations.length} valid=${valid.length} verified=${verified}`);
+		console.log(
+			`    [Q${q.id}] cites=${r.citations.length} valid=${valid.length} verified=${verified}`,
+		);
 		tunedResults.push({
 			id: q.id,
 			question: q.question,
@@ -327,7 +354,9 @@ for (const q of prior.results) {
 			},
 		});
 	} catch (err) {
-		console.log(`    [Q${q.id}] ERROR: ${err instanceof Error ? err.message : err}`);
+		console.log(
+			`    [Q${q.id}] ERROR: ${err instanceof Error ? err.message : err}`,
+		);
 		tunedResults.push({
 			id: q.id,
 			question: q.question,

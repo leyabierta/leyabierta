@@ -13,8 +13,8 @@
 			"**/*.js",
 			"**/*.mjs",
 			"**/*.json",
-			"!**/research/datasets/**",
-			"!**/data/ab-results/**"
+			"!**/research/datasets",
+			"!**/data/ab-results"
 		]
 	},
 	"formatter": {
