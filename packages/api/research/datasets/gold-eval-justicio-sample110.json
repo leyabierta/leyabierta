@@ -1,0 +1,1544 @@
+{
+  "results": [
+    {
+      "id": "g-constitucion_aa173cf7",
+      "question": "¿Quién depende de los Jueces, de los Tribunales y del Ministerio Fiscal en sus funciones de averiguación del delito?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 126,
+        "answerSnippet": "La policía judicial"
+      }
+    },
+    {
+      "id": "g-constitucion_9031bfbf",
+      "question": "¿Dónde se utilizarán las banderas y enseñas propias de las Comunidades Autónomas?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 4,
+        "answerSnippet": "Se utilizarán junto a la bandera de España en sus edificios públicos y en sus actos oficiales."
+      }
+    },
+    {
+      "id": "g-constitucion_c8148719",
+      "question": "¿Quién refrenda la propuesta y el nombramiento del Presidente del Gobierno?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 64,
+        "answerSnippet": "El Presidente del Congreso."
+      }
+    },
+    {
+      "id": "g-constitucion_f8139af4",
+      "question": "¿Quién controla la constitucionalidad de las disposiciones normativas con fuerza de ley de los órganos de las Comunidades Autónomas?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 153,
+        "answerSnippet": "El Tribunal Constitucional"
+      }
+    },
+    {
+      "id": "g-constitucion_4aaa6748",
+      "question": "¿Qué ocurre si transcurrido el plazo de dos meses no se ha otorgado la confianza a ningún candidato?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 99,
+        "answerSnippet": "El Rey disolverá ambas Cámaras y convocará nuevas elecciones con el refrendo del Presidente del Congreso."
+      }
+    },
+    {
+      "id": "g-constitucion_f6b82187",
+      "question": "¿Qué pasa con las peticiones que reciban las Cámaras?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 77,
+        "answerSnippet": "Pueden remitirlas al Gobierno."
+      }
+    },
+    {
+      "id": "g-constitucion_aa5c78f1",
+      "question": "¿Quiénes son los altos cargos de la Administración del Estado que no pueden ser Diputados o Senadores según el artículo 70 de la Constitución Española?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 70,
+        "answerSnippet": "Los altos cargos de la Administración del Estado que determine la ley, con la excepción de los miembros del Gobierno."
+      }
+    },
+    {
+      "id": "g-constitucion_dd72d4a2",
+      "question": "¿Qué tipo de comisiones pueden nombrar el Congreso y el Senado?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 76,
+        "answerSnippet": "Comisiones de investigación sobre cualquier asunto de interés público."
+      }
+    },
+    {
+      "id": "g-constitucion_b58d33a3",
+      "question": "¿Cuál es la misión principal del Ministerio Fiscal en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 124,
+        "answerSnippet": "Promover la acción de la justicia en defensa de la legalidad, de los derechos de los ciudadanos y del interés público tutelado por la ley."
+      }
+    },
+    {
+      "id": "g-constitucion_f04fc1bc",
+      "question": "¿Quién puede proponer la disolución del Congreso, del Senado o de las Cortes Generales en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 115,
+        "answerSnippet": "El Presidente del Gobierno, previa deliberación del Consejo de Ministros, y bajo su exclusiva responsabilidad."
+      }
+    },
+    {
+      "id": "g-constitucion_f8c182c5",
+      "question": "¿Cuál es el medio por el que se deben presentar las peticiones individuales y colectivas en las Cámaras?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 77,
+        "answerSnippet": "Por escrito."
+      }
+    },
+    {
+      "id": "g-constitucion_e1f215d1",
+      "question": "¿Cuál es el principio que garantiza el Estado en relación con el territorio español?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 138,
+        "answerSnippet": "El principio de solidaridad consagrado en el artículo 2 de la Constitución."
+      }
+    },
+    {
+      "id": "g-constitucion_5e6fe00a",
+      "question": "¿Quién preside las Diputaciones Permanentes?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 78,
+        "answerSnippet": "El Presidente de la Cámara respectiva"
+      }
+    },
+    {
+      "id": "g-constitucion_16c4f801",
+      "question": "¿Qué juramento presta el Rey al ser proclamado ante las Cortes Generales?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 61,
+        "answerSnippet": "El Rey presta juramento de desempeñar fielmente sus funciones, guardar y hacer guardar la Constitución y las leyes y respetar los derechos de los ciudadanos y de las Comunidades Autónomas."
+      }
+    },
+    {
+      "id": "g-constitucion_1939c3a0",
+      "question": "¿Quiénes más deben prestar el mismo juramento que el Rey?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 61,
+        "answerSnippet": "El Príncipe heredero al alcanzar la mayoría de edad, y el Regente o Regentes al hacerse cargo de sus funciones."
+      }
+    },
+    {
+      "id": "g-constitucion_e4a6c6f0",
+      "question": "¿Qué aspectos de los funcionarios públicos regula la ley?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 103,
+        "answerSnippet": "El estatuto de los funcionarios públicos, el acceso a la función pública, las peculiaridades del ejercicio de su derecho a sindicación, el sistema de incompatibilidades y las garantías para la imparcialidad en el ejercicio de sus funciones."
+      }
+    },
+    {
+      "id": "g-constitucion_0f436f8f",
+      "question": "¿Quiénes tienen iniciativa legislativa en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 87,
+        "answerSnippet": "El Gobierno, el Congreso, el Senado, y las Asambleas de las Comunidades Autónomas."
+      }
+    },
+    {
+      "id": "g-constitucion_ddafbaa5",
+      "question": "¿Cuál es el número mínimo y máximo de Diputados que componen el Congreso de España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 68,
+        "answerSnippet": "Un mínimo de 300 y un máximo de 400 Diputados."
+      }
+    },
+    {
+      "id": "g-constitucion_0e82a021",
+      "question": "¿Qué ocurre cuando una proposición de ley o enmienda es contraria a una delegación legislativa en vigor?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 84,
+        "answerSnippet": "El Gobierno está facultado para oponerse a su tramitación."
+      }
+    },
+    {
+      "id": "g-constitucion_9dadd5c5",
+      "question": "¿Cuál es el derecho y deber de los españoles según el artículo 30?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 30,
+        "answerSnippet": "Defender a España."
+      }
+    },
+    {
+      "id": "g-constitucion_63417d52",
+      "question": "¿Cuál es la misión principal de las Fuerzas y Cuerpos de seguridad en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 104,
+        "answerSnippet": "Proteger el libre ejercicio de los derechos y libertades y garantizar la seguridad ciudadana."
+      }
+    },
+    {
+      "id": "g-constitucion_c4583397",
+      "question": "¿Quiénes son electores y elegibles en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 68,
+        "answerSnippet": "Todos los españoles que estén en pleno uso de sus derechos políticos."
+      }
+    },
+    {
+      "id": "g-constitucion_16443d6a",
+      "question": "¿Qué establece la ley en relación con los Colegios Profesionales?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 36,
+        "answerSnippet": "La ley regulará las peculiaridades propias del régimen jurídico de los Colegios Profesionales y el ejercicio de las profesiones tituladas."
+      }
+    },
+    {
+      "id": "g-constitucion_e38a274d",
+      "question": "¿Qué tipo de ley regulará la institución del Defensor del Pueblo?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 54,
+        "answerSnippet": "Una ley orgánica"
+      }
+    },
+    {
+      "id": "g-constitucion_76241f9d",
+      "question": "¿Cuál es el objetivo del régimen público de Seguridad Social en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 41,
+        "answerSnippet": "Garantizar la asistencia y prestaciones sociales suficientes ante situaciones de necesidad, especialmente en caso de desempleo."
+      }
+    },
+    {
+      "id": "g-constitucion_84c33daf",
+      "question": "¿Qué tipo de ley desarrollará los principios de este artículo?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 135,
+        "answerSnippet": "Una ley orgánica."
+      }
+    },
+    {
+      "id": "g-constitucion_5497c9d3",
+      "question": "¿Cuál es el requisito para convocar una sesión extraordinaria?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 73,
+        "answerSnippet": "Un orden del día determinado."
+      }
+    },
+    {
+      "id": "g-constitucion_9392e0dd",
+      "question": "¿Qué sucede si no se alcanza la mayoría absoluta en la primera votación?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 99,
+        "answerSnippet": "Se someterá la misma propuesta a nueva votación cuarenta y ocho horas después de la anterior, y la confianza se entenderá otorgada si obtuviere la mayoría simple."
+      }
+    },
+    {
+      "id": "g-constitucion_5160a0ee",
+      "question": "¿Cuál es el requisito de mayoría necesaria para que el Congreso de los Diputados exija la responsabilidad política del Gobierno?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 113,
+        "answerSnippet": "Mayoría absoluta"
+      }
+    },
+    {
+      "id": "g-constitucion_b5c6a01a",
+      "question": "¿Cuál debe ser la estructura interna y el funcionamiento de los Colegios Profesionales?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 36,
+        "answerSnippet": "La estructura interna y el funcionamiento de los Colegios deberán ser democráticos."
+      }
+    },
+    {
+      "id": "g-constitucion_256fa623",
+      "question": "¿Qué tipo de territorios pueden tener un Estatuto de autonomía autorizado o acordado por las Cortes Generales?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 144,
+        "answerSnippet": "Territorios que no estén integrados en la organización provincial."
+      }
+    },
+    {
+      "id": "g-constitucion_c564199f",
+      "question": "¿Cuál es el requisito para regular el ejercicio de los derechos y libertades?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 53,
+        "answerSnippet": "Sólo por ley, que debe respetar su contenido esencial"
+      }
+    },
+    {
+      "id": "g-constitucion_f50b22b5",
+      "question": "¿Quién nombra al Presidente del Tribunal Supremo en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 123,
+        "answerSnippet": "El Presidente del Tribunal Supremo es nombrado por el Rey, a propuesta del Consejo General del Poder Judicial."
+      }
+    },
+    {
+      "id": "g-constitucion_5a47a831",
+      "question": "¿Quién expide los decretos acordados en el Consejo de Ministros?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 62,
+        "answerSnippet": "El Rey."
+      }
+    },
+    {
+      "id": "g-constitucion_db4a59b7",
+      "question": "¿Qué ocurre si el Congreso niega su confianza al Gobierno?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 114,
+        "answerSnippet": "El Gobierno presentará su dimisión al Rey y se procederá a la designación de un nuevo Presidente del Gobierno según lo dispuesto en el artículo 99."
+      }
+    },
+    {
+      "id": "g-constitucion_64b64889",
+      "question": "¿Cuál es el objetivo de la ley en cuanto a la participación de los interesados en la Seguridad Social y en la actividad de los organismos públicos?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 129,
+        "answerSnippet": "La ley establecerá las formas de participación de los interesados en la Seguridad Social y en la actividad de los organismos públicos cuya función afecte directamente a la calidad de la vida o al bienestar general."
+      }
+    },
+    {
+      "id": "g-constitucion_48f7e115",
+      "question": "¿Cuál es el procedimiento para denunciar un tratado o convenio internacional?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 96,
+        "answerSnippet": "El mismo procedimiento previsto para su aprobación, según el artículo 94."
+      }
+    },
+    {
+      "id": "g-constitucion_6f506087",
+      "question": "¿Cuál es el deber de los poderes públicos en relación con el medio ambiente?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 45,
+        "answerSnippet": "Velar por la utilización racional de todos los recursos naturales para proteger y mejorar la calidad de la vida y defender y restaurar el medio ambiente."
+      }
+    },
+    {
+      "id": "g-constitucion_6dee3935",
+      "question": "¿Quién es el responsable político ante la Asamblea?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 152,
+        "answerSnippet": "El Presidente y los miembros del Consejo de Gobierno son políticamente responsables ante la Asamblea."
+      }
+    },
+    {
+      "id": "g-constitucion_21d75aee",
+      "question": "¿Cuáles son las funciones de los Juzgados y Tribunales?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 117,
+        "answerSnippet": "Los Juzgados y Tribunales no ejercerán más funciones que las señaladas en el apartado anterior y las que expresamente les sean atribuidas por ley en garantía de cualquier derecho."
+      }
+    },
+    {
+      "id": "g-constitucion_9a31ffc2",
+      "question": "¿Cuál es el requisito mínimo de firmas para presentar una proposición de ley a través de la iniciativa popular?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 87,
+        "answerSnippet": "No menos de 500.000 firmas acreditadas."
+      }
+    },
+    {
+      "id": "g-constitucion_ece0dca5",
+      "question": "¿Quién participará en las plusvalías generadas por la acción urbanística de los entes públicos?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 47,
+        "answerSnippet": "La comunidad."
+      }
+    },
+    {
+      "id": "g-constitucion_bf41cc5e",
+      "question": "¿Cuál es el derecho fundamental que establece el artículo 15 de la Constitución Española?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 15,
+        "answerSnippet": "El derecho a la vida y a la integridad física y moral."
+      }
+    },
+    {
+      "id": "g-constitucion_4526103f",
+      "question": "¿Quién dirige la Administración del Estado en el territorio de la Comunidad Autónoma?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 154,
+        "answerSnippet": "Un Delegado nombrado por el Gobierno"
+      }
+    },
+    {
+      "id": "g-constitucion_18991bf9",
+      "question": "¿Qué debe exponer el candidato propuesto ante el Congreso de los Diputados?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 99,
+        "answerSnippet": "El programa político del Gobierno que pretenda formar y solicitará la confianza de la Cámara."
+      }
+    },
+    {
+      "id": "g-constitucion_b92ea121",
+      "question": "¿Quién controla la validez de las actas y credenciales de los miembros de ambas Cámaras?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 70,
+        "answerSnippet": "El poder judicial, en los términos que establezca la ley electoral."
+      }
+    },
+    {
+      "id": "g-constitucion_6f3241af",
+      "question": "¿Qué puede hacer el Gobierno después de aprobarse los Presupuestos Generales del Estado?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 134,
+        "answerSnippet": "Presentar proyectos de ley que impliquen aumento del gasto público o disminución de los ingresos correspondientes al mismo ejercicio presupuestario"
+      }
+    },
+    {
+      "id": "g-constitucion_5d00eeac",
+      "question": "¿Qué puede establecer la ley de delegación adicionalmente?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 82,
+        "answerSnippet": "Fórmulas adicionales de control, sin perjuicio de la competencia propia de los Tribunales"
+      }
+    },
+    {
+      "id": "g-constitucion_05705981",
+      "question": "¿Puede alguien ser obligado a declarar sobre su ideología, religión o creencias en España?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 16,
+        "answerSnippet": "No, nadie puede ser obligado a declarar sobre su ideología, religión o creencias."
+      }
+    },
+    {
+      "id": "g-constitucion_ec4c2579",
+      "question": "¿Cuál es el requisito para que las Cámaras adopten acuerdos?",
+      "expectedNorms": [
+        "BOE-A-1978-31229"
+      ],
+      "category": "Constitución Española",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1978-31229-constitucion-by-articles-qa",
+        "article": 79,
+        "answerSnippet": "Las Cámaras deben estar reunidas reglamentariamente y con asistencia de la mayoría de sus miembros."
+      }
+    },
+    {
+      "id": "g-codigo-civil_bf6b3753",
+      "question": "José y María fueron hermanos. En 1886 José contrajo matrimonio con Maria. Dos años después, José falleció. María heredó de José una casa y una tienda. Tras el fallecimiento de José, María contrajo matrimonio con Pedro. En 1894, Pedro falleció. María heredó de Pedro una granja. María falleció en 1900.\n\n¿Qué sucedería con la granja heredada de Pedro si María no aceptara la herencia?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 32,
+        "answerSnippet": "José y María fueron hermanos. En 1886, José contrajo matrimonio con María. Dos años después, José falleció. María heredó de José una casa y una tienda. Tras el fallecimiento de José, María contrató matrimonio con Pedro. En 1894, Pedro falleció. María heredó de Pedro una granja. María falleció en 190"
+      }
+    },
+    {
+      "id": "g-codigo-civil_29a8384a",
+      "question": "José y Manuel fueron hermanos. Manuel falleció sin descendencia, y sus bienes heredaron José y su esposa, Isabel. Más tarde, Isabel falleció y sus bienes heredó José. José falleció sin testamento.¿Quiénes son los herederos de José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 29,
+        "answerSnippet": "José y Manuel fueron hermanos. Manuel falleció sin descendencia, por lo que sus bienes heredaron José y su esposa, Isabel. En este caso, Isabel fue una heredera forzosa, pues la ley la obliga a aceptar la herencia cuando no hay otros herederos disponibles. Sin embargo, Isabel falleció y sus bienes h"
+      }
+    },
+    {
+      "id": "g-codigo-civil_31aa874c",
+      "question": "José y María son herederos de su padre. José reside en España, mientras María reside en Argentina. Un mes después de la muerte de su padre, José pide la partición de la herencia, debido a que quiere poder disfrutar de sus derechos sobre la misma. María no puede ser obligada a permanecer en la indivisión de la herencia, a menos que el testador prohíba expresamente la división. ¿Tiene José derecho?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 34,
+        "answerSnippet": "José y María son coherederos de su padre. José reside en España, mientras María reside en Argentina. Un mes después de la muerte de su padre, José pide la partición de la herencia, debido a que quiere poder disfrutar de sus derechos sobre la misma.\n\nPor los incapacitados y por los ausentes deberán p"
+      }
+    },
+    {
+      "id": "g-codigo-civil_f1d329f6",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José le dio a Luis su automóvil como comodato para que pudiera usarlo mientras se encontraba en París. Sin embargo, Luis tuvo que vender el automóvil porque necesitaba dinero.\n¿Podría Luis haberse quedado con el automóvil y no devolverlo a José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 55,
+        "answerSnippet": "Gracias a la legislación española, podemos resolver este escenario jurídicamente.\n\nLa entrega de una cosa no fungible para su uso durante un cierto tiempo, como sucede con el comodato, es esencialmente gratuita. En este caso, José le cedió su automóvil a Luis, sin condiciones de pago o devolución.\n\n"
+      }
+    },
+    {
+      "id": "g-codigo-civil_d0732e7a",
+      "question": "José y María fueron declarados incapaces por la justicia en una fecha, a causa de enfermedades mentales. José tiene 3 hijos: Juan, Pedro y Miguel. María tiene 2 hijos: Carlos y Beatriz. Los 7 hermanos heredarán de sus padres cuando fallezcan, pues no hubo ningún testamento que modificara la herencia a los parientes más lejanos.\n\n¿Quién administra los bienes de Juan?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 7,
+        "answerSnippet": "José y María fueron declarados incapaces por la justicia a causa de enfermedades mentales. Esto significa que no tienen capacidad para administrar sus bienes. En este caso, la administración de sus bienes recae sobre sus tutores.\n\nEn España, la tutela legítima corresponde únicamente a ciertas person"
+      }
+    },
+    {
+      "id": "g-codigo-civil_876a0262",
+      "question": "José y María contrajeron matrimonio en 2020. José aportó en la dote 100.000 €. María no aportó nada. El matrimonio tuvo un hijo. Los dos años siguientes fueron difíciles financieramente para la familia, pero en 2023 José vendió su auto por 20.000 €, parte del dinero lo invertió en acciones de una compañía. María se quedó con 10.000 € de ese dinero. En 2024 José vendió su casa y compró una más grande y cara, que se valoró en 2025 por 300.000 €. La familia sigue viviendo allí. María no ha aportado dinero ni bienes a esta vivienda. ¿Quién tendrá derecho a reclamar la casa y el auto?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 44,
+        "answerSnippet": "En este caso, José y María contrajeron matrimonio en 2020. José aportó en la dote 100.000 €, mientras que María no aportó nada. A continuación, examinaremos los bienes y acciones de cada cónyuge para determinar quién tendrá derecho a reclamar la casa y el auto.\n\nPrimeramente, es importante destacar "
+      }
+    },
+    {
+      "id": "g-codigo-civil_3319cb87",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José le prestó dinero a Luis para comprar una imprenta. En la contratación de este préstamo, no se especificó cuál era el plazo para devolver el dinero. Luis usó el dinero para comprar la imprenta, pero nunca le devolvió el dinero a José. Luis vendió la imprenta recientemente y obtuvo una considerable ganancia.\nJosé, viéndolo en una oportunidad perfecta para reclamar su dinero, acude a un abogado para que le represente. El abogado le dice que Luis no pagará nunca el dinero porque no existe un plazo establecido para devolver el dinero. José está muy triste y se pregunta si hay alguna manera de reclamar su dinero.\n\nPor otro lado, Pedro prestó dinero a Paul, para que comprara acciones de una compañía de tecnología. El plazo para devolver el dinero fue establecido en un año. Sin embargo, Paul nunca le devolvió el dinero a Pedro. Paul vendió las acciones y obtuvo una enorme ganancia.\nPedro, también, vio una oportunidad para reclamar su dinero, y contrata a un abogado. El abogado le dice que podrá reclamar su dinero porque estaba establecido un plazo para devolverlo. Pedro se siente más tranquilo y está esperanzado de que pueda reclamar su dinero.\n¿Por qué Luis no paga a José su dinero mientras que Pedro si podrá reclamar su dinero a Paul?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 36,
+        "answerSnippet": "La respuesta a tu pregunta está en el concepto de plazo establecido en la obligación. Si no se especifica un plazo para el cumplimiento de la obligación, el deudor tendrá indefinidamente largo tiempo para devolver el dinero prestado. En el caso de José y Luis, no se había establecido un plazo para d"
+      }
+    },
+    {
+      "id": "g-codigo-civil_2e3cf850",
+      "question": "José y Luis fueron amigos durante mucho tiempo. Al morir José, su testamento dejó todo su patrimonio a Luis. Sin embargo, antes de recibir la herencia, Luis decide visitar la casa de José para ver si hay algo que quiera llevarse. Allí, encuentra un cuadro que no le pertenece pero que le gusta mucho, así que toma la decisión de llevarse el cuadro y dejar de lado el hecho de que heredará toda la fortuna de José.¿Podrá Luis ser privado de su propiedad sinexpropiado de su utilidad pública, previa la correspondiente indemnización?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 12,
+        "answerSnippet": "En primer lugar, es importante destacar que la propiedad es el derecho de gozar y disponer de una cosa, sin más limitaciones que las establecidas en las leyes. Esta ley se aplica a todos los bienes, incluidas las obras de arte como el cuadro encontrado por Luis en la casa de José.\n\nEn segundo lugar,"
+      }
+    },
+    {
+      "id": "g-codigo-civil_03c5c071",
+      "question": "José y Manuel son hermanos gemelos. José se va a vivir a Estados Unidos y Manuel permanece en España. José fallece en su nuevo país sin dejar testamento. Manuel hereda de forma legal todos los bienes de su hermano. Como heredero, Manuel puede disponer libremente de los bienes de José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 26,
+        "answerSnippet": "En virtud del código civil español, Manuel, como hermano de José, es un heredero forzoso, es decir, una persona a la que el testador no puede excluir de su sucesión. Debido a esto, Manuel hereda de forma legal todos los bienes de José, independientemente del hecho de que José falleciera sin dejar te"
+      }
+    },
+    {
+      "id": "g-codigo-civil_b7fcbc15",
+      "question": "José y María contrajeron matrimonio en 2020. José aportó en la dote 100.000 €. María no aportó nada. El matrimonio tuvo que sufrir una separación de los bienes.\n¿Quién tiene derecho a la mitad de los gananciales?\n[www.mijerdechile.cl]",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 45,
+        "answerSnippet": "Los matrimonios en España pueden tener dos tipos de bienes: los bienes personales o \"propios\", que pertenecen exclusivamente a cada cónyuge, y los bienes concomitantes o \"gananciales\", que surgen a partir de actividades realizadas durante el matrimonio, como el sueldo de ambos cónyuges, por ejemplo."
+      }
+    },
+    {
+      "id": "g-codigo-civil_ad47c83c",
+      "question": "José y María contrajeron matrimonio en 1870 y tuvieron varios hijos. En 1880, José murió y María se volvió a casar en 1885 con Pedro. Ella falleció en 1895.\nEn 1900, José y Pedro fueron acusados de hurto. En el juicio, se descubrió que Pedro era el padre biológico de los hijos de María de su primer matrimonio.\n¿Podrán los hijos de María de su primer matrimonio con José reclamar su legitimidad ahora?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 4,
+        "answerSnippet": "Los hijos de María de su primer matrimonio con José pueden reclamar su legitimidad en varios casos. Principalmente, debido a que José y María contrajeron matrimonio en 1870, y los hijos naturales de padres que al tiempo de la concepción de aquellos pudieron casarse sin dispensa o con ella, pueden se"
+      }
+    },
+    {
+      "id": "g-codigo-civil_30a5180f",
+      "question": "José y María fueron declarados incapaces por la justicia. José es parapléjico y María sufre de esquizofrenia. Su padre, Luis, es su tutor. El abogado de Luis ha presentado una demanda al Tribunal Superior, pidiendo que se le otorgue la custodia de sus hijos, ya que Luis está trabajando en América del Sur y no puede asumir su rol como tutor.\nAhora, ¿qué pasaría si Luis es nombrado protutor?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 8,
+        "answerSnippet": "Si Luis es nombrado protutor, tendría los deberes y responsabilidades que mencionamos anteriormente. Esto incluiría la intervención en el inventario de bienes de José y María y la constitución de la fianza del tutor, cuando sea necesario. Además, tendría que sostener los derechos de José y María, en"
+      }
+    },
+    {
+      "id": "g-codigo-civil_9ea8ecd0",
+      "question": "José y María contrajeron matrimonio en 2020. José aportó 5.000€ en efectivo y una casa familiar que valía 100.000€ a la dotación. María aportó una casa familiar que valía 120.000€ y 30.000€ en efectivo. En 2021 María heredó de su abuela una importante fortuna, que incluía 2 viviendas en Madrid y 40.000€ en efectivo.\nCuando María heredó, ya existía la ley 34/2021, de 29 de diciembre, por la que se modificaba el Código Civil para mejorar la situación de las mujeres. A partir de ese momento, los bienes inmuebles adquiridos durante el matrimonio no tendrán carácter dotal.\n¿Qué bienes forman parte de la dotación de María?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 42,
+        "answerSnippet": "Según el Código Civil, la dote se compone de los bienes y derechos que la mujer aporta al matrimonio al tiempo de contraerlo y de los que durante él adquiera por donación, herencia o legado con el carácter dotal. Además, también entrarán en el concepto de dotales los bienes inmuebles adquiridos dura"
+      }
+    },
+    {
+      "id": "g-codigo-civil_9c3a5afb",
+      "question": "José y Manuel fueron hermanos. Manuel falleció recientemente, sin dejar testamento. ¿Puede José heredar las acciones de Manuel?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 22,
+        "answerSnippet": "Como Manuel falleció sin dejar testamento, su herencia se regirá por disposición de la ley, dado que no existió voluntad del fallecido manifestada en testamento. Dado que José y Manuel eran hermanos, José heredará la parte alícuota de la herencia de Manuel por razón de consanguinidad. En virtud de l"
+      }
+    },
+    {
+      "id": "g-codigo-civil_6603cf9b",
+      "question": "Luis y Miguel fueron amigos de infancia. Luis tuvo que empezar a trabajar temprano para ayudar a su familia y por eso no pudo terminar la educación secundaria, mientras que Miguel pudo terminar la educación secundaria gracias al apoyo financiero de Luis. Cuando Luis le contó a Miguel que había encontrado trabajo, Miguel le aconsejó que empezara a ahorrar dinero para poder asistir a la universidad. El Código Civil español fue promulgated en 1889.\nQuiero saber si Miguel podría constituir una tutela definitiva para Luis.",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 63,
+        "answerSnippet": "Miguel podría constituir una tutela definitiva para Luis si el cargo de tutor no estuviera ya definitivamente constituido al empezar a regir el Código Civil español en 1889.\n\nEl artículo 9 de las Disposiciones Adicionales del Código Civil establece que \"Las tutelas y curatelas, cuya constitución def"
+      }
+    },
+    {
+      "id": "g-codigo-civil_b65696bf",
+      "question": "José y Luis fueron amigos durante mucho tiempo. Un día José le pidió a Luis que le prestara 3000€. Luis aceptó y le presto el dinero. Ese mismo día José se fue a vivir a Londres.\n¿Quién tendría que pagar los gastos de conservación de la cosa prestada, Luis o José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 56,
+        "answerSnippet": "La relación entre Luis y José, al menos en este contexto, puede considerarse la de prestamista y prestatario. De acuerdo con el artículo 1749 del Código Civil, el prestatario tiene la responsabilidad de abonar los gastos ordinarios que sean de necesidad para el uso y conservación de la cosa prestada"
+      }
+    },
+    {
+      "id": "g-codigo-civil_4943d456",
+      "question": "José y Luis fueron amigos durante mucho tiempo. Cuando José falleció, dejó en herencia un edificio a Luis. Sin embargo, Luis no puede poseer el edificio porque José había cedido el dominio útil del mismo a un tercero en el pasado, a cambio de una pensión anual, que le permite continuar recibiendo hasta su muerte. Este tipo de contrato se conoce como censos.\n¿Es válida la cesión del capital o de la cosa inmueble en un censo perpetua o por tiempo indefinido?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 51,
+        "answerSnippet": "Sí, es válida la cesión del capital o de la cosa inmueble en un censo perpetua o por tiempo indefinido. Esto es debido a la naturaleza del censo, que es una cesión del dominio útil de una finca a otra persona en conjunto con el directo, a cambio de una pensión anual que se obliga a pagar. Este contr"
+      }
+    },
+    {
+      "id": "g-codigo-civil_b5edef42",
+      "question": "Luis y Maria contrajeron matrimonio en la iglesia de su pueblo. Maria estaba menor de edad, pero tenia 17 años y era muy madura para su edad. Luis es un hombre casado previamente.\n¿Tiene Luis la administración de los bienes de Maria?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 2,
+        "answerSnippet": "Luis y Maria contrajeron matrimonio en el marco de la Iglesia Católica, por lo que su unión está regulada por las disposiciones de la Iglesia Católica y del Santo Concilio de Trento, reconocidas como Leyes del Reino.\n\nEl Código Civil dispone específicamente sobre matrimonios celebrados antes de la e"
+      }
+    },
+    {
+      "id": "g-codigo-civil_ce301c4a",
+      "question": "José y Alberto fueron amigos durante mucho tiempo. Alberto le prestó dinero a José para que invertiera en una empresa. Sin embargo, la empresa no tuvo éxito y no pudo devolver el dinero a Alberto. Como amigos, Alberto y José habían acordado que en caso de que José no pudiera devolver el dinero, Alberto podría quedarse con la casa de José como compensación parcial. Alberto estaba casado y su esposa no estaba de acuerdo con esta disposición, ya que Alberto tenía una segunda casa en otra ciudad y no necesitaba la casa de José.\n¿Qué obligaciones tiene Alberto al respecto?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 58,
+        "answerSnippet": "Alberto y José estaban de acuerdo de manera informal en que, si José no podía devolver el dinero, Alberto podría quedarse con la casa de José como compensación parcial. No obstante, debido a que la Ley 24 de julio de 1889 sobre el Código Civil, capítulo XIV, título I, dispone sobre la fianza, Albert"
+      }
+    },
+    {
+      "id": "g-codigo-civil_ac71fdd9",
+      "question": "José y Manuel fueron amigos durante mucho tiempo. Cuando José muere, Manuel hereda toda su fortuna. Entre los bienes que José dejó heredados a Manuel estaban una finca y una casa. Manuel decide usufructuar estos bienes.\nEn su testamento, José dejó escrita una cláusula en la que especificaba que la finca era usufructuaria, pero que la casa no lo era.\n¿Qué derechos tendrá Manuel sobre la finca y la casa?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 16,
+        "answerSnippet": "José y Manuel fueron amigos durante mucho tiempo. Cuando José muere, Manuel hereda toda su fortuna. Entre los bienes que José dejó heredados a Manuel estaban una finca y una casa. Manuel decide usufructuar estos bienes.\nEn su testamento, José dejó escrita una cláusula en la que especificaba que la f"
+      }
+    },
+    {
+      "id": "g-codigo-civil_7745fc1f",
+      "question": "José y Manuel son hermanos gemelos. José se va a vivir a Estados Unidos y Manuel permanece en España. José muere sin haber dejado testamento en Estados Unidos. Manuel fallece en España dejando un testamento.\n¿Quién hereda más rápido los bienes de José?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 30,
+        "answerSnippet": "En primer lugar, debemos establecer cuál es la sucesión de José y cuál es la de Manuel.\n\nJosé murió sin testamento en Estados Unidos, por lo que su herencia se regirá por la ley de ese país, ya que es donde falleció. Esto significa que la herencia de José se distribuirá entre sus parientes legítimos"
+      }
+    },
+    {
+      "id": "g-codigo-civil_eeff5ae5",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José le prestó dinero a Luis para comprar una imprenta. Luis aceptó la prestación y le prometió que lo pagaría cuanto pudiera. Sin embargo, Luis se volvió desfavorable y no pudo devolver el dinero. En ese momento, Luis le dijo a José que una vez que tenga una imprenta, podrá compensarle. José aceptó este acuerdo. Luis compró una imprenta y empezó a ganar dinero. Ahora, José quiere cobrar lo que Luis le debe.\n ¿Puede José cobrar lo que Luis le debe?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 38,
+        "answerSnippet": "José tiene una deuda compensable con Luis, puesto que los créditos son principalmente mutuales y las deudas consisten en una cantidad de dinero o, si la especie es fungible, son de la misma especie y calidad, si ésta se hubiese designado. Además, las deudas están vencidas y líquidas, y no hay retenc"
+      }
+    },
+    {
+      "id": "g-codigo-civil_d4c7108b",
+      "question": "José y Manuel son dos hermanos que heredaron de su difunto padre una finca rural dividida en dos partes iguales. A partir de ahí, José se mudó a vivir a esa finca y ha estado administrando la propiedad como si fuera su único dueño. Manuel, en cambio, continuó residiendo en la ciudad y simplemente recibió los ingresos procedentes de la finca cada mes.\n\n¿Quién tiene la propiedad útil de la finca?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 20,
+        "answerSnippet": "En virtud del derecho de herencia, José y Manuel son los dueños de igual rango de la finca rural heredada de su difunto padre. Como la propiedad fue dividida en dos partes iguales, cada hermano tiene derecho a explotar y disfrutar de su mitad de la finca, que incluye el dominio directo y el dominio "
+      }
+    },
+    {
+      "id": "g-codigo-civil_f627baed",
+      "question": "José y Manuel fueron herederos de su tío Abel. Durante el año siguiente a la muerte de Abel, José aceptó la herencia y comenzó a administrarla. Sin embargo, Manuel no hizo nada. Los bienes de Abel eran muy cuantiosos y se encontraban en distintos lugares del mundo.\n¿Qué podrían demandar los acreedores de Abel?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 33,
+        "answerSnippet": "José, como heredero de Abel, tomó el título o la cualidad de heredero al aceptar la herencia. Esta aceptación implica que José tomó la responsabilidad de las cargas de la herencia, no sólo con los bienes de ésta, sino también con los suyos propios. A diferencia de Manuel, que no aceptó la herencia p"
+      }
+    },
+    {
+      "id": "g-codigo-civil_e6f4482b",
+      "question": "José y Manuel fueron amigos de toda la vida. Cuando José falleció, Manuel heredó de él la finca El Pino, situada en Galicia. Manuel también heredó de José una casa en Madrid. Manuel decidió ocuparse personalmente del usufructo de la casa en Madrid, pero en lo referente a la finca El Pino, Manuel dispuso que su amigo Antonio la administrase como un buen padre de familia. Manuel también nombró a Antonio su representante legal para todos los efectos legales. Antonio administró la finca El Pino durante diez años.\n\n¿Tiene derecho Antonio a exigir que Manuel le entregue las crías que muere entre el rebaño de la finca El Pino, en consideración a que ha reemplazado con ellas las cabezas que mueren anual y ordinariamente?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 17,
+        "answerSnippet": "José falleció y Manuel heredó de él una finca, El Pino, situada en Galicia, y una casa en Madrid. Manuel decidió ocuparse personalmente del usufructo de la casa en Madrid, pero en lo referente a la finca El Pino, designó a su amigo Antonio como administrador.\n\nAntonio ha estado administrando la finc"
+      }
+    },
+    {
+      "id": "g-codigo-civil_9c34dac5",
+      "question": "José y María fueron hermanos. Su madre heredó una casa de José. José no se casó nunca y no tuvo hijos. María se casó y tuvo 2 hijos. María heredó de su madre un piso en Madrid. José murió antes que María. ¿Quiénes heredarán la casa?\nLos hijos de María?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 28,
+        "answerSnippet": "José y María eran hermanos, y María estaba casada con descendientes. José no se casó nunca y no tuvo hijos, mientras que María tuvo 2 hijos. María heredó de su madre un piso en Madrid. José murió antes que María. Para determinar quién heredará la casa, debemos analizar la situación aplicando las dis"
+      }
+    },
+    {
+      "id": "g-codigo-civil_c4c8a398",
+      "question": "José y Luis fueron socios en una sociedad que tenían una tienda de calzado. El negocio ha ido bien durante los dos primeros años. Sin embargo, un tercer socio, Juan, que estaba a cargo de la administración del negocio, ha decidido no renovar el contrato de alquiler de la tienda, lo cual lleva a la sociedad a la bancarrota.\n¿Puede Juan ser deudor de la sociedad por los intereses que deba a otras personas?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 54,
+        "answerSnippet": "En primer lugar, es necesario resaltar que Juan, como socio industriel de la sociedad, se encuentra sujeto a la evicción en cuanto a las cosas ciertas y determinadas que haya aportado a la sociedad, en los mismos casos y de igual modo que lo está el vendedor respecto del comprador.\n\nSin embargo, al "
+      }
+    },
+    {
+      "id": "g-codigo-civil_f250189d",
+      "question": "Diego y Pedro fueron amigos durante mucho tiempo. Diego le vendió a Pedro su casa en 1889. A pesar de que la venta fue legal, Diego mantiene sus derechos sobre la casa debido a la ley española. Pedro está actualmente intentando vender la casa. ¿Puede Pedro vender la casa sin la aprobación de Diego?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 52,
+        "answerSnippet": "En España, la venta de bienes inmuebles como casa requiere la aprobación del dueño directo o propietario, de acuerdo con la ley civil española. En el año 1889, cuando Diego vendió su casa a Pedro, la ley civil estaba regulada por el Real Decreto de 24 de julio de 1889, conocido como Código Civil. De"
+      }
+    },
+    {
+      "id": "g-codigo-civil_ef8e188d",
+      "question": "José y Luis son dos amigos. José es un gran fan de la serie Game of Thrones. Una noche en la que la serie estaba emitiéndose en televisión, José fue a verla en su casa. Sin embargo, Luis fue a la fiesta de una compañera de piso y quedó tarde. Cuando Luis regresó, se sorprendió al ver que José estaba viendo la serie. Luis pidió que José le dejara ver la serie porque no había visto nunca una serie tan famosa. José, un fanático de la serie, no estaba dispuesto a compartirla y se negó.\n¿Quién tiene la obligación de restituir el pago indebido?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 60,
+        "answerSnippet": "José y Luis son dos particulares que estuvieron involucrados en un incidente relacionado con el cobro de lo indebido. Para determinar quién tiene la obligación de restituir el pago indebido, es necesario analizar la situación desde el ángulo de la obligación de restitución establecida por el Código "
+      }
+    },
+    {
+      "id": "g-codigo-civil_b3538d25",
+      "question": "José y Luis fueron amigos durante mucho tiempo. José vendió su casa a Luis. Sin embargo, después de la venta, José no recibió el precio del inmueble. Cuando Luis se quedó con la casa, José se entristeció y decidió reclamar el inmueble de Luis.\n ¿Tiene José derecho a reclamar la casa de Luis?",
+      "expectedNorms": [
+        "BOE-A-1889-4763"
+      ],
+      "category": "Código Civil",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-1889-4763-codigo-civil-64-chunks-qa",
+        "article": 48,
+        "answerSnippet": "En España, los derechos y obligaciones de los compradores y vendedores en operaciones inmuebles se rigen por el Código Civil, específicamente el título segundo del libro tercero.\n\nEl Código Civil estipula que el comprador está obligado a pagar el precio de la cosa vendida en el tiempo y lugar fijado"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_4d8d4d26",
+      "question": "José y María son dos amigos que siempre han estado juntos. José se ha graduado de arquitectura y está trabajando para una empresa de arquitectura en Madrid. María se ha graduado de ingeniería civil y está trabajando para un estudio de ingeniería civil en Barcelona. Ambos tienen suficiente ingreso para alquilar una pequeña casa cerca de su trabajo, pero María recientemente se ha casado y espera su primer bebé, por lo que necesita una casa más grande. Sin embargo, en Barcelona las casas son caras y María no puede encontrar una casa adecuada en su presupuesto.\n¿Puede María demandar que la vivienda de José sea una vivienda asequible incentivada?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 20,
+        "answerSnippet": "José y María son dos amigos que han estado juntos por mucho tiempo. José ha completado sus estudios de arquitectura y está trabajando en una empresa de arquitectura en Madrid. Por otro lado, María ha terminado sus estudios de ingeniería civil y está trabajando en un estudio de ingeniería civil en Ba"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_47e9f566",
+      "question": "José y María son dos amigas que buscan vivienda. María logra un departamento en un parque público de vivienda, mientras que José alquila una vivienda en el mercado privado.\n¿Quien tiene más garantías de renta estable?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 25,
+        "answerSnippet": "En España, las viviendas integrantes de los parques públicos de vivienda están destinadas a garantizar el derecho de acceso a la vivienda de las personas y hogares con mayores dificultades para acceder a una vivienda en el mercado, en razón de sus circunstancias sociales y económicas, atendiendo a f"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_53d45a15",
+      "question": "Pablo y Alberto son dos amigos que compartían departamento. El alquiler del departamento es de 1.200€ y se actualiza anualmente. Pablo es un gran tenedor en los términos del artículo 3.k) de la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda.\nApartado de los hechos, ¿qué incremento de la renta es legal para el año 2023?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 42,
+        "answerSnippet": "En primer lugar, es preciso determinar si el incremento de la renta será limitado por la Disposición adicional séptima de la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda. En este caso, dado que Pablo es un gran tenedor en los términos del artículo 3.k) de dicha ley, que establece que «es"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_b43e2ab3",
+      "question": "Ley 12/2023 modula el recargo a los inmuebles de uso residencial desocupados con carácter permanente en el Impuesto sobre Bienes Inmuebles, IBI, que podrá aplicarse a aquellas viviendas vacías durante más de dos años, con un mínimo de cuatro viviendas por propietario, salvo causas justificadas de desocupación temporal. ¿Cuál es la edad mínima para aplicar este recargo?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 11,
+        "answerSnippet": "Los términos \"inmuebles de uso residencial desocupados con carácter permanente\" y \"recargo a los inmuebles\" se refieren a una situación y un mecanismo fiscal específicos en el marco del Impuesto sobre Bienes Inmuebles (IBI). El artículo de la Ley que trata de esta materia es el artículo 46 del Real "
+      }
+    },
+    {
+      "id": "g-ley-vivienda_633fc85d",
+      "question": "José y Luis son vecinos de una misma urbanización. José es un jubilado con una pensión económica, mientras que Luis es un empresario con una buena situación económica. José ha estado viviendo en la misma vivienda desde que se mudó a esta urbanización 30 años atrás, y Luis ha comprado y vendido diferentes viviendas dentro de la urbanización durante los últimos 10 años, según le gustaba cambiar de ambiente.\nRecientemente, una empresa inmobiliaria ha comprado una parcela de tierra contigua a la urbanización y está planeando construir un complejo de oficinas. Como parte de este plan, la empresa inmobiliaria está ofreciendo a los propietarios de la urbanización la oportunidad de mudarse a una nueva vivienda en el complejo de oficinas que están construyendo. Ambos José y Luis han recibido esta oferta.\nAmbos tienen la opción de mudarse a una nueva vivienda en el complejo de oficinas, pero José no puede aceptar debido a que su situación económica no le permite afrontar el alquiler más alto de la nueva vivienda. Luis, sin embargo, acepta la oferta y se muda a la nueva vivienda en el complejo de oficinas.\nJosé está triste porque quiere seguir viviendo en la urbanización, pero no tiene otra opción.\nEn su situación, José podría demandar a la empresa inmobiliaria por discriminación?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 19,
+        "answerSnippet": "José y Luis son vecinos en una misma urbanización. José es un jubilado con una renta modesta, mientras que Luis es un empresario con una buena situación económica. José ha estado viviendo en la misma vivienda desde que se mudó a esta urbanización hace 30 años, mientras que Luis ha comprado y vendido"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_62a6d62d",
+      "question": "José y López son vecinos de la misma edificio de apartamentos. José está en problema económico y ha estado retrasado con las rentas de su departamento. El presidente del conjunto de edificios es Pedro, quien tiene poder de desahucio sobre los inquilinos en arreo. Pedro le ha dado a José varias oportunidades para pagar las rentas, pero José no ha podido hacerlo. El presidente de la asociación de propietarios decide iniciar la vía de apremio sobre la vivienda de José.\n¿Qué debería hacer Pedro para comenzar la subasta de la vivienda de José?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 39,
+        "answerSnippet": "En la situación descrita, Pedro, como presidente del conjunto de edificios, tiene la facultad de desahucio sobre los inquilinos en arreo. Sin embargo, antes de iniciar el proceso de desahucio, deberá acreditarse por la parte actora, antes del inicio de la vía de apremio, si José se encuentra en situ"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_1da7d72d",
+      "question": "José y María fueron amigos desde la infancia. José se fue de viaje a Europa durante un año. Al regresar José a su casa en Madrid se enteró que María había alquilado su habitación mientras él estaba viajando. José estaba muy molesto y decidió que María no podía hacer eso.\nMaria alquiló una habitación de su casa mientras José viajaba. José tiene derecho a que María lo hiciera?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 24,
+        "answerSnippet": "José y María son amigos desde la infancia y comparten una vivienda. Sin embargo, durante un año José viajó a Europa. Durante su ausencia, María tomó la decisión de alquilar temporalmente su habitación. Ahora, José está molesto por este hecho y cree que María no tiene derecho a hacerlo. No obstante, "
+      }
+    },
+    {
+      "id": "g-ley-vivienda_f69becf6",
+      "question": "José y María son amigos desde la infancia. José se fue de viaje a Europa durante un mes. Al regresar a casa, se sorprendió al ver que María había arrendado su habitación mientras él estaba viajando. José se sintió engañado y decidió denunciar a María por su comportamiento.\n¿Quién tiene más caso, José o María?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 26,
+        "answerSnippet": "José y María son amigos desde hace mucho tiempo. José viajó a Europa durante un mes y cuando regresó a su casa, descubrió que María había arrendado su habitación mientras él estaba viajando. José se sintió engañado y decidió presentar una denuncia contra María.\n\nAhora, teniendo en cuenta la Ley 12/2"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_d3fb8e87",
+      "question": "José y Lola son amigos que estudian la misma carrera en la universidad. José vive en una vivienda arrendada por su amiga Lola, sin embargo, este no sabe que Lola ha sido despedida de su trabajo y está en proceso de evicción por no poder pagar el alquiler.\n\n¿Qué ley podría proteger a José en caso de que Lola sea evicted y pierda la vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 31,
+        "answerSnippet": "José reside en una vivienda arrendada por Lola. Si Lola fuera despedida de su trabajo y se encuentre en proceso de evicción por no poder pagar el alquiler, la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda podría proteger a José.\n\nEsta ley establece ciertos derechos y protecciones para los"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_58aa4f2e",
+      "question": "José y María fueron amigos desde la infancia. Cuando José se casó comprá una casa con dos habitaciones en Madrid, la ciudad donde ambos nacieron. María también se casó y comprá una casa en Barcelona, también con dos habitaciones. Ambos amigos trabajan en empresas diferentes, pero ambos tienen un rendimiento neto positivo de capital inmobiliario derivado de sus contratos de arrendamiento de vivienda.\n\n¿Qué diferencias tendrán José y María debido a la Ley 12/2023?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 34,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, modifica el texto refundido de la Ley de Suelo y Rehabilitación Urbana y la Ley Reguladora de las Haciendas Locales, entre otras leyes.\n\nEn el caso de José, que posee una vivienda en Madrid, la Ley 12/2023 introduce una disposición transitoria trigésima octava, que mod"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_32450456",
+      "question": "Luis y Alberto fueron amigos desde la infancia. Cuando Luis creció, comprá una casa en la que ha vivido durante más de 30 años. Alberto optó por vivir en alquiler durante toda su vida, y desde hace unos años, ha estado viviendo en un departamento que arrenda en una empresa de inversión inmobiliaria.\n\n¿Quien tiene más derechos con su vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 16,
+        "answerSnippet": "Los derechos que se deriven de la propiedad de una vivienda y los derechos que surgen del alquiler de una vivienda difieren en su contenido. Propiedad de una vivienda implica derechos como el uso, disfrute y disposición de la misma, en función de su calificación, estado y características objetivas. "
+      }
+    },
+    {
+      "id": "g-ley-vivienda_38a6950f",
+      "question": "José y Martín son amigos desde la infancia. Martín es arquitecto y actualmente está desarrollando un proyecto para la construcción de viviendas en su ciudad natal. José es ingeniero de caminos, canales y puertos. Ambos tienen 30 años.\n\n¿Qué tipo de información debería Martín tener en cuenta en su proyecto de viviendas?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 27,
+        "answerSnippet": "Martín, que está desarrollando un proyecto para la construcción de viviendas en su ciudad natal, debería tener en cuenta diversa información relacionada con el parque público de vivienda, el uso y destino del parque de viviendas, la demanda de vivienda y el suelo público disponible para vivienda, se"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_97501511",
+      "question": "José y Luis son dos amigos que siempre han estado muy unidos. José se ha graduado de Derecho y ha entrado a trabajar en el Ministerio de Justicia, mientras que Luis ha preferido apoyarse en su hermano y dirigir un taller de automóviles en Madrid. Por su amistad, han compartido muchas cosas juntos, incluido un departamento que compartían. A raíz de un reciente divorcio, José ha heredado una casa en la villa donde creció.\n\nQuien tiene la competencia exclusiva en materia de legislación civil, el Estado o las comunidades autónomas?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 43,
+        "answerSnippet": "En materia de legislación civil, la Constitución Española atribuye exclusiva competencia al Estado en virtud del artículo 149.1.8.ª. Las atribuciones de competencia del Estado y de las Comunidades Autónomas son diferenciadas en el artículo 149.1, en su referencia 8.ª.\n\nEn este contexto, es necesario"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_72824417",
+      "question": "José y María son dos amigos que se conocieron hace años en la universidad. José se graduó de ingeniería civil y actualmente trabaja en un estudio de arquitectura y urbanismo. María se graduó de derecho y actualmente trabaja en la administración local de Madrid. José le ha presentado un proyecto de desarrollo urbano a María para que valorase la viabilidad de los proyectos desde un punto de vista legal. El proyecto consiste en un parque de viviendas sociales. María lee el proyecto y se da cuenta de que los proyectistas están siguiendo los principios establecidos en la Ley 12/2023.\n¿Cuál de los principios no relacionados con la seguridad jurídica y transparencia se están siguiendo en este proyecto?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 12,
+        "answerSnippet": "En relación con los principios establecidos en la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda, se puede decir que se busca regular, en el ámbito de competencias del Estado, las condiciones básicas que garantizan la igualdad en el ejercicio de los derechos y en el cumplimiento de los deb"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_f7e722dc",
+      "question": "José y María son amigos desde la infancia. José se trasladó a vivir a Madrid, mientras que María se quedó en su pueblo natal, en la provincia de Burgos. El año pasado, María decidió comprar una casa en el centro de su pueblo, ya que este estaba incluido en una zona de mercado residencial tensionado, declarada por la Consejería de Vivienda de la Junta de Castilla y León. El precio de la casa fue de 120.000 euros. José no comprende por qué María compró una casa en un área declarada como zona de mercado residencial tensionado, ya que él está de acuerdo con el servicio público en la materia y cree que es una medida innecesaria.\n¿Está María en su derecho de comprar una casa en una zona declarada como zona de mercado residencial tensionado?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 21,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, por el derecho a la vivienda establece un procedimiento para la declaración de un ámbito territorial como zona de mercado residencial tensionado, con el fin de adaptar las medidas y acciones públicas necesarias a estas circunstancias. Según esta ley, la declaración de "
+      }
+    },
+    {
+      "id": "g-ley-vivienda_ba20af80",
+      "question": "José y Martín son amigos desde la infancia. José tiene un buen salario y además heredó de sus abuelos unos grandes apartamentos en el centro de Madrid. Martín no ha tenido suerte y desde que se separó de su cónyuge, no ha podido encontrar un apartamento adecuado para él y sus tres hijos. Está viviendo en un hotel con sus hijos desde hace dos años.\n¿Es Martín una persona que no puede acceder a una vivienda a precio de mercado?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 14,
+        "answerSnippet": "Según la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda, la vivienda de precio limitado es aquella que tiene limitaciones de precios de renta y todas las demás condiciones que se establezcan legal o reglamentariamente y es destinada a satisfacer la necesidad de vivienda permanente de perso"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_83de5ac1",
+      "question": "Ley 12/2023 establece una reserva de suelo para la vivienda. ¿Qué porcentaje de la edificabilidad residencial prevista es esta reserva?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 35,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, establece una reserva de suelo adecuado y suficiente para usos productivos y para uso residencial, para garantizar la disponibilidad de suelo para la construcción de viviendas. Esta reserva debe cumplir con ciertas condiciones para garantizar una distribución respetuos"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_b8478ec9",
+      "question": "José y Luis son dos amigos que están haciendo una pasantía en una administración pública. José ha estado trabajando en la oficina de la secretaría general del Ayuntamiento de Madrid, mientras que Luis ha estado en la dirección general de vivienda.\n\nAmbos son actualmente convocados a formar parte de la comisión que evalúa la presentación de una ley sobre la vivienda. Dicha ley propondrá que se incluya la vivienda en el ámbito de los derechos fundamentales.\n\nQuienes son los que tienen legitimación para ejercer la acción pública sobre la vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 15,
+        "answerSnippet": "En primer lugar, es importante conocer que la vivienda tiene un carácter de bien social, ya que cumple con la necesidad básica de alojamiento de las personas, familias y unidades de convivencia. Las Administraciones públicas tienen la responsabilidad de promover las condiciones necesarias para garan"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_ec680223",
+      "question": "José y Lourdes son una pareja casada con dos hijos, Tom y Andy. Ambos hijos viven con sus padres y cursan sus estudios en el colegio. Tom tiene 17 años y Andy tiene 14 años. José trabaja como empleado de comercio y Lourdes no realiza actividad económica.\n\nEn un momento dado, José y Lourdes quieren alquilar una vivienda de un particular que está dispuesto a arrendar una unidad a los dos matrimonios sin tener en cuenta la edad de los niños. ¿Cumplen el límite establecido en la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 38,
+        "answerSnippet": "Los requisitos establecidos en la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda deben ser cumplidos por cualquier persona que desee alquilar una unidad habitacional. En este caso, José y Lourdes, como una pareja casada con dos hijos, deben determinarse las aplicables incrementos al límite"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_a20862a9",
+      "question": "Rafael y Diego fueron amigos desde la infancia. Cuando Rafael cumplió 18 años, su madre compró una casa para él. Diego, por otro lado, no tuvo tan buena suerte. Su madre era inmigrante ilegal y no podía comprar una casa para él. Por eso, Diego no ha podido tener una vida tan cómoda como Rafael.\n\nAhora, Rafael tiene 30 años y Diego tiene 28. Quieres saber si la ley española protege a los inmigrantes ilegales y su descendencia, asegurando sus derechos a la vivienda.",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 4,
+        "answerSnippet": "Rafael y Diego tienen una situación muy diferente, sin embargo, ambos comparten un derecho constitucional fundamental: el derecho a la vivienda digna y adecuada. Este derecho reconocido en el artículo 47 de la Constitución española es garantía básica de igualdad de todos los españoles en relación co"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_a8c0aa77",
+      "question": "Luis y Alberto fueron vecinos de una misma comunidad de propietarios. Alberto era gran tenedor de viviendas. Sin embargo, estaba en situación de vulnerabilidad económica. Luis era dueño de una vivienda vacía y quería desahucar a Alberto para ocuparla.\n\n¿Quién no podrá presentar demanda de recuperación de posesión?\n¿Quién no podrá presentar demanda de recuperación de posesión?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 36,
+        "answerSnippet": "Los artículos 439 y 441 de la Ley 12/2023 establecen nuevas condiciones para presentar demandas de recuperación de posesión, concretamente en los casos de personas ocupantes de viviendas habituales en situación de vulnerabilidad económica, en los cuales el demandante sea una persona física con la co"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_4e1f9711",
+      "question": "José y Luis son dos amigos que viven en la misma ciudad. José compra una casa con sus ahorros, mientras que Luis sigue alquilándose una casa. Un año más tarde, José decide vender su casa. ¿Tendrá que informar José a la administración sobre su decisión de vender su casa?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 5,
+        "answerSnippet": "En primer lugar, es importante entender los derechos y deberes asociados al derecho de propiedad de la vivienda establecidos en la Ley 12/2023. En este marco, el artículo 13 establece que los \"gran tenedores\", es decir, las personas físicas o jurídicas que sean titulares de más de diez inmuebles urb"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_7c03a9e3",
+      "question": "Rafael es un juez español. Este año, ha de dictar sentencia sobre una demanda de un grupo de personas que demandan sus derechos a vivienda, ya que afirman que el municipio en el que viven no ha tenido en cuenta las necesidades de vivienda asequible en el planeamiento urbanístico de la zona. El municipio afirma que ya desarrolló un Plan Especial de Vivienda, conocido como PEV, que proporciona los requisitos necesarios para la construcción de viviendas asequibles. Quieren saber si el PEV cumple con las obligaciones del municipio en materia de vivienda asequible. ¿Cuál es la posición de Rafael, como juez, respecto a estos asuntos?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 7,
+        "answerSnippet": "Rafael, en su calidad de juez, tendrá que evaluar si el Plan Especial de Vivienda (PEV) del municipio cumple con las obligaciones de este en materia de vivienda asequible. La Ley 12/2023, de 24 de mayo, por el derecho a la vivienda es clara en este aspecto, estableciendo que los planes estatales en "
+      }
+    },
+    {
+      "id": "g-ley-vivienda_1963ebc5",
+      "question": "José y María son dos amigos que siempre comparten una casa cuando vienen de viaje. Una vez al año viajan juntos y comparten gastos, pero esta vez José no puede viajar debido a problemas de salud. María decide viajar sola y alquilar un apartamento. La pregunta es, ¿quién tiene derecho a la vivienda en esta situación, José o María?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 22,
+        "answerSnippet": "José y María comparten una casa cuando viajan juntos y comparten gastos. Sin embargo, esta vez José no puede viajar debido a problemas de salud. María decide viajar solo y alquilar un apartamento. La pregunta es, ¿quién tiene derecho a la vivienda en esta situación, José o María?\n\nEn primer lugar, e"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_4194c1c1",
+      "question": "José y Luis fueron compañeros de piso durante muchos años. Luis adquirió la propiedad de la casa en la que vivían y arrendó una habitación a José. Finalmente, Luis decidió vender la casa y comprar otra más grande, pero esta vez, decidió ocupar una de sus habitaciones como suya y alquilar la otra.\n¿Puede Luis incrementar la renta del nuevo contrato de arrendamiento más allá de lo que proceda de la aplicación de la cláusula de actualización anual de la renta del contrato anterior?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 32,
+        "answerSnippet": "Sí, Luis puede incrementar la renta del nuevo contrato de arrendamiento más allá de lo que proceda de la aplicación de la cláusula de actualización anual de la renta del contrato anterior en esta situación.\n\nLos arrendamientos de vivienda sujetos a la Ley 12/2023 pueden tener sus rentas aumentadas s"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_da7172de",
+      "question": "Pablo y Alberto fueron amigos de infancia. Pablo se fue de viaje a Europa y Alberto permaneció en España. Pablo contrato una enfermedad y se quedó sin hogar. Se puso en contacto con Alberto, quien le indicó que podía quedarse en la vivienda que tenia en Madrid mientras buscaba otro lugar. Una vez recuperado, Pablo regresó a España y se mudó con una amiga. Alberto encontró una nueva vivienda para sí mismo y su familia.\nAlberto recibió ayuda económica del Estado para comprar su nueva vivienda. ¿Podría Pablo haber recibido ayuda del Estado para alquilar un apartamento en Madrid?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 29,
+        "answerSnippet": "Pablo y Alberto, amigos de infancia, tienen diferentes situaciones actualmente. Pablo viajó a Europa y contrajo una enfermedad, lo cual le hace quedarse sin hogar. En esta difícil situación, contactó con Alberto, quien le indicó que podía quedarse en la vivienda que Alberto tenía en Madrid mientras "
+      }
+    },
+    {
+      "id": "g-ley-vivienda_c963ca3f",
+      "question": "José y Luis fueron amigos desde la infancia. Cuando José cumplió 35 años, compró una vivienda. Luis, por otro lado, alquiló una vivienda. José recibió una promoción en su trabajo y recibió un aumento salarial del 20%. La renta de Luis en el alquiler fue rebajada en un 10%.\nQuienes deben aplicar la ley de vivienda en estas circunstancias?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 33,
+        "answerSnippet": "José y Luis se encuentran en situaciones diferentes. José compra una vivienda, mientras Luis alquila una vivienda. Este último, recibe una rebaja del 10% en la renta del alquiler.\n\nEn el ámbito de la legislación española en materia de vivienda, se establecen distintos requisitos para la aplicación d"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_9934f4be",
+      "question": "Pablo adquirió un inmueble en remate. El inmueble estaba ocupado por una familia sin hogar. El adquirente pidió al Tribunal de la ejecución el lanzamiento de los ocupantes. Los ocupantes no comparecieron.\n¿Podría Pablo desalojar a la familia sin hogar?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 40,
+        "answerSnippet": "Pablo adquirió un inmueble en remate y este estaba ocupado por una familia sin hogar. Dada esta situación, es aplicable la Ley 12/2023, de 24 de mayo, por el derecho a la vivienda, en especial el artículo 675 en su numeración actual.\n\nEn el artículo 675 se establece que si el adquirente lo solicitar"
+      }
+    },
+    {
+      "id": "g-ley-vivienda_f12a2d7e",
+      "question": "Ley 12/2023 está buena ley?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 10,
+        "answerSnippet": "La Ley 12/2023, de 24 de mayo, es una ley importante para el derecho a la vivienda en España. Recoge un régimen especial para los contratos de arrendamiento celebrados con anterioridad a su entrada en vigor, incluyendo la continuidad de las medidas extraordinarias aplicadas a los contratos vigentes "
+      }
+    },
+    {
+      "id": "g-ley-vivienda_b984e223",
+      "question": "José y Lorena son dos amigos. José tiene un contrato de arrendamiento para una vivienda. El alquiler está fijado en 700€ al mes. Ese precio ha permanecido invariante en los últimos 15 años.\nPedro es el propietario de la vivienda donde reside Lorena. El contrato de arrendamiento que firmaron hace 20 años establecía un alquiler de 450€ al mes. El precio ha aumentado un 2% cada año.\n¿Quienes deben pagar más impuestos a la renta?",
+      "expectedNorms": [
+        "BOE-A-2023-12203"
+      ],
+      "category": "Ley por el derecho a la vivienda",
+      "source": {
+        "origin": "justicio-hf",
+        "dataset": "dariolopez/justicio-BOE-A-2023-12203-vivienda-44-chunks-qa",
+        "article": 1,
+        "answerSnippet": "La renta de los contratos de arrendamiento de vivienda puede ser objeto de actualizaciones anuales en base a un mecanismo regulado por la ley. Este dispositivo legal hace posible una revisión periódica del precio del alquiler en función de determinados índices o criterios establecidos, con el objeti"
+      }
+    }
+  ]
+}

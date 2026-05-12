@@ -1,0 +1,1409 @@
+{
+  "results": [
+    {
+      "id": "qg_fd729d9a",
+      "question": "¿Cuántos días de vacaciones me corresponden al año?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2002-25412",
+        "BOE-A-2019-7414",
+        "BOE-A-2019-2861",
+        "BOE-A-1985-12666",
+        "BOE-A-2003-23101",
+        "BOE-A-2007-18391",
+        "BOE-A-2021-8880",
+        "BOE-A-2023-12918",
+        "BOE-A-2015-5016",
+        "BOE-A-2005-11757",
+        "BORM-s-2001-90010"
+      ],
+      "source": {
+        "freq": 143,
+        "citationsCount": 13,
+        "answerExcerpt": "Depende del tipo de relación laboral que tengas. Si eres trabajador del sector privado (por cuenta ajena), tienes derecho como mínimo a 30 días naturales de vacaciones retribuidas al año [BOE-A-2015-11430, Artículo 38]. Si eres funcionario público (por ejemplo, de la Administración General del Estad"
+      }
+    },
+    {
+      "id": "qg_52b614bc",
+      "question": "¿Me puede subir el alquiler mi casero cuando quiera?",
+      "expectedNorms": [
+        "BOE-A-2006-14563",
+        "BOE-A-2010-8618",
+        "BOE-A-2008-3657",
+        "BOE-A-2017-2466"
+      ],
+      "source": {
+        "freq": 62,
+        "citationsCount": 16,
+        "answerExcerpt": "No, tu casero no puede subirte el alquiler cuando quiera. La ley establece que la renta se puede actualizar anualmente según lo que hayáis pactado en el contrato [BOE-A-2006-14563, Artículo 101]. Si no habéis acordado nada sobre la actualización, la renta se pagará en metálico, por años vencidos y e"
+      }
+    },
+    {
+      "id": "qg_306b68ca",
+      "question": "¿Cuánto tiempo tiene el casero para devolverme la fianza?",
+      "expectedNorms": [
+        "BOE-A-1994-26003",
+        "BOE-A-2015-7802",
+        "BOE-A-2010-8618",
+        "BOE-A-1992-27351",
+        "BOE-A-2010-14849",
+        "BOE-A-2014-7325",
+        "BOE-A-2004-19752",
+        "BOE-A-1996-19382",
+        "BOE-A-2012-11415"
+      ],
+      "source": {
+        "freq": 55,
+        "citationsCount": 10,
+        "answerExcerpt": "El tiempo que tiene el casero para devolverte la fianza depende de la comunidad autónoma donde se encuentre la vivienda. En general, la ley estatal establece que si la fianza no se devuelve en el plazo de un mes desde la entrega de las llaves, empezará a generar intereses legales [BOE-A-1994-26003, "
+      }
+    },
+    {
+      "id": "qg_ee714879",
+      "question": "¿Cuánto es el salario mínimo interprofesional?",
+      "expectedNorms": [
+        "BOE-A-2005-21525",
+        "BOE-A-2006-22865",
+        "BOE-A-2007-22295",
+        "BOE-A-2009-20765",
+        "BOE-A-2010-19703",
+        "BOE-A-2012-8745",
+        "BOE-A-2012-15651",
+        "BOE-A-2013-13616",
+        "BOE-A-2014-13612",
+        "BOE-A-2015-11644",
+        "BOE-A-2017-7387",
+        "BOE-A-2018-9268",
+        "BOE-A-2020-17339",
+        "BOE-A-2021-21653",
+        "BOE-A-2022-22128"
+      ],
+      "source": {
+        "freq": 50,
+        "citationsCount": 15,
+        "answerExcerpt": "La pregunta sobre el Salario Mínimo Interprofesional (SMI) no puede ser respondida directamente con los artículos proporcionados, ya que estos se centran en determinar el Indicador Público de Renta de Efectos Múltiples (IPREM) para diferentes años, y explican cómo se calcula en relación con el SMI, "
+      }
+    },
+    {
+      "id": "qg_c5b71d15",
+      "question": "¿Qué derechos tengo si me despiden de forma improcedente?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11724",
+        "BOE-A-1997-28053"
+      ],
+      "source": {
+        "freq": 47,
+        "citationsCount": 12,
+        "answerExcerpt": "Si tu despido es declarado improcedente, tu empresa tiene dos opciones: readmitirte o pagarte una indemnización [BOE-A-2015-11430, Artículo 56.1].\n\nSi la empresa opta por la indemnización, esta será de 33 días de salario por cada año trabajado, prorrateándose por meses los periodos inferiores a un a"
+      }
+    },
+    {
+      "id": "qg_4548d3f3",
+      "question": "¿Cuánto dura un contrato de alquiler si no se pacta nada?",
+      "expectedNorms": [
+        "BOE-A-1994-26003",
+        "BOE-A-1889-4763",
+        "BOE-A-1973-330",
+        "BOE-A-2017-2466",
+        "BOE-A-2006-14563",
+        "BOE-A-1995-15071"
+      ],
+      "source": {
+        "freq": 46,
+        "citationsCount": 11,
+        "answerExcerpt": "Si no se pacta nada sobre la duración de un contrato de alquiler, la ley establece diferentes duraciones dependiendo del tipo de inmueble y de la legislación aplicable.\n\nPara arrendamientos urbanos, si no se especifica un plazo, se entenderán celebrados por un año, pero el inquilino tiene derecho a "
+      }
+    },
+    {
+      "id": "qg_919881a0",
+      "question": "¿qe derechos tengo si me echan del curro estando de baja?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11724",
+        "BOE-A-1994-14960",
+        "BOE-A-1974-1165"
+      ],
+      "source": {
+        "freq": 46,
+        "citationsCount": 10,
+        "answerExcerpt": "Si te echan del trabajo estando de baja, tienes derecho a que se te reconozca la improcedencia del despido y, por lo tanto, a una indemnización o a la readmisión, además de los salarios que hayas dejado de percibir desde que te despidieron hasta que se notifique la sentencia [BOE-A-2015-11430, Artíc"
+      }
+    },
+    {
+      "id": "qg_087efc85",
+      "question": "¿Puede la policía registrar mi móvil sin orden judicial?",
+      "expectedNorms": [
+        "BOE-A-1978-31229",
+        "BOE-A-1882-6036",
+        "BOE-A-1995-25444"
+      ],
+      "source": {
+        "freq": 45,
+        "citationsCount": 8,
+        "answerExcerpt": "Generalmente, la policía no puede registrar tu móvil sin una orden judicial. El domicilio es inviolable, y esto se extiende a la intimidad personal y familiar, que incluye tus comunicaciones y datos personales [BOE-A-1978-31229, Artículo 18]. Sin embargo, existen excepciones.\n\nEn casos de urgencia d"
+      }
+    },
+    {
+      "id": "qg_63301462",
+      "question": "¿Tengo derecho a paro si soy autónomo?",
+      "expectedNorms": [
+        "BOE-A-2015-11724",
+        "BOE-A-2020-3824"
+      ],
+      "source": {
+        "freq": 44,
+        "citationsCount": 14,
+        "answerExcerpt": "Sí, como autónomo, puedes tener derecho a una prestación por cese de actividad, que es el equivalente al paro para los trabajadores por cuenta propia. Para acceder a esta prestación, debes cumplir una serie de requisitos [BOE-A-2015-11724, Artículo 330].\n\nLos requisitos principales son:\n\n*   Estar a"
+      }
+    },
+    {
+      "id": "qg_d7db6b22",
+      "question": "¿Ha cambiado algo del permiso de paternidad en los últimos 5 años?",
+      "expectedNorms": [
+        "BOE-A-2009-15958",
+        "BOE-A-2011-20638",
+        "BOE-A-2012-15651",
+        "BOE-A-2013-13616",
+        "BOE-A-2014-13612",
+        "BOE-A-2015-11644",
+        "BOE-A-2018-9268",
+        "BOE-A-2025-24253"
+      ],
+      "source": {
+        "freq": 44,
+        "citationsCount": 9,
+        "answerExcerpt": "Sí, el permiso de paternidad ha cambiado en los últimos 5 años. La duración del permiso de paternidad se ha ido modificando a lo largo del tiempo. Por ejemplo, la Ley 9/2009, de 6 de octubre, de ampliación de la duración del permiso de paternidad, establecía inicialmente una duración de cuatro seman"
+      }
+    },
+    {
+      "id": "qg_cde04fde",
+      "question": "Si trabajo como autónomo y como empleado a la vez, ¿cómo cotizo a la Seguridad Social?",
+      "expectedNorms": [
+        "BOE-A-2015-11724",
+        "BOE-A-2017-12207",
+        "BOE-A-2024-1691",
+        "BOE-A-2025-3780",
+        "BOE-A-2026-7296"
+      ],
+      "source": {
+        "freq": 43,
+        "citationsCount": 12,
+        "answerExcerpt": "Si trabajas como autónomo y como empleado a la vez (situación de pluriactividad), cotizas a la Seguridad Social teniendo en cuenta ambas actividades. Si cotizas por contingencias comunes en ambos regímenes, tienes derecho a que te devuelvan el 50% del exceso de tus cotizaciones por encima de una can"
+      }
+    },
+    {
+      "id": "qg_d73cffee",
+      "question": "¿Qué protección tengo como consumidor si me venden un producto defectuoso?",
+      "expectedNorms": [
+        "BOE-A-2007-20555",
+        "BOE-A-2019-6772"
+      ],
+      "source": {
+        "freq": 43,
+        "citationsCount": 12,
+        "answerExcerpt": "Sí, tienes varias protecciones si te venden un producto defectuoso [BOE-A-2007-20555, Artículo 117].\n\nSi el producto no cumple con lo que se había acordado, puedes exigir que se arregle el problema, que te hagan un descuento en el precio o que te devuelvan el dinero [BOE-A-2007-20555, Artículo 117]."
+      }
+    },
+    {
+      "id": "qg_b152d2ce",
+      "question": "Soy autónomo, trabajo desde casa, y mi casero quiere echarme. ¿El contrato de alquiler protege también mi negocio?",
+      "expectedNorms": [
+        "BOE-A-2013-5941",
+        "BOE-A-2007-13409",
+        "BOE-A-2020-4554"
+      ],
+      "source": {
+        "freq": 43,
+        "citationsCount": 11,
+        "answerExcerpt": "Tu contrato de alquiler puede proteger tu negocio si este se desarrolla en la vivienda que alquilas, pero depende de si el contrato es para uso de vivienda o para uso distinto del de vivienda. Los arrendamientos para uso distinto del de vivienda se rigen principalmente por lo que hayáis acordado las"
+      }
+    },
+    {
+      "id": "qg_055c83ff",
+      "question": "¿Cuánto me tienen que pagar?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2007-20555",
+        "BOE-A-2004-21830",
+        "BOE-A-1985-6029",
+        "BOE-A-2025-24011",
+        "BOE-A-1993-31164",
+        "BOE-A-2026-3815",
+        "BOE-A-2014-8495"
+      ],
+      "source": {
+        "freq": 43,
+        "citationsCount": 10,
+        "answerExcerpt": "Tu pregunta es muy general y la cantidad que te tienen que pagar depende de muchos factores. Para poder darte una respuesta, necesitaría saber a qué te refieres exactamente. ¿Te refieres a tu salario normal, a una indemnización por despido, por finalización de un contrato temporal, o a otra cosa?\n\nP"
+      }
+    },
+    {
+      "id": "qg_78632c9a",
+      "question": "Estoy embarazada y mi empresa quiere despedirme. ¿Pueden hacerlo?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2000-544",
+        "BOE-A-2015-11724"
+      ],
+      "source": {
+        "freq": 43,
+        "citationsCount": 9,
+        "answerExcerpt": "Si estás embarazada, tu empresa no puede despedirte si la causa del despido está relacionada con tu embarazo o si se produce durante ciertos periodos de protección [BOE-A-2015-11430, Artículo 55.5].\n\nEl despido será nulo si se basa en motivos discriminatorios prohibidos por la ley o si viola tus der"
+      }
+    },
+    {
+      "id": "qg_1038f854",
+      "question": "Si firmé mi contrato de alquiler en 2015, ¿qué ley me aplica, la de antes o la de ahora?",
+      "expectedNorms": [
+        "BOE-A-1994-26003",
+        "BOE-A-2023-12203",
+        "BOE-A-2006-20764"
+      ],
+      "source": {
+        "freq": 43,
+        "citationsCount": 9,
+        "answerExcerpt": "Si firmaste tu contrato de alquiler en 2015, lo más probable es que te siga aplicando la ley que estaba vigente en ese momento, a menos que se haya acordado expresamente otra cosa o que la ley actual diga lo contrario para tu caso concreto [BOE-A-1994-26003, Disposición transitoria primera]. La ley "
+      }
+    },
+    {
+      "id": "qg_926bd04e",
+      "question": "¿Ha cambiado la duración de la baja por paternidad? ¿Cuánto era antes?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2010-19703",
+        "BOE-A-2011-20638",
+        "BOE-A-2012-8745",
+        "BOE-A-2012-15651",
+        "BOE-A-2013-13616",
+        "BOE-A-2014-13612",
+        "BOE-A-2015-11644"
+      ],
+      "source": {
+        "freq": 43,
+        "citationsCount": 9,
+        "answerExcerpt": "La duración del permiso de paternidad ha sido objeto de diversas modificaciones legislativas a lo largo del tiempo. Históricamente, antes de la entrada en vigor de la Ley 9/2009, el permiso de paternidad tenía una duración general de trece días ininterrumpidos [BOE-A-2015-11430, Disposición transito"
+      }
+    },
+    {
+      "id": "qg_d382f2a7",
+      "question": "¿Puedo grabar a mi jefe sin que lo sepa?",
+      "expectedNorms": [
+        "BOE-A-1978-31229",
+        "BOE-A-1995-7730",
+        "BOE-A-2015-11430",
+        "BOE-A-1995-25444",
+        "BOE-A-2021-4568",
+        "BOE-A-2023-22763",
+        "BOE-A-2008-2824",
+        "BOE-A-2019-6772"
+      ],
+      "source": {
+        "freq": 42,
+        "citationsCount": 11,
+        "answerExcerpt": "Generalmente, no puedes grabar a tu jefe sin que lo sepa, ya que se vulneraría su derecho a la intimidad y a la propia imagen [BOE-A-1978-31229, Artículo 18]. Sin embargo, hay algunas excepciones y matices importantes:\n\n**En el ámbito laboral:**\n\n*   Tu jefe puede tomar medidas de vigilancia y contr"
+      }
+    },
+    {
+      "id": "qg_3cba5fcb",
+      "question": "¿Puedo deducirme el alquiler en la declaración de la renta como inquilino?",
+      "expectedNorms": [
+        "BOE-A-2024-6951",
+        "BOE-A-2014-6925",
+        "BOE-A-2006-20764",
+        "BOE-A-2003-23935",
+        "BOE-A-2004-21688",
+        "BOE-A-2005-21525",
+        "BOE-A-2006-22865",
+        "BOE-A-2010-19703"
+      ],
+      "source": {
+        "freq": 42,
+        "citationsCount": 10,
+        "answerExcerpt": "Sí, puedes deducirte el alquiler de tu vivienda habitual en la declaración de la renta, pero depende de varios factores y de dónde vivas. Las deducciones varían según la comunidad autónoma y si cumples ciertos requisitos de edad, situación laboral o familiar, y nivel de ingresos.\n\nPor ejemplo, en Ca"
+      }
+    },
+    {
+      "id": "qg_b64131d7",
+      "question": "Soy extranjero con permiso de trabajo. ¿Tengo los mismos derechos laborales que un español?",
+      "expectedNorms": [
+        "BOE-A-2000-23660",
+        "BOE-A-2000-544",
+        "BOE-A-1996-4447"
+      ],
+      "source": {
+        "freq": 42,
+        "citationsCount": 9,
+        "answerExcerpt": "Sí, en general, los extranjeros con permiso de trabajo tienen los mismos derechos laborales que los españoles [BOE-A-2000-23660, Artículo primero.2]. Esto significa que tienes derecho al trabajo y a la Seguridad Social en las mismas condiciones que los españoles [BOE-A-2000-544, Artículo 10]. Tambié"
+      }
+    },
+    {
+      "id": "qg_0729f858",
+      "question": "¿Qué dice la ley de vivienda de las Illes Balears sobre el precio del alquiler?",
+      "expectedNorms": [
+        "BOE-A-2018-9774",
+        "BOE-A-2017-11003",
+        "BOE-A-2024-15575"
+      ],
+      "source": {
+        "freq": 42,
+        "citationsCount": 9,
+        "answerExcerpt": "La ley de vivienda de las Illes Balears establece que, mientras no se desarrolle una normativa autonómica específica sobre precios máximos de venta y alquiler de viviendas protegidas, se aplicarán los precios máximos establecidos en el Real Decreto 2066/2008, de 12 de diciembre, del Plan Estatal de "
+      }
+    },
+    {
+      "id": "qg_b7214aea",
+      "question": "¿Cuántos días de preaviso tengo que dar si quiero irme de mi trabajo?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-1985-17303",
+        "BOE-A-1985-17006",
+        "BOE-A-2006-20113",
+        "BOE-A-2007-13409",
+        "BOE-A-1992-12347",
+        "BOE-A-2003-23101",
+        "BOE-A-2006-18205",
+        "BOE-A-2011-15936",
+        "BOE-A-1980-22618",
+        "BOE-A-2012-9110"
+      ],
+      "source": {
+        "freq": 41,
+        "citationsCount": 12,
+        "answerExcerpt": "El plazo de preaviso que debes dar si quieres dejar tu trabajo depende de varios factores y de tu tipo de contrato. Si tienes un contrato de trabajo normal, generalmente debes dar un preaviso de 15 días [BOE-A-2015-11430, Artículo 53.1.c]. Sin embargo, si tu contrato es de duración determinada y dur"
+      }
+    },
+    {
+      "id": "qg_f28c3b2c",
+      "question": "Si me despiden, ¿qué paro me corresponde?",
+      "expectedNorms": [
+        "BOE-A-1985-8124",
+        "BOE-A-2012-9110",
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11724",
+        "BOE-A-2009-21160",
+        "BOE-A-2012-2076"
+      ],
+      "source": {
+        "freq": 41,
+        "citationsCount": 9,
+        "answerExcerpt": "Si te despiden, el \"paro\" (prestación contributiva por desempleo) que te corresponde depende de los días que hayas cotizado en los 4 años anteriores a la situación legal de desempleo. La duración de la prestación se calcula según una escala: por ejemplo, si has cotizado entre 180 y 359 días, te corr"
+      }
+    },
+    {
+      "id": "qg_0d702d0b",
+      "question": "¿Cómo ha cambiado la ley de alquiler sobre la subida de renta en los últimos años?",
+      "expectedNorms": [
+        "BOE-A-1994-26003",
+        "BOE-A-2023-12203",
+        "BOE-A-2008-3657"
+      ],
+      "source": {
+        "freq": 41,
+        "citationsCount": 9,
+        "answerExcerpt": "La ley de alquiler ha cambiado en los últimos años principalmente en cómo se actualiza la renta anual y en las limitaciones para subirla, especialmente en zonas declaradas como de mercado residencial tensionado.\n\n**Actualización de la renta:**\n\n*   **Antes (versión de 1994):** La renta se actualizab"
+      }
+    },
+    {
+      "id": "qg_a7a1b306",
+      "question": "¿Puede mi casero entrar en mi piso sin mi permiso?",
+      "expectedNorms": [
+        "BOE-A-1882-6036",
+        "BOE-A-1994-26003",
+        "BOE-A-2015-3442",
+        "BOE-A-2015-8168",
+        "BOE-A-2014-1510",
+        "BOE-A-2022-22127",
+        "BOE-A-2021-10957",
+        "BOE-A-1995-25444"
+      ],
+      "source": {
+        "freq": 41,
+        "citationsCount": 9,
+        "answerExcerpt": "No, tu casero no puede entrar en tu piso sin tu permiso, salvo en casos muy específicos previstos por la ley. El domicilio es inviolable y nadie puede entrar en él sin el consentimiento del titular o una resolución judicial, excepto si hay un delito flagrante [BOE-A-1882-6036, Artículo 545].\n\nSin em"
+      }
+    },
+    {
+      "id": "qg_360584ec",
+      "question": "¿Puedo pedir una reducción de jornada por cuidado de hijos?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-5677",
+        "BORM-s-2001-90004",
+        "BOE-A-1986-23734"
+      ],
+      "source": {
+        "freq": 41,
+        "citationsCount": 8,
+        "answerExcerpt": "Sí, puedes pedir una reducción de jornada por cuidado de hijos en varias situaciones.\n\nSi tienes a tu cargo directo algún menor de 12 años, tienes derecho a una reducción de tu jornada diaria. Esta reducción puede ser de entre un octavo y un máximo de la mitad de tu jornada, y supondrá una disminuci"
+      }
+    },
+    {
+      "id": "qg_d3c70b54",
+      "question": "Si me quedo embarazada, ¿qué derechos laborales tengo y qué prestaciones puedo cobrar?",
+      "expectedNorms": [
+        "BOE-A-1995-24292",
+        "BOE-A-2007-6115",
+        "BOE-A-2000-12140",
+        "BOE-A-2009-4724",
+        "BOE-A-2015-5677",
+        "BOE-A-2010-3514",
+        "BOE-A-2011-2708"
+      ],
+      "source": {
+        "freq": 40,
+        "citationsCount": 11,
+        "answerExcerpt": "Si te quedas embarazada, tienes derecho a ausentarte del trabajo con remuneración para hacer exámenes prenatales y prepararte para el parto, siempre que avises a tu empleador y justifiques la necesidad dentro de tu jornada laboral [BOE-A-1995-24292, Artículo 26.5].\n\nAdemás, si las condiciones de tu "
+      }
+    },
+    {
+      "id": "qg_91caaa0b",
+      "question": "¿Es verdad que si te despiden el viernes no cobras indemnización?",
+      "expectedNorms": [
+        "BOE-A-2011-15936",
+        "BOE-A-2015-11430",
+        "BOE-A-1995-7730",
+        "BOE-A-1995-8758"
+      ],
+      "source": {
+        "freq": 40,
+        "citationsCount": 11,
+        "answerExcerpt": "No, el día de la semana en que te despiden no influye en si cobras o no una indemnización. Lo que determina si cobras indemnización o no es si el despido se declara procedente o improcedente.\n\nSi un juez declara que el despido es procedente, significa que el despido es válido y no tienes derecho a n"
+      }
+    },
+    {
+      "id": "qg_5ac53623",
+      "question": "Mi empresa ha cerrado sin pagarme. ¿Quién me paga lo que me deben?",
+      "expectedNorms": [
+        "BOE-A-2015-11724",
+        "BOE-A-2007-20555"
+      ],
+      "source": {
+        "freq": 40,
+        "citationsCount": 9,
+        "answerExcerpt": "Si tu empresa ha cerrado y no te ha pagado, la responsabilidad de pagarte lo que te deben recae principalmente en el empresario [BOE-A-2015-11724, Artículo 298]. El empresario es el responsable de cotizar e ingresar las aportaciones propias y las de sus trabajadores [BOE-A-2015-11724, Artículo 142]."
+      }
+    },
+    {
+      "id": "qg_f349dc9f",
+      "question": "Mi gimnasio fue comprado por otra empresa y me cambiaron el contrato sin mi consentimiento. ¿Es legal?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2016-7566",
+        "BOE-A-2023-13669",
+        "BOE-A-2007-20555",
+        "BOE-A-2017-2466",
+        "BOE-A-2023-13537"
+      ],
+      "source": {
+        "freq": 40,
+        "citationsCount": 9,
+        "answerExcerpt": "No, no es legal que te cambien el contrato sin tu consentimiento. Si una empresa compra tu gimnasio, la nueva empresa se subroga en tus derechos y obligaciones laborales y de Seguridad Social, lo que implica que debe respetar las condiciones de tu contrato anterior [BOE-A-2015-11430, Artículo 44.1]."
+      }
+    },
+    {
+      "id": "qg_05b36781",
+      "question": "Trabajo a media jornada. ¿Mis vacaciones son también la mitad?",
+      "expectedNorms": [
+        "BOE-A-1993-31164",
+        "BOE-A-2015-11430",
+        "BOE-A-2019-2861",
+        "BOE-A-2003-23101",
+        "BOE-A-2025-24253",
+        "BOE-A-1980-22618",
+        "BOE-A-2007-6115"
+      ],
+      "source": {
+        "freq": 40,
+        "citationsCount": 8,
+        "answerExcerpt": "No, tus vacaciones no son la mitad por trabajar a media jornada. Los trabajadores a tiempo parcial tienen los mismos derechos que los trabajadores a tiempo completo, salvo las particularidades que puedan estar establecidas por ley o por negociación colectiva en función del tiempo trabajado [BOE-A-19"
+      }
+    },
+    {
+      "id": "qg_9246ffe3",
+      "question": "Mi empresa me ha despedido por WhatsApp. ¿Es un despido válido?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2011-15936"
+      ],
+      "source": {
+        "freq": 40,
+        "citationsCount": 7,
+        "answerExcerpt": "Tu pregunta puede significar varias cosas. Necesitaría saber si te refieres a si el despido es procedente, o si la forma en la que te han comunicado el despido es válida. Mientras tanto, te explico lo más probable.\n\nPara que un despido sea válido, la empresa te lo tiene que comunicar por escrito, ex"
+      }
+    },
+    {
+      "id": "qg_a373bd26",
+      "question": "Le pedí a una empresa mis datos personales por email y me dicen que tengo que enviar una carta física. ¿Es legal?",
+      "expectedNorms": [
+        "BOE-A-2018-16673",
+        "BOE-A-2021-8806",
+        "BOE-A-1998-1943"
+      ],
+      "source": {
+        "freq": 40,
+        "citationsCount": 6,
+        "answerExcerpt": "No, no es legal que te obliguen a enviar una carta física si has solicitado tus datos personales por email y la empresa te ofrece un sistema de acceso remoto, directo y seguro a tus datos personales. Si la empresa te facilita un sistema de acceso remoto, directo y seguro que te permite acceder perma"
+      }
+    },
+    {
+      "id": "qg_81292a60",
+      "question": "Mi jefe me obliga a trabajar los domingos. ¿Es legal? ¿Y si tengo hijos pequeños?",
+      "expectedNorms": [
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "freq": 39,
+        "citationsCount": 8,
+        "answerExcerpt": "En general, la ley establece un descanso mínimo semanal de día y medio ininterrumpido, que normalmente incluye la tarde del sábado o la mañana del lunes, y el día completo del domingo [BOE-A-2015-11430, Artículo 37.1]. Los menores de 18 años tienen derecho a un descanso semanal mínimo de dos días in"
+      }
+    },
+    {
+      "id": "qg_a5ae1dd0",
+      "question": "¿Es legal que mi empresa lea mis correos del trabajo?",
+      "expectedNorms": [
+        "BOE-A-1995-7730",
+        "BOE-A-2015-11430",
+        "BOE-A-1978-31229",
+        "BOE-A-1995-25444"
+      ],
+      "source": {
+        "freq": 39,
+        "citationsCount": 8,
+        "answerExcerpt": "Sí, tu empresa puede leer tus correos del trabajo, pero con límites. La ley dice que el empresario puede tomar medidas para controlar tu trabajo, siempre respetando tu dignidad y tu intimidad [BOE-A-1995-7730, Artículo 20] [BOE-A-2015-11430, Artículo 20].\n\nEsto significa que, aunque tienes derecho a"
+      }
+    },
+    {
+      "id": "qg_28c9f161",
+      "question": "¿Pueden embargarme la nómina entera si tengo una deuda?",
+      "expectedNorms": [
+        "BOE-A-2000-323",
+        "BOE-A-2011-11641"
+      ],
+      "source": {
+        "freq": 39,
+        "citationsCount": 7,
+        "answerExcerpt": "No, no pueden embargarle la nómina entera si tiene una deuda. Existe una parte de su salario, sueldo, pensión o retribución que es inembargable [BOE-A-2000-323, Artículo 607.1]. Esta parte inembargable es la que no supera el Salario Mínimo Interprofesional (SMI) [BOE-A-2000-323, Artículo 607.1]. Si "
+      }
+    },
+    {
+      "id": "qg_f42e9cd7",
+      "question": "He comprado un piso y tiene vicios ocultos. ¿Qué puedo hacer contra el vendedor y contra el constructor?",
+      "expectedNorms": [
+        "BOE-A-1889-4763",
+        "BOE-A-1999-21567",
+        "BOE-A-2017-12902",
+        "BOE-A-2023-7936"
+      ],
+      "source": {
+        "freq": 37,
+        "citationsCount": 12,
+        "answerExcerpt": "Si has comprado un piso y tiene vicios ocultos, puedes reclamar al vendedor y, en ciertos casos, al constructor. El vendedor está obligado a responder por los defectos ocultos que tenga la cosa vendida si la hacen impropia para el uso al que se destina o si disminuyen su valor de tal forma que, de h"
+      }
+    },
+    {
+      "id": "qg_efebd2b7",
+      "question": "He leído que en España los contratos de alquiler duran 3 años. ¿Es cierto?",
+      "expectedNorms": [
+        "BOE-A-2017-2466",
+        "BOE-A-1995-15071",
+        "BOE-A-2017-12902",
+        "BOE-A-2006-14563",
+        "BOE-A-1889-4763",
+        "BOE-A-2008-3657",
+        "BOE-A-2026-944"
+      ],
+      "source": {
+        "freq": 36,
+        "citationsCount": 10,
+        "answerExcerpt": "No, la duración de los contratos de alquiler en España no es siempre de 3 años. Depende de varios factores y de la legislación aplicable.\n\nPor ejemplo, en Cataluña, los arrendamientos tienen una duración mínima de siete años, y se prorrogan de cinco en cinco años si ninguna de las partes avisa de lo"
+      }
+    },
+    {
+      "id": "qg_46da5e69",
+      "question": "La ley del artículo 234 bis del Real Decreto 44/2023 sobre criptomonedas establece que Bitcoin es moneda de curso legal en España. ¿Es cierto?",
+      "expectedNorms": [
+        "BOE-A-2015-11435",
+        "BOE-A-1995-25444",
+        "BOE-A-2006-20764",
+        "BOE-A-2007-15984",
+        "BON-n-2008-90013",
+        "BOE-A-2014-6726"
+      ],
+      "source": {
+        "freq": 36,
+        "citationsCount": 9,
+        "answerExcerpt": "No. El artículo 234 bis del Real Decreto Legislativo 4/2015, de 23 de octubre, por el que se aprueba el texto refundido de la Ley del Mercado de Valores, otorga a la CNMV la facultad de establecer límites y condiciones a la actividad de las entidades supervisadas para evitar un endeudamiento excesiv"
+      }
+    },
+    {
+      "id": "qg_9cdb98dd",
+      "question": "Dame un resumen de todas las leyes de España sobre impuestos",
+      "expectedNorms": [
+        "BOE-A-2003-23186",
+        "BOE-A-1978-31229",
+        "BOE-A-2006-20764",
+        "BOE-A-2014-12328",
+        "BOE-A-2004-4456",
+        "BOE-A-1992-28741",
+        "BOE-A-2013-11692"
+      ],
+      "source": {
+        "freq": 33,
+        "citationsCount": 15,
+        "answerExcerpt": "En España, la potestad para crear impuestos recae principalmente en el Estado, que lo hace a través de leyes [BOE-A-2003-23186, Artículo 4; BOE-A-1978-31229, Artículo 133]. Las Comunidades Autónomas y los Ayuntamientos también pueden crear y cobrar sus propios impuestos, siempre siguiendo lo que mar"
+      }
+    },
+    {
+      "id": "qg_d82d1bba",
+      "question": "¿Cómo regula Cataluña las sucesiones y herencias en su código civil?",
+      "expectedNorms": [
+        "BOE-A-2000-323"
+      ],
+      "source": {
+        "freq": 32,
+        "citationsCount": 15,
+        "answerExcerpt": "Los artículos proporcionados regulan el procedimiento judicial civil en España para la división de herencias, la intervención judicial de patrimonios hereditarios y la sucesión procesal en caso de fallecimiento de un litigante [BOE-A-2000-323, Artículo 791]. Sin embargo, no se especifica cómo Catalu"
+      }
+    },
+    {
+      "id": "qg_2057e0b2",
+      "question": "Según el artículo 847 del Código Laboral, ¿cuántas horas extra puedo hacer?",
+      "expectedNorms": [
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "freq": 32,
+        "citationsCount": 6,
+        "answerExcerpt": "Tu pregunta menciona el artículo 847 del Código Laboral, pero no dispongo de información sobre ese artículo específico. Sin embargo, la Ley del Estatuto de los Trabajadores establece que el número de horas extraordinarias no podrá ser superior a ochenta al año, salvo excepciones [BOE-A-2015-11430, A"
+      }
+    },
+    {
+      "id": "qg_04b1e2a2",
+      "question": "¿Qué norma regula la ordenación urbanística en Galicia?",
+      "expectedNorms": [
+        "BOE-A-1985-5392",
+        "BOE-A-2023-12203",
+        "BOE-A-1997-25340",
+        "BOE-A-1998-23284",
+        "BOE-A-2013-13645",
+        "BOE-A-2001-14276"
+      ],
+      "source": {
+        "freq": 30,
+        "citationsCount": 15,
+        "answerExcerpt": "La legislación que has proporcionado no especifica qué norma regula la ordenación urbanística en Galicia. Los artículos disponibles mencionan la legislación sobre ordenación territorial y urbanística en general, y cómo se coordina con otros sectores como el eléctrico o el de hidrocarburos, pero no d"
+      }
+    },
+    {
+      "id": "qg_25fe2781",
+      "question": "Vivo en Navarra, ¿existe una ley foral sobre derecho a la vivienda?",
+      "expectedNorms": [
+        "BOE-A-2010-8618",
+        "BOE-A-2019-750"
+      ],
+      "source": {
+        "freq": 30,
+        "citationsCount": 6,
+        "answerExcerpt": "Sí, en Navarra existe una ley foral sobre el derecho a la vivienda. Esta ley tiene como objetivo garantizar el derecho a una vivienda digna y adecuada, fomentar la accesibilidad universal y establecer las condiciones para que toda la ciudadanía pueda disfrutar plenamente de este derecho [BOE-A-2010-"
+      }
+    },
+    {
+      "id": "qg_21c36285",
+      "question": "¿Qué protección tienen los menores en Andalucía según la legislación autonómica?",
+      "expectedNorms": [
+        "BOE-A-2007-5825",
+        "BOE-A-2021-13605"
+      ],
+      "source": {
+        "freq": 29,
+        "citationsCount": 15,
+        "answerExcerpt": "Los menores en Andalucía tienen derecho a recibir de los poderes públicos protección y atención integral para su desarrollo y bienestar, tanto en el ámbito familiar, escolar como social [BOE-A-2007-5825, Artículo 18]. El interés superior del menor es el principio fundamental que guía todas las polít"
+      }
+    },
+    {
+      "id": "qg_11f43f1c",
+      "question": "¿Qué ley de servicios sociales se aplica en Andalucía?",
+      "expectedNorms": [
+        "BOE-A-2022-11589",
+        "BOE-A-2004-21760",
+        "BOE-A-2015-11724"
+      ],
+      "source": {
+        "freq": 28,
+        "citationsCount": 15,
+        "answerExcerpt": "La información proporcionada no especifica qué ley de servicios sociales se aplica en Andalucía. Los artículos disponibles mencionan la Ley 15/2022, de 12 de julio, integral para la igualdad de trato y la no discriminación [BOE-A-2022-11589], que se aplica en el ámbito de la protección social, las p"
+      }
+    },
+    {
+      "id": "qg_800195ec",
+      "question": "¿Las cooperativas en el País Vasco se rigen por la ley estatal o tienen ley propia?",
+      "expectedNorms": [
+        "BOE-A-2020-615",
+        "BOE-A-1990-30735",
+        "BOE-A-1989-12296"
+      ],
+      "source": {
+        "freq": 28,
+        "citationsCount": 6,
+        "answerExcerpt": "Las cooperativas con domicilio social en el País Vasco se rigen principalmente por la Ley 11/2019, de 20 de diciembre, de Cooperativas de Euskadi [BOE-A-2020-615, Disposición final primera]. Esta ley define qué es una cooperativa y cómo debe funcionar [BOE-A-2020-615, Artículo 1]. Sin embargo, la le"
+      }
+    },
+    {
+      "id": "qg_4e423e8f",
+      "question": "¿Cuántas veces se ha reformado la Constitución española?",
+      "expectedNorms": [
+        "BOE-A-1978-31229",
+        "BOE-A-1994-10830",
+        "BOE-A-1982-5196"
+      ],
+      "source": {
+        "freq": 26,
+        "citationsCount": 12,
+        "answerExcerpt": "La información proporcionada no especifica cuántas veces se ha reformado la Constitución española. Los artículos disponibles detallan los procedimientos para llevar a cabo una reforma constitucional [BOE-A-1978-31229, Artículo 167, BOE-A-1978-31229, Artículo 168, BOE-A-1994-10830, Artículo 156, BOE-"
+      }
+    },
+    {
+      "id": "qg_4cdf6a83",
+      "question": "¿Pueden obligarme a hacer un test de drogas en el trabajo?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2014-12408",
+        "BOE-A-2020-13115",
+        "BOE-A-2006-8213",
+        "BOE-A-2018-5396",
+        "BOE-A-2021-21650",
+        "BOE-A-2008-12494",
+        "BOE-A-2001-9342",
+        "BOE-A-2016-4170"
+      ],
+      "source": {
+        "freq": 24,
+        "citationsCount": 15,
+        "answerExcerpt": "Sí, en determinados trabajos y circunstancias, te pueden obligar a hacerte pruebas para detectar drogas o alcohol. Esto puede ocurrir en el ámbito laboral general, especialmente si tu trabajo implica riesgos o si hay sospechas de consumo [BOE-A-2015-11430, Artículo 20]. En profesiones específicas co"
+      }
+    },
+    {
+      "id": "qg_f2300fb0",
+      "question": "¿Cuántas horas extra puedo hacer al año como máximo?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2003-23101",
+        "BOE-A-2019-7414",
+        "BOE-A-2010-12620",
+        "BOE-A-1995-21346",
+        "BOE-A-1983-20906",
+        "BOE-A-1980-22618"
+      ],
+      "source": {
+        "freq": 24,
+        "citationsCount": 7,
+        "answerExcerpt": "El número máximo de horas extraordinarias que puedes hacer al año es de 80 horas [BOE-A-2015-11430, Artículo 35]. Sin embargo, hay excepciones. Las horas extraordinarias que se compensen con descanso dentro de los 4 meses siguientes a su realización no se tienen en cuenta para este límite [BOE-A-201"
+      }
+    },
+    {
+      "id": "qg_3244215f",
+      "question": "¿Qué es una zona de mercado residencial tensionado y qué implica para mi alquiler?",
+      "expectedNorms": [
+        "BOE-A-2023-12203",
+        "BOE-A-2020-11363",
+        "BOE-A-2010-8618"
+      ],
+      "source": {
+        "freq": 23,
+        "citationsCount": 11,
+        "answerExcerpt": "Una zona de mercado residencial tensionado es un área donde existe un riesgo de que no haya suficientes viviendas disponibles a un precio asequible para la gente que vive allí [BOE-A-2023-12203, Artículo 18.1]. Esta situación se declara cuando se cumplen ciertas condiciones, como que la carga de pag"
+      }
+    },
+    {
+      "id": "qg_5f8643f5",
+      "question": "¿Tengo derecho a que borren mis datos de internet?",
+      "expectedNorms": [
+        "BOE-A-2018-16673",
+        "BOE-A-1999-23750",
+        "BOE-A-2021-8806",
+        "BOE-A-1998-1943",
+        "BOE-A-1984-7248"
+      ],
+      "source": {
+        "freq": 23,
+        "citationsCount": 9,
+        "answerExcerpt": "Sí, tienes derecho a que borren tus datos de Internet en varias situaciones. Puedes solicitar que los motores de búsqueda eliminen de sus resultados enlaces que contengan información tuya si esta es inadecuada, inexacta, no pertinente, no actualizada o excesiva, o si ha dejado de serlo con el tiempo"
+      }
+    },
+    {
+      "id": "qg_c9bea531",
+      "question": "Mi casero quiere hacer obras en mi piso y yo no quiero. ¿Puede obligarme?",
+      "expectedNorms": [
+        "BOE-A-1994-26003",
+        "BOE-A-1889-4763"
+      ],
+      "source": {
+        "freq": 22,
+        "citationsCount": 13,
+        "answerExcerpt": "Sí, tu casero puede obligarte a soportar obras en tu piso, pero depende del tipo de obra: \n\n*   **Obras de mejora:** Si son obras de mejora que no pueden esperar a que termine tu contrato, debes permitir que se hagan [BOE-A-1994-26003, Artículo 22.1]. Tu casero debe avisarte por escrito con 3 meses "
+      }
+    },
+    {
+      "id": "qg_5c40c917",
+      "question": "He heredado una casa con mis hermanos y no nos ponemos de acuerdo. ¿Qué dice la ley?",
+      "expectedNorms": [
+        "BOE-A-1862-4073",
+        "BOE-A-1989-21773",
+        "BOE-A-2015-7046",
+        "BOE-A-1960-10906",
+        "BOE-A-1889-4763",
+        "BOE-A-2008-13533",
+        "BOA-d-2011-90007",
+        "BOE-A-2003-23646"
+      ],
+      "source": {
+        "freq": 22,
+        "citationsCount": 9,
+        "answerExcerpt": "Si has heredado una casa con tus hermanos y no os ponéis de acuerdo sobre su división o administración, la ley establece varias posibilidades. Si la casa es indivisible o se devalúa mucho al dividirla, se puede adjudicar a uno de vosotros a cambio de que pague la diferencia en dinero a los demás [BO"
+      }
+    },
+    {
+      "id": "qg_a8f249a5",
+      "question": "Quiero darme de alta como autónomo. ¿Qué derechos básicos tengo?",
+      "expectedNorms": [
+        "BOE-A-2007-13409"
+      ],
+      "source": {
+        "freq": 21,
+        "citationsCount": 14,
+        "answerExcerpt": "Como autónomo, tienes varios derechos básicos. Tienes derecho a ejercer los derechos fundamentales y libertades públicas reconocidos en la Constitución Española y en tratados internacionales [BOE-A-2007-13409, Artículo 4.1]. Específicamente, en tu actividad profesional, tienes derecho a la igualdad "
+      }
+    },
+    {
+      "id": "qg_c43c6293",
+      "question": "¿A qué edad me puedo jubilar?",
+      "expectedNorms": [
+        "BOE-A-2015-11724",
+        "BOE-A-2013-2874",
+        "BOE-A-2011-13242",
+        "BOE-A-2009-20652",
+        "BOE-A-2003-23401",
+        "BOE-A-1984-17387",
+        "BOE-A-2003-23101",
+        "BOE-A-2025-24253",
+        "BOE-A-1984-165",
+        "BOE-A-1991-7270"
+      ],
+      "source": {
+        "freq": 20,
+        "citationsCount": 11,
+        "answerExcerpt": "La edad a la que te puedes jubilar depende de varios factores, como tu año de nacimiento y los años que hayas cotizado. La edad ordinaria de jubilación está aumentando gradualmente.\n\nPara la jubilación ordinaria:\n* Si has cotizado 38 años o más, puedes jubilarte a los 65 años en 2024. Si has cotizad"
+      }
+    },
+    {
+      "id": "qg_cb1d47de",
+      "question": "¿Cuánto dura la garantía de un producto nuevo?",
+      "expectedNorms": [
+        "BOE-A-2007-20555",
+        "BOE-A-2017-2466"
+      ],
+      "source": {
+        "freq": 20,
+        "citationsCount": 9,
+        "answerExcerpt": "La garantía de un producto nuevo dura 3 años desde que te lo entregan, siempre que se trate de bienes o de contenidos o servicios digitales que se suministran de una vez o en varias partes separadas [BOE-A-2007-20555, Artículo 120]. Si son bienes de segunda mano, se puede pactar un plazo menor, pero"
+      }
+    },
+    {
+      "id": "qg_b9ae2a55",
+      "question": "Si trabajo a media jornada, ¿cuántos días de vacaciones me corresponden?",
+      "expectedNorms": [
+        "BOE-A-1993-31164",
+        "BOE-A-2003-23101",
+        "BOE-A-2015-11719",
+        "BOE-A-2019-7414",
+        "BOE-A-1980-22618",
+        "BOE-A-2007-65",
+        "BOE-A-2008-11791",
+        "BOE-A-1993-13437",
+        "BOE-A-2025-24253",
+        "BOE-A-1977-12685",
+        "BOE-A-2022-19625",
+        "BOE-A-2022-9385"
+      ],
+      "source": {
+        "freq": 8,
+        "citationsCount": 12,
+        "answerExcerpt": "Si trabajas a media jornada, te corresponden los mismos derechos que a los trabajadores a tiempo completo, salvo las peculiaridades que se establezcan por ley o por negociación colectiva en función del tiempo trabajado [BOE-A-1993-31164, Artículo 19]. En general, la duración de las vacaciones anuale"
+      }
+    },
+    {
+      "id": "qg_0e3d01e4",
+      "question": "¿Cuánto preaviso tiene que dar mi casero para subirme el alquiler?",
+      "expectedNorms": [
+        "BOE-A-1994-26003"
+      ],
+      "source": {
+        "freq": 5,
+        "citationsCount": 6,
+        "answerExcerpt": "El casero debe avisarte por escrito con 4 meses de antelación si quiere que el contrato no se prorrogue [BOE-A-1994-26003, Artículo 10.1]. Si no te avisa con ese tiempo, el contrato se prorrogará obligatoriamente por plazos anuales hasta un máximo de 3 años más [BOE-A-1994-26003, Artículo 10].\n\nSi l"
+      }
+    },
+    {
+      "id": "qg_1eae26e3",
+      "question": "¿Cuántas semanas de permiso por paternidad me corresponden actualmente?",
+      "expectedNorms": [
+        "BOE-A-2025-24253",
+        "BOE-A-2022-7184",
+        "BOE-A-2011-7752",
+        "BOE-A-2008-2492"
+      ],
+      "source": {
+        "freq": 3,
+        "citationsCount": 4,
+        "answerExcerpt": "La duración de tu permiso por paternidad depende del régimen jurídico al que esté sujeto tu puesto de trabajo, ya que existen normativas específicas para diferentes sectores públicos. Si te riges por el Estatuto del Personal de las Cortes Generales, el permiso para la persona progenitora diferente d"
+      }
+    },
+    {
+      "id": "qg_7358594d",
+      "question": "¿Cuánto dura un contrato de alquiler?",
+      "expectedNorms": [
+        "BOE-A-1994-26003",
+        "BOE-A-2009-18733",
+        "BOE-A-2003-21616",
+        "BOE-A-1970-369",
+        "BOE-A-1980-22501",
+        "BOE-A-1992-12347",
+        "BOE-A-2015-4747",
+        "BOE-A-2012-3394",
+        "BOE-A-1996-5930"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 12,
+        "answerExcerpt": "La duración de un contrato de alquiler depende de lo que pacten las partes, pero la ley establece unos mínimos. En general, si el contrato dura menos de 5 años (o 7 años si el casero es una empresa), se prorrogará automáticamente por años hasta alcanzar esa duración mínima, a menos que tú, como inqu"
+      }
+    },
+    {
+      "id": "qg_97293d5c",
+      "question": "¿Me pueden obligar a hacerme un test de drogas en el trabajo?",
+      "expectedNorms": [
+        "BOE-A-2014-12408",
+        "BOE-A-2026-2726",
+        "BOE-A-2015-11430",
+        "BOE-A-2006-14016",
+        "BOE-A-2010-17236",
+        "BOE-A-2020-13115",
+        "BOE-A-2006-8213",
+        "BOE-A-2018-5396",
+        "BOE-A-2001-9342",
+        "BOE-A-2016-4170",
+        "BOE-A-2015-11722"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 12,
+        "answerExcerpt": "En general, te pueden obligar a hacerte pruebas de drogas en el trabajo si hay razones justificadas o como parte de programas de prevención, dependiendo de tu profesión y de la normativa específica que te aplique. Por ejemplo, si eres miembro de la Guardia Civil, se te pueden realizar pruebas si hay"
+      }
+    },
+    {
+      "id": "qg_07ae3aa4",
+      "question": "¿Puedo cobrar el paro si soy autónomo?",
+      "expectedNorms": [
+        "BOE-A-2015-11724",
+        "BOE-A-2007-13409",
+        "BOE-A-2013-8187",
+        "BOE-A-2010-12616",
+        "BOE-A-2020-3824",
+        "BOE-A-2021-15768",
+        "BOE-A-2021-8877",
+        "BOE-A-2024-22928"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 10,
+        "answerExcerpt": "Sí, puedes cobrar una prestación por cese de actividad si eres autónomo, siempre que cumplas una serie de requisitos [BOE-A-2015-11724, Artículo 327]. Esta prestación es parte de la Seguridad Social y está pensada para cuando dejas de trabajar por cuenta propia [BOE-A-2015-11724, Artículo 327].\n\nPar"
+      }
+    },
+    {
+      "id": "qg_9482ce5c",
+      "question": "¿Cuántos días de vacaciones me corresponden?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2019-2861",
+        "BOE-A-2025-24253",
+        "BOE-A-2019-7414",
+        "BOE-A-2021-8880",
+        "BOE-A-2023-12918",
+        "BOE-A-2015-5016",
+        "BOE-A-2005-11757",
+        "BORM-s-2001-90010",
+        "BOE-A-2023-16066",
+        "BOE-A-2011-7752",
+        "BOE-A-2015-5677"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 9,
+        "answerExcerpt": "La cantidad de días de vacaciones que te corresponden depende de tu situación laboral y de si eres funcionario o trabajador por cuenta ajena.\n\nSi eres un trabajador por cuenta ajena, en general, el periodo de vacaciones anuales retribuidas no puede ser inferior a 30 días naturales [BOE-A-2015-11430,"
+      }
+    },
+    {
+      "id": "qg_f40b1899",
+      "question": "¿Cuántos días de vacaciones me corresponden por ley?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2003-23101",
+        "BOE-A-2007-18391",
+        "BOE-A-1985-12666",
+        "BOE-A-2018-16673",
+        "BOE-A-2019-7414",
+        "BOE-A-2019-2861",
+        "BOE-A-2015-5016",
+        "BOE-A-2023-12918",
+        "BOE-A-2021-8880",
+        "BOE-A-2005-11757",
+        "BORM-s-2001-90010",
+        "BOE-A-2011-7752",
+        "BOE-A-2025-24253"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 8,
+        "answerExcerpt": "La cantidad de días de vacaciones que te corresponden por ley depende de tu situación laboral.\n\nSi eres un trabajador por cuenta ajena, el periodo de vacaciones anuales retribuidas será el pactado en tu convenio colectivo o contrato individual, pero en ningún caso será inferior a 30 días naturales ["
+      }
+    },
+    {
+      "id": "qg_39144438",
+      "question": "¿Puede mi casero entrar en mi piso sin permiso?",
+      "expectedNorms": [
+        "BOE-A-1978-31229",
+        "BOE-A-1882-6036",
+        "BOE-A-1995-25444",
+        "BOE-A-2015-3442",
+        "BOE-A-2022-22127",
+        "BOE-A-2015-8168"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 6,
+        "answerExcerpt": "No, tu casero no puede entrar en tu piso sin tu permiso, ya que el domicilio es inviolable [BOE-A-1978-31229, Artículo 18]. La ley establece que nadie puede entrar en el domicilio de una persona sin su consentimiento, excepto en los casos previstos por la ley [BOE-A-1882-6036, Artículo 545]. Si el c"
+      }
+    },
+    {
+      "id": "qg_b71458ab",
+      "question": "¿Qué derechos tiene una embarazada en el trabajo?",
+      "expectedNorms": [
+        "BOE-A-1995-24292",
+        "BOE-A-1999-21568",
+        "BOE-A-2021-9719",
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 5,
+        "answerExcerpt": "Una trabajadora embarazada tiene varios derechos en el trabajo. Puede ausentarse para hacerse exámenes prenatales y para prepararse para el parto, siempre avisando con antelación y justificando la necesidad dentro de su jornada laboral. Durante estas ausencias, tiene derecho a seguir cobrando su sue"
+      }
+    },
+    {
+      "id": "qg_43dd4f87",
+      "question": "¿Dónde está exactamente el límite de respetar la dignidad e intimidad del trabajador cuando pongo GPS en las furgonetas de empresa? ¿Puedo tenerlo activo 24 horas? ¿Puedo rastrear cada parada que hace?",
+      "expectedNorms": [
+        "BOE-A-2018-16673",
+        "BOE-A-2015-11430",
+        "BOE-A-2000-15060"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 4,
+        "answerExcerpt": "No puedes tener el GPS de las furgonetas de empresa activado las 24 horas ni rastrear cada parada que hace el trabajador sin límites. Los empleadores pueden usar sistemas de geolocalización para controlar a los trabajadores, pero siempre deben informarles antes de forma clara y sin rodeos sobre la e"
+      }
+    },
+    {
+      "id": "qg_c98b9148",
+      "question": "Me he dado de alta en un gimnasio pero quiero cancelar a los dos meses, ¿puedo?",
+      "expectedNorms": [
+        "BOE-A-2007-20555"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 3,
+        "answerExcerpt": "La legislación española, en concreto la Ley General para la Defensa de los Consumidores y Usuarios, establece el derecho de desistimiento que te permite cancelar un contrato sin necesidad de justificar tu decisión y sin penalización [BOE-A-2007-20555, Artículo 68]. Sin embargo, este derecho no es ap"
+      }
+    },
+    {
+      "id": "qg_19ae6b07",
+      "question": "Tengo una empresa con una flota de 30 furgonetas. Tengo problemas con mis trabajadores donde en los días festivos, se llevan la furgoneta de trabajo para asuntos personales, pero como no tengo manera de demostrar esto ya que me enteré por una supuesta llamada avisando de una furgoneta en una provincia diferente, tenía pensado ponerle GPS a las furgonetas, para poder saber si en un festivo la furgoneta se ha usado para asuntos personales.",
+      "expectedNorms": [
+        "BOE-A-2018-16673",
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 3,
+        "answerExcerpt": "Sí, puedes poner un sistema de geolocalización (GPS) a las furgonetas de tu empresa para controlar su uso, incluso en días festivos, pero debes informar a tus trabajadores antes [BOE-A-2018-16673, Artículo 90].\n\nEl Estatuto de los Trabajadores permite al empresario tomar medidas de vigilancia y cont"
+      }
+    },
+    {
+      "id": "qg_045a5ebf",
+      "question": "¿Puede la policía registrar mi móvil?",
+      "expectedNorms": [
+        "BOE-A-2021-8806",
+        "BOE-A-1988-12909",
+        "BOE-A-2007-18391"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 3,
+        "answerExcerpt": "Sí, la policía puede registrar tu móvil, pero bajo condiciones muy específicas y siempre con autorización judicial, salvo en casos de urgencia extrema. El registro de dispositivos móviles, que incluye la toma de imágenes y sonido, solo se permite si hay un peligro o evento concreto y debe ser autori"
+      }
+    },
+    {
+      "id": "qg_8aea26cd",
+      "question": "Según el Código Laboral artículo 847, ¿cuántas horas extras puedo hacer?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2019-7414"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 2,
+        "answerExcerpt": "No existe el \"Código Laboral\" en España, pero tu pregunta sobre cuántas horas extras puedes hacer está regulada en el Estatuto de los Trabajadores. El número máximo de horas extraordinarias que puedes realizar es de 80 al año [BOE-A-2015-11430, Artículo 35]. Sin embargo, este límite se puede reducir"
+      }
+    },
+    {
+      "id": "qg_a6e43084",
+      "question": "¿Cuánto es la indemnización por despido improcedente?",
+      "expectedNorms": [
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "freq": 2,
+        "citationsCount": 2,
+        "answerExcerpt": "La indemnización por despido improcedente depende de la fecha en que se firmó tu contrato. Si tu contrato se firmó a partir del 12 de febrero de 2012, la indemnización es de 33 días de salario por cada año trabajado, prorrateándose por meses los periodos inferiores a un año, hasta un máximo de 24 me"
+      }
+    },
+    {
+      "id": "qg_18030485",
+      "question": "¿Me pueden hacer un test de drogas en el trabajo?",
+      "expectedNorms": [
+        "BOE-A-2020-13115",
+        "BOE-A-2006-8213",
+        "BOE-A-2014-12408",
+        "BOE-A-2026-2726",
+        "BOE-A-2008-12494",
+        "BOE-A-2011-15623"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 15,
+        "answerExcerpt": "Sí, en determinados trabajos te pueden hacer pruebas para detectar drogas, alcohol u otras sustancias. Esto depende de tu puesto y de la normativa específica que te aplique.\n\nPor ejemplo, si trabajas en el sector ferroviario, te pueden hacer controles aleatorios o si ha habido un accidente, para det"
+      }
+    },
+    {
+      "id": "qg_82efad49",
+      "question": "Si me quedo embarazada, ¿qué derechos laborales tengo?",
+      "expectedNorms": [
+        "BOE-A-1995-24292",
+        "BOE-A-1999-21568",
+        "BOE-A-2008-13033",
+        "BOE-A-2007-6115",
+        "BOE-A-2021-9719"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 9,
+        "answerExcerpt": "Si te quedas embarazada, tienes varios derechos laborales para proteger tu salud y la de tu futuro hijo. Tienes derecho a ausentarte del trabajo con sueldo para ir a exámenes prenatales y a clases de preparación al parto, siempre que avises a tu empleador y justifiques que necesitas hacerlo dentro d"
+      }
+    },
+    {
+      "id": "qg_30c22bb0",
+      "question": "¿Cuánto dura el permiso de paternidad?",
+      "expectedNorms": [
+        "BOE-A-2009-15958",
+        "BOE-A-2025-24253",
+        "BOE-A-2015-1620",
+        "BOE-A-2005-11757",
+        "BOE-A-2006-14405",
+        "BOE-A-2011-6651",
+        "BOE-A-2016-7994",
+        "BOE-A-2009-4724",
+        "BOE-A-1999-21568"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 8,
+        "answerExcerpt": "La duración del permiso de paternidad varía según la legislación aplicable y las circunstancias específicas.\n\nEn general, para los trabajadores, el permiso de paternidad tiene una duración de 4 semanas ininterrumpidas [BOE-A-2009-15958, Artículo 1]. Este permiso se puede ampliar en 2 días más por ca"
+      }
+    },
+    {
+      "id": "qg_2b9538ca",
+      "question": "¿Qué dice la ley de vivienda de las Illes Balears sobre el alquiler?",
+      "expectedNorms": [
+        "BOE-A-2012-10610"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 8,
+        "answerExcerpt": "La ley de vivienda de las Illes Balears, en concreto la Ley 8/2012 del Turismo, regula la comercialización de estancias turísticas en viviendas residenciales. Para poder hacerlo, la vivienda debe tener la cédula de habitabilidad en vigor, un título de habitabilidad similar o la licencia de ocupación"
+      }
+    },
+    {
+      "id": "qg_7138054c",
+      "question": "¿Puedo teletrabajar si tengo hijos menores?",
+      "expectedNorms": [
+        "BOE-A-2015-11719",
+        "BOE-A-2021-5136",
+        "BOE-A-2021-11472",
+        "BOE-A-2013-10074",
+        "BOE-A-2020-3824"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 6,
+        "answerExcerpt": "Sí, puedes teletrabajar si tienes hijos menores, pero la ley establece algunas condiciones y limitaciones dependiendo de la situación.\n\nEn general, las Administraciones Públicas deben adoptar medidas para facilitar la conciliación de la vida familiar y laboral de los empleados públicos que tengan a "
+      }
+    },
+    {
+      "id": "qg_2a7331b7",
+      "question": "vacaciones",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2007-8713",
+        "BOE-A-1993-13437",
+        "BOE-A-2007-13409",
+        "BOE-A-2018-16673"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 5,
+        "answerExcerpt": "Tienes derecho a vacaciones anuales retribuidas. La duración mínima es de 30 días naturales al año, a menos que tu contrato o convenio colectivo diga otra cosa [BOE-A-2015-11430, Artículo 38]. Estas vacaciones no se pueden pagar en lugar de disfrutarlas [BOE-A-2015-11430, Artículo 38].\n\nLa fecha de "
+      }
+    },
+    {
+      "id": "qg_01a67048",
+      "question": "¿Cuántos días de vacaciones tengo al año?",
+      "expectedNorms": [
+        "BOE-A-2015-11719",
+        "BOE-A-2019-2861",
+        "BOE-A-2015-11430",
+        "BOE-A-2003-23101",
+        "BOE-A-2019-7414"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 5,
+        "answerExcerpt": "La cantidad de días de vacaciones al año depende de tu situación laboral y de si eres funcionario o trabajador por cuenta ajena. Para los funcionarios públicos, el mínimo general es de 22 días hábiles al año [BOE-A-2015-11719, Artículo 50]. Sin embargo, este número puede aumentar según los años de s"
+      }
+    },
+    {
+      "id": "qg_bdd11fb7",
+      "question": "¿Cuántos días de vacaciones tengo por ley?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2015-11719",
+        "BOE-A-2025-24253",
+        "BOE-A-2003-23101",
+        "BOE-A-2019-7414",
+        "BOE-A-1985-12666"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 5,
+        "answerExcerpt": "Tienes derecho a 30 días naturales de vacaciones al año [BOE-A-2015-11430, Artículo 38]. Este periodo no se puede sustituir por dinero [BOE-A-2015-11430, Artículo 38].\n\nSin embargo, hay algunas excepciones y casos específicos:\n\n*   **Funcionarios públicos:** Tienen derecho a 22 días hábiles de vacac"
+      }
+    },
+    {
+      "id": "qg_f87f643a",
+      "question": "Quiero poner GPS en las furgonetas de mi empresa para controlar que los empleados no las usen fuera del horario laboral. Me han dicho que debo respetar la intimidad de los trabajadores, ¿cómo va eso exactamente? ¿Qué límites tengo?",
+      "expectedNorms": [
+        "BOE-A-2018-16673",
+        "BOE-A-2015-11430",
+        "BOE-A-2000-15060"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 4,
+        "answerExcerpt": "Sí, puedes poner GPS en las furgonetas de tu empresa para controlar a tus empleados, pero debes respetar su intimidad y seguir unos límites. Los empleadores pueden usar sistemas de geolocalización para controlar a los trabajadores, siempre que sea para ejercer sus funciones de control dentro de la l"
+      }
+    },
+    {
+      "id": "qg_04c114c3",
+      "question": "¿Cuántas horas extras puedo hacer?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-2003-23101",
+        "BOE-A-2019-7414"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 4,
+        "answerExcerpt": "El número máximo de horas extraordinarias que puedes hacer es de 80 al año, a menos que se trate de horas para prevenir o reparar siniestros y otros daños extraordinarios y urgentes [BOE-A-2015-11430, Artículo 35]. Si tu contrato es a tiempo parcial, el número máximo de horas extraordinarias se redu"
+      }
+    },
+    {
+      "id": "qg_1837c94f",
+      "question": "¿Puedo poner GPS en las furgonetas de mi empresa para controlar que los empleados no las usen fuera del horario laboral para fines personales?",
+      "expectedNorms": [
+        "BOE-A-2018-16673",
+        "BOE-A-2015-11430"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 4,
+        "answerExcerpt": "Sí. Puedes poner GPS en las furgonetas de la empresa para controlar el uso que hacen los empleados, porque la ley permite al empleador usar sistemas de geolocalización para funciones de control laboral, siempre dentro de los límites legales [BOE-A-2018-16673, Artículo 90] [BOE-A-2015-11430, Artículo"
+      }
+    },
+    {
+      "id": "qg_7cc3b2d3",
+      "question": "Me he mudado a casa de mis padres, y sé que tengo que hacer el cambio de padrón pero cuánto tiempo tengo para hacerlo?",
+      "expectedNorms": [
+        "BOE-A-2007-21842",
+        "BOE-A-1986-21944",
+        "BOE-A-2020-4784",
+        "BOE-A-1985-5392"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 3,
+        "answerExcerpt": "Tienes 3 meses para comunicar el cambio de domicilio fiscal si eres una persona física que no forma parte del Censo de Empresarios, Profesionales y Retenedores [BOE-A-2007-21842, Artículo 8].\n\nSi cambias de municipio de residencia, debes solicitar tu alta en el padrón del municipio de destino [BOE-A"
+      }
+    },
+    {
+      "id": "qg_fed95bb6",
+      "question": "¿Cuánto tiempo tengo para empadronarme al cambiar de domicilio?",
+      "expectedNorms": [
+        "BOE-A-2007-21842",
+        "BOE-A-2020-4784",
+        "BOE-A-1986-21944"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 3,
+        "answerExcerpt": "Si cambias de domicilio dentro del mismo municipio, debes solicitar la modificación de tu inscripción en el Padrón. Si cambias de municipio, debes solicitar el alta en el Padrón del nuevo municipio, comunicando el municipio o país de procedencia. La ley no establece un plazo específico para realizar"
+      }
+    },
+    {
+      "id": "qg_def4d8aa",
+      "question": "¿Cuántos días de permiso por matrimonio tengo?",
+      "expectedNorms": [
+        "BOE-A-2015-11430",
+        "BOE-A-1985-12666",
+        "BOE-A-1964-2140",
+        "BOE-A-2015-5677",
+        "BOE-A-2006-14405",
+        "BOE-A-2015-11719",
+        "BOE-A-2025-24253",
+        "BOE-A-2022-7184",
+        "BOE-A-1973-330",
+        "BOE-A-2019-7414",
+        "BOE-A-1980-22618",
+        "BORM-s-2001-90010"
+      ],
+      "source": {
+        "freq": 1,
+        "citationsCount": 3,
+        "answerExcerpt": "Tienes derecho a 15 días naturales de permiso por matrimonio [BOE-A-2015-11430, Artículo 37.3].\n\nEste permiso se aplica a la mayoría de los trabajadores [BOE-A-2015-11430, Artículo 37.3].\n\nEn algunos casos específicos, como para funcionarios públicos, también se establecen 15 días de permiso por mat"
+      }
+    }
+  ]
+}
