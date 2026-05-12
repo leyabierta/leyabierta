@@ -74,5 +74,6 @@ data/reprocess-failures.jsonl
 tmp_*.py
 __pycache__/
 *.pyc
+.venv/
 .oc/
 packages/api/src/data/
