@@ -227,9 +227,9 @@ export function normalizePeriodicTitle(title: string): string | null {
 // ── Query analysis ──
 
 /**
- * LLM call signature shared by callOpenRouter and callNan. The harness can
- * inject a NaN-backed function via `analyzerLlmFn` to swap providers without
- * touching the prompt or parsing logic.
+ * LLM call signature. The harness can inject an alternative function via
+ * `llmFn` to swap providers without touching the prompt or parsing logic.
+ * Used by research/ab/ scripts.
  */
 export type AnalyzerLlmFn = <T>(
 	apiKey: string,
@@ -255,8 +255,8 @@ export async function analyzeQuery(
 	const llmFn = (overrides.llmFn ?? callNan) as AnalyzerLlmFn;
 	const model = overrides.model ?? ANALYZER_MODEL;
 	// Default path uses NaN qwen3.6 → read from getNanApiKey(). If the caller
-	// supplied a custom llmFn (e.g. callOpenRouter for legacy A/B harnesses),
-	// respect whatever key they passed.
+	// supplied a custom llmFn (e.g. research/ab/ harnesses), respect whatever
+	// key they passed.
 	const effectiveKey = overrides.llmFn ? apiKey : (getNanApiKey() ?? apiKey);
 	try {
 		const result = await llmFn<{

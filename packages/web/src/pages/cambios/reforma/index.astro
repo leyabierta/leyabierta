@@ -210,30 +210,42 @@ import Base from "../../../layouts/Base.astro";
 
 	<script is:inline>
 		(function () {
-			// LCS-based word diff — ported from the design handoff
-			function wordDiff(before, after) {
-				var a = before.split(/(\s+)/);
-				var b = after.split(/(\s+)/);
+			// Generic LCS-based sequence diff (works for both token arrays and paragraph arrays)
+			function seqDiff(a, b, eq) {
 				var n = a.length, m = b.length;
+				// For large sequences use a size cap to avoid O(n*m) blowup
+				if (n * m > 200000) {
+					// Fallback: treat everything as replaced
+					var ops = [];
+					for (var x = 0; x < n; x++) ops.push({ t: "del", v: a[x] });
+					for (var y = 0; y < m; y++) ops.push({ t: "add", v: b[y] });
+					return ops;
+				}
 				var dp = [];
-				for (var x = 0; x <= n; x++) {
-					dp[x] = new Int32Array(m + 1);
+				for (var xi = 0; xi <= n; xi++) {
+					dp[xi] = new Int32Array(m + 1);
 				}
 				for (var i = n - 1; i >= 0; i--) {
 					for (var j = m - 1; j >= 0; j--) {
-						dp[i][j] = a[i] === b[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+						dp[i][j] = eq(a[i], b[j]) ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
 					}
 				}
-				var ops = [];
+				var result = [];
 				var pi = 0, pj = 0;
 				while (pi < n && pj < m) {
-					if (a[pi] === b[pj]) { ops.push({ t: "eq", v: a[pi] }); pi++; pj++; }
-					else if (dp[pi+1][pj] >= dp[pi][pj+1]) { ops.push({ t: "del", v: a[pi] }); pi++; }
-					else { ops.push({ t: "add", v: b[pj] }); pj++; }
+					if (eq(a[pi], b[pj])) { result.push({ t: "eq", v: a[pi] }); pi++; pj++; }
+					else if (dp[pi+1][pj] >= dp[pi][pj+1]) { result.push({ t: "del", v: a[pi] }); pi++; }
+					else { result.push({ t: "add", v: b[pj] }); pj++; }
 				}
-				while (pi < n) { ops.push({ t: "del", v: a[pi++] }); }
-				while (pj < m) { ops.push({ t: "add", v: b[pj++] }); }
-				return ops;
+				while (pi < n) { result.push({ t: "del", v: a[pi++] }); }
+				while (pj < m) { result.push({ t: "add", v: b[pj++] }); }
+				return result;
+			}
+
+			function wordDiff(before, after) {
+				var a = before.split(/(\s+)/);
+				var b = after.split(/(\s+)/);
+				return seqDiff(a, b, function(x, y) { return x === y; });
 			}
 
 			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -272,12 +284,55 @@ import Base from "../../../layouts/Base.astro";
 				}
 				var bParas = beforeText.split(/\n\n/).map(function(p){return p.trim();}).filter(Boolean);
 				var aParas = afterText.split(/\n\n/).map(function(p){return p.trim();}).filter(Boolean);
+
+				// LCS diff at paragraph level — detects insertions/deletions correctly
+				var paraOps = seqDiff(bParas, aParas, function(x, y) { return x === y; });
+
+				// Group consecutive del+add into modification pairs
+				var groups = [];
+				var k = 0;
+				while (k < paraOps.length) {
+					var op = paraOps[k];
+					if (op.t === "del") {
+						// Peek: is the next op an "add"? → modification pair
+						if (k + 1 < paraOps.length && paraOps[k + 1].t === "add") {
+							groups.push({ t: "mod", before: op.v, after: paraOps[k + 1].v });
+							k += 2;
+						} else {
+							groups.push({ t: "del", v: op.v });
+							k++;
+						}
+					} else if (op.t === "add") {
+						groups.push({ t: "add", v: op.v });
+						k++;
+					} else {
+						// eq — skip unchanged paragraphs (they don't need to be shown)
+						k++;
+					}
+				}
+
+				if (groups.length === 0) {
+					container.innerHTML = '<div class="diff-content"><p style="color:var(--text-muted);font-size:0.8125rem;padding:0.75rem;font-style:italic">El texto de este artículo no cambió en esta reforma. Es posible que el cambio afecte a su numeración o contexto dentro de la ley.</p></div>';
+					return;
+				}
+
 				var html = '<div class="diff-content">';
-				var maxParas = Math.max(bParas.length, aParas.length);
-				for (var idx = 0; idx < maxParas; idx++) {
-					var bp = bParas[idx] || "";
-					var ap = aParas[idx] || "";
-					html += buildWordDiffHtml(bp, ap);
+				for (var gi = 0; gi < groups.length; gi++) {
+					var g = groups[gi];
+					if (g.t === "mod") {
+						html += buildWordDiffHtml(g.before, g.after);
+					} else if (g.t === "add") {
+						html += '<div class="new-block" style="margin:0 0 0.75rem">'
+							+ '<div class="version-label">Párrafo añadido</div>'
+							+ '<div class="version-text">' + esc(g.v) + '</div>'
+							+ '</div>';
+					} else {
+						// del
+						html += '<div class="diff-mod-pair">'
+							+ '<div class="diff-para diff-para-removed"><span class="diff-label">Eliminado</span>'
+							+ '<span class="diff-word-removed">' + esc(g.v) + '</span></div>'
+							+ '</div>';
+					}
 				}
 				html += '</div>';
 				container.innerHTML = html;
