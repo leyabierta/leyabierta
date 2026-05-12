@@ -48,7 +48,9 @@ const unmappedPath = flag("unmapped-out")
 	? resolvePath(flag("unmapped-out")!)
 	: join(repoRoot, "data/external/dgt-unmapped.jsonl");
 
-const db = new Database(join(repoRoot, "data/leyabierta.db"), { readonly: true });
+const db = new Database(join(repoRoot, "data/leyabierta.db"), {
+	readonly: true,
+});
 
 interface Consulta {
 	docId: string;
@@ -111,10 +113,7 @@ function extractLawRefs(normativa: string): LawRef[] {
 			let overlap = false;
 			for (const c of claimed) {
 				const [pos, len] = c.split("-").map(Number);
-				if (
-					m.index! >= pos! &&
-					m.index! < pos! + len!
-				) {
+				if (m.index! >= pos! && m.index! < pos! + len!) {
 					overlap = true;
 					break;
 				}
@@ -142,7 +141,9 @@ function titlePrefix(ref: LawRef): string {
 const lookupStmt = db.query<
 	{ id: string; status: string; title: string },
 	[string]
->("SELECT id, status, substr(title, 1, 200) as title FROM norms WHERE title LIKE ? LIMIT 5");
+>(
+	"SELECT id, status, substr(title, 1, 200) as title FROM norms WHERE title LIKE ? LIMIT 5",
+);
 
 interface GoldEntry {
 	id: string;
@@ -201,7 +202,11 @@ for (const line of lines) {
 	// Combine cuestion + descripcion as the query when descripcion exists and
 	// adds useful context (e.g. citizen facts the consulta is about).
 	let question = c.cuestion;
-	if (c.descripcion && c.descripcion.length > 30 && c.descripcion.length < 300) {
+	if (
+		c.descripcion &&
+		c.descripcion.length > 30 &&
+		c.descripcion.length < 300
+	) {
 		question = `${c.descripcion} ${c.cuestion}`;
 	}
 
@@ -240,12 +245,16 @@ for (const line of lines) {
 console.log(`\nMapping stats:`);
 console.log(`  Consultas total:        ${lines.length}`);
 console.log(`  Refs extracted total:   ${totalRefs}`);
-console.log(`  Refs successfully mapped: ${mappedRefs} (${((mappedRefs / Math.max(totalRefs, 1)) * 100).toFixed(1)}%)`);
+console.log(
+	`  Refs successfully mapped: ${mappedRefs} (${((mappedRefs / Math.max(totalRefs, 1)) * 100).toFixed(1)}%)`,
+);
 console.log(`  Gold entries kept:      ${gold.length}`);
 console.log(`  Unmapped consultas:     ${unmappedRecords.length}`);
 
 // Year distribution of kept vs unmapped
-function yearDist(items: Array<{ year?: string; fechaSalida?: string }>): Record<string, number> {
+function yearDist(
+	items: Array<{ year?: string; fechaSalida?: string }>,
+): Record<string, number> {
 	const d: Record<string, number> = {};
 	for (const it of items) {
 		const fecha = "fechaSalida" in it ? it.fechaSalida : undefined;

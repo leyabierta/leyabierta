@@ -123,9 +123,7 @@ function perCategory(entries: PassEntry[]) {
 		if (e.hitsAt5) b.r5++;
 		buckets.set(c, b);
 	}
-	return [...buckets.entries()]
-		.sort((a, b) => b[1].n - a[1].n)
-		.slice(0, 15);
+	return [...buckets.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 15);
 }
 
 const gCat = perCategory(gemini.results);

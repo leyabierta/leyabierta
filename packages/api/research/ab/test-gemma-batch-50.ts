@@ -25,7 +25,8 @@ const styleSchema = {
 	required: ["style", "topic"],
 } as const;
 
-const SYS = "Clasifica el estilo de la consulta tributaria. `citizen` para una persona normal (pregunta concisa, lenguaje cotidiano, sin tecnicismos). `professional` para asesor/abogado/contable (jerga, referencias a artículos, sintaxis técnica). `corporate` para casos empresariales multi-párrafo con operaciones específicas.";
+const SYS =
+	"Clasifica el estilo de la consulta tributaria. `citizen` para una persona normal (pregunta concisa, lenguaje cotidiano, sin tecnicismos). `professional` para asesor/abogado/contable (jerga, referencias a artículos, sintaxis técnica). `corporate` para casos empresariales multi-párrafo con operaciones específicas.";
 
 // Load 50 real DGT consultas
 const consultas = (await Bun.file("data/external/dgt-consultas.jsonl").text())
@@ -47,7 +48,10 @@ interface Cfg {
 	maxTokens: number;
 }
 
-async function runOne(cfg: Cfg, q: string): Promise<{
+async function runOne(
+	cfg: Cfg,
+	q: string,
+): Promise<{
 	ok: boolean;
 	parsed?: { style: string; topic: string };
 	error?: string;
@@ -92,7 +96,14 @@ async function runOne(cfg: Cfg, q: string): Promise<{
 		const completion = j.usage?.completion_tokens;
 		try {
 			const parsed = JSON.parse(content);
-			return { ok: true, parsed, ms, completionTokens: completion, finishReason: finish, rawContentLen: content.length };
+			return {
+				ok: true,
+				parsed,
+				ms,
+				completionTokens: completion,
+				finishReason: finish,
+				rawContentLen: content.length,
+			};
 		} catch (err) {
 			return {
 				ok: false,
@@ -104,14 +115,20 @@ async function runOne(cfg: Cfg, q: string): Promise<{
 			};
 		}
 	} catch (err) {
-		return { ok: false, error: `${(err as Error).message.slice(0, 80)}`, ms: Date.now() - t0 };
+		return {
+			ok: false,
+			error: `${(err as Error).message.slice(0, 80)}`,
+			ms: Date.now() - t0,
+		};
 	}
 }
 
 async function runBatch(cfg: Cfg) {
 	console.log(`\n=== ${cfg.label} ===`);
 	const concurrency = 3;
-	const results: Awaited<ReturnType<typeof runOne>>[] = new Array(queries.length);
+	const results: Awaited<ReturnType<typeof runOne>>[] = new Array(
+		queries.length,
+	);
 	let idx = 0;
 	await Promise.all(
 		new Array(concurrency).fill(0).map(async () => {
@@ -127,23 +144,49 @@ async function runBatch(cfg: Cfg) {
 	const okMs = ok.map((r) => r.ms).sort((a, b) => a - b);
 	const p50 = okMs[Math.floor(okMs.length * 0.5)] ?? 0;
 	const p95 = okMs[Math.floor(okMs.length * 0.95)] ?? 0;
-	const avgTokens = ok.reduce((s, r) => s + (r.completionTokens ?? 0), 0) / Math.max(ok.length, 1);
-	const finishLength = results.filter((r) => r.finishReason === "length").length;
+	const avgTokens =
+		ok.reduce((s, r) => s + (r.completionTokens ?? 0), 0) /
+		Math.max(ok.length, 1);
+	const finishLength = results.filter(
+		(r) => r.finishReason === "length",
+	).length;
 	const maxContentLen = Math.max(...results.map((r) => r.rawContentLen ?? 0));
-	console.log(`  Success: ${ok.length}/${results.length} (${(ok.length / results.length * 100).toFixed(0)}%)`);
-	console.log(`  Failures: ${fail.length} — types: ${[...new Set(fail.map((r) => r.error?.slice(0, 30)))].join(" | ")}`);
+	console.log(
+		`  Success: ${ok.length}/${results.length} (${((ok.length / results.length) * 100).toFixed(0)}%)`,
+	);
+	console.log(
+		`  Failures: ${fail.length} — types: ${[...new Set(fail.map((r) => r.error?.slice(0, 30)))].join(" | ")}`,
+	);
 	console.log(`  Latency p50=${p50}ms p95=${p95}ms`);
 	console.log(`  Avg completion tokens: ${avgTokens.toFixed(0)}`);
 	console.log(`  finish=length count: ${finishLength}`);
 	console.log(`  Max content length: ${maxContentLen} chars`);
 	if (ok.length > 0) {
 		const styleHist: Record<string, number> = {};
-		for (const r of ok) styleHist[r.parsed!.style] = (styleHist[r.parsed!.style] ?? 0) + 1;
+		for (const r of ok)
+			styleHist[r.parsed!.style] = (styleHist[r.parsed!.style] ?? 0) + 1;
 		console.log(`  Style distribution:`, styleHist);
 	}
 }
 
-await runBatch({ label: "gemma4 / 100 tok / no-thinking-flag", model: "gemma4", maxTokens: 100 });
-await runBatch({ label: "gemma4 / 150 tok / no-thinking-flag", model: "gemma4", maxTokens: 150 });
-await runBatch({ label: "gemma4 / 80 tok / no-thinking-flag", model: "gemma4", maxTokens: 80 });
-await runBatch({ label: "qwen3.6 / 300 tok / disable-thinking", model: "qwen3.6", disableThinking: true, maxTokens: 300 });
+await runBatch({
+	label: "gemma4 / 100 tok / no-thinking-flag",
+	model: "gemma4",
+	maxTokens: 100,
+});
+await runBatch({
+	label: "gemma4 / 150 tok / no-thinking-flag",
+	model: "gemma4",
+	maxTokens: 150,
+});
+await runBatch({
+	label: "gemma4 / 80 tok / no-thinking-flag",
+	model: "gemma4",
+	maxTokens: 80,
+});
+await runBatch({
+	label: "qwen3.6 / 300 tok / disable-thinking",
+	model: "qwen3.6",
+	disableThinking: true,
+	maxTokens: 300,
+});

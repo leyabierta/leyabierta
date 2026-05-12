@@ -156,7 +156,10 @@ function extractField(html: string, field: string): string {
 	for (const m of html.matchAll(re)) {
 		const inner = m[1] ?? "";
 		// Strip remaining tags.
-		const text = inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+		const text = inner
+			.replace(/<[^>]+>/g, " ")
+			.replace(/\s+/g, " ")
+			.trim();
 		if (text) parts.push(decodeEntities(text));
 	}
 	return parts.join("\n\n");

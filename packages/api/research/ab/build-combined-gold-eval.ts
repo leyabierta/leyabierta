@@ -56,20 +56,20 @@ function shuffle<T>(arr: T[]): T[] {
 
 // 1. DGT — keep only regex-mapped (drop the 6 llm-recovery)
 const dgt = (await Bun.file(
-	join(
-		repoRoot,
-		"packages/api/research/datasets/gold-eval-dgt-enriched.json",
-	),
-).json()) as { results: Array<Entry & { source: { origin: string; mappingMethod?: string } }> };
+	join(repoRoot, "packages/api/research/datasets/gold-eval-dgt-enriched.json"),
+).json()) as {
+	results: Array<
+		Entry & { source: { origin: string; mappingMethod?: string } }
+	>;
+};
 const dgtRegex = dgt.results.filter((r) => r.source.mappingMethod === "regex");
-console.log(`DGT regex-only: ${dgtRegex.length} (dropped ${dgt.results.length - dgtRegex.length} llm-recovery)`);
+console.log(
+	`DGT regex-only: ${dgtRegex.length} (dropped ${dgt.results.length - dgtRegex.length} llm-recovery)`,
+);
 
 // 2. Justicio — split by norm
 const justicio = (await Bun.file(
-	join(
-		repoRoot,
-		"packages/api/research/datasets/gold-eval-justicio.json",
-	),
+	join(repoRoot, "packages/api/research/datasets/gold-eval-justicio.json"),
 ).json()) as { results: Entry[] };
 
 const justByNorm: Record<string, Entry[]> = {};
@@ -79,7 +79,10 @@ for (const e of justicio.results) {
 }
 const justCC = justByNorm["BOE-A-1889-4763"] ?? [];
 const justViv = justByNorm["BOE-A-2023-12203"] ?? [];
-const justConst = shuffle(justByNorm["BOE-A-1978-31229"] ?? []).slice(0, constitutionSample);
+const justConst = shuffle(justByNorm["BOE-A-1978-31229"] ?? []).slice(
+	0,
+	constitutionSample,
+);
 console.log(
 	`Justicio: CC=${justCC.length}, Vivienda=${justViv.length}, Constitución=${justConst.length} (sampled from ${(justByNorm["BOE-A-1978-31229"] ?? []).length})`,
 );
@@ -90,7 +93,15 @@ const asklog = (await Bun.file(
 		repoRoot,
 		"packages/api/research/datasets/gold-eval-asklog-candidates.json",
 	),
-).json()) as { results: Array<{ id: string; question: string; expectedNorms: string[]; category: string | null; source?: Record<string, unknown> }> };
+).json()) as {
+	results: Array<{
+		id: string;
+		question: string;
+		expectedNorms: string[];
+		category: string | null;
+		source?: Record<string, unknown>;
+	}>;
+};
 const asklogNormalized: Entry[] = asklog.results.map((e) => ({
 	id: e.id,
 	question: e.question,
@@ -134,7 +145,9 @@ console.log(`\nCombined: ${dedup.length} entries (dropped ${droppedDup} dup)`);
 
 // Stats
 const byOrigin: Record<string, number> = {};
-for (const e of dedup) byOrigin[String(e.source.origin)] = (byOrigin[String(e.source.origin)] ?? 0) + 1;
+for (const e of dedup)
+	byOrigin[String(e.source.origin)] =
+		(byOrigin[String(e.source.origin)] ?? 0) + 1;
 console.log(`By origin:`, byOrigin);
 
 await Bun.write(outPath, JSON.stringify({ results: dedup }, null, 2));

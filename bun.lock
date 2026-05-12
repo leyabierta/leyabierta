@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "leylibre",
@@ -31,6 +32,13 @@
         "opik": "^2.0.1",
         "resend": "6.10.0",
         "satori": "^0.26.0",
+      },
+    },
+    "packages/eval": {
+      "name": "@leyabierta/eval",
+      "version": "0.1.0",
+      "dependencies": {
+        "@leyabierta/api": "workspace:*",
       },
     },
     "packages/pipeline": {
@@ -279,6 +287,8 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@leyabierta/api": ["@leyabierta/api@workspace:packages/api"],
+
+    "@leyabierta/eval": ["@leyabierta/eval@workspace:packages/eval"],
 
     "@leyabierta/pipeline": ["@leyabierta/pipeline@workspace:packages/pipeline"],
 

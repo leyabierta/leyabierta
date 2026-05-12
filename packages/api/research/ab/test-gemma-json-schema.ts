@@ -28,7 +28,8 @@ const styleSchema = {
 
 const TEST_QUERY = `Conceptos retributivos que deben tenerse en cuenta a efectos de calcular la indemnización exenta por despido prevista en el artículo 7-e) de la Ley del IRPF`;
 
-const SYS_PROMPT = "Clasifica el estilo de la consulta tributaria. `citizen` para una persona normal (pregunta concisa, lenguaje cotidiano, sin tecnicismos). `professional` para asesor/abogado/contable (jerga, referencias a artículos, sintaxis técnica). `corporate` para casos empresariales multi-párrafo con operaciones específicas.";
+const SYS_PROMPT =
+	"Clasifica el estilo de la consulta tributaria. `citizen` para una persona normal (pregunta concisa, lenguaje cotidiano, sin tecnicismos). `professional` para asesor/abogado/contable (jerga, referencias a artículos, sintaxis técnica). `corporate` para casos empresariales multi-párrafo con operaciones específicas.";
 
 interface Cfg {
 	label: string;
@@ -39,14 +40,57 @@ interface Cfg {
 }
 
 const cases: Cfg[] = [
-	{ label: "qwen3.6 / thinking=off / 300 tok / strict-schema", model: "qwen3.6", disableThinking: true, maxTokens: 300, withSchema: true },
-	{ label: "gemma4 / no-thinking-flag / 100 tok / strict-schema", model: "gemma4", maxTokens: 100, withSchema: true },
-	{ label: "gemma4 / no-thinking-flag / 300 tok / strict-schema", model: "gemma4", maxTokens: 300, withSchema: true },
-	{ label: "gemma4 / no-thinking-flag / 1000 tok / strict-schema", model: "gemma4", maxTokens: 1000, withSchema: true },
-	{ label: "gemma4 / thinking=off (explicit) / 1000 tok / strict-schema", model: "gemma4", disableThinking: true, maxTokens: 1000, withSchema: true },
-	{ label: "gemma4 / thinking=on / 1000 tok / strict-schema", model: "gemma4", disableThinking: false, maxTokens: 1000, withSchema: true },
-	{ label: "gemma4 / no-flag / 1000 tok / json_object", model: "gemma4", maxTokens: 1000, withSchema: false },
-	{ label: "gemma4 / no-flag / 2000 tok / strict-schema", model: "gemma4", maxTokens: 2000, withSchema: true },
+	{
+		label: "qwen3.6 / thinking=off / 300 tok / strict-schema",
+		model: "qwen3.6",
+		disableThinking: true,
+		maxTokens: 300,
+		withSchema: true,
+	},
+	{
+		label: "gemma4 / no-thinking-flag / 100 tok / strict-schema",
+		model: "gemma4",
+		maxTokens: 100,
+		withSchema: true,
+	},
+	{
+		label: "gemma4 / no-thinking-flag / 300 tok / strict-schema",
+		model: "gemma4",
+		maxTokens: 300,
+		withSchema: true,
+	},
+	{
+		label: "gemma4 / no-thinking-flag / 1000 tok / strict-schema",
+		model: "gemma4",
+		maxTokens: 1000,
+		withSchema: true,
+	},
+	{
+		label: "gemma4 / thinking=off (explicit) / 1000 tok / strict-schema",
+		model: "gemma4",
+		disableThinking: true,
+		maxTokens: 1000,
+		withSchema: true,
+	},
+	{
+		label: "gemma4 / thinking=on / 1000 tok / strict-schema",
+		model: "gemma4",
+		disableThinking: false,
+		maxTokens: 1000,
+		withSchema: true,
+	},
+	{
+		label: "gemma4 / no-flag / 1000 tok / json_object",
+		model: "gemma4",
+		maxTokens: 1000,
+		withSchema: false,
+	},
+	{
+		label: "gemma4 / no-flag / 2000 tok / strict-schema",
+		model: "gemma4",
+		maxTokens: 2000,
+		withSchema: true,
+	},
 ];
 
 async function run(cfg: Cfg): Promise<void> {
@@ -90,18 +134,30 @@ async function run(cfg: Cfg): Promise<void> {
 		const usage = j.usage;
 		const content = msg?.content ?? "";
 		console.log(`  finish_reason: ${finish}`);
-		console.log(`  usage: prompt=${usage?.prompt_tokens} completion=${usage?.completion_tokens} total=${usage?.total_tokens}`);
+		console.log(
+			`  usage: prompt=${usage?.prompt_tokens} completion=${usage?.completion_tokens} total=${usage?.total_tokens}`,
+		);
 		console.log(`  content (${content.length} chars):`);
-		const preview = content.length > 600 ? `${content.slice(0, 600)}\n  …[${content.length - 600} more chars]` : content;
-		console.log(preview.split("\n").map((l: string) => `    ${l}`).join("\n"));
+		const preview =
+			content.length > 600
+				? `${content.slice(0, 600)}\n  …[${content.length - 600} more chars]`
+				: content;
+		console.log(
+			preview
+				.split("\n")
+				.map((l: string) => `    ${l}`)
+				.join("\n"),
+		);
 		// Try to parse the content as JSON
 		try {
 			const parsed = JSON.parse(content);
 			console.log(`  parsed JSON OK: ${JSON.stringify(parsed)}`);
 		} catch (err) {
-			console.log(`  parse JSON FAILED: ${(err as Error).message.slice(0, 100)}`);
+			console.log(
+				`  parse JSON FAILED: ${(err as Error).message.slice(0, 100)}`,
+			);
 		}
-	} catch (err) {
+	} catch (_err) {
 		console.log(`  raw (parse error): ${raw.slice(0, 600)}`);
 	}
 }

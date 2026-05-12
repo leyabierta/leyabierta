@@ -39,7 +39,9 @@ const outPath = flag("out")
 			"packages/api/research/datasets/gold-eval-asklog-candidates.json",
 		);
 
-const db = new Database(join(repoRoot, "data/leyabierta.db"), { readonly: true });
+const db = new Database(join(repoRoot, "data/leyabierta.db"), {
+	readonly: true,
+});
 
 interface Row {
 	question: string;
@@ -80,7 +82,8 @@ console.log(`Loaded ${rows.length} distinct popular questions.`);
 
 // Norm-id regex covers state (BOE-A-YYYY-NNNNN) + regional bulletins
 // (BOA-d-, BOJA-b-, BOJA-h-, DOGV-f-, BORM-s-, BOCL-h-, etc.) used in the DB.
-const normIdRe = /(?:BOE|BOA|BOJA|BOC|BOCL|BOCM|BOE|BOIB|BON|BOPA|BOPV|BORM|DOG|DOGC|DOGV|DOE|DOCM)[-_][A-Za-z]+[-_]\d{4}[-_]\d+/g;
+const normIdRe =
+	/(?:BOE|BOA|BOJA|BOC|BOCL|BOCM|BOE|BOIB|BON|BOPA|BOPV|BORM|DOG|DOGC|DOGV|DOE|DOCM)[-_][A-Za-z]+[-_]\d{4}[-_]\d+/g;
 
 // Article-suffix regex for inline citations: ", Artículo N]"
 // We keep only the norm-id part (article-level matching is out of scope for
@@ -135,13 +138,11 @@ console.log(`Candidates written: ${candidates.length}`);
 
 // Quick stats
 const expectedCounts = candidates.map((c) => c.expectedNorms.length);
-const avgExpected = expectedCounts.reduce((s, x) => s + x, 0) / candidates.length;
+const avgExpected =
+	expectedCounts.reduce((s, x) => s + x, 0) / candidates.length;
 console.log(
 	`Avg expectedNorms per query: ${avgExpected.toFixed(2)} (min=${Math.min(...expectedCounts)}, max=${Math.max(...expectedCounts)})`,
 );
 
-await Bun.write(
-	outPath,
-	JSON.stringify({ results: candidates }, null, 2),
-);
+await Bun.write(outPath, JSON.stringify({ results: candidates }, null, 2));
 console.log(`Wrote → ${outPath}`);

@@ -187,5 +187,7 @@ const filtered = gold.results.filter((e) => {
 	return e.externalQualityScore >= threshold;
 });
 await Bun.write(filteredOut, JSON.stringify({ results: filtered }, null, 2));
-console.log(`Filtered (threshold ${threshold}): ${filtered.length} kept of ${gold.results.length}`);
+console.log(
+	`Filtered (threshold ${threshold}): ${filtered.length} kept of ${gold.results.length}`,
+);
 console.log(`Wrote filtered → ${filteredOut}`);

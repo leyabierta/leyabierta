@@ -40,10 +40,7 @@ const qwenPath = flag("qwen")
 		);
 const datasetPath = flag("dataset")
 	? resolvePath(flag("dataset")!)
-	: join(
-			repoRoot,
-			"packages/api/research/datasets/gold-eval-combined.json",
-		);
+	: join(repoRoot, "packages/api/research/datasets/gold-eval-combined.json");
 const outPath = flag("out")
 	? resolvePath(flag("out")!)
 	: join(repoRoot, "data/ab-results/gold-combined-375-analysis.md");
@@ -68,7 +65,7 @@ const dataset = (await Bun.file(datasetPath).json()) as { results: Entry[] };
 
 const gByid = new Map(gemini.results.map((r) => [String(r.id), r]));
 const qByid = new Map(qwen.results.map((r) => [String(r.id), r]));
-const dByid = new Map(dataset.results.map((e) => [String(e.id), e]));
+const _dByid = new Map(dataset.results.map((e) => [String(e.id), e]));
 
 function isValid(r: PassEntry | undefined): boolean {
 	return !!r && Array.isArray(r.topNormIds) && r.topNormIds.length > 0;
@@ -76,11 +73,27 @@ function isValid(r: PassEntry | undefined): boolean {
 
 interface Bucket {
 	n: number;
-	gR1: number; gR5: number; gR10: number; gEmpty: number;
-	qR1: number; qR5: number; qR10: number; qEmpty: number;
+	gR1: number;
+	gR5: number;
+	gR10: number;
+	gEmpty: number;
+	qR1: number;
+	qR5: number;
+	qR10: number;
+	qEmpty: number;
 }
 function newBucket(): Bucket {
-	return { n: 0, gR1: 0, gR5: 0, gR10: 0, gEmpty: 0, qR1: 0, qR5: 0, qR10: 0, qEmpty: 0 };
+	return {
+		n: 0,
+		gR1: 0,
+		gR5: 0,
+		gR10: 0,
+		gEmpty: 0,
+		qR1: 0,
+		qR5: 0,
+		qR10: 0,
+		qEmpty: 0,
+	};
 }
 
 const overall = newBucket();
@@ -120,8 +133,10 @@ function row(label: string, b: Bucket): string {
 	const qR5 = pct(b.qR5, b.n);
 	const gR10 = pct(b.gR10, b.n);
 	const qR10 = pct(b.qR10, b.n);
-	const dR1 = b.n === 0 ? "n/a" : `${(((b.qR1 - b.gR1) / b.n) * 100).toFixed(1)}pp`;
-	const dR5 = b.n === 0 ? "n/a" : `${(((b.qR5 - b.gR5) / b.n) * 100).toFixed(1)}pp`;
+	const dR1 =
+		b.n === 0 ? "n/a" : `${(((b.qR1 - b.gR1) / b.n) * 100).toFixed(1)}pp`;
+	const dR5 =
+		b.n === 0 ? "n/a" : `${(((b.qR5 - b.gR5) / b.n) * 100).toFixed(1)}pp`;
 	return `| ${label} | ${b.n} | ${gR1} / ${qR1} | ${gR5} / ${qR5} | ${gR10} / ${qR10} | ${dR1} | ${dR5} | ${b.gEmpty} |`;
 }
 
@@ -130,7 +145,9 @@ lines.push(`# Gold-eval combined (n=${overall.n}) — Gemini vs Qwen-NaN`);
 lines.push("");
 lines.push(`Generated: ${new Date().toISOString()}`);
 lines.push("");
-lines.push("Format: `Gemini / Qwen-NaN`. Δ = Qwen − Gemini (positive = Qwen wins).");
+lines.push(
+	"Format: `Gemini / Qwen-NaN`. Δ = Qwen − Gemini (positive = Qwen wins).",
+);
 lines.push("");
 lines.push("| Slice | n | R@1 | R@5 | R@10 | Δ R@1 | Δ R@5 | Gemini empty |");
 lines.push("|---|---:|---|---|---|---:|---:|---:|");

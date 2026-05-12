@@ -61,7 +61,9 @@ const concurrency = Number(flag("concurrency") ?? "3");
 const apiKey = process.env.HERMES_API_KEY;
 if (!apiKey) throw new Error("HERMES_API_KEY env var required");
 
-const db = new Database(join(repoRoot, "data/leyabierta.db"), { readonly: true });
+const db = new Database(join(repoRoot, "data/leyabierta.db"), {
+	readonly: true,
+});
 
 // ── Step 0: load raw consultas + mapped gold + unmapped list ──
 
@@ -86,10 +88,19 @@ const unmappedRefs = (await Bun.file(unmappedPath).text())
 	.trim()
 	.split("\n")
 	.filter((l) => l.trim())
-	.map((l) => JSON.parse(l) as { docId: string; numConsulta: string; normativa: string });
+	.map(
+		(l) =>
+			JSON.parse(l) as {
+				docId: string;
+				numConsulta: string;
+				normativa: string;
+			},
+	);
 const unmappedIds = new Set(unmappedRefs.map((u) => u.docId));
 
-console.log(`Loaded ${allConsultas.length} consultas, ${unmappedIds.size} unmapped`);
+console.log(
+	`Loaded ${allConsultas.length} consultas, ${unmappedIds.size} unmapped`,
+);
 
 // ── DB lookup helpers ──
 
@@ -99,9 +110,11 @@ const lookupById = db.query<{ id: string }, [string]>(
 const lookupByTitle = db.query<
 	{ id: string; status: string; title: string },
 	[string]
->("SELECT id, status, substr(title, 1, 200) as title FROM norms WHERE title LIKE ? ORDER BY (status = 'vigente') DESC LIMIT 3");
+>(
+	"SELECT id, status, substr(title, 1, 200) as title FROM norms WHERE title LIKE ? ORDER BY (status = 'vigente') DESC LIMIT 3",
+);
 
-function verifyNormId(id: string): boolean {
+function _verifyNormId(id: string): boolean {
 	return lookupById.get(id) !== null;
 }
 
@@ -229,7 +242,8 @@ const styleSchema = {
 		},
 		topic: {
 			type: "string",
-			description: "Short topic label, 2-4 words. e.g. 'IVA cesión local', 'IRPF indemnización despido'.",
+			description:
+				"Short topic label, 2-4 words. e.g. 'IVA cesión local', 'IRPF indemnización despido'.",
 		},
 	},
 	required: ["style", "topic"],
@@ -297,7 +311,9 @@ async function runParallel<T, R>(
 // ── Run recovery pass ──
 
 const unmappedConsultas = allConsultas.filter((c) => unmappedIds.has(c.docId));
-console.log(`\n=== Pass 1: LLM recovery on ${unmappedConsultas.length} unmapped consultas ===`);
+console.log(
+	`\n=== Pass 1: LLM recovery on ${unmappedConsultas.length} unmapped consultas ===`,
+);
 const recoveryResults = await runParallel(
 	unmappedConsultas,
 	recoverConsulta,
@@ -312,11 +328,15 @@ for (const r of recoveryResults) {
 	recoveryByDocId.set(r.docId, r);
 	if (r.mappedNorms.length > 0) recoveredCount++;
 }
-console.log(`Recovery pass: ${recoveredCount}/${unmappedConsultas.length} consultas recovered`);
+console.log(
+	`Recovery pass: ${recoveredCount}/${unmappedConsultas.length} consultas recovered`,
+);
 
 // ── Run style classification on all ──
 
-console.log(`\n=== Pass 2: style classification on all ${allConsultas.length} ===`);
+console.log(
+	`\n=== Pass 2: style classification on all ${allConsultas.length} ===`,
+);
 const styleResults = await runParallel(
 	allConsultas,
 	classifyStyle,
@@ -325,7 +345,8 @@ const styleResults = await runParallel(
 );
 const styleByDocId = new Map<string, StyleResult>();
 for (let i = 0; i < allConsultas.length; i++) {
-	if (styleResults[i]) styleByDocId.set(allConsultas[i]!.docId, styleResults[i]!);
+	if (styleResults[i])
+		styleByDocId.set(allConsultas[i]!.docId, styleResults[i]!);
 }
 
 const styleHist: Record<string, number> = {};
@@ -366,10 +387,22 @@ function hashId(q: string): string {
 // Re-derive regex mapping (same logic as map-dgt-to-gold.ts) so we have one
 // authoritative output file.
 const regexPatterns = [
-	{ kind: "Ley Orgánica", re: /(?:Ley Org[áa]nica|L\.?\s*O\.?|LO)\.?\s+(\d+)\/((?:19|20)\d{2})/g },
-	{ kind: "Real Decreto Legislativo", re: /(?:Real Decreto Legislativo|R\.?D\.?\s*Leg(?:islativo)?\.?|RD Leg|RDLeg)\.?\s+(\d+)\/((?:19|20)\d{2})/g },
-	{ kind: "Real Decreto-Ley", re: /(?:Real Decreto-?\s*[Ll]ey|R\.?D\.?-?\s*[Ll]ey|RD-?L)\.?\s+(\d+)\/((?:19|20)\d{2})/g },
-	{ kind: "Real Decreto", re: /(?:Real Decreto|R\.?D\.?)\.?\s+(\d+)\/((?:19|20)\d{2})/g },
+	{
+		kind: "Ley Orgánica",
+		re: /(?:Ley Org[áa]nica|L\.?\s*O\.?|LO)\.?\s+(\d+)\/((?:19|20)\d{2})/g,
+	},
+	{
+		kind: "Real Decreto Legislativo",
+		re: /(?:Real Decreto Legislativo|R\.?D\.?\s*Leg(?:islativo)?\.?|RD Leg|RDLeg)\.?\s+(\d+)\/((?:19|20)\d{2})/g,
+	},
+	{
+		kind: "Real Decreto-Ley",
+		re: /(?:Real Decreto-?\s*[Ll]ey|R\.?D\.?-?\s*[Ll]ey|RD-?L)\.?\s+(\d+)\/((?:19|20)\d{2})/g,
+	},
+	{
+		kind: "Real Decreto",
+		re: /(?:Real Decreto|R\.?D\.?)\.?\s+(\d+)\/((?:19|20)\d{2})/g,
+	},
 	{ kind: "Ley Foral", re: /Ley Foral\s+(\d+)\/((?:19|20)\d{2})/g },
 	{ kind: "Ley", re: /Ley\s+(\d+)\/((?:19|20)\d{2})/g },
 ];
@@ -405,7 +438,11 @@ for (const c of allConsultas) {
 	if (expectedNorms.length === 0) continue;
 
 	let question = c.cuestion;
-	if (c.descripcion && c.descripcion.length > 30 && c.descripcion.length < 300) {
+	if (
+		c.descripcion &&
+		c.descripcion.length > 30 &&
+		c.descripcion.length < 300
+	) {
 		question = `${c.descripcion} ${c.cuestion}`;
 	}
 
@@ -436,7 +473,8 @@ console.log(`Total entries: ${enriched.length}`);
 const byMethod: Record<string, number> = {};
 const byStyle: Record<string, number> = {};
 for (const e of enriched) {
-	byMethod[e.source.mappingMethod] = (byMethod[e.source.mappingMethod] ?? 0) + 1;
+	byMethod[e.source.mappingMethod] =
+		(byMethod[e.source.mappingMethod] ?? 0) + 1;
 	byStyle[e.style] = (byStyle[e.style] ?? 0) + 1;
 }
 console.log(`By mapping method:`, byMethod);

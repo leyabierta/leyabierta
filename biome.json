@@ -7,7 +7,15 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.json"]
+		"includes": [
+			"**/*.ts",
+			"**/*.tsx",
+			"**/*.js",
+			"**/*.mjs",
+			"**/*.json",
+			"!**/research/datasets/**",
+			"!**/data/ab-results/**"
+		]
 	},
 	"formatter": {
 		"enabled": true,

@@ -77,10 +77,7 @@ const qwen = (await Bun.file(
 	),
 ).json()) as { results: PassEntry[] };
 const dataset = (await Bun.file(
-	join(
-		repoRoot,
-		"packages/api/research/datasets/gold-eval-combined.json",
-	),
+	join(repoRoot, "packages/api/research/datasets/gold-eval-combined.json"),
 ).json()) as { results: Entry[] };
 
 const gByid = new Map(gemini.results.map((r) => [String(r.id), r]));
@@ -113,7 +110,9 @@ console.log("Confidence distribution per origin (≥1 / ≥2 / total):");
 for (const [origin, items] of [...byOrigin.entries()].sort()) {
 	const ge1 = items.filter((a) => a.confidence >= 1).length;
 	const ge2 = items.filter((a) => a.confidence >= 2).length;
-	console.log(`  ${origin.padEnd(25)} ≥1: ${ge1} / ≥2: ${ge2} / total: ${items.length}`);
+	console.log(
+		`  ${origin.padEnd(25)} ≥1: ${ge1} / ≥2: ${ge2} / total: ${items.length}`,
+	);
 }
 
 // Sample per origin: prefer high-confidence, downsample by `targets[origin]`
@@ -128,23 +127,31 @@ function shuffle<T>(arr: T[]): T[] {
 
 const gold: Array<Entry & { confidence: number }> = [];
 for (const [origin, target] of Object.entries(targets)) {
-	const pool = (byOrigin.get(origin) ?? []).filter((a) => a.confidence >= minConfidence);
+	const pool = (byOrigin.get(origin) ?? []).filter(
+		(a) => a.confidence >= minConfidence,
+	);
 	// Sort: confidence desc, then random within band
 	const high = shuffle(pool.filter((a) => a.confidence === 2));
 	const med = shuffle(pool.filter((a) => a.confidence === 1));
 	const ordered = [...high, ...med];
 	const picked = ordered.slice(0, target);
-	console.log(`Picked ${picked.length}/${target} from ${origin} (pool with confidence≥${minConfidence}: ${pool.length})`);
+	console.log(
+		`Picked ${picked.length}/${target} from ${origin} (pool with confidence≥${minConfidence}: ${pool.length})`,
+	);
 	for (const a of picked) gold.push({ ...a.entry, confidence: a.confidence });
 }
 
 // Final stats
 console.log(`\nFinal gold-eval-v1: ${gold.length} entries`);
 const finalByOrigin: Record<string, number> = {};
-for (const e of gold) finalByOrigin[String(e.source.origin)] = (finalByOrigin[String(e.source.origin)] ?? 0) + 1;
+for (const e of gold)
+	finalByOrigin[String(e.source.origin)] =
+		(finalByOrigin[String(e.source.origin)] ?? 0) + 1;
 console.log("By origin:", finalByOrigin);
 const finalByConf: Record<string, number> = {};
-for (const e of gold) finalByConf[String(e.confidence)] = (finalByConf[String(e.confidence)] ?? 0) + 1;
+for (const e of gold)
+	finalByConf[String(e.confidence)] =
+		(finalByConf[String(e.confidence)] ?? 0) + 1;
 console.log("By confidence:", finalByConf);
 
 await Bun.write(outPath, JSON.stringify({ results: gold }, null, 2));

@@ -8,7 +8,10 @@
 import { join } from "node:path";
 
 const repoRoot = join(import.meta.dir, "../../../../");
-const passFile = join(repoRoot, "data/ab-results/eval-pass-gemini-baseline.json");
+const passFile = join(
+	repoRoot,
+	"data/ab-results/eval-pass-gemini-baseline.json",
+);
 const datasetFile = join(
 	repoRoot,
 	"packages/api/research/datasets/citizen-queries-v3-1000.json",
