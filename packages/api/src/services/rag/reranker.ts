@@ -9,6 +9,7 @@
  * corresponding key.
  */
 
+import { getNanApiKey } from "../nan-api-key.ts";
 import { qwenLLMRerank } from "./qwen-llm-rerank.ts";
 
 const COHERE_RERANK_URL = "https://api.cohere.com/v2/rerank";
@@ -84,14 +85,14 @@ export async function rerank(
 		);
 	}
 
-	// Default: qwen3.6 LLM rerank via NaN. Read HERMES_API_KEY from the env
-	// when the caller didn't pass one — same pattern as embeddings/analyzer.
-	const nanKey = config.nanApiKey ?? process.env.HERMES_API_KEY;
+	// Default: qwen3.6 LLM rerank via NaN. Resolve via getNanApiKey() when the
+	// caller didn't pass one — same pattern as embeddings/analyzer.
+	const nanKey = config.nanApiKey ?? getNanApiKey();
 	if (nanKey) {
 		return rerankWithNanLLM(query, candidates, topK, nanKey);
 	}
 
-	// Last-resort fallbacks if HERMES_API_KEY is genuinely missing.
+	// Last-resort fallbacks if NAN_API_KEY is genuinely missing.
 	if (config.cohereApiKey) {
 		return rerankWithCohere(query, candidates, topK, config.cohereApiKey);
 	}

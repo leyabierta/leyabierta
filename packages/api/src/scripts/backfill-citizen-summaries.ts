@@ -50,9 +50,9 @@ const SOLO_THRESHOLD_CHARS = Number(process.env.QWEN_SOLO_THRESHOLD ?? 5000);
 const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
 const REQUEST_TIMEOUT_MS = 180_000; // 3 minutes per individual request
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const HERMES_API_KEY = process.env.HERMES_API_KEY;
-if (!HERMES_API_KEY) {
-	console.error("Error: HERMES_API_KEY env var is required");
+const NAN_API_KEY = process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY;
+if (!NAN_API_KEY) {
+	console.error("Error: NAN_API_KEY (or HERMES_API_KEY) env var is required");
 	process.exit(1);
 }
 
@@ -324,7 +324,7 @@ async function callQwenBatch(
 			method: "POST",
 			signal: controller.signal,
 			headers: {
-				Authorization: `Bearer ${HERMES_API_KEY}`,
+				Authorization: `Bearer ${NAN_API_KEY}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({

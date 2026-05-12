@@ -16,6 +16,7 @@
 
 import type { Database } from "bun:sqlite";
 import { callNan } from "../nan.ts";
+import { getNanApiKey } from "../nan-api-key.ts";
 import { JURISDICTION_NAMES } from "./jurisdiction.ts";
 
 /**
@@ -253,12 +254,10 @@ export async function analyzeQuery(
 }> {
 	const llmFn = (overrides.llmFn ?? callNan) as AnalyzerLlmFn;
 	const model = overrides.model ?? ANALYZER_MODEL;
-	// Default path uses NaN qwen3.6 → read HERMES_API_KEY. If the caller
+	// Default path uses NaN qwen3.6 → read from getNanApiKey(). If the caller
 	// supplied a custom llmFn (e.g. callOpenRouter for legacy A/B harnesses),
 	// respect whatever key they passed.
-	const effectiveKey = overrides.llmFn
-		? apiKey
-		: (process.env.HERMES_API_KEY ?? apiKey);
+	const effectiveKey = overrides.llmFn ? apiKey : (getNanApiKey() ?? apiKey);
 	try {
 		const result = await llmFn<{
 			keywords: string[];

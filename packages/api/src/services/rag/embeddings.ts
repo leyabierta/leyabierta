@@ -5,6 +5,8 @@
  * Supports brute-force cosine similarity search (sufficient for ~13K articles).
  */
 
+import { getNanApiKey } from "../nan-api-key.ts";
+
 const OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings";
 const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
 const BATCH_SIZE = 50; // articles per API call
@@ -120,15 +122,14 @@ export async function fetchWithRetry(
 		);
 	}
 
-	// Pick endpoint + auth per provider. NaN reads HERMES_API_KEY from env so
-	// callers don't have to thread a separate key.
+	// Pick endpoint + auth per provider. NaN reads from getNanApiKey() so the
+	// callers don't have to thread a separate key; everyone else uses the apiKey arg.
 	const url =
 		provider === "nan" ? NAN_EMBEDDINGS_URL : OPENROUTER_EMBEDDINGS_URL;
-	const effectiveKey =
-		provider === "nan" ? (process.env.HERMES_API_KEY ?? "") : apiKey;
+	const effectiveKey = provider === "nan" ? (getNanApiKey() ?? "") : apiKey;
 	if (provider === "nan" && !effectiveKey) {
 		throw new Error(
-			"HERMES_API_KEY not set; required for NaN embedding provider",
+			"NAN_API_KEY not set (HERMES_API_KEY fallback also unset); required for NaN embedding provider",
 		);
 	}
 
