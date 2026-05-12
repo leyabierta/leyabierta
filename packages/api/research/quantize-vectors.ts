@@ -37,7 +37,9 @@
 
 const DEFAULT_IN = "./data/vectors.bin";
 const DEFAULT_OUT = "./data/vectors-int8.bin";
-const DIMS = 3072;
+// Matches qwen3-nan, the production embedding model. Override per-call with
+// --dims if quantizing an older Gemini (3072) or OpenAI (1536/3072) index.
+const DIMS = 4096;
 
 // Process this many vectors per disk chunk. ~5,000 vectors ≈ 60 MB read.
 const CHUNK_VECTORS = 5_000;
