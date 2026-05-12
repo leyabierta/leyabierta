@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 const DB_PATH = "data/leyabierta.db";
 const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const NAN_API_KEY = process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY ?? "";
+const NAN_API_KEY = process.env.NAN_API_KEY ?? "";
 
 const args = process.argv.slice(2);
 const N = args.includes("--n")
