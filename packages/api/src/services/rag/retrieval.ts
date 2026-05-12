@@ -551,9 +551,8 @@ export type ProgressEventPayload =
 export type RunRetrievalCoreOpts = {
 	db: Database;
 	apiKey: string;
-	cohereApiKey: string | null;
 	question: string;
-	/** Override the embedding model key (default: EMBEDDING_MODEL_KEY = "gemini-embedding-2"). */
+	/** Override the embedding model key (default: EMBEDDING_MODEL_KEY = "qwen3-nan"). */
 	embeddingModelKey?: string;
 	/** Override the query embedding function (default: embedQuery). */
 	embedQueryFn?: EmbedQueryFn;
@@ -571,28 +570,22 @@ export type RunRetrievalCoreOpts = {
 	} | null;
 	trace?: RagTrace;
 	/**
-	 * Override the analyzer LLM. When set, replaces the default OpenRouter
-	 * gemini-2.5-flash-lite with the provided model + llmFn. Used by A/B
-	 * harnesses to swap to NaN qwen3.6.
+	 * Override the analyzer LLM. Used by research/ab/ harnesses to test
+	 * alternative models or providers.
 	 */
 	analyzerOverrides?: {
-		apiKey?: string; // override apiKey for analyzer (e.g. NaN key vs OpenRouter)
+		apiKey?: string;
 		model?: string;
 		llmFn?: import("./analyzer.ts").AnalyzerLlmFn;
 	};
-	/**
-	 * Override the reranker config. When set, replaces the default Cohere/
-	 * OpenRouter reranker selection. Set `nanApiKey` + `preferredBackend:"nan-llm"`
-	 * to force the qwen3.6 NaN LLM rerank.
-	 */
+	/** Override the reranker config (e.g. pass a specific nanApiKey). */
 	rerankerOverrides?: {
 		nanApiKey?: string;
-		preferredBackend?: "cohere" | "openrouter" | "nan-llm";
 	};
 	/**
 	 * Optional progress callback. Fired at phase boundaries inside the
 	 * retrieval pipeline (`retrieving` before vector/BM25 fan-out, `ranking`
-	 * before the Cohere/LLM rerank). The streaming route consumes these to
+	 * before the LLM rerank). The streaming route consumes these to
 	 * surface SSE `progress` events; non-streaming callers can omit.
 	 */
 	onProgress?: (payload: ProgressEventPayload) => void;
@@ -613,7 +606,6 @@ export async function runRetrievalCore(
 	const {
 		db,
 		apiKey,
-		cohereApiKey,
 		question,
 		embeddingModelKey = EMBEDDING_MODEL_KEY,
 		embedQueryFn = embedQuery,
@@ -947,7 +939,7 @@ export async function runRetrievalCore(
 	const rerankSpan = trace?.span("rerank", "tool", {
 		inputCandidates: allFusedArticles.length,
 		topK: TOP_K,
-		backend: cohereApiKey ? "cohere" : "llm",
+		backend: "nan-llm",
 	});
 	const rerankStart = Date.now();
 	let articles: RetrievedArticle[];
@@ -968,10 +960,7 @@ export async function runRetrievalCore(
 			text: a.text,
 		}));
 		const reranked = await rerank(question, candidates, TOP_K, {
-			cohereApiKey: cohereApiKey ?? undefined,
-			openrouterApiKey: apiKey,
 			nanApiKey: rerankerOverrides?.nanApiKey,
-			preferredBackend: rerankerOverrides?.preferredBackend,
 		});
 		rerankerBackend = reranked.backend;
 		const rerankedKeys = new Set(reranked.results.map((r) => r.key));
