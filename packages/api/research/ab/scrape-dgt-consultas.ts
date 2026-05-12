@@ -119,34 +119,44 @@ interface ConsultaEntry {
 	contestacion: string; // CONTESTACION-COMPL (truncated to first 1000 chars to keep file small)
 }
 
-// Decode common HTML entities — basic but sufficient for what we extract.
+// Decode common HTML entities in a single pass so that decoding `&amp;`
+// can never accidentally feed another entity back in (e.g. `&amp;lt;`
+// must remain literal `&lt;`, not become `<`).
+const HTML_ENTITIES: Record<string, string> = {
+	"&aacute;": "á",
+	"&eacute;": "é",
+	"&iacute;": "í",
+	"&oacute;": "ó",
+	"&uacute;": "ú",
+	"&Aacute;": "Á",
+	"&Eacute;": "É",
+	"&Iacute;": "Í",
+	"&Oacute;": "Ó",
+	"&Uacute;": "Ú",
+	"&ntilde;": "ñ",
+	"&Ntilde;": "Ñ",
+	"&uuml;": "ü",
+	"&iquest;": "¿",
+	"&iexcl;": "¡",
+	"&ordm;": "º",
+	"&ordf;": "ª",
+	"&laquo;": "«",
+	"&raquo;": "»",
+	"&nbsp;": " ",
+	"&amp;": "&",
+	"&lt;": "<",
+	"&gt;": ">",
+	"&quot;": '"',
+	"&#39;": "'",
+};
+
+const HTML_ENTITY_RE = new RegExp(
+	Object.keys(HTML_ENTITIES).join("|").replace(/[#]/g, "\\#"),
+	"g",
+);
+
 function decodeEntities(s: string): string {
-	return s
-		.replace(/&aacute;/g, "á")
-		.replace(/&eacute;/g, "é")
-		.replace(/&iacute;/g, "í")
-		.replace(/&oacute;/g, "ó")
-		.replace(/&uacute;/g, "ú")
-		.replace(/&Aacute;/g, "Á")
-		.replace(/&Eacute;/g, "É")
-		.replace(/&Iacute;/g, "Í")
-		.replace(/&Oacute;/g, "Ó")
-		.replace(/&Uacute;/g, "Ú")
-		.replace(/&ntilde;/g, "ñ")
-		.replace(/&Ntilde;/g, "Ñ")
-		.replace(/&uuml;/g, "ü")
-		.replace(/&iquest;/g, "¿")
-		.replace(/&iexcl;/g, "¡")
-		.replace(/&ordm;/g, "º")
-		.replace(/&ordf;/g, "ª")
-		.replace(/&laquo;/g, "«")
-		.replace(/&raquo;/g, "»")
-		.replace(/&nbsp;/g, " ")
-		.replace(/&amp;/g, "&")
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'");
+	return s.replace(HTML_ENTITY_RE, (m) => HTML_ENTITIES[m] ?? m);
 }
 
 // Extract the text content of all <p class="FIELD">...</p> blocks for a field.
