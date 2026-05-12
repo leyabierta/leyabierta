@@ -14,8 +14,8 @@ import { Database } from "bun:sqlite";
 import {
 	EMBEDDING_MODELS,
 	fetchWithRetry,
-} from "../src/services/rag/embeddings.ts";
-import { splitByApartados } from "../src/services/rag/subchunk.ts";
+} from "../../../src/services/rag/embeddings.ts";
+import { splitByApartados } from "../../../src/services/rag/subchunk.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const DATA_DIR = process.env.VECTORS_DIR ?? "./data";

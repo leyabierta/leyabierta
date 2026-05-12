@@ -12,8 +12,8 @@ import {
 	generateEmbeddings,
 	loadEmbeddings,
 	saveEmbeddings,
-} from "../src/services/rag/embeddings.ts";
-import { splitByApartados } from "../src/services/rag/subchunk.ts";
+} from "../../../src/services/rag/embeddings.ts";
+import { splitByApartados } from "../../../src/services/rag/subchunk.ts";
 
 const dryRun = process.argv.includes("--dry-run");
 const apiKey = process.env.OPENROUTER_API_KEY;

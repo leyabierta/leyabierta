@@ -182,7 +182,7 @@ if (apiKey) {
 	console.log(`\n=== Embedding similarity test ===\n`);
 
 	const { embedQuery, loadEmbeddings, vectorSearch } = await import(
-		"../src/services/rag/embeddings.ts"
+		"../../../src/services/rag/embeddings.ts"
 	);
 
 	const EMBEDDING_MODEL_KEY = "gemini-embedding-2";

@@ -19,8 +19,8 @@ import {
 	generateEmbeddings,
 	saveEmbeddings,
 	vectorSearch,
-} from "../src/services/rag/embeddings.ts";
-import { splitByApartados } from "../src/services/rag/subchunk.ts";
+} from "../../../src/services/rag/embeddings.ts";
+import { splitByApartados } from "../../../src/services/rag/subchunk.ts";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");

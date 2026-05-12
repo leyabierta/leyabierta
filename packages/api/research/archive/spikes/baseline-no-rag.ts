@@ -17,13 +17,13 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "@leyabierta/pipeline";
-import { callOpenRouter } from "../src/services/openrouter.ts";
+import { callOpenRouter } from "../../../src/services/openrouter.ts";
 import {
 	type EmbeddingStore,
 	embedQuery,
 	loadEmbeddings,
 	vectorSearch,
-} from "../src/services/rag/embeddings.ts";
+} from "../../../src/services/rag/embeddings.ts";
 import { SPIKE_QUESTIONS, type SpikeQuestion } from "./spike-questions.ts";
 import { HARD_QUESTIONS } from "./spike-questions-hard.ts";
 

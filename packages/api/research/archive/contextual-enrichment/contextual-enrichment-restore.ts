@@ -8,7 +8,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import { EMBEDDING_MODELS } from "../src/services/rag/embeddings.ts";
+import { EMBEDDING_MODELS } from "../../../src/services/rag/embeddings.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const DATA_DIR = process.env.VECTORS_DIR ?? "./data";

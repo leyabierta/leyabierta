@@ -13,7 +13,7 @@ import { Database } from "bun:sqlite";
 import {
 	EMBEDDING_MODELS,
 	fetchWithRetry,
-} from "../src/services/rag/embeddings.ts";
+} from "../../../src/services/rag/embeddings.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const MODEL_KEY = "gemini-embedding-2";

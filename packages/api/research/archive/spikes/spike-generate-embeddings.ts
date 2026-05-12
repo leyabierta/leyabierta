@@ -15,8 +15,8 @@ import {
 	EMBEDDING_MODELS,
 	generateEmbeddings,
 	saveEmbeddings,
-} from "../src/services/rag/embeddings.ts";
-import { splitByApartados } from "../src/services/rag/subchunk.ts";
+} from "../../../src/services/rag/embeddings.ts";
+import { splitByApartados } from "../../../src/services/rag/subchunk.ts";
 import { SPIKE_LAW_IDS } from "./spike-laws.ts";
 
 const args = process.argv.slice(2);
@@ -119,7 +119,7 @@ const articles = db
 // ── Merge mode ──
 if (mergeFiles) {
 	const { loadEmbeddings, saveEmbeddings } = await import(
-		"../src/services/rag/embeddings.ts"
+		"../../../src/services/rag/embeddings.ts"
 	);
 	const glob = new Bun.Glob(`spike-embeddings-${modelKey}-batch-*.meta.json`);
 	const dataDir = join(repoRoot, "data");

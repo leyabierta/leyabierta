@@ -30,8 +30,8 @@
 
 import { Database } from "bun:sqlite";
 import { isAbsolute, join } from "node:path";
-import { callNan } from "../../src/services/nan.ts";
-import type { OpenRouterMessage } from "../../src/services/openrouter.ts";
+import { callNan } from "../../../api/src/services/nan.ts";
+import type { OpenRouterMessage } from "../../../api/src/services/openrouter.ts";
 
 const args = process.argv.slice(2);
 function flag(name: string): string | undefined {
