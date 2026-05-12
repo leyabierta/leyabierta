@@ -150,8 +150,10 @@ const HTML_ENTITIES: Record<string, string> = {
 	"&#39;": "'",
 };
 
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const HTML_ENTITY_RE = new RegExp(
-	Object.keys(HTML_ENTITIES).join("|").replace(/[#]/g, "\\#"),
+	Object.keys(HTML_ENTITIES).map(escapeRegex).join("|"),
 	"g",
 );
 
