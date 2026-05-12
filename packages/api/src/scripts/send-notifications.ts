@@ -146,23 +146,27 @@ function reformUrl(r: ReformItem): string {
 
 function getMatchingReforms(
 	materias: string[],
-	jurisdiction: string,
+	jurisdictions: string[],
 ): ReformItem[] {
-	// Query by materia+jurisdiction, then filter to only pending (un-notified) reforms
-	const all = dbService.getRecentReformsByMaterias(
-		materias,
-		jurisdiction,
-		"1900-01-01",
+	// Query by materia+jurisdiction (one call per jurisdiction the user follows),
+	// then filter to only pending (un-notified) reforms.
+	const all = jurisdictions.flatMap((j) =>
+		dbService.getRecentReformsByMaterias(materias, j, "1900-01-01"),
 	);
 
 	const matches = all.filter(
 		(r) => pendingKeys.has(`${r.id}::${r.date}`) && r.headline && r.summary,
 	);
 
-	// Deduplicate by headline
+	// Deduplicate by (id, date) first (multiple jurisdictions may surface the
+	// same reform), then by headline.
+	const idSeen = new Set<string>();
 	const seen = new Set<string>();
 	const deduped: ReformItem[] = [];
 	for (const r of matches) {
+		const idKey = `${r.id}::${r.date}`;
+		if (idSeen.has(idKey)) continue;
+		idSeen.add(idKey);
 		const key = r.headline ?? r.title;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -282,7 +286,7 @@ function buildMultiReformHtml(
 	const cards = reforms.map(buildReformCard).join("\n");
 	const overflow =
 		overflowCount > 0
-			? `<tr><td style="padding:4px 0 12px;font-size:13px;color:#576b80;font-family:Arial,Helvetica,sans-serif;">y ${overflowCount} m\u00E1s en <a href="${SITE_URL}/mis-cambios" style="color:#2b5797;">leyabierta.es/mis-cambios</a></td></tr>`
+			? `<tr><td style="padding:4px 0 12px;font-size:13px;color:#576b80;font-family:Arial,Helvetica,sans-serif;">y ${overflowCount} m\u00E1s en <a href="${SITE_URL}/cambios/para-mi/" style="color:#2b5797;">leyabierta.es/cambios/para-mi</a></td></tr>`
 			: "";
 
 	return `<!DOCTYPE html>
@@ -313,7 +317,7 @@ function buildMultiReformHtml(
   </table>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
     <tr><td style="padding:24px 28px;text-align:center;">
-      <a href="${SITE_URL}/mis-cambios" style="display:inline-block;padding:12px 28px;background:#1a365d;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Ver todos tus cambios</a>
+      <a href="${SITE_URL}/cambios/para-mi/" style="display:inline-block;padding:12px 28px;background:#1a365d;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Ver todos tus cambios</a>
     </td></tr>
   </table>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:0 0 8px 8px;">
@@ -347,7 +351,7 @@ if (previewMode) {
 		`Preview: ${previewMaterias.length} materias, jurisdiction=${previewJurisdiction}`,
 	);
 
-	const reforms = getMatchingReforms(previewMaterias, previewJurisdiction);
+	const reforms = getMatchingReforms(previewMaterias, [previewJurisdiction]);
 	if (reforms.length === 0) {
 		console.log("No un-notified reforms match. Nothing to preview.");
 		db.close();
@@ -385,7 +389,7 @@ if (!RESEND_API_KEY) {
 interface ContactInfo {
 	email: string;
 	materias: string[];
-	jurisdiction: string;
+	jurisdictions: string[];
 	followedNormIds: string[];
 }
 
@@ -397,13 +401,18 @@ for (const s of allSubs) {
 	const info = byEmail.get(s.email) ?? {
 		email: s.email,
 		materias: [],
-		jurisdiction: "es",
+		jurisdictions: [],
 		followedNormIds: [],
 	};
 	if (s.type === "materia") info.materias.push(s.scope);
-	else if (s.type === "jurisdiccion") info.jurisdiction = s.scope;
+	else if (s.type === "jurisdiccion") info.jurisdictions.push(s.scope);
 	else if (s.type === "norma") info.followedNormIds.push(s.scope);
 	byEmail.set(s.email, info);
+}
+
+// Default to state-level ("es") when a recipient hasn't picked any jurisdiction.
+for (const info of byEmail.values()) {
+	if (info.jurisdictions.length === 0) info.jurisdictions.push("es");
 }
 
 const contactInfos = [...byEmail.values()].filter(
@@ -414,21 +423,30 @@ console.log(`Processing ${contactInfos.length} unique recipients.`);
 
 // ── Reform lookup helpers ───────────────────────────────────────────────
 
+// Build reformByKey directly from `pending`, which already carries
+// headline/summary/reform_type/importance from getUnnotifiedReforms.
+// Fetching by jurisdiction would silently drop autonomic-community laws,
+// and per-row CTE queries are wasteful when we have the data in hand.
 const reformByKey = new Map<string, ReformItem>(
 	pending
 		.map((p): [string, ReformItem | undefined] => {
-			// Pending rows already have summaries — fetch the full ReformItem via
-			// the materias query, joined to summaries. We simulate by grabbing
-			// data from the existing reform record.
-			const all = dbService.getRecentReformsByMaterias(
-				materiasMap.get(p.norm_id) ?? [],
-				"es",
-				"1900-01-01",
-			);
-			const row = all.find(
-				(r) => r.id === p.norm_id && r.date === p.reform_date,
-			);
-			return [`${p.norm_id}::${p.reform_date}`, row];
+			const norm = dbService.getLaw(p.norm_id);
+			if (!norm) return [`${p.norm_id}::${p.reform_date}`, undefined];
+			return [
+				`${p.norm_id}::${p.reform_date}`,
+				{
+					id: p.norm_id,
+					title: norm.title,
+					rank: norm.rank,
+					status: norm.status,
+					date: p.reform_date,
+					source_id: p.source_id,
+					headline: p.headline,
+					summary: p.summary,
+					reform_type: p.reform_type,
+					importance: p.importance,
+				},
+			];
 		})
 		.filter((entry): entry is [string, ReformItem] => entry[1] != null),
 );
@@ -449,8 +467,8 @@ function getReformsByNormIds(normIds: string[]): ReformItem[] {
 
 const materiaCache = new Map<string, ReformItem[]>();
 
-function getCacheKey(materias: string[], jurisdiction: string): string {
-	return `${jurisdiction}::${[...materias].sort().join("|")}`;
+function getCacheKey(materias: string[], jurisdictions: string[]): string {
+	return `${[...jurisdictions].sort().join(",")}::${[...materias].sort().join("|")}`;
 }
 
 let sent = 0;
@@ -460,14 +478,14 @@ for (const contact of contactInfos) {
 	// Materias + jurisdiccion matches (cached across recipients).
 	let materiaMatches: ReformItem[] = [];
 	if (contact.materias.length > 0) {
-		const cacheKey = getCacheKey(contact.materias, contact.jurisdiction);
+		const cacheKey = getCacheKey(contact.materias, contact.jurisdictions);
 		const cached = materiaCache.get(cacheKey);
 		if (cached) {
 			materiaMatches = cached;
 		} else {
 			materiaMatches = getMatchingReforms(
 				contact.materias,
-				contact.jurisdiction,
+				contact.jurisdictions,
 			);
 			materiaCache.set(cacheKey, materiaMatches);
 		}
@@ -476,10 +494,12 @@ for (const contact of contactInfos) {
 	// Followed-law matches (always per-recipient — typically a small set).
 	const followMatches = getReformsByNormIds(contact.followedNormIds);
 
-	// Merge and deduplicate by (id, date).
+	// Merge and deduplicate by (id, date). Followed laws first: an explicit
+	// follow is a stronger signal than a materia match, so when MAX_REFORMS_PER_EMAIL
+	// caps the list we keep the user-curated picks ahead of broad-topic hits.
 	const seen = new Set<string>();
 	const merged: ReformItem[] = [];
-	for (const r of [...materiaMatches, ...followMatches]) {
+	for (const r of [...followMatches, ...materiaMatches]) {
 		const k = `${r.id}::${r.date}`;
 		if (seen.has(k)) continue;
 		seen.add(k);
