@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git adduser ca-
 # Copy workspace config + package files for dependency install
 COPY package.json bun.lock ./
 COPY packages/api/package.json packages/api/
+COPY packages/eval/package.json packages/eval/
 COPY packages/pipeline/package.json packages/pipeline/
 COPY packages/web/package.json packages/web/
 
