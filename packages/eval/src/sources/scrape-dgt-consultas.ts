@@ -60,7 +60,7 @@ const BASE = "https://petete.tributos.hacienda.gob.es";
 
 const SEARCH_URLS = {
 	generales: `${BASE}/consultas/do/search?type1=on&type2=off&NMCMP_1=NUM-CONSULTA&VLCMP_1=&OPCMP_1=.Y&NMCMP_2=FECHA-SALIDA&VLCMP_2=&dateIni_2=&OPCMP_2=.Y&NMCMP_3=NORMATIVA&VLCMP_3=&OPCMP_3=.Y&NMCMP_4=CUESTION-PLANTEADA&VLCMP_4=&OPCMP_4=.Y&NMCMP_5=DESCRIPCION-HECHOS&VLCMP_5=&OPCMP_5=.Y&NMCMP_6=FreeText&VLCMP_6=&OPCMP_6=.Y&NMCMP_7=CRITERIO&cmpOrder=NUM-CONSULTA&dirOrder=0&auto=&tab=1`,
-	vinculantes: `${BASE}/consultas/do/search?type1=off&type2=on&NMCMP_1=NUM-CONSULTA&VLCMP_1=&OPCMP_1=.Y&NMCMP_2=FECHA-SALIDA&VLCMP_2=&dateIni_2=&OPCMP_2=.Y&NMCMP_3=NORMATIVA&VLCMP_3=&OPCMP_3=.Y&NMCMP_4=CUESTION-PLANTEADA&VLCMP_4=&OPCMP_4=.Y&NMCMP_5=DESCRIPCION-HECHOS&VLCMP_5=&OPCMP_5=.Y&NMCMP_6=FreeText&VLCMP_6=&OPCMP_6=.Y&NMCMP_7=CRITERIO&cmpOrder=NUM-CONSULTA&dirOrder=0&auto=&tab=1`,
+	vinculantes: `${BASE}/consultas/do/search?type1=off&type2=on&NMCMP_1=NUM-CONSULTA&VLCMP_1=&OPCMP_1=.Y&NMCMP_2=FECHA-SALIDA&VLCMP_2=&dateIni_2=&OPCMP_2=.Y&NMCMP_3=NORMATIVA&VLCMP_3=&OPCMP_3=.Y&NMCMP_4=CUESTION-PLANTEADA&VLCMP_4=&OPCMP_4=.Y&NMCMP_5=DESCRIPCION-HECHOS&VLCMP_5=&OPCMP_5=.Y&NMCMP_6=FreeText&VLCMP_6=&OPCMP_6=.Y&NMCMP_7=CRITERIO&cmpOrder=NUM-CONSULTA&dirOrder=0&auto=&tab=2`,
 };
 
 const COMMON_HEADERS = {
@@ -85,21 +85,47 @@ async function bootstrap(): Promise<void> {
 }
 
 async function fetchWithCookie(url: string): Promise<string> {
-	const res = await fetch(url, {
-		headers: { ...COMMON_HEADERS, Cookie: sessionCookie },
-	});
-	if (res.status === 401) {
-		console.log("  [session expired, re-bootstrapping]");
-		await bootstrap();
-		await primeSession(currentCategory);
-		const retry = await fetch(url, {
-			headers: { ...COMMON_HEADERS, Cookie: sessionCookie },
-		});
-		if (!retry.ok) throw new Error(`Retry ${retry.status} for ${url}`);
-		return retry.text();
+	// Server's reverse proxy emits 502 when its backend takes too long.
+	// Retrying fast hits the same saturated state — back off generously to
+	// let the backend recover. Schedule: 30s → 60s → 120s → 240s → 480s.
+	const maxAttempts = 5;
+	const backoffs = [30_000, 60_000, 120_000, 240_000, 480_000];
+	let lastErr: unknown;
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			const res = await fetch(url, {
+				headers: { ...COMMON_HEADERS, Cookie: sessionCookie },
+			});
+			if (res.status === 401) {
+				console.log("  [session expired, re-bootstrapping]");
+				await bootstrap();
+				await primeSession(currentCategory);
+				continue;
+			}
+			if (res.status >= 500 && res.status < 600) {
+				const wait = backoffs[attempt - 1] ?? 480_000;
+				console.log(
+					`  [HTTP ${res.status}, retry ${attempt}/${maxAttempts} in ${Math.round(wait / 1000)}s]`,
+				);
+				await new Promise((r) => setTimeout(r, wait));
+				continue;
+			}
+			if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+			return res.text();
+		} catch (err) {
+			lastErr = err;
+			const msg = err instanceof Error ? err.message : String(err);
+			if (msg.startsWith("HTTP ") && !msg.includes(" 5")) throw err;
+			const wait = backoffs[attempt - 1] ?? 480_000;
+			console.log(
+				`  [fetch error ${attempt}/${maxAttempts}: ${msg}; retry in ${Math.round(wait / 1000)}s]`,
+			);
+			await new Promise((r) => setTimeout(r, wait));
+		}
 	}
-	if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-	return res.text();
+	throw lastErr instanceof Error
+		? lastErr
+		: new Error(`Failed after ${maxAttempts} attempts: ${url}`);
 }
 
 async function primeSession(
@@ -198,7 +224,8 @@ async function fetchDetail(
 	docId: string,
 	category: string,
 ): Promise<ConsultaEntry | null> {
-	const url = `${BASE}/consultas/do/document?query=.T&doc=${docId}&tab=1`;
+	const tab = category === "vinculantes" ? 2 : 1;
+	const url = `${BASE}/consultas/do/document?query=.T&doc=${docId}&tab=${tab}`;
 	const html = await fetchWithCookie(url);
 
 	const numConsulta = extractField(html, "NUM-CONSULTA");
@@ -245,7 +272,7 @@ let totalSkipped = 0;
 let totalDocsFetched = 0;
 
 const categories = [
-	{ name: "generales", url: SEARCH_URLS.generales },
+	// { name: "generales", url: SEARCH_URLS.generales },  // skipped: all ~19.7k docIds already scraped
 	{ name: "vinculantes", url: SEARCH_URLS.vinculantes },
 ];
 
@@ -257,6 +284,14 @@ for (const cat of categories) {
 	await bootstrap();
 	await primeSession(currentCategory);
 
+	// Page 1 uses the heavy search URL (executes the query). Pages 2+ use a
+	// lightweight URL that reuses the cached search state in the session —
+	// this matches what the browser does and avoids re-running the search
+	// (the main source of 502s).
+	const tab = cat.name === "vinculantes" ? 2 : 1;
+	const lightPageUrl = (page: number) =>
+		`${BASE}/consultas/do/search?query=.T&order=NUM-CONSULTA%7C0&tab=${tab}&page=${page}`;
+
 	const firstPageHtml = await fetchWithCookie(`${cat.url}&page=1`);
 	const totalPages =
 		pagesOverride > 0 ? pagesOverride : extractTotalPages(firstPageHtml) || 100;
@@ -264,40 +299,63 @@ for (const cat of categories) {
 	console.log(`  Total pages to fetch: ${totalPages}`);
 
 	const pageStartTs = Date.now();
+	const detailConcurrency = 3;
+
+	async function processDoc(id: string): Promise<void> {
+		if (seen.has(id)) return;
+		totalDocsFetched++;
+		try {
+			const entry = await fetchDetail(id, cat.name);
+			if (entry) {
+				appendFileSync(outPath, `${JSON.stringify(entry)}\n`);
+				seen.add(id);
+				totalKept++;
+			} else {
+				seen.add(id);
+				totalSkipped++;
+			}
+		} catch (err) {
+			console.error(
+				`  doc ${id} FAILED: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
 
 	for (let page = 1; page <= totalPages; page++) {
-		const pageUrl = `${cat.url}&page=${page}`;
+		const pageUrl = page === 1 ? `${cat.url}&page=1` : lightPageUrl(page);
 		const pageHtml = await fetchWithCookie(pageUrl);
 		const docIds = extractDocIdsFromPage(pageHtml);
+		if (docIds.length === 0) {
+			console.warn(
+				`  ⚠ Page ${page}/${totalPages} returned 0 docIds — possible silent loss`,
+			);
+		}
 
-		if (page % 50 === 0 || page === 1 || page === totalPages) {
+		if (page % 10 === 0 || page === 1 || page === totalPages) {
 			const elapsedS = (Date.now() - pageStartTs) / 1000;
 			const pagesPerSec = page / (elapsedS || 1);
 			const etaMin = (totalPages - page) / (pagesPerSec || 1) / 60;
 			console.log(
-				`  Page ${page}/${totalPages}: ${docIds.length} docs | kept=${totalKept} | ${pagesPerSec.toFixed(1)} pages/s | ETA ${etaMin.toFixed(1)}min`,
+				`  Page ${page}/${totalPages}: ${docIds.length} docs | kept=${totalKept} | ${pagesPerSec.toFixed(2)} pages/s | ETA ${etaMin.toFixed(1)}min`,
 			);
 		}
 
-		for (const id of docIds) {
-			if (seen.has(id)) continue;
-			totalDocsFetched++;
-			try {
-				const entry = await fetchDetail(id, cat.name);
-				if (entry) {
-					appendFileSync(outPath, `${JSON.stringify(entry)}\n`);
-					seen.add(id);
-					totalKept++;
-				} else {
-					totalSkipped++;
-				}
-			} catch (err) {
-				console.error(
-					`  doc ${id} FAILED: ${err instanceof Error ? err.message : String(err)}`,
-				);
-			}
-			await new Promise((r) => setTimeout(r, delayMs));
+		// Process this page's docs with bounded concurrency
+		const queue = [...docIds];
+		const workers: Promise<void>[] = [];
+		for (let w = 0; w < detailConcurrency; w++) {
+			workers.push(
+				(async () => {
+					while (queue.length > 0) {
+						const id = queue.shift();
+						if (!id) break;
+						await processDoc(id);
+						await new Promise((r) => setTimeout(r, delayMs));
+					}
+				})(),
+			);
 		}
+		await Promise.all(workers);
 	}
 }
 

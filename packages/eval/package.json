@@ -8,6 +8,7 @@
 		"./schema": "./src/schema.ts"
 	},
 	"dependencies": {
-		"@leyabierta/api": "workspace:*"
+		"@leyabierta/api": "workspace:*",
+		"zod": "^4.4.3"
 	}
 }

@@ -120,6 +120,62 @@ Flujo end-to-end:
    El parser tolera secciones malformadas: avisa por stderr y las omite en vez
    de fallar.
 
+## Gemini legacy stack (for A/B only)
+
+The `rag-gemini-legacy` retriever resurrects the pre-Phase-6 Gemini+Cohere stack as an eval-only plugin so you can run a true A/B comparison against the Qwen baseline. It uses `gemini-embedding-2` (3072 dims, OpenRouter) for query embeddings, reads the 483K corpus vectors from `data/vectors-gemini.bin`, and reranks with Cohere rerank-4-pro (direct or via OpenRouter).
+
+**Step 1 — Export the Gemini vectors (one-time, ~15 min, ~5.7 GB output):**
+
+```bash
+bun run packages/api/scripts/export-gemini-vectors.ts
+```
+
+**Step 2 — Run the A/B eval:**
+
+```bash
+# Gemini legacy stack
+bun run packages/eval/src/run-eval.ts \
+  --in data/eval-subset-v2.jsonl \
+  --retriever rag-gemini-legacy \
+  --out data/results-gemini.jsonl
+
+# Qwen prod stack (baseline)
+bun run packages/eval/src/run-eval.ts \
+  --in data/eval-subset-v2.jsonl \
+  --retriever rag-direct \
+  --out data/results-qwen.jsonl
+
+# Compare
+bun run packages/eval/src/compare-ab.ts \
+  --a data/results-qwen.jsonl \
+  --b data/results-gemini.jsonl
+```
+
+**Env vars required:**
+
+| Var | Required for |
+|-----|-------------|
+| `OPENROUTER_API_KEY` | Gemini query embeddings (`google/gemini-embedding-2-preview`) + Cohere rerank via OpenRouter if no direct key |
+| `COHERE_API_KEY` | Direct Cohere rerank (optional; preferred over OpenRouter — cheaper, lower latency) |
+
+At least one of `COHERE_API_KEY` or `OPENROUTER_API_KEY` must be set for construction to succeed. `OPENROUTER_API_KEY` is always required for the Gemini embedding step.
+
+**Dry-run check (no queries processed):**
+
+```bash
+bun run packages/eval/src/run-eval.ts \
+  --in data/eval-subset-v2.jsonl \
+  --retriever rag-gemini-legacy \
+  --dry-run
+```
+
+If `data/vectors-gemini.bin` is missing, this exits with:
+```
+[rag-gemini-legacy] vectors-gemini.bin not found at ...
+Export the Gemini vectors first:
+  bun run packages/api/scripts/export-gemini-vectors.ts
+```
+
 ## Monitoring long runs
 
 A full `generate --target 2000+` run can take hours. The pipeline writes
