@@ -13,7 +13,7 @@
  * Output: streaming JSONL append, one line per pair.
  */
 
-import { readdirSync, readFileSync, existsSync, appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "../../..");
@@ -158,7 +158,8 @@ async function generateQuestion(
 ): Promise<string | null> {
 	const sys = SYSTEM_PROMPTS[promptVersion];
 	if (!sys) throw new Error(`Unknown prompt version: ${promptVersion}`);
-	const body = article.body.length > 4000 ? article.body.slice(0, 4000) : article.body;
+	const body =
+		article.body.length > 4000 ? article.body.slice(0, 4000) : article.body;
 	const controller = new AbortController();
 	const t = setTimeout(() => controller.abort(), 30_000);
 	try {
@@ -216,7 +217,9 @@ async function generateQuestion(
 // ── Main ──
 async function main(): Promise<void> {
 	await loadEnv();
-	console.log(`[ft-gen] Target: ${TARGET_PAIRS} pairs, prompt=${PROMPT_VERSION}`);
+	console.log(
+		`[ft-gen] Target: ${TARGET_PAIRS} pairs, prompt=${PROMPT_VERSION}`,
+	);
 
 	const heldout = loadHeldout();
 	console.log(`[ft-gen] Heldout norms: ${heldout.size}`);
@@ -241,7 +244,8 @@ async function main(): Promise<void> {
 			return false;
 		}
 		const articles = extractArticles(md).filter(
-			(a) => !a.id.startsWith("dt") &&
+			(a) =>
+				!a.id.startsWith("dt") &&
 				!a.id.startsWith("da") &&
 				!a.id.startsWith("df") &&
 				!a.id.startsWith("dd") &&
@@ -272,7 +276,9 @@ async function main(): Promise<void> {
 		if (successes === 0) {
 			consecutiveErrors += CONCURRENCY;
 			if (consecutiveErrors >= 10) {
-				console.error(`[ft-gen] Stop: ${consecutiveErrors} consecutive failures`);
+				console.error(
+					`[ft-gen] Stop: ${consecutiveErrors} consecutive failures`,
+				);
 				process.exit(1);
 			}
 		} else {
@@ -280,12 +286,15 @@ async function main(): Promise<void> {
 		}
 		if (count % 100 === 0 || count >= TARGET_PAIRS) {
 			const elapsedMin = (Date.now() - startedAt) / 60_000;
-			const rate = count > existing.count ? (count - existing.count) / elapsedMin : 0;
+			const rate =
+				count > existing.count ? (count - existing.count) / elapsedMin : 0;
 			console.log(
 				`[ft-gen] ${count}/${TARGET_PAIRS} pairs (${rate.toFixed(1)} pairs/min)`,
 			);
 			if (elapsedMin > 30 && rate < 10) {
-				console.error(`[ft-gen] Stop: rate ${rate.toFixed(1)}/min < 10/min sustained`);
+				console.error(
+					`[ft-gen] Stop: rate ${rate.toFixed(1)}/min < 10/min sustained`,
+				);
 				process.exit(1);
 			}
 		}

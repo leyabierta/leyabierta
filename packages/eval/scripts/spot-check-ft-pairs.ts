@@ -6,12 +6,20 @@
  * the "different LLM than generator" rule in the spot-check spec.
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync } from "node:fs";
+import {
+	appendFileSync,
+	existsSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const PAIRS_PATH = resolve(ROOT, "packages/eval/data/ft-pairs-v1.jsonl");
-const REPORT_PATH = resolve(ROOT, "packages/eval/data/ft-pairs-v1.spot-check.md");
+const REPORT_PATH = resolve(
+	ROOT,
+	"packages/eval/data/ft-pairs-v1.spot-check.md",
+);
 const NAN_BASE_URL = "https://api.nan.builders/v1";
 const NAN_API_KEY = process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY;
 const JUDGE_MODEL = "gemma4";
@@ -46,7 +54,9 @@ Devuelve JSON: {"verdict": "correct" | "partial" | "wrong" | "uncertain", "reaso
 - "wrong": el artículo no responde a la pregunta o son temas distintos
 - "uncertain": pregunta o artículo confusos`;
 
-async function judge(pair: Pair): Promise<{ verdict: Verdict; reason: string }> {
+async function judge(
+	pair: Pair,
+): Promise<{ verdict: Verdict; reason: string }> {
 	const chunk = pair.positive_chunk.slice(0, 2500);
 	const user = `${chunk}\n---\nPregunta: ${pair.question}`;
 	const controller = new AbortController();
@@ -91,7 +101,10 @@ async function judge(pair: Pair): Promise<{ verdict: Verdict; reason: string }> 
 		clearTimeout(t);
 		if (!res.ok) {
 			const txt = await res.text();
-			return { verdict: "uncertain", reason: `HTTP ${res.status}: ${txt.slice(0, 100)}` };
+			return {
+				verdict: "uncertain",
+				reason: `HTTP ${res.status}: ${txt.slice(0, 100)}`,
+			};
 		}
 		// biome-ignore lint/suspicious/noExplicitAny: API response
 		const data: any = await res.json();
@@ -116,7 +129,9 @@ const rand = () => {
 };
 const shuffled = [...pairs].sort(() => rand() - 0.5);
 const sample = shuffled.slice(0, N);
-console.log(`[spot-check] judging ${sample.length} of ${pairs.length} pairs with ${JUDGE_MODEL}`);
+console.log(
+	`[spot-check] judging ${sample.length} of ${pairs.length} pairs with ${JUDGE_MODEL}`,
+);
 
 // ── Judge in parallel batches ──
 const CONCURRENCY = 4;
@@ -131,7 +146,12 @@ for (let i = 0; i < sample.length; i += CONCURRENCY) {
 }
 
 // ── Counts ──
-const counts: Record<Verdict, number> = { correct: 0, partial: 0, wrong: 0, uncertain: 0 };
+const counts: Record<Verdict, number> = {
+	correct: 0,
+	partial: 0,
+	wrong: 0,
+	uncertain: 0,
+};
 for (const j of judged) counts[j.verdict]++;
 const passRate = ((counts.correct + counts.partial) / N) * 100;
 const verdict = passRate >= 80 ? "PASS" : "FAIL";
