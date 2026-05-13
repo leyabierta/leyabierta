@@ -12,7 +12,7 @@ const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
 const BATCH_SIZE = 50; // articles per API call
 const BACKOFF_MS = 1000;
 
-export type EmbeddingProvider = "nan" | "local";
+export type EmbeddingProvider = "nan" | "openrouter" | "local";
 
 export interface EmbeddingModel {
 	id: string;
@@ -25,6 +25,29 @@ export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
 		id: "qwen3-embedding",
 		dimensions: 4096,
 		provider: "nan",
+	},
+	/**
+	 * Gemini Embedding 2 — re-added as opt-in for A/B evaluation only.
+	 *
+	 * The 483K corpus embeddings still live in the `embeddings` SQLite table
+	 * (model = 'gemini-embedding-2'). To use them for retrieval, export to a
+	 * flat binary first:
+	 *
+	 *   bun run packages/api/scripts/export-gemini-vectors.ts
+	 *
+	 * This produces `data/vectors-gemini.bin` + `data/vectors-gemini.meta.jsonl`.
+	 * Then run the eval with `--retriever rag-gemini-legacy`.
+	 *
+	 * API: OpenRouter `google/gemini-embedding-2-preview` (requires OPENROUTER_API_KEY).
+	 * Dimensions: 3072 (fixed output size, not MRL-truncatable without re-embedding).
+	 * Cost: ~$0.00013 / 1K tokens via OpenRouter.
+	 *
+	 * DO NOT change the prod default (qwen3-nan). This entry is A/B-only.
+	 */
+	"gemini-embedding-2": {
+		id: "google/gemini-embedding-2-preview",
+		dimensions: 3072,
+		provider: "openrouter",
 	},
 };
 
@@ -76,6 +99,66 @@ export async function fetchWithRetry(
 		throw new Error(
 			`fetchWithRetry: provider "local" has no HTTP endpoint — local models must be served separately. modelId=${modelId}`,
 		);
+	}
+
+	// OpenRouter path: uses the caller-provided apiKey directly (OPENROUTER_API_KEY).
+	if (provider === "openrouter") {
+		if (!apiKey) {
+			throw new Error(
+				"OPENROUTER_API_KEY required for openrouter embedding provider",
+			);
+		}
+		const OPENROUTER_EMBEDDINGS_URL = "https://openrouter.ai/api/v1/embeddings";
+
+		while (true) {
+			let response: Response;
+			try {
+				response = await fetch(OPENROUTER_EMBEDDINGS_URL, {
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${apiKey}`,
+						"Content-Type": "application/json",
+						"HTTP-Referer": "https://leyabierta.es",
+						"X-Title": "Ley Abierta RAG (A/B eval)",
+					},
+					body: JSON.stringify({
+						model: modelId,
+						input,
+						encoding_format: "float",
+					}),
+				});
+
+				if (response.status === 429 || response.status >= 500) {
+					attempts++;
+					if (attempts > maxRetries) {
+						throw new Error(
+							`OpenRouter API ${response.status} after ${attempts} retries`,
+						);
+					}
+					const delay = BACKOFF_MS * attempts * 2;
+					await new Promise((r) => setTimeout(r, delay));
+					continue;
+				}
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					throw new Error(
+						`OpenRouter embedding API error ${response.status}: ${errorText.slice(0, 200)}`,
+					);
+				}
+
+				return response;
+			} catch (err) {
+				if (
+					err instanceof Error &&
+					err.message.startsWith("OpenRouter embedding API error")
+				)
+					throw err;
+				attempts++;
+				if (attempts > maxRetries) throw err;
+				await new Promise((r) => setTimeout(r, BACKOFF_MS * attempts));
+			}
+		}
 	}
 
 	// NaN reads from getNanApiKey() so callers don't have to thread a separate key.
