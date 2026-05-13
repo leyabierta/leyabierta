@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const LEYES_DIR = resolve(import.meta.dir, "../../../../leyes/es");
@@ -24,7 +24,12 @@ type Entry = {
 		// Backwards-compat: deduplicated resolved IDs, order not guaranteed.
 		boe_a_ids: string[];
 	};
-	metadata: { domain?: string; jurisdiction?: string; date?: string; organo?: string };
+	metadata: {
+		domain?: string;
+		jurisdiction?: string;
+		date?: string;
+		organo?: string;
+	};
 };
 
 type Verified = {
@@ -44,7 +49,9 @@ function parseArticle(citation: string): string | null {
 	// "Ley 37/1992 art. 90-" → "90"
 	// "Ley 37/1992, art. 90.1" → "90.1"
 	// "RD 1624/1992 art. 79" → "79"
-	const m = citation.match(/art(?:[íi]culo|\.)\s*([0-9]+(?:[.\s]?(?:bis|ter|quater))?(?:\.[0-9]+)?)/i);
+	const m = citation.match(
+		/art(?:[íi]culo|\.)\s*([0-9]+(?:[.\s]?(?:bis|ter|quater))?(?:\.[0-9]+)?)/i,
+	);
 	if (!m?.[1]) return null;
 	return m[1].trim().replace(/\s+/g, " ");
 }
@@ -94,7 +101,9 @@ function stratifiedSample(entries: Entry[], n: number, seed = 42): Entry[] {
 	const usable = entries.filter((e) => {
 		if (e.norms.citations) {
 			// New schema: need at least one citation with both boe_a_id and article resolved.
-			return e.norms.citations.some((c) => c.boe_a_id !== null && c.article !== null);
+			return e.norms.citations.some(
+				(c) => c.boe_a_id !== null && c.article !== null,
+			);
 		}
 		// Legacy schema fallback.
 		if (!e.norms.boe_a_ids.length) return false;
@@ -121,7 +130,9 @@ function stratifiedSample(entries: Entry[], n: number, seed = 42): Entry[] {
 	return out.slice(0, n);
 }
 
-function pickCitation(e: Entry): { raw: string; article: string; boeId: string } | null {
+function pickCitation(
+	e: Entry,
+): { raw: string; article: string; boeId: string } | null {
 	// Use the aligned citations[] schema when available (new data produced by enrich-citations.ts).
 	// This guarantees each citation's boe_a_id is paired with the correct raw string —
 	// no more index-0 heuristic that collapses multiple laws to one BOE-A ID.
@@ -177,7 +188,8 @@ function verify(entries: Entry[]): Verified[] {
 	return out;
 }
 
-const inputPath = process.argv[2] || "/Volumes/Disco1TB/datasets/leyabierta/enriched/dgt.jsonl";
+const inputPath =
+	process.argv[2] || "/Volumes/Disco1TB/datasets/leyabierta/enriched/dgt.jsonl";
 const outputPath = process.argv[3] || "/tmp/verify-gold-sample.jsonl";
 const N = Number.parseInt(process.argv[4] || "30", 10);
 // Seed for deterministic shuffle. Pass a different value to sample a different subset.
@@ -190,6 +202,8 @@ console.error(`Loaded ${entries.length} entries.`);
 const sample = stratifiedSample(entries, N, SEED);
 console.error(`Sampled ${sample.length} (stratified by domain, seed=${SEED}).`);
 const verified = verify(sample);
-console.error(`Verified ${verified.length} (article found: ${verified.filter((v) => v.article_found).length}).`);
+console.error(
+	`Verified ${verified.length} (article found: ${verified.filter((v) => v.article_found).length}).`,
+);
 writeFileSync(outputPath, verified.map((v) => JSON.stringify(v)).join("\n"));
 console.error(`Wrote ${outputPath}`);

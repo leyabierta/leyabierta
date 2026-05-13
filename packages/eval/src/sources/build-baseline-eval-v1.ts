@@ -99,7 +99,11 @@ interface RawEntry {
 	norms: {
 		citations_raw: string[];
 		boe_a_ids: string[];
-		citations?: Array<{ raw: string; boe_a_id: string | null; article: string | null }>;
+		citations?: Array<{
+			raw: string;
+			boe_a_id: string | null;
+			article: string | null;
+		}>;
 	};
 	metadata: {
 		domain?: string;
@@ -253,9 +257,13 @@ async function main() {
 				answer: "(eval-only entry — answer not included)", // placeholder
 				metadata: {
 					...(raw.metadata.domain && { domain: raw.metadata.domain }),
-					...(raw.metadata.jurisdiction && { jurisdiction: raw.metadata.jurisdiction }),
+					...(raw.metadata.jurisdiction && {
+						jurisdiction: raw.metadata.jurisdiction,
+					}),
 					...(raw.metadata.organo && { organo: raw.metadata.organo }),
-					...(raw.metadata.difficulty && { difficulty: raw.metadata.difficulty }),
+					...(raw.metadata.difficulty && {
+						difficulty: raw.metadata.difficulty,
+					}),
 					...(raw.metadata.date && { date: raw.metadata.date }),
 				},
 			};
@@ -270,7 +278,9 @@ async function main() {
 	const ids = allEntries.map((e) => e.id);
 	const uniqueIds = new Set(ids);
 	if (uniqueIds.size < ids.length) {
-		console.warn(`[build] WARNING: ${ids.length - uniqueIds.size} duplicate IDs found — deduplicating`);
+		console.warn(
+			`[build] WARNING: ${ids.length - uniqueIds.size} duplicate IDs found — deduplicating`,
+		);
 		const seen = new Set<string>();
 		const deduped = allEntries.filter((e) => {
 			if (seen.has(e.id)) return false;
@@ -285,7 +295,7 @@ async function main() {
 	console.log(`[build] Total dropped (no ground truth): ${totalDropped}`);
 
 	// Write eval JSONL
-	const evalLines = allEntries.map((e) => JSON.stringify(e)).join("\n") + "\n";
+	const evalLines = `${allEntries.map((e) => JSON.stringify(e)).join("\n")}\n`;
 	writeFileSync(EVAL_OUT, evalLines, "utf8");
 	console.log(`\n[build] Written: ${EVAL_OUT}`);
 

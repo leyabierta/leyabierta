@@ -159,12 +159,7 @@ const cases: Array<[string, string, string | null, string]> = [
 
 	// Ley 43/1995 — Impuesto de Sociedades (old LIS, derogated, not in DB)
 	// Must NOT map to BOE-A-1992-28740 (Ley IVA) or any other law.
-	[
-		"Ley 43/1995 not in DB — must be null",
-		"Ley 43/1995",
-		null,
-		"none",
-	],
+	["Ley 43/1995 not in DB — must be null", "Ley 43/1995", null, "none"],
 	[
 		"Ley 43/1995 with article not in DB — must be null",
 		"Ley 43/1995 art. 10",
@@ -174,12 +169,7 @@ const cases: Array<[string, string, string | null, string]> = [
 
 	// Ley 18/1991 — old IRPF (derogated, not in DB)
 	// Must NOT map to BOE-A-1996-29117 (Ley 13/1996, unrelated) or any other law.
-	[
-		"Ley 18/1991 not in DB — must be null",
-		"Ley 18/1991",
-		null,
-		"none",
-	],
+	["Ley 18/1991 not in DB — must be null", "Ley 18/1991", null, "none"],
 	[
 		"Ley 18/1991 with article not in DB — must be null",
 		"Ley 18/1991 art. 43",

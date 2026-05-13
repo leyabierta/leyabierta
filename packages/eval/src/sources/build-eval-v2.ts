@@ -31,7 +31,8 @@ function flag(name: string): string | undefined {
 	return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-const outPath = flag("out") ?? "/Volumes/Disco1TB/datasets/leyabierta/eval-subset-v2.jsonl";
+const outPath =
+	flag("out") ?? "/Volumes/Disco1TB/datasets/leyabierta/eval-subset-v2.jsonl";
 const dgtMinDate = flag("dgt-min-date") ?? "2022-01-01";
 const refugiadosN = Number(flag("refugiados-n") ?? "150");
 const refugiadosCapPerNorm = Number(flag("refugiados-cap-per-norm") ?? "50");
@@ -84,13 +85,17 @@ const dgt = dgtAll.filter((o: any) => {
 	const date = o.metadata?.date || "";
 	return hasGold(o) && date >= dgtMinDate;
 });
-console.log(`[dgt] ${dgtAll.length} total → ${dgt.length} with gold AND date >= ${dgtMinDate}`);
+console.log(
+	`[dgt] ${dgtAll.length} total → ${dgt.length} with gold AND date >= ${dgtMinDate}`,
+);
 
 // ── divorce ─────────────────────────────────────────────────────────────────
 
 const divorceAll = await loadJsonl(`${ENRICHED_DIR}/divorce.jsonl`);
 const divorce = divorceAll.filter(hasGold);
-console.log(`[divorce] ${divorceAll.length} total → ${divorce.length} with gold`);
+console.log(
+	`[divorce] ${divorceAll.length} total → ${divorce.length} with gold`,
+);
 
 // ── refugiados ──────────────────────────────────────────────────────────────
 
@@ -124,12 +129,14 @@ for (const e of all) {
 		valid++;
 	}
 }
-console.log(`[combined] ${all.length} candidates → ${valid} valid against QAEntrySchema`);
+console.log(
+	`[combined] ${all.length} candidates → ${valid} valid against QAEntrySchema`,
+);
 
 // Stable shuffle so source ordering doesn't bias the run-time progress display
 const shuffled = shuffle(validated, mulberry32(seed));
 
-const out = shuffled.map((e) => JSON.stringify(e)).join("\n") + "\n";
+const out = `${shuffled.map((e) => JSON.stringify(e)).join("\n")}\n`;
 writeFileSync(outPath, out, "utf8");
 
 console.log(`\n[done] Wrote ${valid} entries → ${outPath}`);

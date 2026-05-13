@@ -33,7 +33,9 @@ const metric = (flag("metric") ?? "r10") as "r1" | "r5" | "r10";
 const outMd = flag("out-md");
 
 if (!aPath || !bPath) {
-	console.error("Usage: compare-ab.ts --a <jsonl> --b <jsonl> [--a-label X --b-label Y]");
+	console.error(
+		"Usage: compare-ab.ts --a <jsonl> --b <jsonl> [--a-label X --b-label Y]",
+	);
 	process.exit(1);
 }
 
@@ -164,7 +166,8 @@ for (const id of commonIds) {
 	}
 }
 
-const pct = (n: number, d: number) => (d === 0 ? "—" : `${((n / d) * 100).toFixed(1)}%`);
+const pct = (n: number, d: number) =>
+	d === 0 ? "—" : `${((n / d) * 100).toFixed(1)}%`;
 function rowFor(label: string, bucket: Bucket) {
 	const a_mrr = (bucket.a_mrr / Math.max(1, bucket.n)).toFixed(3);
 	const b_mrr = (bucket.b_mrr / Math.max(1, bucket.n)).toFixed(3);
@@ -188,10 +191,16 @@ lines.push("| Bucket | Count | % |");
 lines.push("|--------|-------|---|");
 const n = commonIds.length;
 lines.push(`| Both hit | ${bothHit} | ${pct(bothHit, n)} |`);
-lines.push(`| Only ${aLabel} hit (B regression) | ${aOnlyHit} | ${pct(aOnlyHit, n)} |`);
-lines.push(`| Only ${bLabel} hit (B win) | ${bOnlyHit} | ${pct(bOnlyHit, n)} |`);
+lines.push(
+	`| Only ${aLabel} hit (B regression) | ${aOnlyHit} | ${pct(aOnlyHit, n)} |`,
+);
+lines.push(
+	`| Only ${bLabel} hit (B win) | ${bOnlyHit} | ${pct(bOnlyHit, n)} |`,
+);
 lines.push(`| Both miss | ${bothMiss} | ${pct(bothMiss, n)} |`);
-lines.push(`| **Net Δ** | **${bOnlyHit - aOnlyHit > 0 ? "+" : ""}${bOnlyHit - aOnlyHit}** | |`);
+lines.push(
+	`| **Net Δ** | **${bOnlyHit - aOnlyHit > 0 ? "+" : ""}${bOnlyHit - aOnlyHit}** | |`,
+);
 lines.push("");
 lines.push("## Aggregate (A / B)");
 lines.push("");
@@ -206,8 +215,12 @@ lines.push("");
 function flipBlock(title: string, rows: FlipRow[]) {
 	lines.push(`## ${title} — top 20`);
 	lines.push("");
-	lines.push("| query_id | source | A rank | B rank | A top-1 | B top-1 | expected | question |");
-	lines.push("|----------|--------|--------|--------|---------|---------|----------|----------|");
+	lines.push(
+		"| query_id | source | A rank | B rank | A top-1 | B top-1 | expected | question |",
+	);
+	lines.push(
+		"|----------|--------|--------|--------|---------|---------|----------|----------|",
+	);
 	for (const r of rows.slice(0, 20)) {
 		lines.push(
 			`| ${r.query_id} | ${r.source} | ${r.a_rank ?? "miss"} | ${r.b_rank ?? "miss"} | ${r.a_top1} | ${r.b_top1} | ${r.expected.join(", ").slice(0, 80)} | ${r.question.replace(/\|/g, "/")} |`,

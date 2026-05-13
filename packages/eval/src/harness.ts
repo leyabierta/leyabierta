@@ -253,9 +253,16 @@ export async function runEval(opts: RunEvalOpts): Promise<{
 
 			// Expand gold with known derogated→successor mappings so a retriever
 			// returning the live successor of a derogated norm scores as a hit.
-			const expectedExpanded = expandWithSuccessors(expected, opts.successorsMap);
+			const expectedExpanded = expandWithSuccessors(
+				expected,
+				opts.successorsMap,
+			);
 
-			const { hits, metrics } = computeQueryMetrics(expectedExpanded, sorted, topK);
+			const { hits, metrics } = computeQueryMetrics(
+				expectedExpanded,
+				sorted,
+				topK,
+			);
 
 			const result: EvalResult = {
 				query_id: entry.id,

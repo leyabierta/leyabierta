@@ -28,8 +28,8 @@
 
 import { Database } from "bun:sqlite";
 import { createReadStream, createWriteStream } from "node:fs";
-import { createInterface } from "node:readline";
 import { isAbsolute, join } from "node:path";
+import { createInterface } from "node:readline";
 import { type CitationMatch, mapCitations } from "./boe-mapping.ts";
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,9 @@ const db = new Database(DB_PATH, { readonly: true });
 console.log(`Processing entries from ${inPath}… (streaming)`);
 
 const outWriter = createWriteStream(resolve(outPath), { encoding: "utf8" });
-const auditWriter = createWriteStream(`${resolve(outPath)}.audit.jsonl`, { encoding: "utf8" });
+const auditWriter = createWriteStream(`${resolve(outPath)}.audit.jsonl`, {
+	encoding: "utf8",
+});
 
 // Stats
 let processed = 0;
@@ -113,7 +115,9 @@ for await (const line of rl) {
 		entry = JSON.parse(trimmed);
 	} catch (e) {
 		skipped++;
-		console.error(`  [skip] JSON parse error on row ${processed + skipped}: ${e}`);
+		console.error(
+			`  [skip] JSON parse error on row ${processed + skipped}: ${e}`,
+		);
 		continue;
 	}
 
@@ -123,7 +127,9 @@ for await (const line of rl) {
 		matches = mapCitations(rawCitations, { db });
 	} catch (e) {
 		skipped++;
-		console.error(`  [skip] mapCitations error on entry ${entry?.id ?? "?"}: ${e}`);
+		console.error(
+			`  [skip] mapCitations error on entry ${entry?.id ?? "?"}: ${e}`,
+		);
 		continue;
 	}
 
@@ -164,7 +170,9 @@ for await (const line of rl) {
 	outWriter.write(`${JSON.stringify(enriched)}\n`);
 
 	// Build audit record
-	auditWriter.write(`${JSON.stringify({ id: entry.id, citations: matches })}\n`);
+	auditWriter.write(
+		`${JSON.stringify({ id: entry.id, citations: matches })}\n`,
+	);
 
 	processed++;
 	if (processed % 10000 === 0) {
@@ -173,8 +181,12 @@ for await (const line of rl) {
 }
 
 // Close writers and wait for flush
-await new Promise<void>((res, rej) => outWriter.end((err) => err ? rej(err) : res()));
-await new Promise<void>((res, rej) => auditWriter.end((err) => err ? rej(err) : res()));
+await new Promise<void>((res, rej) =>
+	outWriter.end((err) => (err ? rej(err) : res())),
+);
+await new Promise<void>((res, rej) =>
+	auditWriter.end((err) => (err ? rej(err) : res())),
+);
 
 const total = processed;
 if (skipped > 0) {

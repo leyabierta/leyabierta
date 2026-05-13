@@ -270,9 +270,9 @@ describe("runEval", () => {
 		expect(aggregate.per_source?.["dgt-vinculantes"]?.n).toBe(1);
 
 		// per_domain grouping
-		expect(aggregate.per_domain?.["tax"]?.n).toBe(3);
-		expect(aggregate.per_domain?.["admin"]?.n).toBe(1);
-		expect(aggregate.per_domain?.["admin"]?.r1).toBe(0); // e3 is a miss
+		expect(aggregate.per_domain?.tax?.n).toBe(3);
+		expect(aggregate.per_domain?.admin?.n).toBe(1);
+		expect(aggregate.per_domain?.admin?.r1).toBe(0); // e3 is a miss
 	});
 
 	test("onResult callback fires for each evaluated entry", async () => {
@@ -339,7 +339,11 @@ describe("aligned-citation ground truth", () => {
 				citations_raw: ["Ley 37/1992, artículo 90", "Ley Orgánica 4/2000"],
 				// Aligned schema: one entry per raw citation
 				citations: [
-					{ raw: "Ley 37/1992, artículo 90", boe_a_id: "BOE-A-1992-28740", article: "90" },
+					{
+						raw: "Ley 37/1992, artículo 90",
+						boe_a_id: "BOE-A-1992-28740",
+						article: "90",
+					},
 					{ raw: "Ley Orgánica 4/2000", boe_a_id: null, article: null },
 				],
 				// Derived backwards-compat: only the resolved IDs (null filtered out)
@@ -358,10 +362,15 @@ describe("aligned-citation ground truth", () => {
 		// Correct behaviour: boe_a_ids=["BOE-A-1992-28740"] is the ground truth set.
 		// Retriever returns that exact norm at rank 1 → R@1 must be 1.
 
-		const entry = makeAlignedEntry("aligned-1", "¿Qué dice el artículo 90 de la Ley del IVA?");
+		const entry = makeAlignedEntry(
+			"aligned-1",
+			"¿Qué dice el artículo 90 de la Ley del IVA?",
+		);
 
 		const { aggregate } = await runEval({
-			entries: (async function* () { yield entry; })(),
+			entries: (async function* () {
+				yield entry;
+			})(),
 			retrieve: async (_q) => [
 				{ norm_id: "BOE-A-1992-28740", rank: 1, score: 1.0 },
 			],
@@ -377,10 +386,15 @@ describe("aligned-citation ground truth", () => {
 		// If a retriever returns "BOE-A-WRONG-999" (the unresolved norm), it is a miss.
 		// This confirms boe_a_ids is the source of truth, not a guess from citations[].
 
-		const entry = makeAlignedEntry("aligned-2", "¿Qué dice la Ley Orgánica 4/2000?");
+		const entry = makeAlignedEntry(
+			"aligned-2",
+			"¿Qué dice la Ley Orgánica 4/2000?",
+		);
 
 		const { aggregate } = await runEval({
-			entries: (async function* () { yield entry; })(),
+			entries: (async function* () {
+				yield entry;
+			})(),
 			retrieve: async (_q) => [
 				{ norm_id: "BOE-A-WRONG-999", rank: 1, score: 1.0 },
 			],
@@ -399,10 +413,21 @@ describe("aligned-citation ground truth", () => {
 			question: "¿Qué combinan la Ley del IVA y el Código Civil?",
 			answer: "placeholder",
 			norms: {
-				citations_raw: ["Ley 37/1992, artículo 90", "Real Decreto de 24 julio 1889"],
+				citations_raw: [
+					"Ley 37/1992, artículo 90",
+					"Real Decreto de 24 julio 1889",
+				],
 				citations: [
-					{ raw: "Ley 37/1992, artículo 90", boe_a_id: "BOE-A-1992-28740", article: "90" },
-					{ raw: "Real Decreto de 24 julio 1889", boe_a_id: "BOE-A-1889-4763", article: null },
+					{
+						raw: "Ley 37/1992, artículo 90",
+						boe_a_id: "BOE-A-1992-28740",
+						article: "90",
+					},
+					{
+						raw: "Real Decreto de 24 julio 1889",
+						boe_a_id: "BOE-A-1889-4763",
+						article: null,
+					},
 				],
 				// Both ids must be in ground truth
 				boe_a_ids: ["BOE-A-1992-28740", "BOE-A-1889-4763"],
@@ -415,7 +440,9 @@ describe("aligned-citation ground truth", () => {
 		// and score a miss. The correct behaviour is to score a hit since BOE-A-1889-4763
 		// IS in boe_a_ids.
 		const { aggregate } = await runEval({
-			entries: (async function* () { yield entryBothResolved; })(),
+			entries: (async function* () {
+				yield entryBothResolved;
+			})(),
 			retrieve: async (_q) => [
 				{ norm_id: "BOE-A-1889-4763", rank: 1, score: 1.0 },
 			],

@@ -19,10 +19,9 @@
  */
 
 import {
-	type AggregateMetrics,
 	computeQueryMetrics,
-	expandWithSuccessors,
 	type EvalResult,
+	expandWithSuccessors,
 } from "./harness.ts";
 
 function flag(name: string): string | undefined {
@@ -32,11 +31,16 @@ function flag(name: string): string | undefined {
 
 const resultsPath = flag("results");
 const successorsPath = flag("successors-map");
-const successorsScope = (flag("successors-scope") ?? "total") as "total" | "all";
-const label = flag("label") ?? (successorsPath ? "with-successors" : "no-successors");
+const successorsScope = (flag("successors-scope") ?? "total") as
+	| "total"
+	| "all";
+const label =
+	flag("label") ?? (successorsPath ? "with-successors" : "no-successors");
 
 if (!resultsPath) {
-	console.error("Usage: rescore-results.ts --results <jsonl> [--successors-map <flat.jsonl>]");
+	console.error(
+		"Usage: rescore-results.ts --results <jsonl> [--successors-map <flat.jsonl>]",
+	);
 	process.exit(1);
 }
 
@@ -56,7 +60,11 @@ async function loadSuccessorsMap(
 	for (const line of text.split("\n")) {
 		const t = line.trim();
 		if (!t) continue;
-		const o = JSON.parse(t) as { old_norm_id: string; new_norm_id: string; scope?: string };
+		const o = JSON.parse(t) as {
+			old_norm_id: string;
+			new_norm_id: string;
+			scope?: string;
+		};
 		if (scope === "total" && o.scope !== "total") continue;
 		add(o.old_norm_id, o.new_norm_id);
 	}
@@ -80,11 +88,6 @@ const results: EvalResult[] = text
 
 // ── Re-score ──────────────────────────────────────────────────────────────────
 
-interface SourcedResult extends EvalResult {
-	source?: string;
-	domain?: string;
-}
-
 // Re-derive source/domain from query_id prefix where possible
 function inferSource(qid: string): string {
 	const m = qid.match(/^([a-z-]+)_/);
@@ -97,8 +100,14 @@ function inferDomain(src: string): string {
 	return "other";
 }
 
-const bySource = new Map<string, { n: number; r1: number; r5: number; r10: number; mrr: number }>();
-const byDomain = new Map<string, { n: number; r1: number; r5: number; r10: number; mrr: number }>();
+const bySource = new Map<
+	string,
+	{ n: number; r1: number; r5: number; r10: number; mrr: number }
+>();
+const byDomain = new Map<
+	string,
+	{ n: number; r1: number; r5: number; r10: number; mrr: number }
+>();
 let n = 0;
 let totR1 = 0,
 	totR5 = 0,
@@ -126,7 +135,8 @@ for (const r of results) {
 	totMrr += metrics.mrr;
 
 	const src = inferSource(r.query_id);
-	if (!bySource.has(src)) bySource.set(src, { n: 0, r1: 0, r5: 0, r10: 0, mrr: 0 });
+	if (!bySource.has(src))
+		bySource.set(src, { n: 0, r1: 0, r5: 0, r10: 0, mrr: 0 });
 	const sg = bySource.get(src)!;
 	sg.n++;
 	sg.r1 += metrics.r1;
@@ -135,7 +145,8 @@ for (const r of results) {
 	sg.mrr += metrics.mrr;
 
 	const dom = inferDomain(src);
-	if (!byDomain.has(dom)) byDomain.set(dom, { n: 0, r1: 0, r5: 0, r10: 0, mrr: 0 });
+	if (!byDomain.has(dom))
+		byDomain.set(dom, { n: 0, r1: 0, r5: 0, r10: 0, mrr: 0 });
 	const dg = byDomain.get(dom)!;
 	dg.n++;
 	dg.r1 += metrics.r1;
@@ -144,7 +155,13 @@ for (const r of results) {
 	dg.mrr += metrics.mrr;
 }
 
-function fin(g: { n: number; r1: number; r5: number; r10: number; mrr: number }) {
+function fin(g: {
+	n: number;
+	r1: number;
+	r5: number;
+	r10: number;
+	mrr: number;
+}) {
 	if (g.n === 0) return g;
 	return {
 		n: g.n,
@@ -185,7 +202,9 @@ console.log("| Source | N | R@1 | R@5 | R@10 | MRR |");
 console.log("|--------|---|-----|-----|------|-----|");
 for (const [src, raw] of [...bySource.entries()].sort()) {
 	const m = fin(raw);
-	console.log(`| ${src} | ${m.n} | ${pct(m.r1)} | ${pct(m.r5)} | ${pct(m.r10)} | ${m.mrr.toFixed(3)} |`);
+	console.log(
+		`| ${src} | ${m.n} | ${pct(m.r1)} | ${pct(m.r5)} | ${pct(m.r10)} | ${m.mrr.toFixed(3)} |`,
+	);
 }
 console.log("");
 console.log("### By domain");
@@ -194,5 +213,7 @@ console.log("| Domain | N | R@1 | R@5 | R@10 | MRR |");
 console.log("|--------|---|-----|-----|------|-----|");
 for (const [dom, raw] of [...byDomain.entries()].sort()) {
 	const m = fin(raw);
-	console.log(`| ${dom} | ${m.n} | ${pct(m.r1)} | ${pct(m.r5)} | ${pct(m.r10)} | ${m.mrr.toFixed(3)} |`);
+	console.log(
+		`| ${dom} | ${m.n} | ${pct(m.r1)} | ${pct(m.r5)} | ${pct(m.r10)} | ${m.mrr.toFixed(3)} |`,
+	);
 }

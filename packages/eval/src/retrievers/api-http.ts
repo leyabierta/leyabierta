@@ -55,7 +55,7 @@ export function makeApiHttpRetriever(
 			Accept: "application/json",
 		};
 		if (apiKey) {
-			headers["Authorization"] = `Bearer ${apiKey}`;
+			headers.Authorization = `Bearer ${apiKey}`;
 		}
 
 		const controller = new AbortController();
