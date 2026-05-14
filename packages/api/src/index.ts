@@ -86,9 +86,12 @@ let isShuttingDown = false;
 
 function shutdown(signal: string) {
 	isShuttingDown = true;
-	console.log(`${signal} received, shutting down gracefully...`);
-	// Wait 30s for in-flight requests + fire-and-forget LLM calls to complete
+	// stderr is line-buffered in Bun; stdout may not flush before process.exit
+	process.stderr.write(
+		`[shutdown] ${signal} received at ${new Date().toISOString()} — draining for 30s\n`,
+	);
 	setTimeout(async () => {
+		process.stderr.write("[shutdown] drain complete, exiting\n");
 		await flushTraces();
 		db.close();
 		process.exit(0);
@@ -97,6 +100,15 @@ function shutdown(signal: string) {
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGHUP", () => shutdown("SIGHUP"));
+process.on("uncaughtException", (err) => {
+	process.stderr.write(`[fatal] uncaughtException: ${err?.stack ?? err}\n`);
+});
+process.on("unhandledRejection", (reason) => {
+	process.stderr.write(
+		`[fatal] unhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}\n`,
+	);
+});
 
 const app = new Elysia()
 	.use(cors({ origin: CORS_ORIGINS }))
