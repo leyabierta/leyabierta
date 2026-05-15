@@ -82,7 +82,7 @@ const reqTimings = new WeakMap<Request, number>();
 // ── Rate limiting ────────────────────────────────────────────────────
 const searchLimiter = createRateLimiter(30); // 30 req/min per IP for search
 const generalLimiter = createRateLimiter(60); // 60 req/min per IP for other endpoints
-const askLimiter = createRateLimiter(5); // 5 req/min per IP for RAG (costs money)
+const askLimiter = createRateLimiter(20); // 20 req/min per IP for RAG (NaN is free; limit is concurrency not cost)
 const API_BYPASS_KEY = process.env.API_BYPASS_KEY ?? "";
 
 // ── Graceful shutdown ───────────────────────────────────────────────
