@@ -19,7 +19,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
+          # 4G triggered cgroup OOM under concurrent /v1/laws?q= and /v1/ask
+          # load: vectors.bin (~8 GB virtual via mmap) pushed anon-rss past
+          # the cap and the kernel SIGKILL'd PID 1, restarting the container.
+          # Docker did not report it as OOMKilled (only PID 1 died, not the
+          # cgroup as a whole). Bump to 8G until the embedding loader is
+          # changed to keep RSS bounded under fan-out (see #100 follow-ups).
+          memory: 8G
           cpus: "4.0"
 
   watchtower:
