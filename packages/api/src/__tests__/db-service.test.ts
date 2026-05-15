@@ -8,7 +8,7 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createSchema } from "@leyabierta/pipeline";
-import { DbService } from "../services/db.ts";
+import { DbService, escapeLike } from "../services/db.ts";
 
 let db: Database;
 let svc: DbService;
@@ -909,5 +909,134 @@ describe("getMatchedTopics", () => {
 		// Should not crash, just skip the invalid row
 		const result = svc.getMatchedTopics(["MT3"], ["Trabajadores"]);
 		expect(result.get("MT3")).toBeUndefined();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// escapeLike — Issue #47
+// ---------------------------------------------------------------------------
+
+describe("escapeLike", () => {
+	it("passes through plain strings unchanged", () => {
+		expect(escapeLike("constitucion")).toBe("constitucion");
+		expect(escapeLike("ley organica del poder judicial")).toBe(
+			"ley organica del poder judicial",
+		);
+		expect(escapeLike("")).toBe("");
+	});
+
+	it("escapes percent signs", () => {
+		expect(escapeLike("100%")).toBe("100\\%");
+		expect(escapeLike("%inicio%")).toBe("\\%inicio\\%");
+	});
+
+	it("escapes underscores", () => {
+		expect(escapeLike("real_decreto")).toBe("real\\_decreto");
+		expect(escapeLike("_leading")).toBe("\\_leading");
+		expect(escapeLike("trailing_")).toBe("trailing\\_");
+	});
+
+	it("escapes backslashes", () => {
+		expect(escapeLike("a\\b")).toBe("a\\\\b");
+	});
+
+	it("escapes all wildcard chars together", () => {
+		expect(escapeLike("100% off_sale\\now")).toBe(
+			"100\\% off\\_sale\\\\now",
+		);
+	});
+
+	// Integration: a LIKE query with user input containing % must not act as a
+	// wildcard. Insert two norms — one whose title literally ends with "%" and
+	// one that doesn't — and confirm the search only returns the exact match.
+	it("prevents % from acting as wildcard in LIKE queries (integration)", async () => {
+		const testDb = new Database(":memory:");
+		createSchema(testDb);
+		const testSvc = new DbService(testDb);
+
+		// Insert a norm whose title contains a literal percent sign.
+		testDb.run(
+			`INSERT INTO norms (id, title, short_title, country, rank, published_at, status, department, source_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[
+				"BOE-A-2024-0001",
+				"Ley 100% Gratis",
+				"LG",
+				"es",
+				"ley",
+				"2024-01-01",
+				"vigente",
+				"Test",
+				"https://boe.es/eli/es/l/2024/01/01/(1)",
+			],
+		);
+		// A second norm that would match "%" as a wildcard but NOT the literal "100\%".
+		testDb.run(
+			`INSERT INTO norms (id, title, short_title, country, rank, published_at, status, department, source_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[
+				"BOE-A-2024-0002",
+				"Ley de Vivienda",
+				"LV",
+				"es",
+				"ley",
+				"2024-01-02",
+				"vigente",
+				"Test",
+				"https://boe.es/eli/es/l/2024/01/02/(1)",
+			],
+		);
+
+		// Search for literal "100%" — should return only BOE-A-2024-0001.
+		const { laws } = await testSvc.searchLaws("100%", {}, 10, 0);
+		expect(laws.map((l) => l.id)).toContain("BOE-A-2024-0001");
+		expect(laws.map((l) => l.id)).not.toContain("BOE-A-2024-0002");
+
+		testDb.close();
+	});
+
+	it("prevents _ from acting as wildcard in LIKE queries (integration)", async () => {
+		const testDb = new Database(":memory:");
+		createSchema(testDb);
+		const testSvc = new DbService(testDb);
+
+		// "real_decreto" with a literal underscore.
+		testDb.run(
+			`INSERT INTO norms (id, title, short_title, country, rank, published_at, status, department, source_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[
+				"BOE-A-2024-0003",
+				"real_decreto especial",
+				"RD",
+				"es",
+				"real_decreto",
+				"2024-01-01",
+				"vigente",
+				"Test",
+				"https://boe.es/eli/es/rd/2024/01/01/(1)",
+			],
+		);
+		// "realXdecreto" — would match "real_decreto" if _ were a wildcard.
+		testDb.run(
+			`INSERT INTO norms (id, title, short_title, country, rank, published_at, status, department, source_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[
+				"BOE-A-2024-0004",
+				"realXdecreto especial",
+				"RX",
+				"es",
+				"real_decreto",
+				"2024-01-02",
+				"vigente",
+				"Test",
+				"https://boe.es/eli/es/rd/2024/01/02/(1)",
+			],
+		);
+
+		const { laws } = await testSvc.searchLaws("real_decreto", {}, 10, 0);
+		expect(laws.map((l) => l.id)).toContain("BOE-A-2024-0003");
+		expect(laws.map((l) => l.id)).not.toContain("BOE-A-2024-0004");
+
+		testDb.close();
 	});
 });

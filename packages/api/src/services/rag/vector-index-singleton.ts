@@ -35,10 +35,18 @@ let loadedDataDir: string | null = null;
 let consecutiveFailures = 0;
 let openUntil = 0; // epoch ms; 0 = closed (normal operation)
 
+export type VectorIndexLoader = (
+	db: Database,
+	modelKey: string,
+	dataDir: string,
+) => Promise<VectorIndex>;
+
 export async function getSharedVectorIndex(
 	db: Database,
 	modelKey: string,
 	dataDir: string,
+	/** Injectable loader — defaults to ensureVectorIndex. Override in tests. */
+	loader: VectorIndexLoader = ensureVectorIndex,
 ): Promise<VectorIndex> {
 	if (cached) {
 		if (
@@ -65,7 +73,7 @@ export async function getSharedVectorIndex(
 	}
 
 	if (!inflight) {
-		inflight = ensureVectorIndex(db, modelKey, dataDir)
+		inflight = loader(db, modelKey, dataDir)
 			.then((idx) => {
 				cached = idx;
 				loadedModelKey = modelKey;

@@ -14,7 +14,7 @@ import {
 type SqlParams = SQLQueryBindings[];
 
 /** Escape LIKE wildcards in user-supplied strings to prevent unintended matching. */
-function escapeLike(s: string): string {
+export function escapeLike(s: string): string {
 	return s.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
