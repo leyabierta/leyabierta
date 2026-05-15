@@ -6,6 +6,7 @@
 
 import { Database } from "bun:sqlite";
 import { timingSafeEqual } from "node:crypto";
+import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
@@ -108,6 +109,27 @@ process.on("unhandledRejection", (reason) => {
 	process.stderr.write(
 		`[fatal] unhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}\n`,
 	);
+});
+
+// Persistent exit probes. The shutdown / fatal stderr writes above never
+// surfaced in `docker logs`, so we also tap `exit` (fires for every exit
+// path, including process.exit and natural event loop drain) and
+// `beforeExit` (fires only when the loop drains naturally with no pending
+// work — would indicate the HTTP server died silently). Each write goes to
+// a file mounted on the persistent volume so it survives container restarts.
+const EXIT_LOG = `${RAG_DATA_DIR}/api-exits.log`;
+function probeWrite(line: string) {
+	try {
+		appendFileSync(EXIT_LOG, `${new Date().toISOString()} ${line}\n`);
+	} catch {}
+}
+probeWrite(`[boot] pid=${process.pid} startedAt=${new Date().toISOString()}`);
+process.on("beforeExit", (code) => {
+	probeWrite(`[beforeExit] code=${code} — event loop drained naturally`);
+	process.stderr.write(`[beforeExit] code=${code}\n`);
+});
+process.on("exit", (code) => {
+	probeWrite(`[exit] code=${code}`);
 });
 
 const app = new Elysia()
