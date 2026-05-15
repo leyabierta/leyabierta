@@ -15,6 +15,7 @@ import {
 	useState,
 } from "react";
 import { config } from "../config/env";
+import { track } from "../lib/analytics";
 import {
 	type Citation,
 	renderMarkdownWithCitations,
@@ -896,6 +897,9 @@ export default function AskChat() {
 			const controller = new AbortController();
 			abortRef.current = controller;
 
+			track("question_submitted", { question_length: text.length });
+			const submitTime = performance.now();
+
 			const res = await fetch(`${API_BASE}/v1/ask/stream`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -1042,6 +1046,10 @@ export default function AskChat() {
 						}
 						return updated;
 					});
+					track("question_completed", {
+						latency_ms: Math.round(performance.now() - submitTime),
+						citation_count: done.citations?.length ?? 0,
+					});
 				} else if (sseEvent.event === "error") {
 					const err = JSON.parse(sseEvent.data) as { error: string };
 					setTurns((prev) => {
@@ -1053,6 +1061,7 @@ export default function AskChat() {
 						};
 						return updated;
 					});
+					track("question_failed", { error_type: "sse_error" });
 				}
 			}
 		} catch (err) {
