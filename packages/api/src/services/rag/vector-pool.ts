@@ -366,6 +366,17 @@ export async function getVectorPool(
 	}
 }
 
+/** Micro-trace probe helper for vector-search — emits JSON to stderr, never throws. */
+function vectorProbe(step: string, t0: number) {
+	try {
+		process.stderr.write(
+			`${JSON.stringify({ probe: "vector-step", step, ms: Math.round(performance.now() - t0) })}\n`,
+		);
+	} catch {
+		/* safe-to-fail */
+	}
+}
+
 export async function vectorSearchPooled(
 	queryEmbedding: Float32Array,
 	meta: Array<{ normId: string; blockId: string }>,
@@ -373,17 +384,22 @@ export async function vectorSearchPooled(
 	_dims: number,
 	topK: number = 10,
 ): Promise<VectorSearchResult[]> {
+	const vsT0 = performance.now();
+	const getPoolT0 = performance.now();
 	const p = await getVectorPool(index);
+	vectorProbe("getVectorPool", getPoolT0);
 	if (!p) {
 		throw new Error("vector pool unavailable on this platform");
 	}
-	const t0 = performance.now();
+	const searchT0 = performance.now();
 	const raw = await p.search(queryEmbedding, topK);
-	const totalMs = performance.now() - t0;
+	const totalMs = performance.now() - searchT0;
+	vectorProbe("pool-search", searchT0);
 	console.log(
 		`[vector-search-pool] ${index.totalVectors} vectors → top-${raw.length} in ${totalMs.toFixed(0)}ms`,
 	);
-	return raw.slice(0, topK).map((r) => {
+	const mapT0 = performance.now();
+	const result = raw.slice(0, topK).map((r) => {
 		const article = meta[r.globalIdx]!;
 		return {
 			normId: article.normId,
@@ -391,6 +407,9 @@ export async function vectorSearchPooled(
 			score: r.score,
 		};
 	});
+	vectorProbe("meta-map", mapT0);
+	vectorProbe("vector-total", vsT0);
+	return result;
 }
 
 /**
