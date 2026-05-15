@@ -23,7 +23,9 @@ import { GitService } from "./services/git.ts";
 import { HybridSearcherImpl } from "./services/hybrid-search.ts";
 import { startMemProbe } from "./services/mem-probe.ts";
 import { RagPipeline } from "./services/rag/pipeline.ts";
+import { EMBEDDING_MODEL_KEY } from "./services/rag/retrieval.ts";
 import { flushTraces } from "./services/rag/tracing.ts";
+import { getSharedVectorIndex } from "./services/rag/vector-index-singleton.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
@@ -319,8 +321,34 @@ app
 				tags: ["Sistema"],
 			},
 		},
-	)
-	.listen(PORT);
+	);
+
+// ── Vector index preload ─────────────────────────────────────────────
+// Block startup on the vector index load so the port isn't bound until
+// the ~1.9 GB int8 SharedArrayBuffer is fully populated. Eliminates the
+// cold-start OOM window where 6 concurrent requests hit lazy-load
+// simultaneously and pushed anon-rss past the cgroup cap (#99/#100/#101).
+// Trade: ~30s delay before the new container accepts traffic. Acceptable
+// — during that window traefik returns 502, which is the *same* failure
+// mode as the OOM restart, but without killing the container.
+// Gate: only preload when the API key is present (same gate as ragPipeline
+// / hybridSearcher) and RAG_PRELOAD is not explicitly disabled.
+if (OPENROUTER_API_KEY && process.env.RAG_PRELOAD !== "false") {
+	const t0 = performance.now();
+	console.log("[preload] loading vector index…");
+	try {
+		await getSharedVectorIndex(db, EMBEDDING_MODEL_KEY, RAG_DATA_DIR);
+		const ms = Math.round(performance.now() - t0);
+		console.log(`[preload] vector index ready in ${ms}ms`);
+	} catch (err) {
+		// Non-fatal: fall back to lazy loading on first request.
+		process.stderr.write(
+			`[preload] vector index failed to load: ${err instanceof Error ? err.message : err}\n`,
+		);
+	}
+}
+
+app.listen(PORT);
 
 console.log(`Ley Abierta API running on http://localhost:${PORT}`);
 console.log(`Swagger docs: http://localhost:${PORT}/swagger`);
