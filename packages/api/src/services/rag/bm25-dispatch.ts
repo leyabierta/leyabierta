@@ -3,12 +3,13 @@
  *
  * Wraps the five FTS5 sub-queries (main / synonym / namedLaw / coreLaw / recent)
  * that historically lived inline in `pipeline.ts` (twice — `runBm25` and
- * `runBm252` — Sprint 3 closes the duplication). Each stage is dispatched to
- * the worker pool and falls back to the in-process synchronous implementation
- * on pool failure (busy / FFI crash / lib missing on this platform).
+ * `runBm252` — Sprint 3 closes the duplication). Each stage runs directly via
+ * the synchronous `bm25HybridSearch` (Bun SQLite WAL allows concurrent readers,
+ * so all five stages parallelise via Promise.all without any worker pool).
  *
- * Per-stage fallback resilience: one busy stage downgrading to sync does NOT
- * sink the other four. This was introduced in Sprint 2 and we preserve it.
+ * BM25 was previously routed through the shared vector worker pool, which added
+ * 6-9s of dispatch overhead per request (pool designed for SIMD vector ops, not
+ * sub-millisecond FTS5 queries). Fixed in 2026-05-15: always use the direct path.
  */
 
 import type { Database } from "bun:sqlite";
@@ -18,26 +19,6 @@ import { bm25HybridSearch } from "./blocks-fts.ts";
 import type { InMemoryVectorIndex } from "./embeddings.ts";
 import { resolveJurisdiction } from "./jurisdiction.ts";
 import type { RankedItem } from "./rrf.ts";
-import { bm25SearchPooled } from "./vector-pool.ts";
-
-/**
- * Pool saturation counter. Every BM25 stage that gets `VECTOR_POOL_BUSY`
- * back from the pool falls through to the sync `bm25HybridSearch` (so
- * the request still succeeds), but the parallelism win disappears
- * silently. Logging every event would be noisy under load; instead we
- * count here and emit one summary log per BUSY_LOG_EVERY events plus
- * a warning whenever a stage actually falls back.
- */
-let bm25PoolBusyCount = 0;
-const BUSY_LOG_EVERY = 100;
-function recordBm25PoolBusy() {
-	bm25PoolBusyCount++;
-	if (bm25PoolBusyCount % BUSY_LOG_EVERY === 0) {
-		console.warn(
-			`[bm25-pool] saturation: ${bm25PoolBusyCount} BUSY events since boot — pool may be undersized for current load`,
-		);
-	}
-}
 
 /**
  * Fundamental state laws — covers 90%+ of citizen questions. Used by the
@@ -81,8 +62,9 @@ export function bm25HitsToRanked(hits: Bm25Hit[]): RankedItem[] {
 }
 
 /**
- * Dispatch all five BM25 stages concurrently against the worker pool, with
- * per-stage sync fallback. Returns the raw hit lists per stage plus a per-
+ * Dispatch all five BM25 stages concurrently via the synchronous SQLite path.
+ * Bun's WAL mode allows concurrent readers, so Promise.all gives real parallelism
+ * without any worker-pool overhead. Returns raw hit lists per stage plus a per-
  * stage timing map for log/trace consumers.
  */
 export async function dispatchBm25Stages(opts: {
@@ -90,9 +72,9 @@ export async function dispatchBm25Stages(opts: {
 	question: string;
 	analyzed: AnalyzedQuery;
 	embeddingNormIds: string[];
-	vectors: InMemoryVectorIndex | null;
+	vectors: InMemoryVectorIndex | null; // kept for API compatibility; unused since pool removed
 }): Promise<Bm25StageResult> {
-	const { db, question, analyzed, embeddingNormIds, vectors } = opts;
+	const { db, question, analyzed, embeddingNormIds } = opts;
 
 	const synonymInputs =
 		analyzed.legalSynonyms.length > 0
@@ -193,26 +175,15 @@ export async function dispatchBm25Stages(opts: {
 		};
 	};
 
+	// BM25 always runs on the direct sync path. The worker pool added 6-9s of
+	// dispatch overhead for sub-millisecond FTS5 queries. WAL concurrent readers
+	// give us real parallelism through Promise.all without any pool cost.
 	const runBm25 = async (
 		query: string,
 		keywords: string[],
 		topK: number,
 		filter?: string[],
-	): Promise<Bm25Hit[]> => {
-		if (vectors) {
-			try {
-				return await bm25SearchPooled(vectors, query, keywords, topK, filter);
-			} catch (err) {
-				const msg = (err as Error).message;
-				if (msg === "VECTOR_POOL_BUSY") {
-					recordBm25PoolBusy();
-				} else {
-					console.warn(`[bm25-pool] fallback to sync: ${msg}`);
-				}
-			}
-		}
-		return bm25HybridSearch(db, query, keywords, topK, filter);
-	};
+	): Promise<Bm25Hit[]> => bm25HybridSearch(db, query, keywords, topK, filter);
 
 	const mainStop = stageT("main");
 	const synonymStop = synonymInputs ? stageT("synonym") : () => {};

@@ -227,6 +227,7 @@ const SCHEMA_SQL = /* sql */ `
   );
 
   CREATE INDEX IF NOT EXISTS idx_embeddings_model ON embeddings(model);
+  CREATE INDEX IF NOT EXISTS idx_embeddings_norm_id ON embeddings(norm_id);
 
   -- RAG ask log: tracks user questions, answers, and quality metrics
   CREATE TABLE IF NOT EXISTS ask_log (
