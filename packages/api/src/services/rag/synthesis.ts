@@ -12,7 +12,6 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { callNan, callNanStream } from "../nan.ts";
 import { getNanApiKey } from "../nan-api-key.ts";
 import {
 	describeNormScope,
@@ -21,6 +20,7 @@ import {
 	numbersToDigits,
 } from "./analyzer.ts";
 import { buildArticleAnchor } from "./anchor.ts";
+import { getLlmCaller, getLlmStreamCaller, LLM_BACKEND } from "./backends.ts";
 import { resolveJurisdiction } from "./jurisdiction.ts";
 import type { RetrievedArticle } from "./retrieval.ts";
 import { parseSubchunkId } from "./subchunk.ts";
@@ -259,11 +259,16 @@ export async function synthesizeAnswer(opts: {
 	llmFn?: SynthesisLlmFn;
 }): Promise<SynthesisResult> {
 	const { question, evidenceText, systemPrompt } = opts;
-	const llmFn = (opts.llmFn ?? callNan) as SynthesisLlmFn;
+	// If the caller provided an explicit llmFn (research/ab/ harnesses), use it
+	// directly. Otherwise route through the backend factory (LLM_BACKEND env var).
+	const llmFn = (opts.llmFn ?? getLlmCaller()) as SynthesisLlmFn;
 	const model = opts.model ?? SYNTHESIS_MODEL;
-	// NaN models read NAN_API_KEY (legacy HERMES_API_KEY fallback); pass it (or whatever the caller gave) to
-	// the llmFn. The prod caller's `apiKey` is used as a fallback when NAN_API_KEY is unset.
-	const apiKey = getNanApiKey() ?? opts.apiKey;
+	// For NaN backend: use getNanApiKey(). For OpenRouter backend: the factory
+	// reads OPENROUTER_API_KEY internally — apiKey arg is passed but unused.
+	const apiKey =
+		opts.llmFn || LLM_BACKEND === "openrouter"
+			? opts.apiKey
+			: (getNanApiKey() ?? opts.apiKey);
 	const result = await llmFn<{
 		answer: string;
 		citations: Array<{ norm_id: string; article_title: string }>;
@@ -339,8 +344,14 @@ export function synthesizeStream(opts: {
 	systemPrompt: string;
 }) {
 	const { question, evidenceText, systemPrompt } = opts;
-	const apiKey = getNanApiKey() ?? opts.apiKey;
-	return callNanStream(apiKey, {
+	// For NaN backend: use getNanApiKey(). For OpenRouter backend: the stream
+	// caller reads OPENROUTER_API_KEY internally.
+	const apiKey =
+		LLM_BACKEND === "openrouter"
+			? opts.apiKey
+			: (getNanApiKey() ?? opts.apiKey);
+	const streamCaller = getLlmStreamCaller();
+	return streamCaller(apiKey, {
 		model: SYNTHESIS_MODEL,
 		messages: [
 			{ role: "system", content: systemPrompt },
@@ -429,7 +440,11 @@ export function generateMissingSummaries(opts: {
 	insertSummaryStmt: ReturnType<Database["prepare"]>;
 }) {
 	const { citations, articles, insertSummaryStmt } = opts;
-	const apiKey = getNanApiKey() ?? opts.apiKey;
+	const apiKey =
+		LLM_BACKEND === "openrouter"
+			? opts.apiKey
+			: (getNanApiKey() ?? opts.apiKey);
+	const llmCaller = getLlmCaller();
 	const missing = citations.filter((c) => !c.citizenSummary);
 	if (missing.length === 0) return;
 
@@ -442,7 +457,7 @@ export function generateMissingSummaries(opts: {
 
 		const truncatedText = article.text.slice(0, 1500);
 
-		callNan<{ summary: string }>(apiKey, {
+		llmCaller<{ summary: string }>(apiKey, {
 			model: SYNTHESIS_MODEL,
 			messages: [
 				{
@@ -502,9 +517,13 @@ export async function generatePostSynthExtras(opts: {
 	answer: string;
 }): Promise<{ tldr: string; nextQuestions: string[] }> {
 	const { question, answer } = opts;
-	const apiKey = getNanApiKey() ?? opts.apiKey;
+	const apiKey =
+		LLM_BACKEND === "openrouter"
+			? opts.apiKey
+			: (getNanApiKey() ?? opts.apiKey);
+	const llmCaller = getLlmCaller();
 	try {
-		const result = await callNan<{
+		const result = await llmCaller<{
 			tldr: string;
 			next_questions: string[];
 		}>(apiKey, {
@@ -563,9 +582,13 @@ export async function generateDeclinedSuggestions(opts: {
 	question: string;
 }): Promise<string[]> {
 	const { question } = opts;
-	const apiKey = getNanApiKey() ?? opts.apiKey;
+	const apiKey =
+		LLM_BACKEND === "openrouter"
+			? opts.apiKey
+			: (getNanApiKey() ?? opts.apiKey);
+	const llmCaller = getLlmCaller();
 	try {
-		const result = await callNan<{ suggested_questions: string[] }>(apiKey, {
+		const result = await llmCaller<{ suggested_questions: string[] }>(apiKey, {
 			model: SYNTHESIS_MODEL,
 			messages: [
 				{

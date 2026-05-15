@@ -14,6 +14,13 @@ services:
     environment:
       - DB_PATH=/data/leyabierta.db
       - REPO_PATH=/data/leyes
+      # Pluggable backend feature flags (defaults = Qwen NaN — no behaviour change)
+      # Override in .env.prod to activate OpenRouter paths:
+      #   LLM_BACKEND=openrouter RERANK_BACKEND=cohere-or
+      - LLM_BACKEND=${LLM_BACKEND:-nan}
+      - RERANK_BACKEND=${RERANK_BACKEND:-qwen-llm}
+      - OPENROUTER_LLM_MODEL=${OPENROUTER_LLM_MODEL:-google/gemini-2.5-flash-lite}
+      - OPENROUTER_RERANK_MODEL=${OPENROUTER_RERANK_MODEL:-cohere/rerank-4-fast}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     deploy:

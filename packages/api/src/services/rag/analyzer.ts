@@ -15,8 +15,8 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { callNan } from "../nan.ts";
 import { getNanApiKey } from "../nan-api-key.ts";
+import { getLlmCaller, LLM_BACKEND } from "./backends.ts";
 import { JURISDICTION_NAMES } from "./jurisdiction.ts";
 
 /**
@@ -252,12 +252,18 @@ export async function analyzeQuery(
 	tokensIn: number;
 	tokensOut: number;
 }> {
-	const llmFn = (overrides.llmFn ?? callNan) as AnalyzerLlmFn;
+	// If the caller provided an explicit llmFn (e.g. research/ab/ harnesses),
+	// use it directly and ignore the backend env var — explicit > implicit.
+	// Otherwise, route through the backend factory (LLM_BACKEND env var).
+	const llmFn = (overrides.llmFn ?? getLlmCaller()) as AnalyzerLlmFn;
 	const model = overrides.model ?? ANALYZER_MODEL;
-	// Default path uses NaN qwen3.6 → read from getNanApiKey(). If the caller
-	// supplied a custom llmFn (e.g. research/ab/ harnesses), respect whatever
-	// key they passed.
-	const effectiveKey = overrides.llmFn ? apiKey : (getNanApiKey() ?? apiKey);
+	// For NaN backend: read from getNanApiKey(). For OpenRouter backend: the
+	// factory reads OPENROUTER_API_KEY internally — the apiKey arg is unused.
+	// For research/ab/ harnesses with a custom llmFn: respect whatever key they passed.
+	const effectiveKey =
+		overrides.llmFn || LLM_BACKEND === "openrouter"
+			? apiKey
+			: (getNanApiKey() ?? apiKey);
 	try {
 		const result = await llmFn<{
 			keywords: string[];
