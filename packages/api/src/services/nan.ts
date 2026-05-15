@@ -7,6 +7,12 @@
  * `json_schema` (strict).
  *
  * Cost: zero. Rate limit: 100 RPM / 5 concurrent (per the NaN docs).
+ *
+ * 429 retry strategy: NaN's 429s are almost always concurrency-slot exhaustion
+ * (>5 in-flight), not RPM exhaustion. Slots free up in ~1-2s, so we use a
+ * short base backoff (500ms) with full jitter to avoid thundering herd when
+ * multiple requests retry simultaneously. Up to MAX_RETRIES_429 retries for
+ * 429, fewer for transient 5xx errors.
  */
 
 import {
@@ -19,8 +25,16 @@ import {
 } from "./openrouter.ts";
 
 const NAN_URL = "https://api.nan.builders/v1/chat/completions";
-const MAX_RETRIES = 4;
-const BACKOFF_MS = 2000;
+const MAX_RETRIES = 4; // transient 5xx / network errors
+const MAX_RETRIES_429 = 8; // more retries for rate limit — slots free up quickly
+const BACKOFF_BASE_MS = 500; // short base: NaN slots free in ~1-2s
+const BACKOFF_MAX_MS = 8000; // cap to avoid very long waits
+
+/** Exponential backoff with full jitter: random in [0, min(cap, base * 2^attempt)]. */
+function jitteredBackoff(attempt: number): number {
+	const cap = Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** attempt);
+	return Math.random() * cap;
+}
 
 /**
  * NaN chat completion. Identical contract to `callOpenRouter` so existing
@@ -46,11 +60,14 @@ export async function callNan<T>(
 	} = options;
 
 	let lastError: Error | null = null;
+	let rateLimit429 = 0;
+	let transientErrors = 0;
 
-	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-		if (attempt > 0) {
-			const delay = BACKOFF_MS * attempt;
-			await new Promise((r) => setTimeout(r, delay));
+	// We loop until we succeed, exhaust 429 retries, or exhaust transient retries.
+	while (true) {
+		if (rateLimit429 > 0 || transientErrors > 0) {
+			const attempt = rateLimit429 + transientErrors;
+			await new Promise((r) => setTimeout(r, jitteredBackoff(attempt)));
 		}
 
 		const startTime = Date.now();
@@ -98,15 +115,19 @@ export async function callNan<T>(
 		const elapsed = Date.now() - startTime;
 
 		if (response.status === 429) {
+			rateLimit429++;
 			lastError = new OpenRouterError("rate_limit", "NaN rate limited");
+			if (rateLimit429 >= MAX_RETRIES_429) break;
 			continue;
 		}
 
 		if (response.status >= 500) {
+			transientErrors++;
 			lastError = new OpenRouterError(
 				`http_${response.status}`,
 				`NaN ${response.status} (transient)`,
 			);
+			if (transientErrors >= MAX_RETRIES) break;
 			continue;
 		}
 
@@ -207,9 +228,13 @@ export async function* callNanStream(
 
 	let response: Response | null = null;
 	let lastError: Error | null = null;
-	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-		if (attempt > 0) {
-			await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
+	let rateLimit429 = 0;
+	let transientErrors = 0;
+
+	while (true) {
+		if (rateLimit429 > 0 || transientErrors > 0) {
+			const attempt = rateLimit429 + transientErrors;
+			await new Promise((r) => setTimeout(r, jitteredBackoff(attempt)));
 		}
 		let res: Response;
 		try {
@@ -232,21 +257,27 @@ export async function* callNanStream(
 				}),
 			});
 		} catch (err) {
+			transientErrors++;
 			lastError = new OpenRouterError(
 				"fetch_error",
 				`NaN stream network error: ${err}`,
 			);
+			if (transientErrors >= MAX_RETRIES) break;
 			continue;
 		}
 		if (res.status === 429) {
+			rateLimit429++;
 			lastError = new OpenRouterError("rate_limit", "NaN stream rate limited");
+			if (rateLimit429 >= MAX_RETRIES_429) break;
 			continue;
 		}
 		if (res.status >= 500) {
+			transientErrors++;
 			lastError = new OpenRouterError(
 				`http_${res.status}`,
 				`NaN stream ${res.status} (transient)`,
 			);
+			if (transientErrors >= MAX_RETRIES) break;
 			continue;
 		}
 		if (!res.ok) {
