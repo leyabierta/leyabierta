@@ -13,6 +13,11 @@ import {
 
 type SqlParams = SQLQueryBindings[];
 
+/** Escape LIKE wildcards in user-supplied strings to prevent unintended matching. */
+function escapeLike(s: string): string {
+	return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export interface SearchFilters {
 	country?: string;
 	jurisdiction?: string;
@@ -206,14 +211,15 @@ export class DbService {
 			try {
 				// Pass 0: exact/prefix title matches (highest relevance)
 				// These go first regardless of BM25 score
+				const escaped = escapeLike(query);
 				const exactIds = this.db
 					.query<{ id: string }, [string, string]>(
 						`SELECT id FROM norms
-						 WHERE title LIKE ? OR title LIKE ?
+						 WHERE title LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\'
 						 ORDER BY length(title) ASC
 						 LIMIT 20`,
 					)
-					.all(`${query}%`, `% ${query}%`)
+					.all(`${escaped}%`, `% ${escaped}%`)
 					.map((r) => r.id);
 
 				// Pass 1: FTS title matches (fast, most relevant). Adaptive
@@ -304,8 +310,8 @@ export class DbService {
 				return { laws, total, capped };
 			} catch {
 				// FTS failed, fallback to LIKE on title
-				const conditions2: string[] = ["title LIKE ?"];
-				const params2: SqlParams = [`%${query}%`];
+				const conditions2: string[] = ["title LIKE ? ESCAPE '\\'"];
+				const params2: SqlParams = [`%${escapeLike(query)}%`];
 				this.applyFilters(conditions2, params2, filters);
 				const where = conditions2.join(" AND ");
 
@@ -465,14 +471,15 @@ export class DbService {
 		const tokens = tokenizeQuery(query);
 		try {
 			// Pass 0: exact/prefix title.
+			const escaped = escapeLike(query);
 			const exactIds = this.db
 				.query<{ id: string }, [string, string]>(
 					`SELECT id FROM norms
-					 WHERE title LIKE ? OR title LIKE ?
+					 WHERE title LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\'
 					 ORDER BY length(title) ASC
 					 LIMIT 20`,
 				)
-				.all(`${query}%`, `% ${query}%`)
+				.all(`${escaped}%`, `% ${escaped}%`)
 				.map((r) => r.id);
 
 			const exactSet = new Set(exactIds);
