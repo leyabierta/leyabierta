@@ -11,6 +11,17 @@
  * sink the other four. This was introduced in Sprint 2 and we preserve it.
  */
 
+/** Micro-trace probe helper — emits JSON to stderr, never throws. */
+function probe(step: string, t0: number) {
+	try {
+		process.stderr.write(
+			`${JSON.stringify({ probe: "bm25-step", step, ms: Math.round(performance.now() - t0) })}\n`,
+		);
+	} catch {
+		/* safe-to-fail */
+	}
+}
+
 import type { Database } from "bun:sqlite";
 import type { AnalyzedQuery } from "./analyzer.ts";
 import { isFundamentalRank, resolveNormsByName } from "./analyzer.ts";
@@ -93,6 +104,7 @@ export async function dispatchBm25Stages(opts: {
 	vectors: InMemoryVectorIndex | null;
 }): Promise<Bm25StageResult> {
 	const { db, question, analyzed, embeddingNormIds, vectors } = opts;
+	const dispatchT0 = performance.now();
 
 	const synonymInputs =
 		analyzed.legalSynonyms.length > 0
@@ -101,12 +113,14 @@ export async function dispatchBm25Stages(opts: {
 					keywords: analyzed.legalSynonyms,
 				}
 			: null;
+	probe("synonymInputs-build", dispatchT0);
 
 	let namedLawInputs: {
 		query: string;
 		keywords: string[];
 		filter: string[];
 	} | null = null;
+	const namedLawT0 = performance.now();
 	if (analyzed.normNameHint) {
 		let matchedNormIds = resolveNormsByName(
 			db,
@@ -140,7 +154,9 @@ export async function dispatchBm25Stages(opts: {
 			};
 		}
 	}
+	probe("namedLawInputs-resolve", namedLawT0);
 
+	const coreLawT0 = performance.now();
 	const coreLawInputs =
 		analyzed.legalSynonyms.length > 0 && !analyzed.jurisdiction
 			? (() => {
@@ -156,12 +172,14 @@ export async function dispatchBm25Stages(opts: {
 						: null;
 				})()
 			: null;
+	probe("coreLawInputs-build", coreLawT0);
 
 	let recentInputs: {
 		query: string;
 		keywords: string[];
 		filter: string[];
 	} | null = null;
+	const recentQueryT0 = performance.now();
 	if (analyzed.keywords.length > 0) {
 		const cutoff = new Date();
 		cutoff.setFullYear(cutoff.getFullYear() - RECENT_YEARS);
@@ -175,6 +193,7 @@ export async function dispatchBm25Stages(opts: {
 			)
 			.all(cutoffStr)
 			.map((r) => r.id);
+		probe("recentNormIds-db-query", recentQueryT0);
 		if (recentNormIds.length > 0) {
 			const allTerms = [...analyzed.keywords, ...analyzed.legalSynonyms];
 			recentInputs = {
@@ -183,6 +202,8 @@ export async function dispatchBm25Stages(opts: {
 				filter: recentNormIds,
 			};
 		}
+	} else {
+		probe("recentNormIds-db-query", recentQueryT0);
 	}
 
 	const stageTimings: Record<string, number> = {};
@@ -219,6 +240,8 @@ export async function dispatchBm25Stages(opts: {
 	const namedLawStop = namedLawInputs ? stageT("namedLaw") : () => {};
 	const coreLawStop = coreLawInputs ? stageT("coreLaw") : () => {};
 	const recentStop = recentInputs ? stageT("recent") : () => {};
+
+	const poolDispatchT0 = performance.now();
 
 	const [main, synonym, namedLaw, coreLaw, recent] = await Promise.all([
 		runBm25(
@@ -275,6 +298,8 @@ export async function dispatchBm25Stages(opts: {
 				})
 			: Promise.resolve([] as Bm25Hit[]),
 	]);
+	probe("pool-dispatch-all-stages", poolDispatchT0);
+	probe("dispatch-total", dispatchT0);
 
 	return { main, synonym, namedLaw, coreLaw, recent, stageTimings };
 }
