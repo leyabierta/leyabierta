@@ -1,12 +1,11 @@
 /**
- * Cohere Rerank 4 Pro — pluggable reranker for A/B evaluation.
- *
- * This is the pre-Phase-6 production reranker, resurrected as an opt-in module
- * for A/B comparison against the Qwen NaN LLM reranker. It is NOT used in prod.
+ * Cohere Rerank — pluggable reranker for A/B evaluation and production use.
  *
  * Backend selection (in order of preference):
  *   1. Direct Cohere API (COHERE_API_KEY) — cheaper, lower latency.
- *   2. OpenRouter proxy (OPENROUTER_API_KEY) — via cohere/rerank-4-pro model.
+ *   2. OpenRouter proxy (OPENROUTER_API_KEY) — via configurable model
+ *      (default: cohere/rerank-4-fast, override via OPENROUTER_RERANK_MODEL or
+ *      the `openrouterModel` constructor option).
  *
  * If neither key is set, construction throws a clear error rather than silently
  * falling back to passthrough — the caller must make an explicit choice.
@@ -14,15 +13,18 @@
  * Interface mirrors the qwenLLMRerank return shape so it can be swapped into
  * the `rerankerOverrides` slot of `runRetrievalCore` without changes.
  *
- * Usage (in rag-gemini-legacy.ts):
+ * Production use (via backends.ts): set RERANK_BACKEND=cohere-or in .env.prod.
+ * A/B research use (legacy): instantiate directly as before.
+ *
  *   const reranker = new CohereReranker();
  *   const { results } = await reranker.rerank(query, candidates, topK);
  */
 
 const COHERE_RERANK_URL = "https://api.cohere.com/v2/rerank";
-const COHERE_RERANK_MODEL = "rerank-v3.5"; // latest as of Phase 6 cutoff
+const COHERE_RERANK_MODEL_DEFAULT = "rerank-v3.5"; // latest as of Phase 6 cutoff
 const OPENROUTER_RERANK_URL = "https://openrouter.ai/api/v1/rerank";
-const OPENROUTER_RERANK_MODEL = "cohere/rerank-4-pro";
+/** Default OpenRouter rerank model — cohere/rerank-4-fast is the fast, cost-efficient variant. */
+const OPENROUTER_RERANK_MODEL_DEFAULT = "cohere/rerank-4-fast";
 
 export interface CohereCandidate {
 	key: string; // "normId:blockId"
@@ -41,10 +43,14 @@ export type CohereBackend = "cohere-direct" | "cohere-openrouter";
 export class CohereReranker {
 	private readonly _apiKey: string;
 	private readonly _backend: CohereBackend;
+	private readonly _cohereModel: string;
+	private readonly _openrouterModel: string;
 
 	/**
-	 * @param cohereApiKey   - Direct Cohere API key (preferred). Falls back to openrouterApiKey.
-	 * @param openrouterApiKey - OpenRouter API key (via cohere/rerank-4-pro). Used if cohereApiKey is absent.
+	 * @param cohereApiKey      - Direct Cohere API key (preferred). Falls back to openrouterApiKey.
+	 * @param openrouterApiKey  - OpenRouter API key. Used if cohereApiKey is absent.
+	 * @param cohereModel       - Direct Cohere model (default: rerank-v3.5).
+	 * @param openrouterModel   - OpenRouter rerank model (default: OPENROUTER_RERANK_MODEL env or cohere/rerank-4-fast).
 	 *
 	 * Throws at construction time if neither key is provided.
 	 */
@@ -52,6 +58,8 @@ export class CohereReranker {
 		opts: {
 			cohereApiKey?: string;
 			openrouterApiKey?: string;
+			cohereModel?: string;
+			openrouterModel?: string;
 		} = {},
 	) {
 		const cohereKey = opts.cohereApiKey ?? process.env.COHERE_API_KEY ?? "";
@@ -66,9 +74,15 @@ export class CohereReranker {
 		} else {
 			throw new Error(
 				"CohereReranker: neither COHERE_API_KEY nor OPENROUTER_API_KEY is set. " +
-					"Set one of them to use the Gemini legacy retriever.",
+					"Set one of them to use the Cohere reranker.",
 			);
 		}
+
+		this._cohereModel = opts.cohereModel ?? COHERE_RERANK_MODEL_DEFAULT;
+		this._openrouterModel =
+			opts.openrouterModel ??
+			process.env.OPENROUTER_RERANK_MODEL ??
+			OPENROUTER_RERANK_MODEL_DEFAULT;
 	}
 
 	get backend(): CohereBackend {
@@ -125,7 +139,7 @@ export class CohereReranker {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					model: COHERE_RERANK_MODEL,
+					model: this._cohereModel,
 					query,
 					documents,
 					top_n: topK,
@@ -187,7 +201,7 @@ export class CohereReranker {
 					"X-Title": "Ley Abierta RAG (A/B eval)",
 				},
 				body: JSON.stringify({
-					model: OPENROUTER_RERANK_MODEL,
+					model: this._openrouterModel,
 					query,
 					documents,
 					top_n: topK,
