@@ -21,6 +21,7 @@ import { CitizenSummaryService } from "./services/citizen-summary.ts";
 import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 import { HybridSearcherImpl } from "./services/hybrid-search.ts";
+import { startMemProbe } from "./services/mem-probe.ts";
 import { RagPipeline } from "./services/rag/pipeline.ts";
 import { flushTraces } from "./services/rag/tracing.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
@@ -131,6 +132,9 @@ process.on("beforeExit", (code) => {
 process.on("exit", (code) => {
 	probeWrite(`[exit] code=${code}`);
 });
+
+// RSS vs cgroup-cap pressure probe — logs to stderr every 30s when busy.
+startMemProbe();
 
 const app = new Elysia()
 	.use(cors({ origin: CORS_ORIGINS }))
