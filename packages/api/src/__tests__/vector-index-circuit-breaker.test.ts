@@ -24,7 +24,12 @@ describe("vector index singleton — circuit breaker", () => {
 		const fakeIndex = { meta: [], vectors: {} as never, dims: 4096 };
 		const loader = async () => fakeIndex;
 
-		const result = await getSharedVectorIndex(stubDb, "qwen3-nan", "./data", loader);
+		const result = await getSharedVectorIndex(
+			stubDb,
+			"qwen3-nan",
+			"./data",
+			loader,
+		);
 		expect(result).toBe(fakeIndex);
 	});
 
@@ -77,7 +82,12 @@ describe("vector index singleton — circuit breaker", () => {
 		const callsAfterOpen = calls;
 
 		// Circuit is now open — subsequent calls return null without hitting the loader.
-		const result = await getSharedVectorIndex(stubDb, "qwen3-nan", "./data", loader);
+		const result = await getSharedVectorIndex(
+			stubDb,
+			"qwen3-nan",
+			"./data",
+			loader,
+		);
 		expect(result).toBeNull();
 		expect(calls).toBe(callsAfterOpen); // loader not called again
 	});
@@ -99,11 +109,21 @@ describe("vector index singleton — circuit breaker", () => {
 
 		// Recover on the third attempt.
 		shouldFail = false;
-		const result = await getSharedVectorIndex(stubDb, "qwen3-nan", "./data", loader);
+		const result = await getSharedVectorIndex(
+			stubDb,
+			"qwen3-nan",
+			"./data",
+			loader,
+		);
 		expect(result).toBe(fakeIndex);
 
 		// After success the index is cached — loader should not be called again.
-		const result2 = await getSharedVectorIndex(stubDb, "qwen3-nan", "./data", loader);
+		const result2 = await getSharedVectorIndex(
+			stubDb,
+			"qwen3-nan",
+			"./data",
+			loader,
+		);
 		expect(result2).toBe(fakeIndex);
 	});
 });

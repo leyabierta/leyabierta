@@ -941,9 +941,7 @@ describe("escapeLike", () => {
 	});
 
 	it("escapes all wildcard chars together", () => {
-		expect(escapeLike("100% off_sale\\now")).toBe(
-			"100\\% off\\_sale\\\\now",
-		);
+		expect(escapeLike("100% off_sale\\now")).toBe("100\\% off\\_sale\\\\now");
 	});
 
 	// Integration: a LIKE query with user input containing % must not act as a

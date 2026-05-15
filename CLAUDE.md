@@ -161,28 +161,33 @@ Citation-grounded legal Q&A. Citizens ask plain-language questions, the system r
 **Architecture:**
 1. **Query analysis** — LLM extracts keywords, materias, jurisdiction, temporal intent, named-law hints
 2. **Hybrid retrieval** — Vector search (cosine similarity) + BM25 (article-level FTS), fused with Reciprocal Rank Fusion (RRF), plus collection density and recency signals
-3. **Reranking** — Cohere Rerank 4 Pro (fallback: LLM-based) narrows from ~80 candidates to 15
+3. **Reranking** — qwen3.6 LLM reranker (default) or Cohere Rerank 4 Fast via OpenRouter (opt-in) narrows from ~80 candidates to 15
 4. **Temporal enrichment** — Version history headers injected for time-sensitive questions
 5. **Synthesis** — LLM generates answer with inline citations `[BOE-A-XXXX-XXXX, Artículo N]`
 6. **Citation verification** — Post-hoc check that every citation maps to a real article
 
-**Models and costs (Phase 5/6 prod default — full NaN stack):**
+**Models and costs (prod default — full NaN stack):**
 
-All RAG components run on `api.nan.builders` (free, OpenAI-compatible). Requires `HERMES_API_KEY`.
+All RAG components default to `api.nan.builders` (free, OpenAI-compatible). Requires `HERMES_API_KEY`.
 
-| Component | Model | Provider | Cost |
-|---|---|---|---|
-| Embeddings | `qwen3-embedding` (4096 dims) | NaN | $0 |
-| Query analyzer | `qwen3.6` | NaN | $0 |
-| Reranker | `qwen3.6` LLM rerank | NaN | $0 |
-| Synthesis | `qwen3.6` (streaming) | NaN | $0 |
+| Component | Model | Provider | Cost | Env override |
+|---|---|---|---|---|
+| Embeddings | `qwen3-embedding` (4096 dims) | NaN | $0 | — (not configurable) |
+| Query analyzer | `qwen3.6` | NaN | $0 | `LLM_BACKEND=openrouter` |
+| Reranker | `qwen3.6` LLM rerank | NaN | $0 | `RERANK_BACKEND=cohere-or` |
+| Synthesis | `qwen3.6` (streaming) | NaN | $0 | `LLM_BACKEND=openrouter` |
+
+**Opt-in alternative backends (PR #107):**
+- `LLM_BACKEND=openrouter` → routes analyzer + synthesis to `google/gemini-2.5-flash-lite` via OpenRouter (faster, ~2.5s vs 13s synthesis; lower quality).
+- `RERANK_BACKEND=cohere-or` → routes reranker to `cohere/rerank-4-fast` via OpenRouter.
+- Both default to NaN if the env var is absent or `OPENROUTER_API_KEY` is not set. Embeddings are always Qwen NaN — not affected by these flags.
 
 **A/B verdict (Phase 5+6, 50 citizen queries × 9.7k norms):**
-- Retrieval: +30 pp R@1, +14 pp R@5, +10 pp R@10 vs the legacy `gemini-embedding-2 + gemini-flash-lite analyzer + cohere/rerank-4-pro` stack.
+- Retrieval: measured +30 pp R@1 on hand-curated 50-query set (overfit risk); v3-100 synthetic shows statistical tie (p=0.79 McNemar). Decision to use Qwen is justified by cost ($0 vs ~$5-9/mo), not quality gap.
 - Synthesis: judge overall 8.82 vs 7.17 (gemma4 NaN as cross-family judge), 99.6% citation precision vs 97.1%.
 - Latency trade: synthesis 13s vs 2.5s. Acceptable for SSE streaming; first-token-time is what users perceive.
 
-Legacy OpenRouter/Cohere paths remain importable as opt-in fallbacks for future A/B tests (set `preferredBackend` on the reranker, swap `llmFn` on the analyzer/synthesis), but they are no longer the default. The `NAN_STACK` env flag was removed in the Phase 6 cleanup; Qwen NaN is unconditional.
+The `NAN_STACK` env flag was removed in the Phase 6 cleanup. Qwen NaN is the unconditional default; OpenRouter/Cohere are opt-in only.
 
 **Threshold note:** raw `bestScore` is NOT informative about correctness with this stack (hit/miss score distributions overlap, separation ~0.04 on the eval). The `LOW_CONFIDENCE_THRESHOLD` gate is kept at 0.40 (effectively off) to catch catastrophic embedding failures only. For real "low-confidence" UX warnings we need a different signal (rerank top-1 score, candidate diversity) — TBD.
 

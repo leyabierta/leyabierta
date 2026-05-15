@@ -392,8 +392,12 @@ export function resolveNormsByName(
 		.filter((w) => w.length > 2);
 	if (words.length === 0) return [];
 
-	const likeClauses = words.map(() => "LOWER(title) LIKE ? ESCAPE '\\'").join(" AND ");
-	const likeParams = words.map((w) => `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+	const likeClauses = words
+		.map(() => "LOWER(title) LIKE ? ESCAPE '\\'")
+		.join(" AND ");
+	const likeParams = words.map(
+		(w) => `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`,
+	);
 
 	// Scope to embedded norms inline so the LIKE scan never has to materialize
 	// the full norms table for short hint words. The post-query Set filter is
