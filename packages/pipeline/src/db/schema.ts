@@ -247,6 +247,12 @@ const SCHEMA_SQL = /* sql */ `
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- Ingest checksums for incremental ingestion (skip unchanged files)
+  CREATE TABLE IF NOT EXISTS ingest_checksums (
+    file_path TEXT PRIMARY KEY,
+    hash      TEXT NOT NULL
+  );
+
   -- FTS5 virtual table for full-text search (title + content + citizen data)
   CREATE VIRTUAL TABLE IF NOT EXISTS norms_fts USING fts5(
     norm_id UNINDEXED,

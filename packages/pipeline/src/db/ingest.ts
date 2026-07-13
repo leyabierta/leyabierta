@@ -202,6 +202,46 @@ export async function ingestJsonDir(
 		}
 	}
 
+	// --- Incremental ingest: compute hashes and skip unchanged files ---
+	db.exec(/* sql */ `
+		CREATE TABLE IF NOT EXISTS ingest_checksums (
+			file_path TEXT PRIMARY KEY,
+			hash      TEXT NOT NULL
+		)
+	`);
+
+	const getChecksum = db.prepare<{ hash: string }, [string]>(
+		"SELECT hash FROM ingest_checksums WHERE file_path = ?",
+	);
+
+	const fileHashes = new Map<string, string>();
+	const changedFiles: string[] = [];
+
+	for (const file of files) {
+		const content = await Bun.file(file).arrayBuffer();
+		const hash = Bun.hash(new Uint8Array(content)).toString(36);
+		fileHashes.set(file, hash);
+
+		const existing = getChecksum.get(file);
+		if (existing && existing.hash === hash) {
+			continue; // unchanged
+		}
+		changedFiles.push(file);
+	}
+
+	const skippedCount = files.length - changedFiles.length;
+	console.log(
+		`  Incremental ingest: ${changedFiles.length} changed, ${skippedCount} skipped (of ${files.length} total)`,
+	);
+
+	if (changedFiles.length === 0) {
+		console.log("  Nothing changed — skipping ingest entirely.");
+		result.duration = performance.now() - startTime;
+		return result;
+	}
+
+	// Only process changed files from here on
+	files = changedFiles;
 	const totalFiles = files.length;
 
 	// Prepare statements
@@ -433,6 +473,22 @@ export async function ingestJsonDir(
 
 	const ftsDuration = ((performance.now() - ftsStart) / 1000).toFixed(1);
 	console.log(`  FTS rebuild done — ${ftsDuration}s`);
+
+	// Persist checksums for successfully ingested files
+	const upsertChecksum = db.prepare(/* sql */ `
+		INSERT OR REPLACE INTO ingest_checksums (file_path, hash)
+		VALUES ($filePath, $hash)
+	`);
+	const saveChecksums = db.transaction(() => {
+		for (const file of files) {
+			const hash = fileHashes.get(file);
+			if (hash) {
+				upsertChecksum.run({ $filePath: file, $hash: hash });
+			}
+		}
+	});
+	saveChecksums();
+	console.log(`  Saved ${files.length} checksums for next incremental run.`);
 
 	// Restore safe sync mode for normal API operation
 	db.exec("PRAGMA synchronous = NORMAL");
