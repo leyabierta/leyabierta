@@ -218,8 +218,17 @@ export async function ingestJsonDir(
 	const changedFiles: string[] = [];
 
 	for (const file of files) {
-		const content = await Bun.file(file).arrayBuffer();
-		const hash = Bun.hash(new Uint8Array(content)).toString(36);
+		let hash: string;
+		try {
+			const raw = await Bun.file(file).json();
+			const { analisis: _, ...stable } = raw as Record<string, unknown>;
+			hash = Bun.hash(
+				new TextEncoder().encode(JSON.stringify(stable)),
+			).toString(36);
+		} catch {
+			const content = await Bun.file(file).arrayBuffer();
+			hash = Bun.hash(new Uint8Array(content)).toString(36);
+		}
 		fileHashes.set(file, hash);
 
 		const existing = getChecksum.get(file);
