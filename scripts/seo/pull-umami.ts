@@ -11,7 +11,13 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DATA_DIR, today, type UmamiSnapshot, UMAMI_WEBSITE_ID, umamiQuery } from "./lib.ts";
+import {
+	DATA_DIR,
+	today,
+	UMAMI_WEBSITE_ID,
+	type UmamiSnapshot,
+	umamiQuery,
+} from "./lib.ts";
 
 const WINDOW_DAYS = Number(process.env.SEO_UMAMI_WINDOW_DAYS ?? 28);
 const W = UMAMI_WEBSITE_ID;
@@ -26,7 +32,10 @@ function main() {
 		`select count(*) filter (where event_type = 1), count(distinct session_id)
 		 from website_event where website_id = '${W}' and created_at > ${since};`,
 	)[0];
-	const totals = { pageviews: num(totalsRow?.[0]), sessions: num(totalsRow?.[1]) };
+	const totals = {
+		pageviews: num(totalsRow?.[0]),
+		sessions: num(totalsRow?.[1]),
+	};
 
 	const topPages = umamiQuery(
 		`select url_path, count(*) from website_event
@@ -88,7 +97,10 @@ function main() {
 	mkdirSync(DATA_DIR, { recursive: true });
 	const dated = join(DATA_DIR, `umami-${today()}.json`);
 	writeFileSync(dated, JSON.stringify(snapshot, null, 2));
-	writeFileSync(join(DATA_DIR, "umami-latest.json"), JSON.stringify(snapshot, null, 2));
+	writeFileSync(
+		join(DATA_DIR, "umami-latest.json"),
+		JSON.stringify(snapshot, null, 2),
+	);
 
 	console.log(
 		`✓ ${dated}\n  pageviews ${totals.pageviews}  sessions ${totals.sessions}  ` +

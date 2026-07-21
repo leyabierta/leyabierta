@@ -27,7 +27,12 @@ const prevEnd = isoDay(LAG_DAYS + WINDOW_DAYS + 1);
 const prevStart = isoDay(LAG_DAYS + 2 * WINDOW_DAYS + 1);
 
 async function totalsFor(startDate: string, endDate: string, pages: number) {
-	const rows = await gscQuery({ startDate, endDate, dimensions: [], rowLimit: 1 });
+	const rows = await gscQuery({
+		startDate,
+		endDate,
+		dimensions: [],
+		rowLimit: 1,
+	});
 	const r = rows[0];
 	return {
 		clicks: r?.clicks ?? 0,
@@ -39,17 +44,34 @@ async function totalsFor(startDate: string, endDate: string, pages: number) {
 }
 
 async function pageCount(startDate: string, endDate: string): Promise<number> {
-	const rows = await gscQuery({ startDate, endDate, dimensions: ["page"], rowLimit: 5000 });
+	const rows = await gscQuery({
+		startDate,
+		endDate,
+		dimensions: ["page"],
+		rowLimit: 5000,
+	});
 	return rows.length;
 }
 
 async function main() {
-	console.log(`GSC ${SEO_SITE}  current ${start}..${end}  prev ${prevStart}..${prevEnd}`);
+	console.log(
+		`GSC ${SEO_SITE}  current ${start}..${end}  prev ${prevStart}..${prevEnd}`,
+	);
 
 	// Current + previous query tables, joined by query key for movement.
 	const [curQ, prevQ] = await Promise.all([
-		gscQuery({ startDate: start, endDate: end, dimensions: ["query"], rowLimit: 500 }),
-		gscQuery({ startDate: prevStart, endDate: prevEnd, dimensions: ["query"], rowLimit: 500 }),
+		gscQuery({
+			startDate: start,
+			endDate: end,
+			dimensions: ["query"],
+			rowLimit: 500,
+		}),
+		gscQuery({
+			startDate: prevStart,
+			endDate: prevEnd,
+			dimensions: ["query"],
+			rowLimit: 500,
+		}),
 	]);
 	const prevByQuery = new Map(prevQ.map((r) => [r.keys[0]!, r]));
 	const queries: QueryMetric[] = curQ.map((r) => {
@@ -66,7 +88,12 @@ async function main() {
 	});
 
 	const [curPages, curPageCount, prevPageCount] = await Promise.all([
-		gscQuery({ startDate: start, endDate: end, dimensions: ["page"], rowLimit: 500 }),
+		gscQuery({
+			startDate: start,
+			endDate: end,
+			dimensions: ["page"],
+			rowLimit: 500,
+		}),
 		pageCount(start, end),
 		pageCount(prevStart, prevEnd),
 	]);
@@ -77,7 +104,8 @@ async function main() {
 	]);
 
 	// Derived signals (see .goals/seo/PLAYBOOK.md priority order).
-	const byClicks = (a: QueryMetric, b: QueryMetric) => b.clicks - a.clicks || b.impressions - a.impressions;
+	const byClicks = (a: QueryMetric, b: QueryMetric) =>
+		b.clicks - a.clicks || b.impressions - a.impressions;
 
 	const strikingDistance = queries
 		.filter((q) => q.position >= 8 && q.position <= 20 && q.impressions >= 10)
@@ -139,7 +167,10 @@ async function main() {
 	mkdirSync(DATA_DIR, { recursive: true });
 	const dated = join(DATA_DIR, `gsc-${today()}.json`);
 	writeFileSync(dated, JSON.stringify(snapshot, null, 2));
-	writeFileSync(join(DATA_DIR, "gsc-latest.json"), JSON.stringify(snapshot, null, 2));
+	writeFileSync(
+		join(DATA_DIR, "gsc-latest.json"),
+		JSON.stringify(snapshot, null, 2),
+	);
 
 	const dClicks = totals.clicks - prevTotals.clicks;
 	const dPages = totals.pagesWithImpressions - prevTotals.pagesWithImpressions;

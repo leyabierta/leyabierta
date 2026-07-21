@@ -13,7 +13,8 @@ import { resolve } from "node:path";
 
 // ── Config (env with production defaults) ───────────────────────────────────
 export const SEO_SITE = process.env.SEO_GSC_SITE ?? "sc-domain:leyabierta.es";
-export const SITE_ORIGIN = process.env.SEO_SITE_ORIGIN ?? "https://leyabierta.es";
+export const SITE_ORIGIN =
+	process.env.SEO_SITE_ORIGIN ?? "https://leyabierta.es";
 export const UMAMI_WEBSITE_ID =
 	process.env.SEO_UMAMI_WEBSITE_ID ?? "58e766e3-e3bb-42bb-b4c8-993cd4f1c47c";
 
@@ -37,14 +38,18 @@ export async function gscToken(): Promise<string> {
 	const nowSec = Math.floor(Date.now() / 1000);
 	if (cachedToken && cachedToken.exp > nowSec + 60) return cachedToken.token;
 	if (!GSC_SA_JSON) {
-		throw new Error("SEO_GSC_SA_JSON is not set (path to the GSC service-account key JSON).");
+		throw new Error(
+			"SEO_GSC_SA_JSON is not set (path to the GSC service-account key JSON).",
+		);
 	}
 	const key = JSON.parse(readFileSync(GSC_SA_JSON, "utf8")) as {
 		client_email: string;
 		private_key: string;
 	};
 	const b64u = (o: unknown) =>
-		Buffer.from(typeof o === "string" ? o : JSON.stringify(o)).toString("base64url");
+		Buffer.from(typeof o === "string" ? o : JSON.stringify(o)).toString(
+			"base64url",
+		);
 	const claims = {
 		iss: key.client_email,
 		scope: "https://www.googleapis.com/auth/webmasters.readonly",
@@ -53,7 +58,11 @@ export async function gscToken(): Promise<string> {
 		exp: nowSec + 3600,
 	};
 	const unsigned = `${b64u({ alg: "RS256", typ: "JWT" })}.${b64u(claims)}`;
-	const sig = createSign("RSA-SHA256").update(unsigned).end().sign(key.private_key).toString("base64url");
+	const sig = createSign("RSA-SHA256")
+		.update(unsigned)
+		.end()
+		.sign(key.private_key)
+		.toString("base64url");
 	const res = await fetch("https://oauth2.googleapis.com/token", {
 		method: "POST",
 		headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -62,9 +71,14 @@ export async function gscToken(): Promise<string> {
 			assertion: `${unsigned}.${sig}`,
 		}),
 	});
-	const json = (await res.json()) as { access_token?: string; error_description?: string };
+	const json = (await res.json()) as {
+		access_token?: string;
+		error_description?: string;
+	};
 	if (!json.access_token) {
-		throw new Error(`GSC token error: ${json.error_description ?? JSON.stringify(json)}`);
+		throw new Error(
+			`GSC token error: ${json.error_description ?? JSON.stringify(json)}`,
+		);
 	}
 	cachedToken = { token: json.access_token, exp: nowSec + 3600 };
 	return json.access_token;
@@ -78,18 +92,26 @@ export interface GscRow {
 	position: number;
 }
 
-export async function gscQuery(body: Record<string, unknown>): Promise<GscRow[]> {
+export async function gscQuery(
+	body: Record<string, unknown>,
+): Promise<GscRow[]> {
 	const token = await gscToken();
 	const site = encodeURIComponent(SEO_SITE);
 	const res = await fetch(
 		`https://www.googleapis.com/webmasters/v3/sites/${site}/searchAnalytics/query`,
 		{
 			method: "POST",
-			headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"content-type": "application/json",
+			},
 			body: JSON.stringify(body),
 		},
 	);
-	const json = (await res.json()) as { rows?: GscRow[]; error?: { message: string } };
+	const json = (await res.json()) as {
+		rows?: GscRow[];
+		error?: { message: string };
+	};
 	if (json.error) throw new Error(`GSC query error: ${json.error.message}`);
 	return json.rows ?? [];
 }
@@ -100,7 +122,17 @@ export async function gscQuery(body: Record<string, unknown>): Promise<GscRow[]>
 const UMAMI_CONTAINER = process.env.SEO_UMAMI_CONTAINER ?? "code-umami-db-1";
 const UMAMI_ARGV: string[] = process.env.SEO_UMAMI_ARGV
 	? (JSON.parse(process.env.SEO_UMAMI_ARGV) as string[])
-	: ["docker", "exec", "-i", UMAMI_CONTAINER, "psql", "-U", "umami", "-d", "umami"];
+	: [
+			"docker",
+			"exec",
+			"-i",
+			UMAMI_CONTAINER,
+			"psql",
+			"-U",
+			"umami",
+			"-d",
+			"umami",
+		];
 
 // Returns rows as arrays of string columns (tuples-only, tab-separated).
 export function umamiQuery(sql: string): string[][] {
@@ -169,6 +201,135 @@ export interface UmamiSnapshot {
 	countries: { country: string; sessions: number }[];
 	utmSources: { source: string; visits: number }[];
 	weekly: { week: string; pageviews: number }[];
+}
+
+// ── OpenAI-compatible chat client (NaN / OpenRouter) ────────────────────────
+// One client for every candidate model so planning and judging are uniform.
+// MODEL is "provider:model". Providers: nan, openrouter.
+interface Provider {
+	baseUrl: string;
+	key: string | undefined;
+}
+export function providerFor(name: string): Provider {
+	switch (name) {
+		case "nan":
+			return {
+				baseUrl: process.env.NAN_BASE_URL ?? "https://api.nan.builders/v1",
+				key: process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY,
+			};
+		case "openrouter":
+			return {
+				baseUrl: "https://openrouter.ai/api/v1",
+				key: process.env.OPENROUTER_API_KEY,
+			};
+		default:
+			throw new Error(
+				`Unknown provider "${name}". Use nan:<model> or openrouter:<model>.`,
+			);
+	}
+}
+
+export interface ChatMessage {
+	role: "system" | "user" | "assistant";
+	content: string;
+}
+export interface ChatResult {
+	content: string;
+	promptTokens: number;
+	completionTokens: number;
+	latencyMs: number;
+}
+
+export async function chat(
+	model: string,
+	messages: ChatMessage[],
+	opts: { temperature?: number; maxTokens?: number; jsonObject?: boolean } = {},
+): Promise<ChatResult> {
+	const [providerName, ...rest] = model.split(":");
+	const modelId = rest.join(":");
+	if (!providerName || !modelId)
+		throw new Error(`MODEL must be "provider:model", got "${model}"`);
+	const provider = providerFor(providerName);
+	if (!provider.key)
+		throw new Error(`Missing API key for provider "${providerName}"`);
+
+	const t0 = Date.now();
+	const res = await fetch(`${provider.baseUrl}/chat/completions`, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${provider.key}`,
+			"content-type": "application/json",
+			"HTTP-Referer": "https://leyabierta.es",
+			"X-Title": "Ley Abierta SEO loop",
+		},
+		body: JSON.stringify({
+			model: modelId,
+			messages,
+			temperature: opts.temperature ?? 0.4,
+			max_tokens: opts.maxTokens ?? 4000,
+			...(opts.jsonObject ? { response_format: { type: "json_object" } } : {}),
+		}),
+	});
+	const latencyMs = Date.now() - t0;
+	const json = (await res.json()) as {
+		choices?: { message?: { content?: string } }[];
+		usage?: { prompt_tokens?: number; completion_tokens?: number };
+		error?: { message?: string };
+	};
+	if (json.error)
+		throw new Error(
+			`${model} error: ${json.error.message ?? JSON.stringify(json.error)}`,
+		);
+	const content = json.choices?.[0]?.message?.content;
+	if (!content) throw new Error(`${model}: empty response`);
+	return {
+		content,
+		promptTokens: json.usage?.prompt_tokens ?? 0,
+		completionTokens: json.usage?.completion_tokens ?? 0,
+		latencyMs,
+	};
+}
+
+// Best-effort extraction of a JSON object from a (possibly fenced) model reply.
+export function extractJson(text: string): unknown {
+	const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+	const candidate = fenced?.[1] ?? text;
+	const start = candidate.indexOf("{");
+	const end = candidate.lastIndexOf("}");
+	if (start === -1 || end === -1)
+		throw new Error("no JSON object in model response");
+	return JSON.parse(candidate.slice(start, end + 1));
+}
+
+// ── Playbook path guard (whitelist/blacklist from PLAYBOOK.md) ──────────────
+const WHITELIST_PREFIXES = [
+	"packages/web/src/pages/",
+	"packages/web/src/components/",
+	"packages/web/src/layouts/",
+];
+const BLACKLIST_PATTERNS = [
+	/^packages\/api\//,
+	/^packages\/pipeline\//,
+	/^packages\/eval\//,
+	/^packages\/search-lab\//,
+	/^packages\/shared\//,
+	/^data\//,
+	/^scripts\//,
+	/(^|\/)\.env/,
+	/(^|\/)docker-compose\.ya?ml$/,
+	/^\.github\//,
+	/(^|\/)robots\.txt$/,
+];
+export function pathViolations(files: string[]): string[] {
+	const bad: string[] = [];
+	for (const f of files) {
+		const p = f.replace(/^\.?\//, "");
+		if (BLACKLIST_PATTERNS.some((re) => re.test(p)))
+			bad.push(`${f} (blacklisted)`);
+		else if (!WHITELIST_PREFIXES.some((pre) => p.startsWith(pre)))
+			bad.push(`${f} (outside whitelist)`);
+	}
+	return bad;
 }
 
 export type ActionType =
