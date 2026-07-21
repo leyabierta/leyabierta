@@ -60,37 +60,69 @@ function findMatchingDivClose(html: string, contentStart: number): number {
 }
 
 /** Replaces the inner HTML of `<div id="reforma-content">…</div>` (the
- *  client-rendered shell's loading skeleton) with server-rendered content. */
-function injectContent(shellHtml: string, contentHtml: string): string {
+ *  client-rendered shell's loading skeleton) with server-rendered content.
+ *  Returns `null` if the marker/closing tag can't be located — the caller
+ *  MUST then serve the plain (noindex) shell rather than a noindex-stripped
+ *  skeleton, so a shell change fails safe instead of shipping an empty page. */
+function injectContent(shellHtml: string, contentHtml: string): string | null {
 	const marker = '<div id="reforma-content">';
 	const startIdx = shellHtml.indexOf(marker);
-	if (startIdx === -1) return shellHtml;
+	if (startIdx === -1) return null;
 	const contentStart = startIdx + marker.length;
 	const closeIdx = findMatchingDivClose(shellHtml, contentStart);
-	if (closeIdx === -1) return shellHtml;
+	if (closeIdx === -1) return null;
 	return (
 		shellHtml.slice(0, contentStart) + contentHtml + shellHtml.slice(closeIdx)
 	);
 }
 
-/** Rewrites `<title>`, the description meta, adds a self canonical link, and
- *  removes the shell's `noindex` robots meta — turning the generic shell
- *  into a page crawlers can actually index for this specific reform. */
+/** Rewrites `<title>`, description + OG/Twitter metas, adds a self canonical
+ *  link, and removes the shell's `noindex` robots meta — turning the generic
+ *  shell into a page crawlers can actually index for this specific reform.
+ *
+ *  All rewrites use a REPLACER FUNCTION, never a replacement string: in
+ *  String.prototype.replace a `$` in the replacement is special (`$&`, `$'`,
+ *  `$1`…) and `esc()` does not escape `$`, so an API-derived title/description
+ *  containing `$` would otherwise corrupt the document. */
 function injectMeta(
 	shellHtml: string,
 	opts: { title: string; description: string; canonicalPath: string },
 ): string {
 	let html = shellHtml;
 
-	const fullTitle = `${opts.title} — Ley Abierta`;
-	html = html.replace(
-		/<title>[^<]*<\/title>/,
-		`<title>${esc(fullTitle)}</title>`,
-	);
+	const fullTitleVal = esc(`${opts.title} — Ley Abierta`);
+	const bareTitleVal = esc(opts.title);
+	const descVal = esc(opts.description);
+	const canonicalHref = esc(`https://leyabierta.es${opts.canonicalPath}`);
 
 	html = html.replace(
+		/<title>[^<]*<\/title>/,
+		() => `<title>${fullTitleVal}</title>`,
+	);
+	html = html.replace(
 		/<meta name="description" content="[^"]*"\s*\/?>/,
-		`<meta name="description" content="${esc(opts.description)}" />`,
+		() => `<meta name="description" content="${descVal}" />`,
+	);
+	// OG + Twitter so social cards / rich results are per-reform, not generic.
+	html = html.replace(
+		/<meta property="og:title" content="[^"]*"\s*\/?>/,
+		() => `<meta property="og:title" content="${bareTitleVal}" />`,
+	);
+	html = html.replace(
+		/<meta property="og:description" content="[^"]*"\s*\/?>/,
+		() => `<meta property="og:description" content="${descVal}" />`,
+	);
+	html = html.replace(
+		/<meta property="og:url" content="[^"]*"\s*\/?>/,
+		() => `<meta property="og:url" content="${canonicalHref}" />`,
+	);
+	html = html.replace(
+		/<meta name="twitter:title" content="[^"]*"\s*\/?>/,
+		() => `<meta name="twitter:title" content="${bareTitleVal}" />`,
+	);
+	html = html.replace(
+		/<meta name="twitter:description" content="[^"]*"\s*\/?>/,
+		() => `<meta name="twitter:description" content="${descVal}" />`,
 	);
 
 	// Remove the shell's noindex — this response is real content, index it.
@@ -99,17 +131,16 @@ function injectMeta(
 		"",
 	);
 
-	const canonicalHref = `https://leyabierta.es${opts.canonicalPath}`;
-	const canonicalLink = `<link rel="canonical" href="${esc(canonicalHref)}" />`;
+	const canonicalLink = `<link rel="canonical" href="${canonicalHref}" />`;
 	if (html.includes('<link rel="canonical"')) {
 		html = html.replace(
 			/<link rel="canonical" href="[^"]*"\s*\/?>/,
-			canonicalLink,
+			() => canonicalLink,
 		);
 	} else {
 		html = html.replace(
 			'<link rel="icon"',
-			`${canonicalLink}\n\t<link rel="icon"`,
+			() => `${canonicalLink}\n\t<link rel="icon"`,
 		);
 	}
 
@@ -142,7 +173,9 @@ async function renderReformResponse(
 ): Promise<Response | RenderFailure> {
 	const normId = url.searchParams.get("id");
 	const date = url.searchParams.get("date");
-	if (!normId || !date) return { ok: false, status: 404 };
+	// No params → the bare shell is a valid (noindex) page; serve it at 200,
+	// not 404, and let the client-side script show "Faltan parámetros".
+	if (!normId || !date) return { ok: false, status: 200 };
 
 	const apiBase = env.PUBLIC_API_URL || DEFAULT_API_BASE;
 	const headers: HeadersInit = env.API_BYPASS_KEY
@@ -206,24 +239,39 @@ async function renderReformResponse(
 		}
 	}
 
-	const { contentHtml, title, description } = renderReformContent(data, {
-		topicInfo,
-		topicBlockIds,
-		blocks,
-		unifiedDiffHtml,
-	});
+	let html: string;
+	try {
+		// renderReformContent can throw on a malformed 200 (e.g. missing
+		// `law`/`reform`); fetchJson only guards network/parse, not shape.
+		const { contentHtml, title, description } = renderReformContent(data, {
+			topicInfo,
+			topicBlockIds,
+			blocks,
+			unifiedDiffHtml,
+		});
 
-	const shellRes = await env.ASSETS.fetch(new URL(SHELL_PATH, url).toString());
-	if (!shellRes.ok) return { ok: false, status: shellRes.status };
-	const shellHtml = await shellRes.text();
+		const shellRes = await env.ASSETS.fetch(
+			new URL(SHELL_PATH, url).toString(),
+		);
+		if (!shellRes.ok) return { ok: false, status: 200 };
+		const shellHtml = await shellRes.text();
 
-	// Canonical intentionally omits `from`/`topic` — those are navigation
-	// context, not a distinct piece of content, and would otherwise create
-	// duplicate-content variants of the same reform for search engines.
-	const canonicalPath = `/cambios/reforma/?id=${encodeURIComponent(normId)}&date=${encodeURIComponent(date)}`;
+		const injected = injectContent(shellHtml, contentHtml);
+		// Couldn't splice the content in (shell markup changed) → fail safe:
+		// serve the plain noindex shell instead of a noindex-stripped skeleton.
+		if (injected === null) return { ok: false, status: 200 };
 
-	let html = injectContent(shellHtml, contentHtml);
-	html = injectMeta(html, { title, description, canonicalPath });
+		// Canonical intentionally omits `from`/`topic` — those are navigation
+		// context, not a distinct piece of content, and would otherwise create
+		// duplicate-content variants of the same reform for search engines.
+		const canonicalPath = `/cambios/reforma/?id=${encodeURIComponent(normId)}&date=${encodeURIComponent(date)}`;
+
+		html = injectMeta(injected, { title, description, canonicalPath });
+	} catch {
+		// Any render/splice error → serve the static shell (noindex) instead of
+		// a bare 500. The fall-through path resolves status 200 == the shell.
+		return { ok: false, status: 200 };
+	}
 
 	return new Response(html, {
 		status: 200,
