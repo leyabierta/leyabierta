@@ -1,0 +1,55 @@
+name: SEO loop — open PR
+
+# The autonomous SEO loop (scripts/seo/seo-loop.sh, running on KonarServer)
+# pushes its branch over SSH with a read/write deploy key — it holds NO GitHub
+# API token. This workflow opens the PR on its behalf using the built-in
+# GITHUB_TOKEN, so no PAT ever lives on the server.
+#
+# The PR title + body travel in the branch's head commit message: subject line
+# (%s) → title, body (%b) → PR body. seo-loop.sh writes them there.
+#
+# Note: a PR opened by GITHUB_TOKEN does NOT trigger `pull_request` workflows
+# (GitHub's anti-recursion rule). The build/smoke gate (pr-checks.yml) is wired
+# to also run on push to seo-loop/** so it still gates these PRs. claude-review
+# stays pull_request-only and will not auto-run on bot PRs — a human reviews and
+# merges every SEO PR anyway.
+
+on:
+  push:
+    branches:
+      - "seo-loop/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 2
+
+      - name: Open PR from the pushed branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Idempotent: skip only if an OPEN PR for this branch already exists
+          # (a follow-up push to the same iteration branch). `gh pr view` would
+          # also match a closed/merged PR and wrongly skip; filter by state.
+          if gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length > 0' | grep -q true; then
+            echo "An open PR already exists for $BRANCH — nothing to do."
+            exit 0
+          fi
+          TITLE="$(git log -1 --format=%s)"
+          BODY="$(git log -1 --format=%b)"
+          [ -n "$TITLE" ] || TITLE="SEO loop · $BRANCH"
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "$BODY"
