@@ -266,8 +266,27 @@ if (abbrev) {
 		if (short2digit !== full) seoAbbreviations.push(`${abbrev} ${short2digit}`); // "RD 769/87"
 	}
 }
+// ── SEO: per-norm colloquial aliases ──
+// A few norms are searched almost exclusively by a popular name rather than by
+// their official "Ley N/AAAA" title (e.g. "Ley del IVA" for Ley 37/1992). We
+// prepend those aliases so the leading one drives the <title>, alternateName
+// and sr-only text, matching how citizens actually query for the norm.
+const NORM_SEO_ALIASES: Record<string, string[]> = {
+	"BOE-A-1992-28740": ["Ley del IVA", "Ley 37/1992"],
+};
+const NORM_SEO_DESC_HINTS: Record<string, string> = {
+	"BOE-A-1992-28740": "Impuesto sobre el Valor Añadido (IVA)",
+};
+const aliasOverride = NORM_SEO_ALIASES[law.identificador];
+if (aliasOverride) {
+	seoAbbreviations = [
+		...aliasOverride,
+		...seoAbbreviations.filter((a) => !aliasOverride.includes(a)),
+	];
+}
 const seoDescription = [
 	seoAbbreviations[0],
+	NORM_SEO_DESC_HINTS[law.identificador],
 	citizenSummary || (RANK_LABELS[law.rango] ?? law.rango),
 	law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
 	law.departamento,
@@ -915,6 +934,20 @@ const seoDescription = [
 				<ul class="ref-list ref-list-related">
 					{related.map((r) => (
 						<li><a href={`/leyes/${r.id}/`}>{r.titulo}</a></li>
+					))}
+				</ul>
+			</div>
+		)}
+
+		{reforms.length > 1 && (
+			<div class="section" id="recent-changes">
+				<h2 class="section-heading">Cambios recientes</h2>
+				<ul class="ref-list ref-list-related">
+					{reforms.slice(0, -1).slice(0, 6).map((reform) => (
+						<li>
+							<a href={`/cambios/reforma/?id=${id}&date=${reform.fecha}&from=law`}>Modificación del {formatDate(reform.fecha)}</a>
+							{' '}<span style="font-family:var(--font-mono);font-size:0.6875rem;color:var(--text-muted)">{reform.fuente}</span>
+						</li>
 					))}
 				</ul>
 			</div>

@@ -9,10 +9,20 @@ export const prerender = true;
 
 const SITE_URL = "https://leyabierta.es";
 
+// High-value norm pages with many impressions but 0 clicks: give them a higher
+// priority so crawlers revisit them more often while their meta/content is being
+// improved. Does not remove or change any URL — only the priority hint.
+const HIGH_PRIORITY_NORMS = new Set([
+	"BOE-A-1992-28740", // Ley del IVA
+	"BOE-A-2015-11724",
+	"BOE-A-2006-20764", // Ley del IRPF
+]);
+
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
 
 	const secondaryPages = [
+		{ path: "/temas/fiscalidad/", changefreq: "weekly", priority: "0.7" },
 		{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
 		{ path: "/sobre/", changefreq: "monthly", priority: "0.5" },
 		{ path: "/sobre/contribuir/", changefreq: "monthly", priority: "0.4" },
@@ -49,10 +59,11 @@ export const GET: APIRoute = async () => {
 			d.ultima_actualizacion >= "1970-01-01"
 				? `\n    <lastmod>${d.ultima_actualizacion}</lastmod>`
 				: "";
+		const priority = HIGH_PRIORITY_NORMS.has(d.identificador) ? "0.9" : "0.8";
 		urls.push(`  <url>
     <loc>${SITE_URL}/leyes/${d.identificador}/</loc>${lastmod}
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>${priority}</priority>
   </url>`);
 	}
 
