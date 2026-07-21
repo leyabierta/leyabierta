@@ -122,7 +122,7 @@ export async function plan(
 	const messages = buildMessages(gsc, umami, iteration);
 	const res = await chat(model, messages, {
 		temperature: 0.4,
-		maxTokens: 4000,
+		maxTokens: 8000,
 		jsonObject: true,
 	});
 
