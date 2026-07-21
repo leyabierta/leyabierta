@@ -5,15 +5,16 @@
  * and uses an LLM to produce per-topic summaries + "medida encubierta" flags.
  *
  * Usage:
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --limit 10
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --since 2026-01-01
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --dry-run
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --force
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --limit 10
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --since 2026-01-01
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --dry-run
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --force
  */
 
 import { BASE_MATERIAS } from "../data/materia-mappings.ts";
-import { callOpenRouter, OpenRouterError } from "../services/openrouter.ts";
+import { callNan } from "../services/nan.ts";
+import { OpenRouterError } from "../services/openrouter.ts";
 import { getArg, getMaterias, hasFlag, setupDb } from "./shared.ts";
 
 const OMNIBUS_THRESHOLD = 15;
@@ -22,15 +23,13 @@ const OMNIBUS_THRESHOLD = 15;
 
 const limitArg = Number(getArg("limit") ?? 20);
 const sinceArg = getArg("since");
-const modelId = getArg("model") ?? "google/gemini-2.5-flash-lite";
+const modelId = getArg("model") ?? "gemma4";
 const dryRun = hasFlag("dry-run");
 const force = hasFlag("force");
 
-const apiKey = process.env.OPENROUTER_API_KEY;
+const apiKey = process.env.NAN_API_KEY;
 if (!apiKey && !dryRun) {
-	console.error(
-		"Set OPENROUTER_API_KEY env variable (or use --dry-run to skip AI)",
-	);
+	console.error("Set NAN_API_KEY env variable (or use --dry-run to skip AI)");
 	process.exit(1);
 }
 
@@ -334,21 +333,18 @@ async function main() {
 		const { system, user } = buildPrompt(norm, blocks, materias);
 
 		try {
-			const result = await callOpenRouter<{ topics: TopicResponse[] }>(
-				apiKey!,
-				{
-					model: modelId,
-					messages: [
-						{ role: "system", content: system },
-						{ role: "user", content: user },
-					],
-					temperature: 0.2,
-					jsonSchema: {
-						name: "omnibus_topics",
-						schema: TOPIC_SCHEMA,
-					},
+			const result = await callNan<{ topics: TopicResponse[] }>(apiKey!, {
+				model: modelId,
+				messages: [
+					{ role: "system", content: system },
+					{ role: "user", content: user },
+				],
+				temperature: 0.2,
+				jsonSchema: {
+					name: "omnibus_topics",
+					schema: TOPIC_SCHEMA,
 				},
-			);
+			});
 
 			const { result: topics, reason } = validateTopics(result.data);
 			if (!topics) {
