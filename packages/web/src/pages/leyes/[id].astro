@@ -61,6 +61,14 @@ export async function getStaticPaths() {
 	const laws = await getCollection("laws");
 	const allIds = new Set(laws.map((e) => e.data.identificador));
 
+	// Materias come from the build manifest (DB-sourced), not the .md frontmatter:
+	// the published leyes repo does not carry `materias`, so relying on frontmatter
+	// left every ficha with empty materias — no tags and no "Normas relacionadas"
+	// block. Fall back to frontmatter for local dev where no manifest is present.
+	const manifest = loadManifest();
+	const materiasFor = (identificador: string, fm: string[] | undefined) =>
+		manifest?.citizens[identificador]?.materias ?? fm ?? [];
+
 	// ── SEO: topical internal linking ──────────────────────────────────────
 	// Leaf law pages otherwise only link to explicit references (many of which
 	// are not in-corpus, so they render as plain text). That leaves ~12k pages
@@ -81,7 +89,7 @@ export async function getStaticPaths() {
 			titulo: d.titulo,
 			jurisdiccion: d.jurisdiccion,
 			estado: d.estado,
-			materias: d.materias ?? [],
+			materias: materiasFor(d.identificador, d.materias),
 		});
 	}
 	const materiaIndex = new Map<string, string[]>();
@@ -134,7 +142,11 @@ export async function getStaticPaths() {
 		props: {
 			entry,
 			allIds,
-			related: relatedFor(entry.data.identificador, entry.data.materias ?? [], entry.data.jurisdiccion),
+			related: relatedFor(
+				entry.data.identificador,
+				materiasFor(entry.data.identificador, entry.data.materias),
+				entry.data.jurisdiccion,
+			),
 		},
 	}));
 }
@@ -241,7 +253,9 @@ function capitalize(s: string): string {
 }
 
 const reforms = (law.reformas ?? []).slice().reverse();
-const materias = law.materias ?? [];
+// Prefer DB-sourced materias from the manifest (the published leyes frontmatter
+// may not carry them); fall back to frontmatter for local dev without a manifest.
+const materias = manifest?.citizens[id!]?.materias ?? law.materias ?? [];
 const notas = law.notas ?? [];
 const refsAnt = law.referencias_anteriores ?? [];
 const refsPost = law.referencias_posteriores ?? [];

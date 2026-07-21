@@ -36,6 +36,13 @@ function insertCitizenTag(normId: string, tag: string, blockId = "") {
 	]);
 }
 
+function insertMateria(normId: string, materia: string) {
+	db.run("INSERT INTO materias (norm_id, materia) VALUES (?, ?)", [
+		normId,
+		materia,
+	]);
+}
+
 function insertOmnibusTopic(normId: string, index: number, label: string) {
 	db.run(
 		`INSERT INTO omnibus_topics (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias, block_ids, model)
@@ -88,6 +95,27 @@ describe("getBuildManifest()", () => {
 		expect(result.citizens["BOE-A-2024-001"]).toEqual({
 			summary: "",
 			tags: ["empresario"],
+			materias: [],
+		});
+	});
+
+	it("includes DB materias per norm, creating an entry when needed", () => {
+		insertNorm("BOE-A-2024-001", "Summary");
+		insertMateria("BOE-A-2024-001", "Vivienda");
+		insertMateria("BOE-A-2024-001", "Alquiler");
+		// materias-only norm (no summary, no tags) still gets an entry
+		insertNorm("BOE-A-2024-002", "");
+		insertMateria("BOE-A-2024-002", "Empleo");
+
+		const result = svc.getBuildManifest();
+		expect(result.citizens["BOE-A-2024-001"].materias).toEqual([
+			"Alquiler",
+			"Vivienda",
+		]);
+		expect(result.citizens["BOE-A-2024-002"]).toEqual({
+			summary: "",
+			tags: [],
+			materias: ["Empleo"],
 		});
 	});
 

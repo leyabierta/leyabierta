@@ -14,7 +14,10 @@ import { readFileSync } from "node:fs";
 import type { OmnibusTopic } from "./api.ts";
 
 export interface BuildManifest {
-	citizens: Record<string, { summary: string; tags: string[] }>;
+	citizens: Record<
+		string,
+		{ summary: string; tags: string[]; materias: string[] }
+	>;
 	omnibus: Record<string, OmnibusTopic[]>;
 }
 
