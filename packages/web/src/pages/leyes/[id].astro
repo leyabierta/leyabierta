@@ -51,16 +51,95 @@ md.renderer.rules.heading_close = (tokens, idx, options, _env, self) => {
 	return self.renderToken(tokens, idx, options);
 };
 
+// A related norm shown in the "Normas relacionadas" internal-linking block.
+interface RelatedLaw {
+	id: string;
+	titulo: string;
+}
+
 export async function getStaticPaths() {
 	const laws = await getCollection("laws");
 	const allIds = new Set(laws.map((e) => e.data.identificador));
+
+	// ── SEO: topical internal linking ──────────────────────────────────────
+	// Leaf law pages otherwise only link to explicit references (many of which
+	// are not in-corpus, so they render as plain text). That leaves ~12k pages
+	// weakly interlinked, which Google reads as low-value ("Crawled - currently
+	// not indexed"). We build topical clusters by linking each norm to siblings
+	// that share the most specific materias, with real /leyes/<id>/ links.
+	//
+	// Dedup by identificador first (data-integrity invariant: one norm, one entry).
+	const byId = new Map<
+		string,
+		{ id: string; titulo: string; jurisdiccion: string; estado: string; materias: string[] }
+	>();
+	for (const e of laws) {
+		const d = e.data;
+		if (byId.has(d.identificador)) continue;
+		byId.set(d.identificador, {
+			id: d.identificador,
+			titulo: d.titulo,
+			jurisdiccion: d.jurisdiccion,
+			estado: d.estado,
+			materias: d.materias ?? [],
+		});
+	}
+	const materiaIndex = new Map<string, string[]>();
+	for (const l of byId.values()) {
+		for (const m of l.materias) {
+			let bucket = materiaIndex.get(m);
+			if (!bucket) {
+				bucket = [];
+				materiaIndex.set(m, bucket);
+			}
+			bucket.push(l.id);
+		}
+	}
+
+	// Very broad materias (e.g. "Derecho administrativo") carry little topical
+	// signal and would just add noise, so we skip them when scoring.
+	const GENERIC_MATERIA_MAX = 400;
+
+	function relatedFor(id: string, materias: string[], jurisdiccion: string): RelatedLaw[] {
+		if (materias.length === 0) return [];
+		// Prefer specific (small-bucket) materias first: they signal a stronger
+		// topical match than generic ones.
+		const ordered = [...materias].sort(
+			(a, b) => (materiaIndex.get(a)?.length ?? 0) - (materiaIndex.get(b)?.length ?? 0),
+		);
+		const score = new Map<string, number>();
+		for (const m of ordered) {
+			const bucket = materiaIndex.get(m);
+			if (!bucket || bucket.length > GENERIC_MATERIA_MAX) continue;
+			for (const otherId of bucket) {
+				if (otherId === id) continue;
+				score.set(otherId, (score.get(otherId) ?? 0) + 1);
+			}
+			if (score.size > 200) break; // enough candidates to rank
+		}
+		return [...score.entries()]
+			.map(([otherId, shared]) => ({ shared, l: byId.get(otherId) }))
+			.filter((x): x is { shared: number; l: NonNullable<typeof x.l> } => !!x.l && x.l.estado !== "derogada")
+			.sort(
+				(a, b) =>
+					b.shared - a.shared ||
+					Number(b.l.jurisdiccion === jurisdiccion) - Number(a.l.jurisdiccion === jurisdiccion),
+			)
+			.slice(0, 6)
+			.map((x) => ({ id: x.l.id, titulo: x.l.titulo }));
+	}
+
 	return laws.map((entry) => ({
 		params: { id: entry.data.identificador },
-		props: { entry, allIds },
+		props: {
+			entry,
+			allIds,
+			related: relatedFor(entry.data.identificador, entry.data.materias ?? [], entry.data.jurisdiccion),
+		},
 	}));
 }
 
-const { entry, allIds } = Astro.props;
+const { entry, allIds, related } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
 
@@ -582,6 +661,7 @@ const seoDescription = [
 		.ref-list { list-style: disc; padding-left: 1.5rem; margin: 0; }
 		.ref-list li { font-size: 0.875rem; line-height: 1.65; color: var(--text-secondary); margin-bottom: 0.375rem; }
 		.ref-list a { font-family: var(--font-mono); font-size: 0.8125rem; }
+		.ref-list-related a { font-family: var(--font-sans); font-size: 0.875rem; }
 		.nota-item { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 0.375rem; }
 
 		/* ── Timeline ── */
@@ -828,6 +908,17 @@ const seoDescription = [
 				</div>
 			)}
 		</div>
+
+		{related.length > 0 && (
+			<div class="section" id="related-laws">
+				<h2 class="section-heading">Normas relacionadas</h2>
+				<ul class="ref-list ref-list-related">
+					{related.map((r) => (
+						<li><a href={`/leyes/${r.id}/`}>{r.titulo}</a></li>
+					))}
+				</ul>
+			</div>
+		)}
 
 		<!-- Follow this law -->
 		<div class="follow-card" id="follow-card">
