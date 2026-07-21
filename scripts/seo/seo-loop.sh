@@ -22,9 +22,18 @@
 
 set -euo pipefail
 
+# ── Config from the env file FIRST ──────────────────────────────────────────
+# The env file may set SEO_REPO / SEO_MODEL / SEO_STATE_DIR / PATH, so it must
+# be sourced before those defaults are resolved (sourcing it later left REPO
+# pinned to the wrong default and the loop wrote to the prod checkout).
+ENV_FILE="${SEO_ENV_FILE:-/opt/leyabierta/.env.seo}"
+if [ -f "$ENV_FILE" ]; then
+	set -a; # shellcheck disable=SC1090
+	source "$ENV_FILE"; set +a
+fi
+
 REPO="${SEO_REPO:-/opt/leyabierta/code}"
 MODEL="${SEO_MODEL:-claude:sonnet}"
-ENV_FILE="${SEO_ENV_FILE:-/opt/leyabierta/.env.seo}"
 STATE_DIR="${SEO_STATE_DIR:-/opt/leyabierta/seo-state}"
 DATE="$(date +%F)"
 
@@ -33,12 +42,6 @@ cd "$REPO"
 # ── Single-instance lock ────────────────────────────────────────────────────
 exec 9>"/var/lock/leyabierta-seo-loop.lock" || exec 9>"/tmp/leyabierta-seo-loop.lock"
 flock -n 9 || { echo "another seo-loop is already running"; exit 0; }
-
-# ── Secrets ─────────────────────────────────────────────────────────────────
-if [ -f "$ENV_FILE" ]; then
-	set -a; # shellcheck disable=SC1090
-	source "$ENV_FILE"; set +a
-fi
 
 mkdir -p "$STATE_DIR"
 IT_FILE="$STATE_DIR/iteration"
