@@ -2,22 +2,23 @@
  * Generate AI reform summaries for reforms missing them.
  *
  * Generates headline, summary, reform_type, and importance for each reform
- * using OpenRouter (Gemini Flash Lite). Results cached in reform_summaries table.
+ * using the NaN stack (gemma4). Results cached in reform_summaries table.
  *
  * Usage:
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --weeks 4
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --limit 50
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --dry-run
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --force
- *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --model google/gemini-2.0-flash-001
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --weeks 4
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --limit 50
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --dry-run
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --force
+ *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --model gemma4
  */
 
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "@leyabierta/pipeline";
 import { DbService } from "../services/db.ts";
-import { callOpenRouter, OpenRouterError } from "../services/openrouter.ts";
+import { callNan } from "../services/nan.ts";
+import { OpenRouterError } from "../services/openrouter.ts";
 
 // ── CLI ──
 
@@ -30,16 +31,14 @@ const hasFlag = (name: string) => args.includes(`--${name}`);
 
 const weeks = Number(getArg("weeks") ?? 4);
 const limitArg = Number(getArg("limit") ?? 200);
-const modelId = getArg("model") ?? "google/gemini-2.5-flash-lite";
+const modelId = getArg("model") ?? "gemma4";
 const dryRun = hasFlag("dry-run");
 const force = hasFlag("force");
 const omnibusOnly = hasFlag("omnibus-only");
 
-const apiKey = process.env.OPENROUTER_API_KEY;
+const apiKey = process.env.NAN_API_KEY;
 if (!apiKey && !dryRun) {
-	console.error(
-		"Set OPENROUTER_API_KEY env variable (or use --dry-run to skip AI)",
-	);
+	console.error("Set NAN_API_KEY env variable (or use --dry-run to skip AI)");
 	process.exit(1);
 }
 
@@ -406,7 +405,7 @@ async function main() {
 		);
 
 		try {
-			const result = await callOpenRouter<SummaryResponse>(apiKey!, {
+			const result = await callNan<SummaryResponse>(apiKey!, {
 				model: modelId,
 				messages: [
 					{ role: "system", content: system },

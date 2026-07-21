@@ -34,7 +34,7 @@ const MONOREPO_ROOT = resolve(SCRIPT_DIR, "..", "..", "..", "..");
 const WORKSPACE_ROOT = MONOREPO_ROOT;
 
 const envPath = join(MONOREPO_ROOT, ".env");
-let apiKey = process.env.OPENROUTER_API_KEY;
+let apiKey = process.env.NAN_API_KEY;
 
 try {
 	const envContent = await Bun.file(envPath).text();
@@ -47,7 +47,7 @@ try {
 			.slice(eqIdx + 1)
 			.trim()
 			.replace(/^["']|["']$/g, "");
-		if (key === "OPENROUTER_API_KEY" && !apiKey) {
+		if (key === "NAN_API_KEY" && !apiKey) {
 			apiKey = value;
 		}
 	}
@@ -56,14 +56,18 @@ try {
 }
 
 if (!apiKey) {
-	console.error("OPENROUTER_API_KEY not found in environment or .env file");
+	console.error("NAN_API_KEY not found in environment or .env file");
 	process.exit(1);
 }
 
 // ── Constants ──
 
-const MODEL = "google/gemini-2.5-flash-lite";
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+// gemma4 on the free NaN stack (api.nan.builders). Chosen over Gemini/OpenRouter
+// after an A/B on the law-level citizen summary: gemma4 matched Gemini quality,
+// was the most consistent (0 parse errors, respected the ≤150-char target), and
+// costs $0. See the model A/B (2026-07). OpenRouter is no longer used here.
+const MODEL = "gemma4";
+const API_URL = "https://api.nan.builders/v1/chat/completions";
 const DELAY_MS = 0;
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 3;
