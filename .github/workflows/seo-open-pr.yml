@@ -37,10 +37,11 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          # Idempotent: skip if a PR for this branch already exists (e.g. a
-          # follow-up push to the same iteration branch).
-          if gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" --json number >/dev/null 2>&1; then
-            echo "PR already open for $BRANCH — nothing to do."
+          # Idempotent: skip only if an OPEN PR for this branch already exists
+          # (a follow-up push to the same iteration branch). `gh pr view` would
+          # also match a closed/merged PR and wrongly skip; filter by state.
+          if gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length > 0' | grep -q true; then
+            echo "An open PR already exists for $BRANCH — nothing to do."
             exit 0
           fi
           TITLE="$(git log -1 --format=%s)"

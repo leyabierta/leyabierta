@@ -24,6 +24,7 @@ on:
   push:
     branches:
       - "seo-loop/**"
+    # keep these paths in sync with pull_request.paths above
     paths:
       - "packages/web/**"
       - "packages/pipeline/**"
