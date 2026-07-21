@@ -1,0 +1,26 @@
+{
+	// Standalone Cloudflare Worker — NOT an Astro adapter. Astro builds a pure
+	// static site (`output: "static"`, no adapter) to dist/; this Worker sits
+	// in front of it and only intervenes for /cambios/reforma/* requests that
+	// carry ?id&date, where it SSRs the diff content server-side (see
+	// src/worker/index.ts + src/lib/reform-render.ts) before handing back the
+	// static shell page. Everything else falls straight through to the
+	// `ASSETS` binding. Deployed with `wrangler deploy` (wrangler bundles the
+	// TS worker itself — no separate build step needed for it).
+	"name": "leyabierta-web",
+	"main": "src/worker/index.ts",
+	"compatibility_date": "2026-07-01",
+	// markdown-it / sanitize-html pull in node: builtins at the edge.
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS",
+		// Without this, static-asset matching runs BEFORE the Worker, so
+		// /cambios/reforma/index.html would be served straight from ASSETS and
+		// the SSR/meta-injection in src/worker/index.ts would never run (every
+		// reform would stay the noindex shell — defeating the whole point).
+		// Run the Worker first only for reform URLs; everything else is served
+		// directly from assets (no Worker invocation → preserves the request budget).
+		"run_worker_first": ["/cambios/reforma/*"]
+	}
+}

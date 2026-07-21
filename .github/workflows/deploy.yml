@@ -337,9 +337,16 @@ jobs:
           app-name: web
           new-status: "⏳ **web** — Deploying to Cloudflare..."
 
-      - name: Deploy to Cloudflare Pages
+      # Deploy to Cloudflare Workers: the ~12k prebuilt static pages (dist/,
+      # via the ASSETS binding) plus a standalone Worker (src/worker/index.ts,
+      # no Astro adapter) that SSRs only /cambios/reforma/* on demand.
+      # `wrangler deploy` reads wrangler.jsonc in packages/web and bundles the
+      # worker itself. NOTE: the leyabierta.es custom domain must be attached
+      # to the `leyabierta-web` Worker (one-time Dashboard cutover) for this to
+      # serve production; until then it publishes to the *.workers.dev preview.
+      - name: Deploy to Cloudflare Workers
         working-directory: packages/web
-        run: bunx wrangler pages deploy dist --project-name=leyabierta
+        run: bunx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

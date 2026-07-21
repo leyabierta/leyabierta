@@ -77,3 +77,6 @@ __pycache__/
 .venv/
 .oc/
 packages/api/src/data/
+
+# Cloudflare Workers local build cache (@astrojs/cloudflare adapter)
+.wrangler/

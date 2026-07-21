@@ -8,9 +8,9 @@
 		"preview": "astro preview"
 	},
 	"dependencies": {
-		"@astrojs/react": "^5.0.3",
+		"@astrojs/react": "^6.0.1",
 		"@lottiefiles/dotlottie-react": "^0.19.2",
-		"astro": "6.1.9",
+		"astro": "^7.1.1",
 		"diff2html": "3.4.56",
 		"js-yaml": "4.1.1",
 		"markdown-it": "^14.1.1",
@@ -20,6 +20,7 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
+		"@cloudflare/workers-types": "^5.20260718.1",
 		"@types/markdown-it": "^14.1.2",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
