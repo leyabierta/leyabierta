@@ -92,8 +92,9 @@ ${PLAN_FILE}. Hard rules:
 - SKIP any action with requiresHumanReview=true, and any action touching a
   blacklisted path — note it in the summary instead.
 - Keep legal accuracy sacred: never misrepresent a norm to rank.
-- After editing, ensure: bunx tsgo --noEmit && bun run check pass. If a change
-  breaks them, revert just that change.
+- After editing, ensure \`bun run check\` (biome) passes. If a change breaks it,
+  revert just that change. Do NOT run tsgo/tsc: it is not configured for the
+  Astro web package and floods hundreds of pre-existing false errors — ignore it.
 - Do NOT git push, do NOT open PRs, do NOT touch main.
 - Write a short summary of what you applied/skipped to ${SEO_DATA_DIR}/impl-${DATE}.md.
 EOF

@@ -57,11 +57,17 @@ fines:
 
 1. `claude -p` recibe el plan JSON ganador y este playbook.
 2. Aplica SOLO las acciones dentro de la whitelist.
-3. Verifica: `bunx tsgo --noEmit` && `bun run check` && `bun run build`.
+3. Verifica: `bun run check` (biome). El build (`astro build`) es el gate real y
+   corre en CI sobre el PR (`pr-checks.yml`), o localmente con `SEO_RUN_BUILD=1`.
+   NO uses `tsgo`/`tsc`: no está configurado para el paquete Astro y escupe
+   cientos de errores falsos preexistentes.
 4. Si algo falla → revierte los cambios de esa acción y sigue con las demás.
    Si todo falla → aborta sin abrir PR y registra el fallo en PROGRESS.
-5. Commit en la rama `seo-loop/iter-<N>-<fecha>`, push, `gh pr create`.
-6. El PR pasa por `claude-code-review.yml` + lint/test. Un humano mergea.
+5. Commit en la rama `seo-loop/iter-<N>-<fecha>`, push por deploy key. La Action
+   `seo-open-pr.yml` abre el PR (el host no tiene token de API de GitHub).
+6. El PR pasa por `pr-checks.yml` (build+smoke, vía trigger push). Un humano
+   revisa y mergea. `claude-code-review.yml` es `pull_request`-only y no
+   auto-corre en PRs del bot.
 
 ## Escalar a humano (NO auto-decidir)
 
