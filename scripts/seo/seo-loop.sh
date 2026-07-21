@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Autonomous biweekly SEO loop for leyabierta.es.
+#
+#   pull GSC + Umami  →  model proposes a plan  →  claude -p implements it
+#   →  verify (tsgo + biome + build)  →  open a PR  →  append PROGRESS.md
+#
+# It NEVER pushes to main or deploys. A human reviews and merges the PR.
+# See .goals/seo/GOAL.md and .goals/seo/PLAYBOOK.md.
+#
+# Env (from ${SEO_ENV_FILE:-/opt/leyabierta/.env.seo}, mode 600):
+#   SEO_GSC_SA_JSON      path to the GSC service-account key JSON
+#   NAN_API_KEY          for nan:* models (the valid token, ending pcNg)
+#   GH_TOKEN             token for `gh pr create` on leyabierta/leyabierta
+#   claude auth          CLAUDE_CODE_OAUTH_TOKEN (or a prior `claude` login) for
+#                        claude:* models and the implement step
+# Optional:
+#   SEO_MODEL            planning model (default claude:sonnet)
+#   SEO_REPO             repo checkout (default /opt/leyabierta/code)
+#   SEO_STATE_DIR        persistent dir for iteration counter + PROGRESS/STATE
+#   SEO_DRY_RUN=1        do everything except push + PR
+#   SEO_RUN_BUILD=1      also run the full local astro build (CI runs it anyway)
+
+set -euo pipefail
+
+REPO="${SEO_REPO:-/opt/leyabierta/code}"
+MODEL="${SEO_MODEL:-claude:sonnet}"
+ENV_FILE="${SEO_ENV_FILE:-/opt/leyabierta/.env.seo}"
+STATE_DIR="${SEO_STATE_DIR:-/opt/leyabierta/seo-state}"
+DATE="$(date +%F)"
+
+cd "$REPO"
+
+# ── Single-instance lock ────────────────────────────────────────────────────
+exec 9>"/var/lock/leyabierta-seo-loop.lock" || exec 9>"/tmp/leyabierta-seo-loop.lock"
+flock -n 9 || { echo "another seo-loop is already running"; exit 0; }
+
+# ── Secrets ─────────────────────────────────────────────────────────────────
+if [ -f "$ENV_FILE" ]; then
+	set -a; # shellcheck disable=SC1090
+	source "$ENV_FILE"; set +a
+fi
+
+mkdir -p "$STATE_DIR"
+IT_FILE="$STATE_DIR/iteration"
+ITER="$(( $(cat "$IT_FILE" 2>/dev/null || echo 0) + 1 ))"
+export SEO_ITERATION="$ITER"
+# Keep the persistent bitácora reachable by the TS scripts (data/seo is gitignored).
+export SEO_DATA_DIR="$REPO/data/seo"
+mkdir -p "$SEO_DATA_DIR"
+# Carry the running STATE/PROGRESS in from the persistent dir.
+cp -f "$STATE_DIR/STATE.md"    "$SEO_DATA_DIR/STATE.md"    2>/dev/null || true
+cp -f "$STATE_DIR/PROGRESS.md" "$SEO_DATA_DIR/PROGRESS.md" 2>/dev/null || true
+
+BRANCH="seo-loop/iter-${ITER}-${DATE}"
+echo "== SEO loop · iter ${ITER} · ${DATE} · model=${MODEL} =="
+
+# ── Fresh branch off main ───────────────────────────────────────────────────
+git fetch --quiet origin main
+git checkout -q -B "$BRANCH" origin/main
+
+# ── 1. Snapshots ────────────────────────────────────────────────────────────
+bun run scripts/seo/pull-gsc.ts
+bun run scripts/seo/pull-umami.ts
+
+# ── 2. Plan ─────────────────────────────────────────────────────────────────
+MODEL="$MODEL" bun run scripts/seo/plan.ts
+PLAN_FILE="$(ls -t "$SEO_DATA_DIR"/plan-*-"${DATE}".json | head -1)"
+echo "plan: $PLAN_FILE"
+
+# Refresh STATE.md so the next iteration has current context (it was read but
+# never written before).
+bun run scripts/seo/write-state.ts "$PLAN_FILE" || true
+
+# ── 3. Implement via claude -p ──────────────────────────────────────────────
+read -r -d '' PROMPT <<EOF || true
+You are the implementer of the leyabierta.es SEO loop. Apply the action plan in
+${PLAN_FILE}. Hard rules:
+- Obey .goals/seo/PLAYBOOK.md exactly. Only edit whitelisted paths.
+- SKIP any action with requiresHumanReview=true, and any action touching a
+  blacklisted path — note it in the summary instead.
+- Keep legal accuracy sacred: never misrepresent a norm to rank.
+- After editing, ensure: bunx tsgo --noEmit && bun run check pass. If a change
+  breaks them, revert just that change.
+- Do NOT git push, do NOT open PRs, do NOT touch main.
+- Write a short summary of what you applied/skipped to ${SEO_DATA_DIR}/impl-${DATE}.md.
+EOF
+
+if command -v claude >/dev/null 2>&1; then
+	claude -p "$PROMPT" --permission-mode acceptEdits --allowedTools "Bash Edit Write Read Glob Grep" \
+		|| echo "warning: claude implement step returned non-zero"
+else
+	echo "ERROR: claude CLI not found — cannot implement" >&2
+	exit 1
+fi
+
+# ── 4. Verify ───────────────────────────────────────────────────────────────
+echo "verifying…"
+bunx tsgo --noEmit
+bun run check
+# The full 12k-page astro build is the PR's CI gate. Running it here is opt-in
+# (it needs API access + is slow); tsgo + biome catch most breakage pre-PR.
+if [ "${SEO_RUN_BUILD:-0}" = "1" ]; then
+	bun run --cwd packages/web astro build
+fi
+
+# ── 5. PR (skip if nothing changed) ─────────────────────────────────────────
+if git diff --quiet ':!data' && git diff --cached --quiet ':!data'; then
+	echo "no source changes produced — nothing to PR"
+	echo "$ITER" > "$IT_FILE"
+	exit 0
+fi
+
+git add -A -- ':!data'
+git commit -q -m "seo-loop: iter ${ITER} (${DATE}) — automated SEO improvements [model: ${MODEL}]"
+
+SUMMARY="$(cat "$SEO_DATA_DIR/impl-${DATE}.md" 2>/dev/null || echo "(no implementer summary)")"
+PR_BODY="$(printf 'Automated iteration **%s** of the SEO loop (model: `%s`).\n\nPlan: `%s`\n\n## What the implementer applied\n%s\n\n> Generated by scripts/seo/seo-loop.sh. Review against .goals/seo/PLAYBOOK.md before merging.' \
+	"$ITER" "$MODEL" "$(basename "$PLAN_FILE")" "$SUMMARY")"
+
+if [ "${SEO_DRY_RUN:-0}" = "1" ]; then
+	echo "DRY RUN — would push $BRANCH and open a PR. Diff:"
+	git --no-pager diff --stat origin/main
+else
+	git push -q -u origin "$BRANCH"
+	gh pr create --repo leyabierta/leyabierta --base main --head "$BRANCH" \
+		--title "SEO loop · iter ${ITER} (${DATE})" --body "$PR_BODY"
+fi
+
+# ── 6. Persist bitácora + counter ───────────────────────────────────────────
+{
+	echo ""
+	echo "## Iter ${ITER} — ${DATE} (model: ${MODEL})"
+	echo "$SUMMARY"
+} >> "$STATE_DIR/PROGRESS.md"
+cp -f "$SEO_DATA_DIR/STATE.md" "$STATE_DIR/STATE.md" 2>/dev/null || true
+echo "$ITER" > "$IT_FILE"
+echo "== done · iter ${ITER} =="
