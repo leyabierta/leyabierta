@@ -179,7 +179,7 @@ async function renderReformResponse(
 
 	const apiBase = env.PUBLIC_API_URL || DEFAULT_API_BASE;
 	const headers: HeadersInit = env.API_BYPASS_KEY
-		? { "x-bypass-key": env.API_BYPASS_KEY }
+		? { "x-api-key": env.API_BYPASS_KEY }
 		: {};
 
 	const reformResult = await fetchJson<ReformDetailResponse>(
