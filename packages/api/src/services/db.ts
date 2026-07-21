@@ -1657,7 +1657,10 @@ export class DbService {
 	 * Used by the web build to avoid 12K individual API calls.
 	 */
 	getBuildManifest(): {
-		citizens: Record<string, { summary: string; tags: string[] }>;
+		citizens: Record<
+			string,
+			{ summary: string; tags: string[]; materias: string[] }
+		>;
 		omnibus: Record<
 			string,
 			Array<{
@@ -1684,6 +1687,16 @@ export class DbService {
 			)
 			.all();
 
+		// 2b. All materias, keyed by norm. Sourced from the DB (authoritative)
+		// rather than the leyes .md frontmatter, which the published repo does not
+		// always carry — this is what powers the ficha's materia tags and the
+		// "Normas relacionadas" topical internal-linking block at build time.
+		const materiaRows = this.db
+			.query<{ norm_id: string; materia: string }, []>(
+				"SELECT norm_id, materia FROM materias ORDER BY norm_id, materia",
+			)
+			.all();
+
 		// 3. All omnibus topics
 		const topicRows = this.db
 			.query<
@@ -1704,15 +1717,28 @@ export class DbService {
 			.all();
 
 		// Assemble citizens map
-		const citizens: Record<string, { summary: string; tags: string[] }> = {};
+		const citizens: Record<
+			string,
+			{ summary: string; tags: string[]; materias: string[] }
+		> = {};
 		for (const row of summaryRows) {
-			citizens[row.id] = { summary: row.citizen_summary, tags: [] };
+			citizens[row.id] = {
+				summary: row.citizen_summary,
+				tags: [],
+				materias: [],
+			};
 		}
 		for (const row of tagRows) {
 			if (!citizens[row.norm_id]) {
-				citizens[row.norm_id] = { summary: "", tags: [] };
+				citizens[row.norm_id] = { summary: "", tags: [], materias: [] };
 			}
 			citizens[row.norm_id]!.tags.push(row.tag);
+		}
+		for (const row of materiaRows) {
+			if (!citizens[row.norm_id]) {
+				citizens[row.norm_id] = { summary: "", tags: [], materias: [] };
+			}
+			citizens[row.norm_id]!.materias.push(row.materia);
 		}
 
 		// Assemble omnibus map
