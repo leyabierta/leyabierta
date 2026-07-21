@@ -256,6 +256,22 @@ if [ "$push_status" -ne 0 ]; then
   fi
 fi
 
+# ── Step 10: Rebuild the vector search index if new embeddings were added ────
+# embed-corpus (Step 3b) only writes the DB; the flat int8 index is separate and
+# used to drift stale. This rebuilds it (memory-safe: streamed export + chunked
+# quantize) and hot-restarts the API. Runs LAST because it restarts the
+# container, which would break the docker-exec steps above. Non-fatal.
+log "→ Step 10: Rebuild vector index (if stale)"
+set +e
+bash "$REPO_DIR/scripts/rebuild-vector-index.sh" >> "$LOG" 2>&1
+rebuild_status=$?
+set -e
+if [ "$rebuild_status" -ne 0 ]; then
+  log "  ⚠ vector index rebuild returned $rebuild_status (non-fatal — see log)"
+else
+  log "  ✓ Vector index step done"
+fi
+
 log "=== Daily pipeline completed ==="
 
 # ── Heartbeat: signal successful completion to uptime monitor ────────────────
