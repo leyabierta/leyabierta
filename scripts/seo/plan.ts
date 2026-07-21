@@ -3,13 +3,11 @@
 // recent PROGRESS), a model proposes a structured JSON action plan. This is pure
 // inference so any model competes fairly — that's what benchmark.ts exploits.
 //
-//   MODEL=nan:qwen3.6 bun run scripts/seo/plan.ts
-//   MODEL=openrouter:x-ai/grok-2 bun run scripts/seo/plan.ts
-//   MODEL=openrouter:anthropic/claude-sonnet-5 bun run scripts/seo/plan.ts
+//   MODEL=claude:sonnet bun run scripts/seo/plan.ts
+//   MODEL=nan:deepseek-v4-flash bun run scripts/seo/plan.ts
 //
-// MODEL is "provider:model". Providers: nan (api.nan.builders, key NAN_API_KEY
-// or HERMES_API_KEY) and openrouter (key OPENROUTER_API_KEY). Both are
-// OpenAI-compatible, so one client covers all candidates.
+// MODEL is "provider:model". Providers: claude (local `claude -p` CLI) and
+// nan (api.nan.builders, key NAN_API_KEY / HERMES_API_KEY). No OpenRouter.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -161,7 +159,7 @@ function loadSnapshots(): { gsc: GscSnapshot; umami: UmamiSnapshot } {
 
 // CLI entry: plan with a single model and write the result.
 if (import.meta.main) {
-	const model = process.env.MODEL ?? "nan:qwen3.6";
+	const model = process.env.MODEL ?? "claude:sonnet";
 	const iteration = Number(process.env.SEO_ITERATION ?? 0);
 	const { gsc, umami } = loadSnapshots();
 	const result = await plan(model, gsc, umami, iteration);

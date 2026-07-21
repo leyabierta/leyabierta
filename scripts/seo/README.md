@@ -17,12 +17,23 @@ pull-umami.ts┘   (model)      apply plan            tsgo/biome/build
 
 | File | Role |
 |------|------|
-| `lib.ts` | Shared config, GSC auth (RS256 JWT), GSC query, Umami psql, chat client, PLAYBOOK path guard, types |
+| `lib.ts` | Shared config, GSC auth (RS256 JWT), GSC query, Umami psql, model chat client (`claude`/`nan`), PLAYBOOK path guard, types |
 | `pull-gsc.ts` | Search Console → `data/seo/gsc-<date>.json` (deltas, striking-distance, low-CTR, rising, zero-click) |
 | `pull-umami.ts` | Umami Postgres → `data/seo/umami-<date>.json` (pages, referrers, entries, countries) |
 | `plan.ts` | `MODEL=provider:model` → structured JSON action plan (pure inference) |
 | `benchmark.ts` | Run N models on one snapshot, gate + judge, write a leaderboard |
 | `seo-loop.sh` | Orchestrator for the cron |
+
+## Models (no OpenRouter — no metered spend)
+
+`MODEL`/`MODELS`/`JUDGE_MODEL` use `provider:model`:
+
+| Provider | How | Examples |
+|----------|-----|----------|
+| `claude` | local `claude -p` CLI (subscription) | `claude:sonnet`, `claude:opus` |
+| `nan` | api.nan.builders, OpenAI-compatible (`NAN_API_KEY`) | `nan:deepseek-v4-flash`, `nan:qwen3.6`, `nan:mimo-v2.5` |
+
+Production contest: **`claude:sonnet` vs `nan:deepseek-v4-flash`**, judged by `claude:opus`.
 
 ## Setup (KonarServer)
 
@@ -31,11 +42,12 @@ pull-umami.ts┘   (model)      apply plan            tsgo/biome/build
 2. **`/opt/leyabierta/.env.seo`** (mode 600):
    ```bash
    SEO_GSC_SA_JSON=/opt/leyabierta/leyabierta-seo.json
-   OPENROUTER_API_KEY=sk-or-...
-   NAN_API_KEY=sk-...            # optional, for nan:* models
+   NAN_API_KEY=sk-...            # valid NaN token (the one ending pcNg)
    GH_TOKEN=github_pat_...       # Contents+PR write on leyabierta/leyabierta
-   SEO_MODEL=openrouter:x-ai/grok-4.5
+   SEO_MODEL=claude:sonnet       # or nan:deepseek-v4-flash
    ```
+   `claude:*` models and the implement step need the Claude CLI authenticated on
+   the host (`CLAUDE_CODE_OAUTH_TOKEN` or a prior `claude` login).
 3. Umami needs no secret — it's read from the co-located `code-umami-db-1`
    container via `docker exec` (the loop runs on the same host).
 

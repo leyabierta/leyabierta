@@ -24,15 +24,18 @@ import {
 } from "./lib.ts";
 import { type PlanResult, plan } from "./plan.ts";
 
-const MODELS = (
-	process.env.MODELS ?? "nan:qwen3.6,openrouter:deepseek/deepseek-v4-flash"
-)
+// Candidates for the production planner. Grok is retired and OpenRouter is
+// banned, so the live contest is Claude (via the `claude -p` CLI) vs DeepSeek
+// (via NaN). Set the exact NaN DeepSeek id once the NaN token is valid.
+// Override with MODELS=...
+const MODELS = (process.env.MODELS ?? "claude:sonnet,nan:deepseek-v4-flash")
 	.split(",")
 	.map((m) => m.trim())
 	.filter(Boolean);
-// A fixed, capable judge so no candidate is favoured. Override via JUDGE_MODEL.
-const JUDGE_MODEL =
-	process.env.JUDGE_MODEL ?? "openrouter:anthropic/claude-sonnet-5";
+// Judge: Opus via the CLI (Alex's call, run under supervision). NOTE: judging a
+// Claude candidate with a Claude judge is same-family — watch for bias; a
+// cross-family judge (nan:<deepseek>) is the neutral alternative.
+const JUDGE_MODEL = process.env.JUDGE_MODEL ?? "claude:opus";
 
 interface Scores {
 	specificity: number;

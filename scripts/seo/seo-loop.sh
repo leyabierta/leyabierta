@@ -9,10 +9,12 @@
 #
 # Env (from ${SEO_ENV_FILE:-/opt/leyabierta/.env.seo}, mode 600):
 #   SEO_GSC_SA_JSON      path to the GSC service-account key JSON
-#   OPENROUTER_API_KEY   and/or NAN_API_KEY / HERMES_API_KEY
+#   NAN_API_KEY          for nan:* models (the valid token, ending pcNg)
 #   GH_TOKEN             token for `gh pr create` on leyabierta/leyabierta
+#   claude auth          CLAUDE_CODE_OAUTH_TOKEN (or a prior `claude` login) for
+#                        claude:* models and the implement step
 # Optional:
-#   SEO_MODEL            planning model (default openrouter:x-ai/grok-4.5)
+#   SEO_MODEL            planning model (default claude:sonnet)
 #   SEO_REPO             repo checkout (default /opt/leyabierta/code)
 #   SEO_STATE_DIR        persistent dir for iteration counter + PROGRESS/STATE
 #   SEO_DRY_RUN=1        do everything except push + PR
@@ -21,7 +23,7 @@
 set -euo pipefail
 
 REPO="${SEO_REPO:-/opt/leyabierta/code}"
-MODEL="${SEO_MODEL:-openrouter:x-ai/grok-4.5}"
+MODEL="${SEO_MODEL:-claude:sonnet}"
 ENV_FILE="${SEO_ENV_FILE:-/opt/leyabierta/.env.seo}"
 STATE_DIR="${SEO_STATE_DIR:-/opt/leyabierta/seo-state}"
 DATE="$(date +%F)"

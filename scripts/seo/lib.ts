@@ -203,32 +203,13 @@ export interface UmamiSnapshot {
 	weekly: { week: string; pageviews: number }[];
 }
 
-// ── OpenAI-compatible chat client (NaN / OpenRouter) ────────────────────────
-// One client for every candidate model so planning and judging are uniform.
-// MODEL is "provider:model". Providers: nan, openrouter.
-interface Provider {
-	baseUrl: string;
-	key: string | undefined;
-}
-export function providerFor(name: string): Provider {
-	switch (name) {
-		case "nan":
-			return {
-				baseUrl: process.env.NAN_BASE_URL ?? "https://api.nan.builders/v1",
-				key: process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY,
-			};
-		case "openrouter":
-			return {
-				baseUrl: "https://openrouter.ai/api/v1",
-				key: process.env.OPENROUTER_API_KEY,
-			};
-		default:
-			throw new Error(
-				`Unknown provider "${name}". Use nan:<model> or openrouter:<model>.`,
-			);
-	}
-}
-
+// ── Model chat client — two backends, no pay-per-use third party ────────────
+// MODEL is "provider:model":
+//   claude:<alias>  → local `claude -p` CLI (subscription; e.g. claude:sonnet,
+//                     claude:opus). Needs `claude` on PATH + an authenticated
+//                     session (CLAUDE_CODE_OAUTH_TOKEN or a prior login).
+//   nan:<model>     → api.nan.builders, OpenAI-compatible (e.g. nan:deepseek-v4).
+// OpenRouter is intentionally NOT supported — no metered spend.
 export interface ChatMessage {
 	role: "system" | "user" | "assistant";
 	content: string;
@@ -249,18 +230,69 @@ export async function chat(
 	const modelId = rest.join(":");
 	if (!providerName || !modelId)
 		throw new Error(`MODEL must be "provider:model", got "${model}"`);
-	const provider = providerFor(providerName);
-	if (!provider.key)
-		throw new Error(`Missing API key for provider "${providerName}"`);
+	if (providerName === "claude") return chatClaude(modelId, messages);
+	if (providerName === "nan") return chatNan(modelId, messages, opts);
+	throw new Error(
+		`Unknown provider "${providerName}". Use claude:<alias> or nan:<model> (OpenRouter is not allowed).`,
+	);
+}
 
+// Local Claude Code CLI. Concatenates non-system messages as the prompt and
+// passes the system content via --append-system-prompt.
+function chatClaude(modelId: string, messages: ChatMessage[]): ChatResult {
+	const system = messages
+		.filter((m) => m.role === "system")
+		.map((m) => m.content)
+		.join("\n\n");
+	const user = messages
+		.filter((m) => m.role !== "system")
+		.map((m) => m.content)
+		.join("\n\n");
+	const args = [
+		"-p",
+		"--output-format",
+		"json",
+		"--model",
+		modelId || "sonnet",
+	];
+	if (system) args.push("--append-system-prompt", system);
 	const t0 = Date.now();
-	const res = await fetch(`${provider.baseUrl}/chat/completions`, {
+	const out = execFileSync("claude", args, {
+		input: user,
+		encoding: "utf8",
+		maxBuffer: 32 * 1024 * 1024,
+	});
+	const latencyMs = Date.now() - t0;
+	const d = JSON.parse(out) as {
+		result?: string;
+		is_error?: boolean;
+		usage?: { input_tokens?: number; output_tokens?: number };
+	};
+	if (d.is_error || typeof d.result !== "string") {
+		throw new Error(`claude:${modelId} error: ${out.slice(0, 200)}`);
+	}
+	return {
+		content: d.result,
+		promptTokens: d.usage?.input_tokens ?? 0,
+		completionTokens: d.usage?.output_tokens ?? 0,
+		latencyMs,
+	};
+}
+
+async function chatNan(
+	modelId: string,
+	messages: ChatMessage[],
+	opts: { temperature?: number; maxTokens?: number; jsonObject?: boolean },
+): Promise<ChatResult> {
+	const key = process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY;
+	if (!key) throw new Error("NAN_API_KEY / HERMES_API_KEY not set");
+	const base = process.env.NAN_BASE_URL ?? "https://api.nan.builders/v1";
+	const t0 = Date.now();
+	const res = await fetch(`${base}/chat/completions`, {
 		method: "POST",
 		headers: {
-			Authorization: `Bearer ${provider.key}`,
+			Authorization: `Bearer ${key}`,
 			"content-type": "application/json",
-			"HTTP-Referer": "https://leyabierta.es",
-			"X-Title": "Ley Abierta SEO loop",
 		},
 		body: JSON.stringify({
 			model: modelId,
@@ -278,10 +310,10 @@ export async function chat(
 	};
 	if (json.error)
 		throw new Error(
-			`${model} error: ${json.error.message ?? JSON.stringify(json.error)}`,
+			`nan:${modelId} error: ${json.error.message ?? JSON.stringify(json.error)}`,
 		);
 	const content = json.choices?.[0]?.message?.content;
-	if (!content) throw new Error(`${model}: empty response`);
+	if (!content) throw new Error(`nan:${modelId}: empty response`);
 	return {
 		content,
 		promptTokens: json.usage?.prompt_tokens ?? 0,
