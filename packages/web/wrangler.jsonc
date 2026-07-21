@@ -1,25 +1,18 @@
 {
-	// Cloudflare Workers config for the @astrojs/cloudflare adapter (v14, the
-	// only version compatible with our Astro 6.1.9 — see the caveat this file
-	// is deliberately not resolving, spelled out below and in the PR notes).
-	"name": "leyabierta-web",
-	"compatibility_date": "2026-07-01",
-	// astro build with the cloudflare adapter uses some Node.js builtins
-	// (e.g. via markdown-it/sanitize-html) that need this flag on Workers.
-	"compatibility_flags": ["nodejs_compat"],
+	// Cloudflare Workers config for the @astrojs/cloudflare adapter (v14, paired
+	// with Astro 7). Deployed with `wrangler deploy` (NOT `wrangler pages deploy`
+	// — the adapter dropped Pages support in v13+).
 	//
-	// KNOWN GAP — do not resolve without sign-off (see PR description):
-	// @astrojs/cloudflare v13+ (required by Astro 6) dropped Cloudflare Pages
-	// support entirely; it only targets Cloudflare Workers with static assets
-	// (`wrangler deploy`, not `wrangler pages deploy`). deploy.yml still runs
-	// `wrangler pages deploy dist --project-name=leyabierta` unchanged in this
-	// PR, because switching to Workers deploy requires a one-time, manual
-	// Cloudflare Dashboard step (attaching the leyabierta.es custom domain to
-	// a Workers script instead of the existing Pages project) that this PR
-	// cannot safely make unattended. Until that cutover happens, this adapter
-	// technically cannot ship the on-demand reform route to production via
-	// the current deploy pipeline — see the PR/report for options.
+	// The ~12k prebuilt law pages are served as static assets (the `assets`
+	// binding, under the 20k-file Workers Free limit); the reform-detail route
+	// (`prerender = false`) is rendered on-demand by the Worker and is not a file.
+	"name": "leyabierta-web",
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"compatibility_date": "2026-07-01",
+	// markdown-it / sanitize-html pull in node: builtins at the edge.
+	"compatibility_flags": ["nodejs_compat"],
 	"assets": {
-		"directory": "./dist"
+		"directory": "./dist",
+		"binding": "ASSETS"
 	}
 }

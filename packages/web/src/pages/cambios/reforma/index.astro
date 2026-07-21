@@ -302,9 +302,12 @@ if (!normId || !date) {
 	try {
 		const reformRes = await fetch(`${API_BASE}/v1/reforms/${encodeURIComponent(normId)}/${encodeURIComponent(date)}`, {
 			headers: apiHeaders,
+			signal: AbortSignal.timeout(8000),
 		});
 		if (!reformRes.ok) {
-			Astro.response.status = reformRes.status === 404 ? 404 : 500;
+			// Mirror the upstream status (404/403/429/503…) so crawlers get an
+			// honest signal; fall back to 500 for anything outside 4xx/5xx.
+			Astro.response.status = reformRes.status >= 400 && reformRes.status < 600 ? reformRes.status : 500;
 			result = { ok: false, message: "No se pudo cargar la reforma." };
 		} else {
 			const data = (await reformRes.json()) as ReformDetailResponse;
@@ -313,7 +316,7 @@ if (!normId || !date) {
 			let topicBlockIds: string[] | null = null;
 			if (fromOmnibus && !Number.isNaN(topicIndex)) {
 				try {
-					const omnibusRes = await fetch(`${API_BASE}/v1/omnibus/${encodeURIComponent(normId)}`, { headers: apiHeaders });
+					const omnibusRes = await fetch(`${API_BASE}/v1/omnibus/${encodeURIComponent(normId)}`, { headers: apiHeaders, signal: AbortSignal.timeout(8000) });
 					if (omnibusRes.ok) {
 						const omnibusData = (await omnibusRes.json()) as OmnibusResponse;
 						topicInfo = omnibusData.topics?.[topicIndex] ?? null;
@@ -335,7 +338,7 @@ if (!normId || !date) {
 				try {
 					const diffRes = await fetch(
 						`${API_BASE}/v1/laws/${encodeURIComponent(normId)}/diff?from=${encodeURIComponent(data.prev_reform_date)}&to=${encodeURIComponent(date)}`,
-						{ headers: apiHeaders },
+						{ headers: apiHeaders, signal: AbortSignal.timeout(8000) },
 					);
 					if (diffRes.ok) {
 						const diffData = (await diffRes.json()) as { diff?: string };
