@@ -337,6 +337,17 @@ jobs:
           app-name: web
           new-status: "⏳ **web** — Deploying to Cloudflare..."
 
+      # KNOWN GAP (2026-07, reform-SSR PR) — do not "fix" this without sign-off:
+      # @astrojs/cloudflare v13+ (the only version compatible with our Astro
+      # 6.1.9) dropped Cloudflare Pages support — it only targets Cloudflare
+      # Workers with static assets (`wrangler deploy`). This command still
+      # deploys to the existing Pages project, which means the new on-demand
+      # /cambios/reforma/ route (prerender=false) will NOT execute here: Pages
+      # will serve `dist` as plain static assets and 404 that route. Cutting
+      # over to `wrangler deploy` requires a one-time manual step in the
+      # Cloudflare Dashboard (attach the leyabierta.es custom domain to a
+      # Workers script instead of this Pages project) before this can be
+      # switched. See packages/web/wrangler.jsonc and the PR description.
       - name: Deploy to Cloudflare Pages
         working-directory: packages/web
         run: bunx wrangler pages deploy dist --project-name=leyabierta
