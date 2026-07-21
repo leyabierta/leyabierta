@@ -71,6 +71,15 @@ if [ -n "$FREE_GB" ] && [ "$FREE_GB" -lt "$MIN_FREE_GB" ]; then
 	exit 1
 fi
 
+# ── Quantizer presence (fail clearly, not with an opaque bun error) ──────────
+# QUANTIZER is resolved by bun INSIDE the container (WORKDIR = repo root), so
+# test it the same way. If research/archive is ever reorganised, this aborts
+# with a readable message instead of a cryptic module-not-found mid-rebuild.
+if ! dex test -f "$QUANTIZER"; then
+	log "ERROR: quantizer not found in image at $QUANTIZER — promote it out of research/archive/ first. Aborting."
+	exit 1
+fi
+
 # ── Step 1: streamed DB → f32 + meta into the temp dir (memory-bounded) ──────
 dex sh -c "rm -rf $TMP && mkdir -p $TMP"
 dex sh -c "cat > $TMP/export.mjs" <<'JS'
