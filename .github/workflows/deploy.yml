@@ -337,9 +337,11 @@ jobs:
           app-name: web
           new-status: "⏳ **web** — Deploying to Cloudflare..."
 
-      # Deploy to Cloudflare Workers (static assets + on-demand reform route via
-      # the @astrojs/cloudflare adapter). `wrangler deploy` reads wrangler.jsonc
-      # in packages/web. NOTE: the leyabierta.es custom domain must be attached
+      # Deploy to Cloudflare Workers: the ~12k prebuilt static pages (dist/,
+      # via the ASSETS binding) plus a standalone Worker (src/worker/index.ts,
+      # no Astro adapter) that SSRs only /cambios/reforma/* on demand.
+      # `wrangler deploy` reads wrangler.jsonc in packages/web and bundles the
+      # worker itself. NOTE: the leyabierta.es custom domain must be attached
       # to the `leyabierta-web` Worker (one-time Dashboard cutover) for this to
       # serve production; until then it publishes to the *.workers.dev preview.
       - name: Deploy to Cloudflare Workers
