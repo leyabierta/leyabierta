@@ -95,7 +95,10 @@ ${PLAN_FILE}. Hard rules:
 - After editing, ensure \`bun run check\` (biome) passes. If a change breaks it,
   revert just that change. Do NOT run tsgo/tsc: it is not configured for the
   Astro web package and floods hundreds of pre-existing false errors — ignore it.
-- Do NOT git push, do NOT open PRs, do NOT touch main.
+- Do NOT git commit, git push, open PRs, or touch main — leave your edits in the
+  working tree; the loop stages, commits and pushes them.
+- You do NOT need to run \`astro build\` to verify: CI builds the PR. Skip it to
+  save time unless you specifically need to confirm a risky change compiles.
 - Write a short summary of what you applied/skipped to ${SEO_DATA_DIR}/impl-${DATE}.md.
 EOF
 
@@ -123,13 +126,19 @@ if [ "${SEO_RUN_BUILD:-0}" = "1" ]; then
 fi
 
 # ── 5. Commit + push (skip if nothing changed) ──────────────────────────────
-if git diff --quiet ':!data' && git diff --cached --quiet ':!data'; then
+# Stage/inspect ONLY the whitelisted source tree. This matches the PLAYBOOK
+# whitelist (defence-in-depth: nothing outside it can ever be committed) and
+# avoids the footgun that `git add -A -- ':!data'` exits 1 on gitignored paths —
+# data/, plus dist//.astro that the implementer's optional `astro build` leaves
+# behind — which under `set -e` aborted the run before it could commit or push.
+WHITELIST='packages/web/src'
+if git diff --quiet -- "$WHITELIST" && git diff --cached --quiet -- "$WHITELIST"; then
 	echo "no source changes produced — nothing to PR"
 	echo "$ITER" > "$IT_FILE"
 	exit 0
 fi
 
-git add -A -- ':!data'
+git add -A -- "$WHITELIST"
 
 SUMMARY="$(cat "$SEO_DATA_DIR/impl-${DATE}.md" 2>/dev/null || echo "(no implementer summary)")"
 # The PR title + body travel in the commit message: seo-open-pr.yml reads
