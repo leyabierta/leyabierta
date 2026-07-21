@@ -65,6 +65,11 @@ echo "== SEO loop · iter ${ITER} · ${DATE} · model=${MODEL} =="
 # ── Fresh branch off main ───────────────────────────────────────────────────
 git fetch --quiet origin main
 git checkout -q -B "$BRANCH" origin/main
+# Start from a pristine tree: discard leftovers from a previous aborted run (the
+# implement step edits the working tree before we commit). `git clean` without
+# -x leaves gitignored data/ + node_modules untouched.
+git reset -q --hard origin/main
+git clean -fdq
 
 # ── 1. Snapshots ────────────────────────────────────────────────────────────
 bun run scripts/seo/pull-gsc.ts
@@ -102,11 +107,16 @@ else
 fi
 
 # ── 4. Verify ───────────────────────────────────────────────────────────────
+# Match how the repo actually gates (there is NO tsgo/tsc/astro-check step in
+# CI): biome here for a fast local check, and the full astro build as the real
+# type+build gate. The build runs on the PR via pr-checks.yml (push to
+# seo-loop/**); locally it is opt-in (SEO_RUN_BUILD=1) because the 12k-page
+# build is slow and needs the leyes content.
+# NOTE: `bunx tsgo --noEmit` from the repo root does NOT work for the Astro web
+# package (it needs `astro sync`-generated types + the web tsconfig's DOM lib)
+# and floods hundreds of false errors, so it is deliberately not used here.
 echo "verifying…"
-bunx tsgo --noEmit
 bun run check
-# The full 12k-page astro build is the PR's CI gate. Running it here is opt-in
-# (it needs API access + is slow); tsgo + biome catch most breakage pre-PR.
 if [ "${SEO_RUN_BUILD:-0}" = "1" ]; then
 	bun run --cwd packages/web astro build
 fi
