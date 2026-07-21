@@ -10,7 +10,8 @@
 # Env (from ${SEO_ENV_FILE:-/opt/leyabierta/.env.seo}, mode 600):
 #   SEO_GSC_SA_JSON      path to the GSC service-account key JSON
 #   NAN_API_KEY          for nan:* models (the valid token, ending pcNg)
-#   GH_TOKEN             token for `gh pr create` on leyabierta/leyabierta
+#   GH_TOKEN             PAT for git push + PR REST API on leyabierta/leyabierta
+#                        (scopes: contents write + pull-requests write)
 #   claude auth          CLAUDE_CODE_OAUTH_TOKEN (or a prior `claude` login) for
 #                        claude:* models and the implement step
 # Optional:
@@ -124,9 +125,26 @@ if [ "${SEO_DRY_RUN:-0}" = "1" ]; then
 	echo "DRY RUN — would push $BRANCH and open a PR. Diff:"
 	git --no-pager diff --stat origin/main
 else
-	git push -q -u origin "$BRANCH"
-	gh pr create --repo leyabierta/leyabierta --base main --head "$BRANCH" \
-		--title "SEO loop · iter ${ITER} (${DATE})" --body "$PR_BODY"
+	if [ -z "${GH_TOKEN:-}" ]; then
+		echo "ERROR: GH_TOKEN not set in $ENV_FILE — cannot push or open a PR." >&2
+		exit 1
+	fi
+	# Push with the token via an inline credential helper. Single-quoted so
+	# $GH_TOKEN is expanded when git runs the helper (from the environment),
+	# never embedded in argv/ps. Same pattern as daily-pipeline.sh.
+	git -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
+		push -q -u origin "$BRANCH"
+	# Open the PR via the GitHub REST API — no `gh` dependency on the host.
+	PR_JSON="$(python3 -c 'import json,sys; print(json.dumps({"title":sys.argv[1],"head":sys.argv[2],"base":"main","body":sys.argv[3]}))' \
+		"SEO loop · iter ${ITER} (${DATE})" "$BRANCH" "$PR_BODY")"
+	PR_URL="$(curl -fsS -X POST \
+		-H "Authorization: Bearer ${GH_TOKEN}" \
+		-H "Accept: application/vnd.github+json" \
+		https://api.github.com/repos/leyabierta/leyabierta/pulls \
+		-d "$PR_JSON" 2>/dev/null \
+		| python3 -c 'import json,sys; print(json.load(sys.stdin).get("html_url","(no url in response)"))' 2>/dev/null \
+		|| echo "(PR creation failed — check GH_TOKEN scopes: contents+pull-requests write)")"
+	echo "PR: $PR_URL"
 fi
 
 # ── 6. Persist bitácora + counter ───────────────────────────────────────────
