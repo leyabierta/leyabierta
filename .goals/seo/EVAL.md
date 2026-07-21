@@ -40,11 +40,14 @@ un plan que toca la blacklist o no parsea puntúa 0 aunque el resto sea bueno.
 
 ## 3. Schema del plan (salida del paso "plan")
 
+All keys are **camelCase** (they map 1:1 to the TypeScript `Plan`/`PlanAction`
+types in `scripts/seo/lib.ts` — snake_case would deserialize to `undefined`):
+
 ```json
 {
   "iteration": 3,
-  "snapshot_date": "2026-07-21",
-  "model": "nan-deepseek",
+  "snapshotDate": "2026-07-21",
+  "model": "claude:sonnet",
   "summary": "1-2 frases: la tesis de esta iteración",
   "actions": [
     {
@@ -54,12 +57,12 @@ un plan que toca la blacklist o no parsea puntúa 0 aunque el resto sea bueno.
       "signal": { "query": "reforma reglamento extranjería", "position": 12.4, "impressions": 830, "ctr": 0.006 },
       "files": ["packages/web/src/pages/leyes/[id].astro"],
       "change": "descripción concreta y accionable del cambio",
-      "expected_impact": "qué métrica esperamos mover y en qué dirección",
+      "expectedImpact": "qué métrica esperamos mover y en qué dirección",
       "effort": "S | M | L",
-      "requires_human_review": false
+      "requiresHumanReview": false
     }
   ],
-  "estimated_cost_eur": 0.0,
+  "estimatedCostEur": 0.0,
   "notes": "riesgos, dudas, qué medir la próxima vez"
 }
 ```

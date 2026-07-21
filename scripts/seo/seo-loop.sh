@@ -67,6 +67,10 @@ MODEL="$MODEL" bun run scripts/seo/plan.ts
 PLAN_FILE="$(ls -t "$SEO_DATA_DIR"/plan-*-"${DATE}".json | head -1)"
 echo "plan: $PLAN_FILE"
 
+# Refresh STATE.md so the next iteration has current context (it was read but
+# never written before).
+bun run scripts/seo/write-state.ts "$PLAN_FILE" || true
+
 # ── 3. Implement via claude -p ──────────────────────────────────────────────
 read -r -d '' PROMPT <<EOF || true
 You are the implementer of the leyabierta.es SEO loop. Apply the action plan in

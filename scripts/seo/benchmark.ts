@@ -16,6 +16,7 @@ import {
 	chat,
 	DATA_DIR,
 	extractJson,
+	GOALS_DIR,
 	type GscSnapshot,
 	type Plan,
 	pathViolations,
@@ -64,15 +65,17 @@ function schemaOk(p: Plan): string | null {
 		) {
 			return `action ${a.id ?? "?"} missing type/change/files`;
 		}
+		// Enforce camelCase contract: snake_case keys deserialize to undefined,
+		// so a missing boolean here means the model ignored the schema.
+		if (typeof a.requiresHumanReview !== "boolean") {
+			return `action ${a.id ?? "?"} missing requiresHumanReview:boolean (snake_case?)`;
+		}
 	}
 	return null;
 }
 
 async function judge(p: Plan, gsc: GscSnapshot): Promise<Scores> {
-	const rubric = readFileSync(
-		join(DATA_DIR, "..", "..", ".goals", "seo", "EVAL.md"),
-		"utf8",
-	);
+	const rubric = readFileSync(join(GOALS_DIR, "EVAL.md"), "utf8");
 	const messages = [
 		{
 			role: "system" as const,
