@@ -17,12 +17,27 @@ on:
       - "package.json"
       - "bun.lock"
       - ".github/workflows/pr-checks.yml"
+  # SEO-loop branches are pushed by a deploy key and their PR is opened by the
+  # GITHUB_TOKEN (seo-open-pr.yml) — which, by design, does NOT trigger
+  # pull_request workflows. Running the same gate on the push makes its check
+  # runs attach to the head SHA, so they still show up on the bot's PR.
+  push:
+    branches:
+      - "seo-loop/**"
+    paths:
+      - "packages/web/**"
+      - "packages/pipeline/**"
+      - "packages/api/src/scripts/generate-og-images.ts"
+      - "scripts/smoke-pages.ts"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/pr-checks.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr-checks-${{ github.event.pull_request.number }}
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
