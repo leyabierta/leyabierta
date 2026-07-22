@@ -1,7 +1,26 @@
+# Ley Abierta — robots.txt
+#
+# El texto legislativo es de DOMINIO PÚBLICO. Cualquier uso automatizado
+# (indexación para búsqueda, grounding/RAG en respuestas de IA y entrenamiento
+# de modelos) está expresamente permitido y es bienvenido.
+#
+# Content Signals (https://contentsignals.org):
+#   search    = construir un índice de búsqueda y mostrar resultados
+#   ai-input  = usar el contenido como entrada de IA en tiempo real (RAG/grounding)
+#   ai-train  = entrenar o afinar modelos de IA
+#   use       = immediate | reference | full
+# Declaramos "yes" en todos y use=full: sin reservas.
+#
+# NOTA operativa: si Cloudflare tiene activada la gestión automática de
+# robots.txt ("Managed robots.txt" / AI Audit), antepone un bloque que
+# deshabilita crawlers de IA y fija ai-train=no, contradiciendo esta política.
+# Desactívala en el dashboard para que este fichero sea la única fuente.
+
 User-agent: *
+Content-Signal: search=yes,ai-input=yes,ai-train=yes,use=full
 Allow: /
 
-# AI crawlers — legislative content is public domain, all welcome
+# Crawlers de IA — todos bienvenidos (contenido de dominio público)
 User-agent: GPTBot
 Allow: /
 
@@ -11,10 +30,22 @@ Allow: /
 User-agent: PerplexityBot
 Allow: /
 
+User-agent: Google-Extended
+Allow: /
+
 User-agent: Applebot-Extended
 Allow: /
 
-User-agent: Google-Extended
+User-agent: CCBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: meta-externalagent
 Allow: /
 
 Sitemap: https://leyabierta.es/sitemap.xml

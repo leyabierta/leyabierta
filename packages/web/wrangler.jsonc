@@ -19,8 +19,13 @@
 		// /cambios/reforma/index.html would be served straight from ASSETS and
 		// the SSR/meta-injection in src/worker/index.ts would never run (every
 		// reform would stay the noindex shell — defeating the whole point).
-		// Run the Worker first only for reform URLs; everything else is served
-		// directly from assets (no Worker invocation → preserves the request budget).
-		"run_worker_first": ["/cambios/reforma/*"]
+		// Run the Worker first for:
+		//  - reform URLs (SSR the diff into the shell, as before)
+		//  - the homepage and law pages, so the Worker can do `Accept:
+		//    text/markdown` content negotiation (Markdown for Agents). For normal
+		//    HTML requests these paths just fall straight through to ASSETS, so
+		//    the only added cost is one passthrough Worker invocation on them.
+		// Everything else (assets, other pages) still skips the Worker entirely.
+		"run_worker_first": ["/", "/leyes/*", "/cambios/reforma/*"]
 	}
 }

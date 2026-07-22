@@ -322,6 +322,41 @@ export function lawRoutes(
 				},
 			)
 
+			// 5b. GET /v1/laws/:id/markdown — current canonical Markdown (agent-friendly)
+			.get(
+				"/laws/:id/markdown",
+				async ({ params, set }) => {
+					const law = dbService.getLaw(params.id);
+					if (!law) {
+						set.status = 404;
+						set.headers["content-type"] = "text/plain; charset=utf-8";
+						return "Law not found";
+					}
+					const filePath = normFilepath(params.id, law.source_url, law.country);
+					const content = await gitService.getFileLatest(filePath);
+					if (content === null) {
+						set.status = 404;
+						set.headers["content-type"] = "text/plain; charset=utf-8";
+						return "Markdown not available for this law";
+					}
+					// text/markdown so agents get the canonical source directly (the
+					// whole project IS legislation-as-Markdown); the web Worker proxies
+					// this for Accept: text/markdown requests to /leyes/:id/.
+					set.headers["content-type"] = "text/markdown; charset=utf-8";
+					set.headers["cache-control"] = "public, max-age=3600";
+					return content;
+				},
+				{
+					params: t.Object({ id: t.String() }),
+					detail: {
+						summary: "Get current law Markdown",
+						description:
+							"Returns the full canonical Markdown of a law (frontmatter + text) as text/markdown. Machine-readable source for AI agents.",
+						tags: ["Leyes"],
+					},
+				},
+			)
+
 			// 6. GET /v1/laws/:id/diff — diff between two dates
 			.get(
 				"/laws/:id/diff",

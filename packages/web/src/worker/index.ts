@@ -36,6 +36,73 @@ const DEFAULT_API_BASE = "https://api.leyabierta.es";
 const REFORM_PATH_PREFIX = "/cambios/reforma/";
 const SHELL_PATH = "/cambios/reforma/";
 
+// --- Markdown for Agents ---------------------------------------------------
+// Content negotiation: requests carrying `Accept: text/markdown` get the
+// canonical Markdown instead of HTML. The project IS legislation-as-Markdown,
+// so we serve the real source (via the API's /markdown endpoint) rather than
+// converting rendered HTML — higher fidelity and fewer tokens for agents.
+// This is what lifts the site to Cloudflare's "Agent-Readable" (level 3).
+
+/** True when the client explicitly asks for Markdown (agents), not a browser
+ *  (which sends `text/html,...`). Any mention of `text/markdown` opts in. */
+export function prefersMarkdown(request: Request): boolean {
+	if (request.method !== "GET") return false;
+	const accept = request.headers.get("accept") ?? "";
+	return /text\/markdown/i.test(accept);
+}
+
+/** Extracts a norm id from a law page path (`/leyes/<id>/`), or null. */
+export function lawIdFromPath(pathname: string): string | null {
+	const m = pathname.match(/^\/leyes\/([^/]+)\/?$/);
+	return m ? decodeURIComponent(m[1]!) : null;
+}
+
+function markdownBody(body: string): Response {
+	return new Response(body, {
+		status: 200,
+		headers: {
+			"content-type": "text/markdown; charset=utf-8",
+			// Cache HTML and Markdown variants separately at the edge/clients.
+			vary: "Accept",
+			"cache-control": "public, s-maxage=3600, stale-while-revalidate=86400",
+			"x-content-type-options": "nosniff",
+		},
+	});
+}
+
+/** Produce a Markdown response for the requested path, or null if this path
+ *  has no Markdown representation (caller then falls back to normal HTML). */
+async function markdownResponse(env: Env, url: URL): Promise<Response | null> {
+	// Homepage → the site's llms.txt overview (already a hand-written Markdown
+	// map of the whole site). Served from static assets.
+	if (url.pathname === "/") {
+		const res = await env.ASSETS.fetch(new URL("/llms.txt", url).toString());
+		if (!res.ok) return null;
+		return markdownBody(await res.text());
+	}
+
+	// Law page → canonical Markdown of the norm, straight from the API.
+	const id = lawIdFromPath(url.pathname);
+	if (id) {
+		const apiBase = env.PUBLIC_API_URL || DEFAULT_API_BASE;
+		const headers: HeadersInit = env.API_BYPASS_KEY
+			? { "x-api-key": env.API_BYPASS_KEY }
+			: {};
+		try {
+			const res = await fetch(
+				`${apiBase}/v1/laws/${encodeURIComponent(id)}/markdown`,
+				{ headers, signal: AbortSignal.timeout(8000) },
+			);
+			if (!res.ok) return null;
+			return markdownBody(await res.text());
+		} catch {
+			return null;
+		}
+	}
+
+	return null;
+}
+
 /** Finds the index of the `</div>` that matches the opening `<div>` whose
  *  content starts at `contentStart` (depth-aware, so nested divs inside the
  *  shell's loading skeleton don't confuse the boundary). Returns -1 if
@@ -288,6 +355,14 @@ async function renderReformResponse(
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
+
+		// Markdown for Agents: honor `Accept: text/markdown` on pages that have
+		// a Markdown representation. If we can't produce one, fall through to the
+		// normal HTML handling below.
+		if (prefersMarkdown(request)) {
+			const md = await markdownResponse(env, url);
+			if (md) return md;
+		}
 
 		if (url.pathname.startsWith(REFORM_PATH_PREFIX)) {
 			const result = await renderReformResponse(env, url);
