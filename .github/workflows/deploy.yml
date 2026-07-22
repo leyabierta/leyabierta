@@ -243,9 +243,16 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      # `ref: main` is explicit on purpose. The backstop compares against
+      # `repos/leyabierta/leyes/commits/main`; actions/checkout without `ref`
+      # follows whatever the leyes default branch happens to be. They agree
+      # today, but if they ever diverge the SHA recorded at the end of this job
+      # could never equal the backstop's, and the backstop would see permanent
+      # drift and rebuild the whole site every 30 minutes.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           repository: leyabierta/leyes
+          ref: main
           path: content/laws
           fetch-depth: 1
 
@@ -380,6 +387,49 @@ jobs:
             exit 0
           fi
           echo "✓ cache purged"
+
+      # Keeps the leyes-rebuild-backstop.yml cache marker (`last-leyes-sha-*`)
+      # in sync whenever THIS job is the one that actually rebuilt the site, no
+      # matter what triggered it (push, workflow_dispatch, or the primary
+      # repository_dispatch from leyes' notify-leyabierta.yml).
+      #
+      # Without this, the backstop is the only writer of that cache entry, so a
+      # primary-path deploy leaves it stale: on a later tick the backstop
+      # restores the stale marker, sees drift against a leyes HEAD that is
+      # already live, and fires a second, redundant full rebuild (~12k pages).
+      #
+      # The SHA comes from the `content/laws` checkout above — that is the tree
+      # this build actually consumed — never from the dispatch payload.
+      #
+      # Both steps are continue-on-error: the site is already deployed and
+      # purged by the time we get here, so a cache hiccup must not turn the job
+      # red (the Trilo notification below reads job.status).
+      # NOTE: the default shell here is `bash -e {0}`, not `-euo pipefail`, so
+      # the stricter flags are set explicitly.
+      - name: Record leyes HEAD SHA as built
+        id: leyes-sha
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          SHA=$(git -C content/laws rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "$SHA" > .last-leyes-sha
+
+      # The `sha != ''` guard is load-bearing. If the step above failed, the
+      # output is empty and the key collapses to the literal `last-leyes-sha-`,
+      # which is exactly the backstop's restore-keys prefix. That entry would
+      # then be the newest prefix match forever, the backstop would read an
+      # empty last-built SHA, see permanent drift, and rebuild the entire site
+      # every 30 minutes. Cache keys cannot be overwritten, so it would not
+      # self-heal. `success() &&` is kept because an explicit `if` otherwise
+      # replaces the implicit success() gate.
+      - name: Sync backstop cache marker
+        if: success() && steps.leyes-sha.outputs.sha != ''
+        continue-on-error: true
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .last-leyes-sha
+          key: last-leyes-sha-${{ steps.leyes-sha.outputs.sha }}
 
       - name: Calculate duration
         if: always()
