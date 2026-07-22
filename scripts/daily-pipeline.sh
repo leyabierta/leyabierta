@@ -202,6 +202,33 @@ log "→ Step 2: Ingest"
 docker exec "$CONTAINER" bun run ingest >> "$LOG" 2>&1
 log "  ✓ Ingest done"
 
+# ── Step 2.5: Refresh BOE auxiliary reference tables (materias, ...) ────────
+# ingest-analisis (Step 3) maps BOE materia codes to names via
+# data/auxiliar/materias.json. NOTHING ever downloaded that file, so on this
+# server it never existed and Step 3 wrote fabricated "[código NNNN]" strings
+# for every materia of every norm (2026-07-22 incident).
+#
+# Non-fatal by design. Step 3 degrades safely without the lookup (it omits
+# unresolved codes and never fabricates), and this script runs under
+# `set -euo pipefail`, so aborting here would also skip Steps 4-8 — including
+# the subscriber emails. Stale/missing reference data for one day is cheaper
+# than a day with no product output. (`if` already suppresses `set -e` for the
+# command it tests, so no branch below can abort the run.)
+#
+# Writes to ./data/auxiliar inside the container, which resolves through
+# /app/data -> /data (Dockerfile) into the `./data:/data` bind mount
+# (docker-compose.yml), so the file survives restarts and Watchtower rolls.
+log "→ Step 2.5: Refresh BOE auxiliary tables (materias, departamentos, ...)"
+if docker exec "$CONTAINER" bun run download-auxiliar >> "$LOG" 2>&1; then
+  log "  ✓ Auxiliary tables refreshed"
+elif docker exec "$CONTAINER" bun run download-auxiliar --check >> "$LOG" 2>&1; then
+  log "  ⚠ download-auxiliar failed — falling back to the existing (possibly stale) materias.json"
+  send_alert "download-auxiliar failed" "Falling back to the cached materias.json. Check BOE datosabiertos availability."
+else
+  log "  ⚠ download-auxiliar failed and no usable materias.json cache exists — Step 3 will run degraded (materias omitted, never placeholdered)"
+  send_alert "download-auxiliar failed, no cache" "ingest-analisis will not resolve materia codes this run. Data is not corrupted, but new materias are missing until this is fixed."
+fi
+
 # ── Step 3: Ingest analisis (materias, notas, refs from BOE) ────────────────
 log "→ Step 3: Ingest analisis"
 docker exec "$CONTAINER" bun run ingest-analisis >> "$LOG" 2>&1

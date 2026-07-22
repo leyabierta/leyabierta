@@ -26,13 +26,34 @@ async function main() {
 	const db = new Database(dbPath);
 	createSchema(db);
 
-	// Load materias lookup (code → name)
+	// Load materias lookup (code → name).
+	//
+	// 2026-07-22 incident: nothing in the pipeline ever downloaded this file, so
+	// on the server it never existed and every ELI materia code was written to
+	// the DB as a fabricated "[código NNNN]" string. The fix has two halves:
+	//   1. Step 2.5 of scripts/daily-pipeline.sh now refreshes the file.
+	//   2. This script NEVER fabricates a name (see processNorm below).
+	// Note we deliberately do NOT abort when the lookup is missing: the daily
+	// pipeline runs under `set -euo pipefail`, so exiting non-zero here would
+	// also kill Steps 4-8 (reform summaries, citizen tags, subscriber emails).
+	// A degraded run that adds no new materias is recoverable and self-heals on
+	// the next run; a pipeline that stops before the emails is not.
 	let materiaLookup: Record<string, string> = {};
 	try {
 		const raw = await Bun.file(materiasPath).json();
 		materiaLookup = raw.data ?? {};
 	} catch {
-		console.warn("Warning: could not load materias lookup from", materiasPath);
+		// fall through to the empty-lookup warning below
+	}
+	const lookupSize = Object.keys(materiaLookup).length;
+	if (lookupSize === 0) {
+		console.warn(
+			`WARNING: no usable materias lookup at ${materiasPath}. ELI materia ` +
+				"codes cannot be resolved to names this run, so materias fall back to " +
+				"the partial /analisis list. Existing rows are untouched (nothing is " +
+				"deleted) and the next run repairs this. Fix by running " +
+				"`bun run download-auxiliar` (Step 2.5 of the daily pipeline).",
+		);
 	}
 
 	const norms = db
@@ -55,6 +76,7 @@ async function main() {
 
 	let done = 0;
 	let errors = 0;
+	const missingCodes = new Set<string>();
 	const startTime = Date.now();
 
 	async function processNorm(
@@ -63,10 +85,19 @@ async function main() {
 	): Promise<{ materias: number; refs: number }> {
 		const analisis = await boe.getAnalisis(normId);
 		const materiaCodes = await boe.getMateriaCodes(normId);
-		const fullMaterias =
-			materiaCodes.length > 0
-				? materiaCodes.map((code) => materiaLookup[code] ?? `[código ${code}]`)
-				: analisis.materias;
+		// Never fabricate a name for a code the lookup doesn't cover: a fake
+		// "[código 4322]" is wrong data published to citizens, while a missing
+		// tag is a silent, self-healing gap (BOE adds codes faster than it
+		// republishes the reference table). Unresolved codes are dropped and
+		// tallied; if NONE of the codes resolve we fall back to the partial but
+		// real names from the /analisis endpoint rather than storing nothing.
+		const resolved: string[] = [];
+		for (const code of materiaCodes) {
+			const name = materiaLookup[code];
+			if (name) resolved.push(name);
+			else missingCodes.add(code);
+		}
+		const fullMaterias = resolved.length > 0 ? resolved : analisis.materias;
 
 		// DB writes are synchronous and fast — no contention issue
 		db.transaction(() => {
@@ -143,6 +174,15 @@ async function main() {
 	console.log("\n─── Analisis Fetch Summary ───");
 	console.log(`Done:   ${done}`);
 	console.log(`Errors: ${errors}`);
+	if (missingCodes.size > 0) {
+		const sample = [...missingCodes].sort().slice(0, 50).join(", ");
+		console.warn(
+			`Unresolved materia codes (omitted, never placeholdered): ${missingCodes.size} distinct` +
+				(lookupSize === 0
+					? " — lookup was empty, see the WARNING above"
+					: ` — e.g. ${sample}${missingCodes.size > 50 ? ", …" : ""}`),
+		);
+	}
 	console.log(
 		`Time:   ${Math.floor(fetchElapsed / 60)}m ${fetchElapsed % 60}s`,
 	);
