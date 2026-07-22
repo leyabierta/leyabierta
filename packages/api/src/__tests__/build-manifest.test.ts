@@ -43,6 +43,30 @@ function insertMateria(normId: string, materia: string) {
 	]);
 }
 
+function insertBlock(
+	normId: string,
+	blockId: string,
+	title: string,
+	position: number,
+) {
+	db.run(
+		`INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text)
+     VALUES (?, ?, 'articulo', ?, ?, 'texto del articulo')`,
+		[normId, blockId, title, position],
+	);
+}
+
+function insertArticleSummary(
+	normId: string,
+	blockId: string,
+	summary: string,
+) {
+	db.run(
+		"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+		[normId, blockId, summary],
+	);
+}
+
 function insertOmnibusTopic(normId: string, index: number, label: string) {
 	db.run(
 		`INSERT INTO omnibus_topics (norm_id, topic_index, topic_label, headline, summary, article_count, is_sneaked, related_materias, block_ids, model)
@@ -150,5 +174,41 @@ describe("getBuildManifest()", () => {
 		expect(topic).toHaveProperty("summary");
 		expect(topic).toHaveProperty("is_sneaked");
 		expect(topic).toHaveProperty("block_ids");
+	});
+});
+
+describe("getArticleSummariesManifest()", () => {
+	it("returns empty object when there are no article summaries", () => {
+		expect(svc.getArticleSummariesManifest()).toEqual({});
+	});
+
+	it("groups [title, summary] pairs per norm", () => {
+		insertNorm("BOE-A-2024-001");
+		insertBlock("BOE-A-2024-001", "art-1", "Artículo 1", 0);
+		insertBlock("BOE-A-2024-001", "art-2", "Artículo 2", 1);
+		insertNorm("BOE-A-2024-002");
+		insertBlock("BOE-A-2024-002", "art-1", "Artículo 1", 0);
+		insertArticleSummary("BOE-A-2024-001", "art-1", "resumen uno");
+		insertArticleSummary("BOE-A-2024-001", "art-2", "resumen dos");
+		insertArticleSummary("BOE-A-2024-002", "art-1", "otro resumen");
+
+		const result = svc.getArticleSummariesManifest();
+		expect(Object.keys(result)).toHaveLength(2);
+		expect(result["BOE-A-2024-001"]).toEqual([
+			["Artículo 1", "resumen uno"],
+			["Artículo 2", "resumen dos"],
+		]);
+		expect(result["BOE-A-2024-002"]).toEqual([["Artículo 1", "otro resumen"]]);
+	});
+
+	it("omits empty summaries and titleless blocks", () => {
+		insertNorm("BOE-A-2024-001");
+		insertBlock("BOE-A-2024-001", "art-1", "Artículo 1", 0);
+		insertBlock("BOE-A-2024-001", "preamble", "", 1); // no title
+		insertArticleSummary("BOE-A-2024-001", "art-1", "válido");
+		insertArticleSummary("BOE-A-2024-001", "preamble", "sin título");
+
+		const result = svc.getArticleSummariesManifest();
+		expect(result["BOE-A-2024-001"]).toEqual([["Artículo 1", "válido"]]);
 	});
 });

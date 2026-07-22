@@ -6,7 +6,8 @@ import sanitizeHtml from "sanitize-html";
 import Base from "../../layouts/Base.astro";
 import { safeJsonLd } from "../../lib/escape";
 import { getLaw } from "../../lib/api.ts";
-import { loadManifest } from "../../lib/manifest.ts";
+import { bakeArticleSummaries } from "../../lib/article-summaries.ts";
+import { loadArticleSummaries, loadManifest } from "../../lib/manifest.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
@@ -199,6 +200,9 @@ if (entry.body) {
 		},
 		allowedSchemes: ["https", "http"],
 	});
+	// Bake per-article citizen summaries into the HTML (SEO-visible) instead of
+	// the old client-side fetch+tooltip. No-op when the manifest is absent.
+	htmlContent = bakeArticleSummaries(htmlContent, loadArticleSummaries()?.[id!]);
 }
 
 const RANK_LABELS: Record<string, string> = {
@@ -586,86 +590,66 @@ const seoDescription = [
 			border-radius: 0 4px 4px 0;
 		}
 
-		/* ── Article annotation markers (JS-created, needs :global) ── */
-		:global(.article-annotation) {
-			position: relative;
-			display: inline-flex;
-			margin-left: 0.5rem;
-			vertical-align: middle;
+		/* ── Baked citizen article summaries (server-rendered <details>) ── */
+		:global(.law-content details.article-summary) {
+			margin: 0.375rem 0 1.25rem;
+			text-align: left;
 		}
-		:global(.article-annotation-marker) {
-			background: var(--accent-bg);
-			border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-			border-radius: 4px;
-			color: var(--accent);
-			cursor: pointer;
-			padding: 0.15rem 0.25rem;
+		:global(.law-content .article-summary-toggle) {
 			display: inline-flex;
 			align-items: center;
-			line-height: 1;
-			transition: background 0.15s, color 0.15s;
-		}
-		:global(.article-annotation-marker:hover) {
-			background: var(--accent);
-			color: #fff;
-		}
-		:global(.article-annotation-tooltip) {
-			display: none;
-			position: absolute;
-			left: calc(100% + 4px);
-			top: 50%;
-			transform: translateY(-50%);
-			z-index: 50;
-			width: max-content;
-			max-width: 300px;
-			padding: 0.625rem 0.75rem;
-			background: var(--surface);
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+			gap: 0.4rem;
+			cursor: pointer;
+			list-style: none;
+			font-family: var(--font-sans);
 			font-size: 0.8125rem;
-			font-weight: 400;
-			color: var(--text-secondary);
-			line-height: 1.5;
-			cursor: text;
-			user-select: text;
-		}
-		/* Bridge the gap between marker and tooltip so mouse can travel */
-		:global(.article-annotation-tooltip::before) {
-			content: "";
-			position: absolute;
-			right: 100%;
-			top: 0;
-			bottom: 0;
-			width: 8px;
-		}
-		:global(.article-annotation:hover .article-annotation-tooltip),
-		:global(.article-annotation:focus-within .article-annotation-tooltip) {
-			display: block;
-		}
-		:global(.article-annotation-label) {
-			display: block;
-			font-size: 0.625rem;
-			font-weight: 600;
+			font-weight: 500;
 			color: var(--accent);
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-			margin-bottom: 0.25rem;
+			padding: 0.15rem 0;
+			user-select: none;
 		}
-		@media (max-width: 640px) {
-			:global(.article-annotation-tooltip) {
-				left: 0;
-				top: calc(100% + 4px);
-				transform: none;
-			}
-			:global(.article-annotation-tooltip::before) {
-				right: auto;
-				left: 0;
-				top: auto;
-				bottom: 100%;
-				width: 100%;
-				height: 8px;
-			}
+		:global(.law-content .article-summary-toggle::-webkit-details-marker) {
+			display: none;
+		}
+		:global(.law-content .article-summary-toggle::before) {
+			content: "";
+			width: 0;
+			height: 0;
+			border-left: 5px solid currentColor;
+			border-top: 4px solid transparent;
+			border-bottom: 4px solid transparent;
+			transition: transform 0.15s ease;
+		}
+		:global(.law-content details.article-summary[open] .article-summary-toggle::before) {
+			transform: rotate(90deg);
+		}
+		:global(.law-content .article-summary-toggle:hover) {
+			text-decoration: underline;
+		}
+		:global(.law-content .article-summary-body) {
+			margin-top: 0.5rem;
+			padding: 0.75rem 0.875rem;
+			background: var(--accent-bg);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+		}
+		:global(.law-content .article-summary-kicker) {
+			display: block;
+			font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
+			font-size: 0.6875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: var(--text-muted);
+			margin-bottom: 0.375rem;
+		}
+		:global(.law-content .article-summary-text) {
+			margin: 0;
+			font-size: 0.9375rem;
+			color: var(--text-secondary);
+			line-height: 1.6;
+		}
+		@media (prefers-reduced-motion: reduce) {
+			:global(.law-content .article-summary-toggle::before) { transition: none; }
 		}
 
 		.section { margin-bottom: 2rem; }
@@ -1219,77 +1203,5 @@ const seoDescription = [
 	})();
 	</script>
 
-
-	<!-- Citizen article summaries as inline annotations -->
-	<script is:inline define:vars={{ normId: id }}>
-	(function() {
-		var apiBase = document.documentElement.dataset.api || 'https://api.leyabierta.es';
-
-		function norm(s) {
-			return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-				.replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, ' ').trim();
-		}
-
-		var injected = false;
-		function loadAndInject() {
-			if (injected) return;
-			injected = true;
-
-			fetch(apiBase + '/v1/laws/' + normId + '/summaries')
-				.then(function(r) { return r.json(); })
-				.then(function(summaries) {
-					// summaries is { "Artículo 1. Título.": "Resumen...", ... }
-					var entries = [];
-					for (var title in summaries) {
-						entries.push({ key: norm(title), summary: summaries[title] });
-					}
-					if (!entries.length) return;
-					entries.sort(function(a, b) { return b.key.length - a.key.length; });
-
-					var lawContent = document.querySelector('.law-content');
-					if (!lawContent) return;
-
-					lawContent.querySelectorAll('h5, h6').forEach(function(h) {
-						var hNorm = norm(h.textContent || '');
-						var matched = null;
-						for (var i = 0; i < entries.length; i++) {
-							if (hNorm.indexOf(entries[i].key) !== 0) continue;
-							var next = hNorm.charAt(entries[i].key.length);
-							if (!next || next === ' ' || next === '-') {
-								matched = entries[i];
-								break;
-							}
-						}
-						if (!matched) return;
-
-						var marker = document.createElement('button');
-						marker.className = 'article-annotation-marker';
-						marker.type = 'button';
-						marker.setAttribute('aria-label', 'Ver resumen ciudadano');
-						marker.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
-
-						var tip = document.createElement('div');
-						tip.className = 'article-annotation-tooltip';
-						tip.setAttribute('role', 'tooltip');
-						var safe = matched.summary.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-						tip.innerHTML = '<span class="article-annotation-label">Resumen ciudadano</span>' + safe;
-
-						var wrap = document.createElement('span');
-						wrap.className = 'article-annotation';
-						wrap.appendChild(marker);
-						wrap.appendChild(tip);
-						h.appendChild(wrap);
-					});
-				})
-				.catch(function() { /* silently fail */ });
-		}
-
-		var textoTab = document.querySelector('.tab[data-tab="texto"]');
-		if (textoTab) {
-			textoTab.addEventListener('click', loadAndInject);
-			if (textoTab.classList.contains('active')) loadAndInject();
-		}
-	})();
-	</script>
 
 </Base>

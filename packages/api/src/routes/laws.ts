@@ -654,6 +654,42 @@ export function lawRoutes(
 				},
 			)
 
+			// 17. GET /v1/build-manifest/articles — per-article citizen summaries
+			// for the static build (shipped separately: ~75 MB of text).
+			.get(
+				"/build-manifest/articles",
+				({ set, request }) => {
+					const apiKey = request.headers.get("x-api-key") ?? "";
+					const bypassKey = process.env.API_BYPASS_KEY ?? "";
+					const hasValidKey =
+						bypassKey &&
+						apiKey.length === bypassKey.length &&
+						timingSafeEqual(Buffer.from(apiKey), Buffer.from(bypassKey));
+					if (!hasValidKey) {
+						set.status = 403;
+						return { error: "Forbidden" };
+					}
+					set.headers["Cache-Control"] = "no-store";
+					try {
+						return dbService.getArticleSummariesManifest();
+					} catch (err) {
+						set.status = 500;
+						return {
+							error: "Failed to generate article-summaries manifest",
+							detail: err instanceof Error ? err.message : "Unknown error",
+						};
+					}
+				},
+				{
+					detail: {
+						summary: "Article-summaries manifest",
+						description:
+							"Internal endpoint for CI builds. Returns per-norm [articleTitle, citizenSummary] pairs so the static build can bake article summaries into the HTML. Requires API bypass key.",
+						tags: ["Sistema"],
+					},
+				},
+			)
+
 			// 18. GET /v1/feed.xml — RSS feed of recent reforms
 			.get(
 				"/feed.xml",
