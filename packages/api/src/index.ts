@@ -22,10 +22,12 @@ import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 import { HybridSearcherImpl } from "./services/hybrid-search.ts";
 import { startMemProbe } from "./services/mem-probe.ts";
+import { bm25HybridSearch } from "./services/rag/blocks-fts.ts";
 import { RagPipeline } from "./services/rag/pipeline.ts";
 import { EMBEDDING_MODEL_KEY } from "./services/rag/retrieval.ts";
 import { flushTraces } from "./services/rag/tracing.ts";
 import { getSharedVectorIndex } from "./services/rag/vector-index-singleton.ts";
+import { vectorSearchPooled } from "./services/rag/vector-pool.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
@@ -333,11 +335,16 @@ app
 // mode as the OOM restart, but without killing the container.
 // Gate: only preload when the API key is present (same gate as ragPipeline
 // / hybridSearcher) and RAG_PRELOAD is not explicitly disabled.
+let preloadedIndex: Awaited<ReturnType<typeof getSharedVectorIndex>> = null;
 if (OPENROUTER_API_KEY && process.env.RAG_PRELOAD !== "false") {
 	const t0 = performance.now();
 	console.log("[preload] loading vector index…");
 	try {
-		await getSharedVectorIndex(db, EMBEDDING_MODEL_KEY, RAG_DATA_DIR);
+		preloadedIndex = await getSharedVectorIndex(
+			db,
+			EMBEDDING_MODEL_KEY,
+			RAG_DATA_DIR,
+		);
 		const ms = Math.round(performance.now() - t0);
 		console.log(`[preload] vector index ready in ${ms}ms`);
 	} catch (err) {
@@ -352,5 +359,87 @@ app.listen(PORT);
 
 console.log(`Ley Abierta API running on http://localhost:${PORT}`);
 console.log(`Swagger docs: http://localhost:${PORT}/swagger`);
+
+// ── Vector pool + FTS warmup (fire-and-forget) ───────────────────────
+// The preload above only maps `vectors-int8.bin` into SharedArrayBuffers.
+// It does NOT start the Bun Worker pool that actually *serves* KNN
+// queries (`vector-pool.ts`): that pool is built lazily inside
+// `vectorSearchPooled` on the first real `/v1/laws` or `/v1/ask` request
+// — dlopen(vector-simd) + spawning RAG_VECTOR_POOL_WORKERS workers, each
+// opening its own readonly SQLite handle. On top of that, the FTS5
+// indexes are cold in the OS page cache right after a container restart
+// (PRAGMA mmap_size/cache_size only set the budget, they force no I/O).
+// Doing both here moves that one-off cost off the first citizen request.
+//
+// Runs after app.listen() and is not awaited: the port is bound and
+// /health answers before this starts. It reuses the index the preload
+// already loaded — it never re-enters getSharedVectorIndex, so a failed
+// preload cannot trigger a second (possibly index-rebuilding) load while
+// the container is already serving traffic, nor burn the singleton's
+// circuit-breaker budget.
+//
+// Everything is safe-to-fail and each step is isolated: a failure just
+// means the first real request pays that part of the cold start, exactly
+// as it does today.
+if (preloadedIndex) {
+	const idx = preloadedIndex;
+	(async () => {
+		// 1. Vector pool: dlopen + spawn workers + one full SIMD scan.
+		//    The query must NOT be a zero vector: `cosine_topk_int8` in
+		//    vector-simd.c bails out with `if (... || query_norm == 0.0f)
+		//    return 0;` before touching the corpus, so a zero vector would
+		//    warm the pool but skip the scan entirely. A deterministic
+		//    non-zero vector exercises the real FFI + heap + memory-walk
+		//    path without spending an embedding-API call.
+		const vecT0 = performance.now();
+		try {
+			const probeQuery = new Float32Array(idx.dims);
+			let seed = 0x9e3779b9;
+			for (let i = 0; i < idx.dims; i++) {
+				seed = (seed * 1664525 + 1013904223) >>> 0;
+				probeQuery[i] = seed / 0xffffffff - 0.5;
+			}
+			const hits = await vectorSearchPooled(
+				probeQuery,
+				idx.meta,
+				idx.vectors,
+				idx.dims,
+				200,
+			);
+			console.log(
+				`[warmup] vector pool ready in ${Math.round(performance.now() - vecT0)}ms (${hits.length} throwaway hits)`,
+			);
+		} catch (err) {
+			process.stderr.write(
+				`[warmup] vector pool warmup skipped: ${err instanceof Error ? err.message : err}\n`,
+			);
+		}
+
+		// 2. FTS pages. Two different indexes serve the two search paths and
+		//    warming one does nothing for the other:
+		//      - `/v1/laws?q=` → DbService.bm25RankedNormIds → `norms_fts`
+		//        (+ the `norms` title LIKE pass). This is the path that
+		//        produced the 30-40s cold outlier.
+		//      - `/v1/ask` → dispatchBm25Stages → `blocks_fts` (article
+		//        level). BM25 no longer goes through the worker pool
+		//        (bm25-dispatch.ts, 2026-05-15), so it is warmed directly.
+		//    Both calls are synchronous SQLite work on the main thread, so
+		//    keep the queries narrow: avoid corpus-wide tokens like "ley"
+		//    (docfreq 310k/435k in blocks_fts) which trigger the expensive
+		//    OR traversal the token pruning exists to avoid.
+		const ftsT0 = performance.now();
+		try {
+			dbService.searchLaws("permiso de paternidad", {}, 5, 0);
+			bm25HybridSearch(db, "permiso de paternidad", ["baja", "paternidad"], 20);
+			console.log(
+				`[warmup] FTS pages warm in ${Math.round(performance.now() - ftsT0)}ms`,
+			);
+		} catch (err) {
+			process.stderr.write(
+				`[warmup] FTS warmup skipped: ${err instanceof Error ? err.message : err}\n`,
+			);
+		}
+	})();
+}
 
 export type App = typeof app;

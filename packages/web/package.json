@@ -12,7 +12,7 @@
 		"@lottiefiles/dotlottie-react": "^0.19.2",
 		"astro": "^7.1.1",
 		"diff2html": "3.4.56",
-		"js-yaml": "4.1.1",
+		"js-yaml": "4.3.0",
 		"markdown-it": "^14.1.1",
 		"react": "^19.2.5",
 		"react-dom": "^19.2.5",

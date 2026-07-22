@@ -13,6 +13,11 @@ name: Leyes rebuild backstop
 #   3. If different → fires `repository_dispatch` to deploy.yml (same code path
 #      as the primary trigger) and refreshes the cache with the new SHA.
 #
+# The marker is ALSO written by deploy.yml's deploy-web job ("Sync backstop
+# cache marker") on every successful web deploy, whatever triggered it.
+# Otherwise a primary-path deploy never advances the marker and this workflow
+# re-dispatches a rebuild that already happened.
+#
 # Cache-based storage chosen because the default GITHUB_TOKEN cannot mutate
 # repo variables. Cache entries idle-evict after 7 days; we run every 30 min
 # so the entry stays warm indefinitely.
@@ -25,6 +30,7 @@ on:
 permissions:
   contents: read   # GITHUB_TOKEN only used to read leyes (public repo)
                    # Dispatch uses LEYABIERTA_DISPATCH_TOKEN (PAT), not GITHUB_TOKEN
+  actions: read    # list in-flight deploy.yml runs (see "Check for in-flight deploy")
 
 concurrency:
   group: leyes-backstop
@@ -54,6 +60,39 @@ jobs:
           restore-keys: |
             last-leyes-sha-
 
+      # Writing the marker at the END of deploy-web (correct: only a finished
+      # build may claim a SHA) leaves a ~6 min window in which the marker is
+      # legitimately stale. This job runs every 30 min, so roughly one leyes
+      # push in five lands inside that window: we would see "drift", dispatch,
+      # and `concurrency: cancel-in-progress` on deploy-main would kill the
+      # healthy in-flight build to start the same one again. If a deploy is
+      # already running, stand down and re-check on the next tick — the marker
+      # is deliberately left untouched, so nothing is marked built prematurely.
+      #
+      # Bounded to runs younger than 30 min so a wedged run cannot blind the
+      # backstop indefinitely. Any failure here (missing scope, API blip)
+      # falls back to 0 == "not busy", i.e. exactly today's behaviour.
+      - name: Check for in-flight deploy
+        id: inflight
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          RUNS=$(gh run list --repo "${{ github.repository }}" \
+            --workflow deploy.yml --status in_progress --limit 30 \
+            --json createdAt \
+            --jq '[.[] | select((now - (.createdAt | fromdateiso8601)) < 1800)] | length' \
+            2>/dev/null) || RUNS=""
+          case "$RUNS" in
+            ''|*[!0-9]*) RUNS=0 ;;
+          esac
+          echo "In-flight deploy runs: $RUNS"
+          if [ "$RUNS" -gt 0 ]; then
+            echo "busy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "busy=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compare and dispatch if drifted
         id: decide
         env:
@@ -64,6 +103,7 @@ jobs:
           # the same PAT that notify-leyabierta.yml uses on the leyes side.
           GH_TOKEN: ${{ secrets.LEYABIERTA_DISPATCH_TOKEN }}
           REMOTE_SHA: ${{ steps.remote.outputs.sha }}
+          DEPLOY_BUSY: ${{ steps.inflight.outputs.busy }}
         run: |
           set -euo pipefail
 
@@ -72,6 +112,12 @@ jobs:
             LAST_SHA=$(cat .last-leyes-sha)
           fi
           echo "Last built SHA: ${LAST_SHA:-<none>}"
+
+          if [ "$DEPLOY_BUSY" = "true" ]; then
+            echo "⏸ a deploy is already in flight — standing down, re-checking in 30 min"
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if [ "$REMOTE_SHA" = "$LAST_SHA" ]; then
             echo "✓ in sync — no rebuild needed"

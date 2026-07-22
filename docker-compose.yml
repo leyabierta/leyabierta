@@ -1,8 +1,20 @@
+# Log rotation is set per service rather than globally in /etc/docker/daemon.json:
+# the daemon-level setting needs a Docker restart, which would bounce every
+# container on the host (including other projects). These blocks only need the
+# leyabierta containers recreated. Without any limit, json-file logs grow
+# unbounded — traefik has been up for 3 months, the opik containers for 2.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   api:
     image: ghcr.io/leyabierta/api:latest
     build: . # Fallback for local development
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
@@ -38,6 +50,7 @@ services:
   watchtower:
     image: containrrr/watchtower
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -61,6 +74,7 @@ services:
   umami:
     image: ghcr.io/umami-software/umami:postgresql-v2
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "127.0.0.1:3001:3000"
     env_file:
@@ -79,7 +93,10 @@ services:
       umami-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/heartbeat"]
+      # 127.0.0.1, not localhost: the image resolves localhost to ::1 first and
+      # next-server only binds IPv4 0.0.0.0:3000, so wget got ECONNREFUSED and
+      # the container sat "unhealthy" for 8 days while serving traffic fine.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/heartbeat"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -97,6 +114,7 @@ services:
   umami-db:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *default-logging
     env_file:
       - path: .env.prod
         required: false
