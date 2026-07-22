@@ -413,6 +413,37 @@ describe("GET /v1/laws/:id/analisis", () => {
 // GET /v1/laws/:id/graph
 // ---------------------------------------------------------------------------
 
+describe("GET /v1/laws/:id/markdown", () => {
+	it("returns 404 for non-existent law", async () => {
+		const res = await req("/v1/laws/NOPE/markdown");
+		expect(res.status).toBe(404);
+	});
+
+	it("serves the canonical Markdown as text/markdown", async () => {
+		insertNorm();
+		const original = gitStub.getFileLatest;
+		gitStub.getFileLatest = async () =>
+			"---\ntitulo: CE\n---\n\n# Constitucion";
+		try {
+			const res = await req("/v1/laws/BOE-A-1978-31229/markdown");
+			expect(res.status).toBe(200);
+			expect(res.headers.get("content-type")).toBe(
+				"text/markdown; charset=utf-8",
+			);
+			expect(await res.text()).toContain("# Constitucion");
+		} finally {
+			gitStub.getFileLatest = original;
+		}
+	});
+
+	it("returns 404 when the law has no Markdown file", async () => {
+		insertNorm();
+		// gitStub.getFileLatest returns null by default → no file on disk.
+		const res = await req("/v1/laws/BOE-A-1978-31229/markdown");
+		expect(res.status).toBe(404);
+	});
+});
+
 describe("GET /v1/laws/:id/graph", () => {
 	it("returns 404 for non-existent law", async () => {
 		const { status, body } = await json("/v1/laws/NOPE/graph");
