@@ -4,52 +4,63 @@
 #
 # Usage: /opt/leyabierta/scripts/daily-pipeline.sh
 # Cron:  30 8 * * * /opt/leyabierta/scripts/daily-pipeline.sh
+#
+# Logging — under cron this script takes ownership of $LOG with a single
+# `exec >> "$LOG" 2>&1` and log() is a plain echo. Before, log() piped through
+# `tee -a "$LOG"`: it wrote the line to the file AND to stdout, which
+# /etc/cron.d/leyabierta independently appends to the same file
+# (`... >> /opt/leyabierta/logs/daily-pipeline.log 2>&1`, see
+# docs/infrastructure.md) — so every log() line landed twice. Both handles are
+# O_APPEND, so leaving the cron redirect in place is harmless; removing it is
+# optional cleanup, not required. The redirect is skipped when stdout is a TTY
+# so an operator running this by hand over SSH still sees output instead of a
+# silent terminal.
 
-# ── Self-update: pull latest version from the prod tag before doing anything ──
-# Runs BEFORE set -euo pipefail and BEFORE the lockfile so that even a stale
-# on-disk copy of this script can bootstrap itself to the current version.
-# LEYABIERTA_SELF_UPDATED=1 breaks the re-exec loop (set by child after update).
 SCRIPT_PATH="$(readlink -f "$0")"
 REPO_DIR=/opt/leyabierta/code
 SCRIPT_IN_REPO="$REPO_DIR/scripts/daily-pipeline.sh"
-
-if [ -z "${LEYABIERTA_SELF_UPDATED:-}" ] && [ -d "$REPO_DIR/.git" ]; then
-  # Fetch the prod tag with explicit refspec so a force-updated remote tag
-  # always overrides the local one. `git fetch --tags` (without --force) is
-  # NOT enough — it silently keeps an existing local tag pointing to an old
-  # commit, so self-update would never advance.
-  if git -C "$REPO_DIR" fetch --quiet origin "+refs/tags/prod:refs/tags/prod" 2>/dev/null \
-     && git -C "$REPO_DIR" reset --hard refs/tags/prod >/dev/null 2>&1; then
-    if [ -f "$SCRIPT_IN_REPO" ] && ! cmp -s "$SCRIPT_PATH" "$SCRIPT_IN_REPO"; then
-      export LEYABIERTA_SELF_UPDATED=1
-      exec "$SCRIPT_IN_REPO" "$@"
-    fi
-  fi
-fi
-
 LOG=/opt/leyabierta/logs/daily-pipeline.log
 CONTAINER=code-api-1
 ENV_FILE=/opt/leyabierta/code/.env.prod
 LEYES_DIR_CONTAINER=/data/leyes
 DIVERGENCE_CEILING=200  # abort push if local is ahead by more than this; alert + investigate
+# How old the deployed commit (refs/tags/prod) may get before we alert.
+# Measured in DAYS, deliberately not in "commits behind origin/main": main
+# takes web/SEO/API commits every day that never touch this script, so a commit
+# count would alert every week and train everyone to ignore it.
+STALE_DEPLOY_MAX_AGE_DAYS=${STALE_DEPLOY_MAX_AGE_DAYS:-14}
+# Hard wall-clock cap on the network git calls made before the lock is taken.
+GIT_NET_TIMEOUT=${GIT_NET_TIMEOUT:-120}
 
-# Ensure the log directory exists BEFORE any code that might log (the lock
-# guard below being the first such case on a fresh server).
+# Ensure the log directory exists BEFORE any code that might log (the
+# `exec` below and the lock guard being the first such cases on a fresh server).
 mkdir -p "$(dirname "$LOG")"
 
-# ── Single-instance lock ────────────────────────────────────────────────────
-# Prevents concurrent runs from racing on the leyes git working tree
-# (root cause of duplicate commits seen in production before 2026-04-27).
-LOCKFILE=/var/lock/leyabierta-pipeline.lock
-exec 9>"$LOCKFILE"
-if ! flock -n 9; then
-  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] another pipeline run is in progress — skipping" >> "$LOG"
-  exit 0
+# Own the log file for the rest of the run — see the header comment above.
+if [ ! -t 1 ]; then
+  exec >> "$LOG" 2>&1
 fi
 
-set -euo pipefail
+log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $1"; }
 
-log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $1" | tee -a "$LOG"; }
+# scrub TEXT — mask embedded credentials and cap length before git output is
+# shipped to a webhook. A git remote can legitimately carry a token in its URL
+# (the same pattern this script uses for the leyes remote below) and git prints
+# the remote URL on auth failures, so raw stderr must never be forwarded.
+scrub() {
+  local s
+  s=$(printf '%s' "$1" | tr '\n' ' ' | sed -E 's#(https?://)[^/@[:space:]]+@#\1***@#g' 2>/dev/null) || s="$1"
+  printf '%s' "${s:0:400}"
+}
+
+# git_net ARGS... — git with a hard timeout, for anything that touches network.
+git_net() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$GIT_NET_TIMEOUT" git "$@"
+  else
+    git "$@"
+  fi
+}
 
 # build_alert_json TITLE BODY — emits a valid JSON object on stdout.
 # Prefers python3 (always present on Ubuntu/Debian VPS) for correct escaping
@@ -70,18 +81,102 @@ build_alert_json() {
 }
 
 # send_alert TITLE BODY — POST a JSON alert to ALERT_WEBHOOK_URL (non-fatal).
-# Falls back silently if ALERT_WEBHOOK_URL is unset or curl fails.
+# Defined before the self-update guard (and before ENV_FILE is parsed further
+# down) so a failed self-update can alert just as loudly as a failed step.
+# Uses ALERT_WEBHOOK_URL when already exported, otherwise reads it straight out
+# of ENV_FILE. Falls back silently if neither yields a URL or curl fails.
 send_alert() {
   local title="$1" body="$2"
-  if [ -n "${ALERT_WEBHOOK_URL:-}" ]; then
+  local webhook="${ALERT_WEBHOOK_URL:-}"
+  if [ -z "$webhook" ] && [ -r "$ENV_FILE" ]; then
+    webhook=$(grep -E '^ALERT_WEBHOOK_URL=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
+  fi
+  if [ -n "$webhook" ]; then
     local json
     json=$(build_alert_json "$title" "$body")
-    curl -fsS --max-time 10 -X POST "$ALERT_WEBHOOK_URL" \
+    curl -fsS --max-time 10 -X POST "$webhook" \
       -H "Content-Type: application/json" \
       -d "$json" \
       >/dev/null 2>&1 || true
   fi
 }
+
+# ── Self-update: pull latest version from the prod tag before doing anything ──
+# Runs BEFORE set -euo pipefail and BEFORE the lockfile so that even a stale
+# on-disk copy of this script can bootstrap itself to the current version.
+# LEYABIERTA_SELF_UPDATED=1 breaks the re-exec loop (set by child after update).
+#
+# Both branches used to swallow stderr (`2>/dev/null`, `>/dev/null 2>&1`) with
+# no else-branch, so a broken fetch or reset silently left whatever copy was on
+# disk running forever. Every failure is now logged and alerted.
+if [ -z "${LEYABIERTA_SELF_UPDATED:-}" ] && [ -d "$REPO_DIR/.git" ]; then
+  self_update_ok=0
+  # Fetch the prod tag with explicit refspec so a force-updated remote tag
+  # always overrides the local one. `git fetch --tags` (without --force) is
+  # NOT enough — it silently keeps an existing local tag pointing to an old
+  # commit, so self-update would never advance.
+  su_err=$(git_net -C "$REPO_DIR" fetch --quiet origin "+refs/tags/prod:refs/tags/prod" 2>&1) && su_status=0 || su_status=$?
+  if [ "$su_status" -ne 0 ]; then
+    log "  ✗ self-update: fetch refs/tags/prod failed (exit $su_status): $(scrub "$su_err")"
+    send_alert "leyabierta self-update failed" "git fetch refs/tags/prod failed (exit $su_status): $(scrub "$su_err")"
+  else
+    su_err=$(git -C "$REPO_DIR" reset --hard refs/tags/prod 2>&1) && su_status=0 || su_status=$?
+    if [ "$su_status" -ne 0 ]; then
+      log "  ✗ self-update: reset --hard refs/tags/prod failed (exit $su_status): $(scrub "$su_err")"
+      send_alert "leyabierta self-update failed" "git reset --hard refs/tags/prod failed (exit $su_status): $(scrub "$su_err")"
+    else
+      self_update_ok=1
+      if [ -f "$SCRIPT_IN_REPO" ] && ! cmp -s "$SCRIPT_PATH" "$SCRIPT_IN_REPO"; then
+        log "  → self-update: newer daily-pipeline.sh at refs/tags/prod — re-exec'ing"
+        export LEYABIERTA_SELF_UPDATED=1
+        exec "$SCRIPT_IN_REPO" "$@"
+      fi
+    fi
+  fi
+  if [ "$self_update_ok" -ne 1 ]; then
+    log "  ⚠ self-update: continuing with the on-disk copy at $SCRIPT_PATH — version may be stale"
+  fi
+fi
+
+# ── Single-instance lock ────────────────────────────────────────────────────
+# Prevents concurrent runs from racing on the leyes git working tree
+# (root cause of duplicate commits seen in production before 2026-04-27).
+LOCKFILE=/var/lock/leyabierta-pipeline.lock
+exec 9>"$LOCKFILE"
+if ! flock -n 9; then
+  log "another pipeline run is in progress — skipping"
+  exit 0
+fi
+
+# ── Record which commit is actually running, and how old it is ──────────────
+# Runs AFTER the lock so a run that immediately bails out never fires a
+# staleness alert. Needs no network: the deployed commit's own date is enough.
+#
+# The heartbeat at the bottom only ever meant "the script that happened to run
+# finished". It said nothing about WHICH version ran, so it stayed green for
+# weeks while refs/tags/prod sat on an old commit and Step 10 (PR #110) never
+# executed. Logging the SHA every run makes that visible; an old deploy raises
+# its own alert.
+#
+# Deliberately NOT wired into the heartbeat. The heartbeat is the liveness
+# signal for steps 1-8 (including the daily emails). Suppressing it for a
+# stale-but-working pipeline would page for the wrong thing, keep the monitor
+# permanently red (nothing moves the prod tag automatically today, so it would
+# stay red until a human acts), and make a genuinely dead pipeline
+# indistinguishable from an un-moved tag. Staleness gets its own channel.
+PIPELINE_SHA=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo unknown)
+DEPLOY_AGE_DAYS=unknown
+deploy_ts=$(git -C "$REPO_DIR" log -1 --format=%ct HEAD 2>/dev/null || true)
+if [ -n "${deploy_ts:-}" ]; then
+  DEPLOY_AGE_DAYS=$(( ( $(date -u +%s) - deploy_ts ) / 86400 ))
+fi
+log "running pipeline SHA=$PIPELINE_SHA deploy-age=${DEPLOY_AGE_DAYS}d (max=${STALE_DEPLOY_MAX_AGE_DAYS}d)"
+if [ "$DEPLOY_AGE_DAYS" != "unknown" ] && [ "$DEPLOY_AGE_DAYS" -gt "$STALE_DEPLOY_MAX_AGE_DAYS" ]; then
+  log "  ⚠ deployed commit is ${DEPLOY_AGE_DAYS} days old — refs/tags/prod has not moved; newer pipeline steps may not be running"
+  send_alert "leyabierta prod tag is stale" "running SHA=$PIPELINE_SHA is ${DEPLOY_AGE_DAYS} days old (max ${STALE_DEPLOY_MAX_AGE_DAYS}d) — move refs/tags/prod forward"
+fi
+
+set -euo pipefail
 
 # Extract ONLY the LEYES_PUSH_TOKEN from .env.prod for the push step. Avoid
 # `set -a; source ...` because that exports every secret in the file
@@ -302,8 +397,11 @@ fi
 log "=== Daily pipeline completed ==="
 
 # ── Heartbeat: signal successful completion to uptime monitor ────────────────
+# Unconditional on purpose: this is the liveness signal for steps 1-8 (the
+# daily emails included), NOT a deploy-freshness signal. Deploy staleness is
+# alerted separately near the top of this script — see the comment there.
 if [ -n "${BETTERSTACK_HEARTBEAT_URL:-}" ]; then
   curl -fsS --max-time 10 "$BETTERSTACK_HEARTBEAT_URL" >/dev/null 2>&1 \
-    && log "  ✓ heartbeat sent" \
+    && log "  ✓ heartbeat sent (SHA=$PIPELINE_SHA)" \
     || log "  ⚠ heartbeat failed (non-fatal)"
 fi
