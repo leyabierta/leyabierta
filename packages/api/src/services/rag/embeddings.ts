@@ -6,6 +6,7 @@
  * (sufficient for ~13K articles).
  */
 
+import { open, rename, rm } from "node:fs/promises";
 import { getNanApiKey } from "../nan-api-key.ts";
 
 const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
@@ -697,85 +698,6 @@ export function vectorSearchInMemory(
 }
 
 /**
- * Load vectors.bin into memory as multiple Float32Array chunks (one file,
- * N arrays). Works around the ~4GB ArrayBuffer limit in V8/Bun.
- */
-async function loadVectorsToMemory(
-	vecPath: string,
-	totalVectors: number,
-	dims: number,
-): Promise<InMemoryVectorIndex> {
-	// Vector chunks are always SAB-backed so the worker pool can reference
-	// them without a 5.6 GB copy at boot. The pool detects the underlying
-	// buffer type and reuses SABs directly in toShared().
-	const vecFile = Bun.file(vecPath);
-	const totalBytes = vecFile.size;
-	const bytesPerVec = dims * 4;
-	// Max ~2.5GB per chunk to stay well under ArrayBuffer 4GB ceiling.
-	const MAX_CHUNK_BYTES = 2_500_000_000;
-	const vectorsPerChunk = Math.floor(MAX_CHUNK_BYTES / bytesPerVec);
-	const chunks: Float32Array[] = [];
-	const normsPerChunk: Float32Array[] = [];
-	const vpc: number[] = [];
-	let loaded = 0;
-	const normStart = performance.now();
-	while (loaded < totalVectors) {
-		const startVec = loaded;
-		const endVec = Math.min(startVec + vectorsPerChunk, totalVectors);
-		const numVecs = endVec - startVec;
-		const startByte = startVec * bytesPerVec;
-		const endByte = endVec * bytesPerVec;
-		const wanted = endByte - startByte;
-
-		// Read into an ArrayBuffer first (Bun's fast path) and then memcpy
-		// into a SAB. Per-chunk peak is 2× chunk size during the copy, but
-		// each ArrayBuffer is reclaimed before the next chunk allocates.
-		// Streaming via for-await proved CPU-bound at ~80x slower in
-		// practice — see bench-pool history.
-		const buf = await vecFile.slice(startByte, endByte).arrayBuffer();
-		if (buf.byteLength < wanted) {
-			throw new Error(
-				`vectors.bin chunk short: expected ${wanted} got ${buf.byteLength}`,
-			);
-		}
-		const sab = new SharedArrayBuffer(wanted);
-		new Uint8Array(sab).set(new Uint8Array(buf, 0, wanted));
-		const vectors = new Float32Array(sab);
-
-		// Norms are cheap (~2 MB total) but live in a SAB too so workers
-		// receive them via the init message without a copy step.
-		const norms = new Float32Array(new SharedArrayBuffer(numVecs * 4));
-		for (let i = 0; i < numVecs; i++) {
-			const offset = i * dims;
-			let sum = 0;
-			for (let j = 0; j < dims; j++) {
-				const v = vectors[offset + j]!;
-				sum += v * v;
-			}
-			norms[i] = Math.sqrt(sum);
-		}
-		chunks.push(vectors);
-		normsPerChunk.push(norms);
-		vpc.push(numVecs);
-		loaded = endVec;
-	}
-	const totalMs = performance.now() - normStart;
-	console.log(
-		`[rag] Loaded vectors.bin: ${(totalBytes / 1e9).toFixed(2)}GB in ${chunks.length} chunks (${totalVectors} vectors, load + norms in ${totalMs.toFixed(0)}ms)`,
-	);
-	return {
-		kind: "f32",
-		chunks,
-		int8Chunks: [],
-		scalesPerChunk: [],
-		vectorsPerChunk: vpc,
-		normsPerChunk,
-		totalVectors,
-		dim: dims,
-	};
-}
-
-/**
  * Magic header for the int8 quantized format. See
  * `packages/api/research/quantize-vectors.ts` for the full layout.
  */
@@ -936,9 +858,189 @@ export async function loadInt8VectorsToMemory(
 }
 
 /**
- * Export vectors from SQLite to flat binary files for fast chunked search.
- * Creates vectors.bin (raw Float32 data) and vectors.meta.jsonl (article IDs).
- * Only re-exports if the count has changed.
+ * Number of vectors buffered per disk write while building the int8 index
+ * from the DB. Keeps peak RAM tiny (~20 MB of int8 per chunk) regardless of
+ * corpus size — this is the whole point of building int8 directly instead of
+ * materializing an 8 GB float32 `vectors.bin` first.
+ */
+const INT8_BUILD_CHUNK_VECTORS = 5_000;
+
+/**
+ * Build the int8 vector index (`vectors-int8.bin` + `.norms.bin` + meta)
+ * directly from the SQLite `embeddings` table, streaming one row at a time.
+ *
+ * This replaces the old two-step path (export 8 GB float32 `vectors.bin`,
+ * then quantize) which loaded the whole float32 corpus into RAM and OOM-killed
+ * the container on a cold rebuild. Here peak RAM stays at a single chunk
+ * (~20 MB) plus one row's blob.
+ *
+ * The per-vector encoding is byte-for-byte identical to the offline reference
+ * `quantizeVectorsFile` (research/.../quantize-vectors.ts): symmetric int8 with
+ * a float32 `scale = max(|v|)` prefix, and a sidecar of float32 L2 norms of the
+ * *original* float32 vectors. A byte-equality test pins the two together.
+ *
+ * Writes to `*.building` temp files and atomically renames into place, so a
+ * crash mid-build never leaves a half-written index for the loader to read.
+ */
+export async function buildInt8IndexFromDb(
+	db: Database,
+	modelKey: string,
+	dims: number,
+	int8Path: string,
+	normsPath: string,
+	metaPath: string,
+): Promise<{
+	meta: Array<{ normId: string; blockId: string }>;
+	exported: number;
+}> {
+	const bytesPerInt8Vec = INT8_BYTES_PER_VEC_OVERHEAD + dims;
+	const expectedF32Bytes = dims * 4;
+
+	const tmpInt8 = `${int8Path}.building`;
+	const tmpNorms = `${normsPath}.building`;
+	const tmpMeta = `${metaPath}.building`;
+
+	const writer = Bun.file(tmpInt8).writer();
+	const normsWriter = Bun.file(tmpNorms).writer();
+
+	// Header (32 bytes). n_vectors is unknown up front because malformed rows
+	// are skipped, so write a placeholder now and backfill the real count
+	// after streaming.
+	const header = new Uint8Array(INT8_HEADER_BYTES);
+	for (let i = 0; i < INT8_MAGIC.length; i++) {
+		header[i] = INT8_MAGIC.charCodeAt(i);
+	}
+	const headerView = new DataView(header.buffer);
+	headerView.setUint32(8, dims, true);
+	headerView.setUint32(12, 0, true);
+	writer.write(header);
+
+	// Reusable per-chunk scratch buffers.
+	const outBuf = new Uint8Array(INT8_BUILD_CHUNK_VECTORS * bytesPerInt8Vec);
+	const outView = new DataView(outBuf.buffer);
+	const outI8 = new Int8Array(outBuf.buffer);
+	const normsBuf = new Float32Array(INT8_BUILD_CHUNK_VECTORS);
+	let inChunk = 0;
+
+	const flushChunk = () => {
+		if (inChunk === 0) return;
+		writer.write(outBuf.subarray(0, inChunk * bytesPerInt8Vec));
+		normsWriter.write(new Uint8Array(normsBuf.buffer, 0, inChunk * 4));
+		inChunk = 0;
+	};
+
+	const stmt = db.query<
+		{ norm_id: string; block_id: string; vector: Buffer },
+		[string]
+	>(
+		"SELECT norm_id, block_id, vector FROM embeddings WHERE model = ? ORDER BY norm_id, block_id",
+	);
+
+	const metaLines: string[] = [];
+	let exported = 0;
+	let nextLogAt = 100_000;
+	const start = Date.now();
+
+	// Ensure both writers are closed even if the SQLite iterator throws
+	// mid-stream (corrupt DB, disk full) — otherwise the file descriptors
+	// leak until GC. The partial `.building` temp is never promoted on error,
+	// so it is simply overwritten on the next rebuild.
+	try {
+		for (const row of stmt.iterate(modelKey)) {
+			// Guard against truncated / wrong-dimension rows (same guard the old
+			// f32 exporter used): a Float32Array view past the backing buffer
+			// throws RangeError, which would crash API boot.
+			if (row.vector.byteLength !== expectedF32Bytes) {
+				console.warn(
+					`[rag] skipping ${row.norm_id}/${row.block_id}: expected ${expectedF32Bytes}B, got ${row.vector.byteLength}B`,
+				);
+				continue;
+			}
+			const floats = new Float32Array(
+				row.vector.buffer,
+				row.vector.byteOffset,
+				dims,
+			);
+			const outOff = inChunk * bytesPerInt8Vec;
+
+			// scale = max(|v|) and the L2 norm of the original vector, one pass.
+			let absMax = 0;
+			let sumSq = 0;
+			for (let j = 0; j < dims; j++) {
+				const x = floats[j]!;
+				const a = Math.abs(x);
+				if (a > absMax) absMax = a;
+				sumSq += x * x;
+			}
+			normsBuf[inChunk] = Math.sqrt(sumSq);
+			outView.setFloat32(outOff, absMax, true);
+
+			if (absMax === 0) {
+				for (let j = 0; j < dims; j++) outI8[outOff + 4 + j] = 0;
+			} else {
+				const inv = 127 / absMax;
+				for (let j = 0; j < dims; j++) {
+					let q = Math.round(floats[j]! * inv);
+					if (q > 127) q = 127;
+					else if (q < -128) q = -128;
+					outI8[outOff + 4 + j] = q;
+				}
+			}
+
+			metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
+			exported++;
+			inChunk++;
+			if (inChunk === INT8_BUILD_CHUNK_VECTORS) flushChunk();
+			// Progress log on crossing each 100K mark — independent of the
+			// chunk boundary so row skips can't silence it.
+			if (exported >= nextLogAt) {
+				nextLogAt += 100_000;
+				const rate = exported / ((Date.now() - start) / 1000);
+				console.log(
+					`[rag]   int8 build ${exported.toLocaleString()} vectors (${rate.toFixed(0)}/s)`,
+				);
+			}
+		}
+		flushChunk();
+	} finally {
+		await writer.end();
+		await normsWriter.end();
+	}
+
+	// Backfill the real vector count into the header (bytes 12..15).
+	headerView.setUint32(12, exported, true);
+	const fh = await open(tmpInt8, "r+");
+	try {
+		await fh.write(header, 0, INT8_HEADER_BYTES, 0);
+	} finally {
+		await fh.close();
+	}
+
+	await Bun.write(tmpMeta, metaLines.join("\n"));
+
+	// Atomic promote. Rename norms + int8 before meta: the loader keys
+	// freshness on the meta line count, so meta going last means a crash
+	// mid-promote leaves the old (or no) meta and triggers a clean rebuild
+	// rather than pairing a fresh meta with a stale binary.
+	await rename(tmpNorms, normsPath);
+	await rename(tmpInt8, int8Path);
+	await rename(tmpMeta, metaPath);
+
+	const meta = metaLines.map((l) => {
+		const obj = JSON.parse(l);
+		return { normId: obj.n as string, blockId: obj.b as string };
+	});
+	return { meta, exported };
+}
+
+/**
+ * Ensure the int8 vector index on disk is fresh and load it into memory.
+ *
+ * int8 is the only on-disk format. If a fresh `vectors-int8.bin` (matching the
+ * DB row count and model dims) is present it is loaded directly (~2 GB). If it
+ * is stale or missing, it is rebuilt **directly from the DB** via
+ * `buildInt8IndexFromDb` — streaming, low-RAM — never through an intermediate
+ * 8 GB float32 file. The legacy `vectors.bin` is removed on rebuild.
  */
 export async function ensureVectorIndex(
 	db: Database,
@@ -953,7 +1055,6 @@ export async function ensureVectorIndex(
 	if (!model) return null;
 
 	const metaPath = `${dataDir}/vectors.meta.jsonl`;
-	const vecPath = `${dataDir}/vectors.bin`;
 	const int8Path = `${dataDir}/vectors-int8.bin`;
 	const int8NormsPath = `${dataDir}/vectors-int8.norms.bin`;
 	const dims = model.dimensions;
@@ -967,113 +1068,63 @@ export async function ensureVectorIndex(
 
 	if (dbCount === 0) return null;
 
-	// Check if files exist and are up to date
 	const metaFile = Bun.file(metaPath);
-	const vecFile = Bun.file(vecPath);
 	const int8File = Bun.file(int8Path);
 
-	let meta: Array<{ normId: string; blockId: string }> | null = null;
-
-	// Prefer int8 quantized index if it exists and is fresh. Falls back
-	// to float32 transparently — deleting `vectors-int8.bin` is the
-	// rollback path.
+	// Fast path: load the existing int8 index if it is fresh.
 	if (
 		(await metaFile.exists()) &&
 		(await int8File.exists()) &&
 		(await Bun.file(int8NormsPath).exists())
 	) {
 		const lines = (await metaFile.text()).split("\n").filter(Boolean);
-		if (lines.length === dbCount) {
-			const fmt = await detectVectorFormat(int8Path);
-			if (fmt === "int8") {
-				meta = lines.map((l) => {
-					const obj = JSON.parse(l);
-					return { normId: obj.n, blockId: obj.b };
-				});
-				const vectors = await loadInt8VectorsToMemory(int8Path, int8NormsPath);
-				if (vectors.totalVectors !== lines.length) {
-					console.warn(
-						`[rag] int8 index has ${vectors.totalVectors} vectors but meta has ${lines.length} — falling back to f32`,
-					);
-				} else if (vectors.dim !== dims) {
-					console.warn(
-						`[rag] int8 index dim=${vectors.dim} but model expects ${dims} — falling back to f32`,
-					);
-				} else {
-					return { meta, vectors, dims };
-				}
+		if (
+			lines.length === dbCount &&
+			(await detectVectorFormat(int8Path)) === "int8"
+		) {
+			const meta = lines.map((l) => {
+				const obj = JSON.parse(l);
+				return { normId: obj.n as string, blockId: obj.b as string };
+			});
+			const vectors = await loadInt8VectorsToMemory(int8Path, int8NormsPath);
+			if (vectors.totalVectors === lines.length && vectors.dim === dims) {
+				return { meta, vectors, dims };
 			}
+			console.warn(
+				`[rag] int8 index mismatch (vectors=${vectors.totalVectors}/${lines.length}, dim=${vectors.dim}/${dims}) — rebuilding`,
+			);
 		} else {
 			console.log(
-				`[rag] Vector index stale (${lines.length} vs ${dbCount}), rebuilding...`,
+				`[rag] Vector index stale (${lines.length} vs ${dbCount}) — rebuilding int8 from DB`,
 			);
 		}
 	}
 
-	if ((await metaFile.exists()) && (await vecFile.exists())) {
-		const lines = (await metaFile.text()).split("\n").filter(Boolean);
-		if (lines.length === dbCount) {
-			meta = lines.map((l) => {
-				const obj = JSON.parse(l);
-				return { normId: obj.n, blockId: obj.b };
-			});
-			const vectors = await loadVectorsToMemory(vecPath, lines.length, dims);
-			return { meta, vectors, dims };
-		}
-		console.log(
-			`[rag] Vector index stale (${lines.length} vs ${dbCount}), rebuilding...`,
-		);
-	}
-
-	// Export from SQLite
-	console.log(`[rag] Building vector index: ${dbCount} vectors → ${vecPath}`);
-	const start = Date.now();
-	const metaLines: string[] = [];
-
-	const writer = vecFile.writer();
-	const stmt = db.query<
-		{ norm_id: string; block_id: string; vector: Buffer },
-		[string]
-	>(
-		"SELECT norm_id, block_id, vector FROM embeddings WHERE model = ? ORDER BY norm_id, block_id",
-	);
-
-	let exported = 0;
-	const expectedBytes = dims * 4;
-	for (const row of stmt.iterate(modelKey)) {
-		// Guard against truncated or wrong-dimension rows. Same fix as in
-		// sync-embeddings.ts — a `new Uint8Array` view past the backing
-		// buffer throws RangeError, which here would crash API boot.
-		if (row.vector.byteLength !== expectedBytes) {
-			console.warn(
-				`[rag] skipping ${row.norm_id}/${row.block_id}: expected ${expectedBytes}B, got ${row.vector.byteLength}B`,
-			);
-			continue;
-		}
-		metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
-		writer.write(
-			new Uint8Array(row.vector.buffer, row.vector.byteOffset, expectedBytes),
-		);
-		exported++;
-		if (exported % 100_000 === 0) {
-			writer.flush();
-		}
-	}
-	// Await flush before reading the file back through `loadVectorsToMemory`
-	// below. Without this, the read can race the final pending writes.
-	await writer.end();
-	await Bun.write(metaPath, metaLines.join("\n"));
-
-	meta = metaLines.map((l) => {
-		const obj = JSON.parse(l);
-		return { normId: obj.n, blockId: obj.b };
-	});
-
+	// Rebuild int8 straight from the DB (streaming, low RAM).
 	console.log(
-		`[rag] Vector index built: ${exported} vectors in ${((Date.now() - start) / 1000).toFixed(1)}s`,
+		`[rag] Building int8 vector index from DB: ${dbCount} vectors → ${int8Path}`,
+	);
+	const start = Date.now();
+	const { meta, exported } = await buildInt8IndexFromDb(
+		db,
+		modelKey,
+		dims,
+		int8Path,
+		int8NormsPath,
+		metaPath,
+	);
+	console.log(
+		`[rag] int8 vector index built: ${exported} vectors in ${((Date.now() - start) / 1000).toFixed(1)}s`,
 	);
 
-	const vectors = await loadVectorsToMemory(vecPath, exported, dims);
+	// Reclaim the obsolete 8 GB float32 file if a legacy one is still around.
+	try {
+		await rm(`${dataDir}/vectors.bin`, { force: true });
+	} catch {
+		// best-effort cleanup; never fatal
+	}
+
+	const vectors = await loadInt8VectorsToMemory(int8Path, int8NormsPath);
 	return { meta, vectors, dims };
 }
 
