@@ -451,12 +451,128 @@ jobs:
           new-status: "${{ job.status == 'success' && format('✅ **web** — Deployed ({0})', steps.duration.outputs.text) || job.status == 'cancelled' && '⚪ **web** — Cancelled' || format('❌ **web** — Failed ({0})', steps.duration.outputs.text) }}"
 
   # ============================================
+  # Bump the `prod` tag
+  #
+  # KonarServer's cron self-updates its checkout at /opt/leyabierta/code with
+  # `git fetch origin +refs/tags/prod:refs/tags/prod && git reset --hard
+  # refs/tags/prod` before every run (scripts/daily-pipeline.sh:16-28).
+  # Nothing moved that tag automatically before this job existed, so it only
+  # advanced when someone remembered to move it by hand: on 2026-07-22 it was
+  # still at c009110 (13-jul), 18 commits behind main, which is why the Step 10
+  # vector-index rebuild added by #110 had never run in production — neither
+  # scripts/rebuild-vector-index.sh nor the Step 10 block existed in the tree
+  # the server was actually executing.
+  #
+  # Deliberately NOT gated on changed paths. The prod tag governs the whole
+  # host checkout, and several things outside scripts/ and packages/pipeline/
+  # are read from it: docker-compose.yml (the volume mounts and the 8G memory
+  # cap), Dockerfile, and anything a future orchestrator step decides to read.
+  # Keeping the tag == last green main is one invariant instead of a path list
+  # that has to be kept in sync with the bash by hand.
+  #
+  # NOTE on what the tag does NOT control: everything under `data/` (including
+  # data/auxiliar/materias.json) is gitignored — `/data` in .gitignore — and
+  # lives in the `./data:/data` bind mount, not in git. `git reset --hard`
+  # never touches those files. Fixes to that data are DB/volume operations,
+  # not tag moves.
+  # ============================================
+
+  bump-prod-tag:
+    name: Bump prod tag
+    needs: [detect-changes, lint, deploy-api, deploy-web]
+    # workflow_dispatch can be launched against any branch from the "Run
+    # workflow" picker, so github.ref is checked first; the ancestry check in
+    # the step below is the real enforcement (github.ref alone would not stop
+    # a tag move to a commit that had been force-pushed off main).
+    if: |
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.lint.result == 'success' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      (needs.deploy-web.result == 'success' || needs.deploy-web.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # Full history: the ancestry guard below needs real merge-base data,
+          # which a shallow clone cannot provide.
+          fetch-depth: 0
+
+      # The `lint` job runs `bun run check` (Biome) and `bun test || true` —
+      # Biome does not parse shell and the test failures are swallowed, so
+      # nothing in CI currently validates the bash that KonarServer executes.
+      # Since this job makes main auto-propagate to production, a syntax error
+      # in daily-pipeline.sh would silently kill the 08:30 run (it is
+      # `set -euo pipefail`) and with it that day's subscriber emails. This is
+      # the cheapest gate that makes that impossible.
+      - name: Validate the shell the server will execute
+        run: |
+          set -euo pipefail
+          fail=0
+          while IFS= read -r -d '' f; do
+            if bash -n "$f"; then
+              echo "  ok  $f"
+            else
+              echo "::error file=$f::bash syntax error — refusing to move the prod tag"
+              fail=1
+            fi
+          done < <(find scripts -name '*.sh' -type f -print0)
+          [ "$fail" -eq 0 ]
+
+      - name: Force-move prod tag to this green SHA
+        run: |
+          set -euo pipefail
+          SHA='${{ github.sha }}'
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Guard: only ever point prod at a commit that is on origin/main.
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error::$SHA is not an ancestor of origin/main — refusing to move prod"
+            exit 1
+          fi
+
+          # Guard: never move prod backwards. Concurrent runs (a push and a
+          # leyes-updated repository_dispatch can both be in flight) would
+          # otherwise be able to rewind the server to an older tree.
+          CURRENT=$(git ls-remote origin refs/tags/prod | head -1 | cut -f1)
+          if [ -n "$CURRENT" ] \
+             && git cat-file -e "${CURRENT}^{commit}" 2>/dev/null \
+             && git merge-base --is-ancestor "$SHA" "$CURRENT"; then
+            echo "prod already at or ahead of $SHA ($CURRENT) — nothing to do"
+            exit 0
+          fi
+
+          # Fully-qualified refspec + force: `prod` alone is ambiguous if a
+          # branch of that name ever appears, and daily-pipeline.sh fetches
+          # with "+refs/tags/prod:refs/tags/prod", so the remote tag has to be
+          # force-updated (a plain push of a moved tag is rejected as
+          # non-fast-forward).
+          git tag -f prod "$SHA"
+          git push --force origin refs/tags/prod:refs/tags/prod
+          echo "prod tag now points to $SHA"
+
+      - name: Notify — prod tag bumped
+        if: always()
+        continue-on-error: true
+        uses: TriloHQ/notify-action@4db9f20562607d77b83ee78e6a6c2ff7184ece3f # v1
+        with:
+          token: ${{ secrets.TRILO_BOT_TOKEN }}
+          project-id: ${{ secrets.TRILO_PROJECT_ID }}
+          action: send
+          message: |
+            ${{ job.status == 'success' && '🏷️' || '❌' }} **prod tag** → `${{ github.sha }}` (${{ job.status }}) — KonarServer picks this up on its next daily-pipeline.sh run.
+
+  # ============================================
   # Final notification
   # ============================================
 
   notify-result:
     name: Notify result
-    needs: [detect-changes, deploy-api, deploy-web]
+    needs: [detect-changes, deploy-api, deploy-web, bump-prod-tag]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -469,4 +585,4 @@ jobs:
           action: send
           message: |
             ${{ (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') && (needs.deploy-web.result == 'success' || needs.deploy-web.result == 'skipped') && '✅' || '❌' }} **Deploy complete** · `${{ github.sha }}`
-            API: ${{ needs.deploy-api.result }} · Web: ${{ needs.deploy-web.result }}
+            API: ${{ needs.deploy-api.result }} · Web: ${{ needs.deploy-web.result }} · prod tag: ${{ needs.bump-prod-tag.result }}
