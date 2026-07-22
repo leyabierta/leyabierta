@@ -1653,6 +1653,36 @@ export class DbService {
 	}
 
 	/**
+	 * Article-summaries manifest: per-norm list of [articleTitle, citizenSummary]
+	 * pairs. Shipped as a *separate* build-time file (it is ~75 MB of text, far
+	 * bigger than the main manifest) so the web build can bake per-article
+	 * citizen summaries into the static HTML instead of fetching them
+	 * client-side (which left them invisible to search engines).
+	 *
+	 * The title is the block title — the same key the /laws/:id/summaries
+	 * endpoint returns — so the build-time matcher against the rendered article
+	 * headings mirrors the old client-side logic exactly.
+	 */
+	getArticleSummariesManifest(): Record<string, Array<[string, string]>> {
+		const rows = this.db
+			.query<{ norm_id: string; title: string; summary: string }, []>(
+				`SELECT cas.norm_id AS norm_id, b.title AS title, cas.summary AS summary
+				 FROM citizen_article_summaries cas
+				 JOIN blocks b
+				   ON b.norm_id = cas.norm_id AND b.block_id = cas.block_id
+				 WHERE cas.summary != '' AND b.title != ''
+				 ORDER BY cas.norm_id`,
+			)
+			.all();
+
+		const out: Record<string, Array<[string, string]>> = {};
+		for (const row of rows) {
+			(out[row.norm_id] ??= []).push([row.title, row.summary]);
+		}
+		return out;
+	}
+
+	/**
 	 * Build manifest: returns all citizen data + omnibus topics in one shot.
 	 * Used by the web build to avoid 12K individual API calls.
 	 */

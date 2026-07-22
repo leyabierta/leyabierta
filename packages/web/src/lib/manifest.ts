@@ -21,7 +21,48 @@ export interface BuildManifest {
 	omnibus: Record<string, OmnibusTopic[]>;
 }
 
+/**
+ * Per-norm article summaries: `normId → [articleTitle, citizenSummary][]`.
+ * Loaded from a separate, larger file (see BUILD_ARTICLE_SUMMARIES_PATH) so the
+ * main manifest stays lean.
+ */
+export type ArticleSummariesManifest = Record<string, Array<[string, string]>>;
+
 let _manifest: BuildManifest | null | undefined;
+let _articleSummaries: ArticleSummariesManifest | null | undefined;
+
+/**
+ * Load the article-summaries manifest once (cached). Returns null when no
+ * manifest path is configured (local dev) or the file is missing/invalid — in
+ * which case article summaries are simply omitted from the built pages.
+ */
+export function loadArticleSummaries(): ArticleSummariesManifest | null {
+	if (_articleSummaries !== undefined) return _articleSummaries;
+	const path = process.env.BUILD_ARTICLE_SUMMARIES_PATH;
+	if (!path) {
+		_articleSummaries = null;
+		return null;
+	}
+	try {
+		const parsed = JSON.parse(readFileSync(path, "utf-8"));
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+			console.warn("[manifest] Invalid article-summaries shape");
+			_articleSummaries = null;
+			return null;
+		}
+		_articleSummaries = parsed as ArticleSummariesManifest;
+		console.log(
+			`[manifest] Loaded article summaries for ${Object.keys(_articleSummaries).length} norms`,
+		);
+		return _articleSummaries;
+	} catch (err) {
+		console.warn(
+			`[manifest] Failed to load article summaries from ${path}: ${err instanceof Error ? err.message : "unknown error"}`,
+		);
+		_articleSummaries = null;
+		return null;
+	}
+}
 
 export function loadManifest(): BuildManifest | null {
 	if (_manifest !== undefined) return _manifest;
