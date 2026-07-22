@@ -36,6 +36,20 @@ GIT_NET_TIMEOUT=${GIT_NET_TIMEOUT:-120}
 # `exec` below and the lock guard being the first such cases on a fresh server).
 mkdir -p "$(dirname "$LOG")"
 
+# ── Rotate the log if it has grown past the cap ─────────────────────────────
+# Done here rather than via /etc/logrotate.d because that needs root on the
+# server and lives outside this repo — this is one moving part instead of two,
+# and it ships with the script. Rotation happens BEFORE the exec below so the
+# run always appends to a freshly rotated file. One generation is plenty: the
+# interesting history is in this log's own output, not in months of archive.
+LOG_MAX_BYTES=${LOG_MAX_BYTES:-52428800}  # 50 MB
+if [ -f "$LOG" ]; then
+  log_size=$(stat -c%s "$LOG" 2>/dev/null || echo 0)
+  if [ "$log_size" -gt "$LOG_MAX_BYTES" ]; then
+    mv -f "$LOG" "$LOG.1" 2>/dev/null || true
+  fi
+fi
+
 # Own the log file for the rest of the run — see the header comment above.
 if [ ! -t 1 ]; then
   exec >> "$LOG" 2>&1
@@ -376,6 +390,25 @@ if [ "$push_status" -ne 0 ]; then
     log "  ⚠ retry also failed. Will retry on next daily run. Investigate logs."
     send_alert "leyes push retry also failed" "exit=$retry_status — investigate logs at /opt/leyabierta/logs/daily-pipeline.log"
   fi
+fi
+
+# ── Step 9.5: Checkpoint the WAL ────────────────────────────────────────────
+# The day's ingest + AI steps push a lot through the write-ahead log, and
+# `wal_autocheckpoint` (1000 pages ≈ 4 MB) only fires when no reader holds the
+# database — the API always does, so in practice it never truncates. Observed
+# 2026-07-22: 277 MB of WAL still on disk with every writer long finished.
+# TRUNCATE reclaims the file; the data was already in the DB, so nothing is
+# lost if this is a no-op. Non-fatal, and placed before the index rebuild so it
+# runs while the API is still up (the rebuild restarts it).
+log "→ Step 9.5: Checkpoint SQLite WAL"
+set +e
+docker exec "$CONTAINER" bun -e 'const {Database}=require("bun:sqlite");const db=new Database(process.env.DB_PATH??"/data/leyabierta.db");console.log(JSON.stringify(db.query("PRAGMA wal_checkpoint(TRUNCATE)").get()));' >> "$LOG" 2>&1
+checkpoint_status=$?
+set -e
+if [ "$checkpoint_status" -ne 0 ]; then
+  log "  ⚠ WAL checkpoint returned $checkpoint_status (non-fatal)"
+else
+  log "  ✓ WAL checkpoint done"
 fi
 
 # ── Step 10: Rebuild the vector search index if new embeddings were added ────
