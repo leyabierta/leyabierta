@@ -30,7 +30,7 @@ fi
 # Shipped separately from the main manifest because of its size; used to bake
 # article summaries into the static HTML (SEO-visible) instead of client fetch.
 echo "[build] Fetching article-summaries manifest..."
-if curl -sf -H "x-api-key: ${API_BYPASS_KEY:-}" \
+if curl -sf --max-time 300 -H "x-api-key: ${API_BYPASS_KEY:-}" \
   "${API_URL:-https://api.leyabierta.es}/v1/build-manifest/articles" \
   -o .build-manifest-articles.json; then
   ARTICLES_SIZE=$(wc -c < .build-manifest-articles.json | tr -d ' ')

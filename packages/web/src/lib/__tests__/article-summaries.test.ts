@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { bakeArticleSummaries, normKey } from "../article-summaries.ts";
 
 describe("normKey", () => {
-	test("lowercases, strips accents and punctuation", () => {
-		expect(normKey("Artículo 1. Título")).toBe("articulo 1 titulo");
+	test("lowercases, strips accents, maps dots to boundaries", () => {
+		// "." becomes "-" so decimal articles stay distinct (see collision test).
+		expect(normKey("Artículo 1. Título")).toBe("articulo 1- titulo");
 		expect(normKey("  DISPOSICIÓN  final  ")).toBe("disposicion final");
+		expect(normKey("Artículo 1.1")).toBe("articulo 1-1");
+		expect(normKey("Artículo 11")).toBe("articulo 11");
 	});
 });
 
@@ -44,6 +47,29 @@ describe("bakeArticleSummaries", () => {
 		]);
 		expect(out).toContain("resumen del uno bis");
 		expect(out).not.toContain("resumen del uno<"); // not the shorter one
+	});
+
+	test("keeps decimal articles distinct (Artículo 1.1 vs Artículo 11)", () => {
+		// Both blocks present on the same norm: each must get its own summary,
+		// not collide on a shared key.
+		const html = `${H("Artículo 1.1")}<p>a</p>${H("Artículo 11")}<p>b</p>`;
+		const out = bakeArticleSummaries(html, [
+			["Artículo 1.1", "resumen uno punto uno"],
+			["Artículo 11", "resumen once"],
+		]);
+		expect(normKey("Artículo 1.1")).not.toBe(normKey("Artículo 11"));
+		const h11 = out.slice(out.indexOf("Artículo 11"));
+		expect(h11).toContain("resumen once");
+		expect(h11).not.toContain("resumen uno punto uno");
+		const h11Start = out.indexOf("Artículo 11");
+		expect(out.slice(0, h11Start)).toContain("resumen uno punto uno");
+	});
+
+	test("still matches a heading that carries a dotted title", () => {
+		const out = bakeArticleSummaries(H("Artículo 1.1"), [
+			["Artículo 1.1", "resumen decimal"],
+		]);
+		expect(out).toContain("resumen decimal");
 	});
 
 	test("respects the word boundary (Artículo 1 does not match Artículo 12)", () => {

@@ -669,7 +669,7 @@ export function lawRoutes(
 						set.status = 403;
 						return { error: "Forbidden" };
 					}
-					set.headers["Cache-Control"] = "private, max-age=300";
+					set.headers["Cache-Control"] = "no-store";
 					try {
 						return dbService.getArticleSummariesManifest();
 					} catch (err) {
