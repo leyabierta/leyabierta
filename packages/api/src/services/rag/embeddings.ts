@@ -938,66 +938,74 @@ export async function buildInt8IndexFromDb(
 
 	const metaLines: string[] = [];
 	let exported = 0;
+	let nextLogAt = 100_000;
 	const start = Date.now();
 
-	for (const row of stmt.iterate(modelKey)) {
-		// Guard against truncated / wrong-dimension rows (same guard the old
-		// f32 exporter used): a Float32Array view past the backing buffer
-		// throws RangeError, which would crash API boot.
-		if (row.vector.byteLength !== expectedF32Bytes) {
-			console.warn(
-				`[rag] skipping ${row.norm_id}/${row.block_id}: expected ${expectedF32Bytes}B, got ${row.vector.byteLength}B`,
-			);
-			continue;
-		}
-		const floats = new Float32Array(
-			row.vector.buffer,
-			row.vector.byteOffset,
-			dims,
-		);
-		const outOff = inChunk * bytesPerInt8Vec;
-
-		// scale = max(|v|) and the L2 norm of the original vector, one pass.
-		let absMax = 0;
-		let sumSq = 0;
-		for (let j = 0; j < dims; j++) {
-			const x = floats[j]!;
-			const a = Math.abs(x);
-			if (a > absMax) absMax = a;
-			sumSq += x * x;
-		}
-		normsBuf[inChunk] = Math.sqrt(sumSq);
-		outView.setFloat32(outOff, absMax, true);
-
-		if (absMax === 0) {
-			for (let j = 0; j < dims; j++) outI8[outOff + 4 + j] = 0;
-		} else {
-			const inv = 127 / absMax;
-			for (let j = 0; j < dims; j++) {
-				let q = Math.round(floats[j]! * inv);
-				if (q > 127) q = 127;
-				else if (q < -128) q = -128;
-				outI8[outOff + 4 + j] = q;
+	// Ensure both writers are closed even if the SQLite iterator throws
+	// mid-stream (corrupt DB, disk full) — otherwise the file descriptors
+	// leak until GC. The partial `.building` temp is never promoted on error,
+	// so it is simply overwritten on the next rebuild.
+	try {
+		for (const row of stmt.iterate(modelKey)) {
+			// Guard against truncated / wrong-dimension rows (same guard the old
+			// f32 exporter used): a Float32Array view past the backing buffer
+			// throws RangeError, which would crash API boot.
+			if (row.vector.byteLength !== expectedF32Bytes) {
+				console.warn(
+					`[rag] skipping ${row.norm_id}/${row.block_id}: expected ${expectedF32Bytes}B, got ${row.vector.byteLength}B`,
+				);
+				continue;
 			}
-		}
+			const floats = new Float32Array(
+				row.vector.buffer,
+				row.vector.byteOffset,
+				dims,
+			);
+			const outOff = inChunk * bytesPerInt8Vec;
 
-		metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
-		exported++;
-		inChunk++;
-		if (inChunk === INT8_BUILD_CHUNK_VECTORS) {
-			flushChunk();
-			if (exported % 100_000 === 0) {
+			// scale = max(|v|) and the L2 norm of the original vector, one pass.
+			let absMax = 0;
+			let sumSq = 0;
+			for (let j = 0; j < dims; j++) {
+				const x = floats[j]!;
+				const a = Math.abs(x);
+				if (a > absMax) absMax = a;
+				sumSq += x * x;
+			}
+			normsBuf[inChunk] = Math.sqrt(sumSq);
+			outView.setFloat32(outOff, absMax, true);
+
+			if (absMax === 0) {
+				for (let j = 0; j < dims; j++) outI8[outOff + 4 + j] = 0;
+			} else {
+				const inv = 127 / absMax;
+				for (let j = 0; j < dims; j++) {
+					let q = Math.round(floats[j]! * inv);
+					if (q > 127) q = 127;
+					else if (q < -128) q = -128;
+					outI8[outOff + 4 + j] = q;
+				}
+			}
+
+			metaLines.push(JSON.stringify({ n: row.norm_id, b: row.block_id }));
+			exported++;
+			inChunk++;
+			if (inChunk === INT8_BUILD_CHUNK_VECTORS) flushChunk();
+			// Progress log on crossing each 100K mark — independent of the
+			// chunk boundary so row skips can't silence it.
+			if (exported >= nextLogAt) {
+				nextLogAt += 100_000;
 				const rate = exported / ((Date.now() - start) / 1000);
 				console.log(
 					`[rag]   int8 build ${exported.toLocaleString()} vectors (${rate.toFixed(0)}/s)`,
 				);
 			}
 		}
+		flushChunk();
+	} finally {
+		await writer.end();
+		await normsWriter.end();
 	}
-	flushChunk();
-
-	await writer.end();
-	await normsWriter.end();
 
 	// Backfill the real vector count into the header (bytes 12..15).
 	headerView.setUint32(12, exported, true);

@@ -16,6 +16,11 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+// The reference quantizer lives (deliberately) in research/archive — it is the
+// frozen, proven offline encoder that the production int8 index was first built
+// with. Keeping it there, and importing it here, is what makes this an
+// *independent* parity check rather than a tautology against shared code. If
+// the archive is ever reorganized, update this path.
 import { quantizeVectorsFile } from "../../research/archive/2026-05/experiments/quantize-vectors.ts";
 import { buildInt8IndexFromDb } from "../services/rag/embeddings.ts";
 
