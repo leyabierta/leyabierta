@@ -79,7 +79,10 @@ services:
       umami-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/heartbeat"]
+      # 127.0.0.1, not localhost: the image resolves localhost to ::1 first and
+      # next-server only binds IPv4 0.0.0.0:3000, so wget got ECONNREFUSED and
+      # the container sat "unhealthy" for 8 days while serving traffic fine.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/heartbeat"]
       interval: 30s
       timeout: 5s
       retries: 3
