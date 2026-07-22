@@ -18,10 +18,13 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { clampLastmod, isPlausibleReformDate } from "../lib/sitemap-dates.ts";
 
 export const prerender = true;
 
 const SITE_URL = "https://leyabierta.es";
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
+const MAX_YEAR = new Date().getUTCFullYear() + 1;
 
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
@@ -35,12 +38,17 @@ export const GET: APIRoute = async () => {
 			// date — it's not a change, it's the law coming into existence. Skip it;
 			// that content lives at /leyes/<id>/, not /cambios/reforma/.
 			if (reforma.fecha === d.fecha_publicacion) continue;
-			if (!/^\d{4}-\d{2}-\d{2}$/.test(reforma.fecha)) continue;
+			// Drop corrupt pipeline dates (e.g. year 2929) — Google rejected the
+			// whole sitemap over 160 such "Invalid date" lastmods, keeping ~35k
+			// reform URLs out of the index.
+			if (!isPlausibleReformDate(reforma.fecha, MAX_YEAR)) continue;
 
+			// lastmod must never be in the future (Google flags it as invalid).
+			const lastmod = clampLastmod(reforma.fecha, TODAY_ISO);
 			const loc = `${SITE_URL}/cambios/reforma/?id=${encodeURIComponent(d.identificador)}&amp;date=${encodeURIComponent(reforma.fecha)}`;
 			urls.push(`  <url>
     <loc>${loc}</loc>
-    <lastmod>${reforma.fecha}</lastmod>
+    <lastmod>${lastmod}</lastmod>
     <changefreq>never</changefreq>
     <priority>0.5</priority>
   </url>`);
