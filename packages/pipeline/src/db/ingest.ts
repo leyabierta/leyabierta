@@ -7,6 +7,7 @@
 
 import type { Database } from "bun:sqlite";
 import { Glob } from "bun";
+import { isPlausibleReformDate } from "../utils/date.ts";
 
 const DEFAULT_BATCH_SIZE = 100;
 
@@ -33,7 +34,7 @@ const BULLETIN_JURISDICTION: Record<string, string> = {
 function resolveJurisdiction(source: string, normId: string): string {
 	if (source) {
 		const match = source.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
-		if (match) return match[1];
+		if (match?.[1]) return match[1];
 	}
 	const prefix = normId.split("-")[0];
 	if (prefix && BULLETIN_JURISDICTION[prefix]) {
@@ -80,6 +81,8 @@ export interface IngestResult {
 	blocksInserted: number;
 	versionsInserted: number;
 	reformsInserted: number;
+	/** Reforms rejected for having an implausible date (outside [1800-01-01, today+5y]). */
+	reformsRejected: number;
 	errors: string[];
 	duration: number;
 }
@@ -146,7 +149,7 @@ export function normalizeArticle(
 	let currentText = article.currentText as string | undefined;
 	if (currentText === undefined || currentText === null) {
 		// Default to the text of the last version
-		currentText = versions.length > 0 ? versions[versions.length - 1].text : "";
+		currentText = versions.at(-1)?.text ?? "";
 	}
 
 	return { blockId, blockType, title, position, versions, currentText };
@@ -169,6 +172,7 @@ export async function ingestJsonDir(
 		blocksInserted: 0,
 		versionsInserted: 0,
 		reformsInserted: 0,
+		reformsRejected: 0,
 		errors: [],
 		duration: 0,
 	};
@@ -375,6 +379,24 @@ export async function ingestJsonDir(
 					}
 
 					for (const reform of reforms) {
+						// Reject (not silently drop) reforms with implausible dates —
+						// the BOE feed has produced garbage like `2929-11-19` in
+						// production, which contaminates MAX(reforms.date) and any
+						// "last reform" freshness signal downstream. Loud warning so
+						// operators see it in the ingest logs, not a quiet skip.
+						if (!isPlausibleReformDate(reform.date)) {
+							result.reformsRejected++;
+							// Counted separately, NOT pushed to result.errors: bad
+							// source data is not an ingest failure, and folding it
+							// into the error count makes a healthy run report
+							// "Errors: 1" forever. The CLI prints reformsRejected
+							// on its own line.
+							console.warn(
+								`  [WARN] Rejected implausible reform date "${reform.date}" for norm ${metadata.id} (source ${reform.sourceId}) — outside plausible range`,
+							);
+							continue;
+						}
+
 						insertReform.run({
 							$normId: metadata.id,
 							$date: reform.date,

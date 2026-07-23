@@ -117,6 +117,12 @@ const JURISDICTION_OPTIONS = [
 			line-height: 1.2;
 			margin-bottom: 0.375rem;
 		}
+		/* This heading only receives programmatic focus (tabindex="-1") as an
+		   anchor for screen readers moving between steps — it isn't
+		   interactive for sighted users, so the default focus ring is noise. */
+		.step-heading:focus {
+			outline: none;
+		}
 		.step-subtitle {
 			color: var(--text-secondary);
 			font-size: 0.9rem;
@@ -396,6 +402,7 @@ const JURISDICTION_OPTIONS = [
 			cursor: pointer;
 			padding: 0.5rem 0.75rem;
 			min-height: 48px;
+			white-space: nowrap;
 			transition: color 0.15s;
 		}
 		.btn-skip:hover {
@@ -427,12 +434,17 @@ const JURISDICTION_OPTIONS = [
 			.btn-next {
 				max-width: none;
 				flex: 1;
+				min-width: 0;
 			}
 			.btn-back {
 				flex-shrink: 0;
+				min-width: 0;
+			}
+			.btn-skip {
+				min-width: 0;
 			}
 			.wizard-nav {
-				flex-wrap: nowrap;
+				flex-wrap: wrap;
 			}
 		}
 	</style>

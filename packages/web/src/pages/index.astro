@@ -71,7 +71,7 @@ const TOPICS = [
 <Base
 	fullWidth
 	title="Las leyes de España, accesibles para todos"
-	description={`Más de ${totalNorms.toLocaleString("es")} leyes españolas. Consulta cualquier ley, entiende qué cambió y cuándo.`}
+	description={`Más de ${totalNorms.toLocaleString("es", { useGrouping: "always" })} leyes españolas. Consulta cualquier ley, entiende qué cambió y cuándo.`}
 	ogTitle="Ley Abierta — Las leyes de España, accesibles para todos"
 	canonicalUrl="/"
 >
@@ -117,8 +117,10 @@ const TOPICS = [
 			padding: 0.375rem 0.375rem 0.375rem 1.125rem;
 		}
 		.search-box svg { width: 18px; height: 18px; color: var(--text-muted); flex: 0 0 auto; }
+		.search-field { display: flex; align-items: center; gap: 0.625rem; flex: 1; min-width: 0; }
 		.search-box input {
 			flex: 1;
+			min-width: 0;
 			border: none;
 			background: transparent;
 			padding: 0.875rem 0.25rem;
@@ -189,6 +191,11 @@ const TOPICS = [
 		.stat-label { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.125rem; }
 		.stat-divider { width: 1px; background: var(--border-light); }
 
+		/* Compact hero while search results are shown — keeps results right under the search box */
+		.hero.search-active .hero-lede,
+		.hero.search-active .stats-rail { display: none; }
+		.hero.search-active { padding-bottom: 2rem; }
+
 		/* ── Sections ── */
 		.la-section { max-width: 77.5rem; margin: 0 auto; padding: 5rem 3rem 0; }
 		.section-header {
@@ -209,6 +216,10 @@ const TOPICS = [
 		}
 		.section-header .see-all { font-size: 0.8125rem; color: var(--accent); font-weight: 500; }
 		.section-header .see-all:hover { text-decoration: underline; }
+
+		/* Freshness note — under "Cambios recientes", tells citizens when the data was last synced with the BOE */
+		.freshness-note { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; margin: -1rem 0 1.25rem; }
+		.freshness-note strong { color: var(--text-secondary); font-weight: 600; }
 
 		/* ── Regions ── */
 		.region-layout { display: grid; grid-template-columns: 1.15fr 1fr; gap: 2.5rem; align-items: start; }
@@ -469,6 +480,7 @@ const TOPICS = [
 		.cta-box svg { width: 20px; height: 20px; color: var(--text-secondary); flex: 0 0 auto; }
 		.cta-box input {
 			flex: 1;
+			min-width: 0;
 			border: none;
 			background: transparent;
 			padding: 0.875rem 0.25rem;
@@ -531,8 +543,8 @@ const TOPICS = [
 			.hero h1 { font-size: 1.75rem; }
 			.search-box { flex-direction: column; padding: 0.75rem; }
 			.search-box .search-btn { width: 100%; justify-content: center; }
-			.stats-rail { flex-direction: column; gap: 0.75rem; padding: 1rem 0; }
-			.stat { flex: 1; }
+			.cta-box { flex-direction: column; align-items: stretch; padding: 0.75rem; }
+			.cta-box button { width: 100%; justify-content: center; }
 			.region-list li { grid-template-columns: 1fr 2.5rem; }
 			.region-list .bar-wrap { display: none; }
 		}
@@ -620,14 +632,16 @@ const TOPICS = [
 			<div class="hero-eyebrow">Legislación española · Acceso libre</div>
 			<h1>Las leyes de España,<br><em>accesibles para todos.</em></h1>
 			<p class="hero-lede">
-				Más de {totalNorms.toLocaleString("es")} leyes desde {earliestYear}, actualizadas cada día. Busca cualquier ley,
+				Más de {totalNorms.toLocaleString("es", { useGrouping: "always" })} leyes desde {earliestYear}, actualizadas cada día. Busca cualquier ley,
 				consulta su texto completo y mira cómo ha cambiado con el tiempo.
 			</p>
 
 			<div class="search-wrap">
 				<div class="search-box">
-					<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
-					<input type="search" id="search-input" placeholder="Busca una ley, un artículo o una materia…" aria-label="Buscar leyes" />
+					<div class="search-field">
+						<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
+						<input type="search" id="search-input" placeholder="Busca una ley, un artículo o una materia…" aria-label="Buscar leyes" />
+					</div>
 					<button type="button" class="search-btn" id="search-btn">
 						Buscar
 						<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 10h12m-4-4 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -644,7 +658,7 @@ const TOPICS = [
 
 			<div class="stats-rail">
 				<div class="stat">
-					<div class="stat-num">{totalNorms.toLocaleString("es")}</div>
+					<div class="stat-num">{totalNorms.toLocaleString("es", { useGrouping: "always" })}</div>
 					<div class="stat-label">leyes consolidadas</div>
 				</div>
 				<div class="stat-divider"></div>
@@ -654,7 +668,7 @@ const TOPICS = [
 				</div>
 				<div class="stat-divider"></div>
 				<div class="stat">
-					<div class="stat-num">{vigentes.toLocaleString("es")}</div>
+					<div class="stat-num">{vigentes.toLocaleString("es", { useGrouping: "always" })}</div>
 					<div class="stat-label">vigentes</div>
 				</div>
 				<div class="stat-divider"></div>
@@ -733,7 +747,7 @@ const TOPICS = [
 								<li data-jurisdiction={j.jurisdiction}>
 									<span class="name">{JURISDICTION_LABELS[j.jurisdiction] ?? j.jurisdiction}</span>
 									<div class="bar-wrap"><div class="bar" style={`width:${pct}%`}></div></div>
-									<span class="count">{j.count.toLocaleString("es")}</span>
+									<span class="count">{j.count.toLocaleString("es", { useGrouping: "always" })}</span>
 								</li>
 							);
 						})}
@@ -804,6 +818,7 @@ const TOPICS = [
 						<h2>Cambios recientes</h2>
 						<a href="/cambios/" class="see-all">Historial completo &rarr;</a>
 					</div>
+					<p class="freshness-note" id="freshness-note" style="display:none"></p>
 					<div id="recent-reforms">
 						<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.875rem">
 							<span class="loading-spinner"></span> Cargando...
@@ -874,8 +889,10 @@ const TOPICS = [
 					situación y te decimos qué ley se aplica.
 				</p>
 				<div class="cta-box">
-					<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
-					<input type="search" id="cta-search-input" placeholder="Busca una ley…" aria-label="Buscar leyes" />
+					<div class="search-field">
+						<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
+						<input type="search" id="cta-search-input" placeholder="Busca una ley…" aria-label="Buscar leyes" />
+					</div>
 					<button type="button" id="cta-search-btn">Buscar</button>
 				</div>
 				<div class="cta-links">
@@ -903,6 +920,11 @@ const TOPICS = [
 		var currentPage = 1;
 		var currentCountry = "";
 		var currentSort = "";
+
+		// Shorter placeholder on narrow screens so it doesn't get cut mid-word.
+		if (searchInput && window.innerWidth <= 480) {
+			searchInput.placeholder = "Busca una ley…";
+		}
 		var LIMIT = 20;
 
 		// Topic chips
@@ -1039,9 +1061,12 @@ const TOPICS = [
 				resultsSection.style.display = "none";
 				landingDiv.style.display = "block";
 				if (searchHints) searchHints.style.display = "";
+				if (heroSection) heroSection.classList.remove("search-active");
 				history.replaceState(null, "", "/");
 				return;
 			}
+
+			if (heroSection) heroSection.classList.add("search-active");
 
 			if (searchHints) searchHints.style.display = "none";
 
@@ -1104,7 +1129,7 @@ const TOPICS = [
 
 					var hasQuery = searchInput.value.trim();
 					html += '<div class="results-header">';
-					var totalLabel = result.capped ? 'más de ' + result.total.toLocaleString("es") : result.total.toLocaleString("es");
+					var totalLabel = result.capped ? 'más de ' + result.total.toLocaleString("es", { useGrouping: "always" }) : result.total.toLocaleString("es", { useGrouping: "always" });
 					html += '<span class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + totalLabel + '</span>';
 					html += '<select class="sort-select" id="sort-select">';
 					html += '<option value=""' + (currentSort === "" ? ' selected' : '') + '>' + (hasQuery ? 'Más relevantes' : 'Más recientes') + '</option>';
@@ -1256,6 +1281,28 @@ const TOPICS = [
 			document.getElementById("recent-reforms").innerHTML = html;
 		}).catch(function () {
 			document.getElementById("recent-reforms").parentElement.style.display = "none";
+		});
+
+		// Freshness note: when did we last sync with the BOE? Degrades silently if /v1/status
+		// doesn't exist yet or fails — the note simply stays hidden, no gaps or console errors.
+		fetch(API + "/v1/status").then(function (r) {
+			if (!r.ok) throw new Error("status endpoint unavailable");
+			return r.json();
+		}).then(function (data) {
+			var isoDate = data && (data.last_reform_date || data.corpus_max_published_at);
+			if (!isoDate) return;
+			var d = new Date(isoDate + "T00:00:00");
+			if (isNaN(d.getTime())) return;
+			var months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+			var formatted = d.getDate() + " de " + months[d.getMonth()] + " de " + d.getFullYear();
+			var note = document.getElementById("freshness-note");
+			if (!note) return;
+			note.innerHTML = "Actualizado con el BOE el <strong>" + formatted + "</strong>. " +
+				"El Boletín Oficial del Estado tarda unos días en publicar el texto ya actualizado de cada ley, " +
+				"así que es normal que la fecha más reciente no sea la de hoy.";
+			note.style.display = "block";
+		}).catch(function () {
+			// No endpoint yet, or it failed: leave the note hidden, home looks exactly as before.
 		});
 
 		}); // end requestIdleCallback

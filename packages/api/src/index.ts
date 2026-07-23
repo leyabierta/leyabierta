@@ -16,6 +16,7 @@ import { askRoutes } from "./routes/ask.ts";
 import { lawRoutes, type SearchResponse } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
+import { statusRoutes } from "./routes/status.ts";
 import { LruCache } from "./services/cache.ts";
 import { CitizenSummaryService } from "./services/citizen-summary.ts";
 import { DbService } from "./services/db.ts";
@@ -29,6 +30,7 @@ import { flushTraces } from "./services/rag/tracing.ts";
 import { getSharedVectorIndex } from "./services/rag/vector-index-singleton.ts";
 import { vectorSearchPooled } from "./services/rag/vector-pool.ts";
 import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
+import { StatusService } from "./services/status.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
 const REPO_PATH = process.env.REPO_PATH ?? "../leyes";
@@ -59,6 +61,7 @@ const citizenSummaryService = new CitizenSummaryService(db);
 // RAG pipeline (optional — only if API key is available)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const RAG_DATA_DIR = process.env.RAG_DATA_DIR ?? "./data";
+const statusService = new StatusService(db, RAG_DATA_DIR);
 const ragPipeline = OPENROUTER_API_KEY
 	? new RagPipeline(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
 	: null;
@@ -266,6 +269,7 @@ app
 	)
 	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))
+	.use(statusRoutes(statusService))
 	.use(omnibusRoutes(dbService))
 	.use(askRoutes(ragPipeline))
 	.get(

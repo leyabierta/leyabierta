@@ -317,6 +317,11 @@ async function ingest() {
 	console.log(`Blocks:   ${result.blocksInserted}`);
 	console.log(`Versions: ${result.versionsInserted}`);
 	console.log(`Reforms:  ${result.reformsInserted}`);
+	if (result.reformsRejected > 0) {
+		console.warn(
+			`Reforms rejected (implausible date): ${result.reformsRejected}`,
+		);
+	}
 
 	if (result.errors.length > 0) {
 		console.error(`Errors: ${result.errors.length}`);
@@ -449,9 +454,42 @@ function inferCssClass(text: string): string {
 	return "parrafo";
 }
 
+/**
+ * Shape of the `metadata` object inside a cached norm JSON file. Declared
+ * explicitly rather than as `Record<string, string>`: with
+ * `noUncheckedIndexedAccess`, every index access on a Record is `string |
+ * undefined`, so the old assertion was quietly lying about ten fields at once.
+ */
+interface CachedMetadata {
+	title: string;
+	shortTitle: string;
+	id: string;
+	country: string;
+	rank: string;
+	published: string;
+	updated: string;
+	status: string;
+	department: string;
+	source: string;
+}
+
+/** Shape of one entry in a block's `versions` array in the JSON cache. */
+interface CachedVersion {
+	sourceId: string;
+	date: string;
+	text: string;
+}
+
+/** Shape of one entry in the `referencias` arrays in the JSON cache. */
+interface CachedReference {
+	normId: string;
+	relation: string;
+	text: string;
+}
+
 /** Reconstruct a Norm from its cached JSON representation. */
 function jsonToNorm(raw: Record<string, unknown>): Norm {
-	const m = raw.metadata as Record<string, string>;
+	const m = raw.metadata as CachedMetadata;
 	const metadata: NormMetadata = {
 		title: m.title,
 		shortTitle: m.shortTitle,
@@ -470,7 +508,7 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 		id: a.blockId as string,
 		type: a.blockType as string,
 		title: a.title as string,
-		versions: (a.versions as Array<Record<string, string>>).map(
+		versions: (a.versions as CachedVersion[]).map(
 			(v): Version => ({
 				normId: v.sourceId,
 				publishedAt: v.date,
@@ -515,20 +553,20 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 			materias: (rawAnalisis.materias as string[]) ?? [],
 			notas: (rawAnalisis.notas as string[]) ?? [],
 			referencias: {
-				anteriores: (
-					(refs?.anteriores as Array<Record<string, string>>) ?? []
-				).map((r) => ({
-					normId: r.normId,
-					relation: r.relation,
-					text: r.text,
-				})),
-				posteriores: (
-					(refs?.posteriores as Array<Record<string, string>>) ?? []
-				).map((r) => ({
-					normId: r.normId,
-					relation: r.relation,
-					text: r.text,
-				})),
+				anteriores: ((refs?.anteriores as CachedReference[]) ?? []).map(
+					(r) => ({
+						normId: r.normId,
+						relation: r.relation,
+						text: r.text,
+					}),
+				),
+				posteriores: ((refs?.posteriores as CachedReference[]) ?? []).map(
+					(r) => ({
+						normId: r.normId,
+						relation: r.relation,
+						text: r.text,
+					}),
+				),
 			},
 		};
 	}

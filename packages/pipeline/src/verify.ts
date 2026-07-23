@@ -130,10 +130,13 @@ async function verify() {
 				);
 			}
 
-			const ourDates = new Set(
-				ourData.reforms.map((r: { date: string }) => r.date),
+			// Explicit Set<string>: ourData comes from an untyped Bun.file().json(),
+			// so without the annotation the element type degrades and the
+			// has()/filter() calls below stop type-checking.
+			const ourDates = new Set<string>(
+				(ourData.reforms as Array<{ date: string }>).map((r) => r.date),
 			);
-			const theirDates = new Set(
+			const theirDates = new Set<string>(
 				theirReforms.reforms.map((r: LegalizeReform) => r.date),
 			);
 

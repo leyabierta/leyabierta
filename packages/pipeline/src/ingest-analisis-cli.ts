@@ -104,8 +104,8 @@ async function main() {
 			for (const materia of fullMaterias) {
 				if (materia) insertMateria.run(normId, materia);
 			}
-			for (let j = 0; j < analisis.notas.length; j++) {
-				insertNota.run(normId, analisis.notas[j], j);
+			for (const [j, nota] of analisis.notas.entries()) {
+				insertNota.run(normId, nota, j);
 			}
 			for (const ref of analisis.referencias.anteriores) {
 				if (ref.normId) {
