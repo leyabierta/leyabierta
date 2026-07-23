@@ -7,7 +7,9 @@
 
 import type { Database } from "bun:sqlite";
 import { Glob } from "bun";
+import type { NormAnalisis } from "../models.ts";
 import { isPlausibleReformDate } from "../utils/date.ts";
+import { writeAnalisis } from "./analisis-writer.ts";
 
 const DEFAULT_BATCH_SIZE = 100;
 
@@ -56,6 +58,10 @@ interface CachedNorm {
 		status: string;
 		department: string;
 		source: string;
+		/** Absent on consolidated norms — see pipeline.ts `normToJson`. */
+		origin?: "diario" | "consolidado";
+		consolidated?: boolean;
+		section?: string;
 	};
 	articles: Array<{
 		blockId: string;
@@ -74,6 +80,13 @@ interface CachedNorm {
 		sourceId: string;
 		affectedBlocks: string[];
 	}>;
+	/**
+	 * Only present on diario-origin norms whose diario XML carried complete
+	 * materias/notas/referencias — see transform/diario-xml-parser.ts and
+	 * db/analisis-writer.ts. Consolidated norms get this from ingest-analisis
+	 * instead, never from here.
+	 */
+	analisis?: NormAnalisis;
 }
 
 export interface IngestResult {
@@ -259,8 +272,8 @@ export async function ingestJsonDir(
 
 	// Prepare statements
 	const insertNorm = db.prepare(/* sql */ `
-		INSERT OR REPLACE INTO norms (id, title, short_title, country, jurisdiction, rank, published_at, updated_at, status, department, source_url, citizen_summary)
-		VALUES ($id, $title, $shortTitle, $country, $jurisdiction, $rank, $publishedAt, $updatedAt, $status, $department, $sourceUrl, $citizenSummary)
+		INSERT OR REPLACE INTO norms (id, title, short_title, country, jurisdiction, rank, published_at, updated_at, status, department, source_url, citizen_summary, origin, consolidated, section)
+		VALUES ($id, $title, $shortTitle, $country, $jurisdiction, $rank, $publishedAt, $updatedAt, $status, $department, $sourceUrl, $citizenSummary, $origin, $consolidated, $section)
 	`);
 
 	const insertBlock = db.prepare(/* sql */ `
@@ -281,6 +294,51 @@ export async function ingestJsonDir(
 	const insertReformBlock = db.prepare(/* sql */ `
 		INSERT OR REPLACE INTO reform_blocks (norm_id, reform_date, reform_source_id, block_id)
 		VALUES ($normId, $reformDate, $reformSourceId, $blockId)
+	`);
+
+	// [AR] Delete a norm's ORPHANED block-scoped children before reinserting —
+	// surgical, not blanket. `blocks` / `versions` / `reform_blocks` are
+	// upserted by PK above, which is fine while a norm's block_ids stay stable
+	// across re-ingests — but a diario→consolidated promotion changes them
+	// (diario block ids like "a1", "preambulo", "firma" don't match the
+	// consolidated ids), so without SOME delete the old rows become orphans
+	// and norms_fts mixes stale diario text with fresh consolidated text.
+	//
+	// Two things this deliberately does NOT do:
+	//   - It does not blanket-delete ALL of a norm's blocks on every changed
+	//     re-ingest. A normal consolidated norm that merely got a text tweak
+	//     keeps the same block_ids, so `block_id NOT IN (<new set>)` matches
+	//     nothing — `citizen_article_summaries` (expensive to regenerate)
+	//     survives untouched.
+	//   - It does not touch `reforms` at all. Deleting reforms would cascade
+	//     into `reform_summaries` / `notified_reforms`, which FK to
+	//     `reforms(norm_id, date, source_id)` — there is no safe order to
+	//     delete a reform out from under an AI summary that still needs it.
+	//     Reforms keep the existing INSERT OR REPLACE upsert; any stale
+	//     reform-row cleanup on promotion is Stage 3's job.
+	//
+	// `$blockIds` is a JSON array of the norm's current block ids, matched via
+	// `json_each` so a single prepared statement works regardless of how many
+	// blocks the norm has (SQLite's `NOT IN ()` on an empty json_each result
+	// is always true, which correctly deletes everything for a norm with zero
+	// articles). Order is FK-safe: citizen_article_summaries and
+	// reform_blocks and versions (all reference blocks(norm_id, block_id))
+	// before blocks itself.
+	const deleteOrphanCitizenSummaries = db.prepare(/* sql */ `
+		DELETE FROM citizen_article_summaries
+		WHERE norm_id = $normId AND block_id NOT IN (SELECT value FROM json_each($blockIds))
+	`);
+	const deleteOrphanReformBlocks = db.prepare(/* sql */ `
+		DELETE FROM reform_blocks
+		WHERE norm_id = $normId AND block_id NOT IN (SELECT value FROM json_each($blockIds))
+	`);
+	const deleteOrphanVersions = db.prepare(/* sql */ `
+		DELETE FROM versions
+		WHERE norm_id = $normId AND block_id NOT IN (SELECT value FROM json_each($blockIds))
+	`);
+	const deleteOrphanBlocks = db.prepare(/* sql */ `
+		DELETE FROM blocks
+		WHERE norm_id = $normId AND block_id NOT IN (SELECT value FROM json_each($blockIds))
 	`);
 
 	// Process in batches — data insertion only, FTS rebuilt at end
@@ -351,9 +409,32 @@ export async function ingestJsonDir(
 						$department: metadata.department ?? "",
 						$sourceUrl: metadata.source ?? "",
 						$citizenSummary: existingSummary,
+						$origin: metadata.origin ?? "consolidado",
+						$consolidated: metadata.consolidated === false ? 0 : 1,
+						$section: metadata.section ?? "",
 					});
 					result.normsInserted++;
 					ingestedIds.push(metadata.id);
+
+					// Delete this norm's orphaned block-scoped children before
+					// reinserting — see comment on the delete* statements above.
+					const blockIdsJson = JSON.stringify(articles.map((a) => a.blockId));
+					deleteOrphanCitizenSummaries.run({
+						$normId: metadata.id,
+						$blockIds: blockIdsJson,
+					});
+					deleteOrphanReformBlocks.run({
+						$normId: metadata.id,
+						$blockIds: blockIdsJson,
+					});
+					deleteOrphanVersions.run({
+						$normId: metadata.id,
+						$blockIds: blockIdsJson,
+					});
+					deleteOrphanBlocks.run({
+						$normId: metadata.id,
+						$blockIds: blockIdsJson,
+					});
 
 					for (const article of articles) {
 						insertBlock.run({
@@ -412,6 +493,22 @@ export async function ingestJsonDir(
 								$blockId: blockId,
 							});
 						}
+					}
+
+					// Diario-origin norms carry complete materias/notas/referencias
+					// in their own JSON — write them now that the parent `norms`
+					// row above guarantees the FK is satisfied. Writing this from
+					// the `diario` CLI command (as an earlier version of this code
+					// did) ran BEFORE `ingest` ever created the norm row, which
+					// threw a foreign key violation with PRAGMA foreign_keys=ON —
+					// see the #130 Stage 2 review. Gated strictly on
+					// origin === "diario" so the ~12k consolidated norms are
+					// untouched; `ingest-analisis` stays authoritative for them,
+					// and once a norm is promoted (origin flips to "consolidado")
+					// this stops writing here — the diario-written rows survive
+					// until ingest-analisis refreshes them.
+					if (metadata.origin === "diario" && data.analisis) {
+						writeAnalisis(db, metadata.id, data.analisis);
 					}
 				} catch (e) {
 					result.errors.push(`Failed to ingest ${file}: ${e}`);

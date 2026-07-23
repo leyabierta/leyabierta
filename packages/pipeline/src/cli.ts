@@ -3,10 +3,13 @@
  *
  * Usage:
  *   bun run pipeline bootstrap --country es [--limit N]
+ *   bun run pipeline diario [--date YYYY-MM-DD] [--since YYYY-MM-DD] [--sections 1] [--dry-run]
  *   bun run pipeline ingest [--db PATH] [--json PATH]
  *   bun run pipeline status [--state PATH]
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { DiscoveredNorm } from "./country.ts";
 import { getCountry } from "./country.ts";
 import { ingestJsonDir, openDatabase } from "./db/index.ts";
@@ -24,8 +27,13 @@ import {
 	assertUniqueByNormId,
 	commitNormsChronologically,
 	fetchNorm,
+	normToJson,
 } from "./pipeline.ts";
 import { BoeClient } from "./spain/boe-client.ts";
+import { BoeDiarioClient, EMPTY_DAY } from "./spain/boe-diario-client.ts";
+import { BoeDiarioDiscovery } from "./spain/boe-diario-discovery.ts";
+import { SPAIN_JURISDICTION_CODES } from "./spain/jurisdictions.ts";
+import { parseDiarioXml } from "./transform/diario-xml-parser.ts";
 import { StateStore } from "./utils/state-store.ts";
 
 // Register Spain
@@ -34,6 +42,10 @@ import "./spain/index.ts";
 const OUTPUT_DIR = process.env.REPO_PATH ?? "../leyes";
 const DATA_DIR = "./data";
 const STATE_PATH = `${DATA_DIR}/state.json`;
+// Separate from STATE_PATH: that file holds the consolidated watermark
+// (fecha_actualizacion), which the (future) promotion logic depends on.
+// Overwriting it with diario progress would corrupt that watermark.
+const STATE_DIARIO_PATH = `${DATA_DIR}/state-diario.json`;
 const DB_PATH = `${DATA_DIR}/leyabierta.db`;
 const JSON_DIR = `${DATA_DIR}/json`;
 
@@ -303,6 +315,210 @@ async function bootstrap() {
 	console.log(`Skipped: ${stats.skipped}`);
 }
 
+/**
+ * Ingest the BOE daily bulletin ("diario oficial") for one or more days.
+ *
+ * Unlike `bootstrap`, this does NOT touch `data/state.json` (the consolidated
+ * watermark) — it has its own state file so the two ingestion paths never
+ * clobber each other's progress. See CLAUDE.md "Data Integrity Invariants"
+ * and the #130 plan for the full rationale.
+ */
+async function diario() {
+	const args = process.argv.slice(3);
+	const dateArg = getArg(args, "--date");
+	const sinceArg = getArg(args, "--since");
+	const sectionsArg = getArg(args, "--sections");
+	const dryRun = args.includes("--dry-run");
+	const sections = sectionsArg
+		? sectionsArg.split(",").map((s) => s.trim())
+		: undefined;
+
+	const today = todayUtcCompact();
+	const dates: string[] = [];
+	if (sinceArg) {
+		let cursor = sinceArg.replaceAll("-", "");
+		while (cursor <= today) {
+			dates.push(cursor);
+			cursor = nextDayCompact(cursor);
+		}
+	} else {
+		dates.push(dateArg ? dateArg.replaceAll("-", "") : today);
+	}
+
+	const state = new StateStore(STATE_DIARIO_PATH, "es");
+	await state.load();
+
+	const client = new BoeDiarioClient();
+	const discovery = new BoeDiarioDiscovery();
+
+	let totalCommits = 0;
+	let totalSkippedProcessed = 0;
+	let totalSkippedConsolidated = 0;
+	let totalErrors = 0;
+	const startTime = Date.now();
+
+	for (const fecha of dates) {
+		const isoDate = `${fecha.slice(0, 4)}-${fecha.slice(4, 6)}-${fecha.slice(6, 8)}`;
+		console.log(`\n─── Diario ${isoDate} ───`);
+
+		let sumario: Awaited<ReturnType<typeof client.getSumario>>;
+		try {
+			sumario = await client.getSumario(fecha);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			console.error(`  ✗ getSumario(${fecha}) failed: ${msg}`);
+			totalErrors++;
+			continue;
+		}
+
+		if (sumario === EMPTY_DAY) {
+			console.log("  (día vacío — sin publicaciones, p. ej. domingo)");
+			continue;
+		}
+
+		const items = [...discovery.discover(sumario, sections)];
+		console.log(
+			`  ${items.length} item(s) en Sección ${sections?.join(",") ?? "1"}`,
+		);
+
+		const norms: Norm[] = [];
+
+		for (const item of items) {
+			if (state.isProcessed(item.id)) {
+				totalSkippedProcessed++;
+				continue;
+			}
+
+			if (isAlreadyConsolidated(item.id, JSON_DIR, OUTPUT_DIR)) {
+				console.log(`  ⤼ ${item.id} ya existe consolidada — omitiendo`);
+				state.markSkipped(item.id);
+				totalSkippedConsolidated++;
+				continue;
+			}
+
+			if (dryRun) {
+				console.log(`  [dry-run] se ingeriría ${item.id} — ${item.titulo}`);
+				continue;
+			}
+
+			try {
+				const xml = await client.getDiarioXml(item.id);
+				const norm = parseDiarioXml(xml);
+				await Bun.write(
+					`${JSON_DIR}/${norm.metadata.id}.json`,
+					JSON.stringify(normToJson(norm), null, 2),
+				);
+				norms.push(norm);
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err);
+				console.error(`  ✗ ${item.id} — ERROR: ${msg}`);
+				state.markError(item.id, msg);
+				totalErrors++;
+			}
+		}
+
+		if (dryRun) {
+			console.log(`  [dry-run] ${items.length} item(s) — nada escrito`);
+			continue;
+		}
+
+		if (norms.length === 0) continue;
+
+		const commits = await commitNormsChronologically(norms, {
+			repoPath: OUTPUT_DIR,
+			dataDir: DATA_DIR,
+		});
+		totalCommits += commits;
+
+		for (const norm of norms) {
+			state.markDone(norm.metadata.id, norm.reforms.length);
+		}
+
+		// Persist state BEFORE the invariant check — same rationale as
+		// bootstrap (cli.ts): if the assert throws, the commits already made
+		// are irreversible without manual git ops, and state should reflect
+		// that those norms were processed.
+		await state.save();
+		await assertUniqueByNormId(OUTPUT_DIR);
+
+		// Materias/notas/referencias for these diario-origin norms are written
+		// by `ingest` (gated on origin === "diario"), NOT here — the `norms`
+		// row this command's commits describe doesn't exist in the DB yet
+		// (this command never touches the DB), and materias/notas/referencias
+		// all FK-reference norms(id). Writing them here threw with
+		// PRAGMA foreign_keys=ON; see db/ingest.ts for the fix.
+
+		console.log(`  ✓ ${commits} commit(s) para ${isoDate}`);
+	}
+
+	await client.close();
+
+	const elapsed = (Date.now() - startTime) / 1000;
+	console.log("\n─── Diario Summary ───");
+	console.log(`Commits:         ${totalCommits}`);
+	console.log(`Ya procesadas:   ${totalSkippedProcessed}`);
+	console.log(`Ya consolidadas: ${totalSkippedConsolidated}`);
+	console.log(`Errores:         ${totalErrors}`);
+	console.log(`Tiempo:          ${formatDuration(elapsed)}`);
+}
+
+/**
+ * Guard against clobbering a consolidated norm with diario text. Checked, in
+ * cheap-first order:
+ *   (a) `data/json/<id>.json` exists AND its `metadata.origin !== "diario"` —
+ *       i.e. it was written by the consolidated pipeline (or predates the
+ *       `origin` field entirely, which also means consolidado).
+ *   (b) the `.md` file already exists anywhere in the output repo — a safety
+ *       net for the case where the JSON cache is missing (or is itself a
+ *       diario entry whose `state-diario.json` write was lost) but a file is
+ *       already committed. Never rely on the DB here: in the same cron run it
+ *       may not have the row yet (ingest runs after this command).
+ */
+function isAlreadyConsolidated(
+	id: string,
+	jsonDir: string,
+	repoPath: string,
+): boolean {
+	const jsonPath = join(jsonDir, `${id}.json`);
+	if (existsSync(jsonPath)) {
+		try {
+			const raw = JSON.parse(readFileSync(jsonPath, "utf-8")) as {
+				metadata?: { origin?: string };
+			};
+			if (raw.metadata?.origin !== "diario") return true;
+		} catch {
+			// Unreadable JSON — fall through to the .md check below rather
+			// than block on a corrupt cache entry.
+		}
+	}
+
+	for (const jurisdiction of SPAIN_JURISDICTION_CODES) {
+		if (existsSync(join(repoPath, jurisdiction, `${id}.md`))) return true;
+	}
+	return false;
+}
+
+function todayUtcCompact(): string {
+	const now = new Date();
+	const yyyy = now.getUTCFullYear();
+	const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+	const dd = String(now.getUTCDate()).padStart(2, "0");
+	return `${yyyy}${mm}${dd}`;
+}
+
+/** `YYYYMMDD` → the next calendar day, also `YYYYMMDD`. */
+function nextDayCompact(yyyymmdd: string): string {
+	const y = Number(yyyymmdd.slice(0, 4));
+	const m = Number(yyyymmdd.slice(4, 6)) - 1;
+	const d = Number(yyyymmdd.slice(6, 8));
+	const date = new Date(Date.UTC(y, m, d));
+	date.setUTCDate(date.getUTCDate() + 1);
+	const yyyy = date.getUTCFullYear();
+	const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+	const dd = String(date.getUTCDate()).padStart(2, "0");
+	return `${yyyy}${mm}${dd}`;
+}
+
 async function ingest() {
 	const args = process.argv.slice(3);
 	const dbPath = getArg(args, "--db") ?? DB_PATH;
@@ -471,6 +687,10 @@ interface CachedMetadata {
 	status: string;
 	department: string;
 	source: string;
+	/** Absent on consolidated norms — see pipeline.ts `normToJson`. */
+	origin?: "diario" | "consolidado";
+	consolidated?: boolean;
+	section?: string;
 }
 
 /** Shape of one entry in a block's `versions` array in the JSON cache. */
@@ -501,6 +721,9 @@ function jsonToNorm(raw: Record<string, unknown>): Norm {
 		status: m.status as NormMetadata["status"],
 		department: m.department,
 		source: m.source,
+		origin: m.origin,
+		consolidated: m.consolidated,
+		section: m.section,
 	};
 
 	const articles = raw.articles as Array<Record<string, unknown>>;
@@ -598,6 +821,12 @@ switch (command) {
 			process.exit(1);
 		});
 		break;
+	case "diario":
+		diario().catch((err) => {
+			console.error("Fatal:", err);
+			process.exit(1);
+		});
+		break;
 	case "ingest":
 		ingest().catch((err) => {
 			console.error("Fatal:", err);
@@ -619,6 +848,7 @@ switch (command) {
 	default:
 		console.log(`Usage:
   bun run pipeline bootstrap --country es [--limit N]
+  bun run pipeline diario [--date YYYY-MM-DD] [--since YYYY-MM-DD] [--sections 1] [--dry-run]
   bun run pipeline rebuild [--json PATH] [--repo PATH] [--limit N]
   bun run pipeline ingest [--db PATH] [--json PATH]
   bun run pipeline status [--state PATH]`);

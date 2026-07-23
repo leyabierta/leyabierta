@@ -86,7 +86,11 @@ export async function commitNorm(
 		}
 
 		const isFirst = i === 0;
-		const commitType = isFirst ? "bootstrap" : "reforma";
+		const commitType = isFirst
+			? metadata.origin === "diario"
+				? "publicacion"
+				: "bootstrap"
+			: "reforma";
 
 		const markdown = renderNormAtDate(
 			metadata,
@@ -189,7 +193,11 @@ export async function commitNormsChronologically(
 		}
 
 		const isFirst = reformIndex === 0;
-		const commitType = isFirst ? "bootstrap" : "reforma";
+		const commitType = isFirst
+			? metadata.origin === "diario"
+				? "publicacion"
+				: "bootstrap"
+			: "reforma";
 
 		const filePath = normToFilepath(metadata);
 		const markdown = renderNormAtDate(
@@ -375,7 +383,15 @@ export async function bootstrapFromApi(
 
 // ─── Serialization helpers ───
 
-function normToJson(norm: Norm): object {
+/**
+ * Serialize a Norm to the JSON cache shape written to `data/json/<id>.json`.
+ *
+ * Exported so `cli.ts`'s `diario` command can write the same shape for
+ * diario-origin norms — the JSON cache format must stay identical between
+ * the consolidated and diario ingestion paths for `rebuild`, `ingest`, and
+ * the guard that detects "already consolidated" to work uniformly.
+ */
+export function normToJson(norm: Norm): object {
 	const { metadata, blocks, reforms } = norm;
 
 	return {
@@ -390,6 +406,14 @@ function normToJson(norm: Norm): object {
 			status: metadata.status,
 			department: metadata.department,
 			source: metadata.source,
+			// Absent (undefined) for consolidated norms — the cli.ts reader
+			// treats a missing `origin` as "consolidado", so existing JSON
+			// cache entries need no migration.
+			...(metadata.origin ? { origin: metadata.origin } : {}),
+			...(metadata.consolidated !== undefined
+				? { consolidated: metadata.consolidated }
+				: {}),
+			...(metadata.section ? { section: metadata.section } : {}),
 		},
 		articles: blocks.map((block, i) => ({
 			blockId: block.id,

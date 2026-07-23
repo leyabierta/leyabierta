@@ -45,6 +45,18 @@ export function renderFrontmatter(
 		data.pdf = metadata.pdfUrl;
 	}
 
+	// Only emit these for diario-origin norms. Consolidated norms (the other
+	// 12k+ files) render identically to before this field existed — adding
+	// `origen: consolidado` / `consolidado: true` unconditionally would touch
+	// every existing file on the next rebuild for no citizen-facing benefit.
+	if (metadata.origin === "diario") {
+		data.origen = metadata.origin;
+		data.consolidado = metadata.consolidated ?? false;
+		if (metadata.section) {
+			data.seccion = metadata.section;
+		}
+	}
+
 	// Article count (blocks of type "precepto" are articles)
 	data.articulos = blocks.filter((b) => b.type === "precepto").length;
 

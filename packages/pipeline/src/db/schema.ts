@@ -21,7 +21,10 @@ const SCHEMA_SQL = /* sql */ `
     status      TEXT NOT NULL,     -- vigente | derogada | parcialmente_derogada
     department  TEXT NOT NULL DEFAULT '',
     source_url  TEXT NOT NULL DEFAULT '',
-    citizen_summary TEXT NOT NULL DEFAULT ''
+    citizen_summary TEXT NOT NULL DEFAULT '',
+    origin      TEXT NOT NULL DEFAULT 'consolidado', -- 'diario' | 'consolidado'
+    consolidated INTEGER NOT NULL DEFAULT 1,          -- 0 = still diario-only text
+    section     TEXT NOT NULL DEFAULT ''              -- BOE sumario section (diario-origin only)
   );
 
   -- Structural blocks (articles, chapters, etc.)
@@ -77,6 +80,9 @@ const SCHEMA_SQL = /* sql */ `
   -- database without going through DbService need them too.
   CREATE INDEX IF NOT EXISTS idx_norms_short_title ON norms(short_title);
   CREATE INDEX IF NOT EXISTS idx_norms_source_url ON norms(source_url);
+  CREATE INDEX IF NOT EXISTS idx_norms_consolidated ON norms(consolidated);
+  -- /boe/hoy needs to list norms published on a given day fast.
+  CREATE INDEX IF NOT EXISTS idx_norms_published_at ON norms(published_at);
   CREATE INDEX IF NOT EXISTS idx_blocks_norm ON blocks(norm_id);
   CREATE INDEX IF NOT EXISTS idx_versions_norm_block ON versions(norm_id, block_id);
   CREATE INDEX IF NOT EXISTS idx_reforms_norm ON reforms(norm_id);
@@ -311,4 +317,36 @@ export function createSchema(db: Database): void {
 	} catch {
 		// Column already exists
 	}
+
+	try {
+		db.exec(
+			"ALTER TABLE norms ADD COLUMN origin TEXT NOT NULL DEFAULT 'consolidado'",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec(
+			"ALTER TABLE norms ADD COLUMN consolidated INTEGER NOT NULL DEFAULT 1",
+		);
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_norms_consolidated ON norms(consolidated)",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec("ALTER TABLE norms ADD COLUMN section TEXT NOT NULL DEFAULT ''");
+	} catch {
+		// Column already exists
+	}
+
+	// Not gated on a fresh ALTER: published_at has existed since the first
+	// schema version, so this index needs to backfill on every pre-#130
+	// database regardless of whether the columns above were just added.
+	db.exec(
+		"CREATE INDEX IF NOT EXISTS idx_norms_published_at ON norms(published_at)",
+	);
 }

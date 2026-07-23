@@ -205,6 +205,26 @@ fi
 
 log "=== Daily pipeline started ==="
 
+# ── Step 0.5: Pipeline diario (BOE daily bulletin → markdown + git commits) ─
+# Runs BEFORE the consolidated bootstrap so a norm published today is already
+# in the leyes repo (with `[publicacion]` commits) by the time Step 1 runs in
+# the same cron invocation — the consolidated bootstrap will promote it once
+# the BOE consolidates the text (Stage 3, not yet implemented).
+#
+# Deliberately tolerant, UNLIKE Step 1: this is new, less-battle-tested code
+# (#130), and a diario bug must never be able to block the consolidated
+# pipeline (Step 1), the leyes push (Step 1.5), or the subscriber emails
+# (Step 8) — all of which are unrelated to the diario feed. Same pattern as
+# Step 2.5 (download-auxiliar): the `if` already suppresses `set -e` for the
+# command it tests, so no branch below can abort the run.
+log "→ Step 0.5: Pipeline diario"
+if docker exec "$CONTAINER" bun run pipeline diario >> "$LOG" 2>&1; then
+  log "  ✓ Diario done"
+else
+  log "  ⚠ Diario failed (non-fatal) — continuing to Step 1. Investigate logs."
+  send_alert "pipeline diario failed" "Non-fatal — Step 1 (consolidated bootstrap) and the rest of the pipeline continue. Check daily-pipeline.log."
+fi
+
 # ── Step 1: Pipeline bootstrap (BOE → markdown + git commits) ──────────────
 log "→ Step 1: Pipeline bootstrap"
 docker exec "$CONTAINER" bun run pipeline bootstrap --country es --concurrency 2 >> "$LOG" 2>&1

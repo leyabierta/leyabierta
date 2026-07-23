@@ -47,6 +47,12 @@ const laws = defineCollection({
 			)
 			.optional()
 			.default([]),
+		// Present only on diario-origin norms (see #130). Optional with
+		// defaults so the ~12k consolidated files that never emit these
+		// fields keep validating unchanged.
+		origen: z.string().optional().default("consolidado"),
+		consolidado: z.boolean().optional().default(true),
+		seccion: z.string().optional(),
 	}),
 });
 

@@ -46,6 +46,12 @@ export function buildCommitInfo(
 			"Source-Id": reform.normId,
 			"Source-Date": reform.date,
 			"Norm-Id": metadata.id,
+			// Detected by Stage 3's promotion logic (diario → consolidado) — see
+			// CLAUDE.md "Data Integrity Invariants" and the #130 plan. Must be the
+			// authoritative, order-independent way to tell a diario-origin commit
+			// apart from a consolidated one, so it lives on the commit itself
+			// rather than only in the (mutable, re-fetchable) frontmatter.
+			...(commitType === "publicacion" ? { Origin: "diario" } : {}),
 		},
 		authorName: AUTHOR_NAME,
 		authorEmail: AUTHOR_EMAIL,

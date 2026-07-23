@@ -8,6 +8,7 @@
 import { Database } from "bun:sqlite";
 import { createSchema } from "./schema.ts";
 
+export { writeAnalisis } from "./analisis-writer.ts";
 export {
 	type IngestResult,
 	ingestJsonDir,
