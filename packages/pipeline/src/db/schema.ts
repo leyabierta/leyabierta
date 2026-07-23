@@ -70,6 +70,13 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_norms_country ON norms(country);
   CREATE INDEX IF NOT EXISTS idx_norms_rank ON norms(rank);
   CREATE INDEX IF NOT EXISTS idx_norms_status ON norms(status);
+  -- The search API's exact-reference fast path resolves citations like
+  -- "Real Decreto 1312/2024" and ELI URLs through these two columns.
+  -- DbService also creates them lazily so existing databases get them without
+  -- a migration, but the schema is the source of truth: scripts that build a
+  -- database without going through DbService need them too.
+  CREATE INDEX IF NOT EXISTS idx_norms_short_title ON norms(short_title);
+  CREATE INDEX IF NOT EXISTS idx_norms_source_url ON norms(source_url);
   CREATE INDEX IF NOT EXISTS idx_blocks_norm ON blocks(norm_id);
   CREATE INDEX IF NOT EXISTS idx_versions_norm_block ON versions(norm_id, block_id);
   CREATE INDEX IF NOT EXISTS idx_reforms_norm ON reforms(norm_id);

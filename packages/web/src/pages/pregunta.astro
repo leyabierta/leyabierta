@@ -121,6 +121,16 @@ import AskChat from "../components/AskChat.tsx";
 		border-top: 2px solid var(--border);
 	}
 
+	/* On mobile, a sticky composer covers the tail end of the answer while
+	   the user scrolls to read it. Let it flow in the document instead. */
+	@media (max-width: 640px) {
+		:global(.ask-input-sticky) {
+			position: static;
+			bottom: auto;
+			box-shadow: none;
+		}
+	}
+
 	:global(.ask-textarea) {
 		width: 100%;
 		border: none;
@@ -160,6 +170,7 @@ import AskChat from "../components/AskChat.tsx";
 		gap: 0.4rem;
 		font-size: 0.8125rem;
 		padding: 0.4rem 0.875rem;
+		min-height: 44px;
 	}
 
 	:global(.ask-submit:disabled) {
@@ -836,6 +847,8 @@ import AskChat from "../components/AskChat.tsx";
 		align-items: center;
 		gap: 0.625rem;
 		padding: 0.5rem 0.75rem;
+		min-height: 44px;
+		box-sizing: border-box;
 		color: inherit;
 		text-decoration: none;
 	}
