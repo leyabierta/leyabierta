@@ -1,0 +1,47 @@
+---
+// #130 stage 4: BOE diario archive, one static page per publication date
+// actually present in the leyes Content Collection.
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import BoeDay from "../../components/BoeDay.astro";
+import { dedupeLaws, getBoeDates, groupBoeDay } from "../../lib/boe-day.ts";
+
+export async function getStaticPaths() {
+	const laws = await getCollection("laws");
+	const uniqueLaws = dedupeLaws(laws.map((l) => l.data));
+	const dates = getBoeDates(uniqueLaws);
+
+	return dates.map((fecha) => ({
+		params: { fecha },
+		props: { uniqueLaws, dates },
+	}));
+}
+
+const { fecha } = Astro.params;
+const { uniqueLaws, dates } = Astro.props;
+
+const sections = groupBoeDay(uniqueLaws, fecha!);
+const total = sections.reduce((n, s) => n + s.items.length, 0);
+const idx = dates.indexOf(fecha!);
+// dates is newest-first: the "next" (more recent) date sits before it, the
+// "previous" (older) date sits after it.
+const nextDate = idx > 0 ? dates[idx - 1] : undefined;
+const prevDate = idx >= 0 && idx < dates.length - 1 ? dates[idx + 1] : undefined;
+const isToday = idx === 0;
+---
+
+<Base
+	title={`BOE del ${fecha}`}
+	description={`Las leyes publicadas el ${fecha} en el Boletín Oficial del Estado, explicadas en lenguaje ciudadano.`}
+	ogTitle={`BOE del ${fecha} — Ley Abierta`}
+	canonicalUrl={`/boe/${fecha}/`}
+>
+	<BoeDay
+		fecha={fecha!}
+		sections={sections}
+		total={total}
+		prevDate={prevDate}
+		nextDate={nextDate}
+		isToday={isToday}
+	/>
+</Base>

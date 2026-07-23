@@ -59,6 +59,15 @@ export function lawRoutes(
 					// changes the result. Bounded TTL (5 min) handles staleness
 					// against the daily ingest cron — Cloudflare's s-maxage gives
 					// us another layer of insulation in front of this.
+					// #130: optional consolidated filter. Not exposed as a query-type
+					// validation (t.Numeric would accept any number) — restrict to
+					// 0/1 by hand so an out-of-range value falls back to "no filter"
+					// rather than silently matching nothing.
+					const consolidated =
+						query.consolidated === "0" || query.consolidated === "1"
+							? (Number(query.consolidated) as 0 | 1)
+							: undefined;
+
 					const cacheKey = JSON.stringify({
 						q: query.q ?? "",
 						country: query.country ?? "",
@@ -67,6 +76,7 @@ export function lawRoutes(
 						status: query.status ?? "",
 						materia: query.materia ?? "",
 						citizen_tag: query.citizen_tag ?? "",
+						consolidated: consolidated ?? "",
 						sort: query.sort ?? "",
 						limit,
 						offset,
@@ -81,6 +91,7 @@ export function lawRoutes(
 						status: query.status,
 						materia: query.materia,
 						citizen_tag: query.citizen_tag,
+						consolidated,
 					};
 
 					// Hybrid (BM25 + vector) is the only retrieval mode. If a
@@ -150,6 +161,7 @@ export function lawRoutes(
 						status: t.Optional(t.String()),
 						materia: t.Optional(t.String()),
 						citizen_tag: t.Optional(t.String()),
+						consolidated: t.Optional(t.String()),
 						limit: t.Optional(t.Numeric()),
 						offset: t.Optional(t.Numeric()),
 						sort: t.Optional(t.String()),
@@ -157,7 +169,7 @@ export function lawRoutes(
 					detail: {
 						summary: "Search and list laws",
 						description:
-							"Full-text search and filtered listing of consolidated laws. Supports pagination, filtering by country, rank, status, materia, and citizen tag.",
+							"Full-text search and filtered listing of laws. Supports pagination, filtering by country, rank, status, materia, citizen tag, and consolidation state (#130). By default nothing is excluded: laws still awaiting BOE consolidation (origin='diario', consolidated=0) are included alongside consolidated ones. Pass consolidated=1 or consolidated=0 to narrow.",
 						tags: ["Leyes"],
 					},
 				},
@@ -194,7 +206,7 @@ export function lawRoutes(
 					detail: {
 						summary: "Get law detail",
 						description:
-							"Returns full law metadata, reforms, citizen tags, and structural blocks.",
+							"Returns full law metadata, reforms, citizen tags, and structural blocks. Includes origin/consolidated/section (#130) — a law with consolidated=0 reflects its original BOE diario text and has not yet been merged with later reforms.",
 						tags: ["Leyes"],
 					},
 				},
@@ -500,6 +512,71 @@ export function lawRoutes(
 						summary: "Get relationship graph",
 						description:
 							"Returns graph nodes and edges representing cross-references for a law.",
+						tags: ["Leyes"],
+					},
+				},
+			)
+
+			// 8b. GET /v1/boe/:fecha — BOE diario of a given day, grouped by section (#130)
+			.get(
+				"/boe/:fecha",
+				({ params, set }) => {
+					if (!isValidISODate(params.fecha)) {
+						set.status = 400;
+						return { error: "Invalid date format. Use YYYY-MM-DD" };
+					}
+					const items = dbService.getBoeByDate(params.fecha);
+
+					const bySection = new Map<
+						string,
+						Array<{
+							id: string;
+							title: string;
+							shortTitle: string;
+							rank: string;
+							department: string;
+							section: string;
+							consolidated: boolean;
+							jurisdiction: string;
+						}>
+					>();
+					for (const item of items) {
+						const mapped = {
+							id: item.id,
+							title: item.title,
+							shortTitle: item.short_title,
+							rank: item.rank,
+							department: item.department,
+							section: item.section,
+							consolidated: item.consolidated === 1,
+							jurisdiction: item.jurisdiction,
+						};
+						const bucket = bySection.get(item.section);
+						if (bucket) bucket.push(mapped);
+						else bySection.set(item.section, [mapped]);
+					}
+
+					// Natural section order: numeric length first, then lexical
+					// ("1" before "2A"/"2B" before "3", "5A"/"5B", …).
+					const sections = [...bySection.keys()].sort(
+						(a, b) => a.length - b.length || a.localeCompare(b),
+					);
+
+					return {
+						date: params.fecha,
+						total: items.length,
+						sections: sections.map((section) => ({
+							section,
+							items: bySection.get(section)!,
+						})),
+					};
+				},
+				{
+					params: t.Object({ fecha: t.String() }),
+					detail: {
+						summary: "Get BOE diario for a date",
+						description:
+							"Returns the norms published in the BOE on a given day (YYYY-MM-DD), grouped by sumario section, including both diario-only and already-consolidated norms (#130).",
 						tags: ["Leyes"],
 					},
 				},

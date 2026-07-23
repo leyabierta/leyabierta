@@ -1,0 +1,37 @@
+---
+// #130 stage 4: today's BOE diario, computed from the freshest publication
+// date actually present in the leyes Content Collection — not hardcoded to
+// today's calendar date, since ingestion may lag or a given day may have
+// nothing (weekends, holidays).
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import BoeDay from "../../components/BoeDay.astro";
+import { dedupeLaws, getBoeDates, groupBoeDay } from "../../lib/boe-day.ts";
+
+const laws = await getCollection("laws");
+const uniqueLaws = dedupeLaws(laws.map((l) => l.data));
+const dates = getBoeDates(uniqueLaws);
+
+// dates[0] is the most recent — getBoeDates sorts newest first.
+const fecha = dates[0];
+const sections = fecha ? groupBoeDay(uniqueLaws, fecha) : [];
+const total = sections.reduce((n, s) => n + s.items.length, 0);
+const nextDate = fecha ? dates[dates.indexOf(fecha) - 1] : undefined;
+const prevDate = fecha ? dates[dates.indexOf(fecha) + 1] : undefined;
+---
+
+<Base
+	title="BOE de hoy"
+	description="Las leyes publicadas hoy en el Boletín Oficial del Estado, explicadas en lenguaje ciudadano."
+	ogTitle="BOE de hoy — Ley Abierta"
+	canonicalUrl="/boe/hoy/"
+>
+	<BoeDay
+		fecha={fecha ?? new Date().toISOString().slice(0, 10)}
+		sections={sections}
+		total={total}
+		prevDate={prevDate}
+		nextDate={nextDate}
+		isToday={true}
+	/>
+</Base>

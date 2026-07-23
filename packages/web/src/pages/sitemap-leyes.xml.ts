@@ -16,6 +16,7 @@ export const GET: APIRoute = async () => {
 
 	const secondaryPages = [
 		{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
+		{ path: "/boe/hoy/", changefreq: "daily", priority: "0.6" },
 		{ path: "/sobre/", changefreq: "monthly", priority: "0.5" },
 		{ path: "/sobre/contribuir/", changefreq: "monthly", priority: "0.4" },
 		{ path: "/sobre/apoyar/", changefreq: "monthly", priority: "0.4" },
