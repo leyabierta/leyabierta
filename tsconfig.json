@@ -1,4 +1,22 @@
 {
+	// This config covers the Bun-side packages only: pipeline, api, eval,
+	// shared. It deliberately does NOT cover packages/web.
+	//
+	// packages/web is browser + Astro code: it needs the DOM lib and the
+	// `astro:content` types that `astro sync` generates, neither of which
+	// belongs in a Bun server config. Type-checking it from here produced ~98
+	// bogus errors ("Cannot find name 'document'"), which is a large part of
+	// why `tsgo --noEmit` stopped being a signal anyone looked at. It has its
+	// own tsconfig and is checked with `astro check` — see `bun run typecheck`.
+	//
+	// research/archive is excluded because it is exactly that: archived,
+	// one-shot scripts kept for the record and not maintained (178 errors).
+	"exclude": [
+		"node_modules",
+		"packages/web",
+		"packages/api/research/archive",
+		"**/dist"
+	],
 	"compilerOptions": {
 		// Environment setup & latest features
 		"lib": ["ESNext"],
