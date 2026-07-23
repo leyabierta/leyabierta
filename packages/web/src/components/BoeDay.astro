@@ -20,8 +20,11 @@ const MONTHS = [
 	"julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 function formatLongDate(iso: string): string {
-	const d = new Date(`${iso}T00:00:00`);
-	return `${d.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`;
+	// Parse and read as UTC — a bare `${iso}T00:00:00` is interpreted in the
+	// build server's local timezone, so in a UTC-negative CI a date like
+	// 2026-07-23 could render as "22 de julio".
+	const d = new Date(`${iso}T00:00:00Z`);
+	return `${d.getUTCDate()} de ${MONTHS[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
 }
 ---
 

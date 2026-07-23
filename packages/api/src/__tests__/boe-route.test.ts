@@ -284,6 +284,26 @@ describe("GET /v1/boe/:fecha", () => {
 			section: "2B",
 			title: "Norma seccion 2B",
 		});
+		// Section "3" and "5A" are the regression guard: a length-first sort
+		// (the bug this test protects against) would put single-char "3" before
+		// two-char "2A". True BOE order is by numeric prefix, so "3" comes AFTER
+		// "2A"/"2B" and "5A" last.
+		insertNorm({
+			id: "E",
+			published_at: "2026-07-23",
+			origin: "diario",
+			consolidated: 0,
+			section: "3",
+			title: "Norma seccion 3",
+		});
+		insertNorm({
+			id: "F",
+			published_at: "2026-07-23",
+			origin: "diario",
+			consolidated: 0,
+			section: "5A",
+			title: "Norma seccion 5A",
+		});
 		// A norm published a different day must not leak in.
 		insertNorm({
 			id: "D",
@@ -296,8 +316,14 @@ describe("GET /v1/boe/:fecha", () => {
 
 		const { status, body } = await json<BoeDayResponse>("/v1/boe/2026-07-23");
 		expect(status).toBe(200);
-		expect(body.total).toBe(3);
-		expect(body.sections?.map((s) => s.section)).toEqual(["1", "2A", "2B"]);
+		expect(body.total).toBe(5);
+		expect(body.sections?.map((s) => s.section)).toEqual([
+			"1",
+			"2A",
+			"2B",
+			"3",
+			"5A",
+		]);
 		expect(body.sections?.[0]?.items[0]?.id).toBe("A");
 		expect(body.sections?.[0]?.items[0]?.shortTitle).toBe("LP");
 		expect(body.sections?.[0]?.items[0]?.consolidated).toBe(false);

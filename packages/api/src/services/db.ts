@@ -545,10 +545,15 @@ export class DbService {
 				},
 				[string]
 			>(
+				// Natural BOE sumario order: by numeric prefix first, then the
+				// full code, then title. CAST('2A' AS INTEGER) === 2, so "1",
+				// "2A", "2B", "3", "5A" sort correctly (a plain sort, or the old
+				// length(section) sort, wrongly put "3" before "2A"). Empty
+				// sections (consolidated norms carry no section) sort last.
 				`SELECT id, title, short_title, rank, department, section, consolidated, jurisdiction
 				 FROM norms
 				 WHERE published_at = ?
-				 ORDER BY length(section), section, title`,
+				 ORDER BY section = '', CAST(section AS INTEGER), section, title`,
 			)
 			.all(fecha);
 	}

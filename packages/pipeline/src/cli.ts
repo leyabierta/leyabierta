@@ -485,15 +485,37 @@ function isAlreadyConsolidated(
 			const raw = JSON.parse(readFileSync(jsonPath, "utf-8")) as {
 				metadata?: { origin?: string };
 			};
-			if (raw.metadata?.origin !== "diario") return true;
+			// Consolidated cache → already consolidated. Diario cache → this is
+			// our own diario entry, NOT a consolidated norm, so it must be
+			// re-processed (idempotently), not skipped as "ya consolidada".
+			return raw.metadata?.origin !== "diario";
 		} catch {
 			// Unreadable JSON — fall through to the .md check below rather
 			// than block on a corrupt cache entry.
 		}
 	}
 
+	// No usable JSON cache: fall back to the committed `.md`. A file existing
+	// only means "already consolidated" if it is NOT a diario-written file —
+	// otherwise, if state-diario.json was lost, a re-run would mislabel every
+	// diario norm as "ya existe consolidada" and inflate the skipped count.
+	// A diario `.md` carries `consolidado: false` / `origen: diario` in its
+	// frontmatter; a consolidated one does not.
 	for (const jurisdiction of SPAIN_JURISDICTION_CODES) {
-		if (existsSync(join(repoPath, jurisdiction, `${id}.md`))) return true;
+		const mdPath = join(repoPath, jurisdiction, `${id}.md`);
+		if (!existsSync(mdPath)) continue;
+		try {
+			const md = readFileSync(mdPath, "utf-8");
+			if (
+				/^origen:\s*diario\s*$/m.test(md) ||
+				/^consolidado:\s*false\s*$/m.test(md)
+			) {
+				return false; // our own diario file — not a consolidated norm
+			}
+		} catch {
+			// Unreadable .md — treat as consolidated (safer than overwriting).
+		}
+		return true;
 	}
 	return false;
 }

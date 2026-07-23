@@ -556,11 +556,12 @@ export function lawRoutes(
 						else bySection.set(item.section, [mapped]);
 					}
 
-					// Natural section order: numeric length first, then lexical
-					// ("1" before "2A"/"2B" before "3", "5A"/"5B", …).
-					const sections = [...bySection.keys()].sort(
-						(a, b) => a.length - b.length || a.localeCompare(b),
-					);
+					// getBoeByDate already returns rows in natural BOE section
+					// order (ORDER BY CAST(section AS INTEGER), …), so the Map's
+					// insertion order is correct — no re-sort needed. Re-sorting
+					// here previously reintroduced the length-first bug ("3"
+					// before "2A") that the SQL fixes.
+					const sections = [...bySection.keys()];
 
 					return {
 						date: params.fecha,

@@ -18,23 +18,50 @@
 import type { Database } from "bun:sqlite";
 import type { NormAnalisis } from "../models.ts";
 
+/**
+ * Prepared statements are cached per-Database so repeated calls (e.g. a batch
+ * of diario norms, or a Fase 5 historical backfill) prepare each statement
+ * once, not once per norm — mirroring the prepare-outside-the-loop pattern in
+ * `db/ingest.ts`. Keyed weakly so statements are released when the db is GC'd.
+ */
+type AnalisisStatements = ReturnType<typeof prepareStatements>;
+const statementCache = new WeakMap<Database, AnalisisStatements>();
+
+function prepareStatements(db: Database) {
+	return {
+		deleteMaterias: db.prepare("DELETE FROM materias WHERE norm_id = ?"),
+		deleteNotas: db.prepare("DELETE FROM notas WHERE norm_id = ?"),
+		deleteRefs: db.prepare("DELETE FROM referencias WHERE norm_id = ?"),
+		insertMateria: db.prepare(
+			"INSERT OR IGNORE INTO materias (norm_id, materia) VALUES (?, ?)",
+		),
+		insertNota: db.prepare(
+			"INSERT OR REPLACE INTO notas (norm_id, nota, position) VALUES (?, ?, ?)",
+		),
+		insertRef: db.prepare(
+			"INSERT OR REPLACE INTO referencias (norm_id, direction, relation, target_id, text) VALUES (?, ?, ?, ?, ?)",
+		),
+	};
+}
+
 export function writeAnalisis(
 	db: Database,
 	normId: string,
 	analisis: NormAnalisis,
 ): void {
-	const deleteMaterias = db.prepare("DELETE FROM materias WHERE norm_id = ?");
-	const deleteNotas = db.prepare("DELETE FROM notas WHERE norm_id = ?");
-	const deleteRefs = db.prepare("DELETE FROM referencias WHERE norm_id = ?");
-	const insertMateria = db.prepare(
-		"INSERT OR IGNORE INTO materias (norm_id, materia) VALUES (?, ?)",
-	);
-	const insertNota = db.prepare(
-		"INSERT OR REPLACE INTO notas (norm_id, nota, position) VALUES (?, ?, ?)",
-	);
-	const insertRef = db.prepare(
-		"INSERT OR REPLACE INTO referencias (norm_id, direction, relation, target_id, text) VALUES (?, ?, ?, ?, ?)",
-	);
+	let stmts = statementCache.get(db);
+	if (!stmts) {
+		stmts = prepareStatements(db);
+		statementCache.set(db, stmts);
+	}
+	const {
+		deleteMaterias,
+		deleteNotas,
+		deleteRefs,
+		insertMateria,
+		insertNota,
+		insertRef,
+	} = stmts;
 
 	db.transaction(() => {
 		deleteMaterias.run(normId);
