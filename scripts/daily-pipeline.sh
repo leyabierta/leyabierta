@@ -350,6 +350,15 @@ log "→ Step 3b: Embed new corpus chunks (qwen3-nan via NaN)"
 docker exec "$CONTAINER" bun run packages/api/src/scripts/embed-corpus.ts >> "$LOG" 2>&1
 log "  ✓ Embed corpus done"
 
+# ── Step 3c: AI — citizen article summaries (incremental) ───────────────────
+# Finds vigente articles missing a row in citizen_article_summaries and
+# generates them via qwen3.6 on NaN. Incremental: no-op if all articles
+# are covered. Runs after the embed step so newly ingested norms are indexed
+# before their summaries are generated.
+log "→ Step 3c: Citizen article summaries (incremental, qwen3.6 via NaN)"
+docker exec "$CONTAINER" bun run packages/api/src/scripts/generate-article-summaries.ts >> "$LOG" 2>&1
+log "  ✓ Citizen article summaries done"
+
 # ── Step 4: AI — reform summaries ───────────────────────────────────────────
 log "→ Step 4: Reform summaries"
 docker exec "$CONTAINER" bun run packages/api/src/scripts/generate-reform-summaries.ts >> "$LOG" 2>&1
