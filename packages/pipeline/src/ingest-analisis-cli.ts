@@ -11,6 +11,7 @@
  */
 
 import { Database } from "bun:sqlite";
+import { recalculateAuthorityScores } from "./db/authority.ts";
 import { createSchema } from "./db/schema.ts";
 import { BoeClient } from "./spain/boe-client.ts";
 
@@ -256,10 +257,19 @@ async function main() {
 		}
 	}
 
-	db.close();
-
 	console.log(`Enriched: ${enriched} JSON files`);
 	if (enrichErrors > 0) console.log(`Enrich errors: ${enrichErrors}`);
+
+	// ── Recompute authority_score from the referencias just written ──
+	// (issue #131 ranking). Cheap full recompute — see db/authority.ts —
+	// safe to run every time this script runs since it reads its own output.
+	console.log("\nRecalculating authority_score...");
+	const authorityResult = recalculateAuthorityScores(db);
+	console.log(
+		`Authority scores: ${authorityResult.changed}/${authorityResult.total} norms changed (max ${authorityResult.max})`,
+	);
+
+	db.close();
 
 	const totalElapsed = Math.round((Date.now() - startTime) / 1000);
 	console.log(

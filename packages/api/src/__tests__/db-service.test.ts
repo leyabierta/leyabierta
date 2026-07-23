@@ -268,6 +268,65 @@ describe("searchLaws", () => {
 });
 
 // ---------------------------------------------------------------------------
+// searchLaws — authority ranking (issue #131)
+// ---------------------------------------------------------------------------
+
+describe("searchLaws — authority ranking (#131)", () => {
+	it("does not let a derogada norm outrank the vigente norm that replaced it, at equal text relevance", () => {
+		// Both norms have the exact same title, so both land in the FTS
+		// "exact prefix match" pass tied on length(title) — before the
+		// #131 fix, insertion order alone decided the winner, and the
+		// repealed law (inserted first here) would incorrectly come first.
+		insertNorm({ id: "OLD", title: "Ley de Contratos", status: "derogada" });
+		insertFts("OLD", "Ley de Contratos", "contenido derogado");
+		insertNorm({ id: "NEW", title: "Ley de Contratos", status: "vigente" });
+		insertFts("NEW", "Ley de Contratos", "contenido vigente");
+
+		const { laws, total } = svc.searchLaws("Ley de Contratos", {}, 20, 0);
+
+		expect(total).toBe(2);
+		expect(laws.map((l) => l.id)).toEqual(["NEW", "OLD"]);
+	});
+
+	it("a highly-referenced norm can overtake a slightly-better-positioned one with no references", () => {
+		// Three norms tied on the exact-title pass (same title, same
+		// length). Insertion order alone would rank X > Y > Z. Z's high
+		// authority_score should let it overtake Y (but not the leader, X —
+		// authority nudges within the neighborhood, it doesn't dominate).
+		insertNorm({ id: "X", title: "Estatuto Marco" });
+		insertFts("X", "Estatuto Marco", "contenido x");
+		insertNorm({ id: "Y", title: "Estatuto Marco" });
+		insertFts("Y", "Estatuto Marco", "contenido y");
+		insertNorm({ id: "Z", title: "Estatuto Marco" });
+		insertFts("Z", "Estatuto Marco", "contenido z");
+		db.run("UPDATE norms SET authority_score = ? WHERE id = ?", [60, "Z"]);
+
+		const { laws } = svc.searchLaws("Estatuto Marco", {}, 20, 0);
+
+		const ids = laws.map((l) => l.id);
+		expect(ids[0]).toBe("X");
+		expect(ids.indexOf("Z")).toBeLessThan(ids.indexOf("Y"));
+	});
+
+	it("authority ranking does not change total or pagination bounds", () => {
+		insertNorm({ id: "OLD2", title: "Reglamento Interno", status: "derogada" });
+		insertFts("OLD2", "Reglamento Interno", "texto");
+		insertNorm({ id: "NEW2", title: "Reglamento Interno", status: "vigente" });
+		insertFts("NEW2", "Reglamento Interno", "texto");
+
+		const page = svc.searchLaws("Reglamento Interno", {}, 1, 0);
+		expect(page.total).toBe(2);
+		expect(page.laws).toHaveLength(1);
+		expect(page.laws[0].id).toBe("NEW2");
+
+		const page2 = svc.searchLaws("Reglamento Interno", {}, 1, 1);
+		expect(page2.total).toBe(2);
+		expect(page2.laws).toHaveLength(1);
+		expect(page2.laws[0].id).toBe("OLD2");
+	});
+});
+
+// ---------------------------------------------------------------------------
 // getLaw
 // ---------------------------------------------------------------------------
 

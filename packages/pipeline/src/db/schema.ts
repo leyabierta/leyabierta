@@ -21,7 +21,11 @@ const SCHEMA_SQL = /* sql */ `
     status      TEXT NOT NULL,     -- vigente | derogada | parcialmente_derogada
     department  TEXT NOT NULL DEFAULT '',
     source_url  TEXT NOT NULL DEFAULT '',
-    citizen_summary TEXT NOT NULL DEFAULT ''
+    citizen_summary TEXT NOT NULL DEFAULT '',
+    -- Precomputed in-degree from referencias (issue #131 ranking).
+    -- See packages/pipeline/src/db/authority.ts for how this is computed
+    -- and packages/api/src/services/ranking.ts for how it's used.
+    authority_score INTEGER NOT NULL DEFAULT 0
   );
 
   -- Structural blocks (articles, chapters, etc.)
@@ -300,6 +304,14 @@ export function createSchema(db: Database): void {
 	try {
 		db.exec(
 			"ALTER TABLE omnibus_topics ADD COLUMN block_ids TEXT NOT NULL DEFAULT ''",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	try {
+		db.exec(
+			"ALTER TABLE norms ADD COLUMN authority_score INTEGER NOT NULL DEFAULT 0",
 		);
 	} catch {
 		// Column already exists

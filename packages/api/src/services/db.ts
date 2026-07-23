@@ -10,6 +10,10 @@ import {
 	ensureNormsFtsVocab,
 	tokenizeQuery,
 } from "./norms-fts-search.ts";
+import {
+	type AuthorityRankingCandidate,
+	reorderByAuthority,
+} from "./ranking.ts";
 
 type SqlParams = SQLQueryBindings[];
 
@@ -87,6 +91,10 @@ export class DbService {
 		limit: number,
 		offset: number,
 		sort?: string,
+		// EVAL-ONLY escape hatch (not part of issue #131, do not ship): lets
+		// research/eval scripts A/B the authority rescoring against the exact
+		// same BM25 candidate order in a single process instead of git-stashing.
+		evalOptions?: { disableAuthorityRerank?: boolean },
 	): { laws: LawRow[]; total: number; capped?: boolean } {
 		if (query) {
 			// If the query looks like a norm ID (e.g. BOE-A-2018-6405), search by ID directly
@@ -285,6 +293,13 @@ export class DbService {
 					filteredIds = allIds.filter((id) => filteredSet.has(id));
 				}
 
+				// Issue #131: re-rank the relevance-ordered candidates by
+				// authority/rank/status/jurisdiction. All scoring logic lives in
+				// ranking.ts — this just fetches the metadata it needs.
+				if (filteredIds.length > 0 && !evalOptions?.disableAuthorityRerank) {
+					filteredIds = this.reorderByAuthority(filteredIds);
+				}
+
 				const matchIds = filteredIds.map((id) => ({ norm_id: id }));
 
 				const ids = matchIds.map((r) => r.norm_id);
@@ -300,7 +315,7 @@ export class DbService {
 					)
 					.all(...pageIds);
 
-				// Re-sort in JS to match FTS relevance order
+				// Re-sort in JS to match the ranked order (relevance + authority)
 				const rowMap = new Map(rows.map((r) => [r.id, r]));
 				const laws = pageIds
 					.map((id) => rowMap.get(id))
@@ -530,6 +545,45 @@ export class DbService {
 		} catch {
 			return [];
 		}
+	}
+
+	/**
+	 * Re-rank a relevance-ordered candidate list by authority/rank/status/
+	 * jurisdiction (issue #131). Fetches only the metadata `ranking.ts`
+	 * needs and delegates all scoring to it — this method is intentionally
+	 * dumb. Callers cap `orderedIds` at FTS_CAP (500) before calling, well
+	 * under SQLite's bound-parameter limit, so no chunking here.
+	 */
+	private reorderByAuthority(orderedIds: string[]): string[] {
+		const placeholders = orderedIds.map(() => "?").join(",");
+		const rows = this.db
+			.query<
+				{
+					id: string;
+					rank: string;
+					status: string;
+					jurisdiction: string;
+					authority_score: number;
+				},
+				SqlParams
+			>(
+				`SELECT id, rank, status, jurisdiction, authority_score
+				 FROM norms WHERE id IN (${placeholders})`,
+			)
+			.all(...orderedIds);
+
+		const metadataById = new Map<string, AuthorityRankingCandidate>(
+			rows.map((r) => [
+				r.id,
+				{
+					rank: r.rank,
+					status: r.status,
+					jurisdiction: r.jurisdiction,
+					authorityScore: r.authority_score,
+				},
+			]),
+		);
+		return reorderByAuthority(orderedIds, metadataById);
 	}
 
 	/** Filter a large ID array through norms table in chunks to avoid SQLite variable limits. */

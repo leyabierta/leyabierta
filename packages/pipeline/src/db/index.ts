@@ -9,6 +9,11 @@ import { Database } from "bun:sqlite";
 import { createSchema } from "./schema.ts";
 
 export {
+	type AuthorityRecalcResult,
+	EXCLUDED_AUTHORITY_RELATIONS,
+	recalculateAuthorityScores,
+} from "./authority.ts";
+export {
 	type IngestResult,
 	ingestJsonDir,
 	normalizeArticle,
