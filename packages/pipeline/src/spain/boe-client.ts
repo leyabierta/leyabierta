@@ -6,15 +6,17 @@
  */
 
 import type { LegislativeClient } from "../country.ts";
-import { withRetry } from "../utils/retry.ts";
+import { toArray } from "../utils/xml-normalize.ts";
+import { ThrottledHttp } from "./throttled-http.ts";
 
 const BASE_URL = "https://www.boe.es/datosabiertos/api";
-const DEFAULT_DELAY_MS = 200; // ~5 req/s courtesy limit
 
 export class BoeClient implements LegislativeClient {
-	private lastRequestAt = 0;
+	private readonly http: ThrottledHttp;
 
-	constructor(private readonly delayMs = DEFAULT_DELAY_MS) {}
+	constructor(delayMs?: number) {
+		this.http = new ThrottledHttp(delayMs);
+	}
 
 	async getText(normId: string): Promise<Uint8Array> {
 		const url = `${BASE_URL}/legislacion-consolidada/id/${normId}/texto`;
@@ -71,7 +73,7 @@ export class BoeClient implements LegislativeClient {
 	async getMateriaCodes(normId: string): Promise<string[]> {
 		const url = `https://www.boe.es/buscar/act.php?id=${normId}`;
 		try {
-			await this.throttle();
+			await this.http.throttle();
 			const res = await globalThis.fetch(url);
 			if (!res.ok) return [];
 			const html = await res.text();
@@ -120,49 +122,8 @@ export class BoeClient implements LegislativeClient {
 	}
 
 	private async fetch(url: string, accept: string): Promise<Uint8Array> {
-		return withRetry(
-			async () => {
-				await this.throttle();
-
-				const response = await globalThis.fetch(url, {
-					headers: { Accept: accept },
-				});
-
-				if (!response.ok) {
-					throw new Error(`BOE request failed: ${response.status} ${url}`);
-				}
-
-				return new Uint8Array(await response.arrayBuffer());
-			},
-			{
-				maxRetries: 3,
-				baseDelayMs: 1000,
-				onRetry: (attempt, error) => {
-					const msg = error instanceof Error ? error.message : String(error);
-					console.warn(`  ⟳ Retry ${attempt}/3 for ${url}: ${msg}`);
-				},
-			},
-		);
+		return this.http.fetch(url, accept);
 	}
-
-	private async throttle(): Promise<void> {
-		const now = Date.now();
-		const elapsed = now - this.lastRequestAt;
-		if (elapsed < this.delayMs) {
-			await new Promise((resolve) =>
-				setTimeout(resolve, this.delayMs - elapsed),
-			);
-		}
-		this.lastRequestAt = Date.now();
-	}
-}
-
-/** Normalize BOE API values that can be object, array, or empty. */
-function toArray(val: unknown): Record<string, unknown>[] {
-	if (Array.isArray(val)) return val as Record<string, unknown>[];
-	if (val && typeof val === "object" && Object.keys(val).length > 0)
-		return [val as Record<string, unknown>];
-	return [];
 }
 
 /** Extract notas — can be [{nota: [...]}, ...] or {nota: "..."} */

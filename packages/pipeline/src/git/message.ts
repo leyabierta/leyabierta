@@ -89,6 +89,15 @@ function buildSubject(
 		return `${title} — derogación`;
 	}
 
+	if (commitType === "publicacion") {
+		const year = reform.date.slice(0, 4);
+		return `${title} — publicación en el diario oficial (${year})`;
+	}
+
+	if (commitType === "consolidacion") {
+		return `${title} — consolidación`;
+	}
+
 	if (commitType === "correccion") {
 		const brief = abbreviateArticles(articles);
 		if (brief) return `${title} — corrección ${brief}`;
