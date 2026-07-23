@@ -494,4 +494,82 @@ export class GitRepo {
 		if (reverse) args.push("--reverse");
 		return this.runWithOutput(args).catch(() => "");
 	}
+
+	/**
+	 * Lazily-built index of `Origin:` trailers, keyed by `Norm-Id`. Built once
+	 * per GitRepo instance from a SINGLE `git log` scan (not one git-grep +
+	 * `git show` per norm — see the perf regression this replaced, #130
+	 * Stage 3 review). Populated on the first call to `hasDiarioPublicacion`
+	 * or `hasConsolidacion`; `markConsolidado` keeps it current for the rest
+	 * of the run without a re-scan when this run itself creates a
+	 * `[consolidacion]` commit.
+	 *
+	 * Scans HEAD only (current branch), deliberately NOT `--all`: the leyes
+	 * repo is linear/single-branch, and `--all` would let a stray commit on
+	 * some other branch/tag carry an `Origin: consolidado` trailer that
+	 * blocks promotion forever even though HEAD never got the rewrite.
+	 */
+	private originIndex: {
+		diario: Set<string>;
+		consolidado: Set<string>;
+	} | null = null;
+
+	private async loadOriginIndex(): Promise<{
+		diario: Set<string>;
+		consolidado: Set<string>;
+	}> {
+		if (this.originIndex) return this.originIndex;
+
+		const index = { diario: new Set<string>(), consolidado: new Set<string>() };
+		this.originIndex = index;
+
+		let output = "";
+		try {
+			output = await this.runWithOutput(["log", "--format=%B%x00"]);
+		} catch {
+			// Empty repo — leave the index empty, nothing is promoted yet.
+			return index;
+		}
+		if (!output.trim()) return index;
+
+		for (const body of output.split("\0")) {
+			let normId = "";
+			let origin = "";
+			for (const line of body.split("\n")) {
+				if (line.startsWith("Norm-Id: ")) {
+					normId = line.slice("Norm-Id: ".length).trim();
+				} else if (line.startsWith("Origin: ")) {
+					origin = line.slice("Origin: ".length).trim();
+				}
+			}
+			if (!normId) continue;
+			if (origin === "diario") index.diario.add(normId);
+			else if (origin === "consolidado") index.consolidado.add(normId);
+		}
+
+		return index;
+	}
+
+	/** True if `normId` has a `[publicacion]` commit (Origin: diario) in history. */
+	async hasDiarioPublicacion(normId: string): Promise<boolean> {
+		const index = await this.loadOriginIndex();
+		return index.diario.has(normId);
+	}
+
+	/** True if `normId` has a `[consolidacion]` commit (Origin: consolidado) in history. */
+	async hasConsolidacion(normId: string): Promise<boolean> {
+		const index = await this.loadOriginIndex();
+		return index.consolidado.has(normId);
+	}
+
+	/**
+	 * Record that `normId` was just promoted this run, without a git re-scan.
+	 * Needed because `commitReformEntry` commits the `[consolidacion]` commit
+	 * via `git commit` (not through this index), so a later lookup for the
+	 * same norm within the SAME run (e.g. a second reform entry, or a
+	 * defensive re-check) must see it as already consolidated.
+	 */
+	markConsolidado(normId: string): void {
+		if (this.originIndex) this.originIndex.consolidado.add(normId);
+	}
 }

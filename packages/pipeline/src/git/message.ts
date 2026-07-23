@@ -52,6 +52,11 @@ export function buildCommitInfo(
 			// apart from a consolidated one, so it lives on the commit itself
 			// rather than only in the (mutable, re-fetchable) frontmatter.
 			...(commitType === "publicacion" ? { Origin: "diario" } : {}),
+			// The promotion commit itself — reusing Source-Id/Norm-Id alone would
+			// leave the exact same pair as the diario commit, so a future run
+			// could not tell "already promoted" from "still diario". This trailer
+			// is what GitRepo.hasConsolidacion checks.
+			...(commitType === "consolidacion" ? { Origin: "consolidado" } : {}),
 		},
 		authorName: AUTHOR_NAME,
 		authorEmail: AUTHOR_EMAIL,
