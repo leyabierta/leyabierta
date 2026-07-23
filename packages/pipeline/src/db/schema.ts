@@ -70,8 +70,8 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_norms_country ON norms(country);
   CREATE INDEX IF NOT EXISTS idx_norms_rank ON norms(rank);
   CREATE INDEX IF NOT EXISTS idx_norms_status ON norms(status);
-  -- Issue #128: exact-reference fast path in the search API resolves queries
-  -- like "Real Decreto 1312/2024" and ELI URLs through these two columns.
+  -- The search API's exact-reference fast path resolves citations like
+  -- "Real Decreto 1312/2024" and ELI URLs through these two columns.
   -- DbService also creates them lazily so existing databases get them without
   -- a migration, but the schema is the source of truth: scripts that build a
   -- database without going through DbService need them too.

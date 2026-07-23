@@ -4,7 +4,7 @@
 // cannot run there yet. Same criteria, same delete order, plus a JSON backup of
 // every row it removes — leyabierta.db has no automated backup.
 const { Database } = require("bun:sqlite");
-const fs = require("fs");
+const fs = require("node:fs");
 
 const MIN = "1800-01-01";
 const max = (() => {

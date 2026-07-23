@@ -127,14 +127,21 @@ const RANGO_ALIASES: Array<{ token: string; rank: Rank; prefix: string }> = [
  * spaces (so "Decreto-ley" and "Decreto ley" converge), collapse whitespace.
  */
 function normalize(s: string): string {
-	return s
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/g, "")
-		.toLowerCase()
-		.replace(/\./g, "")
-		.replace(/[-–]/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
+	return (
+		s
+			.normalize("NFD")
+			// Combining diacritical marks — written as escapes on purpose: the
+			// literal characters are invisible in an editor, so nobody can review
+			// or safely edit the range by eye.
+			.replace(/[\u0300-\u036f]/g, "")
+			.toLowerCase()
+			.replace(/\./g, "")
+			// Hyphen and en dash both fold to a space ("Real Decreto-ley" and
+			// "Real Decreto\u2013ley" must reach the same lookup).
+			.replace(/[-\u2013]/g, " ")
+			.replace(/\s+/g, " ")
+			.trim()
+	);
 }
 
 /**
