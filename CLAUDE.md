@@ -168,7 +168,12 @@ Citation-grounded legal Q&A. Citizens ask plain-language questions, the system r
 
 **Models and costs (prod default — full NaN stack):**
 
-All RAG components default to `api.nan.builders` (free, OpenAI-compatible). Requires `HERMES_API_KEY`.
+All RAG components default to `api.nan.builders` (free, OpenAI-compatible). Requires **`NAN_API_KEY`**.
+
+> The variable used to be called `HERMES_API_KEY` and some archived research
+> scripts still read that name. Production (`.env` on the server) and all live
+> code use `NAN_API_KEY` — following the old name gets you a RAG stack that
+> silently fails to authenticate.
 
 | Component | Model | Provider | Cost | Env override |
 |---|---|---|---|---|

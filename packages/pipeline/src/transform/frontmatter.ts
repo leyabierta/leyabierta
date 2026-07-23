@@ -5,25 +5,18 @@
  */
 
 import yaml from "js-yaml";
-import type { Block, NormMetadata, Reform } from "../models.ts";
+import type { Block, NormAnalisis, NormMetadata, Reform } from "../models.ts";
 import { extractJurisdiction } from "./slug.ts";
 
-export interface AnalisisData {
-	materias: string[];
-	notas: string[];
-	referencias: {
-		anteriores: Array<{
-			normId: string;
-			relation: string;
-			text: string;
-		}>;
-		posteriores: Array<{
-			normId: string;
-			relation: string;
-			text: string;
-		}>;
-	};
-}
+/**
+ * Analysis data as consumed by the renderers.
+ *
+ * Aliased to `NormAnalisis` rather than redeclared: the two were structurally
+ * identical except that `NormAnalisis` is readonly, so passing a `NormAnalisis`
+ * here failed to type-check (a readonly array is not assignable to a mutable
+ * one) even though nothing in the render path mutates it.
+ */
+export type AnalisisData = NormAnalisis;
 
 export function renderFrontmatter(
 	metadata: NormMetadata,

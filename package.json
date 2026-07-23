@@ -8,6 +8,7 @@
 	],
 	"scripts": {
 		"check": "biome check .",
+		"typecheck": "tsgo --noEmit",
 		"format": "biome check --write .",
 		"test": "bun test",
 		"pipeline": "bun run packages/pipeline/src/cli.ts",
