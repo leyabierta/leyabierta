@@ -46,6 +46,7 @@ import Base from "../../layouts/Base.astro";
 			color: var(--text);
 			font-size: 0.875rem;
 			font-family: var(--font-sans);
+			min-height: 44px;
 		}
 		.cambios-info {
 			font-size: 0.8125rem;
@@ -148,11 +149,13 @@ import Base from "../../layouts/Base.astro";
 			font-size: 0.75rem;
 			color: var(--text-muted);
 			font-family: var(--font-mono);
+			white-space: nowrap;
 		}
 		.reform-type-badge {
 			font-size: 0.6875rem;
 			font-weight: 500;
 			color: var(--text-muted);
+			white-space: nowrap;
 		}
 		.reform-importance-badge {
 			font-size: 0.6875rem;
@@ -197,6 +200,8 @@ import Base from "../../layouts/Base.astro";
 			font-size: 0.8125rem;
 			color: var(--accent-light);
 			font-weight: 500;
+			display: inline-block;
+			padding: 0.5rem 0;
 		}
 		.reform-link:hover {
 			text-decoration: underline;
@@ -321,6 +326,21 @@ import Base from "../../layouts/Base.astro";
 
 			function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
+			var MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+			function formatDateRange(range) {
+				if (!range) return "";
+				var parts = range.split(" to ");
+				if (parts.length !== 2) return range;
+				var d1 = new Date(parts[0] + "T00:00:00");
+				var d2 = new Date(parts[1] + "T00:00:00");
+				if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return range;
+				var y1 = d1.getFullYear(), y2 = d2.getFullYear();
+				var s1 = d1.getDate() + " " + MONTHS[d1.getMonth()] + (y1 !== y2 ? " " + y1 : "");
+				var s2 = d2.getDate() + " " + MONTHS[d2.getMonth()] + " " + y2;
+				return s1 + " – " + s2;
+			}
+
 			var API = document.documentElement.dataset.api;
 			var contentDiv = document.getElementById("cambios-content");
 			var infoDiv = document.getElementById("cambios-info");
@@ -340,7 +360,7 @@ import Base from "../../layouts/Base.astro";
 					.then(function (data) {
 						if (!data.reforms || data.reforms.length === 0) {
 							contentDiv.innerHTML = '<div class="empty-state"><h2>No hay cambios recientes</h2><p>No se han encontrado modificaciones legislativas en este período.</p></div>';
-							infoDiv.textContent = data.date_range || "";
+							infoDiv.textContent = formatDateRange(data.date_range);
 							return;
 						}
 
@@ -357,7 +377,7 @@ import Base from "../../layouts/Base.astro";
 							return;
 						}
 
-						infoDiv.textContent = validReforms.length + " cambios · " + (data.date_range || "");
+						infoDiv.textContent = validReforms.length + " cambios · " + formatDateRange(data.date_range);
 
 						var html = '<div class="reform-timeline">';
 						for (var i = 0; i < validReforms.length; i++) {

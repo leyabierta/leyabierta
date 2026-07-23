@@ -26,6 +26,11 @@
 		//    HTML requests these paths just fall straight through to ASSETS, so
 		//    the only added cost is one passthrough Worker invocation on them.
 		// Everything else (assets, other pages) still skips the Worker entirely.
-		"run_worker_first": ["/", "/leyes/*", "/cambios/reforma/*"]
+		"run_worker_first": ["/", "/leyes/*", "/cambios/reforma/*"],
+		// Without this, an unmatched path returns a bare 404 with an EMPTY body
+		// (0 bytes, no content-type) and the browser shows its own native error
+		// screen instead of dist/404.html — losing the site's branding,
+		// navigation and Spanish copy entirely.
+		"not_found_handling": "404-page"
 	}
 }

@@ -189,6 +189,70 @@ describe("ingestJsonDir", () => {
 		expect(reformBlocks).toHaveLength(3);
 	});
 
+	test("rejects reform with implausible date (2929-11-19) but keeps valid reforms", async () => {
+		// Regression test for the real production incident behind issue #129:
+		// the BOE feed produced a reform dated 2929-11-19 for a norm, which
+		// contaminated MAX(reforms.date) downstream. Ingest must reject it
+		// loudly (logged + counted) rather than insert it silently.
+		const norm = makeNormJson({
+			reforms: [
+				{
+					date: "2024-06-01",
+					sourceId: "BOE-A-2024-5678",
+					affectedBlocks: ["art-1"],
+				},
+				{
+					date: "2929-11-19",
+					sourceId: "BOE-A-2929-99999",
+					affectedBlocks: ["art-1"],
+				},
+			],
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(norm),
+		);
+
+		const result = await ingestJsonDir(db, tempDir);
+
+		expect(result.reformsInserted).toBe(1);
+		expect(result.reformsRejected).toBe(1);
+		// Bad source data is NOT an ingest error: it gets its own counter and a
+		// loud warning, but must not inflate result.errors — otherwise a
+		// perfectly healthy run reports "Errors: 1" every single night.
+		expect(result.errors.some((e) => e.includes("2929-11-19"))).toBe(false);
+
+		const reforms = db
+			.query("SELECT * FROM reforms WHERE norm_id = 'BOE-A-2024-1234'")
+			.all() as Array<Record<string, unknown>>;
+		expect(reforms).toHaveLength(1);
+		expect(reforms[0]?.date).toBe("2024-06-01");
+	});
+
+	test("rejects reform with date before 1800", async () => {
+		const norm = makeNormJson({
+			reforms: [
+				{
+					date: "1799-01-01",
+					sourceId: "BOE-A-1799-1",
+					affectedBlocks: ["art-1"],
+				},
+			],
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(norm),
+		);
+
+		const result = await ingestJsonDir(db, tempDir);
+
+		expect(result.reformsInserted).toBe(0);
+		expect(result.reformsRejected).toBe(1);
+
+		const reforms = db.query("SELECT * FROM reforms").all();
+		expect(reforms).toHaveLength(0);
+	});
+
 	test("populates FTS5 index and search by title works", async () => {
 		const norm = makeNormJson();
 		await writeFile(

@@ -92,10 +92,12 @@ import Base from "../../../layouts/Base.astro";
 			display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem;
 			margin-bottom: 0.75rem;
 		}
+		.diff-mod-pair > * { min-width: 0; }
 		.diff-para {
 			font-size: 0.8125rem; line-height: 1.65; color: var(--text-secondary);
 			padding: 0.625rem 0.75rem; border-radius: 6px;
 			font-family: var(--font-serif);
+			overflow-wrap: break-word; word-break: break-word;
 		}
 		.diff-para-removed { background: #fbeaea; }
 		.diff-para-added { background: #e8f5ec; }

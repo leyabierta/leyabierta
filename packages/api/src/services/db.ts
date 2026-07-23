@@ -5,6 +5,7 @@
 import type { Database, SQLQueryBindings } from "bun:sqlite";
 import { BASE_MATERIAS } from "../data/materia-mappings.ts";
 import type { HybridSearcher } from "./hybrid-search.ts";
+import { parseNormReference } from "./norm-reference.ts";
 import {
 	adaptiveSearch,
 	ensureNormsFtsVocab,
@@ -72,6 +73,139 @@ export interface VersionRow {
 export class DbService {
 	constructor(private db: Database) {
 		ensureNormsFtsVocab(db);
+		// Issue #128: exact-reference fast path (short_title / source_url
+		// lookups) needs these indexed, not sequentially scanned.
+		//
+		// Wrapped like ensureNormsFtsVocab: several callers open the database
+		// read-only (vector workers, eval scripts, OG-image generation), and a
+		// bare CREATE INDEX would throw SQLITE_READONLY at construction time —
+		// or SQLITE_BUSY when another process holds the write lock. Missing
+		// indexes only cost a sequential scan; a throwing constructor costs the
+		// whole process.
+		try {
+			db.exec(
+				"CREATE INDEX IF NOT EXISTS idx_norms_short_title ON norms(short_title)",
+			);
+			db.exec(
+				"CREATE INDEX IF NOT EXISTS idx_norms_source_url ON norms(source_url)",
+			);
+		} catch {
+			// Read-only connection or concurrent writer — fall back to scans.
+		}
+	}
+
+	/**
+	 * Issue #128 fast path: resolve a query that looks like a citation of a
+	 * specific norm ("Real Decreto 1312/2024", "BOE-A-2024-26931", an ELI
+	 * URL, "LAU", a bare "1312/2024") into an ordered list of norm ids via
+	 * exact, indexed lookup — no BM25/FTS involved.
+	 *
+	 * Order: state-level (jurisdiction='es') norms first, since multiple
+	 * jurisdictions can share the same short_title (e.g. "Ley 12/2016"
+	 * exists both nationally and regionally). Filters are applied so the
+	 * fast path never surfaces a result the caller explicitly excluded.
+	 *
+	 * Returns `[]` when the query isn't reference-shaped, or is but matches
+	 * nothing.
+	 */
+	private resolveNormReference(
+		query: string,
+		filters: SearchFilters,
+	): string[] {
+		const parsed = parseNormReference(query);
+		if (!parsed) return [];
+
+		let ids: string[] = [];
+		switch (parsed.kind) {
+			case "id": {
+				const row = this.db
+					.query<{ id: string }, [string]>("SELECT id FROM norms WHERE id = ?")
+					.get(parsed.id);
+				if (row) ids = [row.id];
+				break;
+			}
+			case "alias": {
+				const row = this.db
+					.query<{ id: string }, [string]>("SELECT id FROM norms WHERE id = ?")
+					.get(parsed.id);
+				if (row) ids = [row.id];
+				break;
+			}
+			case "eli": {
+				const placeholders = parsed.urls.map(() => "?").join(",");
+				ids = this.db
+					.query<{ id: string }, SqlParams>(
+						`SELECT id FROM norms WHERE source_url IN (${placeholders})
+						 ORDER BY (jurisdiction = 'es') DESC, id`,
+					)
+					.all(...parsed.urls)
+					.map((r) => r.id);
+				break;
+			}
+			case "ranked": {
+				// COLLATE NOCASE: short_title casing is not normalized at ingest
+				// — the corpus holds both "Decreto-ley 2/2009" (293 norms) and
+				// "Decreto-Ley 1/2016" (6). An exact match would silently miss
+				// the minority spelling.
+				ids = this.db
+					.query<{ id: string }, [string, string]>(
+						`SELECT id FROM norms
+						 WHERE short_title = ? COLLATE NOCASE AND rank = ?
+						 ORDER BY (jurisdiction = 'es') DESC, id`,
+					)
+					.all(parsed.shortTitle, parsed.rank)
+					.map((r) => r.id);
+				break;
+			}
+			case "number_year": {
+				// short_title always ends "<Tipo> <num>/<año>" with no trailing
+				// text (see extractShortTitle), so a suffix match is exact.
+				//
+				// Two separators matter: most ranks put a space before the
+				// number ("Ley 12/2016"), but ministerial orders put a slash
+				// ("Orden HAP/1370/2014"), so a space-only pattern silently
+				// missed every order searched by its bare number.
+				const spaced = `% ${parsed.number}/${parsed.year}`;
+				const slashed = `%/${parsed.number}/${parsed.year}`;
+				ids = this.db
+					.query<{ id: string }, [string, string]>(
+						`SELECT id FROM norms
+						 WHERE short_title LIKE ? ESCAPE '\\'
+						    OR short_title LIKE ? ESCAPE '\\'
+						 ORDER BY (jurisdiction = 'es') DESC, id`,
+					)
+					.all(spaced, slashed)
+					.map((r) => r.id);
+				break;
+			}
+			case "id_suffix": {
+				// "26931" → BOE-A-2024-26931. Newest first: when the same
+				// sequence was reused across years, the recent norm is far more
+				// likely to be the one being cited.
+				ids = this.db
+					.query<{ id: string }, [string]>(
+						`SELECT id FROM norms WHERE id LIKE ? ESCAPE '\\'
+						 ORDER BY published_at DESC, id`,
+					)
+					.all(`%-${parsed.sequence}`)
+					.map((r) => r.id);
+				break;
+			}
+		}
+
+		if (ids.length === 0) return ids;
+
+		const hasFilters =
+			!!filters.country ||
+			!!filters.jurisdiction ||
+			!!filters.rank ||
+			!!filters.status ||
+			!!filters.materia ||
+			!!filters.citizen_tag;
+		if (!hasFilters) return ids;
+
+		const allowed = new Set(this.filterIdsByChunks(ids, filters));
+		return ids.filter((id) => allowed.has(id));
 	}
 
 	searchLaws(
@@ -209,6 +343,14 @@ export class DbService {
 			// full intersection.
 			const FTS_CAP = 500;
 			try {
+				// Issue #128: if the query cites a specific norm ("Real Decreto
+				// 1312/2024", "LAU", an ELI URL, a bare "1312/2024", …), resolve
+				// it via exact indexed lookup first. These ids are prepended to
+				// the BM25-ranked results below (deduped), not returned alone —
+				// e.g. "Ley 12/2016" should still surface every jurisdiction
+				// that has a law by that reference, not just one.
+				const refIds = this.resolveNormReference(query, filters);
+
 				// Pass 0: exact/prefix title matches (highest relevance)
 				// These go first regardless of BM25 score
 				const escaped = escapeLike(query);
@@ -285,7 +427,13 @@ export class DbService {
 					filteredIds = allIds.filter((id) => filteredSet.has(id));
 				}
 
-				const matchIds = filteredIds.map((id) => ({ norm_id: id }));
+				// Exact reference matches go first, then BM25 results with any
+				// duplicate of a reference match removed.
+				const refSet = new Set(refIds);
+				const matchIds = [
+					...refIds,
+					...filteredIds.filter((id) => !refSet.has(id)),
+				].map((id) => ({ norm_id: id }));
 
 				const ids = matchIds.map((r) => r.norm_id);
 				const total = ids.length;
@@ -412,6 +560,12 @@ export class DbService {
 			return law ? { laws: [law], total: 1 } : { laws: [], total: 0 };
 		}
 
+		// Issue #128: exact-reference fast path (see searchLaws for the
+		// rationale). Resolved ids are prepended to the fused BM25+vector
+		// list below, not returned alone — other jurisdictions sharing the
+		// same reference, or additional relevant hits, are still surfaced.
+		const refIds = this.resolveNormReference(trimmed, filters);
+
 		// 1. BM25 ranked norm IDs (unfiltered, larger cap so the fusion has
 		//    enough candidates to pick from).
 		const bm25Ids = this.bm25RankedNormIds(trimmed, 500);
@@ -425,10 +579,13 @@ export class DbService {
 			normTopK: NORM_TOP_K,
 		});
 
-		if (fused.length === 0) return { laws: [], total: 0 };
+		if (fused.length === 0 && refIds.length === 0) {
+			return { laws: [], total: 0 };
+		}
 		const capped = fused.length >= NORM_TOP_K;
 
-		// 3. Apply filters across the fused IDs.
+		// 3. Apply filters across the fused IDs (refIds are already filtered
+		//    by resolveNormReference).
 		const hasFilters =
 			!!filters.country ||
 			!!filters.jurisdiction ||
@@ -442,8 +599,14 @@ export class DbService {
 			filteredIds = fused.filter((id) => filteredSet.has(id));
 		}
 
-		const total = filteredIds.length;
-		const pageIds = filteredIds.slice(offset, offset + limit);
+		const refSet = new Set(refIds);
+		const mergedIds = [
+			...refIds,
+			...filteredIds.filter((id) => !refSet.has(id)),
+		];
+
+		const total = mergedIds.length;
+		const pageIds = mergedIds.slice(offset, offset + limit);
 		if (pageIds.length === 0) {
 			return capped ? { laws: [], total, capped: true } : { laws: [], total };
 		}
@@ -1197,6 +1360,13 @@ export class DbService {
 			}
 		}
 
+		// Upper-bounded like getRecentReforms/getRecentlyUpdated. Without this,
+		// a single corrupt source date (there is one real row dated 2929-11-19,
+		// straight from the BOE) sorts to the top of DESC and becomes the first
+		// entry citizens see under "Cambios recientes". Ingest now rejects such
+		// dates, but the query must not depend on the data being clean.
+		const today = new Date().toISOString().slice(0, 10);
+
 		const sql = `
 			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
 				rs.headline, rs.summary, rs.reform_type, rs.importance,
@@ -1207,6 +1377,7 @@ export class DbService {
 			LEFT JOIN reform_summaries rs
 				ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
 			WHERE r.date >= ?
+			  AND r.date <= ?
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
 			  ${jurisdictionClause}
 			ORDER BY r.date DESC
@@ -1231,7 +1402,7 @@ export class DbService {
 				},
 				SqlParams
 			>(sql)
-			.all(since, ...jurisdictionParams, limit);
+			.all(since, today, ...jurisdictionParams, limit);
 	}
 
 	upsertReformSummary(

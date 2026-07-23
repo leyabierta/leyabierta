@@ -218,12 +218,12 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			min-height: 100vh;
 		}
 
-		main { flex: 1; }
+		main { flex: 1; min-width: 0; }
 
 		a { color: var(--accent-light); text-decoration: none; }
 		a:hover { text-decoration: underline; }
 
-		.container { max-width: var(--max-w); margin: 0 auto; padding: 0 1.25rem; }
+		.container { max-width: var(--max-w); width: 100%; min-width: 0; margin: 0 auto; padding: 0 1.25rem; }
 
 		/* ── Footer ── */
 		footer {
@@ -295,6 +295,8 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			border: 1.5px solid var(--border);
 			background: var(--surface);
 			color: var(--text-secondary);
+			font-family: var(--font-sans);
+			min-height: 44px;
 			cursor: pointer;
 			transition: border-color 0.2s var(--ease-out-quart), color 0.2s var(--ease-out-quart), background 0.2s var(--ease-out-quart), opacity 0.15s var(--ease-out-quart);
 		}
@@ -312,9 +314,11 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 		.pagination {
 			margin-top: 1.5rem;
 			display: flex;
+			flex-wrap: wrap;
 			justify-content: center;
 			align-items: center;
 			gap: 0.25rem;
+			row-gap: 0.5rem;
 			font-size: 0.8125rem;
 		}
 		.page-num {
@@ -418,6 +422,8 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 		.prose td { color: var(--text-secondary); }
 		.prose tr:nth-child(even) td { background: var(--bg); }
 		.prose > :first-child { margin-top: 0; }
+		.prose .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1.5em 0; }
+		.prose .table-scroll table { margin: 0; min-width: 480px; }
 
 		/* ── Screen reader only (a11y) ── */
 		.sr-only {

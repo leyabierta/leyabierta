@@ -317,6 +317,11 @@ async function ingest() {
 	console.log(`Blocks:   ${result.blocksInserted}`);
 	console.log(`Versions: ${result.versionsInserted}`);
 	console.log(`Reforms:  ${result.reformsInserted}`);
+	if (result.reformsRejected > 0) {
+		console.warn(
+			`Reforms rejected (implausible date): ${result.reformsRejected}`,
+		);
+	}
 
 	if (result.errors.length > 0) {
 		console.error(`Errors: ${result.errors.length}`);

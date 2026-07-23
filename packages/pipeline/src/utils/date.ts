@@ -30,3 +30,44 @@ export function parseBoeDate(raw: string | undefined): string | undefined {
 	}
 	return undefined;
 }
+
+/** Earliest plausible date for a reform (nothing in force before this). */
+export const MIN_PLAUSIBLE_REFORM_DATE = "1800-01-01";
+
+/**
+ * Latest plausible date for a reform: today + 5 years. Computed relative to
+ * `now` (default: current time) so tests can pin it.
+ */
+export function maxPlausibleReformDate(now: Date = new Date()): string {
+	const d = new Date(now.getTime());
+	d.setUTCFullYear(d.getUTCFullYear() + 5);
+	return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Validate that a reform date is both a real calendar date (rejects things
+ * like Feb 30 via the ISO round-trip check) AND falls within a plausible
+ * range: [1800-01-01, today + 5 years].
+ *
+ * Exists because the BOE feed has been observed to emit corrupt dates (a
+ * production reform row was seen with `2929-11-19`) that pass basic ISO
+ * format checks but are obvious nonsense. Rejecting them here — at ingest —
+ * keeps `MAX(reforms.date)` and similar aggregates from being contaminated
+ * at the source, instead of relying on every downstream query to filter
+ * them out individually.
+ */
+export function isPlausibleReformDate(
+	dateStr: string,
+	now: Date = new Date(),
+): boolean {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+	const d = new Date(`${dateStr}T00:00:00Z`);
+	if (Number.isNaN(d.getTime())) return false;
+	// Round-trip through ISO to reject calendar rollovers (e.g. 2024-02-30 ->
+	// 2024-03-01 would not match the original string).
+	if (d.toISOString().slice(0, 10) !== dateStr) return false;
+	return (
+		dateStr >= MIN_PLAUSIBLE_REFORM_DATE &&
+		dateStr <= maxPlausibleReformDate(now)
+	);
+}
