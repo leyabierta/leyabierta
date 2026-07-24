@@ -1,0 +1,29 @@
+{
+  "_comment": "Short domain-area queries (2-4 words naming an area of law) whose intent is 'take me to the backbone norm of this area'. Gold = the consolidating/troncal norm (texto refundido, código, ley general...). Built for #135. Troncal IDs verified vigente against the DB; ranks are all in the boost gate {ley, ley_organica, real_decreto_legislativo, constitucion} except where noted.",
+  "results": [
+    { "question": "seguridad social", "expectedNorms": ["BOE-A-2015-11724"], "category": "short-domain" },
+    { "question": "estatuto de los trabajadores", "expectedNorms": ["BOE-A-2015-11430"], "category": "short-domain" },
+    { "question": "proteccion de datos", "expectedNorms": ["BOE-A-2018-16673"], "category": "short-domain" },
+    { "question": "impuesto sobre la renta", "expectedNorms": ["BOE-A-2006-20764"], "category": "short-domain" },
+    { "question": "impuesto de sociedades", "expectedNorms": ["BOE-A-2014-12328"], "category": "short-domain" },
+    { "question": "enjuiciamiento civil", "expectedNorms": ["BOE-A-2000-323"], "category": "short-domain" },
+    { "question": "codigo penal", "expectedNorms": ["BOE-A-1995-25444"], "category": "short-domain" },
+    { "question": "propiedad intelectual", "expectedNorms": ["BOE-A-1996-8930"], "category": "short-domain" },
+    { "question": "impuesto sobre el valor anadido", "expectedNorms": ["BOE-A-1992-28740"], "category": "short-domain" },
+    { "question": "procedimiento administrativo", "expectedNorms": ["BOE-A-2015-10565"], "category": "short-domain" },
+    { "question": "arrendamientos urbanos", "expectedNorms": ["BOE-A-1994-26003"], "category": "short-domain" },
+    { "question": "consumidores y usuarios", "expectedNorms": ["BOE-A-2007-20555"], "category": "short-domain" },
+    { "question": "extranjeria", "expectedNorms": ["BOE-A-2000-544"], "category": "short-domain" },
+    { "question": "impuesto sobre la renta de no residentes", "expectedNorms": ["BOE-A-2004-4527"], "category": "short-domain" },
+    { "question": "transparencia", "expectedNorms": ["BOE-A-2013-12887"], "category": "short-domain" },
+    { "question": "ley general tributaria", "expectedNorms": ["BOE-A-2003-23186"], "category": "short-domain" },
+    { "question": "sociedades de capital", "expectedNorms": ["BOE-A-2010-10544"], "category": "short-domain" },
+    { "question": "ley concursal", "expectedNorms": ["BOE-A-2020-4859"], "category": "short-domain" },
+    { "question": "contratos del sector publico", "expectedNorms": ["BOE-A-2017-12902"], "category": "short-domain" },
+    { "question": "propiedad horizontal", "expectedNorms": ["BOE-A-1960-10906"], "category": "short-domain" },
+    { "question": "poder judicial", "expectedNorms": ["BOE-A-1985-12666"], "category": "short-domain" },
+    { "question": "estatuto basico del empleado publico", "expectedNorms": ["BOE-A-2015-11719"], "category": "short-domain" },
+    { "question": "bases del regimen local", "expectedNorms": ["BOE-A-1985-5392"], "category": "short-domain" },
+    { "question": "trafico y seguridad vial", "expectedNorms": ["BOE-A-2015-11722"], "category": "short-domain" }
+  ]
+}
