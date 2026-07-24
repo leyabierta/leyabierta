@@ -183,7 +183,7 @@ function troncalFactor(
 ): number {
 	if (weight <= 0 || !TRONCAL_RANKS.has(rank)) return 1;
 	const marker = TRONCAL_MARKER_RE.test(title) ? 1 : 0;
-	const size = Math.min(1, blocks / sat);
+	const size = sat > 0 ? Math.min(1, blocks / sat) : 1;
 	const signal = 0.5 * marker + 0.5 * size;
 	return 1 + weight * signal;
 }
@@ -263,10 +263,12 @@ export class HybridSearcherImpl implements HybridSearcher {
 		const rrfK = options.rrfK ?? 60;
 		const pool = options.pool ?? "max+sum";
 		const boostByRank = options.boostByRank ?? true;
-		const troncalBoost =
-			options.troncalBoost ?? Number(process.env.TRONCAL_BOOST ?? 0);
-		const troncalSat =
-			options.troncalSat ?? Number(process.env.TRONCAL_SAT ?? 300);
+		// Guard against a mistyped env var (`Number("abc")` → NaN): fall back to
+		// the safe default rather than silently disabling / corrupting the boost.
+		const rawBoost = options.troncalBoost ?? Number(process.env.TRONCAL_BOOST);
+		const troncalBoost = Number.isFinite(rawBoost) ? rawBoost : 0;
+		const rawSat = options.troncalSat ?? Number(process.env.TRONCAL_SAT);
+		const troncalSat = Number.isFinite(rawSat) ? rawSat : 300;
 
 		const trimmed = query.trim();
 
@@ -477,7 +479,8 @@ export class HybridSearcherImpl implements HybridSearcher {
 								troncalSat,
 							)
 						: 1;
-					return (1 / (rrfK + pos)) * factor;
+					// +1 to match the RRF convention in rrf.ts (1/(k+rank+1)).
+					return (1 / (rrfK + pos + 1)) * factor;
 				};
 				fused = fused
 					.map((r, pos) => ({ r, s: boosted(r, pos) }))
