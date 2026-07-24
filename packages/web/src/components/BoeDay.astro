@@ -1,0 +1,247 @@
+---
+// Shared markup for a single day of the BOE diario (#130 stage 4). Used by
+// both /boe/hoy and /boe/[fecha] so the two pages render identically.
+import { RANK_LABELS } from "../lib/reform-render.ts";
+import type { BoeSection } from "../lib/boe-day.ts";
+
+interface Props {
+	fecha: string;
+	sections: BoeSection[];
+	total: number;
+	prevDate?: string;
+	nextDate?: string;
+	isToday: boolean;
+}
+
+const { fecha, sections, total, prevDate, nextDate, isToday } = Astro.props;
+
+const MONTHS = [
+	"enero", "febrero", "marzo", "abril", "mayo", "junio",
+	"julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+function formatLongDate(iso: string): string {
+	// Parse and read as UTC — a bare `${iso}T00:00:00` is interpreted in the
+	// build server's local timezone, so in a UTC-negative CI a date like
+	// 2026-07-23 could render as "22 de julio".
+	const d = new Date(`${iso}T00:00:00Z`);
+	return `${d.getUTCDate()} de ${MONTHS[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
+}
+---
+
+<div class="boe-day-wrap">
+	<div class="boe-day-header">
+		<span class="boe-kicker">BOE diario · Fuente: BOE</span>
+		<h1>{isToday ? "El BOE de hoy" : `El BOE del ${formatLongDate(fecha)}`}</h1>
+		<p>
+			Cada día hábil, el Boletín Oficial del Estado publica las leyes recién aprobadas.
+			Aquí las verás en cuanto salgan — algunas todavía en su <strong>texto original</strong>,
+			antes de que el propio BOE publique la versión al día con los cambios que hayan tenido después.
+		</p>
+	</div>
+
+	<div class="boe-day-nav">
+		{prevDate
+			? <a href={`/boe/${prevDate}/`} class="boe-nav-link">&larr; {formatLongDate(prevDate)}</a>
+			: <span class="boe-nav-link boe-nav-disabled">&larr;</span>}
+		<span class="boe-nav-current">{formatLongDate(fecha)}</span>
+		{nextDate
+			? <a href={`/boe/${nextDate}/`} class="boe-nav-link">{formatLongDate(nextDate)} &rarr;</a>
+			: <span class="boe-nav-link boe-nav-disabled">&rarr;</span>}
+	</div>
+
+	{total === 0 ? (
+		<div class="boe-empty">
+			<p>No hay leyes publicadas en el BOE con esta fecha todavía.</p>
+		</div>
+	) : (
+		<>
+			<p class="boe-total">{total === 1 ? "1 ley publicada" : `${total} leyes publicadas`}</p>
+			{sections.map((section) => (
+				<section class="boe-section">
+					<h2 class="boe-section-heading">{section.label}</h2>
+					<ul class="boe-item-list" role="list">
+						{section.items.map((item) => (
+							<li class="boe-item">
+								<a href={`/leyes/${item.id}/`} class="boe-item-link">
+									<div class="boe-item-main">
+										<span class="boe-item-title">{item.titulo}</span>
+										<div class="boe-item-meta">
+											<span class="boe-item-rank">{RANK_LABELS[item.rango] ?? item.rango}</span>
+											<span class="boe-item-sep" aria-hidden="true">&middot;</span>
+											<span class="boe-item-dept">{item.departamento}</span>
+										</div>
+									</div>
+									{!item.consolidado && (
+										<span class="boe-item-badge" title="Todavía no incluye los cambios posteriores">
+											Texto original
+										</span>
+									)}
+								</a>
+							</li>
+						))}
+					</ul>
+				</section>
+			))}
+		</>
+	)}
+</div>
+
+<style>
+	.boe-day-wrap {
+		max-width: 52rem;
+		margin: 0 auto;
+		padding: 2.5rem 1rem 4rem;
+	}
+	.boe-day-header {
+		margin-bottom: 1.5rem;
+	}
+	.boe-kicker {
+		font-family: var(--font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+	}
+	.boe-day-header h1 {
+		font-family: var(--font-serif);
+		font-size: 2rem;
+		font-weight: 700;
+		color: var(--text);
+		margin: 0.5rem 0 0.75rem;
+		line-height: 1.15;
+	}
+	.boe-day-header p {
+		color: var(--text-secondary);
+		font-size: 0.9375rem;
+		line-height: 1.65;
+		max-width: 52ch;
+	}
+	.boe-day-header strong {
+		color: var(--text);
+	}
+
+	.boe-day-nav {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.75rem 0;
+		margin-bottom: 1.5rem;
+		border-top: 1px solid var(--border-light);
+		border-bottom: 1px solid var(--border-light);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+	}
+	.boe-nav-link {
+		color: var(--accent);
+		text-decoration: none;
+		font-weight: 500;
+		white-space: nowrap;
+	}
+	.boe-nav-link:hover {
+		text-decoration: underline;
+	}
+	.boe-nav-disabled {
+		color: var(--text-muted);
+		opacity: 0.5;
+	}
+	.boe-nav-current {
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		display: none;
+	}
+	@media (min-width: 560px) {
+		.boe-nav-current { display: inline; }
+	}
+
+	.boe-empty {
+		background: var(--surface);
+		border: 1px solid var(--border-light);
+		border-radius: 10px;
+		padding: 2rem 1.5rem;
+		text-align: center;
+		color: var(--text-secondary);
+		font-size: 0.9375rem;
+	}
+
+	.boe-total {
+		font-size: 0.8125rem;
+		color: var(--text-muted);
+		margin-bottom: 1.5rem;
+	}
+
+	.boe-section {
+		margin-bottom: 2rem;
+	}
+	.boe-section-heading {
+		font-family: var(--font-serif);
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--text);
+		margin-bottom: 0.75rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid var(--border-light);
+	}
+
+	.boe-item-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+	.boe-item-link {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+		background: var(--surface);
+		border: 1px solid var(--border-light);
+		border-radius: 10px;
+		padding: 0.875rem 1.125rem;
+		text-decoration: none;
+		transition: border-color 0.15s;
+	}
+	.boe-item-link:hover {
+		border-color: var(--border);
+	}
+	.boe-item-main {
+		min-width: 0;
+	}
+	.boe-item-title {
+		display: block;
+		font-family: var(--font-serif);
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--text);
+		line-height: 1.4;
+		margin-bottom: 0.25rem;
+	}
+	.boe-item-meta {
+		font-size: 0.8125rem;
+		color: var(--text-muted);
+	}
+	.boe-item-sep {
+		margin: 0 0.375rem;
+		color: var(--border);
+	}
+	.boe-item-badge {
+		flex-shrink: 0;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--accent);
+		background: var(--accent-bg);
+		padding: 0.25rem 0.625rem;
+		border-radius: 4px;
+		white-space: nowrap;
+	}
+
+	@media (max-width: 560px) {
+		.boe-day-header h1 { font-size: 1.625rem; }
+		.boe-item-link { flex-direction: column; }
+		.boe-item-badge { align-self: flex-start; }
+	}
+</style>

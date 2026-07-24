@@ -547,6 +547,31 @@ const seoDescription = [
 		.meta-item-label { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.125rem; }
 		.meta-item-value { color: var(--text); font-weight: 500; }
 
+		.diario-banner {
+			display: flex;
+			gap: 0.75rem;
+			align-items: flex-start;
+			background: var(--accent-faint);
+			border: 1px solid var(--border-light);
+			border-radius: 10px;
+			padding: 1rem 1.25rem;
+			margin-bottom: 1.25rem;
+		}
+		.diario-banner-icon {
+			flex-shrink: 0;
+			color: var(--accent);
+			margin-top: 0.125rem;
+		}
+		.diario-banner p {
+			margin: 0;
+			font-size: 0.875rem;
+			line-height: 1.6;
+			color: var(--text-secondary);
+		}
+		.diario-banner strong {
+			color: var(--text);
+		}
+
 		.citizen-summary-card {
 			padding: 0.25rem 0 0.25rem 1rem;
 			border-left: 3px solid var(--accent);
@@ -794,6 +819,17 @@ const seoDescription = [
 			Ver en BOE
 		</a>
 	</div>
+
+	{law.consolidado === false && (
+		<div class="diario-banner">
+			<span class="diario-banner-icon" aria-hidden="true">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+			</span>
+			<p>
+				<strong>Texto original de publicación.</strong> Esta ley se publicó el {formatDate(law.fecha_publicacion)} y todavía no incluye los cambios posteriores que pueda haber tenido. En cuanto el BOE publique su versión actualizada, la verás aquí.
+			</p>
+		</div>
+	)}
 
 	<div class="meta-row">
 		<span class="meta-item">

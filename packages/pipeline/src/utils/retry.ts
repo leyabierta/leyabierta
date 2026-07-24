@@ -6,19 +6,21 @@ export interface RetryOptions {
 	maxRetries?: number;
 	baseDelayMs?: number;
 	onRetry?: (attempt: number, error: unknown) => void;
+	/** Return false to rethrow immediately without retrying. Default: always retry. */
+	retryIf?: (error: unknown) => boolean;
 }
 
 export async function withRetry<T>(
 	fn: () => Promise<T>,
 	options: RetryOptions = {},
 ): Promise<T> {
-	const { maxRetries = 3, baseDelayMs = 1000, onRetry } = options;
+	const { maxRetries = 3, baseDelayMs = 1000, onRetry, retryIf } = options;
 
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
 			return await fn();
 		} catch (error) {
-			if (attempt === maxRetries) throw error;
+			if (attempt === maxRetries || (retryIf && !retryIf(error))) throw error;
 			const delay = baseDelayMs * 2 ** attempt;
 			onRetry?.(attempt + 1, error);
 			await new Promise((resolve) => setTimeout(resolve, delay));

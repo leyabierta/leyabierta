@@ -284,6 +284,93 @@ describe("GitRepo", () => {
 			expect(await repo.hasCommitWithSourceId("anything")).toBe(false);
 		});
 	});
+
+	describe("hasDiarioPublicacion / hasConsolidacion (origin index)", () => {
+		test("finds the right norm by Origin trailer and rejects unrelated ids", async () => {
+			await repo.init();
+
+			const diarioInfo = makeCommitInfo({
+				subject: "[publicacion] Test Law — publicación en el diario oficial",
+				trailers: {
+					"Source-Id": "BOE-A-2026-1000",
+					"Source-Date": "2026-07-20",
+					"Norm-Id": "BOE-A-2026-1000",
+					Origin: "diario",
+				},
+			});
+			repo.writeAndAdd(diarioInfo.filePath, diarioInfo.content);
+			await repo.add(diarioInfo.filePath);
+			await repo.commit(diarioInfo);
+
+			expect(await repo.hasDiarioPublicacion("BOE-A-2026-1000")).toBe(true);
+			expect(await repo.hasConsolidacion("BOE-A-2026-1000")).toBe(false);
+			expect(await repo.hasDiarioPublicacion("BOE-A-9999-9999")).toBe(false);
+		});
+
+		test("markConsolidado keeps the index current within a run without a re-scan", async () => {
+			await repo.init();
+			const info = makeCommitInfo({
+				trailers: {
+					"Source-Id": "BOE-A-2026-2000",
+					"Source-Date": "2026-07-20",
+					"Norm-Id": "BOE-A-2026-2000",
+					Origin: "diario",
+				},
+			});
+			repo.writeAndAdd(info.filePath, info.content);
+			await repo.add(info.filePath);
+			await repo.commit(info);
+
+			// Force the index to build (lazy).
+			expect(await repo.hasConsolidacion("BOE-A-2026-2000")).toBe(false);
+
+			// No new commit made — mark it directly, as commitReformEntry does
+			// right after creating a [consolidacion] commit.
+			repo.markConsolidado("BOE-A-2026-2000");
+
+			expect(await repo.hasConsolidacion("BOE-A-2026-2000")).toBe(true);
+		});
+
+		// ── Perf regression guard ──────────────────────────────────────────
+		// The original implementation ran a fresh `git log --grep` PLUS a
+		// `git show` per matching commit on EVERY call. Simulated here by
+		// calling hasDiarioPublicacion/hasConsolidacion hundreds of times
+		// after a single commit — with the O(1) Set-lookup index this must
+		// stay fast; with the old per-call subprocess approach this would
+		// take seconds (hundreds of `git log`/`git show` spawns).
+		test("hundreds of lookups after the index is built are O(1) — no per-call git subprocess", async () => {
+			await repo.init();
+			const info = makeCommitInfo({
+				trailers: {
+					"Source-Id": "BOE-A-2026-3000",
+					"Source-Date": "2026-07-20",
+					"Norm-Id": "BOE-A-2026-3000",
+					Origin: "diario",
+				},
+			});
+			repo.writeAndAdd(info.filePath, info.content);
+			await repo.add(info.filePath);
+			await repo.commit(info);
+
+			// Build the index once.
+			await repo.hasDiarioPublicacion("BOE-A-2026-3000");
+
+			const LOOKUPS = 500;
+			const start = performance.now();
+			for (let i = 0; i < LOOKUPS; i++) {
+				await repo.hasDiarioPublicacion(`BOE-A-2020-${i}`); // all misses
+				await repo.hasConsolidacion(`BOE-A-2020-${i}`); // all misses
+			}
+			const elapsedMs = performance.now() - start;
+			console.log(
+				`  [perf] ${LOOKUPS * 2} post-index lookups: ${elapsedMs.toFixed(0)}ms`,
+			);
+			// A single subprocess spawn alone typically costs several ms; 1000
+			// lookups finishing in well under a second proves no subprocess is
+			// spawned per lookup.
+			expect(elapsedMs).toBeLessThan(500);
+		});
+	});
 });
 
 // ─── Idempotency and TZ-stability tests ─────────────────────────────────────

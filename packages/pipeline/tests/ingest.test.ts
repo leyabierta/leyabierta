@@ -266,7 +266,7 @@ describe("ingestJsonDir", () => {
 			.query("SELECT * FROM norms_fts WHERE norms_fts MATCH 'Pruebas'")
 			.all() as Array<Record<string, unknown>>;
 		expect(ftsResult).toHaveLength(1);
-		expect(ftsResult[0].norm_id).toBe("BOE-A-2024-1234");
+		expect(ftsResult[0]!.norm_id).toBe("BOE-A-2024-1234");
 	});
 
 	test("re-ingesting same norm does not create duplicates (upsert)", async () => {
@@ -291,6 +291,735 @@ describe("ingestJsonDir", () => {
 		// Note: FTS5 INSERT OR REPLACE does not deduplicate like regular tables,
 		// so we verify the core tables have no duplicates instead.
 		// FTS5 accumulates entries -- this is a known limitation of the current ingest code.
+	});
+
+	test("re-ingesting with a different set of block_ids removes only orphaned blocks, preserving surviving citizen_article_summaries and reform_summaries", async () => {
+		// Regression test for the diario→consolidated promotion path (#130):
+		// the diario parser's block ids ("a1", "a2", ...) don't match the
+		// consolidated parser's ids ("art-1", "da", "df", ...), so without SOME
+		// delete the old rows become orphans and norms_fts mixes stale diario
+		// text with fresh consolidated text.
+		//
+		// But the delete must be SURGICAL: it must not wipe
+		// citizen_article_summaries for a block that survives unchanged
+		// (expensive to regenerate), and it must never touch `reforms` at all —
+		// reform_summaries/notified_reforms FK to reforms(norm_id, date,
+		// source_id), and there's no safe order to delete a reform out from
+		// under an AI summary that still references it.
+		const diarioVersion = makeNormJson({
+			articles: [
+				{
+					blockId: "a1",
+					blockType: "precepto",
+					title: "Articulo que sobrevive",
+					position: 0,
+					versions: [
+						{
+							date: "2024-01-15",
+							sourceId: "BOE-A-2024-1234",
+							text: "Diario text a1.",
+						},
+					],
+					currentText: "Diario text a1.",
+				},
+				{
+					blockId: "a2",
+					blockType: "precepto",
+					title: "Articulo que desaparece al consolidar",
+					position: 1,
+					versions: [
+						{
+							date: "2024-01-15",
+							sourceId: "BOE-A-2024-1234",
+							text: "Diario text a2.",
+						},
+					],
+					currentText: "Diario text a2.",
+				},
+			],
+			reforms: [
+				{
+					date: "2024-01-15",
+					sourceId: "BOE-A-2024-1234",
+					affectedBlocks: ["a1", "a2"],
+				},
+			],
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(diarioVersion),
+		);
+		await ingestJsonDir(db, tempDir);
+
+		// Seed AI-generated children that a real run would have produced by
+		// the time a norm gets promoted: a citizen summary per block, and a
+		// reform summary for the (single) reform.
+		db.run(
+			"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+			["BOE-A-2024-1234", "a1", "Resumen ciudadano de a1"],
+		);
+		db.run(
+			"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+			["BOE-A-2024-1234", "a2", "Resumen ciudadano de a2"],
+		);
+		db.run(
+			`INSERT INTO reform_summaries
+				(norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			[
+				"BOE-A-2024-1234",
+				"BOE-A-2024-1234",
+				"2024-01-15",
+				"publicacion",
+				"Titular de prueba",
+				"Resumen de la reforma",
+				"alta",
+				"2024-01-15T00:00:00Z",
+				"test-model",
+			],
+		);
+
+		// Consolidated re-ingest: "a1" survives with new text, "a2" is dropped
+		// (replaced by "art-2"), same reform (norm_id/date/source_id unchanged).
+		const consolidatedVersion = makeNormJson({
+			articles: [
+				{
+					blockId: "a1",
+					blockType: "precepto",
+					title: "Articulo que sobrevive",
+					position: 0,
+					versions: [
+						{
+							date: "2024-01-15",
+							sourceId: "BOE-A-2024-1234",
+							text: "Consolidated text a1.",
+						},
+					],
+					currentText: "Consolidated text a1.",
+				},
+				{
+					blockId: "art-2",
+					blockType: "articulo",
+					title: "Articulo nuevo tras consolidar",
+					position: 1,
+					versions: [
+						{
+							date: "2024-01-15",
+							sourceId: "BOE-A-2024-1234",
+							text: "Consolidated text art-2.",
+						},
+					],
+					currentText: "Consolidated text art-2.",
+				},
+			],
+			reforms: [
+				{
+					date: "2024-01-15",
+					sourceId: "BOE-A-2024-1234",
+					affectedBlocks: ["a1", "art-2"],
+				},
+			],
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(consolidatedVersion),
+		);
+
+		// (i) No throw — with PRAGMA foreign_keys=ON, a blanket delete of
+		// `blocks` would violate the FK from citizen_article_summaries/
+		// reform_blocks/versions before this surgical version was written.
+		await expect(ingestJsonDir(db, tempDir)).resolves.toBeTruthy();
+
+		const blocksAfter = db
+			.query(
+				"SELECT block_id FROM blocks WHERE norm_id = 'BOE-A-2024-1234' ORDER BY block_id",
+			)
+			.all() as Array<{ block_id: string }>;
+		expect(blocksAfter.map((b) => b.block_id)).toEqual(["a1", "art-2"]);
+
+		// (ii) The orphaned block's citizen summary is gone.
+		const orphanSummary = db
+			.query(
+				"SELECT * FROM citizen_article_summaries WHERE norm_id = 'BOE-A-2024-1234' AND block_id = 'a2'",
+			)
+			.get();
+		expect(orphanSummary).toBeNull();
+
+		// (iii) The surviving block's citizen summary is PRESERVED (not
+		// regenerated, not deleted) — this is the expensive-to-regenerate
+		// asset the surgical delete exists to protect.
+		const survivingSummary = db
+			.query(
+				"SELECT summary FROM citizen_article_summaries WHERE norm_id = 'BOE-A-2024-1234' AND block_id = 'a1'",
+			)
+			.get() as { summary: string } | null;
+		expect(survivingSummary?.summary).toBe("Resumen ciudadano de a1");
+
+		// No orphaned versions or reform_blocks for the dropped block either.
+		const orphanVersions = db
+			.query(
+				"SELECT COUNT(*) as n FROM versions WHERE norm_id = 'BOE-A-2024-1234' AND block_id = 'a2'",
+			)
+			.get() as { n: number };
+		expect(orphanVersions.n).toBe(0);
+		const orphanReformBlocks = db
+			.query(
+				"SELECT COUNT(*) as n FROM reform_blocks WHERE norm_id = 'BOE-A-2024-1234' AND block_id = 'a2'",
+			)
+			.get() as { n: number };
+		expect(orphanReformBlocks.n).toBe(0);
+
+		// (iv) reform_summaries is untouched — reforms is never cascade-deleted.
+		const reformSummary = db
+			.query(
+				"SELECT * FROM reform_summaries WHERE norm_id = 'BOE-A-2024-1234' AND source_id = 'BOE-A-2024-1234' AND reform_date = '2024-01-15'",
+			)
+			.get() as { headline: string } | null;
+		expect(reformSummary?.headline).toBe("Titular de prueba");
+
+		// Exactly one reform row survives (same PK — upsert, not a duplicate).
+		const reforms = db
+			.query("SELECT * FROM reforms WHERE norm_id = 'BOE-A-2024-1234'")
+			.all();
+		expect(reforms).toHaveLength(1);
+	});
+
+	test("ingests materias/notas/referencias for a diario-origin norm with PRAGMA foreign_keys=ON (no FK violation)", async () => {
+		// Regression test for #130 Stage 2 review finding: writing analisis
+		// BEFORE the norm's own row existed in `norms` threw a foreign key
+		// violation (materias/notas/referencias all REFERENCES norms(id)).
+		// `ingest` now writes analisis for diario-origin norms itself, right
+		// after inserting the parent `norms` row in the same transaction, so
+		// the FK is always satisfied.
+		const diarioNorm = makeNormJson({
+			metadata: {
+				...makeNormJson().metadata,
+				id: "BOE-A-2026-16010",
+				origin: "diario",
+				consolidated: false,
+				section: "1",
+			},
+			analisis: {
+				materias: ["Vehículos eléctricos", "Subvenciones"],
+				notas: ["Entra en vigor el día siguiente de su publicación."],
+				referencias: {
+					anteriores: [
+						{
+							normId: "BOE-A-2020-1000",
+							relation: "DE CONFORMIDAD con",
+							text: "Real Decreto anterior",
+						},
+					],
+					posteriores: [],
+				},
+			},
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2026-16010.json"),
+			JSON.stringify(diarioNorm),
+		);
+
+		await expect(ingestJsonDir(db, tempDir)).resolves.toBeTruthy();
+
+		const materias = db
+			.query("SELECT materia FROM materias WHERE norm_id = ? ORDER BY materia")
+			.all("BOE-A-2026-16010") as Array<{ materia: string }>;
+		expect(materias.map((m) => m.materia)).toEqual([
+			"Subvenciones",
+			"Vehículos eléctricos",
+		]);
+
+		const notas = db
+			.query("SELECT nota FROM notas WHERE norm_id = ?")
+			.all("BOE-A-2026-16010") as Array<{ nota: string }>;
+		expect(notas).toHaveLength(1);
+
+		const refs = db
+			.query(
+				"SELECT target_id, relation FROM referencias WHERE norm_id = ? AND direction = 'anterior'",
+			)
+			.all("BOE-A-2026-16010") as Array<{
+			target_id: string;
+			relation: string;
+		}>;
+		expect(refs).toEqual([
+			{ target_id: "BOE-A-2020-1000", relation: "DE CONFORMIDAD con" },
+		]);
+	});
+
+	test("does NOT write analisis from ingest for consolidated-origin norms", async () => {
+		// ingest-analisis stays the sole writer for consolidated norms — this
+		// guards against the diario-analisis-write path in ingest.ts silently
+		// widening scope to the ~12k consolidated norms.
+		const consolidatedNorm = makeNormJson({
+			analisis: {
+				materias: ["No debería escribirse"],
+				notas: [],
+				referencias: { anteriores: [], posteriores: [] },
+			},
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(consolidatedNorm),
+		);
+
+		await ingestJsonDir(db, tempDir);
+
+		const materias = db
+			.query("SELECT * FROM materias WHERE norm_id = ?")
+			.all("BOE-A-2024-1234");
+		expect(materias).toHaveLength(0);
+	});
+
+	describe("diario → consolidado promotion transition", () => {
+		/** Seed a diario-origin norm with the AI derivatives a real run would have produced. */
+		async function seedDiarioNormWithDerivatives(normId: string) {
+			const diarioNorm = makeNormJson({
+				metadata: {
+					...makeNormJson().metadata,
+					id: normId,
+					origin: "diario",
+					consolidated: false,
+					section: "1",
+				},
+				articles: [
+					{
+						blockId: "a1",
+						blockType: "precepto",
+						title: "Artículo 1",
+						position: 0,
+						versions: [
+							{ date: "2026-07-20", sourceId: normId, text: "Texto diario." },
+						],
+						currentText: "Texto diario.",
+					},
+				],
+				reforms: [
+					{ date: "2026-07-20", sourceId: normId, affectedBlocks: ["a1"] },
+				],
+			});
+			await writeFile(
+				join(tempDir, `${normId}.json`),
+				JSON.stringify(diarioNorm),
+			);
+			await ingestJsonDir(db, tempDir);
+
+			// citizen_summary — set directly, ingest preserves it across re-ingest.
+			db.run("UPDATE norms SET citizen_summary = ? WHERE id = ?", [
+				"Resumen ciudadano generado sobre texto diario.",
+				normId,
+			]);
+			// citizen_article_summaries — the surgical cascade already covers
+			// this (tested above); seed one for the surviving-vs-orphaned check.
+			db.run(
+				"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+				[normId, "a1", "Resumen del artículo 1 (diario)."],
+			);
+			// citizen_tags — law-level and article-level.
+			db.run(
+				"INSERT INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
+				[normId, "", "etiqueta-ley"],
+			);
+			db.run(
+				"INSERT INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
+				[normId, "a1", "etiqueta-articulo"],
+			);
+			// embeddings — a fake BLOB vector is enough; ingest never reads it.
+			db.run(
+				"INSERT INTO embeddings (norm_id, block_id, model, vector) VALUES (?, ?, ?, ?)",
+				[normId, "a1", "qwen3-embedding", new Uint8Array([1, 2, 3, 4])],
+			);
+		}
+
+		test("promotion wipes embeddings, citizen_tags, and citizen_summary; flips origin/consolidated", async () => {
+			const normId = "BOE-A-2026-16010";
+			await seedDiarioNormWithDerivatives(normId);
+
+			// Sanity: derivatives exist before promotion.
+			expect(
+				db
+					.query("SELECT COUNT(*) as n FROM embeddings WHERE norm_id = ?")
+					.get(normId),
+			).toEqual({ n: 1 });
+			expect(
+				db
+					.query("SELECT COUNT(*) as n FROM citizen_tags WHERE norm_id = ?")
+					.get(normId),
+			).toEqual({ n: 2 });
+			expect(
+				(
+					db.query("SELECT origin FROM norms WHERE id = ?").get(normId) as {
+						origin: string;
+					}
+				).origin,
+			).toBe("diario");
+
+			// Re-ingest as consolidated, with DIFFERENT block ids (as a real
+			// promotion would have — diario's "a1" vs consolidated's "art-1").
+			const consolidatedNorm = makeNormJson({
+				metadata: {
+					...makeNormJson().metadata,
+					id: normId,
+					// No origin/consolidated/section — a real consolidated JSON
+					// cache entry never sets them.
+				},
+				articles: [
+					{
+						blockId: "art-1",
+						blockType: "articulo",
+						title: "Artículo 1",
+						position: 0,
+						versions: [
+							{
+								date: "2026-07-20",
+								sourceId: normId,
+								text: "Texto consolidado.",
+							},
+						],
+						currentText: "Texto consolidado.",
+					},
+				],
+				reforms: [
+					{ date: "2026-07-20", sourceId: normId, affectedBlocks: ["art-1"] },
+				],
+			});
+			await writeFile(
+				join(tempDir, `${normId}.json`),
+				JSON.stringify(consolidatedNorm),
+			);
+			await ingestJsonDir(db, tempDir);
+
+			// Embeddings and citizen_tags: gone entirely (not just the orphaned
+			// block — the whole norm's embeddings/tags are stale post-promotion).
+			expect(
+				db
+					.query("SELECT COUNT(*) as n FROM embeddings WHERE norm_id = ?")
+					.get(normId),
+			).toEqual({ n: 0 });
+			expect(
+				db
+					.query("SELECT COUNT(*) as n FROM citizen_tags WHERE norm_id = ?")
+					.get(normId),
+			).toEqual({ n: 0 });
+
+			// citizen_summary cleared (not preserved, unlike a normal re-ingest).
+			const row = db
+				.query(
+					"SELECT citizen_summary, origin, consolidated FROM norms WHERE id = ?",
+				)
+				.get(normId) as {
+				citizen_summary: string;
+				origin: string;
+				consolidated: number;
+			};
+			expect(row.citizen_summary).toBe("");
+			expect(row.origin).toBe("consolidado");
+			expect(row.consolidated).toBe(1);
+
+			// Old-block citizen_article_summaries gone (covered by the surgical
+			// cascade tested above — re-asserted here in the promotion context).
+			const oldSummary = db
+				.query(
+					"SELECT * FROM citizen_article_summaries WHERE norm_id = ? AND block_id = 'a1'",
+				)
+				.get(normId);
+			expect(oldSummary).toBeNull();
+		});
+
+		test("promotion wipes citizen_article_summaries even when block ids OVERLAP between diario and consolidado", async () => {
+			// The surgical orphan-only cascade added in Stage 2 (block_id NOT IN
+			// new set) is not enough here: diario block ids ("a1", "a2") and
+			// consolidated BOE block ids COMMONLY reuse the same short ids. When
+			// they overlap, the orphan cascade KEEPS the row (the id "a1" still
+			// exists) even though the text under it just changed from diario to
+			// consolidado — leaving an LLM summary that describes the OLD text
+			// pinned to a block that now holds different text.
+			const normId = "BOE-A-2026-16020";
+			await seedDiarioNormWithDerivatives(normId); // seeds block "a1" + its summary
+
+			const consolidatedSameBlockId = makeNormJson({
+				metadata: {
+					...makeNormJson().metadata,
+					id: normId,
+					// origin absent — consolidated.
+				},
+				articles: [
+					{
+						blockId: "a1", // SAME id as the diario version — the overlap case
+						blockType: "articulo",
+						title: "Artículo 1",
+						position: 0,
+						versions: [
+							{
+								date: "2026-07-20",
+								sourceId: normId,
+								text: "Texto consolidado, distinto del diario.",
+							},
+						],
+						currentText: "Texto consolidado, distinto del diario.",
+					},
+				],
+				reforms: [
+					{ date: "2026-07-20", sourceId: normId, affectedBlocks: ["a1"] },
+				],
+			});
+			await writeFile(
+				join(tempDir, `${normId}.json`),
+				JSON.stringify(consolidatedSameBlockId),
+			);
+			await ingestJsonDir(db, tempDir);
+
+			// Block "a1" itself still exists (it's not orphaned — same id).
+			const block = db
+				.query(
+					"SELECT current_text FROM blocks WHERE norm_id = ? AND block_id = 'a1'",
+				)
+				.get(normId) as { current_text: string } | null;
+			expect(block?.current_text).toBe(
+				"Texto consolidado, distinto del diario.",
+			);
+
+			// But its citizen summary — generated over the DIARIO text — must be
+			// gone, not silently kept pinned to the new consolidated text.
+			const summary = db
+				.query(
+					"SELECT * FROM citizen_article_summaries WHERE norm_id = ? AND block_id = 'a1'",
+				)
+				.get(normId);
+			expect(summary).toBeNull();
+		});
+
+		test("promotion removes an orphaned diario reform when the consolidated reform's source_id differs (the ~4.5% case), FK-complete", async () => {
+			// The diario's own single-version reform always carries the norm's
+			// own id as source_id. In ~4.5% of real BOE norms, the CONSOLIDATED
+			// norm's first reform instead points to an older founding
+			// disposition id — so the diario reform's PK (norm_id, date,
+			// source_id) has no match in the consolidated reform set and, since
+			// `reforms` is only ever upserted (never deleted) by ordinary
+			// ingest, becomes a ghost entry in /history, /cambios, and
+			// /v1/reforms/personal forever unless promotion cleans it up.
+			const normId = "BOE-A-2026-16021";
+			const foundingSourceId = "BOE-A-1988-500";
+
+			const diarioNorm = makeNormJson({
+				metadata: {
+					...makeNormJson().metadata,
+					id: normId,
+					origin: "diario",
+					consolidated: false,
+					section: "1",
+				},
+				articles: [
+					{
+						blockId: "a1",
+						blockType: "precepto",
+						title: "Artículo 1",
+						position: 0,
+						versions: [
+							{ date: "2026-07-20", sourceId: normId, text: "Texto diario." },
+						],
+						currentText: "Texto diario.",
+					},
+				],
+				reforms: [
+					{ date: "2026-07-20", sourceId: normId, affectedBlocks: ["a1"] },
+				],
+			});
+			await writeFile(
+				join(tempDir, `${normId}.json`),
+				JSON.stringify(diarioNorm),
+			);
+			await ingestJsonDir(db, tempDir);
+
+			// Seed the AI derivatives a real run would have produced for that
+			// diario reform, to prove the FK-complete delete order works.
+			db.run(
+				`INSERT INTO reform_summaries
+					(norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				[
+					normId,
+					normId,
+					"2026-07-20",
+					"publicacion",
+					"Titular diario",
+					"Resumen diario",
+					"alta",
+					"2026-07-20T00:00:00Z",
+					"test-model",
+				],
+			);
+			db.run(
+				"INSERT INTO notified_reforms (norm_id, source_id, reform_date, notified_at) VALUES (?, ?, ?, ?)",
+				[normId, normId, "2026-07-20", "2026-07-20T12:00:00Z"],
+			);
+
+			// Sanity: the diario reform and its derivatives exist before promotion.
+			expect(
+				db
+					.query("SELECT COUNT(*) as n FROM reforms WHERE norm_id = ?")
+					.get(normId),
+			).toEqual({ n: 1 });
+
+			// Consolidated re-ingest: first reform's source_id is the OLDER
+			// founding disposition, not the norm's own id.
+			const consolidatedNorm = makeNormJson({
+				metadata: {
+					...makeNormJson().metadata,
+					id: normId,
+				},
+				articles: [
+					{
+						blockId: "art-1",
+						blockType: "articulo",
+						title: "Artículo 1",
+						position: 0,
+						versions: [
+							{
+								date: "2026-07-20",
+								sourceId: foundingSourceId,
+								text: "Texto consolidado.",
+							},
+						],
+						currentText: "Texto consolidado.",
+					},
+				],
+				reforms: [
+					{
+						date: "2026-07-20",
+						sourceId: foundingSourceId,
+						affectedBlocks: ["art-1"],
+					},
+				],
+			});
+			await writeFile(
+				join(tempDir, `${normId}.json`),
+				JSON.stringify(consolidatedNorm),
+			);
+			await expect(ingestJsonDir(db, tempDir)).resolves.toBeTruthy();
+
+			// The orphaned diario reform row is gone...
+			const oldReform = db
+				.query("SELECT * FROM reforms WHERE norm_id = ? AND source_id = ?")
+				.get(normId, normId);
+			expect(oldReform).toBeNull();
+
+			// ...and its FK-dependent children are gone too (no orphaned rows
+			// left dangling under PRAGMA foreign_keys=ON).
+			const oldSummary = db
+				.query(
+					"SELECT * FROM reform_summaries WHERE norm_id = ? AND source_id = ?",
+				)
+				.get(normId, normId);
+			expect(oldSummary).toBeNull();
+			const oldNotified = db
+				.query(
+					"SELECT * FROM notified_reforms WHERE norm_id = ? AND source_id = ?",
+				)
+				.get(normId, normId);
+			expect(oldNotified).toBeNull();
+
+			// Only the consolidated reform survives.
+			const reforms = db
+				.query("SELECT source_id FROM reforms WHERE norm_id = ?")
+				.all(normId) as Array<{ source_id: string }>;
+			expect(reforms).toEqual([{ source_id: foundingSourceId }]);
+		});
+
+		test("a NORMAL consolidated re-ingest (origin already consolidado) does NOT wipe embeddings/citizen_summary — zero blast radius", async () => {
+			const normId = "BOE-A-2024-1234"; // plain consolidated norm, never diario
+			const norm = makeNormJson();
+			await writeFile(join(tempDir, `${normId}.json`), JSON.stringify(norm));
+			await ingestJsonDir(db, tempDir);
+
+			db.run("UPDATE norms SET citizen_summary = ? WHERE id = ?", [
+				"Resumen ciudadano existente.",
+				normId,
+			]);
+			db.run(
+				"INSERT INTO embeddings (norm_id, block_id, model, vector) VALUES (?, ?, ?, ?)",
+				[normId, "art-1", "qwen3-embedding", new Uint8Array([9, 9, 9, 9])],
+			);
+			db.run(
+				"INSERT INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
+				[normId, "", "etiqueta-existente"],
+			);
+			db.run(
+				"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+				[normId, "art-1", "Resumen de artículo existente."],
+			);
+			// A reform + its FK-dependent children, NOT present in the incoming
+			// file's `reforms` array (which is `[]` for makeNormJson defaults) —
+			// proves the orphan-reform cleanup is scoped to isPromoting only and
+			// never runs for a normal re-ingest, even when the incoming reforms
+			// list doesn't happen to include it.
+			db.run(
+				"INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)",
+				[normId, "2024-06-01", "BOE-A-2024-5678"],
+			);
+			db.run(
+				`INSERT INTO reform_summaries
+					(norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				[
+					normId,
+					"BOE-A-2024-5678",
+					"2024-06-01",
+					"reforma",
+					"Titular existente",
+					"Resumen existente",
+					"media",
+					"2024-06-01T00:00:00Z",
+					"test-model",
+				],
+			);
+
+			// Re-ingest with a small text tweak (title change) so the checksum
+			// differs and the file actually goes through the insert path again
+			// — origin stays 'consolidado' on both sides of the transition.
+			const tweaked = makeNormJson({
+				metadata: { ...norm.metadata, title: "Ley de Pruebas Unitarias (v2)" },
+			});
+			await writeFile(join(tempDir, `${normId}.json`), JSON.stringify(tweaked));
+			await ingestJsonDir(db, tempDir);
+
+			expect(
+				db
+					.query("SELECT COUNT(*) as n FROM embeddings WHERE norm_id = ?")
+					.get(normId),
+			).toEqual({ n: 1 });
+			expect(
+				db
+					.query("SELECT COUNT(*) as n FROM citizen_tags WHERE norm_id = ?")
+					.get(normId),
+			).toEqual({ n: 1 });
+			const row = db
+				.query("SELECT citizen_summary FROM norms WHERE id = ?")
+				.get(normId) as { citizen_summary: string };
+			expect(row.citizen_summary).toBe("Resumen ciudadano existente.");
+
+			const articleSummary = db
+				.query(
+					"SELECT summary FROM citizen_article_summaries WHERE norm_id = ? AND block_id = 'art-1'",
+				)
+				.get(normId) as { summary: string } | null;
+			expect(articleSummary?.summary).toBe("Resumen de artículo existente.");
+
+			// The "orphaned" reform (absent from the incoming file) survives —
+			// orphan-reform cleanup is promotion-only.
+			const reform = db
+				.query(
+					"SELECT * FROM reforms WHERE norm_id = ? AND source_id = 'BOE-A-2024-5678'",
+				)
+				.get(normId);
+			expect(reform).not.toBeNull();
+			const reformSummary = db
+				.query(
+					"SELECT * FROM reform_summaries WHERE norm_id = ? AND source_id = 'BOE-A-2024-5678'",
+				)
+				.get(normId);
+			expect(reformSummary).not.toBeNull();
+		});
 	});
 
 	test("handles empty articles array", async () => {

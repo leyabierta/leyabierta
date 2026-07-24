@@ -62,6 +62,123 @@ export async function bootstrapFromLocalXml(
 }
 
 /**
+ * Commit a single reform of a norm, handling the diario→consolidado
+ * promotion case. Shared by `commitNorm` and `commitNormsChronologically` so
+ * the two entry points cannot diverge on this (the highest-risk) logic.
+ *
+ * Returns true if a commit was created.
+ */
+async function commitReformEntry(
+	repo: GitRepo,
+	norm: Norm,
+	reformIndex: number,
+	reform: Reform,
+	onCommit?: (subject: string) => void,
+): Promise<boolean> {
+	const { metadata, blocks } = norm;
+	const isFirst = reformIndex === 0;
+	const filePath = normToFilepath(metadata);
+
+	// ── Diario → consolidado promotion ──────────────────────────────────
+	// Only the first reform of an incoming CONSOLIDATED norm can be a
+	// promotion — never a diario-origin norm re-running itself
+	// (`metadata.origin === "diario"` short-circuits below). Detected via
+	// the `Origin:` git trailers, the only source of truth (CLAUDE.md "Data
+	// Integrity Invariants"): if this norm already has a `[publicacion]`
+	// commit but no `[consolidacion]` commit yet, this fetch is the
+	// promotion moment. The normal `hasCommitWithSourceId` dedup below MUST
+	// be bypassed here — the diario commit's Source-Id/Norm-Id pair is
+	// identical to the consolidated norm's first reform in ~95% of cases
+	// (both are `metadata.id`), so that check would silently skip the
+	// rewrite and leave the file stuck on diario text forever. That's the
+	// exact bug #130 Stage 3 exists to fix.
+	if (isFirst && metadata.origin !== "diario") {
+		const wasDiario = await repo.hasDiarioPublicacion(metadata.id);
+		if (wasDiario && !(await repo.hasConsolidacion(metadata.id))) {
+			const markdown = renderNormAtDate(
+				metadata,
+				blocks,
+				reform.date,
+				norm.reforms,
+				norm.analisis,
+			);
+			// Overwrites the diario text with the consolidated text — the
+			// whole point of the promotion. writeAndAdd's cross-jurisdiction
+			// guard is a no-op here: the target path already exists (it's
+			// the diario file being updated in place, not a new write).
+			repo.writeAndAdd(filePath, markdown);
+			await repo.add(filePath);
+
+			const info = buildCommitInfo(
+				"consolidacion",
+				metadata,
+				reform,
+				blocks,
+				filePath,
+				markdown,
+			);
+			// allowEmpty mirrors bootstrap: the consolidated text is expected
+			// to differ from the diario text, but in the rare case it
+			// doesn't, the promotion still needs its own commit so the
+			// `Origin: consolidado` trailer lands and future runs see this
+			// norm as promoted.
+			const sha = await repo.commit(info, true);
+			if (sha) {
+				// Keep the origin index current for the rest of THIS run — the
+				// commit above doesn't go through loadOriginIndex, so a later
+				// lookup for the same normId within this run must still see it
+				// as promoted.
+				repo.markConsolidado(metadata.id);
+				onCommit?.(info.subject);
+				return true;
+			}
+			return false;
+		}
+	}
+
+	if (await repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
+		return false;
+	}
+
+	const commitType = isFirst
+		? metadata.origin === "diario"
+			? "publicacion"
+			: "bootstrap"
+		: "reforma";
+
+	const markdown = renderNormAtDate(
+		metadata,
+		blocks,
+		reform.date,
+		norm.reforms,
+		norm.analisis,
+	);
+	const changed = repo.writeAndAdd(filePath, markdown);
+
+	if (!changed && !isFirst) return false;
+
+	// Always stage — even if unchanged for bootstrap (file may have been
+	// written by another norm's commit, we still need our own commit)
+	await repo.add(filePath);
+
+	const info = buildCommitInfo(
+		commitType,
+		metadata,
+		reform,
+		blocks,
+		filePath,
+		markdown,
+	);
+	const sha = await repo.commit(info, isFirst);
+
+	if (sha) {
+		onCommit?.(info.subject);
+		return true;
+	}
+	return false;
+}
+
+/**
  * Commit all reforms of a norm to the git repo.
  */
 export async function commitNorm(
@@ -69,54 +186,20 @@ export async function commitNorm(
 	config: Partial<PipelineConfig> = {},
 ): Promise<number> {
 	const cfg = { ...DEFAULT_CONFIG, ...config };
-	const { metadata, blocks, reforms } = norm;
+	const { reforms } = norm;
 
 	const repo = new GitRepo(cfg.repoPath, cfg.committerName, cfg.committerEmail);
 	await repo.init();
 	await repo.loadExistingCommits();
 
-	const filePath = normToFilepath(metadata);
 	let commitsCreated = 0;
 
 	for (let i = 0; i < reforms.length; i++) {
 		const reform = reforms[i]!;
-
-		if (await repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
-			continue;
-		}
-
-		const isFirst = i === 0;
-		const commitType = isFirst ? "bootstrap" : "reforma";
-
-		const markdown = renderNormAtDate(
-			metadata,
-			blocks,
-			reform.date,
-			norm.reforms,
-			norm.analisis,
+		const created = await commitReformEntry(repo, norm, i, reform, (subject) =>
+			console.log(`  ✓ ${reform.date} — ${subject}`),
 		);
-		const changed = repo.writeAndAdd(filePath, markdown);
-
-		if (!changed && !isFirst) continue;
-
-		// Always stage — even if unchanged for bootstrap (file may have been
-		// written by another norm's commit, we still need our own commit)
-		await repo.add(filePath);
-
-		const info = buildCommitInfo(
-			commitType,
-			metadata,
-			reform,
-			blocks,
-			filePath,
-			markdown,
-		);
-		const sha = await repo.commit(info, isFirst);
-
-		if (sha) {
-			commitsCreated++;
-			console.log(`  ✓ ${reform.date} — ${info.subject}`);
-		}
+		if (created) commitsCreated++;
 	}
 
 	return commitsCreated;
@@ -182,47 +265,21 @@ export async function commitNormsChronologically(
 
 	for (let i = 0; i < entries.length; i++) {
 		const { norm, reformIndex, reform } = entries[i]!;
-		const { metadata, blocks } = norm;
 
-		if (await repo.hasCommitWithSourceId(reform.normId, metadata.id)) {
-			continue;
-		}
-
-		const isFirst = reformIndex === 0;
-		const commitType = isFirst ? "bootstrap" : "reforma";
-
-		const filePath = normToFilepath(metadata);
-		const markdown = renderNormAtDate(
-			metadata,
-			blocks,
-			reform.date,
-			norm.reforms,
-			norm.analisis,
-		);
-		const changed = repo.writeAndAdd(filePath, markdown);
-
-		if (!changed && !isFirst) continue;
-
-		await repo.add(filePath);
-
-		const info = buildCommitInfo(
-			commitType,
-			metadata,
+		const created = await commitReformEntry(
+			repo,
+			norm,
+			reformIndex,
 			reform,
-			blocks,
-			filePath,
-			markdown,
+			(subject) => {
+				if (onProgress) {
+					onProgress(commitsCreated + 1, entries.length, subject);
+				} else {
+					console.log(`  ✓ ${reform.date} — ${subject}`);
+				}
+			},
 		);
-		const sha = await repo.commit(info, isFirst);
-
-		if (sha) {
-			commitsCreated++;
-			if (onProgress) {
-				onProgress(commitsCreated, entries.length, info.subject);
-			} else {
-				console.log(`  ✓ ${reform.date} — ${info.subject}`);
-			}
-		}
+		if (created) commitsCreated++;
 	}
 
 	// Note: the post-bootstrap `assertUniqueByNormId` invariant check is the
@@ -375,7 +432,15 @@ export async function bootstrapFromApi(
 
 // ─── Serialization helpers ───
 
-function normToJson(norm: Norm): object {
+/**
+ * Serialize a Norm to the JSON cache shape written to `data/json/<id>.json`.
+ *
+ * Exported so `cli.ts`'s `diario` command can write the same shape for
+ * diario-origin norms — the JSON cache format must stay identical between
+ * the consolidated and diario ingestion paths for `rebuild`, `ingest`, and
+ * the guard that detects "already consolidated" to work uniformly.
+ */
+export function normToJson(norm: Norm): object {
 	const { metadata, blocks, reforms } = norm;
 
 	return {
@@ -390,6 +455,14 @@ function normToJson(norm: Norm): object {
 			status: metadata.status,
 			department: metadata.department,
 			source: metadata.source,
+			// Absent (undefined) for consolidated norms — the cli.ts reader
+			// treats a missing `origin` as "consolidado", so existing JSON
+			// cache entries need no migration.
+			...(metadata.origin ? { origin: metadata.origin } : {}),
+			...(metadata.consolidated !== undefined
+				? { consolidated: metadata.consolidated }
+				: {}),
+			...(metadata.section ? { section: metadata.section } : {}),
 		},
 		articles: blocks.map((block, i) => ({
 			blockId: block.id,

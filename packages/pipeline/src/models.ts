@@ -34,7 +34,9 @@ export type CommitType =
 	| "derogacion"
 	| "correccion"
 	| "bootstrap"
-	| "fix-pipeline";
+	| "fix-pipeline"
+	| "publicacion" // initial commit from the daily bulletin (diario)
+	| "consolidacion"; // promotion from diario text to consolidated text
 
 export type NormStatus = "vigente" | "derogada" | "parcialmente_derogada";
 
@@ -73,6 +75,12 @@ export interface NormMetadata {
 	readonly pdfUrl?: string;
 	readonly subjects?: readonly string[];
 	readonly notes?: string;
+	/** Which BOE feed this norm was fetched from. Absent JSON cache entries mean "consolidado". */
+	readonly origin?: "diario" | "consolidado";
+	/** Whether the text is the final consolidated version (vs. the as-published diario text). */
+	readonly consolidated?: boolean;
+	/** BOE sumario section code (e.g. "1" for Sección I), only set for diario-origin norms. */
+	readonly section?: string;
 }
 
 export interface Reform {

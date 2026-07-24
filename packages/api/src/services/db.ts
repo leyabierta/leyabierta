@@ -26,6 +26,8 @@ export interface SearchFilters {
 	status?: string;
 	materia?: string;
 	citizen_tag?: string;
+	/** 0 | 1 — filter by whether the norm has been consolidated by the BOE yet (#130). */
+	consolidated?: 0 | 1;
 }
 
 export interface LawRow {
@@ -40,6 +42,12 @@ export interface LawRow {
 	department: string;
 	source_url: string;
 	citizen_summary: string;
+	/** 'diario' | 'consolidado' (#130) — where the current row's text came from. */
+	origin: string;
+	/** 0 | 1 — whether the BOE has published a consolidated version yet (#130). */
+	consolidated: number;
+	/** BOE sumario section (diario-origin norms only, e.g. "1", "2A"); '' otherwise. */
+	section: string;
 }
 
 export interface BlockRow {
@@ -201,7 +209,8 @@ export class DbService {
 			!!filters.rank ||
 			!!filters.status ||
 			!!filters.materia ||
-			!!filters.citizen_tag;
+			!!filters.citizen_tag ||
+			filters.consolidated !== undefined;
 		if (!hasFilters) return ids;
 
 		const allowed = new Set(this.filterIdsByChunks(ids, filters));
@@ -210,14 +219,7 @@ export class DbService {
 
 	searchLaws(
 		query: string | undefined,
-		filters: {
-			country?: string;
-			jurisdiction?: string;
-			rank?: string;
-			status?: string;
-			materia?: string;
-			citizen_tag?: string;
-		},
+		filters: SearchFilters,
 		limit: number,
 		offset: number,
 		sort?: string,
@@ -308,7 +310,8 @@ export class DbService {
 						filters.rank ||
 						filters.status ||
 						filters.materia ||
-						filters.citizen_tag;
+						filters.citizen_tag ||
+						filters.consolidated !== undefined;
 
 					let sortedIds = ftsIds;
 					if (hasFilters2) {
@@ -420,7 +423,8 @@ export class DbService {
 					filters.rank ||
 					filters.status ||
 					filters.materia ||
-					filters.citizen_tag;
+					filters.citizen_tag ||
+					filters.consolidated !== undefined;
 				let filteredIds = allIds;
 				if (hasFilters && allIds.length > 0) {
 					const filteredSet = new Set(this.filterIdsByChunks(allIds, filters));
@@ -512,6 +516,48 @@ export class DbService {
 			.get(id);
 	}
 
+	/**
+	 * BOE diario for a given publication date (#130): every norm published
+	 * that day, regardless of whether it has been consolidated yet. Ordered
+	 * by section (naturally, so "2A"/"2B" sort after "1") then title.
+	 */
+	getBoeByDate(fecha: string): Array<{
+		id: string;
+		title: string;
+		short_title: string;
+		rank: string;
+		department: string;
+		section: string;
+		consolidated: number;
+		jurisdiction: string;
+	}> {
+		return this.db
+			.query<
+				{
+					id: string;
+					title: string;
+					short_title: string;
+					rank: string;
+					department: string;
+					section: string;
+					consolidated: number;
+					jurisdiction: string;
+				},
+				[string]
+			>(
+				// Natural BOE sumario order: by numeric prefix first, then the
+				// full code, then title. CAST('2A' AS INTEGER) === 2, so "1",
+				// "2A", "2B", "3", "5A" sort correctly (a plain sort, or the old
+				// length(section) sort, wrongly put "3" before "2A"). Empty
+				// sections (consolidated norms carry no section) sort last.
+				`SELECT id, title, short_title, rank, department, section, consolidated, jurisdiction
+				 FROM norms
+				 WHERE published_at = ?
+				 ORDER BY section = '', CAST(section AS INTEGER), section, title`,
+			)
+			.all(fecha);
+	}
+
 	/** List distinct materias with norm count, for the filter dropdown. */
 	listMaterias(): Array<{ materia: string; count: number }> {
 		return this.db
@@ -592,7 +638,8 @@ export class DbService {
 			!!filters.rank ||
 			!!filters.status ||
 			!!filters.materia ||
-			!!filters.citizen_tag;
+			!!filters.citizen_tag ||
+			filters.consolidated !== undefined;
 		let filteredIds = fused;
 		if (hasFilters) {
 			const filteredSet = new Set(this.filterIdsByChunks(fused, filters));
@@ -741,6 +788,10 @@ export class DbService {
 		if (filters.citizen_tag) {
 			conditions.push("id IN (SELECT norm_id FROM citizen_tags WHERE tag = ?)");
 			params.push(filters.citizen_tag);
+		}
+		if (filters.consolidated !== undefined) {
+			conditions.push("consolidated = ?");
+			params.push(filters.consolidated);
 		}
 	}
 
