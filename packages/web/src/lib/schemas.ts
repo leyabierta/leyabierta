@@ -22,6 +22,9 @@ export const LawDetailSchema = z.object({
 	department: z.string(),
 	source_url: z.string(),
 	citizen_summary: z.string(),
+	// Law-level citizen tags (GET /v1/laws/:id returns `citizen_tags`).
+	// Defaulted so an older API response without the field still validates.
+	citizen_tags: z.array(z.string()).default([]),
 });
 
 /**

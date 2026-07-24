@@ -36,7 +36,7 @@ const N = args.includes("--n")
 	? Number(args[args.indexOf("--n") + 1] ?? 50)
 	: 50;
 const OUT = args.includes("--out")
-	? args[args.indexOf("--out") + 1]
+	? (args[args.indexOf("--out") + 1] ?? "tmp/v10-pairs.json")
 	: "tmp/v10-pairs.json";
 
 mkdirSync("tmp", { recursive: true });
@@ -374,6 +374,7 @@ async function worker() {
 		const idx = cursor++;
 		if (idx >= articles.length) return;
 		const a = articles[idx];
+		if (!a) continue;
 		const [q, g] = await Promise.all([callQwen(a), callGemini(a)]);
 		rows[idx] = { article: a, qwen: q, gemini: g };
 		done++;
