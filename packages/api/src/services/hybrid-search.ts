@@ -34,7 +34,11 @@ import {
 	embedQuery,
 	type VectorSearchResult,
 } from "./rag/embeddings.ts";
-import { type RankedItem, reciprocalRankFusion } from "./rag/rrf.ts";
+import {
+	type RankedItem,
+	type RRFResult,
+	reciprocalRankFusion,
+} from "./rag/rrf.ts";
 import { startHybridTrace } from "./rag/tracing.ts";
 import { getSharedVectorIndex } from "./rag/vector-index-singleton.ts";
 import { vectorSearchPooled } from "./rag/vector-pool.ts";
@@ -93,6 +97,15 @@ export interface HybridSearchOptions {
 	pool?: "max" | "mean" | "max+sum";
 	/** Apply per-norm rank boost to vector scores. Default true. */
 	boostByRank?: boolean;
+	/**
+	 * Post-fusion "troncal" boost magnitude (#135). 0 disables. Lifts the
+	 * backbone norm of a legal area (large, ley-family) above the many short
+	 * "de medidas" laws that share its vocabulary. Default from env
+	 * `TRONCAL_BOOST`.
+	 */
+	troncalBoost?: number;
+	/** Block count at which the size signal saturates. Default env `TRONCAL_SAT` or 300. */
+	troncalSat?: number;
 }
 
 /**
@@ -130,6 +143,49 @@ function rankFactor(rank: string, jurisdiction: string): number {
 		default:
 			return 0.7;
 	}
+}
+
+/**
+ * Ranks eligible for the troncal boost (#135). Deliberately excludes
+ * `real_decreto` — that rank holds both implementing regulations (which must
+ * not outrank the law they develop) and the ancient codes approved by royal
+ * decree (Código Civil 1889, LECrim 1882), which are large but should not be
+ * pulled up by a domain-area query for a different code. The backbone norms of
+ * a legal area are always ley-family or a texto refundido.
+ */
+const TRONCAL_RANKS = new Set([
+	"constitucion",
+	"ley_organica",
+	"ley",
+	"real_decreto_legislativo",
+]);
+
+/**
+ * Linguistic markers of a consolidating/backbone norm. Precise on purpose:
+ * "de medidas" / "de disposiciones" laws never match these.
+ */
+const TRONCAL_MARKER_RE =
+	/texto refundido|texto articulado|ley general|\bcódigo\b|constitución/i;
+
+/**
+ * Bounded troncal factor in [1, 1+W]. Combines a title marker with the norm's
+ * size (block count), both gated to ley-family ranks. Size is the dominant,
+ * cheap discriminator: a backbone norm has hundreds of preceptos, a "de
+ * medidas" law a handful. Bounded and applied post-fusion so it breaks ties
+ * among similar-relevance candidates rather than overriding strong relevance.
+ */
+function troncalFactor(
+	rank: string,
+	blocks: number,
+	title: string,
+	weight: number,
+	sat: number,
+): number {
+	if (weight <= 0 || !TRONCAL_RANKS.has(rank)) return 1;
+	const marker = TRONCAL_MARKER_RE.test(title) ? 1 : 0;
+	const size = sat > 0 ? Math.min(1, blocks / sat) : 1;
+	const signal = 0.5 * marker + 0.5 * size;
+	return 1 + weight * signal;
 }
 
 /**
@@ -207,6 +263,12 @@ export class HybridSearcherImpl implements HybridSearcher {
 		const rrfK = options.rrfK ?? 60;
 		const pool = options.pool ?? "max+sum";
 		const boostByRank = options.boostByRank ?? true;
+		// Guard against a mistyped env var (`Number("abc")` → NaN): fall back to
+		// the safe default rather than silently disabling / corrupting the boost.
+		const rawBoost = options.troncalBoost ?? Number(process.env.TRONCAL_BOOST);
+		const troncalBoost = Number.isFinite(rawBoost) ? rawBoost : 0;
+		const rawSat = options.troncalSat ?? Number(process.env.TRONCAL_SAT);
+		const troncalSat = Number.isFinite(rawSat) ? rawSat : 300;
 
 		const trimmed = query.trim();
 
@@ -384,7 +446,48 @@ export class HybridSearcherImpl implements HybridSearcher {
 			lists.set("bm25", bm25Ranked);
 			lists.set("vector_max", vectorMaxRanked);
 			if (vectorSumRanked) lists.set("vector_sum", vectorSumRanked);
-			const fused = reciprocalRankFusion(lists, rrfK, normTopK);
+			let fused = reciprocalRankFusion(lists, rrfK, normTopK);
+
+			// Post-fusion troncal boost (#135). Re-score the fused list by
+			// 1/(rrfK + position) × troncalFactor and re-sort. Applied here (not
+			// pre-fusion) so a bounded factor breaks ties among similar-relevance
+			// candidates instead of overriding relevance. Single batched metadata
+			// query over the fused set (≤ normTopK rows).
+			if (troncalBoost > 0 && fused.length > 1) {
+				const fusedIds = fused.map((r) => r.key);
+				const ph = fusedIds.map(() => "?").join(",");
+				const rows = this.db
+					.query<
+						{ id: string; rank: string; title: string; blocks: number },
+						string[]
+					>(
+						`SELECT n.id, n.rank, n.title,
+						  (SELECT COUNT(*) FROM blocks b
+						     WHERE b.norm_id = n.id AND b.block_type = 'precepto') AS blocks
+						 FROM norms n WHERE n.id IN (${ph})`,
+					)
+					.all(...fusedIds);
+				const info = new Map(rows.map((r) => [r.id, r]));
+				const boosted = (r: RRFResult, pos: number): number => {
+					const m = info.get(r.key);
+					const factor = m
+						? troncalFactor(
+								m.rank ?? "",
+								m.blocks ?? 0,
+								m.title ?? "",
+								troncalBoost,
+								troncalSat,
+							)
+						: 1;
+					// +1 to match the RRF convention in rrf.ts (1/(k+rank+1)).
+					return (1 / (rrfK + pos + 1)) * factor;
+				};
+				fused = fused
+					.map((r, pos) => ({ r, s: boosted(r, pos) }))
+					.sort((a, b) => b.s - a.s)
+					.map(({ r }) => r);
+			}
+
 			const fusionMs = performance.now() - fusionStart;
 			fusionSpan.end({
 				n_lists: nLists,
