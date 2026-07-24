@@ -17,9 +17,35 @@ import { DbService } from "../services/db.ts";
 import type { GitService } from "../services/git.ts";
 import type { HybridSearcher } from "../services/hybrid-search.ts";
 
+function buildApp(
+	dbService: DbService,
+	gitService: GitService,
+	diffCache: LruCache<string>,
+	citizenSummaryService: CitizenSummaryService,
+	searchCache: LruCache<SearchResponse>,
+	hybridSearcher: HybridSearcher | null,
+) {
+	return new Elysia()
+		.use(
+			lawRoutes(
+				dbService,
+				gitService,
+				diffCache,
+				citizenSummaryService,
+				searchCache,
+				hybridSearcher,
+			),
+		)
+		.use(omnibusRoutes(dbService))
+		.get("/health", () => ({
+			status: "ok",
+			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
+		}));
+}
+
 let db: Database;
 let dbService: DbService;
-let app: Elysia;
+let app: ReturnType<typeof buildApp>;
 
 // Minimal GitService stub — route tests focus on DB-backed endpoints
 const gitStub: GitService = {
@@ -59,22 +85,14 @@ beforeEach(() => {
 	const diffCache = new LruCache<string>(100);
 	const searchCache = new LruCache<SearchResponse>(100);
 
-	app = new Elysia()
-		.use(
-			lawRoutes(
-				dbService,
-				gitStub,
-				diffCache,
-				citizenSummaryStub,
-				searchCache,
-				hybridStub,
-			),
-		)
-		.use(omnibusRoutes(dbService))
-		.get("/health", () => ({
-			status: "ok",
-			laws: dbService.searchLaws(undefined, {}, 0, 0).total,
-		}));
+	app = buildApp(
+		dbService,
+		gitStub,
+		diffCache,
+		citizenSummaryStub,
+		searchCache,
+		hybridStub,
+	);
 });
 
 afterEach(() => {
@@ -156,7 +174,8 @@ async function req(path: string): Promise<Response> {
 	return app.handle(new Request(`http://localhost${path}`));
 }
 
-async function json(path: string) {
+// biome-ignore lint/suspicious/noExplicitAny: response shape varies per endpoint; tests assert on ad-hoc fields, a shared `any` beats per-call casts across ~70 sites.
+async function json(path: string): Promise<{ status: number; body: any }> {
 	const res = await req(path);
 	return { status: res.status, body: await res.json() };
 }
@@ -616,6 +635,7 @@ describe("GET /v1/omnibus", () => {
 			articleCount: 5,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "[]",
 			model: "t",
 		});
 		dbService.upsertOmnibusTopic("OT1", 1, {
@@ -625,6 +645,7 @@ describe("GET /v1/omnibus", () => {
 			articleCount: 1,
 			isSneaked: true,
 			relatedMaterias: "[]",
+			blockIds: "[]",
 			model: "t",
 		});
 
@@ -657,6 +678,7 @@ describe("GET /v1/omnibus/:normId", () => {
 			articleCount: 8,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "[]",
 			model: "t",
 		});
 
@@ -690,6 +712,7 @@ describe("GET /v1/feed-omnibus.xml", () => {
 			articleCount: 3,
 			isSneaked: false,
 			relatedMaterias: "[]",
+			blockIds: "[]",
 			model: "t",
 		});
 

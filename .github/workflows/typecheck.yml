@@ -1,0 +1,48 @@
+name: Typecheck
+
+# Gates the Bun-side packages (pipeline, api, eval, shared) on `tsgo --noEmit`.
+# Kept as its own lightweight workflow — no leyes checkout, no Astro — so it
+# runs fast on any TypeScript change. packages/web is browser/Astro code and is
+# type-checked separately via `astro check` in pr-checks.yml (build-and-smoke),
+# which already has the leyes content and Node it needs. See #140.
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "package.json"
+      - "bun.lock"
+      - "tsconfig.json"
+      - ".github/workflows/typecheck.yml"
+  push:
+    branches:
+      - "seo-loop/**"
+    paths:
+      - "packages/**"
+      - "package.json"
+      - "bun.lock"
+      - "tsconfig.json"
+      - ".github/workflows/typecheck.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: typecheck-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tsgo:
+    name: tsgo (Bun packages)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: tsgo --noEmit
+        run: bun run typecheck

@@ -24,7 +24,7 @@ const N = args.includes("--n")
 	? Number(args[args.indexOf("--n") + 1] ?? 20)
 	: 20;
 const OUT = args.includes("--out")
-	? args[args.indexOf("--out") + 1]
+	? (args[args.indexOf("--out") + 1] ?? "tmp/thinking-ab.json")
 	: "tmp/thinking-ab.json";
 
 mkdirSync("tmp", { recursive: true });
@@ -246,6 +246,7 @@ async function worker() {
 		const idx = cursor++;
 		if (idx >= articles.length) return;
 		const a = articles[idx];
+		if (!a) continue;
 		// Sequential per article so the same upstream queue handles both;
 		// concurrency across articles uses CONC workers.
 		const on = await callQwen(a, true);

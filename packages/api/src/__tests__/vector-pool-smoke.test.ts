@@ -93,11 +93,7 @@ describe("vectorSearchPooled smoke", () => {
 
 			// Run all 6 in parallel — pool must serialize internally.
 			const pooledAll = await Promise.all(
-				queries.map((q) =>
-					vectorSearchPooled(q, meta, index, DIMS, TOP_K, {
-						workerCount: 2,
-					}),
-				),
+				queries.map((q) => vectorSearchPooled(q, meta, index, DIMS, TOP_K)),
 			);
 
 			for (let qi = 0; qi < queries.length; qi++) {

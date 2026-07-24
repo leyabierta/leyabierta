@@ -182,10 +182,14 @@ for await (const line of rl) {
 
 // Close writers and wait for flush
 await new Promise<void>((res, rej) =>
-	outWriter.end((err) => (err ? rej(err) : res())),
+	outWriter.end((err?: NodeJS.ErrnoException | null) =>
+		err ? rej(err) : res(),
+	),
 );
 await new Promise<void>((res, rej) =>
-	auditWriter.end((err) => (err ? rej(err) : res())),
+	auditWriter.end((err?: NodeJS.ErrnoException | null) =>
+		err ? rej(err) : res(),
+	),
 );
 
 const total = processed;

@@ -222,7 +222,7 @@ function extractTotalPages(html: string): number {
 
 async function fetchDetail(
 	docId: string,
-	category: string,
+	category: "generales" | "vinculantes",
 ): Promise<ConsultaEntry | null> {
 	const tab = category === "vinculantes" ? 2 : 1;
 	const url = `${BASE}/consultas/do/document?query=.T&doc=${docId}&tab=${tab}`;
@@ -271,7 +271,7 @@ let totalKept = seen.size;
 let totalSkipped = 0;
 let totalDocsFetched = 0;
 
-const categories = [
+const categories: { name: "generales" | "vinculantes"; url: string }[] = [
 	// { name: "generales", url: SEARCH_URLS.generales },  // skipped: all ~19.7k docIds already scraped
 	{ name: "vinculantes", url: SEARCH_URLS.vinculantes },
 ];

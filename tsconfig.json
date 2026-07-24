@@ -11,10 +11,16 @@
 	//
 	// research/archive is excluded because it is exactly that: archived,
 	// one-shot scripts kept for the record and not maintained (178 errors).
+	//
+	// research/ab is active experimentation (A/B search tuning), not
+	// production code. It is excluded for the same reason as archive: these
+	// are throwaway benchmark scripts (64 errors) and type-checking them adds
+	// noise without protecting anything citizens or the API depend on. See #140.
 	"exclude": [
 		"node_modules",
 		"packages/web",
 		"packages/api/research/archive",
+		"packages/api/research/ab",
 		"**/dist"
 	],
 	"compilerOptions": {

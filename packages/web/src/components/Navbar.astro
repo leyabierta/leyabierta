@@ -487,8 +487,11 @@ const NAV_LINKS = [
 
 <script>
 	// ─── Hamburguesa mobile ──────────────────────────────────
-	var menuBtn = document.getElementById("menu-toggle");
-	var navCollapse = document.getElementById("nav-collapse");
+	// const (not var) so the `menuBtn && navCollapse` narrowing below is
+	// preserved inside the event-listener closures — a reassignable var would
+	// widen back to `HTMLElement | null` and trip noUncheckedIndexedAccess.
+	const menuBtn = document.getElementById("menu-toggle");
+	const navCollapse = document.getElementById("nav-collapse");
 	if (menuBtn && navCollapse) {
 		menuBtn.addEventListener("click", function () {
 			var isOpen = navCollapse.classList.toggle("open");

@@ -474,9 +474,11 @@ async function fillMissingWithSingles(
 ): Promise<(BatchSummary | null)[]> {
 	for (let i = 0; i < articles.length; i++) {
 		if (outputs[i] !== null) continue;
+		const article = articles[i];
+		if (!article) continue;
 		// Single-article batch retains the same prompt/schema and lets the
 		// id-based mapping resolve the result back into position i.
-		const single = await callQwenBatch([articles[i]]);
+		const single = await callQwenBatch([article]);
 		if (!single.error && single.outputs[0]) {
 			outputs[i] = single.outputs[0];
 		}
@@ -605,7 +607,8 @@ async function mapPool<T, R>(
 			while (true) {
 				const i = cursor++;
 				if (i >= items.length) return;
-				results[i] = await fn(items[i], i);
+				// Bounds already checked above, so items[i] is always defined here.
+				results[i] = await fn(items[i]!, i);
 				completed++;
 
 				if (onProgress) {
@@ -753,7 +756,7 @@ async function main() {
 		? { norm_id: checkpoint.last_norm_id, block_id: checkpoint.last_block_id }
 		: undefined;
 
-	if (startFrom) {
+	if (startFrom && checkpoint) {
 		console.log(
 			`Resuming from checkpoint: ${startFrom.norm_id}::${startFrom.block_id} (processed ${checkpoint.processed_count})`,
 		);
@@ -846,8 +849,10 @@ async function main() {
 
 		await mapPool(apiBatches, CONCURRENCY, async (apiBatch, idx) => {
 			const result = await callQwenBatchWithRetry(apiBatch);
+			const firstArticle = apiBatch[0];
+			if (!firstArticle) throw new Error("apiBatch must not be empty");
 			allResults[idx] = {
-				article: apiBatch[0],
+				article: firstArticle,
 				outputs: result.outputs,
 				error: result.error,
 			};
@@ -862,11 +867,15 @@ async function main() {
 		}[] = [];
 		for (let apiBatchIdx = 0; apiBatchIdx < allResults.length; apiBatchIdx++) {
 			const apiBatch = apiBatches[apiBatchIdx];
-			const { outputs, error } = allResults[apiBatchIdx];
+			const batchResult = allResults[apiBatchIdx];
+			if (!apiBatch || !batchResult) continue;
+			const { outputs, error } = batchResult;
 
 			for (let i = 0; i < apiBatch.length; i++) {
+				const article = apiBatch[i];
+				if (!article) continue;
 				flatResults.push({
-					article: apiBatch[i],
+					article,
 					output: outputs[i] ?? null,
 					error: error ?? null,
 				});
@@ -917,7 +926,7 @@ async function main() {
 
 		// Checkpoint
 		const lastArticle = batch[batch.length - 1];
-		if (!DRY_RUN) {
+		if (!DRY_RUN && lastArticle) {
 			const totalProcessed = (checkpoint?.processed_count ?? 0) + batchEnd;
 			stmtUpsertCheckpoint.run(
 				lastArticle.norm_id,
@@ -966,8 +975,8 @@ async function main() {
 const ERROR_LOG = "data/backfill-error-debug.log";
 function logError(msg: string) {
 	try {
-		Bun.write(ERROR_LOG, `[${new Date().toISOString()}] ${msg}\n`, {
-			append: true,
+		writeFileSync(ERROR_LOG, `[${new Date().toISOString()}] ${msg}\n`, {
+			flag: "a",
 		});
 	} catch {}
 }

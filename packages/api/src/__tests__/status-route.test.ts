@@ -12,8 +12,12 @@ import { Elysia } from "elysia";
 import { statusRoutes } from "../routes/status.ts";
 import { StatusService } from "../services/status.ts";
 
+function buildApp(statusService: StatusService) {
+	return new Elysia().use(statusRoutes(statusService));
+}
+
 let db: Database;
-let app: Elysia;
+let app: ReturnType<typeof buildApp>;
 let dataDir: string;
 
 beforeEach(() => {
@@ -34,7 +38,7 @@ beforeEach(() => {
 	);
 
 	const statusService = new StatusService(db, dataDir);
-	app = new Elysia().use(statusRoutes(statusService));
+	app = buildApp(statusService);
 });
 
 afterEach(() => {
@@ -51,7 +55,15 @@ describe("GET /v1/status", () => {
 		const res = await request("/v1/status");
 		expect(res.status).toBe(200);
 
-		const body = await res.json();
+		const body = (await res.json()) as {
+			norms_count: number;
+			reforms_count: number;
+			corpus_max_published_at: string;
+			last_reform_date: string;
+			days_since_last_reform: number;
+			last_sync?: unknown;
+			last_sync_source?: unknown;
+		};
 		expect(body.norms_count).toBe(1);
 		expect(body.reforms_count).toBe(2);
 		expect(body.corpus_max_published_at).toBe("2024-01-01");
@@ -63,7 +75,7 @@ describe("GET /v1/status", () => {
 
 	test("never leaks the corrupt 2929-11-19 date as last_reform_date", async () => {
 		const res = await request("/v1/status");
-		const body = await res.json();
+		const body = (await res.json()) as { last_reform_date: string };
 		expect(body.last_reform_date).not.toBe("2929-11-19");
 	});
 

@@ -235,6 +235,15 @@ interface LlmResponse {
 	cost: number;
 }
 
+interface ChatCompletionResponse {
+	choices?: Array<{ message?: { content?: string } }>;
+	usage?: {
+		prompt_tokens?: number;
+		completion_tokens?: number;
+		cost?: number;
+	};
+}
+
 async function callLlm(
 	systemPrompt: string,
 	userPrompt: string,
@@ -286,7 +295,7 @@ async function callLlm(
 				return null;
 			}
 
-			const data = await response.json();
+			const data = (await response.json()) as ChatCompletionResponse;
 			const usage = data.usage ?? {};
 			const content = data.choices?.[0]?.message?.content ?? "";
 
@@ -324,6 +333,7 @@ function parseJson(raw: string): unknown | null {
 
 for (let i = 0; i < norms.length; i++) {
 	const norm = norms[i];
+	if (!norm) continue;
 	const jsonPath = join(WORKSPACE_ROOT, "data", "json", `${norm.id}.json`);
 
 	// Read article text from JSON cache
