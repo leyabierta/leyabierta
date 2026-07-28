@@ -5,15 +5,23 @@
 
 import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { mapCitation, mapCitations } from "../src/boe-mapping.ts";
 
 const DB_PATH = join(import.meta.dir, "../../../data/leyabierta.db");
 
+// These tests query the real leyabierta.db (24 GB, gitignored — present on the
+// server and in a full local checkout, absent in fresh worktrees/CI). Skip
+// cleanly when it isn't there rather than throwing in beforeAll, which would
+// fail the whole suite (and block the pre-push hook) for an environmental
+// reason unrelated to the code under test.
+const DB_AVAILABLE = existsSync(DB_PATH);
+
 let db: Database;
 
 beforeAll(() => {
-	db = new Database(DB_PATH, { readonly: true });
+	if (DB_AVAILABLE) db = new Database(DB_PATH, { readonly: true });
 });
 
 afterAll(() => {
@@ -186,7 +194,7 @@ const cases: Array<[string, string, string | null, string]> = [
 	],
 ];
 
-describe("mapCitation", () => {
+describe.skipIf(!DB_AVAILABLE)("mapCitation", () => {
 	for (const [desc, raw, expectedId, expectedConf] of cases) {
 		test(desc, () => {
 			const result = mapCitation(raw, opts());
@@ -208,7 +216,7 @@ describe("mapCitation", () => {
 	}
 });
 
-describe("mapCitations", () => {
+describe.skipIf(!DB_AVAILABLE)("mapCitations", () => {
 	test("processes array of citations", () => {
 		const results = mapCitations(
 			["Ley 37/1992", "CE", "Ley Orgánica 4/2000"],
