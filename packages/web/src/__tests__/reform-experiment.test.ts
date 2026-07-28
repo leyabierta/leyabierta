@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	isPathFormReform,
+	REFORM_PATH_PREFIX,
 	reformCanonicalPath,
 } from "../lib/reform-experiment.ts";
 import { parseReformRef } from "../worker/index.ts";
@@ -109,5 +110,19 @@ describe("reformCanonicalPath", () => {
 				"/cambios/reforma/BOE-A-2026-3212/2026-02-20/",
 			);
 		}
+	});
+});
+
+describe("REFORM_PATH_PREFIX", () => {
+	// The worker imports this rather than keeping its own copy: a local
+	// redefinition would let the base path drift, and the worker would silently
+	// stop intercepting path URLs — crawlers would get 404s with no error.
+	test("every canonical URL starts with the shared prefix", () => {
+		expect(reformCanonicalPath("BOE-A-2026-1", "2026-01-01")).toStartWith(
+			REFORM_PATH_PREFIX,
+		);
+		expect(reformCanonicalPath("BOE-A-2020-1", "2020-01-01")).toStartWith(
+			REFORM_PATH_PREFIX,
+		);
 	});
 });

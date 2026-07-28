@@ -15,7 +15,10 @@
 // based (fast, complete) while still giving crawlers real SSR content on the
 // one route that needs it for SEO.
 
-import { reformCanonicalPath } from "../lib/reform-experiment.ts";
+import {
+	REFORM_PATH_PREFIX,
+	reformCanonicalPath,
+} from "../lib/reform-experiment.ts";
 import type {
 	AffectedBlock,
 	OmnibusResponse,
@@ -34,8 +37,9 @@ export interface Env {
 }
 
 const DEFAULT_API_BASE = "https://api.leyabierta.es";
-const REFORM_PATH_PREFIX = "/cambios/reforma/";
-const SHELL_PATH = "/cambios/reforma/";
+// The static shell asset lives at the prefix itself — every reform, whichever
+// URL form it uses, falls back to this one file.
+const SHELL_PATH = REFORM_PATH_PREFIX;
 
 // --- Markdown for Agents ---------------------------------------------------
 // Content negotiation: requests carrying `Accept: text/markdown` get the

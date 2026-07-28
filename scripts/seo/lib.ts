@@ -224,6 +224,9 @@ export async function gscInspect(url: string): Promise<UrlInspection> {
 				siteUrl: SEO_SITE,
 				languageCode: "es-ES",
 			}),
+			// Without this a hung API call would stall a worker slot for the rest
+			// of the sweep — this runs unattended from cron.
+			signal: AbortSignal.timeout(15000),
 		},
 	);
 	if (res.status === 429) {
@@ -317,7 +320,12 @@ export const KEY_PAGES = [
 export function cohortOf(url: string): string {
 	if (url.includes("/leyes/")) return "ley";
 	if (url.includes("/cambios/reforma")) {
-		return url.includes("?id=") ? "reforma-query" : "reforma-path";
+		if (url.includes("?id=")) return "reforma-query";
+		// The bare shell carries no id/date — it is not a reform URL at all, and
+		// counting it as treatment would dilute the experiment's cohort.
+		return url.replace(/[?#].*$/, "").endsWith("/cambios/reforma/")
+			? "otra"
+			: "reforma-path";
 	}
 	const path = url.replace(SITE_ORIGIN, "");
 	return KEY_PAGES.includes(path) ? "clave" : "otra";

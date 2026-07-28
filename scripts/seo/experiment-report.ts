@@ -82,9 +82,17 @@ function main() {
 	}
 	if (tRate > SUCCESS_TREATMENT_CRAWL && cRate < SUCCESS_CONTROL_CRAWL) {
 		console.log("\n✅ ÉXITO: la forma de URL era el bloqueo. Migrar el resto.");
+	} else if (tRate === 0 && cRate === 0) {
+		// Both flat at zero is an absence of signal, not evidence against the
+		// hypothesis: with a 74-day median crawl age site-wide, Googlebot may
+		// simply not have come back yet. Calling this a failure would retire a
+		// live hypothesis on no data.
+		console.log(
+			"\n⏳ SIN SEÑAL: ninguna cohorte se ha rastreado. Googlebot aún no ha vuelto — ampliar la ventana, no concluir.",
+		);
 	} else if (tRate < SUCCESS_CONTROL_CRAWL) {
 		console.log(
-			"\n❌ FRACASO: el path no desbloquea el rastreo. El problema es autoridad o presupuesto de rastreo, no la URL.",
+			"\n❌ FRACASO: el control se mueve y el tratamiento no. El problema es autoridad o presupuesto de rastreo, no la URL.",
 		);
 	} else {
 		console.log(

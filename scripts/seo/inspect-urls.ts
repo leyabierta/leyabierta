@@ -231,6 +231,13 @@ function rollup(all: UrlInspection[]): IndexCoverageSummary {
 			.map((i) => ({ url: i.url, googleCanonical: i.googleCanonical ?? "" })),
 		worstOffenders: all
 			.filter((i) => i.verdict !== "PASS")
+			// Never-crawled first, then stalest: cache order would just surface
+			// whatever happened to be inspected first, which diagnoses nothing.
+			.sort(
+				(a, b) =>
+					(daysSince(b.lastCrawlTime) ?? Number.POSITIVE_INFINITY) -
+					(daysSince(a.lastCrawlTime) ?? Number.POSITIVE_INFINITY),
+			)
 			.slice(0, 100)
 			.map((i) => ({
 				url: i.url,

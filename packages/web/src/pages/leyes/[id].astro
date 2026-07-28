@@ -965,8 +965,9 @@ const seoDescription = [
 					// experiment cohort, query for the rest) so internal links and
 					// the sitemap agree. `from=law` stays a UI-only param — it
 					// drives the back link and is absent from the canonical.
+					const canonical = reformCanonicalPath(id, reform.fecha);
 					const reformaUrl = !isOriginal
-						? `${reformCanonicalPath(id, reform.fecha)}${reformCanonicalPath(id, reform.fecha).includes("?") ? "&" : "?"}from=law`
+						? `${canonical}${canonical.includes("?") ? "&" : "?"}from=law`
 						: null;
 					return (
 						<li class="timeline-item">
