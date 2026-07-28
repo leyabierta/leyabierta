@@ -17,6 +17,9 @@ import { cohortOf, DATA_DIR, type UrlInspection } from "./lib.ts";
 // reports a verdict instead of leaving it to whoever reads the numbers.
 const SUCCESS_TREATMENT_CRAWL = 0.2;
 const SUCCESS_CONTROL_CRAWL = 0.05;
+// Below this the control is indistinguishable from "Googlebot hasn't returned",
+// so a low treatment rate proves nothing either way.
+const CONTROL_ALIVE = 0.05;
 const MIN_SAMPLE = 200;
 
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -82,17 +85,17 @@ function main() {
 	}
 	if (tRate > SUCCESS_TREATMENT_CRAWL && cRate < SUCCESS_CONTROL_CRAWL) {
 		console.log("\n✅ ÉXITO: la forma de URL era el bloqueo. Migrar el resto.");
-	} else if (tRate === 0 && cRate === 0) {
-		// Both flat at zero is an absence of signal, not evidence against the
-		// hypothesis: with a 74-day median crawl age site-wide, Googlebot may
-		// simply not have come back yet. Calling this a failure would retire a
-		// live hypothesis on no data.
-		console.log(
-			"\n⏳ SIN SEÑAL: ninguna cohorte se ha rastreado. Googlebot aún no ha vuelto — ampliar la ventana, no concluir.",
-		);
-	} else if (tRate < SUCCESS_CONTROL_CRAWL) {
+	} else if (tRate < SUCCESS_CONTROL_CRAWL && cRate >= CONTROL_ALIVE) {
+		// Failure requires the control to actually move. A treatment that sits low
+		// while the control is also flat is an absence of signal, not evidence
+		// against the hypothesis — with a 74-day median crawl age site-wide,
+		// Googlebot may simply not have come back yet.
 		console.log(
 			"\n❌ FRACASO: el control se mueve y el tratamiento no. El problema es autoridad o presupuesto de rastreo, no la URL.",
+		);
+	} else if (tRate < SUCCESS_TREATMENT_CRAWL && cRate < CONTROL_ALIVE) {
+		console.log(
+			"\n⏳ SIN SEÑAL: ninguna cohorte se mueve lo bastante. Googlebot aún no ha vuelto — ampliar la ventana, no concluir.",
 		);
 	} else {
 		console.log(

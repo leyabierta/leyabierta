@@ -143,8 +143,15 @@ function injectContent(shellHtml: string, contentHtml: string): string | null {
 	const contentStart = startIdx + marker.length;
 	const closeIdx = findMatchingDivClose(shellHtml, contentStart);
 	if (closeIdx === -1) return null;
+	// Flag the container as server-rendered. The shell's client script bails out
+	// when it sees this, so it can't overwrite real content with its own fetch
+	// (or, on a path-form URL it fails to parse, with "Faltan parámetros").
+	// Googlebot executes that script, so without the flag the treatment cohort
+	// would render as an error page and the experiment would measure nothing.
 	return (
-		shellHtml.slice(0, contentStart) + contentHtml + shellHtml.slice(closeIdx)
+		`${shellHtml.slice(0, startIdx)}<div id="reforma-content" data-ssr="1">` +
+		contentHtml +
+		shellHtml.slice(closeIdx)
 	);
 }
 

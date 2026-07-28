@@ -92,7 +92,7 @@ describe("worker reform routing", () => {
 		);
 	});
 
-	test("query form still renders, canonical stays query form for a control reform", async () => {
+	test("query form still renders, canonical stays query form outside the path arm", async () => {
 		stubApi(200, {
 			...REFORM,
 			reform: { ...REFORM.reform, date: "2024-02-17" },
@@ -119,6 +119,24 @@ describe("worker reform routing", () => {
 		expect(html).toContain("Detalle de reforma");
 		// Fallback keeps the noindex — an empty shell must not be indexed.
 		expect(html).toContain('name="robots"');
+	});
+
+	// The gap that let the P0 through: asserting on the Response HTML alone says
+	// nothing about what the shell's client script does to it afterwards, and
+	// Googlebot runs that script. The script bails on data-ssr, so the rendered
+	// content survives.
+	test("server-rendered content is flagged so the client script won't overwrite it", async () => {
+		stubApi(200);
+		const res = await get("/cambios/reforma/BOE-A-1978-31229/2026-05-20/");
+		const html = await res.text();
+		expect(html).toContain('<div id="reforma-content" data-ssr="1">');
+	});
+
+	test("the fallback shell is NOT flagged — the client script must take over", async () => {
+		stubApi(404, { error: "not found" });
+		const res = await get("/cambios/reforma/BOE-A-9999-9999/2026-01-01/");
+		const html = await res.text();
+		expect(html).not.toContain('data-ssr="1"');
 	});
 
 	test("the bare shell is served 200 with its noindex", async () => {

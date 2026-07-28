@@ -210,6 +210,21 @@ import Base from "../../../layouts/Base.astro";
 
 	<script is:inline>
 		(function () {
+			// A reform is addressable two ways — /cambios/reforma/<id>/<date>/ and
+			// /cambios/reforma/?id=&date=. This MUST stay in sync with
+			// parseReformRef() in src/worker/index.ts: if the two disagree, the
+			// worker renders one reform server-side and this script fetches
+			// another (or none, blanking the page).
+			function reformRef() {
+				var q = new URLSearchParams(window.location.search);
+				var qId = q.get("id"), qDate = q.get("date");
+				if (qId && qDate) return { id: qId, date: qDate };
+				var m = window.location.pathname.match(
+					/^\/cambios\/reforma\/([^/]+)\/(\d{4}-\d{2}-\d{2})\/?$/
+				);
+				return m ? { id: decodeURIComponent(m[1]), date: m[2] } : null;
+			}
+
 			// Generic LCS-based sequence diff (works for both token arrays and paragraph arrays)
 			function seqDiff(a, b, eq) {
 				var n = a.length, m = b.length;
@@ -343,7 +358,8 @@ import Base from "../../../layouts/Base.astro";
 			if (backLink) {
 				var params = new URLSearchParams(window.location.search);
 				var from = params.get("from");
-				var normId = params.get("id") || "";
+				var backRef = reformRef();
+				var normId = backRef ? backRef.id : "";
 
 				if (from === "cambios") {
 					backLink.innerHTML = "&larr; Volver a cambios recientes";
@@ -394,14 +410,19 @@ import Base from "../../../layouts/Base.astro";
 			};
 
 			var qParams = new URLSearchParams(window.location.search);
-			var normId = qParams.get("id") || "";
-			var date = qParams.get("date");
+			var ref = reformRef();
+			var normId = ref ? ref.id : "";
+			var date = ref ? ref.date : null;
 			var topicParam = qParams.get("topic");
 			var topicIndex = topicParam !== null ? parseInt(topicParam, 10) : NaN;
 			var fromOmnibus = qParams.get("from") === "omnibus";
 
 			var API = document.documentElement.dataset.api;
 			var contentDiv = document.getElementById("reforma-content");
+
+			// The worker already rendered this server-side: leave it alone. Re-fetching
+			// would flash the content and, worse, replace it if anything failed here.
+			if (contentDiv && contentDiv.dataset.ssr === "1") return;
 
 			if (!normId || !date) {
 				contentDiv.innerHTML = '<div class="error-state"><p>Faltan parámetros.</p></div>';
@@ -580,11 +601,13 @@ import Base from "../../../layouts/Base.astro";
 				.catch(function () {
 					var params2 = new URLSearchParams(window.location.search);
 					var from2 = params2.get("from") || "";
+					var errRef = reformRef();
+					var errId = errRef ? errRef.id : "";
 					var errorBackHref = "/cambios/para-mi/";
 					var errorBackLabel = "Volver a mis cambios";
 					if (from2 === "cambios") { errorBackHref = "/cambios/recientes/"; errorBackLabel = "Volver a cambios recientes"; }
-					else if (from2 === "omnibus") { errorBackHref = "/leyes/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
-					else if (from2 === "law") { errorBackHref = "/leyes/" + encodeURIComponent(params2.get("id") || "") + "/"; errorBackLabel = "Volver a la ley"; }
+					else if (from2 === "omnibus") { errorBackHref = "/leyes/" + encodeURIComponent(errId) + "/"; errorBackLabel = "Volver a la ley"; }
+					else if (from2 === "law") { errorBackHref = "/leyes/" + encodeURIComponent(errId) + "/"; errorBackLabel = "Volver a la ley"; }
 					contentDiv.innerHTML = '<div class="error-state"><p>No se pudo cargar la reforma.</p><a href="' + errorBackHref + '" style="color:var(--accent)">' + errorBackLabel + '</a></div>';
 				});
 		})();

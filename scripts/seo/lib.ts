@@ -15,6 +15,9 @@ import { resolve } from "node:path";
 export const SEO_SITE = process.env.SEO_GSC_SITE ?? "sc-domain:leyabierta.es";
 export const SITE_ORIGIN =
 	process.env.SEO_SITE_ORIGIN ?? "https://leyabierta.es";
+/** Must match EXPERIMENT_YEAR in packages/web/src/lib/reform-experiment.ts. */
+export const EXPERIMENT_YEAR = process.env.SEO_EXPERIMENT_YEAR ?? "2026";
+
 export const UMAMI_WEBSITE_ID =
 	process.env.SEO_UMAMI_WEBSITE_ID ?? "58e766e3-e3bb-42bb-b4c8-993cd4f1c47c";
 
@@ -320,7 +323,15 @@ export const KEY_PAGES = [
 export function cohortOf(url: string): string {
 	if (url.includes("/leyes/")) return "ley";
 	if (url.includes("/cambios/reforma")) {
-		if (url.includes("?id=")) return "reforma-query";
+		if (url.includes("?id=")) {
+			// The verdict compares like with like: only same-year query URLs are
+			// the matched control. Older ones differ in freshness and link
+			// structure too, so they're reported apart as historical background.
+			return /[?&]date=\d{4}-\d{2}-\d{2}/.test(url) &&
+				url.includes(`date=${EXPERIMENT_YEAR}-`)
+				? "reforma-query"
+				: "reforma-query-historica";
+		}
 		// The bare shell carries no id/date — it is not a reform URL at all, and
 		// counting it as treatment would dilute the experiment's cohort.
 		return url.replace(/[?#].*$/, "").endsWith("/cambios/reforma/")

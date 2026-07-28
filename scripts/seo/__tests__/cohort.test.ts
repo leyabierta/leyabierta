@@ -9,8 +9,20 @@ describe("cohortOf", () => {
 			"reforma-path",
 		);
 		expect(
-			cohortOf(`${O}/cambios/reforma/?id=BOE-A-1978-31229&date=2024-02-17`),
+			cohortOf(`${O}/cambios/reforma/?id=BOE-A-2026-9&date=2026-02-20`),
 		).toBe("reforma-query");
+	});
+
+	// Only same-year query URLs are the matched control. Pre-experiment reforms
+	// differ in freshness and link structure too, so folding them into the
+	// control would make the verdict compare unlike with unlike.
+	test("pre-experiment reforms are background, not the control", () => {
+		expect(
+			cohortOf(`${O}/cambios/reforma/?id=BOE-A-1978-31229&date=2024-02-17`),
+		).toBe("reforma-query-historica");
+		expect(
+			cohortOf(`${O}/cambios/reforma/?id=BOE-A-1983-1&date=1983-07-01`),
+		).toBe("reforma-query-historica");
 	});
 
 	// The bare shell has no id/date, so it isn't a reform URL at all. Counting it

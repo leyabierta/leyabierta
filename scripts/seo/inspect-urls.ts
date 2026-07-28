@@ -43,9 +43,14 @@ const CONCURRENCY = Number(process.env.SEO_INSPECT_CONCURRENCY ?? 5);
 const PACE_MS = Number(process.env.SEO_INSPECT_PACE_MS ?? 120);
 // Don't re-inspect a URL we already checked recently — spend on unseen ones.
 const REFRESH_AFTER_DAYS = Number(process.env.SEO_INSPECT_REFRESH_DAYS ?? 14);
-// Reform URLs outnumber laws ~3:1; cap their share so one cohort can't eat the
-// whole budget. Sampled with a stride, so the cap still spans the full range.
-const REFORM_SAMPLE = Number(process.env.SEO_INSPECT_REFORM_SAMPLE ?? 600);
+// Per-arm quota for the URL-shape experiment. Treatment is ~662 of ~35k reform
+// URLs (1.9%), so a single strided sample over all reforms would draw ~11
+// treatment URLs — far below the 200/arm the report needs to decide anything,
+// and the same 11 every run since the stride is deterministic. Sampling each
+// arm separately with its own quota is what makes the experiment decidable.
+const REFORM_SAMPLE_PER_ARM = Number(
+	process.env.SEO_INSPECT_REFORM_SAMPLE ?? 300,
+);
 
 const CACHE_PATH = join(DATA_DIR, "inspections.json");
 const ROLLUP_PATH = join(DATA_DIR, "index-coverage.json");
@@ -139,10 +144,20 @@ function buildQueue(
 	for (const p of KEY_PAGES) push(`${SITE_ORIGIN}${p}`);
 	// 2. Anything currently earning impressions.
 	for (const u of rankingUrls()) push(u);
-	// 3+4. Interleave laws and reforms so a budget cut mid-run still leaves a
-	// usable sample of both — the two cohorts are the whole comparison.
+	// 3+4. Stratify reforms by arm, each with its own quota, then interleave with
+	// laws so a budget cut mid-run still leaves a usable sample of every cohort.
+	const byArm = new Map<string, string[]>();
+	for (const u of reforms) {
+		const arm = cohortOf(u);
+		const list = byArm.get(arm);
+		if (list) list.push(u);
+		else byArm.set(arm, [u]);
+	}
+	const reformQ: string[] = [];
+	for (const [, urls] of [...byArm].sort()) {
+		reformQ.push(...staleFirst(stride(urls, REFORM_SAMPLE_PER_ARM)));
+	}
 	const lawQ = staleFirst(laws);
-	const reformQ = staleFirst(stride(reforms, REFORM_SAMPLE));
 	for (let i = 0; i < Math.max(lawQ.length, reformQ.length); i++) {
 		const l = lawQ[i];
 		const r = reformQ[i];
@@ -256,7 +271,8 @@ async function main() {
 	const queue = buildQueue(cache, laws, reforms).slice(0, BUDGET);
 
 	console.log(
-		`URL Inspection — leyes ${laws.length}, reformas ${reforms.length}, ` +
+		`URL Inspection — leyes ${laws.length}, reformas ${reforms.length} ` +
+			`(${[...new Set(reforms.map(cohortOf))].sort().join(", ")}), ` +
 			`cached ${cache.size}, queued ${queue.length} (budget ${BUDGET})`,
 	);
 	if (queue.length === 0) {
