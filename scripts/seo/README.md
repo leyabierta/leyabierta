@@ -3,7 +3,8 @@
 An autonomous, biweekly loop that grows organic traffic to leyabierta.es from
 real Google Search Console + Umami data. It proposes changes, has `claude -p`
 implement them, verifies the build, and **opens a PR** — it never deploys on its
-own. Governance lives in [`.goals/seo/`](../../.goals/seo/).
+own. Governance lives in [`.goals/seo/`](../../.goals/seo/); current numbers and
+running experiments in [`.goals/seo/STATUS.md`](../../.goals/seo/STATUS.md).
 
 ```
 inspect-urls.ts ─► index-coverage.json ─┐
