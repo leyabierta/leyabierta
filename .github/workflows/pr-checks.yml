@@ -43,7 +43,7 @@ concurrency:
 
 jobs:
   check:
-    name: Lint
+    name: Lint & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -57,9 +57,13 @@ jobs:
       - name: Biome
         run: bun run check
 
-      # Tests are not run as a gate yet: see #81 (git-repo.test.ts has
-      # 2 preexisting failures around idempotency and TZ-stability).
-      # Re-enable once #81 is fixed.
+      # Gate since 2026-07-28. Was disabled for #81 (git-repo.test.ts idempotency
+      # + TZ-stability), which is closed, and for boe-mapping.test.ts throwing
+      # when the gitignored leyabierta.db is absent, which now skips cleanly.
+      # Nothing in CI validated behaviour before this — Biome doesn't run tests
+      # and deploy.yml swallowed them with `|| true`.
+      - name: Test
+        run: bun test
 
   build-and-smoke:
     name: Build web & smoke

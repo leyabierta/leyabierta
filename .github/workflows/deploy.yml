@@ -130,8 +130,13 @@ jobs:
       - name: Lint
         run: bun run check
 
+      # No `|| true`. It was added because boe-mapping.test.ts threw when the
+      # gitignored 24 GB leyabierta.db was absent; that test now skips cleanly
+      # instead, so a failure here is a real failure and must stop the deploy.
+      # main auto-propagates to production — swallowing test results meant
+      # nothing verified the code that ships.
       - name: Test
-        run: bun test || true # Some tests require data files not in CI
+        run: bun test
 
   # ============================================
   # API: Build Docker image, push to GHCR,
