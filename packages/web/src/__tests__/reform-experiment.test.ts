@@ -179,3 +179,31 @@ describe("REFORM_PATH_PREFIX", () => {
 		);
 	});
 });
+
+describe("client shell stays in sync with the shared prefix", () => {
+	// The shell's script is inline browser JS: it can't import the module, so it
+	// hardcodes the route in a regex. If REFORM_PATH_PREFIX ever changes and the
+	// regex doesn't, the script stops recognising path URLs, writes "Faltan
+	// parámetros" over the server-rendered content, and every treatment URL
+	// renders as an error page for users and Googlebot alike. That exact bug
+	// shipped once; this test is what makes it loud instead of silent.
+	test("the shell's path regex matches REFORM_PATH_PREFIX", async () => {
+		const shell = await Bun.file(
+			new URL("../pages/cambios/reforma/index.astro", import.meta.url).pathname,
+		).text();
+
+		const escaped = REFORM_PATH_PREFIX.replaceAll("/", "\\/");
+		expect(shell).toContain(
+			`/^${escaped}([^/]+)\\/(\\d{4}-\\d{2}-\\d{2})\\/?$/`,
+		);
+	});
+
+	// Guards the other half of the fix: without the data-ssr bail-out the script
+	// would re-fetch and re-render over content the worker already injected.
+	test("the shell bails out on server-rendered content", async () => {
+		const shell = await Bun.file(
+			new URL("../pages/cambios/reforma/index.astro", import.meta.url).pathname,
+		).text();
+		expect(shell).toContain('contentDiv.dataset.ssr === "1"');
+	});
+});
