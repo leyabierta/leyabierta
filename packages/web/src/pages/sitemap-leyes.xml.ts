@@ -6,6 +6,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { SECONDARY_PAGES } from "../lib/site-pages.ts";
 
 export const prerender = true;
 
@@ -14,26 +15,13 @@ const SITE_URL = "https://leyabierta.es";
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
 
-	const secondaryPages = [
-		{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
-		{ path: "/sobre/", changefreq: "monthly", priority: "0.5" },
-		{ path: "/sobre/contribuir/", changefreq: "monthly", priority: "0.4" },
-		{ path: "/sobre/apoyar/", changefreq: "monthly", priority: "0.4" },
-		{ path: "/sobre/api/", changefreq: "monthly", priority: "0.4" },
-		{ path: "/alertas/", changefreq: "monthly", priority: "0.5" },
-		{ path: "/mi-situacion/", changefreq: "monthly", priority: "0.5" },
-		{ path: "/privacidad/", changefreq: "yearly", priority: "0.2" },
-		{ path: "/cookies/", changefreq: "yearly", priority: "0.2" },
-		{ path: "/aviso-legal/", changefreq: "yearly", priority: "0.2" },
-	];
-
 	const urls = [
 		`  <url>
     <loc>${SITE_URL}/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>`,
-		...secondaryPages.map(
+		...SECONDARY_PAGES.map(
 			(p) => `  <url>
     <loc>${SITE_URL}${p.path}</loc>
     <changefreq>${p.changefreq}</changefreq>

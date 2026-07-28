@@ -1,5 +1,8 @@
 # Goal: crecimiento de tráfico orgánico de leyabierta.es
 
+> **Estado actual y experimentos en curso: [`STATUS.md`](STATUS.md).** Míralo
+> antes de tocar sitemap, Worker o URLs de reforma — hay un experimento vivo.
+
 North star de un loop autónomo y quincenal que mejora el SEO de Ley Abierta
 tomando decisiones basadas en datos reales de Google Search Console (GSC) y
 Umami. Inspirado en el diseño de `docs/async-experimentation-system.md`, pero
