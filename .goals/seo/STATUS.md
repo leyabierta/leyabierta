@@ -52,9 +52,10 @@ páginas de ley con paths reales sí (99,1%). Hipótesis: 35k URLs que solo
 difieren en query string se leen como navegación facetada, y Google no gasta
 presupuesto de rastreo en eso para un dominio con nuestra autoridad.
 
-Las 688 reformas de 2026 se reparten por hash en dos brazos (~348 con path,
-~340 con query) para que ambos tengan la misma frescura y estructura de enlaces:
-la única diferencia sistemática es la forma de URL. Las reformas anteriores
+Las 688 reformas de 2026 se reparten por hash en dos brazos —348 con path y 340
+con query, medido sobre el sitemap desplegado— para que ambos tengan la misma
+frescura y estructura de enlaces: la única diferencia sistemática es la forma
+de URL. Las reformas anteriores
 siguen en query form y se reportan aparte, sin sustentar el veredicto.
 
 **Métrica primaria: `crawlRate`, no `indexedRate`.** Google debe descargar la
@@ -87,10 +88,18 @@ bun run scripts/seo/experiment-report.ts
 simplemente nunca ofrecidas — faltaban en el sitemap. `/pregunta/` es lo que
 más nos diferencia del BOE (responde en lenguaje llano) y era invisible.
 
-Añadidas junto con `/cambios/recientes/`. Un test
-(`src/__tests__/sitemap-coverage.test.ts`) obliga a que toda página estática
-esté en el sitemap o excluida explícitamente con su motivo, para que no vuelva
-a pasar en silencio.
+Añadidas junto con `/cambios/recientes/`. La lista vive en
+`packages/web/src/lib/site-pages.ts` y un test
+(`packages/web/src/__tests__/sitemap-coverage.test.ts`) comprueba que toda
+página estática esté en el sitemap o excluida explícitamente con su motivo, en
+ambos sentidos: una ruta excluida tampoco puede aparecer en el sitemap.
+
+> ⚠️ **El test no es gate en CI.** `deploy.yml` ejecuta `bun test || true` y
+> `pr-checks.yml` no ejecuta tests, así que un fallo no bloquea el merge ni el
+> despliegue. Vale como red para quien ejecute los tests en local, no como
+> garantía automática. Convertirlo en gate es trabajo aparte: el `|| true` está
+> ahí porque algunos tests del repo necesitan ficheros de datos que no existen
+> en CI.
 
 Sin criterio formal de éxito: es corregir una omisión, no una hipótesis. Se
 comprueba en la siguiente pasada de inspección.
@@ -106,10 +115,13 @@ comprueba en la siguiente pasada de inspección.
   que mueve esa cifra.
 - **Cero rich results.** `searchAppearance` viene vacío. El JSON-LD
   `Legislation` es correcto como dato semántico pero **Google no genera rich
-  results para ese tipo**. `Dataset` en `/datos/` y `Article`/`NewsArticle` en
-  las reformas sí son tipos soportados — pero no antes de que esas páginas
-  estén indexadas, o se optimiza algo que no existe. `FAQPage` no aplica:
-  Google lo restringió en 2023 a sitios gubernamentales y de salud.
+  results para ese tipo**. Hoy sólo emitimos `Legislation` + `BreadcrumbList`
+  en las fichas de ley y `Organization`/`WebSite` en el layout: **no hay
+  `Dataset` ni `Article` en ninguna página**. Son tipos que Google sí soporta y
+  candidatos claros (`Dataset` en `/datos/`, `Article`/`NewsArticle` en las
+  reformas), pero añadirlos antes de que esas páginas estén indexadas es
+  optimizar algo que no existe. `FAQPage` no aplica: Google lo restringió en
+  2023 a sitios gubernamentales y de salud.
 - **Autoridad de dominio.** El único backlink que Google detecta hacia la home
   es `libhunt.com`. Sin enlaces externos, el presupuesto de rastreo se queda
   corto por mucho que arreglemos lo técnico.

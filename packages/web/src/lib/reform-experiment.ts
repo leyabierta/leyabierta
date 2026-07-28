@@ -21,7 +21,7 @@
  * success and would justify migrating the other 34k on a false premise.
  *
  * So the split is *within* 2026: each reform is assigned to path or query form
- * by a hash of its identity, giving two arms of ~331 that are identical in
+ * by a hash of its identity, giving two arms of ~340 that are identical in
  * freshness, link structure and law mix. The only systematic difference left is
  * the URL shape, which is the thing under test. Pre-2026 reforms stay on the
  * query form and are reported separately as historical background, never as the

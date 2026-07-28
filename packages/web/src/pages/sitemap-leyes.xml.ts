@@ -6,6 +6,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { SECONDARY_PAGES } from "../lib/site-pages.ts";
 
 export const prerender = true;
 
@@ -14,43 +15,13 @@ const SITE_URL = "https://leyabierta.es";
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
 
-	// Every indexable page that isn't a law or a reform. Keep in sync with
-	// src/pages/ — a page missing here is a page Google may never discover.
-	// On 2026-07-28 a URL Inspection sweep found /datos/ and /pregunta/ at
-	// "Google no reconoce esta URL": not rejected, simply never offered.
-	//
-	// Deliberately absent:
-	//   /cambios/para-mi/  personalised client-side; renders empty without the
-	//                      visitor's own filters, so indexing it means thin content
-	//   /alertas/{gestionar,confirmar,cancelar,seguir/confirmar}
-	//                      transactional, reached with a one-time token
-	//   /cambios/reforma/  the bare shell carries noindex; real reform URLs live
-	//                      in sitemap-reformas.xml
-	const secondaryPages = [
-		{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
-		{ path: "/cambios/recientes/", changefreq: "daily", priority: "0.7" },
-		// The clearest thing this site does that boe.es does not: answer a
-		// question in plain language. It was invisible to Google until now.
-		{ path: "/pregunta/", changefreq: "weekly", priority: "0.8" },
-		{ path: "/datos/", changefreq: "weekly", priority: "0.6" },
-		{ path: "/sobre/", changefreq: "monthly", priority: "0.5" },
-		{ path: "/sobre/contribuir/", changefreq: "monthly", priority: "0.4" },
-		{ path: "/sobre/apoyar/", changefreq: "monthly", priority: "0.4" },
-		{ path: "/sobre/api/", changefreq: "monthly", priority: "0.4" },
-		{ path: "/alertas/", changefreq: "monthly", priority: "0.5" },
-		{ path: "/mi-situacion/", changefreq: "monthly", priority: "0.5" },
-		{ path: "/privacidad/", changefreq: "yearly", priority: "0.2" },
-		{ path: "/cookies/", changefreq: "yearly", priority: "0.2" },
-		{ path: "/aviso-legal/", changefreq: "yearly", priority: "0.2" },
-	];
-
 	const urls = [
 		`  <url>
     <loc>${SITE_URL}/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>`,
-		...secondaryPages.map(
+		...SECONDARY_PAGES.map(
 			(p) => `  <url>
     <loc>${SITE_URL}${p.path}</loc>
     <changefreq>${p.changefreq}</changefreq>
