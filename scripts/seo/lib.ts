@@ -116,6 +116,155 @@ export async function gscQuery(
 	return json.rows ?? [];
 }
 
+// Search Analytics caps a single response at 25k rows. Walk `startRow` until a
+// short page comes back so callers get the full table instead of a top-N slice.
+const GSC_PAGE = 25000;
+
+export async function gscQueryAll(
+	body: Record<string, unknown>,
+	maxRows = 100000,
+): Promise<GscRow[]> {
+	const out: GscRow[] = [];
+	for (let startRow = 0; startRow < maxRows; startRow += GSC_PAGE) {
+		const page = await gscQuery({
+			...body,
+			rowLimit: Math.min(GSC_PAGE, maxRows - startRow),
+			startRow,
+		});
+		out.push(...page);
+		if (page.length < GSC_PAGE) break;
+	}
+	return out;
+}
+
+// ── Sitemaps API ────────────────────────────────────────────────────────────
+export interface SitemapInfo {
+	path: string;
+	type?: string;
+	lastSubmitted?: string;
+	lastDownloaded?: string;
+	isPending?: boolean;
+	isSitemapsIndex?: boolean;
+	warnings: number;
+	errors: number;
+	// `indexed` is always 0 — Google stopped reporting it through the API years
+	// ago but still returns the field. Kept for shape fidelity; never trust it.
+	contents: { type: string; submitted: number; indexed: number }[];
+}
+
+export async function gscSitemaps(): Promise<SitemapInfo[]> {
+	const token = await gscToken();
+	const site = encodeURIComponent(SEO_SITE);
+	const res = await fetch(
+		`https://www.googleapis.com/webmasters/v3/sites/${site}/sitemaps`,
+		{ headers: { Authorization: `Bearer ${token}` } },
+	);
+	const json = (await res.json()) as {
+		sitemap?: Record<string, unknown>[];
+		error?: { message: string };
+	};
+	if (json.error) throw new Error(`GSC sitemaps error: ${json.error.message}`);
+	return (json.sitemap ?? []).map((s) => ({
+		path: String(s.path),
+		type: s.type as string | undefined,
+		lastSubmitted: s.lastSubmitted as string | undefined,
+		lastDownloaded: s.lastDownloaded as string | undefined,
+		isPending: s.isPending as boolean | undefined,
+		isSitemapsIndex: s.isSitemapsIndex as boolean | undefined,
+		warnings: Number(s.warnings ?? 0),
+		errors: Number(s.errors ?? 0),
+		contents: ((s.contents ?? []) as Record<string, unknown>[]).map((c) => ({
+			type: String(c.type),
+			submitted: Number(c.submitted ?? 0),
+			indexed: Number(c.indexed ?? 0),
+		})),
+	}));
+}
+
+// ── URL Inspection API ──────────────────────────────────────────────────────
+// Quota: 2000 inspections/day and 600/minute per property. `inspect-urls.ts`
+// owns the budgeting; this helper only enforces the per-minute pace and
+// surfaces 429s to the caller so the run can stop cleanly instead of burning
+// the daily allowance on retries.
+export interface UrlInspection {
+	url: string;
+	inspectedAt: string;
+	verdict?: string;
+	coverageState?: string;
+	robotsTxtState?: string;
+	indexingState?: string;
+	pageFetchState?: string;
+	lastCrawlTime?: string;
+	crawledAs?: string;
+	googleCanonical?: string;
+	userCanonical?: string;
+	sitemaps?: string[];
+	referringUrls?: string[];
+	mobileVerdict?: string;
+	richResultsVerdict?: string;
+	richResultTypes?: string[];
+	resultLink?: string;
+	error?: string;
+}
+
+export class GscQuotaError extends Error {}
+
+export async function gscInspect(url: string): Promise<UrlInspection> {
+	const token = await gscToken();
+	const res = await fetch(
+		"https://searchconsole.googleapis.com/v1/urlInspection/index:inspect",
+		{
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				inspectionUrl: url,
+				siteUrl: SEO_SITE,
+				languageCode: "es-ES",
+			}),
+		},
+	);
+	if (res.status === 429) {
+		throw new GscQuotaError(`URL Inspection quota exhausted at ${url}`);
+	}
+	const json = (await res.json()) as {
+		inspectionResult?: Record<string, Record<string, unknown>>;
+		error?: { message: string };
+	};
+	const inspectedAt = new Date().toISOString();
+	if (json.error) return { url, inspectedAt, error: json.error.message };
+
+	const r = json.inspectionResult ?? {};
+	const idx = (r.indexStatusResult ?? {}) as Record<string, unknown>;
+	const rich = (r.richResultsResult ?? {}) as Record<string, unknown>;
+	return {
+		url,
+		inspectedAt,
+		verdict: idx.verdict as string | undefined,
+		coverageState: idx.coverageState as string | undefined,
+		robotsTxtState: idx.robotsTxtState as string | undefined,
+		indexingState: idx.indexingState as string | undefined,
+		pageFetchState: idx.pageFetchState as string | undefined,
+		lastCrawlTime: idx.lastCrawlTime as string | undefined,
+		crawledAs: idx.crawledAs as string | undefined,
+		googleCanonical: idx.googleCanonical as string | undefined,
+		userCanonical: idx.userCanonical as string | undefined,
+		sitemaps: idx.sitemap as string[] | undefined,
+		referringUrls: idx.referringUrls as string[] | undefined,
+		mobileVerdict: (r.mobileUsabilityResult as Record<string, unknown>)
+			?.verdict as string | undefined,
+		richResultsVerdict: rich.verdict as string | undefined,
+		richResultTypes: (
+			(rich.detectedItems ?? []) as { richResultType?: string }[]
+		)
+			.map((d) => d.richResultType)
+			.filter((t): t is string => Boolean(t)),
+		resultLink: r.inspectionResultLink as unknown as string | undefined,
+	};
+}
+
 // ── Umami: read-only query against the co-located Postgres container ────────
 // Runs on KonarServer where the umami-db container lives. For off-server runs,
 // override the argv (e.g. wrap in ssh) via SEO_UMAMI_ARGV as a JSON array.
@@ -167,26 +316,84 @@ export interface PageMetric {
 	position: number;
 }
 
+export interface GscTotals {
+	clicks: number;
+	impressions: number;
+	ctr: number;
+	position: number;
+	pagesWithImpressions: number;
+}
+
+/** A metric row keyed by a single dimension value (device, country, date, …). */
+export interface DimensionMetric {
+	key: string;
+	clicks: number;
+	impressions: number;
+	ctr: number;
+	position: number;
+}
+
+/** page × query pair — the actionable unit: which query surfaces which page. */
+export interface PageQueryMetric {
+	page: string;
+	query: string;
+	clicks: number;
+	impressions: number;
+	ctr: number;
+	position: number;
+}
+
 export interface GscSnapshot {
 	source: "gsc";
 	snapshotDate: string;
 	site: string;
 	window: { start: string; end: string };
 	prevWindow: { start: string; end: string };
-	totals: {
-		clicks: number;
-		impressions: number;
-		ctr: number;
-		position: number;
-		pagesWithImpressions: number;
-	};
-	prevTotals: GscSnapshot["totals"];
+	totals: GscTotals;
+	prevTotals: GscTotals;
 	topQueries: QueryMetric[];
 	risingQueries: QueryMetric[];
+	fallingQueries?: QueryMetric[]; // lost impressions vs the previous window
 	strikingDistance: QueryMetric[]; // position 8–20 with real impressions
 	lowCtrQueries: QueryMetric[]; // good position, weak CTR
 	topPages: PageMetric[];
 	zeroClickPages: PageMetric[]; // impressions but no clicks
+
+	// ── Added by the "full pull" (all optional so older snapshots still parse) ──
+	/** Per-day series for the current window — trend, not just an average. */
+	daily?: DimensionMetric[];
+	devices?: DimensionMetric[];
+	countries?: DimensionMetric[];
+	/** Rich-result / AI-surface breakdown (searchAppearance dimension). */
+	searchAppearance?: DimensionMetric[];
+	/** Totals per search type: web, image, video, news, discover, googleNews. */
+	searchTypes?: Record<string, GscTotals>;
+	/** Top page×query pairs — what each page actually ranks for. */
+	pageQueries?: PageQueryMetric[];
+	/** Pages that had impressions last window and none in this one. */
+	lostPages?: PageMetric[];
+	/** Submitted sitemaps with their error/warning counts. */
+	sitemaps?: SitemapInfo[];
+	/** Coverage rollup from the last inspect-urls run, if one exists. */
+	indexCoverage?: IndexCoverageSummary;
+}
+
+export interface IndexCoverageSummary {
+	inspectedAt: string;
+	sampled: number;
+	byVerdict: Record<string, number>;
+	byCoverageState: Record<string, number>;
+	byFetchState: Record<string, number>;
+	/** Indexation split by page type (ley / reforma / clave) — laws and reform
+	 *  pages fail for different reasons and need different fixes. */
+	byCohort: Record<string, { sampled: number; indexed: number; rate: number }>;
+	/** Share of sampled URLs whose verdict is PASS. */
+	indexedRate: number;
+	/** Median days since Google last crawled a sampled URL (null if unknown). */
+	medianCrawlAgeDays: number | null;
+	neverCrawled: number;
+	canonicalMismatches: { url: string; googleCanonical: string }[];
+	worstOffenders: { url: string; coverageState: string; lastCrawl?: string }[];
 }
 
 export interface UmamiSnapshot {
