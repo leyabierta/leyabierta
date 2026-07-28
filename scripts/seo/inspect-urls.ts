@@ -24,11 +24,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+	cohortOf,
 	DATA_DIR,
 	GscQuotaError,
 	type GscSnapshot,
 	gscInspect,
 	type IndexCoverageSummary,
+	KEY_PAGES,
 	SITE_ORIGIN,
 	type UrlInspection,
 } from "./lib.ts";
@@ -44,19 +46,6 @@ const REFRESH_AFTER_DAYS = Number(process.env.SEO_INSPECT_REFRESH_DAYS ?? 14);
 // Reform URLs outnumber laws ~3:1; cap their share so one cohort can't eat the
 // whole budget. Sampled with a stride, so the cap still spans the full range.
 const REFORM_SAMPLE = Number(process.env.SEO_INSPECT_REFORM_SAMPLE ?? 600);
-
-const KEY_PAGES = [
-	"/",
-	"/pregunta/",
-	"/datos/",
-	"/cambios/",
-	"/cambios/recientes/",
-	"/omnibus/",
-	"/alertas/",
-	"/mi-situacion/",
-	"/sobre/",
-	"/mis-cambios/",
-];
 
 const CACHE_PATH = join(DATA_DIR, "inspections.json");
 const ROLLUP_PATH = join(DATA_DIR, "index-coverage.json");
@@ -114,13 +103,15 @@ function rankingUrls(): string[] {
 const daysSince = (iso?: string): number | null =>
 	iso ? (Date.now() - new Date(iso).getTime()) / 864e5 : null;
 
-/** Which cohort a URL belongs to — drives the per-cohort coverage breakdown. */
-export function cohortOf(url: string): string {
-	if (url.includes("/leyes/")) return "ley";
-	if (url.includes("/cambios/reforma")) return "reforma";
-	const path = url.replace(SITE_ORIGIN, "");
-	return KEY_PAGES.includes(path) ? "clave" : "otra";
-}
+/**
+ * Which cohort a URL belongs to — drives the per-cohort coverage breakdown.
+ *
+ * Reforms split by URL form because that split IS the experiment: `reforma-path`
+ * is the treatment group (2026 reforms on `/cambios/reforma/<id>/<date>/`) and
+ * `reforma-query` the control (everything else, still on `?id=&date=`). If the
+ * treatment group starts getting crawled and the control doesn't, the URL shape
+ * was the blocker.
+ */
 
 function buildQueue(
 	cache: Map<string, UrlInspection>,
@@ -190,15 +181,32 @@ function rollup(all: UrlInspection[]): IndexCoverageSummary {
 	// or reform pages are the ones dragging, and they need different fixes.
 	const byCohort: Record<
 		string,
-		{ sampled: number; indexed: number; rate: number }
+		{
+			sampled: number;
+			crawled: number;
+			indexed: number;
+			crawlRate: number;
+			rate: number;
+		}
 	> = {};
 	for (const i of all) {
 		const c = cohortOf(i.url);
-		const b = (byCohort[c] ??= { sampled: 0, indexed: 0, rate: 0 });
+		const b = (byCohort[c] ??= {
+			sampled: 0,
+			crawled: 0,
+			indexed: 0,
+			crawlRate: 0,
+			rate: 0,
+		});
 		b.sampled++;
+		// `crawled` leads `indexed`: Google must fetch a page before it can
+		// judge it, and the reform cohort is stuck at the fetch step. For the
+		// URL-shape experiment this is the metric that moves first.
+		if (i.lastCrawlTime) b.crawled++;
 		if (i.verdict === "PASS") b.indexed++;
 	}
 	for (const b of Object.values(byCohort)) {
+		b.crawlRate = b.sampled ? b.crawled / b.sampled : 0;
 		b.rate = b.sampled ? b.indexed / b.sampled : 0;
 	}
 
@@ -309,7 +317,11 @@ async function main() {
 	);
 }
 
-main().catch((e) => {
-	console.error(e instanceof Error ? e.message : e);
-	process.exit(1);
-});
+// Guarded: `experiment-report.ts` imports from this file's siblings, and an
+// unguarded main() would fire a full 500-URL sweep on any import.
+if (import.meta.main) {
+	main().catch((e) => {
+		console.error(e instanceof Error ? e.message : e);
+		process.exit(1);
+	});
+}

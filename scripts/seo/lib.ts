@@ -297,6 +297,32 @@ export function umamiQuery(sql: string): string[][] {
 		.map((l) => l.split("\t"));
 }
 
+// Real pages only — must match src/pages/. Listing a route that only exists as
+// a 301 (e.g. the retired /omnibus/, /mis-cambios/) pollutes the rollup with
+// "Página con redirección" verdicts that look like coverage failures.
+export const KEY_PAGES = [
+	"/",
+	"/pregunta/",
+	"/datos/",
+	"/cambios/",
+	"/cambios/recientes/",
+	"/cambios/para-mi/",
+	"/alertas/",
+	"/mi-situacion/",
+	"/sobre/",
+	"/sobre/api/",
+	"/sobre/contribuir/",
+];
+
+export function cohortOf(url: string): string {
+	if (url.includes("/leyes/")) return "ley";
+	if (url.includes("/cambios/reforma")) {
+		return url.includes("?id=") ? "reforma-query" : "reforma-path";
+	}
+	const path = url.replace(SITE_ORIGIN, "");
+	return KEY_PAGES.includes(path) ? "clave" : "otra";
+}
+
 // ── Snapshot + plan contracts (shared across pull/plan/benchmark) ───────────
 export interface QueryMetric {
 	query: string;
@@ -386,7 +412,17 @@ export interface IndexCoverageSummary {
 	byFetchState: Record<string, number>;
 	/** Indexation split by page type (ley / reforma / clave) — laws and reform
 	 *  pages fail for different reasons and need different fixes. */
-	byCohort: Record<string, { sampled: number; indexed: number; rate: number }>;
+	byCohort: Record<
+		string,
+		{
+			sampled: number;
+			/** Has a `lastCrawlTime` — Google actually fetched it. */
+			crawled: number;
+			indexed: number;
+			crawlRate: number;
+			rate: number;
+		}
+	>;
 	/** Share of sampled URLs whose verdict is PASS. */
 	indexedRate: number;
 	/** Median days since Google last crawled a sampled URL (null if unknown). */

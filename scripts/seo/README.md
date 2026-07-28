@@ -73,10 +73,32 @@ has rather than burning the day's allowance on retries.
 | `SEO_INSPECT_CONCURRENCY` | 5 | In-flight requests |
 | `SEO_INSPECT_PACE_MS` | 120 | Delay per worker between calls |
 | `SEO_INSPECT_REFRESH_DAYS` | 14 | Re-inspect only after this many days |
+| `SEO_INSPECT_REFORM_SAMPLE` | 600 | Cap on reform URLs per run (strided) |
 
 `index-coverage.json` reports `indexedRate`, `medianCrawlAgeDays`,
 `neverCrawled`, breakdowns by verdict / coverage state / fetch state,
 canonical mismatches, and the worst offenders.
+
+### Cohorts
+
+`byCohort` splits every rate by page type, because the aggregate hides the
+thing you need to act on. It reports **`crawlRate` alongside `rate`**: Google
+must fetch a page before it can judge it, so a cohort stuck at zero crawls is a
+different problem from one that's crawled and rejected.
+
+| Cohort | What it is |
+|--------|-----------|
+| `ley` | `/leyes/<id>/` — the 12k law pages |
+| `reforma-path` | 2026 reforms on `/cambios/reforma/<id>/<date>/` (treatment) |
+| `reforma-query` | Everything else on `?id=&date=` (control) |
+| `clave` | The hand-picked entry points |
+
+The reform split is the **URL-shape experiment** (see
+`packages/web/src/lib/reform-experiment.ts`). Baseline on 2026-07-28, before the
+change: `ley` 13.2% indexed / 99% crawled, reforms 0% indexed and **0% crawled**
+— not one of 600 had ever been fetched. If `reforma-path` starts getting crawled
+while `reforma-query` stays at zero, the query-string URL shape was the blocker
+and the remaining ~34k should follow.
 
 > `sitemaps[].contents[].indexed` is always `0`. Google stopped populating it
 > through the API years ago but still returns the field. Never read it as a

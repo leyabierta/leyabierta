@@ -7,6 +7,7 @@ import Base from "../../layouts/Base.astro";
 import { safeJsonLd } from "../../lib/escape";
 import { getLaw } from "../../lib/api.ts";
 import { bakeArticleSummaries } from "../../lib/article-summaries.ts";
+import { reformCanonicalPath } from "../../lib/reform-experiment.ts";
 import { loadArticleSummaries, loadManifest } from "../../lib/manifest.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
@@ -960,7 +961,13 @@ const seoDescription = [
 			<ul class="timeline">
 				{reforms.map((reform, i) => {
 					const isOriginal = i === reforms.length - 1;
-					const reformaUrl = !isOriginal ? `/cambios/reforma/?id=${id}&date=${reform.fecha}&from=law` : null;
+					// Link to the reform's canonical URL form (path for the
+					// experiment cohort, query for the rest) so internal links and
+					// the sitemap agree. `from=law` stays a UI-only param — it
+					// drives the back link and is absent from the canonical.
+					const reformaUrl = !isOriginal
+						? `${reformCanonicalPath(id, reform.fecha)}${reformCanonicalPath(id, reform.fecha).includes("?") ? "&" : "?"}from=law`
+						: null;
 					return (
 						<li class="timeline-item">
 							<div class="timeline-dot"></div>

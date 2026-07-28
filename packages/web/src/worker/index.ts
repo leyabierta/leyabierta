@@ -15,6 +15,7 @@
 // based (fast, complete) while still giving crawlers real SSR content on the
 // one route that needs it for SEO.
 
+import { reformCanonicalPath } from "../lib/reform-experiment.ts";
 import type {
 	AffectedBlock,
 	OmnibusResponse,
@@ -234,15 +235,50 @@ async function fetchJson<T>(
 
 type RenderFailure = { ok: false; status: number };
 
+/**
+ * A reform is addressable two ways:
+ *
+ *   /cambios/reforma/<normId>/<date>/     ← path form (preferred)
+ *   /cambios/reforma/?id=<normId>&date=<date>   ← legacy query form
+ *
+ * The query form is the original one, and as of 2026-07-28 Google had crawled
+ * exactly zero of its ~35k URLs: a URL Inspection sweep of 600 of them found
+ * 339 "Discovered - currently not indexed" and 261 unknown, with no
+ * `lastCrawlTime` on any. The working hypothesis is that 35k URLs differing
+ * only in query string read as faceted navigation, which Google declines to
+ * spend crawl budget on for a low-authority domain. The path form tests that.
+ *
+ * Both are accepted: the query form must keep working for existing links,
+ * bookmarks and the client-side shell, and it stays canonical for reforms not
+ * in the experiment — see `reformCanonicalPath`.
+ */
+export function parseReformRef(
+	url: URL,
+): { normId: string; date: string } | null {
+	const qId = url.searchParams.get("id");
+	const qDate = url.searchParams.get("date");
+	if (qId && qDate) return { normId: qId, date: qDate };
+
+	const rest = url.pathname.slice(REFORM_PATH_PREFIX.length).replace(/\/$/, "");
+	if (!rest) return null;
+	const parts = rest.split("/");
+	if (parts.length !== 2) return null;
+	const [rawId, rawDate] = parts;
+	if (!rawId || !rawDate) return null;
+	// Only ISO dates — anything else is a stray path, not a reform address.
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return null;
+	return { normId: decodeURIComponent(rawId), date: rawDate };
+}
+
 async function renderReformResponse(
 	env: Env,
 	url: URL,
 ): Promise<Response | RenderFailure> {
-	const normId = url.searchParams.get("id");
-	const date = url.searchParams.get("date");
-	// No params → the bare shell is a valid (noindex) page; serve it at 200,
+	const ref = parseReformRef(url);
+	// No id/date → the bare shell is a valid (noindex) page; serve it at 200,
 	// not 404, and let the client-side script show "Faltan parámetros".
-	if (!normId || !date) return { ok: false, status: 200 };
+	if (!ref) return { ok: false, status: 200 };
+	const { normId, date } = ref;
 
 	const apiBase = env.PUBLIC_API_URL || DEFAULT_API_BASE;
 	const headers: HeadersInit = env.API_BYPASS_KEY
@@ -331,7 +367,7 @@ async function renderReformResponse(
 		// Canonical intentionally omits `from`/`topic` — those are navigation
 		// context, not a distinct piece of content, and would otherwise create
 		// duplicate-content variants of the same reform for search engines.
-		const canonicalPath = `/cambios/reforma/?id=${encodeURIComponent(normId)}&date=${encodeURIComponent(date)}`;
+		const canonicalPath = reformCanonicalPath(normId, date);
 
 		html = injectMeta(injected, { title, description, canonicalPath });
 	} catch {
@@ -372,7 +408,17 @@ export default {
 			// static shell as-is (keeps its `noindex`, lets the existing
 			// client-side fetch script take over), mirroring the resolved
 			// status onto the response.
-			const shellRes = await env.ASSETS.fetch(request);
+			//
+			// Always request SHELL_PATH explicitly, never the inbound request:
+			// path-form URLs (/cambios/reforma/<id>/<date>/) have no asset of
+			// their own, so forwarding the request would 404 the fallback and
+			// hand crawlers a hard 404 for a reform that merely failed to
+			// render. The shell is the one asset that exists for every reform.
+			const shellRes = await env.ASSETS.fetch(
+				new Request(new URL(SHELL_PATH, url).toString(), {
+					headers: request.headers,
+				}),
+			);
 			if (result.status === shellRes.status) return shellRes;
 			return new Response(shellRes.body, {
 				status: result.status,

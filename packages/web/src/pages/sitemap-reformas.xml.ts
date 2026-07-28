@@ -18,6 +18,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { reformCanonicalPath } from "../lib/reform-experiment.ts";
 import { clampLastmod, isPlausibleReformDate } from "../lib/sitemap-dates.ts";
 
 export const prerender = true;
@@ -45,7 +46,14 @@ export const GET: APIRoute = async () => {
 
 			// lastmod must never be in the future (Google flags it as invalid).
 			const lastmod = clampLastmod(reforma.fecha, TODAY_ISO);
-			const loc = `${SITE_URL}/cambios/reforma/?id=${encodeURIComponent(d.identificador)}&amp;date=${encodeURIComponent(reforma.fecha)}`;
+			// Path form for the experiment cohort, query form for the rest. The
+			// sitemap must advertise exactly the URL the worker calls canonical,
+			// or we'd be asking Google to index a URL that points elsewhere.
+			const loc =
+				`${SITE_URL}${reformCanonicalPath(d.identificador, reforma.fecha)}`.replace(
+					/&(?!amp;)/g,
+					"&amp;",
+				);
 			urls.push(`  <url>
     <loc>${loc}</loc>
     <lastmod>${lastmod}</lastmod>
