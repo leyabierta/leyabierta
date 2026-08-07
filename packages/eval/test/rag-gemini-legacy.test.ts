@@ -117,13 +117,18 @@ describe("EMBEDDING_MODELS gemini-embedding-2", () => {
 		expect(model!.provider).toBe("openrouter");
 	});
 
-	test("qwen3-nan is unchanged (prod default not affected)", async () => {
+	test("qwen3-nan prod default: Qwen3-Embedding-8B via OpenRouter, 4096 dims", async () => {
+		// NaN was cancelled on 2026-08-07; the prod query embedding moved to
+		// OpenRouter's qwen/qwen3-embedding-8b — the SAME model at the SAME 4096
+		// dims, so the existing NaN-generated store stays compatible. The key is
+		// kept ('qwen3-nan') because it labels the DB/vectors.bin store.
 		const { EMBEDDING_MODELS } = await import(
 			"../../api/src/services/rag/embeddings.ts"
 		);
 		const model = EMBEDDING_MODELS["qwen3-nan"];
 		expect(model).toBeDefined();
 		expect(model!.dimensions).toBe(4096);
-		expect(model!.provider).toBe("nan");
+		expect(model!.provider).toBe("openrouter");
+		expect(model!.id).toBe("qwen/qwen3-embedding-8b");
 	});
 });

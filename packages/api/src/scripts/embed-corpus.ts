@@ -1,5 +1,11 @@
 /**
- * Generate qwen3-nan embeddings for vigente norms via api.nan.builders.
+ * Generate qwen3-nan embeddings for vigente norms.
+ *
+ * The provider is whatever EMBEDDING_MODELS['qwen3-nan'] declares. NaN was
+ * cancelled on 2026-08-07, so the model now resolves to OpenRouter
+ * qwen/qwen3-embedding-8b — the identical Qwen3-Embedding-8B (4096d), so new
+ * vectors stay compatible with the existing NaN-generated store (verified
+ * cosine ≈ 0.9999 on same-format re-embeds).
  *
  * Default mode is incremental: scans the `embeddings` table for blocks that
  * already have a `qwen3-nan` row and embeds only the missing ones. Safe to
@@ -11,8 +17,7 @@
  *   bun run packages/api/src/scripts/embed-corpus.ts --limit 50          # cap chunks
  *   bun run packages/api/src/scripts/embed-corpus.ts --norm-ids ID1,ID2  # specific norms
  *
- * Auth: reads NAN_API_KEY, falls back to HERMES_API_KEY (transitional naming
- * during the OpenRouter → NaN migration; the runtime still uses HERMES_API_KEY).
+ * Auth: OPENROUTER_API_KEY (openrouter provider) or NAN_API_KEY (nan provider).
  */
 
 import { Database } from "bun:sqlite";
@@ -36,10 +41,20 @@ if (!model) throw new Error(`Unknown model key: ${MODEL_KEY}`);
 const modelId = model.id;
 const modelDimensions = model.dimensions;
 
-const NAN_URL = "https://api.nan.builders/v1/embeddings";
-const apiKey = process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY;
+// Route by the model's declared provider so this batch path follows the same
+// migration as the runtime query path (embeddings.ts). openrouter reads
+// OPENROUTER_API_KEY; nan reads NAN_API_KEY.
+const isOpenRouter = model.provider === "openrouter";
+const EMBEDDINGS_URL = isOpenRouter
+	? "https://openrouter.ai/api/v1/embeddings"
+	: "https://api.nan.builders/v1/embeddings";
+const apiKey = isOpenRouter
+	? process.env.OPENROUTER_API_KEY
+	: (process.env.NAN_API_KEY ?? process.env.HERMES_API_KEY);
 if (!apiKey && !dryRun) {
-	console.error("NAN_API_KEY or HERMES_API_KEY required");
+	console.error(
+		`${isOpenRouter ? "OPENROUTER_API_KEY" : "NAN_API_KEY"} required`,
+	);
 	process.exit(1);
 }
 
@@ -133,7 +148,7 @@ if (dryRun) {
 	const totalChars = workBlocks.reduce((s, b) => s + b.text.length, 0);
 	const estTokens = Math.round(totalChars / 4);
 	console.log(
-		`\n[dry-run] Would embed ${workBlocks.length} chunks (~${estTokens.toLocaleString()} tokens, $0 via NaN)`,
+		`\n[dry-run] Would embed ${workBlocks.length} chunks (~${estTokens.toLocaleString()} tokens via ${model.provider ?? "nan"})`,
 	);
 	console.log(`Sample chunk:\n${workBlocks[0]?.text.slice(0, 300)}...`);
 	process.exit(0);
@@ -164,7 +179,7 @@ async function nanEmbed(texts: string[]): Promise<{
 		}
 		const reqStart = Date.now();
 		try {
-			const res = await fetch(NAN_URL, {
+			const res = await fetch(EMBEDDINGS_URL, {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${apiKey}`,

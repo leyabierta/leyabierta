@@ -622,12 +622,25 @@ export async function runRetrievalCore(
 	// 1. Analyze + embed query in parallel.
 	const analysisSpan = trace?.span("query-analysis", "llm", { question });
 	const analyzerApiKey = analyzerOverrides?.apiKey ?? apiKey;
+	// The query embedding must not take down the whole answer: if the embedding
+	// provider fails (expired key, outage), degrade to BM25-only retrieval rather
+	// than 500. `embedding: null` disables the vector leg below; BM25 still runs.
 	const [analysisResult, queryResult] = await Promise.all([
 		analyzeQuery(analyzerApiKey, question, {
 			model: analyzerOverrides?.model,
 			llmFn: analyzerOverrides?.llmFn,
 		}),
-		embedQueryFn(apiKey, embeddingModelKey, question),
+		embedQueryFn(apiKey, embeddingModelKey, question).catch(
+			(
+				err,
+			): { embedding: Float32Array | null; cost: number; tokens: number } => {
+				console.error(
+					"[rag] query embedding failed — degrading to BM25-only:",
+					err instanceof Error ? err.message : err,
+				);
+				return { embedding: null, cost: 0, tokens: 0 };
+			},
+		),
 	]);
 	const analyzed = analysisResult.query;
 	if (requestJurisdiction && !analyzed.jurisdiction) {
@@ -687,7 +700,7 @@ export async function runRetrievalCore(
 	const vectorSpan = trace?.span("vector-search", "tool", {
 		poolSize: RERANK_POOL_SIZE,
 		minSimilarity: MIN_SIMILARITY,
-		embeddingDims: queryResult.embedding.length,
+		embeddingDims: queryResult.embedding?.length ?? 0,
 	});
 
 	try {
@@ -725,7 +738,7 @@ export async function runRetrievalCore(
 			);
 			return r;
 		}),
-		(vectorIndex
+		(vectorIndex && queryResult.embedding
 			? vectorSearchPooled(
 					queryResult.embedding,
 					vectorIndex.meta,
@@ -996,7 +1009,14 @@ export async function runRetrievalCore(
 		};
 	}
 
-	if (bestScore < lowConfidenceThreshold) {
+	// The low-confidence gate only makes sense when the vector leg actually ran:
+	// bestScore is derived purely from vectorResults. If the query embedding was
+	// unavailable (provider failure → BM25-only degradation above) or the vector
+	// index is absent (circuit breaker open), bestScore is a meaningless 0 and
+	// this gate would falsely decline a perfectly good BM25 answer as
+	// "low_confidence". Skip it and return the BM25 articles we already have.
+	const vectorLegRan = !!vectorIndex && !!queryResult.embedding;
+	if (vectorLegRan && bestScore < lowConfidenceThreshold) {
 		return {
 			type: "early",
 			reason: "low_confidence",
