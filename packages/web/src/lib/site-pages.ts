@@ -27,6 +27,11 @@ export interface SitemapEntry {
 export const SECONDARY_PAGES: SitemapEntry[] = [
 	{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
 	{ path: "/cambios/recientes/", changefreq: "daily", priority: "0.7" },
+	// Topic hubs: new indexable pages that link into the corpus and target
+	// rising queries (fiscalidad/IVA, empleo). Register here or they repeat the
+	// /datos/ + /pregunta/ invisibility this list exists to prevent.
+	{ path: "/temas/fiscalidad/", changefreq: "weekly", priority: "0.7" },
+	{ path: "/temas/empleo/", changefreq: "weekly", priority: "0.7" },
 	// The clearest thing this site does that boe.es does not: answer a question
 	// in plain language. It was invisible to Google until 2026-07-28.
 	{ path: "/pregunta/", changefreq: "weekly", priority: "0.8" },
