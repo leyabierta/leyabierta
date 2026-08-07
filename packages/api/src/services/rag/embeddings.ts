@@ -22,10 +22,23 @@ export interface EmbeddingModel {
 }
 
 export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
+	/**
+	 * Prod default. The key name is HISTORICAL: the 493K corpus vectors were
+	 * first generated via NaN (api.nan.builders) under the label "qwen3-nan", and
+	 * both the SQLite `embeddings.model` column and the exported vectors.bin are
+	 * keyed by that string. Do NOT rename this key without relabeling the store —
+	 * pipeline.ts loads the vector index by EMBEDDING_MODEL_KEY.
+	 *
+	 * The MODEL is Qwen3-Embedding-8B (4096 dims, Apache 2.0). NaN was cancelled
+	 * on 2026-08-07, so the query embedding now comes from OpenRouter, which
+	 * serves the identical weights as `qwen/qwen3-embedding-8b` at the same 4096
+	 * dims. Same model → the OpenRouter query vectors are cross-compatible with
+	 * the NaN-generated store; no re-embed or vectors.bin rebuild is needed.
+	 */
 	"qwen3-nan": {
-		id: "qwen3-embedding",
+		id: "qwen/qwen3-embedding-8b",
 		dimensions: 4096,
-		provider: "nan",
+		provider: "openrouter",
 	},
 	/**
 	 * Gemini Embedding 2 — re-added as opt-in for A/B evaluation only.
@@ -102,9 +115,14 @@ export async function fetchWithRetry(
 		);
 	}
 
-	// OpenRouter path: uses the caller-provided apiKey directly (OPENROUTER_API_KEY).
+	// OpenRouter path: prefer OPENROUTER_API_KEY from the env so callers don't
+	// have to thread it (mirrors the NaN path's getNanApiKey() below). Prod's
+	// /v1/ask path already passes OPENROUTER_API_KEY here, but other callers
+	// (scripts, eval, the retrieval override signature) may thread a different or
+	// legacy key; reading the env prevents sending the wrong bearer to OpenRouter.
 	if (provider === "openrouter") {
-		if (!apiKey) {
+		const orKey = process.env.OPENROUTER_API_KEY ?? apiKey;
+		if (!orKey) {
 			throw new Error(
 				"OPENROUTER_API_KEY required for openrouter embedding provider",
 			);
@@ -117,7 +135,7 @@ export async function fetchWithRetry(
 				response = await fetch(OPENROUTER_EMBEDDINGS_URL, {
 					method: "POST",
 					headers: {
-						Authorization: `Bearer ${apiKey}`,
+						Authorization: `Bearer ${orKey}`,
 						"Content-Type": "application/json",
 						"HTTP-Referer": "https://leyabierta.es",
 						"X-Title": "Ley Abierta RAG (A/B eval)",
