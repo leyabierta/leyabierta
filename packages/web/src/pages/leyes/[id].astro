@@ -285,8 +285,32 @@ if (abbrev) {
 		if (short2digit !== full) seoAbbreviations.push(`${abbrev} ${short2digit}`); // "RD 769/87"
 	}
 }
+
+// ── SEO: verified per-norm colloquial aliases ──
+// Some norms are found by a plain-language phrase that differs from their
+// official title. We prepend a truthful alias to the SEO title/description ONLY
+// when the norm's own (canonical) frontmatter title confirms it — the build
+// data itself is the verification, so we can never misrepresent a norm to rank.
+const titleLC = law.titulo.toLowerCase();
+const verifiedAliases: string[] = [];
+// BOE-A-2013-154 — rising query "documento de control transporte de mercancías"
+// (pos ~89, 0 clics). Only applied if the official title really regulates a
+// "documento de control" for transport of goods, so a mismatched id can never
+// inherit a false alias.
+if (
+	id === "BOE-A-2013-154" &&
+	titleLC.includes("documento de control") &&
+	(titleLC.includes("mercanc") || titleLC.includes("transporte"))
+) {
+	verifiedAliases.push("Documento de control de transporte de mercancías");
+}
+
+// Lead with a verified colloquial alias when present, else the rank abbreviation.
+const seoAltNames = [...verifiedAliases, ...seoAbbreviations];
+const seoLeadAlias = seoAltNames[0];
+
 const seoDescription = [
-	seoAbbreviations[0],
+	seoLeadAlias,
 	citizenSummary || (RANK_LABELS[law.rango] ?? law.rango),
 	law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
 	law.departamento,
@@ -294,7 +318,7 @@ const seoDescription = [
 ---
 
 <Base
-	title={seoAbbreviations[0] ? `${seoAbbreviations[0]} — ${law.titulo}` : law.titulo}
+	title={seoLeadAlias ? `${seoLeadAlias} — ${law.titulo}` : law.titulo}
 	description={seoDescription}
 	ogTitle={law.titulo}
 	ogType="article"
@@ -320,7 +344,7 @@ const seoDescription = [
 		"inLanguage": "es",
 		"url": `https://leyabierta.es/leyes/${id}/`,
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
-		...(seoAbbreviations.length > 0 ? { "alternateName": seoAbbreviations } : {}),
+		...(seoAltNames.length > 0 ? { "alternateName": seoAltNames } : {}),
 		...(law.fuente ? { "sameAs": law.fuente } : {})
 	})} />
 	<script type="application/ld+json" set:html={safeJsonLd({
@@ -788,7 +812,7 @@ const seoDescription = [
 				<span class="badge" style="background: var(--accent-bg); color: var(--accent);">{RANK_LABELS[law.rango] ?? law.rango}</span>
 			</div>
 			<h1 class="law-title">{law.titulo}</h1>
-			{seoAbbreviations.length > 0 && <span class="sr-only">También conocida como: {seoAbbreviations.join(", ")}</span>}
+			{seoAltNames.length > 0 && <span class="sr-only">También conocida como: {seoAltNames.join(", ")}</span>}
 		</div>
 		<a href={`https://www.boe.es/buscar/act.php?id=${law.identificador}`} target="_blank" rel="noopener" class="boe-btn">
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>

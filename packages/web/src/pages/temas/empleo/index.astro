@@ -1,0 +1,188 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../../layouts/Base.astro";
+import { safeJsonLd } from "../../../lib/escape";
+
+// ── Hub page: legislación laboral y de empleo ──────────────────────────────
+// Groups the main Spanish labour/employment laws into a single topical entity
+// so Google understands the "legislación laboral" cluster and to strengthen
+// internal linking towards the individual norm pages. Targets the rising query
+// "ley de empleo" (which currently lands on the home page, pos ~72).
+//
+// This is a *curated* hub, not a programmatic dump: each entry is a well-known
+// labour law referenced by its BOE id and rendered only if it actually exists
+// in the corpus, always using the real title from its frontmatter (never a
+// hardcoded/invented one). Any id not present in `getCollection("laws")` is
+// silently dropped, so we never emit a broken link or a made-up title. We
+// deliberately avoid a broad keyword filter over `materias`/titles because it
+// floods the list with low-quality matches (spam-like) and drops flagship
+// norms that carry no `materias`.
+
+const laws = await getCollection("laws");
+
+// Dedup by identificador (data-integrity invariant: one norm, one entry).
+const byId = new Map<string, (typeof laws)[number]["data"]>();
+for (const e of laws) {
+	if (!byId.has(e.data.identificador)) byId.set(e.data.identificador, e.data);
+}
+
+// Curated groups of major Spanish labour and employment legislation. Order
+// within each group is intentional (most-consulted first).
+const GROUPS: { heading: string; ids: string[] }[] = [
+	{
+		heading: "Normas laborales fundamentales",
+		ids: [
+			"BOE-A-2015-11430", // RDLeg 2/2015 — Estatuto de los Trabajadores
+			"BOE-A-2023-5365", //  Ley 3/2023 — de Empleo
+			"BOE-A-2007-13409", // Ley 20/2007 — Estatuto del trabajo autónomo
+			"BOE-A-1985-16660", // LO 11/1985 — Libertad sindical
+		],
+	},
+	{
+		heading: "Seguridad Social y empleo público",
+		ids: [
+			"BOE-A-2015-11724", // RDLeg 8/2015 — Ley General de la Seguridad Social
+			"BOE-A-2015-11719", // RDLeg 5/2015 — Estatuto Básico del Empleado Público
+		],
+	},
+	{
+		heading: "Prevención, sanciones y jurisdicción",
+		ids: [
+			"BOE-A-1995-24292", // Ley 31/1995 — Prevención de riesgos laborales
+			"BOE-A-2000-15060", // RDLeg 5/2000 — Infracciones y sanciones en el orden social
+			"BOE-A-2011-15936", // Ley 36/2011 — Jurisdicción social
+		],
+	},
+];
+
+// Resolve each curated id against the corpus; drop any that isn't present so we
+// never emit a broken link or a made-up title.
+const resolvedGroups = GROUPS.map((g) => ({
+	heading: g.heading,
+	items: g.ids.map((id) => byId.get(id)).filter((d): d is NonNullable<typeof d> => !!d),
+})).filter((g) => g.items.length > 0);
+
+const totalLaboral = resolvedGroups.reduce((n, g) => n + g.items.length, 0);
+
+const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function formatDate(iso: string): string {
+	if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+	const [y, m, d] = iso.split('-');
+	return `${parseInt(d!, 10)} de ${MONTHS[parseInt(m!, 10) - 1]} de ${y}`;
+}
+---
+
+<Base
+	title="Legislación laboral y de empleo en España"
+	description={`Las principales leyes laborales y de empleo en España consolidadas: el Estatuto de los Trabajadores, la Ley de Empleo, la Seguridad Social y la prevención de riesgos, con su texto completo y su historial de cambios.`}
+	ogTitle="Legislación laboral y de empleo en España"
+	canonicalUrl="/temas/empleo/"
+>
+	<script type="application/ld+json" set:html={safeJsonLd({
+		"@context": "https://schema.org",
+		"@type": "BreadcrumbList",
+		"itemListElement": [
+			{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
+			{ "@type": "ListItem", "position": 2, "name": "Legislación laboral y de empleo", "item": "https://leyabierta.es/temas/empleo/" }
+		]
+	})} />
+
+	<style>
+		.tema-wrap { max-width: 680px; margin: 0 auto; padding: 40px 24px 64px; }
+		.tema-kicker {
+			font-family: var(--font-mono);
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 2.4px;
+			color: var(--text-muted);
+			margin-bottom: 12px;
+			font-weight: 500;
+		}
+		.tema-wrap h1 {
+			font-family: var(--font-serif);
+			font-size: 36px;
+			font-weight: 700;
+			line-height: 1.15;
+			color: var(--text);
+			margin: 0 0 6px;
+			letter-spacing: -0.4px;
+		}
+		@media (max-width: 640px) { .tema-wrap h1 { font-size: 28px; } }
+		.tema-subtitle {
+			font-size: 16px;
+			color: var(--text-muted);
+			margin-bottom: 32px;
+			line-height: 1.55;
+		}
+		.tema-wrap h2 {
+			font-family: var(--font-serif);
+			font-size: 19px;
+			font-weight: 600;
+			color: var(--text);
+			margin: 36px 0 14px;
+			padding-bottom: 8px;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.tema-wrap p { font-size: 15px; line-height: 1.7; color: var(--text-secondary); margin: 0 0 14px; }
+
+		.tema-list { list-style: none; padding: 0; margin: 0; }
+		.tema-list li { padding: 14px 0; border-bottom: 1px solid var(--border-light); }
+		.tema-list a { font-family: var(--font-serif); font-size: 16px; font-weight: 600; color: var(--text); }
+		.tema-list a:hover { color: var(--accent); text-decoration: none; }
+		.tema-meta { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+		.tema-id { font-family: var(--font-mono); font-size: 11px; }
+
+		.tema-note { font-size: 13px; color: var(--text-muted); font-style: italic; margin-top: 28px; }
+		.tema-empty { font-size: 15px; color: var(--text-muted); }
+	</style>
+
+	<div class="tema-wrap prose">
+		<div class="tema-kicker">TEMA · TRABAJO Y EMPLEO</div>
+		<h1>Legislación laboral y de empleo en España</h1>
+		<p class="tema-subtitle">
+			Las leyes que regulan el trabajo y el empleo en España, reunidas en un solo
+			lugar: el Estatuto de los Trabajadores, la Ley de Empleo, la Seguridad
+			Social, la prevención de riesgos y el empleo público.
+		</p>
+
+		<p>
+			El marco laboral español se articula en torno a un conjunto de leyes que
+			definen los derechos y deberes de trabajadores y empresas: qué es un
+			contrato, cómo funciona un despido, qué protección da la Seguridad Social o
+			cómo se previenen los riesgos en el trabajo. Aquí reunimos las principales
+			normas laborales consolidadas, con su texto completo y su historial de
+			cambios enlazado. Todos los textos proceden del
+			<a href="https://www.boe.es" target="_blank" rel="noopener">BOE</a> y se
+			actualizan cada día.
+		</p>
+
+		{resolvedGroups.map((g) => (
+			<>
+				<h2>{g.heading}</h2>
+				<ul class="tema-list">
+					{g.items.map((d) => (
+						<li>
+							<a href={`/leyes/${d.identificador}/`}>{d.titulo}</a>
+							<div class="tema-meta">
+								{formatDate(d.fecha_publicacion)}
+								{d.ultima_actualizacion && d.ultima_actualizacion !== d.fecha_publicacion && (
+									<> · actualizada el {formatDate(d.ultima_actualizacion)}</>
+								)}
+								{' '}· <span class="tema-id">{d.identificador}</span>
+							</div>
+						</li>
+					))}
+				</ul>
+			</>
+		))}
+
+		{totalLaboral === 0 && (
+			<p class="tema-empty">Aún no hay normas laborales indexadas en esta sección.</p>
+		)}
+
+		<p class="tema-note">
+			Ley Abierta informa, no asesora. Ante una duda laboral concreta, consulta el
+			texto oficial en el BOE o a un profesional.
+		</p>
+	</div>
+</Base>
