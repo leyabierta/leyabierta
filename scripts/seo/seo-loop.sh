@@ -80,6 +80,19 @@ git clean -fdq
 bun run scripts/seo/pull-gsc.ts
 bun run scripts/seo/pull-umami.ts
 
+# ── 1b. Agent-readiness regression check ────────────────────────────────────
+# Non-fatal: an AI agent surfaces more of our traffic than classic crawlers now,
+# so a silent regression (Cloudflare Managed robots.txt injecting AI blocks, a
+# dropped llms.txt, broken Markdown negotiation) is a real risk the loop should
+# surface. It reads production over HTTP; the report feeds into the weekly review
+# but never blocks the run.
+AGENT_REPORT="$SEO_DATA_DIR/agent-readiness-${DATE}.md"
+if bun run scripts/seo/check-agent-readiness.ts > "$AGENT_REPORT" 2>&1; then
+	echo "agent-readiness: PASS ($AGENT_REPORT)"
+else
+	echo "agent-readiness: FAIL — regression detected, see $AGENT_REPORT" >&2
+fi
+
 # ── 2. Plan ─────────────────────────────────────────────────────────────────
 MODEL="$MODEL" bun run scripts/seo/plan.ts
 PLAN_FILE="$(ls -t "$SEO_DATA_DIR"/plan-*-"${DATE}".json | head -1)"

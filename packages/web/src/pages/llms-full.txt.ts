@@ -107,6 +107,16 @@ ${rankLines}
 
 ## API REST — Referencia completa
 
+### Preguntar en lenguaje natural (RAG, recomendado)
+\`POST /v1/ask\`
+
+Cuerpo: \`{"question": "¿Cuántos días de vacaciones me corresponden?"}\`
+
+Devuelve una respuesta en lenguaje llano fundamentada en la legislación vigente, con citas verificables a artículos concretos en formato \`[BOE-A-XXXX-XXXX, Artículo N]\`. Cada cita se comprueba contra un artículo real (verificación post-hoc). Es la vía preferente para un agente: pregunta directa → respuesta citada, en vez de buscar y leer manualmente. Streaming vía SSE disponible.
+
+### Texto de cualquier ley en Markdown
+Cualquier ficha de ley sirve su texto en Markdown limpio con la cabecera \`Accept: text/markdown\` (negociación de contenido), p.ej. \`GET https://leyabierta.es/leyes/:id/\` con \`Accept: text/markdown\`. Evita parsear HTML para citar el articulado.
+
 ### Buscar leyes
 \`GET /v1/laws\`
 
