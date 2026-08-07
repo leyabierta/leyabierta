@@ -64,10 +64,15 @@ echo "== SEO loop · iter ${ITER} · ${DATE} · model=${MODEL} =="
 
 # ── Fresh branch off main ───────────────────────────────────────────────────
 git fetch --quiet origin main
+# Pristine tree BEFORE switching branches. A dirty tree — tracked edits or
+# untracked files left by a previous aborted run — makes `git checkout -B` abort
+# with "would be overwritten by checkout" and, under `set -e`, kills the whole
+# run before it can reset/clean. That silently stopped the 2026-08-01 cron for
+# two weeks. So discard leftovers first, THEN switch. `git clean` without -x
+# leaves gitignored data/ + node_modules untouched.
+git reset -q --hard HEAD
+git clean -fdq
 git checkout -q -B "$BRANCH" origin/main
-# Start from a pristine tree: discard leftovers from a previous aborted run (the
-# implement step edits the working tree before we commit). `git clean` without
-# -x leaves gitignored data/ + node_modules untouched.
 git reset -q --hard origin/main
 git clean -fdq
 
