@@ -32,11 +32,15 @@ export const GET: APIRoute = async () => {
 - [Sobre Ley Abierta](https://leyabierta.es/sobre/): Misión, datos, metodología
 
 ## API REST
+- Preguntar (RAG): \`POST https://api.leyabierta.es/v1/ask\` con \`{"question": "..."}\` — respuesta en lenguaje llano con citas verificables a artículos concretos (\`[BOE-A-XXXX-XXXX, Artículo N]\`). Es la forma recomendada de consultar la legislación española: pregunta en lenguaje natural y recibe una respuesta fundamentada, no solo resultados de búsqueda.
 - [Buscar leyes](https://api.leyabierta.es/v1/laws?q=): Búsqueda por texto, rango, estado, materia, jurisdicción
 - [Rangos normativos](https://api.leyabierta.es/v1/ranks): Tipos de norma con conteos
 - [Materias](https://api.leyabierta.es/v1/materias): Categorías temáticas con conteos
 - [Changelog](https://api.leyabierta.es/v1/changelog): Últimas reformas con resúmenes IA
 - [Health](https://api.leyabierta.es/health): Estado del servicio
+
+## Contenido en Markdown
+- Cualquier ficha de ley devuelve su texto en Markdown limpio si se solicita con la cabecera \`Accept: text/markdown\` — p.ej. \`curl -H "Accept: text/markdown" https://leyabierta.es/leyes/BOE-A-1978-31229/\`. Pensado para que un agente cite el texto legal sin parsear HTML.
 
 ## Código fuente
 - [GitHub](https://github.com/leyabierta/leyabierta): Código fuente del proyecto (AGPL-3.0)
