@@ -10,6 +10,10 @@ version: 2
 # (read by setup-bun via `bun-version-file`). Dependabot has no updater for
 # that field, so the Docker PR below is the signal to bump it — keep the two
 # in sync by hand, they are one version on purpose.
+#
+# That is not left to discipline: scripts/__tests__/toolchain-pin.test.ts fails
+# when the Dockerfile and package.json disagree, so a Docker-only bump goes red
+# in its own PR instead of reintroducing the drift.
 
 updates:
   - package-ecosystem: github-actions
