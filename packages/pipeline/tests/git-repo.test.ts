@@ -53,6 +53,17 @@ afterEach(() => {
 	rmSync(tempDir, { recursive: true, force: true });
 });
 
+// Assigning `undefined` to a process.env key coerces it to the truthy string
+// "undefined" (Bun >= 1.4, matching Node). Only `delete` actually unsets it.
+function restoreTZ(origTZ: string | undefined) {
+	if (origTZ === undefined) {
+		// biome-ignore lint/performance/noDelete: `delete` is the only way to unset an env var
+		delete process.env.TZ;
+	} else {
+		process.env.TZ = origTZ;
+	}
+}
+
 describe("GitRepo", () => {
 	describe("init", () => {
 		test("creates a git repo", async () => {
@@ -490,11 +501,7 @@ describe("Idempotency and TZ-stability", () => {
 		try {
 			await writeCommit(repoA, info);
 		} finally {
-			if (origTZ === undefined) {
-				process.env.TZ = undefined;
-			} else {
-				process.env.TZ = origTZ;
-			}
+			restoreTZ(origTZ);
 		}
 
 		// Repo B — run with TZ=UTC
@@ -502,11 +509,7 @@ describe("Idempotency and TZ-stability", () => {
 		try {
 			await writeCommit(repoB, info);
 		} finally {
-			if (origTZ === undefined) {
-				process.env.TZ = undefined;
-			} else {
-				process.env.TZ = origTZ;
-			}
+			restoreTZ(origTZ);
 		}
 
 		const datesA = readAuthorDates(repoA);

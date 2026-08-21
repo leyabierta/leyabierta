@@ -36,6 +36,13 @@ const VALID_MANIFEST = {
 	},
 };
 
+// Assigning `undefined` to a process.env key coerces it to the truthy string
+// "undefined" (Bun >= 1.4, matching Node). Only `delete` actually unsets it.
+function clearManifestPath() {
+	// biome-ignore lint/performance/noDelete: `delete` is the only way to unset an env var
+	delete process.env.BUILD_MANIFEST_PATH;
+}
+
 beforeEach(() => {
 	mkdirSync(TEST_DIR, { recursive: true });
 	// Clear module cache to reset the _manifest singleton
@@ -45,7 +52,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	process.env.BUILD_MANIFEST_PATH = undefined;
+	clearManifestPath();
 	if (existsSync(TEST_DIR)) {
 		rmSync(TEST_DIR, { recursive: true });
 	}
@@ -53,7 +60,7 @@ afterEach(() => {
 
 describe("loadManifest()", () => {
 	it("returns null when BUILD_MANIFEST_PATH is not set", () => {
-		process.env.BUILD_MANIFEST_PATH = undefined;
+		clearManifestPath();
 		expect(loadManifest()).toBeNull();
 	});
 

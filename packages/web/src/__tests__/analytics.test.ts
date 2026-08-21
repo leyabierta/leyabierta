@@ -69,6 +69,15 @@ function uninstallWindow() {
 	(globalThis as { navigator?: unknown }).navigator = undefined;
 }
 
+// `import.meta.env` aliases `process.env`, whose values are coerced to strings.
+// Assigning `undefined` yields the truthy string "undefined" (Bun >= 1.4, matching
+// Node), so the variable must be removed with `delete` to simulate "not set".
+function clearWebsiteId() {
+	// biome-ignore lint/performance/noDelete: `delete` is the only way to unset an env var
+	delete (import.meta.env as { PUBLIC_UMAMI_WEBSITE_ID?: string })
+		.PUBLIC_UMAMI_WEBSITE_ID;
+}
+
 // ---------- track() ----------
 
 describe("track()", () => {
@@ -184,9 +193,7 @@ describe("sendOutboundClick()", () => {
 		).PUBLIC_UMAMI_WEBSITE_ID = "test-uuid";
 	});
 	afterEach(() => {
-		(
-			import.meta.env as { PUBLIC_UMAMI_WEBSITE_ID?: string }
-		).PUBLIC_UMAMI_WEBSITE_ID = undefined;
+		clearWebsiteId();
 		uninstallWindow();
 	});
 
@@ -217,9 +224,7 @@ describe("sendOutboundClick()", () => {
 	});
 
 	it("is a no-op when website ID env var is missing", () => {
-		(
-			import.meta.env as { PUBLIC_UMAMI_WEBSITE_ID?: string }
-		).PUBLIC_UMAMI_WEBSITE_ID = undefined;
+		clearWebsiteId();
 		const beacon = mock(() => true);
 		(
 			globalThis as unknown as { navigator: { sendBeacon: typeof beacon } }
