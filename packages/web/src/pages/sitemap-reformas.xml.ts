@@ -10,7 +10,10 @@
  *
  * One of two child sitemaps referenced by the /sitemap.xml index.
  *
- * TODO: reformas count (~44k) fits under the 50k-URL sitemap protocol limit
+ * Which URLs qualify lives in lib/reform-sitemap.ts so the rules are testable
+ * without a build; this file only renders them.
+ *
+ * TODO: reformas count (~34.5k) fits under the 50k-URL sitemap protocol limit
  * today, but doesn't have much headroom. If it grows past ~48k, split this
  * file by year (sitemap-reformas-2024.xml, sitemap-reformas-2025.xml, ...)
  * and update the index in sitemap.xml.ts accordingly.
@@ -18,8 +21,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
-import { reformCanonicalPath } from "../lib/reform-experiment.ts";
-import { clampLastmod, isPlausibleReformDate } from "../lib/sitemap-dates.ts";
+import { reformSitemapEntries } from "../lib/reform-sitemap.ts";
 
 export const prerender = true;
 
@@ -30,38 +32,19 @@ const MAX_YEAR = new Date().getUTCFullYear() + 1;
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
 
-	const urls: string[] = [];
+	const entries = reformSitemapEntries(
+		laws.map((l) => l.data),
+		{ siteUrl: SITE_URL, todayIso: TODAY_ISO, maxYear: MAX_YEAR },
+	);
 
-	for (const law of laws) {
-		const d = law.data;
-		for (const reforma of d.reformas) {
-			// The original version's "reforma" entry shares the law's publication
-			// date — it's not a change, it's the law coming into existence. Skip it;
-			// that content lives at /leyes/<id>/, not /cambios/reforma/.
-			if (reforma.fecha === d.fecha_publicacion) continue;
-			// Drop corrupt pipeline dates (e.g. year 2929) — Google rejected the
-			// whole sitemap over 160 such "Invalid date" lastmods, keeping ~35k
-			// reform URLs out of the index.
-			if (!isPlausibleReformDate(reforma.fecha, MAX_YEAR)) continue;
-
-			// lastmod must never be in the future (Google flags it as invalid).
-			const lastmod = clampLastmod(reforma.fecha, TODAY_ISO);
-			// Path form for the experiment cohort, query form for the rest. The
-			// sitemap must advertise exactly the URL the worker calls canonical,
-			// or we'd be asking Google to index a URL that points elsewhere.
-			const loc =
-				`${SITE_URL}${reformCanonicalPath(d.identificador, reforma.fecha)}`.replace(
-					/&(?!amp;)/g,
-					"&amp;",
-				);
-			urls.push(`  <url>
+	const urls = entries.map(
+		({ loc, lastmod }) => `  <url>
     <loc>${loc}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>never</changefreq>
     <priority>0.5</priority>
-  </url>`);
-		}
-	}
+  </url>`,
+	);
 
 	const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

@@ -35,11 +35,22 @@ export const isoDay = (offsetDays = 0): string =>
 export const today = (): string => isoDay(0);
 
 // ── GSC auth: signed JWT → access token (no google-auth-library) ────────────
-let cachedToken: { token: string; exp: number } | null = null;
+/** Read-only scope: everything the loop does except submitting a sitemap. */
+export const GSC_SCOPE_READONLY =
+	"https://www.googleapis.com/auth/webmasters.readonly";
+/** Write scope: only needed to (re)submit a sitemap. */
+export const GSC_SCOPE_WRITE = "https://www.googleapis.com/auth/webmasters";
 
-export async function gscToken(): Promise<string> {
+// Keyed by scope: a readonly token must never be handed to a write call, and a
+// cache that ignored the scope would do exactly that.
+const cachedTokens = new Map<string, { token: string; exp: number }>();
+
+export async function gscToken(
+	scope: string = GSC_SCOPE_READONLY,
+): Promise<string> {
 	const nowSec = Math.floor(Date.now() / 1000);
-	if (cachedToken && cachedToken.exp > nowSec + 60) return cachedToken.token;
+	const cached = cachedTokens.get(scope);
+	if (cached && cached.exp > nowSec + 60) return cached.token;
 	if (!GSC_SA_JSON) {
 		throw new Error(
 			"SEO_GSC_SA_JSON is not set (path to the GSC service-account key JSON).",
@@ -55,7 +66,7 @@ export async function gscToken(): Promise<string> {
 		);
 	const claims = {
 		iss: key.client_email,
-		scope: "https://www.googleapis.com/auth/webmasters.readonly",
+		scope,
 		aud: "https://oauth2.googleapis.com/token",
 		iat: nowSec,
 		exp: nowSec + 3600,
@@ -83,7 +94,7 @@ export async function gscToken(): Promise<string> {
 			`GSC token error: ${json.error_description ?? JSON.stringify(json)}`,
 		);
 	}
-	cachedToken = { token: json.access_token, exp: nowSec + 3600 };
+	cachedTokens.set(scope, { token: json.access_token, exp: nowSec + 3600 });
 	return json.access_token;
 }
 
