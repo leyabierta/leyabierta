@@ -1,0 +1,31 @@
+version: 2
+
+# Why this file exists: on 2026-08-21 the daily Deploy broke because the
+# workflows pinned `bun-version: latest` and Bun 1.4.0 shipped overnight,
+# changing `process.env.X = undefined` from "delete the key" to the Node
+# behaviour of coercing to the string "undefined". Pinning removes that class
+# of surprise; Dependabot is what keeps the pins from silently rotting.
+#
+# Note on Bun itself: the version lives in `package.json` -> `packageManager`
+# (read by setup-bun via `bun-version-file`). Dependabot has no updater for
+# that field, so the Docker PR below is the signal to bump it — keep the two
+# in sync by hand, they are one version on purpose.
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(docker)"

@@ -48,6 +48,13 @@ const FULL_MANIFEST = {
 	},
 };
 
+// Assigning `undefined` to a process.env key coerces it to the truthy string
+// "undefined" (Bun >= 1.4, matching Node). Only `delete` actually unsets it.
+function clearManifestPath() {
+	// biome-ignore lint/performance/noDelete: `delete` is the only way to unset an env var
+	delete process.env.BUILD_MANIFEST_PATH;
+}
+
 beforeEach(() => {
 	mkdirSync(TEST_DIR, { recursive: true });
 	delete require.cache[require.resolve("../lib/manifest.ts")];
@@ -56,7 +63,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	process.env.BUILD_MANIFEST_PATH = undefined;
+	clearManifestPath();
 	if (existsSync(TEST_DIR)) {
 		rmSync(TEST_DIR, { recursive: true });
 	}
@@ -119,7 +126,7 @@ describe("Build manifest integration", () => {
 	});
 
 	it("falls back to null when no manifest is present", () => {
-		process.env.BUILD_MANIFEST_PATH = undefined;
+		clearManifestPath();
 		const manifest = loadManifest();
 		expect(manifest).toBeNull();
 	});
