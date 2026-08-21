@@ -236,6 +236,19 @@ const SCHEMA_SQL = /* sql */ `
   CREATE INDEX IF NOT EXISTS idx_embeddings_model ON embeddings(model);
   CREATE INDEX IF NOT EXISTS idx_embeddings_norm_id ON embeddings(norm_id);
 
+  -- Covers the int8 index rebuild: WHERE model = ? ORDER BY norm_id, block_id.
+  -- Without it SQLite satisfies the filter with idx_embeddings_model and then
+  -- sorts through a TEMP B-TREE — materialising ~494k rows whose payload is a
+  -- 16 KB vector blob each, about 8 GB. That defeats the streaming design of
+  -- buildInt8IndexFromDb (which otherwise peaks at ~20 MB) and the kernel kills
+  -- the API mid-rebuild, in a restart loop, on boot.
+  --
+  -- Not theoretical: it took the API down on 2026-08-21. The PRIMARY KEY cannot
+  -- serve this query — its leading column is norm_id, so "model = ?" is not a
+  -- prefix. Column order here is what matters: equality column first, then the
+  -- ORDER BY columns.
+  CREATE INDEX IF NOT EXISTS idx_embeddings_model_order ON embeddings(model, norm_id, block_id);
+
   -- RAG ask log: tracks user questions, answers, and quality metrics
   CREATE TABLE IF NOT EXISTS ask_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

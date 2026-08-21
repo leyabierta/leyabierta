@@ -89,6 +89,15 @@ export class DbService {
 			db.exec(
 				"CREATE INDEX IF NOT EXISTS idx_norms_source_url ON norms(source_url)",
 			);
+			// Unlike the two above, a missing index here is not "a slower query":
+			// the int8 rebuild sorts 494k rows carrying 16 KB vector blobs through
+			// a TEMP B-TREE (~8 GB) and the API is killed on boot, in a loop. It
+			// happened on 2026-08-21. The pipeline schema declares this index too;
+			// it is repeated here so an API that boots against a database the
+			// current ingest has not touched still rebuilds instead of crashing.
+			db.exec(
+				"CREATE INDEX IF NOT EXISTS idx_embeddings_model_order ON embeddings(model, norm_id, block_id)",
+			);
 		} catch {
 			// Read-only connection or concurrent writer — fall back to scans.
 		}
