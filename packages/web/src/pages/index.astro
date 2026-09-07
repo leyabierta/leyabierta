@@ -1,6 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
+import TopicHubs from "../components/TopicHubs.astro";
 
 const laws = await getCollection("laws");
 
@@ -755,6 +756,9 @@ const TOPICS = [
 				</div>
 			</div>
 		</section>
+
+		<!-- ── Temas ── -->
+		<TopicHubs />
 
 		<!-- ── Explícame una ley ── -->
 		<section class="explicame animate-on-scroll">

@@ -9,6 +9,7 @@ import { getLaw } from "../../lib/api.ts";
 import { bakeArticleSummaries } from "../../lib/article-summaries.ts";
 import { reformCanonicalPath } from "../../lib/reform-experiment.ts";
 import { loadArticleSummaries, loadManifest } from "../../lib/manifest.ts";
+import { hubsForLaw } from "../../components/topic-hubs";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
@@ -156,6 +157,11 @@ export async function getStaticPaths() {
 const { entry, allIds, related } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
+
+// Topic hubs this norm is curated into, so the page can link back to them.
+// The hub→ley link already existed; without this one the cluster is a dead end
+// and the hubs sat with no inbound internal links at all (see topic-hubs.ts).
+const lawHubs = hubsForLaw(id!);
 
 // Fetch citizen data (summary + tags).
 // If a build manifest is present (CI), read from local file (zero network calls).
@@ -328,12 +334,18 @@ const seoDescription = [
 		"@type": "BreadcrumbList",
 		"itemListElement": [
 			{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
-			{ "@type": "ListItem", "position": 2, "name": law.titulo, "item": `https://leyabierta.es/leyes/${id}/` }
+			...(lawHubs[0]
+				? [{ "@type": "ListItem", "position": 2, "name": lawHubs[0].backlinkLabel, "item": `https://leyabierta.es${lawHubs[0].path}` }]
+				: []),
+			{ "@type": "ListItem", "position": lawHubs[0] ? 3 : 2, "name": law.titulo, "item": `https://leyabierta.es/leyes/${id}/` }
 		]
 	})} />
 	<style>
 		.back-link { font-size: 0.8125rem; color: var(--text-muted); }
 		.back-link:hover { color: var(--text-secondary); }
+
+		.meta-hub { color: var(--accent); }
+		.meta-hub:hover { text-decoration: underline; }
 
 		.law-header {
 			display: flex;
@@ -817,6 +829,12 @@ const seoDescription = [
 		</span>
 		<span class="meta-sep">&middot;</span>
 		<span class="meta-item meta-id">{id}</span>
+		{lawHubs.map(hub => (
+			<>
+				<span class="meta-sep">&middot;</span>
+				<a class="meta-item meta-hub" href={hub.path}>{hub.backlinkLabel}</a>
+			</>
+		))}
 	</div>
 
 	<!-- Tabs -->
