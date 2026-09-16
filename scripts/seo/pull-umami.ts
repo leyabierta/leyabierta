@@ -3,9 +3,13 @@
 // Postgres). Complements GSC: which landing pages engage, where visitors come
 // from, what utm campaigns bring traffic.
 //
-//   bun run scripts/seo/pull-umami.ts            # on KonarServer (docker exec)
-//   SEO_UMAMI_ARGV='["ssh","KonarServer","docker","exec","-i","code-umami-db-1","psql","-U","umami","-d","umami"]' \
-//     bun run scripts/seo/pull-umami.ts          # off-server, via ssh
+//   bun run scripts/seo/pull-umami.ts                     # on KonarServer
+//   SEO_UMAMI_SSH_HOST=KonarServer \
+//     bun run scripts/seo/pull-umami.ts                   # off-server, via ssh
+//
+// Do NOT try to wrap the command in ssh by hand through SEO_UMAMI_ARGV: ssh
+// joins its argv into one string that the remote shell re-splits, which shreds
+// the SQL. SEO_UMAMI_SSH_HOST quotes it properly — see shQuote in lib.ts.
 //
 // Writes data/seo/umami-<date>.json and refreshes data/seo/umami-latest.json.
 
