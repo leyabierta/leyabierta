@@ -93,32 +93,35 @@ reflejarlo.
 
 ### El dato que reencuadra el problema: no es el sitio, es Google
 
-> **Cifras del 2026-08-21, sin actualizar.** `pull-umami.ts` lee la base de
-> Umami por `docker exec` en KonarServer, y el servidor no es alcanzable desde
-> el portátil cuando Tailscale está en otro tailnet. Las iteraciones 3 y 4 se
-> corrieron sin la mitad Umami del snapshot.
+Umami, 28 días a 2026-09-16 — **982 sesiones, 1.603 páginas vistas**:
 
-Umami, 28 días a 2026-08-18 (893 visitas totales, +5% sobre el periodo anterior):
+| Fuente | 2026-09-16 | 2026-08-18 |
+|--------|-----------:|-----------:|
+| Ecosistema Bing (Bing, Yahoo, DuckDuckGo, Ecosia) | **717** | 334 |
+| Asistentes de IA (ChatGPT, Copilot, Perplexity) | **43** | ~25 |
+| **Google** | **3** | 2 |
+| datos.gob.es | 0 | — |
 
-| Fuente | Visitas |
-|--------|---------|
-| Ecosistema Bing (Bing, Yahoo, DuckDuckGo, Ecosia) | **334** |
-| Asistentes de IA (ChatGPT, Copilot, Kagi, Perplexity) | **~25** |
-| **Google** | **2** |
-
-Bing rastrea el sitio, lo indexa y manda 334 visitas. Google manda 2 con 1.111
-impresiones. Los mismos artículos que Google deja en "Rastreada: actualmente sin
-indexar" a Bing le parecen suficientemente útiles para posicionarlos.
+El tráfico se ha duplicado y la asimetría, lejos de corregirse, se ha agravado:
+**Bing manda 239 visitas por cada una de Google**, con 2.167 impresiones de
+Google en la misma ventana. Los mismos artículos que Google deja en "Rastreada:
+actualmente sin indexar" a Bing le parecen suficientemente útiles para
+posicionarlos.
 
 **Eso descarta la calidad de página como causa raíz y apunta a autoridad de
 dominio.** Un motor con menos exigencia de autoridad ya nos da tráfico; el que
-más exige, no. Encaja con el único backlink detectado (`libhunt.com`).
+más exige, no.
+
+Tendencia semanal de páginas vistas, sostenida al alza: 331 → 267 → 397 → **467**
+(la semana del 14/09 va a tres días, 275).
+
+De `datos.gob.es` todavía no ha llegado ni una visita. Es lo esperable: la ficha
+se publicó el mismo 16/09.
 
 El tráfico de asistentes de IA aterriza en fichas de ley concretas
 (`/leyes/BOE-A-2024-24099`, `BOE-A-2015-10565`…), no en `/pregunta/`: nos están
-citando como fuente. Valida el trabajo de agent-readiness. Está plano entre
-quincenas (~12 vs ~13), así que es un canal real pero pequeño, no una tendencia
-al alza que se pueda dar por hecha.
+citando como fuente. Valida el trabajo de agent-readiness. **ChatGPT solo ya
+manda 35 visitas**, más que todo el canal en agosto — dejó de estar plano.
 
 **Son dos problemas distintos, y confundirlos lleva a arreglar lo que no es:**
 
@@ -286,7 +289,7 @@ dominio se mueva.
 ## Abierto, sin atacar todavía
 
 - **Autoridad de dominio — ahora la prioridad número uno.** Los datos de Umami
-  del 2026-08-21 (Bing 334 visitas, Google 2) descartan la calidad de página
+  del 2026-09-16 (Bing 717 visitas, Google 3) descartan la calidad de página
   como causa raíz: el contenido le vale a Bing, a los asistentes de IA y no a
   Google. Lo que nos falta es lo que Google pondera y Bing no tanto: enlaces
   externos. Sin eso, ni el presupuesto de rastreo ni la indexación se mueven, y

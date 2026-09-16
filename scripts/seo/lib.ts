@@ -283,9 +283,10 @@ export async function gscInspect(url: string): Promise<UrlInspection> {
 }
 
 // ── Umami: read-only query against the co-located Postgres container ────────
-// Runs on KonarServer where the umami-db container lives. For off-server runs,
-// override the argv (e.g. wrap in ssh) via SEO_UMAMI_ARGV as a JSON array.
+// Runs on KonarServer where the umami-db container lives. Off-server, set
+// SEO_UMAMI_SSH_HOST=KonarServer and the same command is wrapped in ssh.
 const UMAMI_CONTAINER = process.env.SEO_UMAMI_CONTAINER ?? "code-umami-db-1";
+const UMAMI_SSH_HOST = process.env.SEO_UMAMI_SSH_HOST;
 const UMAMI_ARGV: string[] = process.env.SEO_UMAMI_ARGV
 	? (JSON.parse(process.env.SEO_UMAMI_ARGV) as string[])
 	: [
@@ -300,11 +301,30 @@ const UMAMI_ARGV: string[] = process.env.SEO_UMAMI_ARGV
 			"umami",
 		];
 
+/**
+ * POSIX single-quote escaping, for arguments that must survive a remote shell.
+ *
+ * `ssh` does NOT forward argv: it joins everything after the host into one
+ * string and the login shell on the far side re-splits it. An unquoted SQL
+ * statement therefore arrives shredded — `zsh: no matches found: count(*)`,
+ * `command not found: group` — and the tab we pass to `-F` is eaten as
+ * whitespace. Quoting each argument here is what makes the round trip safe.
+ */
+export function shQuote(s: string): string {
+	return `'${s.replaceAll("'", `'\\''`)}'`;
+}
+
 // Returns rows as arrays of string columns (tuples-only, tab-separated).
 export function umamiQuery(sql: string): string[][] {
-	const [cmd, ...base] = UMAMI_ARGV;
-	if (!cmd) throw new Error("SEO_UMAMI_ARGV is empty");
-	const out = execFileSync(cmd, [...base, "-t", "-A", "-F", "\t", "-c", sql], {
+	const [local, ...base] = UMAMI_ARGV;
+	if (!local) throw new Error("SEO_UMAMI_ARGV is empty");
+	const full = [local, ...base, "-t", "-A", "-F", "\t", "-c", sql];
+	// Remote: hand ssh a single, fully quoted command string. Local: exec the
+	// argv directly, where no shell is involved and no quoting is needed.
+	const [cmd, args] = UMAMI_SSH_HOST
+		? ["ssh", [UMAMI_SSH_HOST, full.map(shQuote).join(" ")]]
+		: [local, full.slice(1)];
+	const out = execFileSync(cmd as string, args as string[], {
 		encoding: "utf8",
 		maxBuffer: 64 * 1024 * 1024,
 	});

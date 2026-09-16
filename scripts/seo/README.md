@@ -138,7 +138,8 @@ Production contest: **`claude:sonnet` vs `nan:deepseek-v4-flash`**, judged by `c
 # One snapshot + a plan (local)
 SEO_GSC_SA_JSON=~/Downloads/…json bun run scripts/seo/pull-gsc.ts
 SEO_INSPECT_BUDGET=400 bun run scripts/seo/inspect-urls.ts   # coverage sweep
-bun run scripts/seo/pull-umami.ts                 # on the server, or SEO_UMAMI_ARGV to ssh
+bun run scripts/seo/pull-umami.ts                 # on the server
+SEO_UMAMI_SSH_HOST=KonarServer bun run scripts/seo/pull-umami.ts   # from a laptop
 MODEL=openrouter:x-ai/grok-4.5 bun run scripts/seo/plan.ts
 
 # Benchmark models on the same snapshot
