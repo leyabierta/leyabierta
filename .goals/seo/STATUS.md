@@ -7,14 +7,18 @@ el loop) y [`EVAL.md`](EVAL.md) (cómo se puntúa un plan).
 > **Si vas a tocar el sitemap, el Worker o las URLs de reforma, lee primero la
 > sección de experimentos.** Hay uno vivo y un cambio despistado lo invalida.
 
-**Última actualización:** 2026-08-21
+**Última actualización:** 2026-09-16
 
 ---
 
 ## Diagnóstico actual
 
+### Indexación — medición del 2026-08-21, no repetida
+
 Medido con la URL Inspection API sobre 1.800 URLs (`scripts/seo/inspect-urls.ts`),
-no estimado:
+no estimado. **Estas cifras son del 2026-08-21 y no se han vuelto a medir**: la
+siguiente barrida es la lectura del experimento A del 2026-09-22, que consume la
+cuota del día entero.
 
 | Cohorte | Muestra | Rastreadas | Indexadas | vs 2026-07-28 |
 |---------|---------|-----------|-----------|---------------|
@@ -29,13 +33,72 @@ no estimado:
 > ranking. Están rastreadas *porque* ya rankean. Sesgo de selección — no la uses
 > como control del experimento A.
 
-Search Console, ventana de 28 días a 2026-08-18: 1 clic, 1.111 impresiones,
-CTR 0,09%, posición media 54,5. Sin ninguna consulta en distancia de ataque
-(posición 8–20) ni con CTR bajo: todo cae entre la posición 40 y 90.
+### Search Console — ventana de 28 días a 2026-09-13
+
+| Métrica | 2026-09-13 | 2026-08-15 | 2026-08-18 |
+|---------|-----------:|-----------:|-----------:|
+| Clics | 2 | 1 | 1 |
+| Impresiones | **2.167** | 1.066 | 1.111 |
+| Posición media | **49,4** | 55,6 | 54,5 |
+| Páginas con impresiones | **352** | 216 | — |
+
+Las impresiones se han duplicado y la posición media mejora seis puestos. Aun
+así, **por cuarta iteración consecutiva no hay ninguna consulta en distancia de
+ataque (posición 8–20) ni ninguna con CTR bajo**: las palancas 1 y 2 del
+PLAYBOOK llevan vacías desde julio. Lo que crece son head terms genéricos que
+aterrizan en la home entre la posición 60 y 95 — "derechos legales españa" (79
+imp./90 d, pos 65), "ley de empleo" (58, pos 71), "leyes españolas" (32, pos 64).
+
+### Colisión de marca con leyabierta.com · **detectado 2026-09-16**
+
+Consultando GSC con un filtro `query contains "abierta"` sobre 90 días
+(2026-06-16..2026-09-14): **cero impresiones** para "ley abierta" o
+"leyabierta". Ni una. La única fila que devuelve el filtro es
+"sociedad anonima abierta" (2 impresiones). No es que rankeemos mal para nuestro
+propio nombre — es que Google no nos considera para él.
+
+`leyabierta.com` **no es un dominio okupa**: es un proyecto homónimo real y vivo
+("Ley Abierta — Leyes españolas en lenguaje claro", Next.js, desarrollado por
+Wahandri), con `robots: index, follow`. Mismo nombre, mismo país, mismo tema.
+Ante dos candidatos idénticos en nombre, Google se queda con el que tiene
+señales externas — y el `.com` exacto además parte con ventaja en una consulta
+de marca.
+
+`/sobre/` es la única página nuestra que aparece para consultas de marca, con 5
+impresiones en **posición 3,2**, y todas ellas anonimizadas por GSC (volumen tan
+bajo que no las desglosa). Por eso es la página de identidad del proyecto.
+
+**Qué se ha hecho (iteración 4, PR #159):** consolidación de entidad en el
+JSON-LD de `Base.astro` (`alternateName`, `sameAs` a la organización de GitHub y
+a la ficha de datos.gob.es, `subjectOf` con `publisher` de tipo
+`GovernmentOrganization`, `mainEntityOfPage` → `/sobre/`) y un bloque «Dónde nos
+citan» en `/sobre/` que lo corrobora en texto visible.
+
+**Qué NO arregla eso:** el JSON-LD ayuda a que Google no confunda las dos
+entidades; no decide cuál merece el nombre. Eso lo deciden las citaciones
+externas que nombren "Ley Abierta" enlazando a leyabierta.es.
+
+### Primer backlink gubernamental · **2026-09-16**
+
+`datos.gob.es` ha publicado la ficha de Ley Abierta en su catálogo de
+aplicaciones: <https://datos.gob.es/es/aplicaciones/ley-abierta>. El enlace a
+`https://leyabierta.es` es **dofollow** — verificado: el `<a>` no lleva `rel`.
+
+Es el segundo backlink detectado del proyecto (el primero era `libhunt.com`) y
+el primero desde un dominio gubernamental. Es exactamente la palanca que esta
+página lleva señalando desde agosto como el cuello de botella real. **Publicado
+el mismo día, así que aún no hay nada que medir**: la primera lectura honesta es
+la siguiente iteración, y el informe de enlaces de GSC tarda semanas en
+reflejarlo.
 
 ### El dato que reencuadra el problema: no es el sitio, es Google
 
-Umami, mismos 28 días (893 visitas totales, +5% sobre el periodo anterior):
+> **Cifras del 2026-08-21, sin actualizar.** `pull-umami.ts` lee la base de
+> Umami por `docker exec` en KonarServer, y el servidor no es alcanzable desde
+> el portátil cuando Tailscale está en otro tailnet. Las iteraciones 3 y 4 se
+> corrieron sin la mitad Umami del snapshot.
+
+Umami, 28 días a 2026-08-18 (893 visitas totales, +5% sobre el periodo anterior):
 
 | Fuente | Visitas |
 |--------|---------|
@@ -80,6 +143,18 @@ Google es autoridad — enlaces externos — no ajustes on-page.
 **Desplegado:** 2026-07-28 · **Leído 2026-08-21: ⏳ SIN SEÑAL** ·
 **Próxima lectura: 2026-09-22**
 
+> #### Aviso del 2026-09-16 — no adelantes la lectura con impresiones
+>
+> En el snapshot de GSC de hoy hay **78 URLs de reforma con impresiones** (399
+> en total). Es tentador leerlo como que el brazo query ya funciona. No lo es:
+> son reformas **anteriores a 2026**, la cohorte "query histórica" que esta
+> misma página marca como sesgada por selección. De las reformas de 2026 — los
+> dos brazos del experimento — solo **una** tiene impresiones, y es del brazo
+> control. El brazo path sigue con **cero** impresiones.
+>
+> La métrica primaria sigue siendo `crawlRate` medido con `inspect-urls.ts`, no
+> las impresiones. La lectura sigue fijada al 2026-09-22.
+
 > #### Lectura del 2026-08-21 — no concluir, no migrar
 >
 > | Brazo | n | Rastreadas | Indexadas |
@@ -111,11 +186,6 @@ Google es autoridad — enlaces externos — no ajustes on-page.
 > ambos brazos siguen a cero, cerrar como **no concluyente** y pasar a autoridad
 > de dominio: el experimento no puede decidirse si Google no rastrea, y seguir
 > esperando no lo cambia.
-
-Las ~35k URLs `/cambios/reforma/?id=&date=` nunca se han rastreado, mientras las
-páginas de ley con paths reales sí (99,1%). Hipótesis: 35k URLs que solo
-difieren en query string se leen como navegación facetada, y Google no gasta
-presupuesto de rastreo en eso para un dominio con nuestra autoridad.
 
 Las ~35k URLs `/cambios/reforma/?id=&date=` nunca se han rastreado, mientras las
 páginas de ley con paths reales sí (99,1%). Hipótesis: 35k URLs que solo
@@ -193,6 +263,24 @@ leer nada. Las consultas que suben en GSC (`ley de empleo` 23 imp.,
 `ley impuesto renta personas físicas` 11 imp. en posición 41) mapean contra las
 hubs, pero se desplegaron hace días: es demasiado pronto para atribuirlo.
 
+### C — Hubs temáticos enlazados · **desplegado 2026-09-07 (PR #157)**
+
+`/temas/fiscalidad/` y `/temas/empleo/` (de #149) llevaban 17 días en el sitemap
+**sin un solo enlace interno**. La iteración 3 los enlazó desde la home
+(`components/TopicHubs.astro`) y desde las 18 normas curadas
+(`pages/leyes/[id].astro`), con el hub como nivel intermedio del
+`BreadcrumbList`.
+
+**Lectura del 2026-09-16 (9 días): cero impresiones en ambos hubs.** No es un
+veredicto — nueve días es poco y el sitio tiene una mediana de rastreo de ~21
+días — pero sí es la razón por la que **no se crean hubs nuevos** hasta que
+estos dos registren algo. Multiplicar un patrón sin lectura es apostar dos veces
+sobre la misma hipótesis.
+
+Criterio: si el 2026-10-01 siguen a cero impresiones, el problema no es el
+enlazado interno y hay que dejar de invertir en hubs hasta que la autoridad de
+dominio se mueva.
+
 ---
 
 ## Abierto, sin atacar todavía
@@ -201,9 +289,17 @@ hubs, pero se desplegaron hace días: es demasiado pronto para atribuirlo.
   del 2026-08-21 (Bing 334 visitas, Google 2) descartan la calidad de página
   como causa raíz: el contenido le vale a Bing, a los asistentes de IA y no a
   Google. Lo que nos falta es lo que Google pondera y Bing no tanto: enlaces
-  externos. Hoy Google detecta **un** backlink hacia la home (`libhunt.com`).
-  Sin eso, ni el presupuesto de rastreo ni la indexación se mueven, y el resto
-  de la lista de abajo son optimizaciones sobre páginas que Google no indexa.
+  externos. Sin eso, ni el presupuesto de rastreo ni la indexación se mueven, y
+  el resto de la lista de abajo son optimizaciones sobre páginas que Google no
+  indexa.
+  **Movimiento del 2026-09-16:** la ficha de `datos.gob.es` (dofollow) es el
+  segundo backlink del proyecto y el primero gubernamental — ver arriba. Sigue
+  siendo poco: dos enlaces no construyen autoridad. **Lo único que mueve esta
+  aguja es trabajo humano**, y ahora tiene además una segunda razón: la colisión
+  de marca con `leyabierta.com` sólo se rompe con citaciones externas que
+  nombren "Ley Abierta" enlazando a leyabierta.es. Candidatos: prensa y blogs de
+  datos abiertos, la comunidad de datos.gob.es, foros de transparencia,
+  agregadores de proyectos cívicos.
 - **Las 12.000 páginas de ley (15,9% indexadas).** Diferenciación de contenido:
   que el HTML lleve por delante lo único nuestro (resúmenes ciudadanos por
   artículo, historial de reformas, diffs entre versiones) en vez de replicar
@@ -213,16 +309,22 @@ hubs, pero se desplegaron hace días: es demasiado pronto para atribuirlo.
 - **Cero rich results.** `searchAppearance` viene vacío. El JSON-LD
   `Legislation` es correcto como dato semántico pero **Google no genera rich
   results para ese tipo**. Hoy sólo emitimos `Legislation` + `BreadcrumbList`
-  en las fichas de ley y `Organization`/`WebSite` en el layout: **no hay
-  `Dataset` ni `Article` en ninguna página**. Son tipos que Google sí soporta y
+  en las fichas de ley y `Organization`/`WebSite` en el layout (este último
+  ampliado con las señales de entidad de marca en #159): **no hay `Dataset` ni
+  `Article` en ninguna página**. Son tipos que Google sí soporta y
   candidatos claros (`Dataset` en `/datos/`, `Article`/`NewsArticle` en las
   reformas), pero añadirlos antes de que esas páginas estén indexadas es
   optimizar algo que no existe. `FAQPage` no aplica: Google lo restringió en
   2023 a sitios gubernamentales y de salud.
-- **Sitemaps: pendiente de verificar.** El 2026-08-21 se reenvió
-  `sitemap-reformas.xml` (`scripts/seo/resubmit-sitemap.ts`) para forzar
+- **Sitemap de reformas: 158 errores, escalado a humano.** El 2026-08-21 se
+  reenvió `sitemap-reformas.xml` (`scripts/seo/resubmit-sitemap.ts`) para forzar
   revalidación: seguía reportando 160 errores de "fecha inválida" semanas
   después de desplegar el filtro `isPlausibleReformDate`, con `lastSubmitted`
-  congelado en 2026-07-22. Google no recalcula al instante — **volver a mirar
-  el contador de errores a partir del 2026-08-24**. Si sigue en 160, el fix no
-  cubre todos los casos y hay que volver a mirar los datos, no el sitemap.
+  congelado en 2026-07-22.
+  **Estado el 2026-09-16:** 158 errores, `lastDownloaded` 2026-09-15. Google lo
+  ha vuelto a descargar dos veces (07/09 y 15/09) y el contador no se mueve. El
+  XML servido en producción se verificó limpio el 2026-09-07: 34.579 URLs, 0
+  duplicados, todos los `lastmod` en ISO válido y ninguno futuro. **El error no
+  está en el XML**, así que tocarlo a ciegas no procede — hace falta abrir el
+  detalle en la UI de Search Console, que la API no expone. Es trabajo humano,
+  no del loop.
