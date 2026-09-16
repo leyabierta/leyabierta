@@ -95,18 +95,37 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 				"@type": "Organization",
 				"@id": `${SITE_URL}/#org`,
 				"name": "Ley Abierta",
+				// El nombre "Ley Abierta" lo usa más de un proyecto. alternateName +
+				// sameAs + subjectOf existen para que Google pueda atar la entidad a
+				// este dominio en vez de repartirla entre homónimos.
+				"alternateName": ["Leyabierta", "leyabierta.es"],
 				"url": SITE_URL,
 				"logo": `${SITE_URL}/logo-icon.png`,
 				"description": "Legislación española consolidada, accesible para todos.",
+				"foundingDate": "2026",
+				"mainEntityOfPage": `${SITE_URL}/sobre/`,
 				"sameAs": [
-					"https://github.com/leyabierta/leyabierta"
-				]
+					"https://github.com/leyabierta",
+					"https://github.com/leyabierta/leyabierta",
+					"https://datos.gob.es/es/aplicaciones/ley-abierta"
+				],
+				"subjectOf": {
+					"@type": "WebPage",
+					"url": "https://datos.gob.es/es/aplicaciones/ley-abierta",
+					"name": "Ley Abierta en el catálogo de aplicaciones de datos.gob.es",
+					"publisher": {
+						"@type": "GovernmentOrganization",
+						"name": "datos.gob.es"
+					}
+				}
 			},
 			{
 				"@type": "WebSite",
 				"@id": `${SITE_URL}/#website`,
 				"url": SITE_URL,
 				"name": "Ley Abierta",
+				"alternateName": "leyabierta.es",
+				"inLanguage": "es-ES",
 				"publisher": { "@id": `${SITE_URL}/#org` },
 				"potentialAction": {
 					"@type": "SearchAction",
