@@ -35,7 +35,7 @@ jobs:
       web: ${{ steps.web.outputs.deploy }}
       msg_id: ${{ steps.notify.outputs.message-id }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
 
@@ -114,9 +114,9 @@ jobs:
     needs: detect-changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
 
@@ -152,7 +152,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Record start time
         id: timer
@@ -170,7 +170,7 @@ jobs:
           new-status: "⏳ **api** — Building Docker image..."
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -178,7 +178,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -186,7 +186,7 @@ jobs:
             type=sha,prefix=sha-,format=short
 
       - name: Build and push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
@@ -246,7 +246,7 @@ jobs:
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       # `ref: main` is explicit on purpose. The backstop compares against
       # `repos/leyabierta/leyes/commits/main`; actions/checkout without `ref`
@@ -254,14 +254,14 @@ jobs:
       # today, but if they ever diverge the SHA recorded at the end of this job
       # could never equal the backstop's, and the backstop would see permanent
       # drift and rebuild the whole site every 30 minutes.
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           repository: leyabierta/leyes
           ref: main
           path: content/laws
           fetch-depth: 1
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
 
@@ -285,7 +285,7 @@ jobs:
           new-status: "⏳ **web** — Installing..."
 
       - name: Cache bun dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.bun/install/cache
@@ -431,7 +431,7 @@ jobs:
       - name: Sync backstop cache marker
         if: success() && steps.leyes-sha.outputs.sha != ''
         continue-on-error: true
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .last-leyes-sha
           key: last-leyes-sha-${{ steps.leyes-sha.outputs.sha }}
@@ -499,7 +499,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           # Full history: the ancestry guard below needs real merge-base data,
           # which a shallow clone cannot provide.
