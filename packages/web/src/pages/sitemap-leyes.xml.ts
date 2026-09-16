@@ -7,6 +7,7 @@
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
 import { SECONDARY_PAGES } from "../lib/site-pages.ts";
+import { isEmittableLastmod } from "../lib/sitemap-dates.ts";
 
 export const prerender = true;
 
@@ -32,11 +33,14 @@ export const GET: APIRoute = async () => {
 
 	for (const law of laws) {
 		const d = law.data;
-		// Only include lastmod for dates from 1970 onward (Google rejects earlier dates)
+		// Only emit lastmod for dates Google accepts — see isEmittableLastmod.
+		// sitemap-reformas.xml applies the same rule through the same helper;
+		// when this one held the rule inline, reformas didn't get it and Google
+		// reported 158 "Invalid date" errors for two months.
 		const lastmod =
 			d.ultima_actualizacion &&
 			/^\d{4}-\d{2}-\d{2}$/.test(d.ultima_actualizacion) &&
-			d.ultima_actualizacion >= "1970-01-01"
+			isEmittableLastmod(d.ultima_actualizacion)
 				? `\n    <lastmod>${d.ultima_actualizacion}</lastmod>`
 				: "";
 		urls.push(`  <url>

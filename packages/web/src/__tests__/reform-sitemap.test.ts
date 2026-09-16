@@ -23,6 +23,18 @@ const law = (over: Partial<ReformSitemapLaw> = {}): ReformSitemapLaw => ({
 });
 
 describe("reformSitemapEntries", () => {
+	test("keeps pre-1970 reforms but omits their lastmod", () => {
+		const entries = reformSitemapEntries(
+			[law({ reformas: [{ fecha: "1927-09-08" }, { fecha: "1985-12-21" }] })],
+			OPTS,
+		);
+		expect(entries).toHaveLength(2);
+		// The URL stays — an 1927 reform is real data, and it's the <loc> we want
+		// crawled. Only the tag Google rejects goes away.
+		expect(entries[0]?.lastmod).toBeUndefined();
+		expect(entries[1]?.lastmod).toBe("1985-12-21");
+	});
+
 	test("emits one entry per reform", () => {
 		const entries = reformSitemapEntries(
 			[law({ reformas: [{ fecha: "1999-01-14" }, { fecha: "2003-11-12" }] })],

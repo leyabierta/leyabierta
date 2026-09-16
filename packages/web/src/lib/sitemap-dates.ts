@@ -27,3 +27,27 @@ export function isPlausibleReformDate(s: string, maxYear: number): boolean {
 export function clampLastmod(fecha: string, todayIso: string): string {
 	return fecha > todayIso ? todayIso : fecha;
 }
+
+/**
+ * Google's sitemap parser rejects `<lastmod>` values before the Unix epoch as
+ * "Invalid date", however well-formed they are.
+ *
+ * Measured, not guessed (2026-09-16): Search Console reported exactly 158
+ * "Invalid date" instances on sitemap-reformas.xml, and the served XML carries
+ * exactly 158 `<lastmod>` values with a year below 1970. The three example
+ * lines GSC cites — 90089, 90095, 90155 — are the first three of them
+ * (1940-12-22, 1946-12-19, 1927-09-08). Everything from 1970 on passes.
+ */
+export const MIN_LASTMOD_ISO = "1970-01-01";
+
+/**
+ * Whether a date can be emitted as `<lastmod>` at all.
+ *
+ * A pre-1970 reform date is perfectly good data — the Ley Hipotecaria really
+ * was amended in 1927 — so the URL stays in the sitemap. Only the `<lastmod>`
+ * is dropped, because `<lastmod>` is optional in the protocol and a date we
+ * invent to satisfy the parser would be a lie about when the page changed.
+ */
+export function isEmittableLastmod(fecha: string): boolean {
+	return fecha >= MIN_LASTMOD_ISO;
+}
