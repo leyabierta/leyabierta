@@ -37,10 +37,11 @@ export const GET: APIRoute = async () => {
 		{ siteUrl: SITE_URL, todayIso: TODAY_ISO, maxYear: MAX_YEAR },
 	);
 
+	// <lastmod> is optional, and omitted for pre-1970 reform dates: Google
+	// rejects those as "Invalid date" and the URL is what we want crawled.
 	const urls = entries.map(
 		({ loc, lastmod }) => `  <url>
-    <loc>${loc}</loc>
-    <lastmod>${lastmod}</lastmod>
+    <loc>${loc}</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ""}
     <changefreq>never</changefreq>
     <priority>0.5</priority>
   </url>`,

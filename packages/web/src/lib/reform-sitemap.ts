@@ -7,11 +7,16 @@
  */
 
 import { reformCanonicalPath } from "./reform-experiment.ts";
-import { clampLastmod, isPlausibleReformDate } from "./sitemap-dates.ts";
+import {
+	clampLastmod,
+	isEmittableLastmod,
+	isPlausibleReformDate,
+} from "./sitemap-dates.ts";
 
 export interface ReformSitemapEntry {
 	loc: string;
-	lastmod: string;
+	/** Absent for pre-1970 reforms — see isEmittableLastmod. */
+	lastmod?: string;
 }
 
 /** The slice of a law's frontmatter this module needs. */
@@ -54,11 +59,11 @@ export function reformSitemapEntries(
 				);
 			if (seen.has(loc)) continue;
 			seen.add(loc);
-			// lastmod must never be in the future (Google flags it as invalid).
-			entries.push({
-				loc,
-				lastmod: clampLastmod(reforma.fecha, opts.todayIso),
-			});
+			// lastmod must never be in the future (Google flags it as invalid),
+			// and a pre-1970 one is rejected outright — those entries keep the URL
+			// and simply omit the tag.
+			const lastmod = clampLastmod(reforma.fecha, opts.todayIso);
+			entries.push(isEmittableLastmod(lastmod) ? { loc, lastmod } : { loc });
 		}
 	}
 
