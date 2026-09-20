@@ -149,6 +149,47 @@ estaban hechas o eran prematuras: la entidad de marca y el enlazado de hubs
 `data/seo/plan-claude-sonnet-5-2026-09-20.json`. Próxima decisión real: la
 lectura del experimento A el 2026-09-22.
 
+### Límite diario de Cloudflare Workers · 2026-09-19/20 — causa identificada y arreglada (#164)
+
+Aviso de Cloudflare el 2026-09-19: `leyabierta-web` alcanzó el límite diario
+del plan Free (100.000 peticiones/día). **No es tráfico malicioso ni el
+resultado de un bug de negocio.** El desglose de AI Crawl Control en el
+dashboard de Cloudflare, sobre 7 días: GPTBot 67.250 + ClaudeBot 59.090 =
+126.340 peticiones, BingBot 11.820, Googlebot **741**. Coincide en el tiempo
+con que `sitemap-reformas.xml` pasó a 0 errores (#161, confirmado el 2026-09-19
+tal como se documenta arriba): los agentes de IA se pusieron al día indexando
+las ~34.400 reformas que antes eran inalcanzables. Bloquear GPTBot/ClaudeBot
+iría contra la propia estrategia de agent-readiness del proyecto (ver el
+tráfico de asistentes de IA en Umami, arriba) y por eso **no se ha
+considerado**.
+
+**Causa raíz real, y la que sí merecía arreglarse:** `renderReformResponse()`
+en `packages/web/src/worker/index.ts` construía la `Response` de cada página
+de reforma a mano y la devolvía directamente. Llevaba una cabecera
+`cache-control: public, s-maxage=7776000`, pero Cloudflare solo cachea en el
+borde automáticamente las respuestas de `env.ASSETS.fetch()` — una `Response`
+construida por el propio Worker nunca tocaba la caché de borde pese a la
+cabecera. Cada visita, de cualquier origen, repetía el render completo y hasta
+3 subpeticiones a la API. Arreglado escribiendo explícitamente en
+`caches.default` (Cache API de Cloudflare) tras cada render exitoso, con
+`ctx.waitUntil()` para no bloquear la respuesta, y sin cachear nunca la rama de
+fallback (un 404/500 transitorio no debe fijarse 90 días). Verificado en
+producción tras el despliegue: la latencia de una reforma pasa de ~267ms a
+~110ms en la segunda visita.
+
+**Próximos pasos:**
+- Vigilar el contador "Requests today" de `leyabierta-web` en el dashboard de
+  Workers & Pages durante 1-2 días tras el despliegue de #164, para confirmar
+  que el arreglo de caché reduce las invocaciones reales y no solo que el pico
+  de rastreo de bots se agotó por sí solo.
+- **Cloudflare como cuarta fuente del loop.** Hasta ahora el loop lee GSC y
+  Umami; Cloudflare (AI Crawl Control, cache-hit ratio, invocaciones del
+  Worker) solo se ha mirado a mano, vía navegador, en este incidente. Esa
+  información es relevante de forma recurrente: detecta antes situaciones como
+  esta, y separa tráfico de bots de IA (agent-readiness, no tocar) de tráfico
+  humano real. Falta `scripts/seo/pull-cloudflare.ts` siguiendo el mismo
+  patrón que `pull-umami.ts`/`pull-gsc.ts` — pendiente de crear.
+
 ---
 
 ## Experimentos

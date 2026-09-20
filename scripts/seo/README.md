@@ -14,6 +14,10 @@ pull-gsc.ts ─┐
 pull-umami.ts┘   (model)      apply plan            tsgo/biome/build
                     ▲
               benchmark.ts picks the model
+
+pull-cloudflare.ts ─► cloudflare-latest.json   (edge signals; read by hand for
+                                                 now, see "Cloudflare" below —
+                                                 not yet wired into plan.ts)
 ```
 
 ## Files
@@ -24,6 +28,7 @@ pull-umami.ts┘   (model)      apply plan            tsgo/biome/build
 | `pull-gsc.ts` | Search Console → `data/seo/gsc-<date>.json` |
 | `inspect-urls.ts` | URL Inspection sweep → `data/seo/inspections.json` + `index-coverage.json` |
 | `pull-umami.ts` | Umami Postgres → `data/seo/umami-<date>.json` (pages, referrers, entries, countries) |
+| `pull-cloudflare.ts` | Cloudflare GraphQL Analytics → `data/seo/cloudflare-<date>.json` (zone requests/cache-hit ratio, Worker invocations/errors) — see below |
 | `plan.ts` | `MODEL=provider:model` → structured JSON action plan (pure inference) |
 | `benchmark.ts` | Run N models on one snapshot, gate + judge, write a leaderboard |
 | `seo-loop.sh` | Orchestrator for the cron |
@@ -104,6 +109,42 @@ and the remaining ~34k should follow.
 > `sitemaps[].contents[].indexed` is always `0`. Google stopped populating it
 > through the API years ago but still returns the field. Never read it as a
 > coverage signal — that's what `indexCoverage` is for.
+
+## Cloudflare (`pull-cloudflare.ts`)
+
+GSC says what Google sees, Umami says what humans do; this says what actually
+happened at the edge — request volume, cache-hit ratio, and whether the Worker
+is trending back toward its daily invocation cap. It exists because of the
+2026-09-19/20 incident in `STATUS.md`: `leyabierta-web` hit the Free plan's
+100k-requests/day limit, and the diagnosis (AI crawlers backfilling the
+reform sitemap, not an attack) was read by hand off the dashboard because
+nothing pulled this data automatically.
+
+```bash
+SEO_CF_API_TOKEN=… SEO_CF_ZONE_ID=… SEO_CF_ACCOUNT_ID=… \
+  bun run scripts/seo/pull-cloudflare.ts
+```
+
+| Env | Default | Purpose |
+|-----|---------|---------|
+| `SEO_CF_API_TOKEN` | — (required) | Scoped API token: Zone → Analytics → Read, Account → Workers Scripts → Read. **Not** `CLOUDFLARE_API_TOKEN` from `deploy.yml` — that one is Pages-deploy scoped, not Analytics-read |
+| `SEO_CF_ZONE_ID` | — (required) | Zone's Overview page in the Cloudflare dashboard |
+| `SEO_CF_ACCOUNT_ID` | — (required) | Workers & Pages sidebar |
+| `SEO_CF_WORKER_SCRIPT_NAME` | `leyabierta-web` | Worker to pull invocation counts for |
+| `SEO_CF_WINDOW_DAYS` | 7 | Lookback window |
+
+**Known gap — no bot-level breakdown.** GPTBot/ClaudeBot/Googlebot-style
+per-bot attribution (the AI Crawl Control dashboard tab) isn't backed by a
+public GraphQL dataset, so this script cannot pull it. When a traffic spike
+needs that breakdown, read it by hand in the dashboard — see `STATUS.md`
+2026-09-19/20 for what that reading looked like and why it mattered (it's the
+difference between "attack, block it" and "agent-readiness working as
+intended, don't touch it").
+
+Not yet wired into `plan.ts`'s prompt — the GraphQL field names above are
+written from documentation, not verified against a live token, so run it
+once for real and sanity-check the output before making the planning step
+depend on it.
 
 ## Models (no OpenRouter — no metered spend)
 
