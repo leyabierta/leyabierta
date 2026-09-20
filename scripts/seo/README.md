@@ -16,6 +16,12 @@ pull-umami.ts┘   (model)      apply plan            tsgo/biome/build
               benchmark.ts picks the model
 ```
 
+Cloudflare (request volume, cache-hit ratio, AI Crawl Control's per-bot
+breakdown, Worker invocations) has no pull script and doesn't need one: this
+loop always runs from an interactive Claude Code session, never from an
+unattended cron, so reading the dashboard through `claude-in-chrome` costs
+nothing and needs no API token — see "Cloudflare" below.
+
 ## Files
 
 | File | Role |
@@ -104,6 +110,32 @@ and the remaining ~34k should follow.
 > `sitemaps[].contents[].indexed` is always `0`. Google stopped populating it
 > through the API years ago but still returns the field. Never read it as a
 > coverage signal — that's what `indexCoverage` is for.
+
+## Cloudflare — read via `claude-in-chrome`, not a pull script
+
+GSC says what Google sees, Umami says what humans do; Cloudflare says what
+actually happened at the edge — request volume, cache-hit ratio, per-bot
+traffic, and whether a Worker is trending toward its daily invocation cap.
+There is deliberately **no `pull-*.ts` for it**: unlike GSC/Umami this loop
+never runs unattended (no cron — see "The loop is manual on purpose" in the
+skill), so every run already has a live `claude-in-chrome` session available,
+and that reads the dashboard directly with no API token to create or rotate.
+It's also strictly more capable: the AI Crawl Control tab's per-bot breakdown
+(GPTBot vs ClaudeBot vs Googlebot) isn't backed by any public API dataset, so
+a token-based script couldn't pull it anyway.
+
+Check it as part of step 1 ("Where do we stand") whenever a Workers-limit
+notice has landed, or periodically to catch one before it does:
+
+| Dashboard page | What to read |
+|----------------|---------------|
+| Workers & Pages → `leyabierta-web` → Metrics | Requests today vs the Free plan's 100k/day cap, error rate |
+| `leyabierta.es` zone → Analytics & Logs → Traffic | Total requests, cache-hit ratio |
+| `leyabierta.es` zone → Security → AI Crawl Control | Per-bot breakdown — the only way to tell "AI crawlers backfilling the sitemap" from "something to actually rate-limit" |
+
+The 2026-09-19/20 incident in `STATUS.md` is the worked example: GPTBot +
+ClaudeBot made 126k of the week's requests against Googlebot's 741, which is
+what turned "block the bots" into "fix the edge cache instead" (#164).
 
 ## Models (no OpenRouter — no metered spend)
 
