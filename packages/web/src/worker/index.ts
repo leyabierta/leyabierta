@@ -36,6 +36,18 @@ export interface Env {
 	PUBLIC_API_URL?: string;
 }
 
+// tsconfig's "dom" lib and @cloudflare/workers-types both declare a global
+// `CacheStorage`, but the workers-types one is a `class` (can't merge with
+// the ambient `interface` from lib.dom) while `default` — the one binding
+// Workers actually exposes — only exists on the workers-types version. This
+// augments whichever `CacheStorage` is in scope so `caches.default` resolves
+// without switching the package off the "dom" lib package-wide.
+declare global {
+	interface CacheStorage {
+		readonly default: Cache;
+	}
+}
+
 const DEFAULT_API_BASE = "https://api.leyabierta.es";
 // The static shell asset lives at the prefix itself — every reform, whichever
 // URL form it uses, falls back to this one file.
@@ -399,8 +411,21 @@ async function renderReformResponse(
 	});
 }
 
+/** `caches.default` isn't defined outside workerd (bun:test, notably), and the
+ *  Cache API only accepts GET. Centralising the guard keeps the fetch handler
+ *  readable and means a future GET-only assumption change only breaks in one
+ *  place. */
+function edgeCacheFor(request: Request): Cache | null {
+	if (request.method !== "GET" || typeof caches === "undefined") return null;
+	return caches.default;
+}
+
 export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+	async fetch(
+		request: Request,
+		env: Env,
+		ctx?: ExecutionContext,
+	): Promise<Response> {
 		const url = new URL(request.url);
 
 		// Markdown for Agents: honor `Accept: text/markdown` on pages that have
@@ -412,13 +437,34 @@ export default {
 		}
 
 		if (url.pathname.startsWith(REFORM_PATH_PREFIX)) {
+			// A rendered reform is immutable and carries `s-maxage=7776000`, but
+			// that header alone caches nothing here: renderReformResponse hands
+			// back a `Response` it built by hand (HTML spliced into the shell),
+			// and the edge only auto-caches what `env.ASSETS.fetch()` returns —
+			// exactly what /leyes/* gets for free below, and what this route
+			// never did. Every hit — including a bot re-crawling the same URL —
+			// re-ran the full render (up to 3 API subrequests). Measured
+			// 2026-09-20: after #161 fixed the reform sitemap and Google
+			// re-crawled it, GPTBot and ClaudeBot alone made 126k requests to
+			// this path in 7 days, pushing api.leyabierta.es past 160k requests
+			// and the Worker past its daily invocation cap.
+			const cache = edgeCacheFor(request);
+			const cacheKey = cache ? new Request(url.toString(), request) : null;
+			const cached = cacheKey ? await cache?.match(cacheKey) : undefined;
+			if (cached) return cached;
+
 			const result = await renderReformResponse(env, url);
-			if (result instanceof Response) return result;
+			if (result instanceof Response) {
+				if (cache && cacheKey)
+					ctx?.waitUntil(cache.put(cacheKey, result.clone()));
+				return result;
+			}
 
 			// Missing params or API failure (404/upstream error) → serve the
 			// static shell as-is (keeps its `noindex`, lets the existing
 			// client-side fetch script take over), mirroring the resolved
-			// status onto the response.
+			// status onto the response. Deliberately NOT cached: a transient
+			// upstream failure must not pin a 404/500 for 90 days.
 			//
 			// Always request SHELL_PATH explicitly, never the inbound request:
 			// path-form URLs (/cambios/reforma/<id>/<date>/) have no asset of
