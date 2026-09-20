@@ -496,38 +496,6 @@ export interface UmamiSnapshot {
 	weekly: { week: string; pageviews: number }[];
 }
 
-// What the GraphQL Analytics API exposes without a Bot Management entitlement:
-// zone-level request/cache/threat totals and per-Worker invocation counts. It
-// does NOT include a per-bot breakdown (GPTBot vs ClaudeBot vs Googlebot) — the
-// AI Crawl Control dashboard tab is not backed by a public dataset, so that
-// split still has to be read by hand in the Cloudflare dashboard.
-export interface CloudflareSnapshot {
-	source: "cloudflare";
-	snapshotDate: string;
-	zoneId: string;
-	windowDays: number;
-	zone: {
-		requests: number;
-		cachedRequests: number;
-		cacheHitRatio: number;
-		bytes: number;
-		threats: number;
-	};
-	zoneDaily: {
-		date: string;
-		requests: number;
-		cachedRequests: number;
-		threats: number;
-	}[];
-	worker: {
-		scriptName: string;
-		requests: number;
-		errors: number;
-		subrequests: number;
-	};
-	workerDaily: { date: string; requests: number; errors: number }[];
-}
-
 // ── Model chat client — two backends, no pay-per-use third party ────────────
 // MODEL is "provider:model":
 //   claude:<alias>  → local `claude -p` CLI (subscription; e.g. claude:sonnet,

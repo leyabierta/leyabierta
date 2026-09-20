@@ -14,11 +14,13 @@ pull-gsc.ts ─┐
 pull-umami.ts┘   (model)      apply plan            tsgo/biome/build
                     ▲
               benchmark.ts picks the model
-
-pull-cloudflare.ts ─► cloudflare-latest.json   (edge signals; read by hand for
-                                                 now, see "Cloudflare" below —
-                                                 not yet wired into plan.ts)
 ```
+
+Cloudflare (request volume, cache-hit ratio, AI Crawl Control's per-bot
+breakdown, Worker invocations) has no pull script and doesn't need one: this
+loop always runs from an interactive Claude Code session, never from an
+unattended cron, so reading the dashboard through `claude-in-chrome` costs
+nothing and needs no API token — see "Cloudflare" below.
 
 ## Files
 
@@ -28,7 +30,6 @@ pull-cloudflare.ts ─► cloudflare-latest.json   (edge signals; read by hand f
 | `pull-gsc.ts` | Search Console → `data/seo/gsc-<date>.json` |
 | `inspect-urls.ts` | URL Inspection sweep → `data/seo/inspections.json` + `index-coverage.json` |
 | `pull-umami.ts` | Umami Postgres → `data/seo/umami-<date>.json` (pages, referrers, entries, countries) |
-| `pull-cloudflare.ts` | Cloudflare GraphQL Analytics → `data/seo/cloudflare-<date>.json` (zone requests/cache-hit ratio, Worker invocations/errors) — see below |
 | `plan.ts` | `MODEL=provider:model` → structured JSON action plan (pure inference) |
 | `benchmark.ts` | Run N models on one snapshot, gate + judge, write a leaderboard |
 | `seo-loop.sh` | Orchestrator for the cron |
@@ -110,41 +111,31 @@ and the remaining ~34k should follow.
 > through the API years ago but still returns the field. Never read it as a
 > coverage signal — that's what `indexCoverage` is for.
 
-## Cloudflare (`pull-cloudflare.ts`)
+## Cloudflare — read via `claude-in-chrome`, not a pull script
 
-GSC says what Google sees, Umami says what humans do; this says what actually
-happened at the edge — request volume, cache-hit ratio, and whether the Worker
-is trending back toward its daily invocation cap. It exists because of the
-2026-09-19/20 incident in `STATUS.md`: `leyabierta-web` hit the Free plan's
-100k-requests/day limit, and the diagnosis (AI crawlers backfilling the
-reform sitemap, not an attack) was read by hand off the dashboard because
-nothing pulled this data automatically.
+GSC says what Google sees, Umami says what humans do; Cloudflare says what
+actually happened at the edge — request volume, cache-hit ratio, per-bot
+traffic, and whether a Worker is trending toward its daily invocation cap.
+There is deliberately **no `pull-*.ts` for it**: unlike GSC/Umami this loop
+never runs unattended (no cron — see "The loop is manual on purpose" in the
+skill), so every run already has a live `claude-in-chrome` session available,
+and that reads the dashboard directly with no API token to create or rotate.
+It's also strictly more capable: the AI Crawl Control tab's per-bot breakdown
+(GPTBot vs ClaudeBot vs Googlebot) isn't backed by any public API dataset, so
+a token-based script couldn't pull it anyway.
 
-```bash
-SEO_CF_API_TOKEN=… SEO_CF_ZONE_ID=… SEO_CF_ACCOUNT_ID=… \
-  bun run scripts/seo/pull-cloudflare.ts
-```
+Check it as part of step 1 ("Where do we stand") whenever a Workers-limit
+notice has landed, or periodically to catch one before it does:
 
-| Env | Default | Purpose |
-|-----|---------|---------|
-| `SEO_CF_API_TOKEN` | — (required) | Scoped API token: Zone → Analytics → Read, Account → Workers Scripts → Read. **Not** `CLOUDFLARE_API_TOKEN` from `deploy.yml` — that one is Pages-deploy scoped, not Analytics-read |
-| `SEO_CF_ZONE_ID` | — (required) | Zone's Overview page in the Cloudflare dashboard |
-| `SEO_CF_ACCOUNT_ID` | — (required) | Workers & Pages sidebar |
-| `SEO_CF_WORKER_SCRIPT_NAME` | `leyabierta-web` | Worker to pull invocation counts for |
-| `SEO_CF_WINDOW_DAYS` | 7 | Lookback window |
+| Dashboard page | What to read |
+|----------------|---------------|
+| Workers & Pages → `leyabierta-web` → Metrics | Requests today vs the Free plan's 100k/day cap, error rate |
+| `leyabierta.es` zone → Analytics & Logs → Traffic | Total requests, cache-hit ratio |
+| `leyabierta.es` zone → Security → AI Crawl Control | Per-bot breakdown — the only way to tell "AI crawlers backfilling the sitemap" from "something to actually rate-limit" |
 
-**Known gap — no bot-level breakdown.** GPTBot/ClaudeBot/Googlebot-style
-per-bot attribution (the AI Crawl Control dashboard tab) isn't backed by a
-public GraphQL dataset, so this script cannot pull it. When a traffic spike
-needs that breakdown, read it by hand in the dashboard — see `STATUS.md`
-2026-09-19/20 for what that reading looked like and why it mattered (it's the
-difference between "attack, block it" and "agent-readiness working as
-intended, don't touch it").
-
-Not yet wired into `plan.ts`'s prompt — the GraphQL field names above are
-written from documentation, not verified against a live token, so run it
-once for real and sanity-check the output before making the planning step
-depend on it.
+The 2026-09-19/20 incident in `STATUS.md` is the worked example: GPTBot +
+ClaudeBot made 126k of the week's requests against Googlebot's 741, which is
+what turned "block the bots" into "fix the edge cache instead" (#164).
 
 ## Models (no OpenRouter — no metered spend)
 

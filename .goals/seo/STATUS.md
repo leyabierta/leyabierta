@@ -182,13 +182,16 @@ producción tras el despliegue: la latencia de una reforma pasa de ~267ms a
   Workers & Pages durante 1-2 días tras el despliegue de #164, para confirmar
   que el arreglo de caché reduce las invocaciones reales y no solo que el pico
   de rastreo de bots se agotó por sí solo.
-- **Cloudflare como cuarta fuente del loop.** Hasta ahora el loop lee GSC y
-  Umami; Cloudflare (AI Crawl Control, cache-hit ratio, invocaciones del
-  Worker) solo se ha mirado a mano, vía navegador, en este incidente. Esa
-  información es relevante de forma recurrente: detecta antes situaciones como
-  esta, y separa tráfico de bots de IA (agent-readiness, no tocar) de tráfico
-  humano real. Falta `scripts/seo/pull-cloudflare.ts` siguiendo el mismo
-  patrón que `pull-umami.ts`/`pull-gsc.ts` — pendiente de crear.
+- **Cloudflare, incorporado al loop — vía `claude-in-chrome`, sin script ni
+  token.** A diferencia de GSC/Umami, este loop nunca corre desatendido (no
+  hay cron — ver "The loop is manual on purpose" en el skill), así que cada
+  ejecución ya tiene una sesión de `claude-in-chrome` disponible: leer el
+  dashboard directamente no cuesta nada y no exige crear ni rotar credenciales.
+  Es además la única forma de ver el desglose por bot de AI Crawl Control, que
+  no tiene equivalente en la API pública. Guía y páginas concretas del
+  dashboard a mirar en `scripts/seo/README.md` § Cloudflare — a repasar en el
+  paso 1 ("Where do we stand") de cada iteración, no solo tras un aviso de
+  límite.
 
 ---
 
