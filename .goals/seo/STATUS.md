@@ -7,7 +7,7 @@ el loop) y [`EVAL.md`](EVAL.md) (cómo se puntúa un plan).
 > **Si vas a tocar el sitemap, el Worker o las URLs de reforma, lee primero la
 > sección de experimentos.** Hay uno vivo y un cambio despistado lo invalida.
 
-**Última actualización:** 2026-09-16
+**Última actualización:** 2026-09-20
 
 ---
 
@@ -33,21 +33,22 @@ cuota del día entero.
 > ranking. Están rastreadas *porque* ya rankean. Sesgo de selección — no la uses
 > como control del experimento A.
 
-### Search Console — ventana de 28 días a 2026-09-13
+### Search Console — ventana de 28 días a 2026-09-17
 
-| Métrica | 2026-09-13 | 2026-08-15 | 2026-08-18 |
+| Métrica | 2026-09-17 | 2026-09-13 | 2026-08-15 |
 |---------|-----------:|-----------:|-----------:|
-| Clics | 2 | 1 | 1 |
-| Impresiones | **2.167** | 1.066 | 1.111 |
-| Posición media | **49,4** | 55,6 | 54,5 |
-| Páginas con impresiones | **352** | 216 | — |
+| Clics | **3** | 2 | 1 |
+| Impresiones | **2.304** | 2.167 | 1.066 |
+| Posición media | **48,9** | 49,4 | 55,6 |
+| Páginas con impresiones | **360** | 352 | 216 |
 
-Las impresiones se han duplicado y la posición media mejora seis puestos. Aun
-así, **por cuarta iteración consecutiva no hay ninguna consulta en distancia de
+Las impresiones siguen subiendo y la posición media sigue mejorando. Aun así,
+**por quinta iteración consecutiva no hay ninguna consulta en distancia de
 ataque (posición 8–20) ni ninguna con CTR bajo**: las palancas 1 y 2 del
-PLAYBOOK llevan vacías desde julio. Lo que crece son head terms genéricos que
-aterrizan en la home entre la posición 60 y 95 — "derechos legales españa" (79
-imp./90 d, pos 65), "ley de empleo" (58, pos 71), "leyes españolas" (32, pos 64).
+PLAYBOOK llevan vacías desde julio, y el patrón está lo bastante asentado como
+para no ser ruido de una ventana mala. Lo que crece son head terms genéricos que
+aterrizan en la home entre la posición 60 y 97 — "derechos legales españa" (38,
+pos 62), "ley de empleo" (41, pos 70), "ley laboral españa" (35, pos 83).
 
 ### Colisión de marca con leyabierta.com · **detectado 2026-09-16**
 
@@ -93,35 +94,36 @@ reflejarlo.
 
 ### El dato que reencuadra el problema: no es el sitio, es Google
 
-Umami, 28 días a 2026-09-16 — **982 sesiones, 1.603 páginas vistas**:
+Umami, 28 días a 2026-09-20 — **1.099 sesiones, 1.726 páginas vistas**:
 
-| Fuente | 2026-09-16 | 2026-08-18 |
-|--------|-----------:|-----------:|
-| Ecosistema Bing (Bing, Yahoo, DuckDuckGo, Ecosia) | **717** | 334 |
-| Asistentes de IA (ChatGPT, Copilot, Perplexity) | **43** | ~25 |
-| **Google** | **3** | 2 |
-| datos.gob.es | 0 | — |
+| Fuente | 2026-09-20 | 2026-09-16 | 2026-08-18 |
+|--------|-----------:|-----------:|-----------:|
+| Ecosistema Bing (Bing, Yahoo, DuckDuckGo, Ecosia) | **788** | 717 | 334 |
+| Asistentes de IA (ChatGPT, Copilot, Perplexity) | **44** | 43 | ~25 |
+| **Google** | **4** | 3 | 2 |
+| datos.gob.es | 0 | 0 | — |
 
-El tráfico se ha duplicado y la asimetría, lejos de corregirse, se ha agravado:
-**Bing manda 239 visitas por cada una de Google**, con 2.167 impresiones de
-Google en la misma ventana. Los mismos artículos que Google deja en "Rastreada:
-actualmente sin indexar" a Bing le parecen suficientemente útiles para
-posicionarlos.
+El tráfico total sigue subiendo semana a semana, y la asimetría, lejos de
+corregirse, **se agrava en términos absolutos**: Bing manda 197 visitas por cada
+una de Google, con 2.304 impresiones de Google en la misma ventana. Los mismos
+artículos que Google deja en "Rastreada: actualmente sin indexar" a Bing le
+parecen suficientemente útiles para posicionarlos.
 
 **Eso descarta la calidad de página como causa raíz y apunta a autoridad de
 dominio.** Un motor con menos exigencia de autoridad ya nos da tráfico; el que
 más exige, no.
 
-Tendencia semanal de páginas vistas, sostenida al alza: 331 → 267 → 397 → **467**
-(la semana del 14/09 va a tres días, 275).
+Tendencia semanal de páginas vistas, sostenida al alza: 397 → 467 → **551**
+(semana del 14/09, completa).
 
-De `datos.gob.es` todavía no ha llegado ni una visita. Es lo esperable: la ficha
-se publicó el mismo 16/09.
+De `datos.gob.es` todavía no ha llegado ni una visita, cuatro días después de
+publicarse la ficha. No es alarmante — el tráfico de referencia desde un
+catálogo institucional tarda en materializarse — pero es la primera lectura en
+la que ya cabría esperar algo si el enlace estuviera generando clics directos.
 
 El tráfico de asistentes de IA aterriza en fichas de ley concretas
 (`/leyes/BOE-A-2024-24099`, `BOE-A-2015-10565`…), no en `/pregunta/`: nos están
-citando como fuente. Valida el trabajo de agent-readiness. **ChatGPT solo ya
-manda 35 visitas**, más que todo el canal en agosto — dejó de estar plano.
+citando como fuente. Valida el trabajo de agent-readiness.
 
 **Son dos problemas distintos, y confundirlos lleva a arreglar lo que no es:**
 
@@ -136,6 +138,16 @@ manda 35 visitas**, más que todo el canal en agosto — dejó de estar plano.
 descriptions o datos estructurados de páginas que Google no indexa no mueve
 nada. Primero indexación, después presentación. Y la palanca de indexación en
 Google es autoridad — enlaces externos — no ajustes on-page.
+
+### Iteración 5 (2026-09-20): sin acciones, por diseño
+
+Quinta iteración consecutiva sin ninguna consulta en distancia de ataque ni con
+CTR bajo, y las tres cosas que quedaban por hacer dentro de la whitelist ya
+estaban hechas o eran prematuras: la entidad de marca y el enlazado de hubs
+(#159) llevan menos de dos semanas desplegados, y el sitemap de reformas
+(#161) se acaba de confirmar arreglado. No se abrió PR — plan en
+`data/seo/plan-claude-sonnet-5-2026-09-20.json`. Próxima decisión real: la
+lectura del experimento A el 2026-09-22.
 
 ---
 
@@ -280,6 +292,9 @@ días — pero sí es la razón por la que **no se crean hubs nuevos** hasta que
 estos dos registren algo. Multiplicar un patrón sin lectura es apostar dos veces
 sobre la misma hipótesis.
 
+**Lectura del 2026-09-20 (13 días): sigue en cero.** Sin cambios. El corte de
+lectura sigue en 2026-10-01.
+
 Criterio: si el 2026-10-01 siguen a cero impresiones, el problema no es el
 enlazado interno y hay que dejar de invertir en hubs hasta que la autoridad de
 dominio se mueva.
@@ -319,15 +334,16 @@ dominio se mueva.
   reformas), pero añadirlos antes de que esas páginas estén indexadas es
   optimizar algo que no existe. `FAQPage` no aplica: Google lo restringió en
   2023 a sitios gubernamentales y de salud.
-- **Sitemap de reformas: 158 errores, escalado a humano.** El 2026-08-21 se
-  reenvió `sitemap-reformas.xml` (`scripts/seo/resubmit-sitemap.ts`) para forzar
-  revalidación: seguía reportando 160 errores de "fecha inválida" semanas
-  después de desplegar el filtro `isPlausibleReformDate`, con `lastSubmitted`
-  congelado en 2026-07-22.
-  **Estado el 2026-09-16:** 158 errores, `lastDownloaded` 2026-09-15. Google lo
-  ha vuelto a descargar dos veces (07/09 y 15/09) y el contador no se mueve. El
-  XML servido en producción se verificó limpio el 2026-09-07: 34.579 URLs, 0
-  duplicados, todos los `lastmod` en ISO válido y ninguno futuro. **El error no
-  está en el XML**, así que tocarlo a ciegas no procede — hace falta abrir el
-  detalle en la UI de Search Console, que la API no expone. Es trabajo humano,
-  no del loop.
+- ~~**Sitemap de reformas: 158 errores, escalado a humano.**~~ **Resuelto
+  (#161, 2026-09-16).** La causa era otra distinta de la que se llevaba semanas
+  buscando: Google rechaza como "Invalid date" cualquier `<lastmod>` anterior
+  al epoch de Unix (1970), por bien formado que esté el ISO. El detalle de la UI
+  de Search Console lo confirmó con los números de línea exactos (90089, 90095,
+  90155 → 1940-12-22, 1946-12-19, 1927-09-08, las tres primeras de 158 fechas
+  pre-1970 en el XML servido). `sitemap-leyes.xml` ya aplicaba esta regla desde
+  antes, inline; nunca se había llevado a `sitemap-reformas.xml`. El fix omite
+  la etiqueta `<lastmod>` para esas 158 URLs (la URL se queda: una reforma de
+  1927 es dato real) y comparte el helper entre los dos sitemaps para que no
+  puedan volver a divergir.
+  **Confirmado el 2026-09-20:** tras el reenvío del 16/09, `errors: 0`,
+  `lastDownloaded` 2026-09-19. Cerrado.
