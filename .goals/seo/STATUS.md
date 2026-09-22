@@ -159,7 +159,7 @@ estaban hechas o eran prematuras: la entidad de marca y el enlazado de hubs
 `data/seo/plan-claude-sonnet-5-2026-09-20.json`. Próxima decisión real: la
 lectura del experimento A el 2026-09-22.
 
-### Límite diario de Cloudflare Workers · 2026-09-19 — pico puntual, no un problema recurrente
+### Límite diario de Cloudflare Workers · 2026-09-19 — pico puntual, no un problema recurrente (#164 revertido)
 
 Aviso de Cloudflare el 2026-09-19: `leyabierta-web` superó el límite diario
 del plan Free (100.000 invocaciones/día). **No es tráfico malicioso.** Ese día
@@ -208,8 +208,10 @@ dashboard (ver `scripts/seo/README.md` § Cloudflare):
    las reformas cacheadas saldrían sin estilos hasta que caduquen. Comprobado
    el 22/09: hoy todos los assets enlazados devuelven 200 (los estilos no
    cambian desde el 16/09), pero con un ~5% de aciertos el beneficio no
-   compensa ese riesgo. **Pendiente de decidir:** revertir #164, o acortar el
-   TTL de la caché del Worker a ~1 día.
+   compensa ese riesgo. **Decidido el 2026-09-23: #164 revertido.** Con un 5% de
+   aciertos no quedaba nada que proteger. Si algún día hace falta bajar la
+   carga de las reformas, la palanca es otra: servirlas como estáticas, no
+   cachear el render del Worker.
 
 **Googlebot, visto desde Cloudflare** (peticiones reales, 13–22/09): ~1.250 en
 total, ~395 a `/leyes/*`, ~200 a reformas en forma query y **1** a reformas en
