@@ -4,29 +4,31 @@ Dónde estamos, qué se está probando y cuándo se lee el resultado. Complement
 [`GOAL.md`](GOAL.md) (objetivos), [`PLAYBOOK.md`](PLAYBOOK.md) (qué puede tocar
 el loop) y [`EVAL.md`](EVAL.md) (cómo se puntúa un plan).
 
-> **Si vas a tocar el sitemap, el Worker o las URLs de reforma, lee primero la
-> sección de experimentos.** Hay uno vivo y un cambio despistado lo invalida.
+> Experimento A cerrado el 2026-09-22 (no concluyente): ya no hay nada vivo que
+> proteja el sitemap, el Worker o las URLs de reforma. Lee su cierre antes de
+> tocarlos de todos modos, para no repetir la apuesta.
 
-**Última actualización:** 2026-09-20
+**Última actualización:** 2026-09-23
 
 ---
 
 ## Diagnóstico actual
 
-### Indexación — medición del 2026-08-21, no repetida
+### Indexación — medición del 2026-09-22
 
-Medido con la URL Inspection API sobre 1.800 URLs (`scripts/seo/inspect-urls.ts`),
-no estimado. **Estas cifras son del 2026-08-21 y no se han vuelto a medir**: la
-siguiente barrida es la lectura del experimento A del 2026-09-22, que consume la
-cuota del día entero.
+Medido con la URL Inspection API (`scripts/seo/inspect-urls.ts`, tres pasadas de
+600 desde local), no estimado. Es la lectura formal del experimento A.
 
-| Cohorte | Muestra | Rastreadas | Indexadas | vs 2026-07-28 |
+| Cohorte | Muestra | Rastreadas | Indexadas | vs 2026-08-21 |
 |---------|---------|-----------|-----------|---------------|
-| Páginas de ley `/leyes/<id>/` | 1.173 | 98,9% | **15,9%** | +2,7 pp |
-| Reformas — brazo path | 299 | **0%** | **0%** | = |
-| Reformas — brazo query (2026) | 287 | **0%** | **0%** | = |
-| Reformas — query histórica | 22 | 100% | 86,4% | (cohorte sesgada, ver abajo) |
-| Páginas clave | 11 | 36,4% | 36,4% | — |
+| Páginas de ley `/leyes/<id>/` | 2.337 | 99,1% | **15,9%** | = |
+| Reformas — brazo path | 390 | **0%** | **0%** | = |
+| Reformas — brazo query (2026) | 387 | **0%** | **0%** | = |
+| Reformas — query histórica | 39 | 100% | 84,6% | (cohorte sesgada, ver abajo) |
+| Páginas clave | 11 | 36,4% | 36,4% | = |
+
+Un mes después, nada se ha movido. El 15,9% de las leyes es idéntico sobre una
+muestra el doble de grande, lo que refuerza que es la tasa real y no ruido.
 
 > La cohorte "query histórica" **no es evidencia de nada**: son las URLs que ya
 > reciben impresiones, y entran en la barrida por la cohorte de páginas con
@@ -49,6 +51,13 @@ PLAYBOOK llevan vacías desde julio, y el patrón está lo bastante asentado com
 para no ser ruido de una ventana mala. Lo que crece son head terms genéricos que
 aterrizan en la home entre la posición 60 y 97 — "derechos legales españa" (38,
 pos 62), "ley de empleo" (41, pos 70), "ley laboral españa" (35, pos 83).
+
+**Revisión del 2026-09-22 (ventana a 2026-09-19):** sin cambios de fondo. Mismas
+2.304 impresiones y 3 clics, posición 49,1, los tres sitemaps con 0 errores
+(`sitemap-reformas.xml` descargado de nuevo el 22/09). Los hubs, `/datos/` y las
+reformas en forma path siguen sin impresiones. Las consultas de marca siguen a
+cero. El snapshot de Umami no se pudo sacar (el SSH a KonarServer daba
+timeout desde el tailnet en uso).
 
 ### Colisión de marca con leyabierta.com · **detectado 2026-09-16**
 
@@ -128,10 +137,11 @@ citando como fuente. Valida el trabajo de agent-readiness.
 **Son dos problemas distintos, y confundirlos lleva a arreglar lo que no es:**
 
 1. **Reformas — problema de rastreo.** Google no las descarga. Ninguna de las
-   586 muestreadas (ambos brazos) tiene `lastCrawlTime`. No se puede juzgar el
-   contenido de una página que nunca se ha visitado. → Experimento A.
+   777 muestreadas el 22/09 (ambos brazos) tiene `lastCrawlTime`, sea cual sea
+   la forma de la URL (experimento A, cerrado). No se puede juzgar el contenido
+   de una página que nunca se ha visitado.
 2. **Leyes — problema de autoridad, no de contenido.** Google las descarga sin
-   problema (98,9%) y decide no indexar el 84%. Bing sí las indexa y las
+   problema (99,1%) y decide no indexar el 84%. Bing sí las indexa y las
    posiciona. Ningún ajuste técnico de la página arregla esto.
 
 **Corolario para priorizar:** con el 15,9% indexado, optimizar títulos, meta
@@ -149,58 +159,98 @@ estaban hechas o eran prematuras: la entidad de marca y el enlazado de hubs
 `data/seo/plan-claude-sonnet-5-2026-09-20.json`. Próxima decisión real: la
 lectura del experimento A el 2026-09-22.
 
-### Límite diario de Cloudflare Workers · 2026-09-19/20 — causa identificada y arreglada (#164)
+### Límite diario de Cloudflare Workers · 2026-09-19 — pico puntual, no un problema recurrente
 
-Aviso de Cloudflare el 2026-09-19: `leyabierta-web` alcanzó el límite diario
-del plan Free (100.000 peticiones/día). **No es tráfico malicioso ni el
-resultado de un bug de negocio.** El desglose de AI Crawl Control en el
-dashboard de Cloudflare, sobre 7 días: GPTBot 67.250 + ClaudeBot 59.090 =
-126.340 peticiones, BingBot 11.820, Googlebot **741**. Coincide en el tiempo
-con que `sitemap-reformas.xml` pasó a 0 errores (#161, confirmado el 2026-09-19
-tal como se documenta arriba): los agentes de IA se pusieron al día indexando
-las ~34.400 reformas que antes eran inalcanzables. Bloquear GPTBot/ClaudeBot
-iría contra la propia estrategia de agent-readiness del proyecto (ver el
-tráfico de asistentes de IA en Umami, arriba) y por eso **no se ha
-considerado**.
+Aviso de Cloudflare el 2026-09-19: `leyabierta-web` superó el límite diario
+del plan Free (100.000 invocaciones/día). **No es tráfico malicioso.** Ese día
+el Worker tuvo **153.469 invocaciones**, de las que GPTBot (~36,7k) y ClaudeBot
+(~25,4k) fueron la mayor parte. Coincide con que `sitemap-reformas.xml` pasó a
+0 errores (#161): los agentes de IA se pusieron al día con las ~34.400 reformas
+que antes eran inalcanzables. Bloquearlos iría contra la estrategia de
+agent-readiness y **no se ha considerado**.
 
-**Causa raíz real, y la que sí merecía arreglarse:** `renderReformResponse()`
-en `packages/web/src/worker/index.ts` construía la `Response` de cada página
-de reforma a mano y la devolvía directamente. Llevaba una cabecera
-`cache-control: public, s-maxage=7776000`, pero Cloudflare solo cachea en el
-borde automáticamente las respuestas de `env.ASSETS.fetch()` — una `Response`
-construida por el propio Worker nunca tocaba la caché de borde pese a la
-cabecera. Cada visita, de cualquier origen, repetía el render completo y hasta
-3 subpeticiones a la API. Arreglado escribiendo explícitamente en
-`caches.default` (Cache API de Cloudflare) tras cada render exitoso, con
-`ctx.waitUntil()` para no bloquear la respuesta, y sin cachear nunca la rama de
-fallback (un 404/500 transitorio no debe fijarse 90 días). Verificado en
-producción tras el despliegue: la latencia de una reforma pasa de ~267ms a
-~110ms en la segunda visita.
+**Revisión del 2026-09-22 — lo que dicen los datos, y qué hay que corregir de lo
+escrito el 20/09.** Leído con `claude-in-chrome` contra la GraphQL del propio
+dashboard (ver `scripts/seo/README.md` § Cloudflare):
 
-**Próximos pasos:**
-- Vigilar el contador "Requests today" de `leyabierta-web` en el dashboard de
-  Workers & Pages durante 1-2 días tras el despliegue de #164, para confirmar
-  que el arreglo de caché reduce las invocaciones reales y no solo que el pico
-  de rastreo de bots se agotó por sí solo.
-- **Cloudflare, incorporado al loop — vía `claude-in-chrome`, sin script ni
-  token.** A diferencia de GSC/Umami, este loop nunca corre desatendido (no
-  hay cron — ver "The loop is manual on purpose" en el skill), así que cada
-  ejecución ya tiene una sesión de `claude-in-chrome` disponible: leer el
-  dashboard directamente no cuesta nada y no exige crear ni rotar credenciales.
-  Es además la única forma de ver el desglose por bot de AI Crawl Control, que
-  no tiene equivalente en la API pública. Guía y páginas concretas del
-  dashboard a mirar en `scripts/seo/README.md` § Cloudflare — a repasar en el
-  paso 1 ("Where do we stand") de cada iteración, no solo tras un aviso de
-  límite.
+| Día | Invocaciones | Subpeticiones a la API |
+|-----|-------------:|-----------------------:|
+| 14–18/09 (media) | ~21.000 | ~10.400 |
+| **19/09** | **153.469** | **102.979** |
+| 20/09 (#164 desplegado a las 17:00) | 25.841 | 16.476 |
+| 21/09 | 29.632 | 18.263 |
+| 22/09 | 28.000 | 14.751 |
+
+1. **Fue un pico de un solo día, no una tendencia.** El 21/09 GPTBot y ClaudeBot
+   ya ni aparecen entre los 15 agentes con más peticiones. Lo normal está entre
+   20k y 30k invocaciones al día, **un 20–30% del límite**. No hace falta ni
+   cambiar de plan ni limitar el acceso a nadie.
+2. **#164 funciona, pero su efecto en la carga es despreciable.** Aciertos de
+   caché del 21/09 (`requestSource=edgeWorkerCacheAPI`): **989 hits contra
+   17.838 misses, un ~5%**. Los crawlers piden casi cada reforma una sola vez,
+   y la Cache API es local de cada centro de datos, así que casi nunca se
+   repite una URL en el mismo sitio. Las subpeticiones a la API no han bajado
+   (han subido con el tráfico). La mejora de latencia de ~267ms a ~110ms del
+   20/09 es real, pero solo en visitas repetidas, que son la excepción.
+3. **Error conceptual en lo escrito el 20/09:** «confirmar que el arreglo
+   reduce las invocaciones». La Cache API se ejecuta *dentro* del Worker, así
+   que cada petición lo invoca igual haya hit o no. #164 solo podía ahorrar
+   subpeticiones a la API, nunca invocaciones.
+4. **Aviso para quien lea las analíticas de zona:** desde el 20/09 aparecen en
+   `/cambios/reforma/` ~18k filas diarias con 504 y otras ~18k con 204 `PUT`.
+   **No son errores servidos a nadie**: son el `cache.match` fallido y el
+   `cache.put` de la Cache API, registrados con `requestSource:
+   edgeWorkerCacheAPI`. Filtra por `requestSource: eyeball` para ver lo que
+   reciben los visitantes (200 en todos los casos comprobados).
+5. **Riesgo latente de #164:** el HTML cacheado vive 90 días
+   (`s-maxage=7776000`) y enlaza los `/_astro/*.css|js` con hash del shell del
+   momento. Si un deploy cambia esos hashes y los antiguos dejan de servirse,
+   las reformas cacheadas saldrían sin estilos hasta que caduquen. Comprobado
+   el 22/09: hoy todos los assets enlazados devuelven 200 (los estilos no
+   cambian desde el 16/09), pero con un ~5% de aciertos el beneficio no
+   compensa ese riesgo. **Pendiente de decidir:** revertir #164, o acortar el
+   TTL de la caché del Worker a ~1 día.
+
+**Googlebot, visto desde Cloudflare** (peticiones reales, 13–22/09): ~1.250 en
+total, ~395 a `/leyes/*`, ~200 a reformas en forma query y **1** a reformas en
+forma path. Es otra forma de medir el rastreo, sin gastar cuota de inspección,
+y confirma la lectura del experimento A de abajo.
 
 ---
 
 ## Experimentos
 
-### A — Forma de URL de las reformas · **en curso, ventana ampliada**
+### A — Forma de URL de las reformas · **cerrado 2026-09-22: no concluyente**
 
 **Desplegado:** 2026-07-28 · **Leído 2026-08-21: ⏳ SIN SEÑAL** ·
-**Próxima lectura: 2026-09-22**
+**Leído 2026-09-22: ⏳ SIN SEÑAL → cerrado como no concluyente**
+
+> #### Lectura final del 2026-09-22: cerrar, no migrar
+>
+> | Brazo | n | Rastreadas | Indexadas | Descubierta | Desconocida |
+> |-------|---|-----------|-----------|-------------|-------------|
+> | Tratamiento (path) | 390 | **0,0%** | 0,0% | 164 | 226 |
+> | Control (query 2026) | 387 | **0,0%** | 0,0% | 154 | 233 |
+>
+> Ocho semanas después del despliegue, ambos brazos siguen a cero rastreadas y
+> tienen un reparto casi idéntico de estados. Los logs de Cloudflare dicen lo
+> mismo desde otro ángulo: **una sola** petición de Googlebot a una reforma en
+> forma path en 10 días (13–22/09). La regla fijada en la lectura anterior se
+> aplica tal cual: *si ambos brazos siguen a cero, cerrar como no concluyente y
+> pasar a autoridad de dominio.* Google no rastrea ninguna de las dos formas de
+> URL, así que el experimento no puede decidir cuál es mejor, y esperar más no
+> lo cambia.
+>
+> **Qué se hace con el código:** nada. Las ~34k reformas se quedan en forma
+> query y las 2026 repartidas como están. Migrar sin evidencia tiene coste
+> (redirecciones, canonicals, sitemap) y ninguna ganancia demostrada. Se
+> levanta la congelación de `reform-experiment.ts`, del reparto y del split del
+> sitemap: ya no hay experimento que proteger, pero cualquier cambio ahí debe
+> tener su propio motivo.
+>
+> **Qué nos deja:** el cuello de botella de las reformas no es la forma de la
+> URL sino el presupuesto de rastreo, y eso es autoridad de dominio. Es la misma
+> conclusión que para las leyes (ver el diagnóstico de arriba).
 
 > #### Aviso del 2026-09-16 — no adelantes la lectura con impresiones
 >
