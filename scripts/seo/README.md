@@ -120,9 +120,9 @@ There is deliberately **no `pull-*.ts` for it**: unlike GSC/Umami this loop
 never runs unattended (no cron — see "The loop is manual on purpose" in the
 skill), so every run already has a live `claude-in-chrome` session available,
 and that reads the dashboard directly with no API token to create or rotate.
-It's also strictly more capable: the AI Crawl Control tab's per-bot breakdown
-(GPTBot vs ClaudeBot vs Googlebot) isn't backed by any public API dataset, so
-a token-based script couldn't pull it anyway.
+It also sees everything the dashboard sees, including AI Crawl Control. A
+per-bot breakdown is also available from GraphQL, by grouping
+`httpRequestsAdaptiveGroups` by `userAgent` (see below).
 
 Check it as part of step 1 ("Where do we stand") whenever a Workers-limit
 notice has landed, or periodically to catch one before it does:
@@ -132,6 +132,25 @@ notice has landed, or periodically to catch one before it does:
 | Workers & Pages → `leyabierta-web` → Metrics | Requests today vs the Free plan's 100k/day cap, error rate |
 | `leyabierta.es` zone → Analytics & Logs → Traffic | Total requests, cache-hit ratio |
 | `leyabierta.es` zone → Security → AI Crawl Control | Per-bot breakdown — the only way to tell "AI crawlers backfilling the sitemap" from "something to actually rate-limit" |
+
+**Exact numbers without a token: the dashboard's own GraphQL.** Screenshots of
+charts are coarse. From any `dash.cloudflare.com` tab, run a `fetch` through
+`javascript_tool` to `/api/v4/graphql` (with `credentials: 'include'`): it uses
+the logged-in session, so no API token is needed. The account ID is in the
+dashboard URL; the zone ID comes from `/api/v4/zones?name=leyabierta.es`.
+Datasets that worked on the Free plan on 2026-09-22:
+
+| Dataset | Scope | Useful for |
+|---------|-------|------------|
+| `workersInvocationsAdaptive` (`dimensions{date}`, `sum{requests subrequests}`) | account | Daily invocations vs the 100k cap |
+| `workersSubrequestsAdaptiveGroups` (`dimensions{date hostname}`) | account | API load by day |
+| `httpRequestsAdaptiveGroups` (≤1 day per query) | zone | Status codes, user agents, Googlebot per path, `cacheStatus` |
+
+Two gotchas. `clientRequestQuery` is not available on Free, so the query-form
+reform URLs all collapse into `/cambios/reforma/`. And since #164, Cache API
+operations show up as their own rows (`requestSource: edgeWorkerCacheAPI`: a
+504 on every `match` miss, a 204 `PUT` on every `put`). Filter
+`requestSource: "eyeball"` or you'll read cache misses as outages.
 
 The 2026-09-19/20 incident in `STATUS.md` is the worked example: GPTBot +
 ClaudeBot made 126k of the week's requests against Googlebot's 741, which is
