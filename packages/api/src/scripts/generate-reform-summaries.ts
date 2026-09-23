@@ -2,23 +2,37 @@
  * Generate AI reform summaries for reforms missing them.
  *
  * Generates headline, summary, reform_type, and importance for each reform
- * using the NaN stack (gemma4). Results cached in reform_summaries table.
+ * via OpenRouter (model: CONTENT_LLM_MODEL, default google/gemini-2.5-flash-lite).
+ * Results cached in reform_summaries table.
+ *
+ * Gap-filling by design: every run picks up ALL reforms in the window that
+ * still lack a summary (newest first), not just yesterday's. The window
+ * (--weeks, default 26) and the per-run cap (--limit, default 200) keep a
+ * backlog from being processed in one go; the rest is picked up on later runs.
  *
  * Usage:
- *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts
- *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --weeks 4
- *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --limit 50
- *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --dry-run
- *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --force
- *   NAN_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts --model gemma4
+ *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-reform-summaries.ts
+ *   ... --weeks 4                 # narrower window
+ *   ... --since 2026-08-01        # explicit start date (overrides --weeks)
+ *   ... --limit 50                # per-run cap
+ *   ... --dry-run                 # list what would be processed, no LLM calls
+ *   ... --no-write                # call the LLM but do not write to the DB (smoke test)
+ *   ... --force                   # regenerate existing summaries in the window
+ *   ... --model <openrouter-id>   # override CONTENT_LLM_MODEL
+ *
+ * Env: OPENROUTER_API_KEY (required unless --dry-run), CONTENT_LLM_MODEL,
+ * REFORM_SUMMARIES_WEEKS, REFORM_SUMMARIES_LIMIT, DB_PATH.
  */
 
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { createSchema } from "@leyabierta/pipeline";
 import { DbService } from "../services/db.ts";
-import { callNan } from "../services/nan.ts";
-import { OpenRouterError } from "../services/openrouter.ts";
+import {
+	CONTENT_LLM_MODEL,
+	callOpenRouter,
+	OpenRouterError,
+} from "../services/openrouter.ts";
 
 // ── CLI ──
 
@@ -29,23 +43,31 @@ function getArg(name: string): string | undefined {
 }
 const hasFlag = (name: string) => args.includes(`--${name}`);
 
-const weeks = Number(getArg("weeks") ?? 4);
-const limitArg = Number(getArg("limit") ?? 200);
-const modelId = getArg("model") ?? "gemma4";
+const weeks = Number(
+	getArg("weeks") ?? process.env.REFORM_SUMMARIES_WEEKS ?? 26,
+);
+const sinceArg = getArg("since");
+const limitArg = Number(
+	getArg("limit") ?? process.env.REFORM_SUMMARIES_LIMIT ?? 200,
+);
+const modelId = getArg("model") ?? CONTENT_LLM_MODEL;
 const dryRun = hasFlag("dry-run");
+const noWrite = hasFlag("no-write");
 const force = hasFlag("force");
 const omnibusOnly = hasFlag("omnibus-only");
 
-const apiKey = process.env.NAN_API_KEY;
+const apiKey = process.env.OPENROUTER_API_KEY;
 if (!apiKey && !dryRun) {
-	console.error("Set NAN_API_KEY env variable (or use --dry-run to skip AI)");
+	console.error(
+		"Set OPENROUTER_API_KEY env variable (or use --dry-run to skip AI)",
+	);
 	process.exit(1);
 }
 
 // ── DB ──
 
 const repoRoot = join(import.meta.dir, "../../../../");
-const dbPath = join(repoRoot, "data", "leyabierta.db");
+const dbPath = process.env.DB_PATH ?? join(repoRoot, "data", "leyabierta.db");
 const db = new Database(dbPath);
 db.exec("PRAGMA journal_mode = WAL");
 db.exec("PRAGMA foreign_keys = ON");
@@ -307,7 +329,10 @@ ${diffsText || "(sin bloques afectados disponibles)"}`;
 async function main() {
 	const since = new Date();
 	since.setDate(since.getDate() - weeks * 7);
-	const sinceStr = since.toISOString().slice(0, 10);
+	const sinceStr =
+		sinceArg && /^\d{4}-\d{2}-\d{2}$/.test(sinceArg)
+			? sinceArg
+			: since.toISOString().slice(0, 10);
 
 	// Get reforms without summaries
 	let reforms: Array<{
@@ -352,10 +377,13 @@ async function main() {
 	}
 
 	console.log(`\n📋 Reform summaries generation`);
-	console.log(`   Since: ${sinceStr} (${weeks} weeks)`);
+	console.log(
+		`   Since: ${sinceStr}${sinceArg ? "" : ` (${weeks} weeks)`} | cap: ${limitArg}/run`,
+	);
 	console.log(`   Model: ${modelId}`);
 	console.log(`   Reforms to process: ${reforms.length}`);
 	if (dryRun) console.log(`   Mode: DRY RUN (no LLM calls)`);
+	if (noWrite) console.log(`   Mode: NO WRITE (LLM calls, no DB writes)`);
 	if (force) console.log(`   Mode: FORCE (regenerate existing)`);
 	if (omnibusOnly) console.log(`   Mode: OMNIBUS ONLY (15+ materias)`);
 	console.log();
@@ -405,7 +433,7 @@ async function main() {
 		);
 
 		try {
-			const result = await callNan<SummaryResponse>(apiKey!, {
+			const result = await callOpenRouter<SummaryResponse>(apiKey!, {
 				model: modelId,
 				messages: [
 					{ role: "system", content: system },
@@ -428,6 +456,15 @@ async function main() {
 			// Override reform_type for confirmed new laws
 			if (isNewLaw) {
 				validated.reform_type = "new_law";
+			}
+
+			if (noWrite) {
+				totalCost += result.cost;
+				processed++;
+				console.log(
+					`  🧪 ${reform.norm_id} ${reform.date} | ${validated.reform_type} | ${validated.importance} | $${result.cost.toFixed(6)}\n     ${validated.headline}\n     ${validated.summary}`,
+				);
+				continue;
 			}
 
 			dbService.upsertReformSummary(
@@ -465,6 +502,10 @@ async function main() {
 	console.log(`   Errors: ${errors}`);
 	console.log(`   New laws detected: ${skippedNewLaw}`);
 	if (!dryRun) console.log(`   Total cost: $${totalCost.toFixed(4)}`);
+	// Non-zero exit when every call failed, so the daily pipeline alerts.
+	if (!dryRun && reforms.length > 0 && processed === 0 && errors > 0) {
+		process.exit(1);
+	}
 }
 
 main().catch((err) => {

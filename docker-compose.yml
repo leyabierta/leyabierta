@@ -26,11 +26,11 @@ services:
     environment:
       - DB_PATH=/data/leyabierta.db
       - REPO_PATH=/data/leyes
-      # Pluggable backend feature flags (defaults = Qwen NaN — no behaviour change)
-      # Override in .env.prod to activate OpenRouter paths:
-      #   LLM_BACKEND=openrouter RERANK_BACKEND=cohere-or
-      - LLM_BACKEND=${LLM_BACKEND:-nan}
-      - RERANK_BACKEND=${RERANK_BACKEND:-qwen-llm}
+      # Pluggable backend feature flags. Defaults = OpenRouter (NaN was
+      # cancelled in 2026-08; "nan"/"qwen-llm" are legacy opt-ins that the code
+      # only honours when NAN_API_KEY is set).
+      - LLM_BACKEND=${LLM_BACKEND:-openrouter}
+      - RERANK_BACKEND=${RERANK_BACKEND:-cohere-or}
       - OPENROUTER_LLM_MODEL=${OPENROUTER_LLM_MODEL:-google/gemini-2.5-flash-lite}
       - OPENROUTER_RERANK_MODEL=${OPENROUTER_RERANK_MODEL:-cohere/rerank-4-fast}
     labels:

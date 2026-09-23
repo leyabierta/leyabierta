@@ -104,7 +104,7 @@ export async function fetchWithRetry(
 	apiKey: string,
 	modelId: string,
 	input: string | string[],
-	provider: EmbeddingProvider = "nan",
+	provider: EmbeddingProvider = "openrouter",
 ): Promise<Response> {
 	const maxRetries = 3;
 	let attempts = 0;

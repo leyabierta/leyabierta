@@ -6,9 +6,9 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { callOpenRouter } from "./openrouter.ts";
+import { CONTENT_LLM_MODEL, callOpenRouter } from "./openrouter.ts";
 
-const MODEL = "google/gemini-2.5-flash-lite";
+const MODEL = CONTENT_LLM_MODEL;
 
 const SYSTEM_PROMPT = `Eres un redactor institucional que traduce artículos legales españoles a lenguaje accesible para ciudadanos.
 

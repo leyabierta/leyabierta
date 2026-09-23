@@ -1,8 +1,20 @@
 /**
  * Shared OpenRouter API client with retry, rate limit handling, and JSON parsing.
  *
- * Used by: generate-reform-summaries.ts
+ * Used by: RAG backends (analyzer, synthesis), citizen-summary.ts, and the
+ * content-generation scripts (reform summaries, omnibus topics, citizen
+ * summaries backfill).
  */
+
+/**
+ * Model used for generated citizen content (reform summaries, omnibus topics,
+ * per-article citizen summaries). Override with CONTENT_LLM_MODEL (any
+ * OpenRouter chat model id that supports JSON-schema structured outputs).
+ * `packages/pipeline/src/scripts/generate-citizen-tags.ts` reads the same
+ * env var with the same default.
+ */
+export const CONTENT_LLM_MODEL =
+	process.env.CONTENT_LLM_MODEL || "google/gemini-2.5-flash-lite";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MAX_RETRIES = 2;

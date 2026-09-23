@@ -343,27 +343,51 @@ log "→ Step 3: Ingest analisis"
 docker exec "$CONTAINER" bun run ingest-analisis >> "$LOG" 2>&1
 log "  ✓ Ingest-analisis done"
 
+# ── AI steps (3b-6) are non-fatal ───────────────────────────────────────────
+# All of them call external AI providers (OpenRouter, OPENROUTER_API_KEY in
+# .env.prod). Before, they ran under `set -e` like everything else, so a dead
+# provider key made Step 4 exit 1 and skipped Steps 5-10 — no OG
+# images, no subscriber emails, no index rebuild, no heartbeat
+# (2026-08: NaN cancelled, Step 4 still pointed at it). AI enrichment is
+# additive and every step is gap-filling (it retries whatever is still missing
+# on the next run), so a failure here alerts and the run continues.
+run_ai_step() {
+  local name="$1"; shift
+  local status
+  set +e
+  docker exec "$CONTAINER" "$@" >> "$LOG" 2>&1
+  status=$?
+  set -e
+  if [ "$status" -ne 0 ]; then
+    log "  ⚠ $name failed (exit $status) — continuing; missing items are retried next run"
+    send_alert "leyabierta AI step failed: $name" "exit=$status — check OPENROUTER_API_KEY / credits and /opt/leyabierta/logs/daily-pipeline.log"
+  else
+    log "  ✓ $name done"
+  fi
+}
+
 # ── Step 3b: RAG — embed any vigente articles missing qwen3-nan embeddings ──
 # Incremental: no-op when nothing new. Keeps /v1/ask in sync with newly
-# ingested norms. Requires HERMES_API_KEY (or NAN_API_KEY) in .env.prod.
-log "→ Step 3b: Embed new corpus chunks (qwen3-nan via NaN)"
-docker exec "$CONTAINER" bun run packages/api/src/scripts/embed-corpus.ts >> "$LOG" 2>&1
-log "  ✓ Embed corpus done"
+# ingested norms. The "qwen3-nan" store key is historical: vectors now come
+# from OpenRouter qwen/qwen3-embedding-8b (same model, same 4096-dim space).
+log "→ Step 3b: Embed new corpus chunks (qwen3-embedding-8b via OpenRouter)"
+run_ai_step "Embed corpus" bun run packages/api/src/scripts/embed-corpus.ts
 
 # ── Step 4: AI — reform summaries ───────────────────────────────────────────
+# Gap-filling: covers every reform of the last 26 weeks still lacking a
+# summary, newest first, capped per run (REFORM_SUMMARIES_LIMIT, default 200).
 log "→ Step 4: Reform summaries"
-docker exec "$CONTAINER" bun run packages/api/src/scripts/generate-reform-summaries.ts >> "$LOG" 2>&1
-log "  ✓ Reform summaries done"
+run_ai_step "Reform summaries" bun run packages/api/src/scripts/generate-reform-summaries.ts
 
 # ── Step 5: AI — citizen tags & summaries ───────────────────────────────────
+# Gap-filling: norms with an empty citizen_summary, newest first, capped per
+# run (CITIZEN_TAGS_MAX_PER_RUN, default 100).
 log "→ Step 5: Citizen tags"
-docker exec "$CONTAINER" bun run packages/pipeline/src/scripts/generate-citizen-tags.ts >> "$LOG" 2>&1
-log "  ✓ Citizen tags done"
+run_ai_step "Citizen tags" bun run packages/pipeline/src/scripts/generate-citizen-tags.ts
 
 # ── Step 6: AI — omnibus topic detection ────────────────────────────────────
 log "→ Step 6: Omnibus topics"
-docker exec "$CONTAINER" bun run packages/api/src/scripts/generate-omnibus-topics.ts >> "$LOG" 2>&1
-log "  ✓ Omnibus topics done"
+run_ai_step "Omnibus topics" bun run packages/api/src/scripts/generate-omnibus-topics.ts
 
 # ── Step 7: OG images (only generates missing ones) ─────────────────────────
 log "→ Step 7: OG images"

@@ -16,22 +16,23 @@
 
 import type { Database } from "bun:sqlite";
 import { getNanApiKey } from "../nan-api-key.ts";
-import { getLlmCaller, LLM_BACKEND } from "./backends.ts";
+import { EFFECTIVE_LLM_MODEL, getLlmCaller, LLM_BACKEND } from "./backends.ts";
 import { JURISDICTION_NAMES } from "./jurisdiction.ts";
 
 /**
- * Analyzer model — qwen3.6 via NaN. Extracts keywords, legal synonyms,
- * materias, jurisdiction, temporal intent, named-law hints from the citizen
- * query.
+ * Analyzer model — the model serving the effective LLM_BACKEND (default:
+ * OpenRouter OPENROUTER_LLM_MODEL = google/gemini-2.5-flash-lite). Extracts
+ * keywords, legal synonyms, materias, jurisdiction, temporal intent and
+ * named-law hints from the citizen query.
  *
- * Phase 5 A/B (50 queries × 9.7k norms): swapping the analyzer from
- * gemini-2.5-flash-lite (OpenRouter, paid) to qwen3.6 (NaN, free) added
- * +4 pp R@1, +4 pp R@5, +2 pp R@10 to the retrieval pipeline. The free
- * provider was strictly better on this Spanish-legal corpus.
+ * History: Phase 5 A/B (50 queries × 9.7k norms) measured qwen3.6 on NaN
+ * +4 pp R@1 over gemini-2.5-flash-lite as analyzer. NaN was cancelled in
+ * 2026-08; qwen3.6 remains reachable only via the LLM_BACKEND=nan opt-in.
  *
- * Override the model per call via the `overrides` arg if needed.
+ * Override the model per call via the `overrides` arg if needed (ignored by
+ * the OpenRouter backend, which always uses OPENROUTER_LLM_MODEL).
  */
-export const ANALYZER_MODEL = "qwen3.6";
+export const ANALYZER_MODEL = EFFECTIVE_LLM_MODEL;
 
 export interface AnalyzedQuery {
 	keywords: string[];
