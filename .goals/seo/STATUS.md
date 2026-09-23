@@ -443,3 +443,16 @@ dominio se mueva.
   puedan volver a divergir.
   **Confirmado el 2026-09-20:** tras el reenvío del 16/09, `errors: 0`,
   `lastDownloaded` 2026-09-19. Cerrado.
+- **Fechas de actualización (A5 y A6 de la auditoría del 2026-09-23), PR
+  pendiente de merge.** `sitemap-leyes.xml` anunciaba `BOE-A-1985-26400` con
+  `<lastmod>2929-11-19`: la errata viene del propio BOE (`fecha_publicacion=
+  "29291119"` en un `<version>` que dice `fpub="20210224"`). Ahora el lastmod
+  exige una fecha real entre 1970 y hoy. Además, 15 leyes (copia local de
+  `leyes` del 22/07) tenían `ultima_actualizacion` por detrás de su última
+  reforma, entre ellas el Estatuto de los Trabajadores (2023-03-01 frente a
+  2025-12-04). La causa estaba en el pipeline: cuando el BOE añade una reforma
+  antigua después de otras más nuevas, se regeneraba el fichero entero a la
+  fecha antigua, **con el texto de entonces**. El pipeline ya no retrocede, y la
+  web calcula la fecha con un único helper (`lib/law-dates.ts`). **Pendiente:**
+  los ficheros ya afectados siguen con el texto antiguo en `leyes` hasta su
+  próxima reforma o hasta regenerarlos.

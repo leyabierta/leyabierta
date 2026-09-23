@@ -6,7 +6,7 @@
  * via the registry.
  */
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type {
 	LegislativeClient,
@@ -20,6 +20,7 @@ import { SPAIN_JURISDICTION_CODES } from "./spain/jurisdictions.ts";
 import { renderNormAtDate } from "./transform/markdown.ts";
 import { normToFilepath } from "./transform/slug.ts";
 import { extractReforms, parseTextXml } from "./transform/xml-parser.ts";
+import { isPlausibleReformDate } from "./utils/date.ts";
 
 export interface PipelineConfig {
 	repoPath: string;
@@ -62,6 +63,45 @@ export async function bootstrapFromLocalXml(
 }
 
 /**
+ * The date a reform's commit must render the norm at.
+ *
+ * Normally that is the reform's own date. But the BOE sometimes adds an older
+ * reform to a norm whose newer reforms we already committed (a late-arriving
+ * version). Rendering that commit at the older date would roll the whole file
+ * back — text AND `ultima_actualizacion` — to that point in time, and leave it
+ * there until the next reform: that is how the Estatuto de los Trabajadores
+ * (BOE-A-2015-11430) ended up showing its 2023-03-01 text and date while its
+ * reform list ran to 2025-12-04.
+ *
+ * So the file never moves backwards: if the version currently on disk was
+ * rendered at a later (plausible) date, render at that date instead. The
+ * commit then only adds the late reform to `reformas`; its text is already
+ * contained in the later version. `existingMarkdown` is the file as it is on
+ * disk right now, or undefined if it doesn't exist yet.
+ */
+export function resolveRenderDate(
+	reformDate: string,
+	existingMarkdown: string | undefined,
+): string {
+	if (!existingMarkdown?.startsWith("---\n")) return reformDate;
+	const end = existingMarkdown.indexOf("\n---", 4);
+	const frontmatter =
+		end === -1 ? existingMarkdown : existingMarkdown.slice(0, end);
+	const current = frontmatter.match(
+		/^ultima_actualizacion: ["']?(\d{4}-\d{2}-\d{2})["']?$/m,
+	)?.[1];
+	if (current && current > reformDate && isPlausibleReformDate(current)) {
+		return current;
+	}
+	return reformDate;
+}
+
+function readExisting(repoPath: string, filePath: string): string | undefined {
+	const abs = join(repoPath, filePath);
+	return existsSync(abs) ? readFileSync(abs, "utf-8") : undefined;
+}
+
+/**
  * Commit all reforms of a norm to the git repo.
  */
 export async function commitNorm(
@@ -91,7 +131,7 @@ export async function commitNorm(
 		const markdown = renderNormAtDate(
 			metadata,
 			blocks,
-			reform.date,
+			resolveRenderDate(reform.date, readExisting(cfg.repoPath, filePath)),
 			norm.reforms,
 			norm.analisis,
 		);
@@ -195,7 +235,7 @@ export async function commitNormsChronologically(
 		const markdown = renderNormAtDate(
 			metadata,
 			blocks,
-			reform.date,
+			resolveRenderDate(reform.date, readExisting(cfg.repoPath, filePath)),
 			norm.reforms,
 			norm.analisis,
 		);

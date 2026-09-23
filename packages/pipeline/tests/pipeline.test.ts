@@ -45,7 +45,13 @@ function gitOutput(args: string[], cwd: string): string {
 }
 
 import type { NormMetadata } from "../src/models.ts";
-import { bootstrapFromLocalXml } from "../src/pipeline.ts";
+import {
+	bootstrapFromLocalXml,
+	commitNorm,
+	resolveRenderDate,
+} from "../src/pipeline.ts";
+import { renderNormAtDate } from "../src/transform/markdown.ts";
+import { extractReforms, parseTextXml } from "../src/transform/xml-parser.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures");
 
@@ -163,5 +169,81 @@ describe("bootstrapFromLocalXml", () => {
 		const jsonPath = join(dataDir, "json", "BOE-A-1978-31229.json");
 		const exists = await Bun.file(jsonPath).exists();
 		expect(exists).toBe(true);
+	});
+});
+
+describe("resolveRenderDate", () => {
+	const md = (date: string) =>
+		`---\ntitulo: X\nultima_actualizacion: "${date}"\n---\n\n# X\n`;
+
+	test("uses the reform date when the file does not exist yet", () => {
+		expect(resolveRenderDate("2023-03-01", undefined)).toBe("2023-03-01");
+	});
+
+	test("uses the reform date when it is newer than the file", () => {
+		expect(resolveRenderDate("2025-12-04", md("2023-03-01"))).toBe(
+			"2025-12-04",
+		);
+	});
+
+	// Estatuto de los Trabajadores: a 2023 reform arriving after the 2025 ones.
+	test("never renders a late-arriving older reform backwards", () => {
+		expect(resolveRenderDate("2023-03-01", md("2025-12-04"))).toBe(
+			"2025-12-04",
+		);
+	});
+
+	test("ignores an implausible date already on disk", () => {
+		expect(resolveRenderDate("2021-02-24", md("2929-11-19"))).toBe(
+			"2021-02-24",
+		);
+	});
+
+	test("reads the date only from the frontmatter", () => {
+		const body = "---\ntitulo: X\n---\n\nultima_actualizacion: 2099-01-01\n";
+		expect(resolveRenderDate("2020-01-01", body)).toBe("2020-01-01");
+	});
+});
+
+describe("commitNorm with a late-arriving reform", () => {
+	test("keeps the file at its latest version", async () => {
+		const tmpDir = makeTmpDir();
+		const config = {
+			repoPath: join(tmpDir, "repo"),
+			dataDir: join(tmpDir, "data"),
+		};
+		const blocks = parseTextXml(
+			await Bun.file(join(FIXTURES_DIR, "constitucion-sample.xml")).bytes(),
+		);
+		const reforms = extractReforms(blocks);
+		expect(reforms.map((r) => r.date)).toEqual([
+			"1978-12-29",
+			"1992-08-28",
+			"2011-09-27",
+			"2024-02-17",
+		]);
+
+		// First run: the BOE hasn't published the 2011 reform yet.
+		const withoutLate = reforms.filter((r) => r.date !== "2011-09-27");
+		await commitNorm(
+			{ metadata: CONSTITUCION_METADATA, blocks, reforms: withoutLate },
+			config,
+		);
+		// Second run: it shows up, older than the 2024 one already committed.
+		const created = await commitNorm(
+			{ metadata: CONSTITUCION_METADATA, blocks, reforms },
+			config,
+		);
+		expect(created).toBe(1);
+
+		const onDisk = readFileSync(
+			join(config.repoPath, "es", "BOE-A-1978-31229.md"),
+			"utf-8",
+		);
+		expect(onDisk).toContain('ultima_actualizacion: "2024-02-17"');
+		expect(onDisk).toContain('fecha: "2011-09-27"');
+		expect(onDisk).toBe(
+			renderNormAtDate(CONSTITUCION_METADATA, blocks, "2024-02-17", reforms),
+		);
 	});
 });

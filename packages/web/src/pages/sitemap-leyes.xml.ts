@@ -6,13 +6,14 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { effectiveLastUpdated, todayIso } from "../lib/law-dates.ts";
 import { SECONDARY_PAGES } from "../lib/site-pages.ts";
 import { isEmittableLastmod } from "../lib/sitemap-dates.ts";
 
 export const prerender = true;
 
 const SITE_URL = "https://leyabierta.es";
-const TODAY_ISO = new Date().toISOString().slice(0, 10);
+const TODAY_ISO = todayIso();
 
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
@@ -38,10 +39,10 @@ export const GET: APIRoute = async () => {
 		// sitemap-reformas.xml applies the same rule through the same helper;
 		// when this one held the rule inline, reformas didn't get it and Google
 		// reported 158 "Invalid date" errors for two months.
+		const updated = effectiveLastUpdated(d, TODAY_ISO);
 		const lastmod =
-			d.ultima_actualizacion &&
-			isEmittableLastmod(d.ultima_actualizacion, TODAY_ISO)
-				? `\n    <lastmod>${d.ultima_actualizacion}</lastmod>`
+			updated && isEmittableLastmod(updated, TODAY_ISO)
+				? `\n    <lastmod>${updated}</lastmod>`
 				: "";
 		urls.push(`  <url>
     <loc>${SITE_URL}/leyes/${d.identificador}/</loc>${lastmod}
