@@ -321,8 +321,8 @@ import Base from "../layouts/Base.astro";
 			<div class="usecase">
 				<h3 class="usecase-title">Alertador de reformas en 20 líneas con jq</h3>
 				<p class="usecase-desc">
-					Obtén las últimas reformas de una jurisdicción y filtra las que afectan
-					a un tema concreto:
+					Obtén las últimas reformas de una jurisdicción y quédate con las que
+					mencionan un tema en su título o resumen:
 				</p>
 				<div class="code-block" data-snippet="jq-alertador">
 					<button class="copy-btn" aria-label="Copiar script">Copiar</button>
@@ -332,7 +332,8 @@ import Base from "../layouts/Base.astro";
 curl -s 'https://api.leyabierta.es/v1/changelog?jurisdiccion=es&amp;limit=50' \
   | jq -r '
       .reforms[]
-      | select(.materias[]? | test("Trabajo|Empleo|Laboral"; "i"))
+      | select("\(.title) \(.headline // "") \(.summary // "")"
+          | test("trabaj|empleo|laboral"; "i"))
       | "\(.date) \(.title)"
     '</code></pre>
 				</div>

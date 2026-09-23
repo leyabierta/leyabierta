@@ -125,7 +125,7 @@ Parámetros:
 - \`q\` (string): Texto de búsqueda (búsqueda full-text)
 - \`country\` (string): Código de país (ej: "es")
 - \`rank\` (string): Tipo de rango normativo (ej: "ley", "real_decreto")
-- \`status\` (string): Estado de vigencia ("vigente", "derogado")
+- \`status\` (string): Estado de vigencia ("vigente", "derogada")
 - \`materia\` (string): Categoría temática
 - \`jurisdiction\` (string): Jurisdicción (ej: "es", "es-ct" para Cataluña)
 - \`limit\` (number): Resultados por página (default: 20)
@@ -135,11 +135,6 @@ Parámetros:
 \`GET /v1/laws/:id\`
 
 Devuelve la ley completa con metadatos, artículos y reformas.
-
-### Artículo específico
-\`GET /v1/laws/:id/articles/:n\`
-
-Artículo por posición con todas sus versiones históricas.
 
 ### Historial de reformas
 \`GET /v1/laws/:id/history\`
@@ -184,7 +179,7 @@ Reformas recientes con resúmenes generados por IA, de la más reciente a la má
 ### Reformas personalizadas
 \`GET /v1/reforms/personal?materias=IRPF,Empleo&jurisdiction=es-vc\`
 
-Reformas filtradas por materias y jurisdicción del usuario.
+Reformas filtradas por materias y jurisdicción del usuario. La jurisdicción se pasa como \`jurisdiccion\` o \`jurisdiction\` (alias; si llegan las dos, gana \`jurisdiccion\`); por defecto \`es\`.
 
 ### Leyes ómnibus
 \`GET /v1/omnibus\` — Lista de leyes ómnibus recientes
@@ -200,7 +195,7 @@ Cada ley tiene frontmatter YAML con:
 - \`rango\`: Tipo de norma
 - \`fecha_publicacion\`: Fecha de publicación original (ISO 8601)
 - \`ultima_actualizacion\`: Fecha de última reforma
-- \`estado\`: "vigente" o "derogado"
+- \`estado\`: "vigente" o "derogada"
 - \`departamento\`: Órgano emisor
 - \`fuente\`: URL al BOE
 - \`articulos\`: Número de artículos

@@ -42,7 +42,11 @@ export function reformRoutes(dbService: DbService) {
 					return { error: "limit and offset must be numbers" };
 				}
 
-				const jurisdiction = query.j || query.jurisdiccion || "es";
+				// Priority: j (wizard short param) > jurisdiccion > jurisdiction > "es".
+				// `jurisdiction` is an alias because llms-full.txt documented it;
+				// jurisdiccion beats it, same as /v1/changelog.
+				const jurisdiction =
+					query.j || query.jurisdiccion || query.jurisdiction || "es";
 				if (!JURISDICTION_RE.test(jurisdiction)) {
 					set.status = 400;
 					return { error: "invalid jurisdiction format" };
@@ -118,6 +122,9 @@ export function reformRoutes(dbService: DbService) {
 					// Legacy: raw materias CSV (backward compat)
 					materias: t.Optional(t.String()),
 					jurisdiccion: t.Optional(t.String()),
+					jurisdiction: t.Optional(
+						t.String({ description: "Alias of jurisdiccion" }),
+					),
 					limit: t.Optional(t.String()),
 					offset: t.Optional(t.String()),
 				}),

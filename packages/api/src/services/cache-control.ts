@@ -22,12 +22,16 @@ export const SUCCESS_CACHE_CONTROL =
 	"public, max-age=0, s-maxage=3600, must-revalidate";
 export const NO_STORE = "no-store";
 
-/** Normalize Elysia's `set.status` (number, name, or unset) to a number. */
+/**
+ * Normalize Elysia's `set.status` (number, name, or unset) to a number.
+ * An unknown status name maps to 500 so it falls through to no-store: a
+ * status we cannot classify must never inherit the hour-long success cache.
+ */
 export function toStatusCode(status: number | string | undefined): number {
 	if (status === undefined) return 200;
 	if (typeof status === "number") return status;
 	const mapped = (StatusMap as Record<string, number>)[status];
-	return mapped ?? 200;
+	return mapped ?? 500;
 }
 
 /**
