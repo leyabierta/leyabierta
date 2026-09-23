@@ -7,7 +7,7 @@
 
 import type { LegislativeClient } from "../country.ts";
 import type { NormAnalisis } from "../models.ts";
-import { canonicalRefs } from "../transform/analisis.ts";
+import { canonicalRefs, isEmptyAnalisis } from "../transform/analisis.ts";
 import { withRetry } from "../utils/retry.ts";
 import {
 	DEFAULT_MATERIAS_PATH,
@@ -104,12 +104,7 @@ export class BoeClient implements LegislativeClient {
 				posteriores: canonicalRefs(analisis.referencias.posteriores),
 			},
 		};
-		const empty =
-			result.materias.length === 0 &&
-			result.notas.length === 0 &&
-			result.referencias.anteriores.length === 0 &&
-			result.referencias.posteriores.length === 0;
-		return empty ? undefined : result;
+		return isEmptyAnalisis(result) ? undefined : result;
 	}
 
 	/**
