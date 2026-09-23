@@ -47,27 +47,50 @@ summary errors came from the input, not the model:
 
 ## Results
 
+Final code of the PR (after the adversarial review and the investigation of
+the remaining errors below), same 40 reforms, same model, the old prompt's
+outputs unchanged:
+
 | Group | n | Total /10 new vs old | Fidelity new vs old | Change captured new vs old | Preferred new/old | Fidelity 0 new vs old |
 |---|---|---|---|---|---|---|
-| All | 40 | **9.13** vs 6.85 | **1.68** vs 0.63 | **1.70** vs 0.78 | **35** / 5 | **3** vs 22 |
-| Old rule flagged as omnibus | 14 | 9.29 vs 6.50 | 1.71 vs 0.14 | 1.71 vs 1.07 | 13 / 1 | 1 vs 12 |
-| First 500 chars identical | 14 | 9.21 vs 6.29 | 1.86 vs 0.50 | 1.71 vs 0.29 | 14 / 0 | 0 vs 8 |
-| Random | 12 | 8.83 vs 7.92 | 1.42 vs 1.33 | 1.67 vs 1.00 | 8 / 4 | 2 vs 2 |
+| All | 40 | **9.25** vs 6.78 | **1.75** vs 0.68 | **1.75** vs 0.65 | **37** / 3 | **0** vs 20 |
+| Old rule flagged as omnibus | 14 | 9.29 vs 6.21 | 1.79 vs 0.29 | 1.79 vs 0.86 | 14 / 0 | 0 vs 11 |
+| First 500 chars identical | 14 | 9.21 vs 6.71 | 1.79 vs 0.64 | 1.71 vs 0.43 | 12 / 2 | 0 vs 7 |
+| Random | 12 | 9.25 vs 7.50 | 1.67 vs 1.17 | 1.75 vs 0.67 | 11 / 1 | 0 vs 2 |
 
-The new prompt still has 3 serious fidelity errors:
+The new prompt has 10 minor issues left (fidelity 1): summaries that miss part
+of the change or read it loosely. There are no invented facts.
 
-- "gasto financiero" where the text says "no financiero";
-- one summary that restates principles already in the old text and misses the
-  real change;
-- one organism named that is not in the material.
+### How the last errors were fixed
 
-Several minor issues come from articles whose text is identical before and
-after (the change is outside the text we store). The model now says so instead
-of inventing a "formal" change.
+An intermediate version scored 9.13 and still had 3 serious errors. Each was
+repeated 5 times to see whether it was stable:
+
+- **"gasto financiero" instead of "no financiero".** Stable: 4 of 5 runs got it
+  wrong. jsdiff aligned a rewritten sentence on short common words ("de", ","),
+  so the change reached the model word by word ("[-con-] {+no+} [-las-]
+  {+financiero+}") and the "no" was lost. Fix: changes separated by at most 2
+  unchanged words are grouped into one `[-old phrase-] {+new phrase+}`. After
+  the fix, 5 of 5 runs were correct.
+- **A summary that restated principles already in the old text.** Stable: 5
+  of 5. Same cause, plus a single long article cut at 1,200 characters when
+  7,000 were available. Fix: grouping, and the budget is now shared among the
+  articles shown, with at least 1,200 characters each. After the fix, 5 of 5
+  runs were correct.
+- **An organism that is not in the material.** Mostly a false positive of the
+  judge: the change is in a 50,000-character annex, past the part of the text
+  the judge was shown. The judge's material is now centred on the region that
+  changes.
+
+Image links from the BOE (`![imagen](/datos/…png)`) are normalized to
+`[imagen]`, so that a new file path does not count as a text change.
 
 ## Limits
 
-- 40 reforms, one judge, no human spot-check.
+- 40 reforms, one judge, no human spot-check. Judging the same outputs twice
+  changes the fidelity score in about 13 of 40 cases, so read small
+  differences as noise. The size of the gap here (37/3, 0 vs 20 serious
+  errors) is not.
 - The first run's truncated material shows how sensitive the judge is to what
   it sees. The final run gives it more than the generator saw, so it can catch
   omissions.
