@@ -126,6 +126,7 @@ function shutdown(signal: string) {
 	setTimeout(async () => {
 		process.stderr.write("[shutdown] drain complete, exiting\n");
 		await flushTraces();
+		askQuota?.close();
 		db.close();
 		process.exit(0);
 	}, 30_000);

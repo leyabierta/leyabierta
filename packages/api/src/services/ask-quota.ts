@@ -15,8 +15,14 @@
  * Privacy: raw IPs are never stored. The client key is
  * HMAC-SHA256(dailySalt, normalizedIp), where `dailySalt` is 32 random bytes
  * generated for each day. When the day changes, every counter and the
- * previous salt are deleted, so yesterday's keys can no longer be linked to
- * an IP by anyone (the salt that would allow re-deriving them is gone).
+ * previous salt are deleted (zeroed on disk, WAL checkpointed), so
+ * yesterday's keys can no longer be linked to an IP by anyone.
+ *
+ * Honest limit: *during* the day the salt sits in the same file as the
+ * hashes, and the IPv4 space is only 2^32, so whoever can read this file
+ * (i.e. the server operator, or an intruder on the server) could recompute
+ * every IPv4's hash in minutes and re-identify today's rows. Within the day
+ * the keys are pseudonymous, not anonymous; the privacy policy must say so.
  *
  * Storage: a small dedicated SQLite file (not the main leyabierta.db).
  *   - Counters survive the several deploys/restarts per day; an in-memory
@@ -217,6 +223,9 @@ export class AskQuota {
 
 	private static open(path: string): Database {
 		const db = new Database(path, { create: true });
+		// Overwrite deleted rows with zeros instead of leaving them in free
+		// pages: yesterday's salt and hashes must really be gone from disk.
+		db.exec("PRAGMA secure_delete = ON");
 		if (path !== ":memory:") {
 			db.exec("PRAGMA journal_mode = WAL");
 			db.exec("PRAGMA busy_timeout = 250");
@@ -242,8 +251,17 @@ export class AskQuota {
 	purgeStale(): void {
 		this.withFallback(() => {
 			const { day } = this.dayClock(this.now());
-			this.db.run("DELETE FROM ask_quota WHERE day != ?", [day]);
-			this.db.run("DELETE FROM ask_quota_salt WHERE day != ?", [day]);
+			const deleted =
+				this.db.run("DELETE FROM ask_quota WHERE day != ?", [day]).changes +
+				this.db.run("DELETE FROM ask_quota_salt WHERE day != ?", [day]).changes;
+			if (deleted > 0) {
+				// In WAL mode the zeroed pages only reach the main file on a
+				// checkpoint, and old page images linger in the -wal file until
+				// it is reset. Without this, yesterday's salt and hashes stay
+				// readable on disk (and brute-forceable) until SQLite happens
+				// to checkpoint, which at this write volume can take days.
+				this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+			}
 			if (this.saltDay !== day) {
 				this.saltDay = null;
 				this.salt = null;
@@ -293,7 +311,10 @@ export class AskQuota {
 				reason,
 				message: quotaMessage(reason, this.limits),
 				retryAfterSeconds,
-				remainingToday: Math.max(0, perDay - dayCount),
+				// With the service closed for the day, nobody can ask again
+				// today, whatever their own count says.
+				remainingToday:
+					reason === "global_day" ? 0 : Math.max(0, perDay - dayCount),
 				limitPerDay: perDay,
 			});
 
@@ -390,6 +411,10 @@ export class AskQuota {
 	}
 
 	close(): void {
-		this.db.close();
+		try {
+			this.db.close();
+		} catch {
+			/* already closed */
+		}
 	}
 }

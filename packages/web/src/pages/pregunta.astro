@@ -174,8 +174,10 @@ import AskChat from "../components/AskChat.tsx";
 		text-align: right;
 	}
 
+	/* Collapse when empty, but never display:none: a live region that is
+	   hidden when its text arrives is not announced by screen readers. */
 	:global(.ask-quota:empty) {
-		display: none;
+		margin: 0;
 	}
 
 	:global(.ask-submit) {

@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Elysia } from "elysia";
@@ -172,7 +172,7 @@ describe("AskQuota — global cap", () => {
 			reason: "global_day",
 			message:
 				"El servicio de preguntas ha alcanzado su límite diario. Vuelve mañana.",
-			remainingToday: 10,
+			remainingToday: 0,
 		});
 	});
 
@@ -243,6 +243,48 @@ describe("AskQuota — day rollover, hashing and storage", () => {
 			after.query("SELECT COUNT(*) AS n FROM ask_quota_salt").get(),
 		).toEqual({ n: 0 });
 		after.close();
+	});
+
+	test("yesterday's salt and hashes are really gone from the files on disk", () => {
+		const dir = mkdtempSync(join(tmpdir(), "ask-quota-"));
+		tmpDirs.push(dir);
+		const path = join(dir, "q.db");
+		const clock = makeClock();
+		// Distinctive salt so a raw byte search cannot false-positive.
+		const oldSalt = Buffer.from(
+			"5a17c0ffee5a17c0ffee5a17c0ffee5a17c0ffee5a17c0ffee5a17c0ffee5a17",
+			"hex",
+		);
+		let first = true;
+		const q = new AskQuota({
+			limits: LIMITS,
+			path,
+			now: clock.now,
+			generateSalt: () => {
+				if (first) {
+					first = false;
+					return oldSalt;
+				}
+				return Buffer.alloc(32, 7);
+			},
+		});
+		quotas.push(q);
+		q.consume("203.0.113.1");
+		const oldHash = q.clientKey("203.0.113.1");
+
+		const onDisk = () =>
+			[path, `${path}-wal`]
+				.filter((f) => existsSync(f))
+				.map((f) => readFileSync(f))
+				.reduce((a, b) => Buffer.concat([a, b]), Buffer.alloc(0));
+		expect(onDisk().includes(oldSalt)).toBe(true); // sanity: it was written
+
+		// Next day, process still running (no close/checkpoint on shutdown).
+		clock.advance(24 * 3600 * 1000);
+		q.consume("203.0.113.2");
+		const bytes = onDisk();
+		expect(bytes.includes(oldSalt)).toBe(false);
+		expect(bytes.includes(Buffer.from(oldHash))).toBe(false);
 	});
 
 	test("counters survive a restart (same file, new instance)", () => {
