@@ -65,6 +65,43 @@ describe("validateGeneratedRow", () => {
 	])("rejects %p as %s", (over, reason) => {
 		expect(validateGeneratedRow(row(over))).toEqual({ ok: false, reason });
 	});
+
+	test.each([
+		"El túnel y los túneles de la red ferroviaria se inspeccionan cada 5 años.",
+		"El andén debe tener una anchura mínima de 3 metros en las estaciones.",
+		"Se protegen los mustélidos y los ñandús en los centros de recuperación.",
+		"El Tribunal de Túnez y el río Túria se citan como ejemplos del convenio.",
+		"Durante el primer quinquenio, el valor del parámetro α del Factor de Sostenibilidad será 0,25.",
+	])("accepts Spanish words that contain a flagged word: %s", (summary) => {
+		expect(validateGeneratedRow(row({ summary })).ok).toBe(true);
+	});
+
+	test.each([
+		[
+			"Tú presentas la solicitud en el plazo de un mes desde la publicación.",
+			"second_person",
+		],
+		["Summary: the applicant files the request within one month.", "english"],
+		[`${row().summary}\u0000`, "unsafe_chars"],
+		[`${row().summary}\u200b`, "unsafe_chars"],
+		[`${row().summary} <script>`, "unsafe_chars"],
+	])("rejects %p as %s", (summary, reason) => {
+		expect(validateGeneratedRow(row({ summary }))).toEqual({
+			ok: false,
+			reason,
+		});
+	});
+
+	test("dedupes tags case-insensitively, keeping the first spelling", () => {
+		const v = validateGeneratedRow(
+			row({ tags: ["País Vasco", "país vasco", "plazos", "Plazos", "cuotas"] }),
+		);
+		expect(v).toEqual({
+			ok: true,
+			summary: row().summary,
+			tags: ["País Vasco", "plazos", "cuotas"],
+		});
+	});
 });
 
 describe("importRows", () => {
@@ -74,11 +111,11 @@ describe("importRows", () => {
 		db = new Database(":memory:");
 		createSchema(db);
 		db.run(
-			"INSERT INTO norms (id, title, country, rank, published_at, status) VALUES ('N', 'Ley', 'es', 'ley', '2026-01-01', 'vigente'), ('D', 'Ley vieja', 'es', 'ley', '1990-01-01', 'derogada')",
+			"INSERT INTO norms (id, title, country, rank, published_at, status, citizen_summary) VALUES ('N', 'Ley', 'es', 'ley', '2026-01-01', 'vigente', 'Resumen de la ley.'), ('D', 'Ley vieja', 'es', 'ley', '1990-01-01', 'derogada', 'Resumen.'), ('P', 'Ley sin resumen', 'es', 'ley', '2026-01-01', 'vigente', '')",
 		);
 		db.run(
-			"INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a1', 'precepto', 'Artículo 1', 1, ?), ('N', 'a2', 'precepto', 'Artículo 2', 2, ?), ('D', 'a1', 'precepto', 'Artículo 1', 1, ?)",
-			[TEXT_A1, TEXT_A2, TEXT_A1],
+			"INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a1', 'precepto', 'Artículo 1', 1, ?), ('N', 'a2', 'precepto', 'Artículo 2', 2, ?), ('D', 'a1', 'precepto', 'Artículo 1', 1, ?), ('P', 'a1', 'precepto', 'Artículo 1', 1, ?)",
+			[TEXT_A1, TEXT_A2, TEXT_A1, TEXT_A1],
 		);
 	});
 
@@ -153,6 +190,29 @@ describe("importRows", () => {
 			duplicate_in_file: 1,
 			article_missing_or_not_vigente: 2,
 			too_short: 1,
+		});
+	});
+
+	test("skips laws whose law-level summary is pending (the daily cron would delete them)", () => {
+		const report = importRows(db, [row({ norm_id: "P" })], { apply: true });
+		expect(report.skipped).toEqual({ law_summary_pending: 1 });
+		expect(count("citizen_article_summaries")).toBe(0);
+	});
+
+	test("a failed attempt later retried successfully is not reported as a failure", () => {
+		const report = importRows(
+			db,
+			[
+				{ ok: false, norm_id: "N", block_id: "a1", error: "timeout" },
+				row(),
+				{ ok: false, norm_id: "N", block_id: "a2" },
+			],
+			{ apply: true },
+		);
+		expect(report.inserted).toBe(1);
+		expect(report.skipped).toEqual({
+			failed_then_retried_ok: 1,
+			generation_failed: 1,
 		});
 	});
 

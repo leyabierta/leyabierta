@@ -33,12 +33,20 @@ export const MAX_TAGS = 5;
 export const MAX_TAG_CHARS = 60;
 
 // Latin script (incl. accents), plus digits, punctuation and symbols shared
-// by all scripts. Anything else (CJK, Cyrillic...) is a model glitch.
+// by all scripts, and Greek (formulas: "el parámetro α"). Anything else (CJK,
+// Cyrillic...) is a model glitch.
 const FOREIGN_SCRIPT =
-	/[^\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]/u;
-const SECOND_PERSON = /\b(tú|tienes|puedes|usted|ustedes|debes)\b/iu;
-const ENGLISH = /\b(the|and|shall|which|must|summary)\b/u;
-const REASONING = /<\/?think>|\bthinking\b/iu;
+	/[^\p{Script=Latin}\p{Script=Greek}\p{Script=Common}\p{Script=Inherited}]/u;
+// Control and invisible format characters (NUL, zero-width space...) and
+// angle brackets: summaries are shown in /pregunta citations and law pages.
+const UNSAFE_CHARS = /[\p{Cc}\p{Cf}<>]/u;
+// `\b` only knows ASCII letters (even with the `u` flag): "túneles" would
+// match "tú" and "andén" would match "and". Use Unicode letter lookarounds.
+const word = (alternatives: string) =>
+	new RegExp(`(?<![\\p{L}\\p{N}])(${alternatives})(?![\\p{L}\\p{N}])`, "iu");
+const SECOND_PERSON = word("tú|tienes|puedes|usted|ustedes|debes");
+const ENGLISH = word("the|and|shall|which|must|summary");
+const REASONING = /<\/?think>|(?<![\p{L}])thinking(?![\p{L}])/iu;
 
 export function validateGeneratedRow(
 	row: unknown,
@@ -63,22 +71,25 @@ export function validateGeneratedRow(
 		return { ok: false, reason: "too_long" };
 
 	if (!Array.isArray(r.tags)) return { ok: false, reason: "bad_tags" };
-	const tags = [
-		...new Set(
-			r.tags
-				.filter((t): t is string => typeof t === "string")
-				.map((t) => t.trim())
-				.filter(Boolean),
-		),
-	];
+	// Dedupe case-insensitively (the tag PK is case-sensitive), keeping the
+	// first spelling: tags can be proper nouns ("País Vasco").
+	const byLower = new Map<string, string>();
+	for (const t of r.tags) {
+		if (typeof t !== "string") continue;
+		const tag = t.trim();
+		if (tag && !byLower.has(tag.toLowerCase()))
+			byLower.set(tag.toLowerCase(), tag);
+	}
+	const tags = [...byLower.values()];
 	if (tags.length < MIN_TAGS || tags.length > MAX_TAGS)
 		return { ok: false, reason: "bad_tag_count" };
 	if (tags.some((t) => t.length > MAX_TAG_CHARS))
 		return { ok: false, reason: "tag_too_long" };
 
 	const all = `${summary} ${tags.join(" ")}`;
-	if (FOREIGN_SCRIPT.test(all)) return { ok: false, reason: "foreign_script" };
 	if (REASONING.test(all)) return { ok: false, reason: "reasoning_leak" };
+	if (UNSAFE_CHARS.test(all)) return { ok: false, reason: "unsafe_chars" };
+	if (FOREIGN_SCRIPT.test(all)) return { ok: false, reason: "foreign_script" };
 	if (SECOND_PERSON.test(summary))
 		return { ok: false, reason: "second_person" };
 	if (ENGLISH.test(summary)) return { ok: false, reason: "english" };
@@ -101,7 +112,7 @@ export interface ImportReport {
 export function importRows(
 	db: Database,
 	rows: unknown[],
-	opts: { apply: boolean; batchSize?: number },
+	opts: { apply: boolean; batchSize?: number; pauseMs?: number },
 ): ImportReport {
 	const report: ImportReport = { total: rows.length, inserted: 0, skipped: {} };
 	const skip = (reason: string) => {
@@ -109,7 +120,7 @@ export function importRows(
 	};
 
 	const getText = db.prepare(
-		"SELECT b.current_text AS text FROM blocks b JOIN norms n ON n.id = b.norm_id WHERE b.norm_id = ? AND b.block_id = ? AND n.status = 'vigente'",
+		"SELECT b.current_text AS text, n.citizen_summary AS normSummary FROM blocks b JOIN norms n ON n.id = b.norm_id WHERE b.norm_id = ? AND b.block_id = ? AND n.status = 'vigente'",
 	);
 	const hasSummary = db.prepare(
 		"SELECT 1 FROM citizen_article_summaries WHERE norm_id = ? AND block_id = ?",
@@ -124,6 +135,14 @@ export function importRows(
 		"INSERT OR IGNORE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
 	);
 
+	// generate appends an ok:false row for an attempt and an ok:true row when a
+	// later run succeeds; the failure is then not a real skip.
+	const okKeys = new Set<string>();
+	for (const row of rows) {
+		const r = row as Partial<GeneratedRow> | null;
+		if (r?.ok === true) okKeys.add(`${r.norm_id}|${r.block_id}`);
+	}
+
 	const seen = new Set<string>();
 	type Accepted = {
 		norm_id: string;
@@ -136,7 +155,13 @@ export function importRows(
 	for (const row of rows) {
 		const v = validateGeneratedRow(row);
 		if (!v.ok) {
-			skip(v.reason);
+			const r = row as Partial<GeneratedRow> | null;
+			if (
+				v.reason === "generation_failed" &&
+				okKeys.has(`${r?.norm_id}|${r?.block_id}`)
+			)
+				skip("failed_then_retried_ok");
+			else skip(v.reason);
 			continue;
 		}
 		const r = row as GeneratedRow;
@@ -149,9 +174,16 @@ export function importRows(
 
 		const current = getText.get(r.norm_id, r.block_id) as {
 			text: string;
+			normSummary: string | null;
 		} | null;
 		if (!current) {
 			skip("article_missing_or_not_vigente");
+			continue;
+		}
+		// generate-citizen-tags.ts (daily cron) regenerates laws with an empty
+		// law-level summary and first deletes all their article summaries.
+		if (!current.normSummary) {
+			skip("law_summary_pending");
 			continue;
 		}
 		if (textHash(current.text) !== r.input_hash) {
@@ -170,7 +202,10 @@ export function importRows(
 		});
 	}
 
-	const batchSize = opts.batchSize ?? 500;
+	// Small transactions with a pause in between: the API keeps serving (and
+	// writing) while this runs, and its connection has no busy_timeout.
+	const batchSize = opts.batchSize ?? 100;
+	const pauseMs = opts.pauseMs ?? 50;
 	for (let i = 0; i < accepted.length; i += batchSize) {
 		const chunk = accepted.slice(i, i + batchSize);
 		const write = db.transaction((items: Accepted[]) => {
@@ -190,6 +225,7 @@ export function importRows(
 		});
 		if (opts.apply) {
 			write(chunk);
+			if (pauseMs > 0) Bun.sleepSync(pauseMs);
 		} else {
 			for (const a of chunk)
 				if (hasSummary.get(a.norm_id, a.block_id)) skip("already_has_summary");

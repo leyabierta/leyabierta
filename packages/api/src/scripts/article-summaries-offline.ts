@@ -38,14 +38,30 @@ const flag = (name: string) => {
 	return i === -1 ? undefined : args[i + 1];
 };
 const DB_PATH = flag("--db") ?? process.env.DB_PATH ?? "data/leyabierta.db";
+// Positional arguments after the command, skipping flags and their values.
+const positional = args
+	.slice(1)
+	.filter(
+		(a, i, all) =>
+			!a.startsWith("--") && all[i - 1] !== "--db" && all[i - 1] !== "--limit",
+	);
 
 type ExportRow = BackfillArticle & { input_hash: string };
 
-function readJsonl<T>(path: string): T[] {
-	return readFileSync(path, "utf8")
-		.split("\n")
-		.filter(Boolean)
-		.map((l) => JSON.parse(l) as T);
+// Tolerates malformed lines (e.g. the last one, if generate was killed while
+// appending): they are skipped and counted instead of aborting the run.
+function readJsonl<T>(path: string): { rows: T[]; badLines: number } {
+	const rows: T[] = [];
+	let badLines = 0;
+	for (const line of readFileSync(path, "utf8").split("\n")) {
+		if (!line.trim()) continue;
+		try {
+			rows.push(JSON.parse(line) as T);
+		} catch {
+			badLines++;
+		}
+	}
+	return { rows, badLines };
 }
 
 // Placeholder articles with nothing to summarize: "(Suprimido)", "(Derogado)",
@@ -84,12 +100,16 @@ const RANK_ORDER: Record<string, number> = {
 
 async function exportPending(outFile: string) {
 	const db = new Database(DB_PATH, { readonly: true });
+	// Laws with an empty law-level summary are excluded: the daily
+	// generate-citizen-tags.ts run regenerates them and deletes their article
+	// summaries first, so anything imported there would be thrown away.
 	const rows = db
 		.prepare(
 			`SELECT n.id AS norm_id, n.title AS norm_title, n.jurisdiction, n.rank,
 			        b.block_id, b.title AS block_title, b.current_text
 			 FROM norms n JOIN blocks b ON b.norm_id = n.id
-			 WHERE n.status = 'vigente' AND b.block_type = 'precepto'
+			 WHERE n.status = 'vigente' AND n.citizen_summary != ''
+			   AND b.block_type = 'precepto'
 			   AND length(b.current_text) >= 50
 			   AND NOT EXISTS (SELECT 1 FROM citizen_article_summaries c
 			                   WHERE c.norm_id = n.id AND c.block_id = b.block_id)`,
@@ -137,9 +157,9 @@ async function generate(inFile: string, outFile: string) {
 			ok: boolean;
 			norm_id: string;
 			block_id: string;
-		}>(outFile))
+		}>(outFile).rows)
 			if (o.ok) done.add(`${o.norm_id}|${o.block_id}`);
-	let items = readJsonl<ExportRow>(inFile).filter(
+	let items = readJsonl<ExportRow>(inFile).rows.filter(
 		(a) => !done.has(`${a.norm_id}|${a.block_id}`),
 	);
 	if (limit > 0) items = items.slice(0, limit);
@@ -238,20 +258,23 @@ async function generate(inFile: string, outFile: string) {
 }
 
 function importGenerated(file: string, apply: boolean) {
-	const db = new Database(DB_PATH);
+	// Dry run never writes; neither mode creates a DB from a mistyped path.
+	const db = apply
+		? new Database(DB_PATH, { create: false, readwrite: true })
+		: new Database(DB_PATH, { readonly: true });
 	db.run("PRAGMA busy_timeout = 30000");
-	const rows = readJsonl<unknown>(file);
+	const { rows, badLines } = readJsonl<unknown>(file);
 	const report = importRows(db, rows, { apply });
 	console.log(
-		`${apply ? "APPLIED" : "DRY RUN (use --apply to write)"}: ${JSON.stringify(report)}`,
+		`${apply ? "APPLIED" : "DRY RUN (use --apply to write)"}: ${JSON.stringify({ ...report, badLines })}`,
 	);
 }
 
-if (cmd === "export" && args[1]) await exportPending(args[1]);
-else if (cmd === "generate" && args[1] && args[2])
-	await generate(args[1], args[2]);
-else if (cmd === "import" && args[1])
-	importGenerated(args[1], args.includes("--apply"));
+const [first, second] = positional;
+if (cmd === "export" && first) await exportPending(first);
+else if (cmd === "generate" && first && second) await generate(first, second);
+else if (cmd === "import" && first)
+	importGenerated(first, args.includes("--apply"));
 else {
 	console.error(
 		"Usage: article-summaries-offline.ts export <out.jsonl> | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply]",
