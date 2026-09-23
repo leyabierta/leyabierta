@@ -10,6 +10,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	resolveLlmBackend,
 	resolveRerankBackend,
+	resolveSynthesisReasoning,
 } from "../services/rag/backends.ts";
 
 describe("resolveLlmBackend", () => {
@@ -61,5 +62,40 @@ describe("resolveRerankBackend", () => {
 
 	it("treats unknown values as llm", () => {
 		expect(resolveRerankBackend({ RERANK_BACKEND: "voyage" })).toBe("llm");
+	});
+});
+
+describe("resolveSynthesisReasoning", () => {
+	it("uses minimal effort for OpenAI reasoning models by default", () => {
+		expect(resolveSynthesisReasoning("openai/gpt-6-luna", {})).toEqual({
+			effort: "minimal",
+		});
+	});
+
+	it("sends nothing for other models (e.g. Gemini keeps its default)", () => {
+		expect(
+			resolveSynthesisReasoning("google/gemini-2.5-flash-lite", {}),
+		).toBeUndefined();
+	});
+
+	it("honours an explicit effort and 'none'", () => {
+		expect(
+			resolveSynthesisReasoning("openai/gpt-6-luna", {
+				OPENROUTER_SYNTHESIS_REASONING: "low",
+			}),
+		).toEqual({ effort: "low" });
+		expect(
+			resolveSynthesisReasoning("openai/gpt-6-luna", {
+				OPENROUTER_SYNTHESIS_REASONING: "none",
+			}),
+		).toBeUndefined();
+	});
+
+	it("falls back to the model default on unknown values", () => {
+		expect(
+			resolveSynthesisReasoning("openai/gpt-6-luna", {
+				OPENROUTER_SYNTHESIS_REASONING: "max",
+			}),
+		).toEqual({ effort: "minimal" });
 	});
 });

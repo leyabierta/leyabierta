@@ -70,7 +70,17 @@ export interface OpenRouterOptions {
 	maxTokens?: number;
 	jsonResponse?: boolean;
 	jsonSchema?: { name: string; schema: Record<string, unknown> };
+	/**
+	 * OpenRouter unified reasoning control, sent as-is when set. Used for
+	 * reasoning models (e.g. openai/gpt-6-luna → { effort: "minimal" }) so
+	 * citizen-facing latency stays low. Omitted → provider default.
+	 */
+	reasoning?: OpenRouterReasoning;
 }
+
+export type OpenRouterReasoning =
+	| { effort: "minimal" | "low" | "medium" | "high" }
+	| { enabled: boolean };
 
 export interface OpenRouterResult<T> {
 	data: T;
@@ -106,7 +116,13 @@ export async function* callOpenRouterStream(
 	apiKey: string,
 	options: Omit<OpenRouterOptions, "jsonResponse" | "jsonSchema">,
 ): AsyncGenerator<StreamDelta | StreamDone> {
-	const { model, messages, temperature = 0.2, maxTokens = 4000 } = options;
+	const {
+		model,
+		messages,
+		temperature = 0.2,
+		maxTokens = 4000,
+		reasoning,
+	} = options;
 
 	let response: Response | null = null;
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -129,6 +145,7 @@ export async function* callOpenRouterStream(
 				max_tokens: maxTokens,
 				stream: true,
 				stream_options: { include_usage: true },
+				...(reasoning ? { reasoning } : {}),
 			}),
 		});
 		if (res.status === 429) continue;
@@ -210,6 +227,7 @@ export async function callOpenRouter<T>(
 		maxTokens = 4000,
 		jsonResponse = true,
 		jsonSchema,
+		reasoning,
 	} = options;
 
 	let lastError: Error | null = null;
@@ -238,6 +256,7 @@ export async function callOpenRouter<T>(
 					messages,
 					temperature,
 					max_tokens: maxTokens,
+					...(reasoning ? { reasoning } : {}),
 					...(jsonSchema
 						? {
 								response_format: {
