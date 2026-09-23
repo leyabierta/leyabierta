@@ -367,7 +367,11 @@ Opt-in, and the default is unchanged (branch `feat/llm-local-ollama`):
   - New `contentLlmEndpoint()` reads `CONTENT_LLM_BASE_URL` (any
     OpenAI-compatible `/v1` root), `CONTENT_LLM_MODEL` (required when a base URL
     is set), `CONTENT_LLM_API_KEY` (optional), `CONTENT_LLM_REASONING_EFFORT`
-    (default `none`) and `CONTENT_LLM_TIMEOUT_MS` (default 300 s).
+    (default `none`) and `CONTENT_LLM_TIMEOUT_MS` (default 300 s). With
+    effort `none` or empty it also sends `chat_template_kwargs:
+    { enable_thinking: false }`, which vLLM passes to the Qwen template and
+    Ollama ignores. On older vLLM (e.g. 0.11), which rejects
+    `reasoning_effort: "none"`, set `CONTENT_LLM_REASONING_EFFORT=` (empty).
   - `callOpenRouter` accepts `baseUrl`, `extraBody` and `timeoutMs`. With a base
     URL it sends no auth header when there is no key, and no OpenRouter
     `plugins`.

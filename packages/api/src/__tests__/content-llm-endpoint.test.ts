@@ -59,7 +59,10 @@ describe("contentLlmEndpoint", () => {
 		});
 		expect(ep.baseUrl).toBe("http://localhost:11434/v1");
 		expect(ep.apiKey).toBeUndefined();
-		expect(ep.extraBody).toEqual({ reasoning_effort: "none" });
+		expect(ep.extraBody).toEqual({
+			reasoning_effort: "none",
+			chat_template_kwargs: { enable_thinking: false },
+		});
 		expect(ep.timeoutMs).toBe(300_000);
 	});
 
@@ -69,13 +72,24 @@ describe("contentLlmEndpoint", () => {
 		).toThrow();
 	});
 
-	it("empty CONTENT_LLM_REASONING_EFFORT omits the field", () => {
+	it("empty CONTENT_LLM_REASONING_EFFORT omits the field but keeps thinking off (old vLLM)", () => {
 		const ep = contentLlmEndpoint({
 			CONTENT_LLM_BASE_URL: "http://x/v1",
 			CONTENT_LLM_MODEL: "m",
 			CONTENT_LLM_REASONING_EFFORT: "",
 		});
-		expect(ep.extraBody).toEqual({});
+		expect(ep.extraBody).toEqual({
+			chat_template_kwargs: { enable_thinking: false },
+		});
+	});
+
+	it("an explicit effort level leaves the chat template alone", () => {
+		const ep = contentLlmEndpoint({
+			CONTENT_LLM_BASE_URL: "http://x/v1",
+			CONTENT_LLM_MODEL: "m",
+			CONTENT_LLM_REASONING_EFFORT: "low",
+		});
+		expect(ep.extraBody).toEqual({ reasoning_effort: "low" });
 	});
 });
 
@@ -103,6 +117,47 @@ describe("callOpenRouter with baseUrl", () => {
 		expect(calls[0]?.headers.Authorization).toBe("Bearer k");
 		expect(calls[0]?.body.plugins).toEqual([{ id: "response-healing" }]);
 		expect("reasoning_effort" in (calls[0]?.body ?? {})).toBe(false);
+	});
+
+	it("never forwards OPENROUTER_API_KEY to a custom endpoint", async () => {
+		for (const [extra, auth] of [
+			[{}, undefined],
+			[{ CONTENT_LLM_API_KEY: "vllm-key" }, "Bearer vllm-key"],
+		] as const) {
+			const ep = contentLlmEndpoint({
+				CONTENT_LLM_BASE_URL: "https://gpu.example/v1",
+				CONTENT_LLM_MODEL: "m",
+				OPENROUTER_API_KEY: "sk-or-secret",
+				...extra,
+			});
+			const calls = capture('{"ok":true}');
+			await callOpenRouter(ep.apiKey ?? "", {
+				model: ep.model,
+				messages,
+				jsonSchema: schema,
+				baseUrl: ep.baseUrl,
+				extraBody: ep.extraBody,
+				timeoutMs: ep.timeoutMs,
+			});
+			expect(calls[0]?.headers.Authorization).toBe(auth);
+			expect(JSON.stringify(calls)).not.toContain("sk-or-secret");
+			expect("provider" in (calls[0]?.body ?? {})).toBe(false);
+		}
+	});
+
+	it("reports zero cost (not NaN) when the endpoint sends no usage", async () => {
+		globalThis.fetch = (async () =>
+			new Response(
+				JSON.stringify({ choices: [{ message: { content: "{}" } }] }),
+			)) as unknown as typeof fetch;
+		const res = await callOpenRouter("", {
+			model: "m",
+			messages,
+			baseUrl: "http://localhost:11434/v1",
+		});
+		expect(res.cost).toBe(0);
+		expect(res.tokensIn).toBe(0);
+		expect(res.tokensOut).toBe(0);
 	});
 
 	it("strips inline <think> blocks before parsing", async () => {

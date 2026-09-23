@@ -32,6 +32,12 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
  *     (default `"none"`; empty string omits it). Thinking models such as
  *     Qwen 3.x otherwise reason first, which is slow and, on Ollama, breaks
  *     JSON-schema output;
+ *   - with effort `"none"` or empty, `chat_template_kwargs:
+ *     { enable_thinking: false }` is sent too. Ollama ignores it (it reads
+ *     `reasoning_effort`); vLLM hands it to the Qwen chat template. Older
+ *     vLLM releases (e.g. 0.11) reject `reasoning_effort: "none"` with a
+ *     400: there, set `CONTENT_LLM_REASONING_EFFORT=` (empty) and thinking stays
+ *     off through the template flag;
  *   - the per-request timeout is `CONTENT_LLM_TIMEOUT_MS` (default 300 s).
  *
  * Used by `generate-reform-summaries.ts` and `backfill-citizen-summaries.ts`.
@@ -65,13 +71,22 @@ export function contentLlmEndpoint(
 			"CONTENT_LLM_BASE_URL is set but CONTENT_LLM_MODEL is not: name the local model (e.g. qwen3.8:27b-mlx)",
 		);
 	}
-	const effort = env.CONTENT_LLM_REASONING_EFFORT ?? "none";
+	const effort = (env.CONTENT_LLM_REASONING_EFFORT ?? "none").trim();
 	const timeoutMs = Number(env.CONTENT_LLM_TIMEOUT_MS ?? 300_000);
+	const extraBody: Record<string, unknown> = {};
+	if (effort) extraBody.reasoning_effort = effort;
+	// Unless a real effort level was asked for, also switch thinking off via
+	// the chat-template flag. vLLM passes it to the Qwen 3.x template (older
+	// vLLM ignores or rejects `reasoning_effort: "none"`); Ollama ignores it
+	// and uses `reasoning_effort` instead.
+	if (!effort || effort === "none") {
+		extraBody.chat_template_kwargs = { enable_thinking: false };
+	}
 	return {
 		baseUrl,
 		apiKey: env.CONTENT_LLM_API_KEY || undefined,
 		model,
-		extraBody: effort ? { reasoning_effort: effort } : {},
+		extraBody,
 		timeoutMs:
 			Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 300_000,
 	};
