@@ -228,7 +228,7 @@ Importancia:
 - high: cambio constitucional, ley orgánica nueva, reforma fiscal importante
 - normal: la mayoría de reformas
 - low: correcciones de erratas, cambios menores de redacción
-- skip: cambios puramente administrativos sin impacto ciudadano
+- skip: cambios puramente administrativos sin impacto ciudadano (aun así rellena headline y summary con una descripción breve)
 
 Reglas:
 - Español correcto con acentos (á, é, í, ó, ú, ñ, ¿, ¡)

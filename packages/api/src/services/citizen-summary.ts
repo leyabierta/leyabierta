@@ -112,7 +112,10 @@ export class CitizenSummaryService {
 		// 5. Already tried in this process and nothing was cached: don't re-pay.
 		if (this.attempted.has(cacheKey)) return null;
 		if (this.attempted.size >= CitizenSummaryService.MAX_ATTEMPTED) {
-			this.attempted.clear();
+			// FIFO: a Set iterates in insertion order, so evict only the oldest
+			// entry instead of re-exposing every attempted article at once.
+			const oldest = this.attempted.values().next().value;
+			if (oldest !== undefined) this.attempted.delete(oldest);
 		}
 		this.attempted.add(cacheKey);
 
