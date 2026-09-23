@@ -5,7 +5,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { openRouterProviderField } from "../services/openrouter.ts";
 import {
 	createAskLogPurger,
@@ -13,6 +13,7 @@ import {
 	purgeOldAskLog,
 	resolveAskLogRetentionDays,
 } from "../services/rag/ask-log-retention.ts";
+import { getRerankCaller } from "../services/rag/backends.ts";
 
 function makeDb(): Database {
 	const db = new Database(":memory:");
@@ -87,6 +88,19 @@ describe("createAskLogPurger", () => {
 		purge();
 		expect(questions(db)).toEqual([]);
 	});
+	it("retries on the next call after a failed run", () => {
+		const db = new Database(":memory:"); // no ask_log table yet: purge fails
+		let now = 1_000_000;
+		const purge = createAskLogPurger(db, 90, () => now);
+		purge();
+		db.run(
+			"CREATE TABLE ask_log (id INTEGER PRIMARY KEY, question TEXT, created_at TEXT)",
+		);
+		insertAt(db, "vieja", "-100 days");
+		now += 60 * 60 * 1000; // +1h: not gated, the previous run failed
+		purge();
+		expect(questions(db)).toEqual([]);
+	});
 	it("never throws", () => {
 		const db = new Database(":memory:"); // no ask_log table
 		const purge = createAskLogPurger(db, 90);
@@ -106,5 +120,53 @@ describe("openRouterProviderField", () => {
 	});
 	it("can be disabled explicitly for research", () => {
 		expect(openRouterProviderField({ OPENROUTER_ZDR: "false" })).toEqual({});
+	});
+});
+
+describe("cohere-or rerank caller", () => {
+	const realFetch = globalThis.fetch;
+	const saved = {
+		cohere: process.env.COHERE_API_KEY,
+		or: process.env.OPENROUTER_API_KEY,
+	};
+	afterEach(() => {
+		globalThis.fetch = realFetch;
+		if (saved.cohere === undefined)
+			Reflect.deleteProperty(process.env, "COHERE_API_KEY");
+		else process.env.COHERE_API_KEY = saved.cohere;
+		if (saved.or === undefined)
+			Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY");
+		else process.env.OPENROUTER_API_KEY = saved.or;
+	});
+
+	it("goes through OpenRouter (ZDR) even if COHERE_API_KEY is set", async () => {
+		process.env.COHERE_API_KEY = "direct-cohere-key";
+		process.env.OPENROUTER_API_KEY = "or-key";
+		const urls: string[] = [];
+		const bodies: Record<string, unknown>[] = [];
+		globalThis.fetch = (async (url: string, init?: RequestInit) => {
+			urls.push(String(url));
+			bodies.push(JSON.parse(String(init?.body ?? "{}")));
+			return new Response(
+				JSON.stringify({ results: [{ index: 1, relevance_score: 0.9 }] }),
+				{ status: 200 },
+			);
+		}) as typeof fetch;
+
+		const rerank = getRerankCaller();
+		const candidates = ["a", "b", "c"].map((k) => ({
+			key: `N:${k}`,
+			title: k,
+			text: k,
+		}));
+		const res = await rerank("pregunta", candidates, 1);
+
+		expect(urls).toEqual(["https://openrouter.ai/api/v1/rerank"]);
+		expect(bodies[0]?.provider).toEqual({
+			zdr: true,
+			data_collection: "deny",
+			ignore: ["siliconflow"],
+		});
+		expect(res.results[0]?.key).toBe("N:b");
 	});
 });

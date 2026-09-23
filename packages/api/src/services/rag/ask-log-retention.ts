@@ -48,9 +48,11 @@ export function purgeOldAskLog(db: Database, days: number): number {
 const PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Returns a function that purges at most once per 24h. Call it after each
- * insert: cheap (a timestamp comparison) on every call but the first of the day.
- * Never throws — a failed purge must not break a citizen's answer.
+ * Returns a function that purges at most once per 24h after a successful run.
+ * Call it on a timer (the API server ticks hourly): cheap (a timestamp
+ * comparison) on every call but the first of the day. A failed run (e.g.
+ * SQLITE_BUSY while the daily ingest holds the write lock) is retried on the
+ * next call instead of waiting a full day. Never throws.
  */
 export function createAskLogPurger(
 	db: Database,
@@ -61,9 +63,9 @@ export function createAskLogPurger(
 	return () => {
 		const t = now();
 		if (t - lastRun < PURGE_INTERVAL_MS) return;
-		lastRun = t;
 		try {
 			const deleted = purgeOldAskLog(db, days);
+			lastRun = t;
 			if (deleted > 0) {
 				console.log(`[ask_log] purged ${deleted} rows older than ${days} days`);
 			}
