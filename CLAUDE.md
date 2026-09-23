@@ -249,6 +249,8 @@ All AI paths are instrumented with [Opik](https://www.comet.com/site/products/op
 
 **Decision rationale:** `hybrid-laws-search` shares `leyabierta-rag` instead of a separate project so both search paths (RAG Q&A and norm listing) are visible in a single Opik UI view. Differentiation is by trace `name` field, which Opik supports as a filter.
 
+**Privacy of questions (see `/privacidad/#preguntas`):** questions are free text and may contain personal data. Every OpenRouter request sends `provider: { zdr: true, data_collection: "deny", ignore: ["siliconflow"] }` (`openRouterProviderField()` in `services/openrouter.ts`; the account also enforces ZDR), so only Zero-Data-Retention endpoints are used — a model/reranker without a ZDR endpoint returns 404 (Cohere rerank today → passthrough). `ask_log` rows are purged after `ASK_LOG_RETENTION_DAYS` (default 90, `services/rag/ask-log-retention.ts`). The privacy policy promises the same 90 days for Opik traces, which is enforced on the Opik side, not here. Never send user IPs or identifiers upstream, and never send question text to Umami.
+
 **Tracing is always safe-to-fail:** every Opik call is wrapped in try-catch. A tracing failure never breaks the user response. Disabled gracefully when `OPIK_API_KEY` is not set.
 
 ### Email notifications
