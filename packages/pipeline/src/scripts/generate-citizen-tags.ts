@@ -409,7 +409,7 @@ ${articleText.slice(0, 2000)}`;
 
 	if (!lawData) {
 		console.error(
-			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: invalid JSON or empty citizen_summary`,
+			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: invalid JSON, empty citizen_summary or text in another script`,
 		);
 		errorCount++;
 		await Bun.sleep(DELAY_MS);
@@ -506,7 +506,8 @@ ${articleText.slice(0, 2000)}`;
 			for (const article of batchData) {
 				if (!article.block_id || !validBlockIds.has(article.block_id)) continue;
 				// Model switched language ("…por servicio军事"): store nothing for
-				// this article (the lazy route regenerates it on demand).
+				// this article. It stays without a summary until the lazy API route
+				// or an offline backfill fills it.
 				if (
 					hasForeignScript(
 						article.citizen_summary ?? "",

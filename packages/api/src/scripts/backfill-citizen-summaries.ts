@@ -707,10 +707,21 @@ async function main() {
 				progress.empty++;
 			} else if (
 				output &&
-				hasForeignScript(output.citizen_summary, ...output.citizen_tags)
+				hasForeignScript(output.citizen_summary, ...(output.citizen_tags ?? []))
 			) {
-				// Model switched language ("…por servicio军事"): never stored.
+				// Model switched language ("…por servicio军事"): never stored, and
+				// logged like any other failure so it can be retried.
 				progress.errors++;
+				writeFileSync(
+					FAILURE_LOG,
+					`${JSON.stringify({
+						norm_id: article.norm_id,
+						block_id: article.block_id,
+						error: "foreign_script",
+						timestamp: new Date().toISOString(),
+					})}\n`,
+					{ flag: "a" },
+				);
 			} else if (output) {
 				progress.success++;
 
