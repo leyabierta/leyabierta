@@ -4,13 +4,13 @@ import Legal from "../layouts/Legal.astro";
 
 <Legal
 	title="Política de privacidad"
-	description="Política de privacidad de Ley Abierta: qué datos recogemos, con qué finalidad y cómo ejercer tus derechos."
+	description="Política de privacidad de Ley Abierta: qué datos tratamos, con qué finalidad, quién nos ayuda a tratarlos y cómo ejercer tus derechos."
 	canonicalUrl="/privacidad/"
 >
 		<h1>Política de privacidad</h1>
-		<p class="legal-updated">Última actualización: 3 de mayo de 2026</p>
+		<p class="legal-updated">Última actualización: 23 de septiembre de 2026</p>
 
-		<h2>Responsable del tratamiento</h2>
+		<h2 id="responsable">Responsable del tratamiento</h2>
 		<p>
 			Ley Abierta es un proyecto personal de código abierto y sin ánimo de lucro.
 		</p>
@@ -20,11 +20,12 @@ import Legal from "../layouts/Legal.astro";
 			<li><strong>Sitio web:</strong> leyabierta.es</li>
 		</ul>
 
-		<h2>Qué datos recogemos</h2>
+		<h2 id="que-datos">Qué datos tratamos</h2>
 		<p>
-			Ley Abierta recoge la <strong>mínima cantidad de datos posible</strong>. No utilizamos
-			cookies de seguimiento, no vendemos datos y no compartimos información con terceros
-			salvo lo indicado en esta política.
+			Ley Abierta trata la <strong>mínima cantidad de datos posible</strong>. No utilizamos
+			cookies de seguimiento, no vendemos datos y no usamos tus datos para publicidad.
+			Solo los compartimos con los proveedores que nos ayudan a prestar el servicio,
+			que se enumeran en el apartado <a href="#proveedores">Quién trata tus datos por nosotros</a>.
 		</p>
 
 		<div class="table-scroll">
@@ -39,8 +40,14 @@ import Legal from "../layouts/Legal.astro";
 			</thead>
 			<tbody>
 				<tr>
+					<td>Texto de tus preguntas y las respuestas generadas</td>
+					<td>Responder a tu pregunta y mejorar la calidad de las respuestas</td>
+					<td>Interés legítimo (art. 6.1.f RGPD)</td>
+					<td>90 días; después se borran automáticamente</td>
+				</tr>
+				<tr>
 					<td>Dirección de email</td>
-					<td>Envío de alertas legislativas semanales</td>
+					<td>Envío de alertas cuando cambian las leyes de los temas que eliges</td>
 					<td>Consentimiento (art. 6.1.a RGPD)</td>
 					<td>Hasta que canceles la suscripción</td>
 				</tr>
@@ -51,20 +58,32 @@ import Legal from "../layouts/Legal.astro";
 					<td>Hasta que canceles la suscripción</td>
 				</tr>
 				<tr>
-					<td>Situaciones vitales seleccionadas</td>
+					<td>Temas o situaciones vitales seleccionadas</td>
 					<td>Personalización de las alertas según tu perfil (ej: "trabajo por cuenta ajena", "alquilo vivienda")</td>
 					<td>Consentimiento (art. 6.1.a RGPD)</td>
 					<td>Hasta que canceles la suscripción</td>
 				</tr>
 				<tr>
-					<td>IP y user-agent</td>
-					<td>Evidencia del consentimiento (doble opt-in)</td>
-					<td>Obligación legal (art. 7.1 RGPD)</td>
+					<td>Dirección IP y fecha de la suscripción</td>
+					<td>Prueba del consentimiento (doble opt-in)</td>
+					<td>Obligación legal de poder demostrar el consentimiento (art. 7.1 RGPD)</td>
 					<td>Mientras la suscripción esté activa</td>
 				</tr>
 				<tr>
+					<td>Dirección IP (solo en memoria)</td>
+					<td>Limitar el número de peticiones por minuto y proteger el servicio frente a abusos</td>
+					<td>Interés legítimo (art. 6.1.f RGPD)</td>
+					<td>Unos minutos; no se guarda en disco</td>
+				</tr>
+				<tr>
+					<td>Seudónimo de tu dirección IP (una huella calculada con una clave aleatoria que cambia cada día) y el número de preguntas que has hecho ese día</td>
+					<td>Limitar las preguntas por persona (2 por minuto y 10 al día) para contener el coste del servicio y evitar abusos</td>
+					<td>Interés legítimo (art. 6.1.f RGPD)</td>
+					<td>Hasta que termina el día (hora de Madrid); como máximo 48 horas</td>
+				</tr>
+				<tr>
 					<td>Datos de navegación agregados</td>
-					<td>Estadísticas anónimas del sitio (Umami self-hosted)</td>
+					<td>Estadísticas anónimas del sitio (Umami, alojado en nuestro servidor)</td>
 					<td>Interés legítimo (art. 6.1.f RGPD); exención AEPD para analítica de medición de audiencia</td>
 					<td>25 meses (purga automática)</td>
 				</tr>
@@ -72,11 +91,94 @@ import Legal from "../layouts/Legal.astro";
 		</table>
 		</div>
 
-		<h2>Alertas legislativas</h2>
+		<h2 id="preguntas">Preguntas a Ley Abierta</h2>
+		<p>
+			En la página <a href="/pregunta/">Pregunta</a> puedes escribir una duda sobre la
+			legislación española y recibir una respuesta generada por inteligencia artificial
+			(IA) con citas a los artículos de las leyes. Las respuestas son orientativas y
+			<strong>no son asesoramiento jurídico</strong>.
+		</p>
+
+		<h3>No incluyas datos personales</h3>
+		<p>
+			Para responderte no necesitamos saber quién eres. <strong>Te pedimos que no escribas
+			datos personales</strong> en tus preguntas: ni nombres, ni DNI, ni direcciones, ni
+			datos de salud, embarazo, situación migratoria, religión, orientación sexual o
+			cualquier otro dato que permita identificarte a ti o a otra persona. Formula la
+			duda en general (por ejemplo, «¿Cuántos días de permiso tengo si nace mi hijo?»)
+			en lugar de contar tu caso con nombres y detalles.
+		</p>
+		<p>
+			No pedimos ni queremos este tipo de datos. Si aun así los incluyes, solo se usarán
+			para responder a tu pregunta y se borrarán en el plazo indicado más abajo. Puedes
+			pedirnos que los borremos antes (ver <a href="#derechos">Tus derechos</a>).
+		</p>
+
+		<h3>Qué ocurre con tu pregunta</h3>
+		<ol>
+			<li>
+				Tu pregunta llega a nuestro servidor en Alemania a través de Cloudflare, que
+				protege el sitio frente a ataques.
+			</li>
+			<li>
+				Para que el servicio llegue a todos, cada persona puede hacer como máximo
+				10 preguntas al día y 2 por minuto. Para contarlas no guardamos tu dirección IP.
+				Guardamos una huella de ella, calculada con una clave aleatoria que cambia cada
+				día, y el número de preguntas que has hecho ese día. Esa huella no se guarda
+				junto al texto de tus preguntas. Mientras dura el día, quien administra el
+				servidor tiene la clave y podría recalcular a qué dirección IP corresponde cada
+				huella. Por eso la tratamos como un dato seudonimizado, no anónimo, y solo la
+				usamos para contar preguntas. Cuando termina el día (hora de Madrid) borramos las
+				huellas, los contadores y la clave, y desde ese momento nadie puede relacionarlas
+				con tu IP. En ningún caso se conservan más de 48 horas.
+			</li>
+			<li>
+				Para encontrar los artículos relevantes y redactar la respuesta, enviamos el
+				texto de la pregunta (y los artículos de ley encontrados) a
+				<strong>OpenRouter</strong>, un servicio que nos da acceso a varios modelos de IA.
+				No enviamos tu dirección IP ni ningún otro dato que te identifique.
+			</li>
+			<li>
+				OpenRouter reenvía la petición al proveedor del modelo de IA. Tenemos configurada
+				la <strong>retención cero de datos</strong>: solo se usan proveedores que se
+				comprometen a no guardar la pregunta ni la respuesta una vez procesadas, y a
+				no usarlas para entrenar sus modelos.
+			</li>
+			<li>
+				En nuestro servidor guardamos la pregunta y la respuesta, junto con algunos
+				datos técnicos de esa respuesta (cuánto tardó, cuántas citas incluye, qué modelo
+				la generó), durante <strong>90 días</strong> para detectar errores y medir la
+				calidad del servicio. Pasado ese plazo se borran automáticamente. Nunca publicamos
+				las preguntas: se excluyen de las copias públicas de la base de datos.
+			</li>
+			<li>
+				Tu navegador guarda la conversación mientras tengas abierta la pestaña, para
+				que no la pierdas al recargar la página. Se borra al cerrarla o al pulsar
+				«Nueva conversación».
+			</li>
+		</ol>
+		<p>
+			No asociamos tus preguntas a tu email, a tu dirección IP ni a ningún otro
+			identificador. La analítica del sitio solo registra datos como la longitud de la
+			pregunta o cuánto tardó la respuesta, nunca su texto.
+		</p>
+
+		<h3>Base legal</h3>
+		<p>
+			Tratamos el texto de tus preguntas por <strong>interés legítimo</strong>
+			(art. 6.1.f RGPD): el tuyo, en obtener la respuesta que pides, y el nuestro, en
+			ofrecer un servicio público y gratuito de información legal que funcione bien. Lo
+			hacemos con las garantías descritas: te pedimos que no incluyas datos personales,
+			no te identificamos, los proveedores de IA no guardan los datos y nosotros los
+			borramos a los 90 días. Puedes oponerte en cualquier momento dejando de usar el
+			servicio o pidiéndonos que borremos una pregunta concreta.
+		</p>
+
+		<h2 id="alertas">Alertas legislativas</h2>
 		<p>
 			Si te suscribes a las alertas, almacenamos tu dirección de email, tu comunidad
-			autónoma y las situaciones vitales que selecciones, con la única finalidad de
-			enviarte un resumen semanal personalizado de cambios legislativos que te afectan.
+			autónoma y los temas o situaciones vitales que selecciones, con la única finalidad
+			de avisarte por email cuando se publiquen cambios legislativos que te afectan.
 		</p>
 
 		<h3>Consentimiento y doble opt-in</h3>
@@ -95,17 +197,18 @@ import Legal from "../layouts/Legal.astro";
 			de forma inmediata.
 		</p>
 
-		<h3>Encargado de tratamiento: Resend</h3>
+		<h3>Envío de emails: Resend</h3>
 		<p>
-			Para el envío de emails utilizamos <strong><a href="https://resend.com" target="_blank" rel="noopener">Resend</a></strong> como encargado de tratamiento. Resend, Inc. es una empresa con sede en Estados Unidos
+			Para el envío de emails utilizamos <strong><a href="https://resend.com" target="_blank" rel="noopener">Resend</a></strong>
+			como encargado de tratamiento. Resend, Inc. es una empresa con sede en Estados Unidos
 			que procesa los emails en nuestro nombre. La transferencia de datos se realiza bajo
-			cláusulas contractuales tipo aprobadas por la Comisión Europea. No compartimos tus
-			datos con ningún otro tercero.
+			cláusulas contractuales tipo aprobadas por la Comisión Europea. Además de en Resend,
+			tus preferencias de suscripción se guardan en nuestro servidor en Alemania.
 		</p>
 
-		<h2>Analítica</h2>
+		<h2 id="analitica">Analítica</h2>
 		<p>
-			Utilizamos <strong>Umami</strong>, un servicio de analítica web open source <strong>auto-alojado en nuestros servidores en Alemania</strong> (Hetzner, Frankfurt).
+			Utilizamos <strong>Umami</strong>, un servicio de analítica web open source <strong>alojado en nuestro propio servidor en Alemania</strong> (Hetzner, Falkenstein).
 			Umami se ha diseñado específicamente para respetar la privacidad:
 		</p>
 		<ul>
@@ -113,11 +216,14 @@ import Legal from "../layouts/Legal.astro";
 			<li>No recoge tu dirección IP (se hashea con un salt rotativo diario y se descarta).</li>
 			<li>No te identifica entre visitas ni te sigue en otros sitios web.</li>
 			<li>No usa fingerprinting, tag managers, heatmaps ni grabaciones de sesión.</li>
-			<li>No comparte datos con terceros: el procesamiento ocurre íntegramente en nuestros servidores.</li>
+			<li>No comparte datos con terceros: el procesamiento ocurre íntegramente en nuestro servidor.</li>
 		</ul>
 		<p>
 			Solo medimos páginas visitadas, país, navegador, dispositivo y referrer de forma
-			agregada y anónima, exclusivamente para mejorar el servicio. Los datos se conservan
+			agregada y anónima, además de algunos eventos de uso sin datos personales (por
+			ejemplo, la longitud de una pregunta, o el texto de búsquedas de leyes que no dieron
+			resultados, descartándolo si parece contener datos personales). Lo hacemos
+			exclusivamente para mejorar el servicio. Los datos se conservan
 			un máximo de <strong>25 meses</strong> con purga automática.
 		</p>
 		<p>
@@ -130,7 +236,95 @@ import Legal from "../layouts/Legal.astro";
 			Umami es <a href="https://github.com/umami-software/umami" target="_blank" rel="noopener">software libre con licencia MIT</a>.
 		</p>
 
-		<h2>Tus derechos</h2>
+		<h2 id="proveedores">Quién trata tus datos por nosotros</h2>
+		<p>
+			Estos proveedores tratan datos en nuestro nombre (encargados de tratamiento) y solo
+			para prestar el servicio. Ninguno puede usarlos para sus propios fines.
+		</p>
+		<div class="table-scroll">
+		<table>
+			<thead>
+				<tr>
+					<th>Proveedor</th>
+					<th>Para qué</th>
+					<th>Datos</th>
+					<th>Dónde</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>Hetzner Online GmbH</td>
+					<td>Servidor donde funcionan la API, la base de datos y la analítica</td>
+					<td>Todos los descritos en esta política</td>
+					<td>Alemania (UE)</td>
+				</tr>
+				<tr>
+					<td>Cloudflare, Inc.</td>
+					<td>Publicación de la web y protección de la conexión con nuestro servidor</td>
+					<td>Tráfico de la web y de la API, incluidas las preguntas en tránsito y tu dirección IP</td>
+					<td>Red global; empresa con sede en EE. UU.</td>
+				</tr>
+				<tr>
+					<td>OpenRouter, Inc.</td>
+					<td>Acceso a los modelos de IA que responden a las preguntas</td>
+					<td>Texto de la pregunta o de la búsqueda de leyes, y artículos de ley; no guarda su contenido</td>
+					<td>EE. UU.</td>
+				</tr>
+				<tr>
+					<td>Proveedores de modelos a los que enruta OpenRouter</td>
+					<td>Generar la respuesta y convertir la pregunta o la búsqueda de leyes en un vector de búsqueda</td>
+					<td>Texto de la pregunta o de la búsqueda, y artículos de ley; con retención cero</td>
+					<td>Actualmente: Google (modelo Gemini, EE. UU. / UE), Microsoft (servicio Azure, modelo GPT de OpenAI, EE. UU. / UE), DeepInfra (EE. UU.) y Nebius (Países Bajos)</td>
+				</tr>
+				<tr>
+					<td>Resend, Inc.</td>
+					<td>Envío de las alertas por email</td>
+					<td>Email, preferencias de suscripción, IP y fecha del consentimiento</td>
+					<td>EE. UU.</td>
+				</tr>
+			</tbody>
+		</table>
+		</div>
+		<p>
+			Los modelos de IA concretos pueden cambiar con el tiempo. Si cambiamos de modelo,
+			solo usaremos proveedores con retención cero de datos a través de OpenRouter y
+			actualizaremos esta lista.
+		</p>
+
+		<h2 id="transferencias">Transferencias internacionales</h2>
+		<p>
+			Nuestro servidor y la analítica están en la Unión Europea (Hetzner, Falkenstein,
+			Alemania). <strong>No hay transferencia internacional de datos analíticos.</strong>
+			Algunos proveedores tienen sede o servidores en Estados Unidos. En esos casos, las
+			transferencias se amparan en:
+		</p>
+		<ul>
+			<li>
+				<strong>Cloudflare:</strong> certificación en el Marco de Privacidad de Datos
+				UE-EE. UU. (decisión de adecuación de la Comisión Europea) y, como respaldo,
+				cláusulas contractuales tipo.
+			</li>
+			<li>
+				<strong>OpenRouter:</strong> cláusulas contractuales tipo aprobadas por la Comisión
+				Europea (art. 46.2.c RGPD), incluidas en su acuerdo de tratamiento de datos.
+				OpenRouter responde de los proveedores de modelos que usa como subencargados.
+			</li>
+			<li>
+				<strong>Google</strong> (proveedor del modelo Gemini): certificación en el Marco de
+				Privacidad de Datos UE-EE. UU. y cláusulas contractuales tipo.
+			</li>
+			<li>
+				<strong>Microsoft</strong> (Azure, proveedor del modelo GPT de OpenAI):
+				certificación en el Marco de Privacidad de Datos UE-EE. UU. y cláusulas
+				contractuales tipo.
+			</li>
+			<li>
+				<strong>Resend:</strong> cláusulas contractuales tipo aprobadas por la Comisión
+				Europea (art. 46.2.c RGPD).
+			</li>
+		</ul>
+
+		<h2 id="derechos">Tus derechos</h2>
 		<p>
 			Conforme al Reglamento General de Protección de Datos (RGPD) y la Ley Orgánica
 			3/2018 (LOPDGDD), tienes derecho a:
@@ -147,28 +341,17 @@ import Legal from "../layouts/Legal.astro";
 			Para ejercer cualquiera de estos derechos, escríbenos a <strong>contacto@leyabierta.es</strong>. Responderemos en un plazo máximo de 30 días.
 		</p>
 		<p>
+			Como no asociamos las preguntas a ninguna persona, para localizar una pregunta
+			concreta necesitaremos que nos indiques su texto y la fecha aproximada en que la
+			hiciste. Si no podemos encontrarla con esos datos, te lo diremos (art. 11 RGPD).
+		</p>
+		<p>
 			Si consideras que tus derechos no han sido atendidos, puedes presentar una reclamación
 			ante la <a href="https://www.aepd.es" target="_blank" rel="noopener">Agencia Española de
 			Protección de Datos (AEPD)</a>.
 		</p>
 
-		<h2>Transferencias internacionales</h2>
-		<p>
-			El sitio web está alojado en <strong>Cloudflare</strong> (red global de distribución
-			de contenido). Cloudflare cumple con las cláusulas contractuales tipo de la Comisión
-			Europea para transferencias internacionales de datos.
-		</p>
-		<p>
-			Los datos analíticos (Umami) se procesan íntegramente en nuestros servidores en <strong>Hetzner Online GmbH</strong> (Frankfurt, Alemania), dentro del Espacio
-			Económico Europeo. <strong>No hay transferencia internacional de datos analíticos.</strong>
-		</p>
-		<p>
-			El servicio de envío de emails (<strong>Resend, Inc.</strong>) tiene sede en Estados
-			Unidos. La transferencia de datos se ampara en las cláusulas contractuales tipo
-			aprobadas por la Comisión Europea (art. 46.2.c RGPD).
-		</p>
-
-		<h2>Cambios en esta política</h2>
+		<h2 id="cambios">Cambios en esta política</h2>
 		<p>
 			Nos reservamos el derecho a modificar esta política para adaptarla a cambios
 			legislativos o técnicos. Cualquier cambio se publicará en esta página con la

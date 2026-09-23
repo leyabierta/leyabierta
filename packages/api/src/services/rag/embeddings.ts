@@ -8,6 +8,7 @@
 
 import { open, rename, rm } from "node:fs/promises";
 import { getNanApiKey } from "../nan-api-key.ts";
+import { openRouterProviderField } from "../openrouter.ts";
 
 const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
 const BATCH_SIZE = 50; // articles per API call
@@ -147,6 +148,7 @@ export async function fetchWithRetry(
 						model: modelId,
 						input,
 						encoding_format: "float",
+						...openRouterProviderField(),
 					}),
 					// Without a timeout a stalled OpenRouter connection hangs the
 					// caller forever (seen in the 2026-09-23 eval run). The signal

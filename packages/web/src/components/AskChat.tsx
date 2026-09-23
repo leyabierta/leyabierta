@@ -1426,7 +1426,7 @@ export default function AskChat() {
 					rows={hasHistory ? 1 : 2}
 					maxLength={1000}
 					disabled={loading}
-					aria-describedby="ask-hint"
+					aria-describedby="ask-hint ask-privacy-note"
 				/>
 				<div className="ask-input-footer">
 					<span id="ask-hint" className="ask-hint">
@@ -1475,6 +1475,14 @@ export default function AskChat() {
 					{quota ? quotaText(quota) : ""}
 				</p>
 			</div>
+
+			<p id="ask-privacy-note" className="ask-privacy-note">
+				<strong>No escribas datos personales</strong> (nombres, DNI, datos de
+				salud…). Las respuestas las genera una IA y no son asesoramiento
+				jurídico. Tu pregunta la procesa un servicio de IA externo que no la
+				guarda; nosotros la borramos a los 90 días.{" "}
+				<a href="/privacidad/#preguntas">Más información</a>
+			</p>
 
 			{!hasHistory && !loading && (
 				<>

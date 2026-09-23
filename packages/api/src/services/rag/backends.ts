@@ -324,9 +324,15 @@ function makeQwenRerankCaller(nanApiKey?: string): RerankCaller {
 /** Build a rerank caller that delegates to CohereReranker via OpenRouter. */
 function makeCohereOrRerankCaller(orKey: string): RerankCaller {
 	// CohereReranker is a class — instantiate once and reuse. The constructor
-	// picks the backend from its arguments; we force openrouter path by only
-	// providing the openrouterApiKey.
-	const reranker = new CohereReranker({ openrouterApiKey: orKey });
+	// picks the backend from its arguments; we force the OpenRouter path with an
+	// explicit empty cohereApiKey — otherwise the constructor falls back to
+	// process.env.COHERE_API_KEY and, if that is set, would send citizens'
+	// questions straight to api.cohere.com, bypassing OpenRouter's ZDR routing
+	// promised in /privacidad/.
+	const reranker = new CohereReranker({
+		cohereApiKey: "",
+		openrouterApiKey: orKey,
+	});
 	return async (query, candidates, topK) => {
 		const result = await reranker.rerank(query, candidates, topK);
 		// Return shape matches LLMRerankResult[]

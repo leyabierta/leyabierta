@@ -146,6 +146,7 @@ export async function* callOpenRouterStream(
 				stream: true,
 				stream_options: { include_usage: true },
 				...(reasoning ? { reasoning } : {}),
+				...openRouterProviderField(),
 			}),
 		});
 		if (res.status === 429) continue;
@@ -271,6 +272,7 @@ export async function callOpenRouter<T>(
 					temperature,
 					max_tokens: maxTokens,
 					...(reasoning ? { reasoning } : {}),
+					...openRouterProviderField(),
 					...(jsonSchema
 						? {
 								response_format: {

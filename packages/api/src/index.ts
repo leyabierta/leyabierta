@@ -24,6 +24,10 @@ import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 import { HybridSearcherImpl } from "./services/hybrid-search.ts";
 import { startMemProbe } from "./services/mem-probe.ts";
+import {
+	createAskLogPurger,
+	resolveAskLogRetentionDays,
+} from "./services/rag/ask-log-retention.ts";
 import { bm25HybridSearch } from "./services/rag/blocks-fts.ts";
 import { RagPipeline } from "./services/rag/pipeline.ts";
 import { EMBEDDING_MODEL_KEY } from "./services/rag/retrieval.ts";
@@ -70,6 +74,17 @@ const statusService = new StatusService(db, RAG_DATA_DIR);
 const ragPipeline = OPENROUTER_API_KEY
 	? new RagPipeline(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
 	: null;
+// ask_log retention promised in /privacidad/ (ASK_LOG_RETENTION_DAYS, default
+// 90). Wired here, in the API server only — not in RagPipeline — so eval and
+// research scripts that build a RagPipeline on a local DB never silently
+// delete rows. Purges at startup, then an hourly tick runs it at most once a
+// day (retrying sooner if a run failed, e.g. SQLITE_BUSY during ingest).
+const purgeAskLog = createAskLogPurger(
+	db,
+	resolveAskLogRetentionDays(process.env),
+);
+purgeAskLog();
+setInterval(purgeAskLog, 60 * 60 * 1000).unref();
 // Hybrid search for /v1/laws (Issue #40). Default retrieval mode for
 // relevance-ranked free-text queries. If OPENROUTER_API_KEY is missing the
 // route returns 503 — no silent fallback to BM25.
