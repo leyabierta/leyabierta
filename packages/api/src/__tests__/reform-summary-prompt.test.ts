@@ -86,6 +86,29 @@ describe("formatBlockChange", () => {
 		);
 	});
 
+	test("a rewrite that keeps the heading shows where the versions diverge", () => {
+		const head =
+			"Artículo 5. Régimen de las ayudas a la rehabilitación de viviendas en el ámbito autonómico. ";
+		const out = formatBlockChange(
+			`${head}Las ayudas se conceden por concurrencia competitiva entre los solicitantes.`,
+			`${head}${"Se crea un fondo específico gestionado por la Consejería con dotación anual propia. ".repeat(4)}`,
+		);
+		expect(out).toContain("reescrito");
+		expect(out).toContain("antes: … ");
+		expect(out).toContain("concurrencia competitiva");
+		expect(out).toContain("fondo específico");
+	});
+
+	test("nearby word changes are grouped into one phrase", () => {
+		const out = formatBlockChange(
+			`${FILLER}Las ayudas se conceden por concurrencia competitiva entre los solicitantes. ${FILLER}`,
+			`${FILLER}Las subvenciones se otorgan por orden de presentación entre los solicitantes. ${FILLER}`,
+		);
+		expect(out).toContain(
+			"[-ayudas se conceden por concurrencia competitiva-] {+subvenciones se otorgan por orden de presentación+}",
+		);
+	});
+
 	test("respects the character budget", () => {
 		const a = Array.from({ length: 300 }, (_, i) => `palabra${i}`).join(" ");
 		const b = Array.from({ length: 300 }, (_, i) =>

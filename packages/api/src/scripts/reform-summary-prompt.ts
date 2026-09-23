@@ -23,7 +23,7 @@ export interface BlockDiff {
  * Bump when the prompt text or its inputs change: the offline import compares
  * it before the prompt hash, to tell "the code changed" from "the data changed".
  */
-export const PROMPT_VERSION = "2026-09-23.2";
+export const PROMPT_VERSION = "2026-09-23.3";
 
 export interface ReformRow {
 	norm_id: string;
@@ -140,6 +140,7 @@ function truncateChars(s: string, max: number): string {
 }
 
 const CONTEXT_WORDS = 12;
+const MERGE_GAP_WORDS = 2;
 
 function firstWords(s: string, n: number): string {
 	const words = s.trim().split(" ");
@@ -178,8 +179,15 @@ export function formatBlockChange(
 			? "(artículo muy largo: el cambio no está en la parte analizada del texto)"
 			: "(el texto de este artículo es idéntico antes y después: el cambio no se ve en el texto)";
 
-	const rewrite = () =>
-		`(texto reescrito casi por completo)\n  antes: ${truncateChars(a, Math.floor(maxChars * 0.4)) || "(vacío)"}\n  ahora: ${truncateChars(b, Math.floor(maxChars * 0.6)) || "(vacío)"}`;
+	// A rewrite often keeps the heading ("Artículo 5. Plazos. 1. …"): start
+	// both versions where they diverge, so the fragments shown differ.
+	const rewrite = () => {
+		let common = 0;
+		while (common < a.length && a[common] === b[common]) common++;
+		const cut = common > 80 ? a.lastIndexOf(" ", common - 40) : -1;
+		const from = (s: string) => (cut > 0 ? `… ${s.slice(cut + 1)}` : s);
+		return `(texto reescrito casi por completo)\n  antes: ${truncateChars(from(a), Math.floor(maxChars * 0.4)) || "(vacío)"}\n  ahora: ${truncateChars(from(b), Math.floor(maxChars * 0.6)) || "(vacío)"}`;
+	};
 
 	const parts = diffWordsWithSpace(a, b, { maxEditLength: MAX_EDIT_LENGTH });
 	if (!parts) return rewrite();
@@ -189,16 +197,64 @@ export function formatBlockChange(
 		.reduce((n, p) => n + p.value.length, 0);
 	if (changed / (a.length + b.length) > 0.6) return rewrite();
 
+	// Group nearby changes: runs of changes separated by at most
+	// MERGE_GAP_WORDS unchanged words become one [-old phrase-] {+new phrase+},
+	// instead of word-by-word interleaving ("[-Las-] {+Se+} [-ayudas-] {+crea+}")
+	// that is hard to read.
+	type Segment =
+		| { kind: "same"; text: string }
+		| { kind: "change"; removed: string; added: string };
+	const segments: Segment[] = [];
+	for (const p of parts) {
+		const last = segments[segments.length - 1];
+		if (p.removed || p.added) {
+			if (last?.kind === "change") {
+				if (p.removed) last.removed += p.value;
+				else last.added += p.value;
+			} else {
+				segments.push({
+					kind: "change",
+					removed: p.removed ? p.value : "",
+					added: p.added ? p.value : "",
+				});
+			}
+			continue;
+		}
+		segments.push({ kind: "same", text: p.value });
+	}
+	// Fold "change, short same, change" into a single change.
+	const merged: Segment[] = [];
+	for (const seg of segments) {
+		const last = merged[merged.length - 1];
+		const beforeLast = merged[merged.length - 2];
+		if (
+			seg.kind === "change" &&
+			last?.kind === "same" &&
+			beforeLast?.kind === "change" &&
+			last.text.trim().split(" ").filter(Boolean).length <= MERGE_GAP_WORDS
+		) {
+			beforeLast.removed += last.text + seg.removed;
+			beforeLast.added += last.text + seg.added;
+			merged.pop();
+			continue;
+		}
+		merged.push(seg);
+	}
+
 	const out: string[] = [];
-	parts.forEach((p, i) => {
-		const value = p.value.trim();
-		// A change of whitespace only ("ciudadanos, en" → "ciudadanos,en").
-		if ((p.removed || p.added) && !value) return;
-		if (p.removed) out.push(`[-${value}-]`);
-		else if (p.added) out.push(`{+${value}+}`);
-		else if (i === 0) out.push(lastWords(p.value, CONTEXT_WORDS));
-		else if (i === parts.length - 1)
-			out.push(firstWords(p.value, CONTEXT_WORDS));
+	merged.forEach((seg, i) => {
+		if (seg.kind === "change") {
+			// A change of whitespace only ("ciudadanos, en" → "ciudadanos,en").
+			const removed = seg.removed.trim();
+			const added = seg.added.trim();
+			if (removed) out.push(`[-${removed}-]`);
+			if (added) out.push(`{+${added}+}`);
+			return;
+		}
+		const value = seg.text.trim();
+		if (i === 0) out.push(lastWords(seg.text, CONTEXT_WORDS));
+		else if (i === merged.length - 1)
+			out.push(firstWords(seg.text, CONTEXT_WORDS));
 		else {
 			const words = value.split(" ");
 			out.push(
@@ -364,7 +420,8 @@ ${text || "(sin texto disponible)"}`;
 		let used = 0;
 		let shown = 0;
 		for (const d of diffs.slice(0, MAX_DIFF_BLOCKS)) {
-			if (used >= MAX_CHANGES_CHARS) break;
+			// Too little room left to show a change: list it by title instead.
+			if (MAX_CHANGES_CHARS - used < 200) break;
 			const budget = Math.min(1200, MAX_CHANGES_CHARS - used);
 			const part =
 				d.change_type === "new"
