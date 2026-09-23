@@ -13,6 +13,7 @@
 import { Database } from "bun:sqlite";
 import { createSchema } from "./db/schema.ts";
 import { BoeClient } from "./spain/boe-client.ts";
+import { resolveMaterias } from "./spain/materias.ts";
 
 const dbPath = process.argv[2] || "./data/leyabierta.db";
 const concurrency = Number(
@@ -91,13 +92,12 @@ async function main() {
 		// republishes the reference table). Unresolved codes are dropped and
 		// tallied; if NONE of the codes resolve we fall back to the partial but
 		// real names from the /analisis endpoint rather than storing nothing.
-		const resolved: string[] = [];
-		for (const code of materiaCodes) {
-			const name = materiaLookup[code];
-			if (name) resolved.push(name);
-			else missingCodes.add(code);
-		}
-		const fullMaterias = resolved.length > 0 ? resolved : analisis.materias;
+		const fullMaterias = resolveMaterias(
+			materiaCodes,
+			materiaLookup,
+			analisis.materias,
+			missingCodes,
+		);
 
 		// DB writes are synchronous and fast — no contention issue
 		db.transaction(() => {
@@ -200,17 +200,21 @@ async function main() {
 	const queryNotas = db.prepare<{ nota: string }, [string]>(
 		"SELECT nota FROM notas WHERE norm_id = ? ORDER BY position",
 	);
+	// Explicit ORDER BY (the primary-key order these queries already returned):
+	// the leyes frontmatter renders references in this order, and
+	// BoeClient.getNormAnalisis (canonicalRefs) reproduces it for new laws, so
+	// it must not depend on which index the query planner happens to pick.
 	const queryRefsAnt = db.prepare<
 		{ relation: string; target_id: string; text: string },
 		[string]
 	>(
-		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'anterior'",
+		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'anterior' ORDER BY target_id, relation",
 	);
 	const queryRefsPost = db.prepare<
 		{ relation: string; target_id: string; text: string },
 		[string]
 	>(
-		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'posterior'",
+		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'posterior' ORDER BY target_id, relation",
 	);
 
 	let enriched = 0;

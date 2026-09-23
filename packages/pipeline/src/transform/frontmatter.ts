@@ -6,6 +6,7 @@
 
 import yaml from "js-yaml";
 import type { Block, NormAnalisis, NormMetadata, Reform } from "../models.ts";
+import { analisisToFrontmatter } from "./analisis.ts";
 import { extractJurisdiction } from "./slug.ts";
 
 /**
@@ -56,33 +57,10 @@ export function renderFrontmatter(
 		}));
 	}
 
-	// Analisis data (if available from enriched JSON cache)
-	if (analisis) {
-		if (analisis.materias.length > 0) {
-			data.materias = analisis.materias;
-		}
-		if (analisis.notas.length > 0) {
-			data.notas = analisis.notas;
-		}
-		if (analisis.referencias.anteriores.length > 0) {
-			data.referencias_anteriores = analisis.referencias.anteriores.map(
-				(r) => ({
-					norma: r.normId,
-					relacion: r.relation,
-					texto: r.text,
-				}),
-			);
-		}
-		if (analisis.referencias.posteriores.length > 0) {
-			data.referencias_posteriores = analisis.referencias.posteriores.map(
-				(r) => ({
-					norma: r.normId,
-					relacion: r.relation,
-					texto: r.text,
-				}),
-			);
-		}
-	}
+	// Analisis data (materias, notas, referencias): from the enriched JSON
+	// cache, a fresh BOE fetch, or carried over from the file already on disk
+	// (see pipeline.ts). Omitted only when none of those has any.
+	Object.assign(data, analisisToFrontmatter(analisis));
 
 	const yamlStr = yaml.dump(data, {
 		lineWidth: -1,
