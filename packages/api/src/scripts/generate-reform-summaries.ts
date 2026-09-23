@@ -71,10 +71,13 @@ const limitArg = Number(
 );
 const endpoint = contentLlmEndpoint();
 const DEFAULT_REFORM_MODEL = "qwen/qwen3.8-27b";
+// A local endpoint keeps CONTENT_LLM_MODEL: REFORM_SUMMARIES_MODEL names an
+// OpenRouter model, which a local server would not know.
 const modelId =
 	getArg("model") ??
-	process.env.REFORM_SUMMARIES_MODEL ??
-	(endpoint.baseUrl ? endpoint.model : DEFAULT_REFORM_MODEL);
+	(endpoint.baseUrl
+		? endpoint.model
+		: process.env.REFORM_SUMMARIES_MODEL?.trim() || DEFAULT_REFORM_MODEL);
 // Qwen on OpenRouter: thinking off, as in the evaluated offline generation.
 const reasoning =
 	!endpoint.baseUrl && modelId.startsWith("qwen/")
@@ -254,7 +257,12 @@ async function main() {
 				`  ✅ ${reform.date} | ${validated.reform_type} | ${validated.importance} | $${result.cost.toFixed(6)} | ${validated.headline.slice(0, 50)}`,
 			);
 		} catch (err) {
-			if (err instanceof OpenRouterError && err.code.startsWith("http_40")) {
+			// Only auth errors stop the run; any other 4xx (e.g. one provider
+			// rejecting one request) is counted like any failed reform.
+			if (
+				err instanceof OpenRouterError &&
+				(err.code === "http_401" || err.code === "http_403")
+			) {
 				console.error(`  ❌ Auth error: ${err.message}`);
 				process.exit(1);
 			}
