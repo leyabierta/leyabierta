@@ -61,7 +61,17 @@ export function prefersMarkdown(request: Request): boolean {
  *  page `/leyes/<id>/texto/`, when BUILD_TEXT_PAGES builds it), or null. */
 export function lawIdFromPath(pathname: string): string | null {
 	const m = pathname.match(/^\/leyes\/([^/]+)(?:\/texto)?\/?$/);
-	return m ? decodeURIComponent(m[1]!) : null;
+	return m ? safeDecode(m[1]!) : null;
+}
+
+/** decodeURIComponent that returns null on malformed input ("%E0") instead of
+ *  throwing, which in the Worker would be an uncaught 500. */
+function safeDecode(s: string): string | null {
+	try {
+		return decodeURIComponent(s);
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -74,8 +84,8 @@ export function lawIdFromPath(pathname: string): string | null {
 export function legacyTextTabRedirect(url: URL): string | null {
 	if (url.searchParams.get("tab") !== "texto") return null;
 	const m = url.pathname.match(/^\/leyes\/([^/]+)\/?$/);
-	if (!m) return null;
-	return boeUrl(decodeURIComponent(m[1]!));
+	const id = m ? safeDecode(m[1]!) : null;
+	return id ? boeUrl(id) : null;
 }
 
 function markdownBody(body: string): Response {
