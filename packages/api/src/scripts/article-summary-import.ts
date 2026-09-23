@@ -24,10 +24,26 @@ export interface GeneratedRow {
 	tags: string[];
 }
 
-// Prompt v10 asks for 80-300 characters; very short articles legitimately
-// produce shorter summaries, and the prompt tolerates ~20% over the target.
+// Prompt v10 asks for 80-300 characters. Very short articles legitimately
+// produce shorter summaries; longer ones are accepted up to maxSummaryChars,
+// although the prompt says 300, because for long articles a blind judge
+// preferred them 35/5 over the summaries in production (2026-09-23).
 export const MIN_SUMMARY_CHARS = 20;
-export const MAX_SUMMARY_CHARS = 320;
+/** Absolute cap, for the longest articles; see maxSummaryChars. */
+export const MAX_SUMMARY_CHARS = 600;
+
+/**
+ * Longest acceptable summary for an article of `articleChars` characters. A
+ * fixed 320-character cap rejected 29% of the summaries of the main codes
+ * (long articles with several apartados, where the essentials don't fit), and
+ * forcing them shorter drops data. Short articles keep the 320 cap.
+ */
+export function maxSummaryChars(articleChars: number): number {
+	if (articleChars < 1000) return 320;
+	if (articleChars < 2000) return 400;
+	if (articleChars < 5000) return 500;
+	return MAX_SUMMARY_CHARS;
+}
 export const MIN_TAGS = 3;
 export const MAX_TAGS = 5;
 export const MAX_TAG_CHARS = 60;
@@ -213,11 +229,12 @@ export function importRows(
 		}
 		const r = row as GeneratedRow;
 		const key = `${r.norm_id}|${r.block_id}`;
+		// Only accepted rows count as seen: a row rejected (e.g. too long) must
+		// not block a later, valid retry of the same article in the same file.
 		if (seen.has(key)) {
 			skip("duplicate_in_file");
 			continue;
 		}
-		seen.add(key);
 
 		const current = getText.get(r.norm_id, r.block_id) as {
 			text: string;
@@ -235,6 +252,10 @@ export function importRows(
 		}
 		if (textHash(current.text) !== r.input_hash) {
 			skip("source_text_changed");
+			continue;
+		}
+		if (v.summary.length > maxSummaryChars(current.text.length)) {
+			skip("too_long");
 			continue;
 		}
 		let replace = false;
@@ -256,6 +277,7 @@ export function importRows(
 			}
 			replace = true;
 		}
+		seen.add(key);
 		accepted.push({
 			norm_id: r.norm_id,
 			block_id: r.block_id,

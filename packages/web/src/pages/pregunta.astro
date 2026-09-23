@@ -1111,6 +1111,12 @@ import AskChat from "../components/AskChat.tsx";
 		font-size: 0.75rem;
 		color: var(--text-secondary);
 		line-height: 1.4;
+		/* Article summaries can reach 600 characters: keep the tooltip short. */
+		display: -webkit-box;
+		-webkit-line-clamp: 7;
+		line-clamp: 7;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 		padding-top: 0.25rem;
 		border-top: 1px solid var(--border-light);
 		margin-top: 0.125rem;

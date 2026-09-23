@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createSchema } from "@leyabierta/pipeline";
 import {
 	importRows,
+	maxSummaryChars,
 	textHash,
 	validateGeneratedRow,
 } from "../scripts/article-summary-import.ts";
@@ -40,7 +41,7 @@ describe("validateGeneratedRow", () => {
 		[{ ok: false }, "generation_failed"],
 		[{ input_hash: "xyz" }, "no_input_hash"],
 		[{ summary: "Corto." }, "too_short"],
-		[{ summary: "x".repeat(321) }, "too_long"],
+		[{ summary: "x".repeat(601) }, "too_long"],
 		[{ tags: ["uno", "dos"] }, "bad_tag_count"],
 		[{ tags: ["a", "b", "c", "d", "e", "f"] }, "bad_tag_count"],
 		[{ summary: `${row().summary} 法律` }, "foreign_script"],
@@ -102,6 +103,19 @@ describe("validateGeneratedRow", () => {
 			summary: row().summary,
 			tags: ["País Vasco", "plazos", "cuotas"],
 		});
+	});
+});
+
+describe("maxSummaryChars", () => {
+	test("grows with the article", () => {
+		expect(maxSummaryChars(500)).toBe(320);
+		expect(maxSummaryChars(999)).toBe(320);
+		expect(maxSummaryChars(1000)).toBe(400);
+		expect(maxSummaryChars(4999)).toBe(500);
+		expect(maxSummaryChars(5000)).toBe(600);
+		expect(maxSummaryChars(1500)).toBe(400);
+		expect(maxSummaryChars(3000)).toBe(500);
+		expect(maxSummaryChars(20000)).toBe(600);
 	});
 });
 
@@ -215,6 +229,37 @@ describe("importRows", () => {
 			failed_then_retried_ok: 1,
 			generation_failed: 1,
 		});
+	});
+
+	test("a long summary is accepted for a long article only", () => {
+		const longText = `Artículo 3. Régimen.\n\n${"Texto del apartado con requisitos y plazos. ".repeat(60)}`;
+		db.run(
+			"INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a3', 'precepto', 'Artículo 3', 3, ?)",
+			[longText],
+		);
+		const summary =
+			`${"Se regulan requisitos y plazos del régimen. ".repeat(10)}`.trim();
+		expect(summary.length).toBeGreaterThan(400);
+		const report = importRows(
+			db,
+			[
+				row({ block_id: "a3", input_hash: textHash(longText), summary }),
+				row({ summary }),
+			],
+			{ apply: true },
+		);
+		expect(report.inserted).toBe(1);
+		expect(report.skipped).toEqual({ too_long: 1 });
+	});
+
+	test("a too-long row does not block a valid retry of the same article", () => {
+		const report = importRows(
+			db,
+			[row({ summary: "Resumen demasiado largo. ".repeat(15).trim() }), row()],
+			{ apply: true },
+		);
+		expect(report.inserted).toBe(1);
+		expect(report.skipped).toEqual({ too_long: 1 });
 	});
 
 	test("keeps existing article tags instead of mixing in new ones", () => {
