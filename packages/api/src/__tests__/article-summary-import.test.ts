@@ -109,6 +109,10 @@ describe("validateGeneratedRow", () => {
 describe("maxSummaryChars", () => {
 	test("grows with the article", () => {
 		expect(maxSummaryChars(500)).toBe(320);
+		expect(maxSummaryChars(999)).toBe(320);
+		expect(maxSummaryChars(1000)).toBe(400);
+		expect(maxSummaryChars(4999)).toBe(500);
+		expect(maxSummaryChars(5000)).toBe(600);
 		expect(maxSummaryChars(1500)).toBe(400);
 		expect(maxSummaryChars(3000)).toBe(500);
 		expect(maxSummaryChars(20000)).toBe(600);
@@ -242,6 +246,16 @@ describe("importRows", () => {
 				row({ block_id: "a3", input_hash: textHash(longText), summary }),
 				row({ summary }),
 			],
+			{ apply: true },
+		);
+		expect(report.inserted).toBe(1);
+		expect(report.skipped).toEqual({ too_long: 1 });
+	});
+
+	test("a too-long row does not block a valid retry of the same article", () => {
+		const report = importRows(
+			db,
+			[row({ summary: "Resumen demasiado largo. ".repeat(15).trim() }), row()],
 			{ apply: true },
 		);
 		expect(report.inserted).toBe(1);
