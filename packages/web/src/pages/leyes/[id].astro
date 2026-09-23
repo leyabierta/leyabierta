@@ -10,6 +10,7 @@ import { bakeArticleSummaries } from "../../lib/article-summaries.ts";
 import { reformCanonicalPath } from "../../lib/reform-experiment.ts";
 import { loadArticleSummaries, loadManifest } from "../../lib/manifest.ts";
 import { hubsForLaw } from "../../components/topic-hubs";
+import { effectiveLastUpdated } from "../../lib/law-dates.ts";
 
 // Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
 // has a single H1 — the law title rendered in the header above the tabs.
@@ -157,6 +158,9 @@ export async function getStaticPaths() {
 const { entry, allIds, related } = Astro.props;
 const { id } = Astro.params;
 const law = entry.data;
+// Never read law.ultima_actualizacion directly: it can lag the reforms list or
+// be corrupt. See lib/law-dates.ts.
+const lastUpdated = effectiveLastUpdated(law);
 
 // Topic hubs this norm is curated into, so the page can link back to them.
 // The hub→ley link already existed; without this one the cluster is a dead end
@@ -315,8 +319,7 @@ const seoDescription = [
 		"identifier": law.identificador,
 		"description": citizenSummary || law.titulo.slice(0, 160),
 		"legislationDate": law.fecha_publicacion,
-		"legislationDateVersion": law.ultima_actualizacion,
-		"dateModified": law.ultima_actualizacion,
+		...(lastUpdated ? { "legislationDateVersion": lastUpdated, "dateModified": lastUpdated } : {}),
 		"legislationJurisdiction": law.jurisdiccion === "es" ? "ES" : law.jurisdiccion.toUpperCase(),
 		...(law.estado === "vigente" || law.estado?.startsWith("derogad")
 			? { "legislationLegalForce": law.estado === "vigente" ? "InForce" : "NotInForce" }
@@ -813,12 +816,12 @@ const seoDescription = [
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
 			{formatDate(law.fecha_publicacion)}
 		</span>
-		{law.ultima_actualizacion && law.ultima_actualizacion !== law.fecha_publicacion && (
+		{lastUpdated && lastUpdated !== law.fecha_publicacion && (
 			<>
 				<span class="meta-sep">&middot;</span>
 				<span class="meta-item">
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
-					{formatDate(law.ultima_actualizacion)}
+					{formatDate(lastUpdated)}
 				</span>
 			</>
 		)}

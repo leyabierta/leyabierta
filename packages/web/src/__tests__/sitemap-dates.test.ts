@@ -50,16 +50,33 @@ describe("clampLastmod", () => {
 // 158 of them, and the three example lines GSC cited (90089, 90095, 90155)
 // were the first three.
 describe("isEmittableLastmod", () => {
-	test("accepts the epoch and everything after it", () => {
-		expect(isEmittableLastmod("1970-01-01")).toBe(true);
-		expect(isEmittableLastmod("1970-01-02")).toBe(true);
-		expect(isEmittableLastmod("2026-09-16")).toBe(true);
+	const TODAY = "2026-09-23";
+
+	test("accepts the epoch and everything after it up to today", () => {
+		expect(isEmittableLastmod("1970-01-01", TODAY)).toBe(true);
+		expect(isEmittableLastmod("1970-01-02", TODAY)).toBe(true);
+		expect(isEmittableLastmod("1983-06-15", TODAY)).toBe(true);
+		expect(isEmittableLastmod("2026-09-16", TODAY)).toBe(true);
+		expect(isEmittableLastmod(TODAY, TODAY)).toBe(true);
 	});
 
 	test("rejects pre-epoch dates Google calls invalid", () => {
-		expect(isEmittableLastmod("1969-12-31")).toBe(false);
-		expect(isEmittableLastmod("1940-12-22")).toBe(false);
-		expect(isEmittableLastmod("1927-09-08")).toBe(false);
-		expect(isEmittableLastmod("1894-01-06")).toBe(false);
+		expect(isEmittableLastmod("1969-12-31", TODAY)).toBe(false);
+		expect(isEmittableLastmod("1940-12-22", TODAY)).toBe(false);
+		expect(isEmittableLastmod("1927-09-08", TODAY)).toBe(false);
+		expect(isEmittableLastmod("1894-01-06", TODAY)).toBe(false);
+	});
+
+	// BOE-A-1985-26400: the BOE ships fecha_publicacion="29291119".
+	test("rejects future dates, including the year-2929 BOE typo", () => {
+		expect(isEmittableLastmod("2929-11-19", TODAY)).toBe(false);
+		expect(isEmittableLastmod("2026-09-24", TODAY)).toBe(false);
+		expect(isEmittableLastmod("2027-01-01", TODAY)).toBe(false);
+	});
+
+	test("rejects malformed and impossible dates", () => {
+		expect(isEmittableLastmod("", TODAY)).toBe(false);
+		expect(isEmittableLastmod("2024-2-1", TODAY)).toBe(false);
+		expect(isEmittableLastmod("2024-02-30", TODAY)).toBe(false);
 	});
 });

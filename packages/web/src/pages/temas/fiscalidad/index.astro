@@ -2,6 +2,7 @@
 import { getCollection } from "astro:content";
 import Base from "../../../layouts/Base.astro";
 import { safeJsonLd } from "../../../lib/escape";
+import { effectiveLastUpdated } from "../../../lib/law-dates.ts";
 
 // ── Hub page: legislación fiscal ──────────────────────────────────────────
 // Groups the main Spanish tax laws into a single topical entity so Google
@@ -58,7 +59,11 @@ const GROUPS: { heading: string; ids: string[] }[] = [
 // never emit a broken link or a made-up title.
 const resolvedGroups = GROUPS.map((g) => ({
 	heading: g.heading,
-	items: g.ids.map((id) => byId.get(id)).filter((d): d is NonNullable<typeof d> => !!d),
+	items: g.ids
+		.map((id) => byId.get(id))
+		.filter((d): d is NonNullable<typeof d> => !!d)
+		// Effective date, not the raw frontmatter field — see lib/law-dates.ts.
+		.map((d) => ({ ...d, lastUpdated: effectiveLastUpdated(d) })),
 })).filter((g) => g.items.length > 0);
 
 const totalFiscal = resolvedGroups.reduce((n, g) => n + g.items.length, 0);
@@ -161,8 +166,8 @@ function formatDate(iso: string): string {
 							<a href={`/leyes/${d.identificador}/`}>{d.titulo}</a>
 							<div class="tema-meta">
 								{formatDate(d.fecha_publicacion)}
-								{d.ultima_actualizacion && d.ultima_actualizacion !== d.fecha_publicacion && (
-									<> · actualizada el {formatDate(d.ultima_actualizacion)}</>
+								{d.lastUpdated && d.lastUpdated !== d.fecha_publicacion && (
+									<> · actualizada el {formatDate(d.lastUpdated)}</>
 								)}
 								{' '}· <span class="tema-id">{d.identificador}</span>
 							</div>

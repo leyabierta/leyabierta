@@ -5,6 +5,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { effectiveLastUpdated } from "../lib/law-dates.ts";
 
 export const prerender = true;
 
@@ -72,7 +73,7 @@ export const GET: APIRoute = async () => {
 	let latest = "0000-01-01";
 	for (const law of laws) {
 		const pub = law.data.fecha_publicacion;
-		const upd = law.data.ultima_actualizacion;
+		const upd = effectiveLastUpdated(law.data);
 		if (pub && pub < earliest) earliest = pub;
 		if (upd && upd > latest) latest = upd;
 	}
