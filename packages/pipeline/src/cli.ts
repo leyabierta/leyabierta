@@ -18,6 +18,7 @@ import {
 } from "./pipeline.ts";
 import { BoeClient } from "./spain/boe-client.ts";
 import { jsonToNorm } from "./transform/json-cache.ts";
+import { normToFilepath } from "./transform/slug.ts";
 import { StateStore } from "./utils/state-store.ts";
 
 // Register Spain
@@ -364,6 +365,10 @@ async function rebuild() {
 		try {
 			const raw = await Bun.file(`${jsonDir}/${file}`).json();
 			const norm = jsonToNorm(raw);
+			// Resolve the output path now: a norm whose jurisdiction cannot be
+			// resolved (resolveJurisdiction throws) is reported and skipped
+			// here instead of aborting Phase 2 halfway through the commits.
+			normToFilepath(norm.metadata);
 			if (norm.blocks.length > 0) {
 				norms.push(norm);
 			}
