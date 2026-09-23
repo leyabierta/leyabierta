@@ -19,6 +19,70 @@ export const CONTENT_LLM_MODEL =
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 /**
+ * Where generated citizen content is produced. Default: OpenRouter.
+ *
+ * Opt-in local/self-hosted backend for batch backfills: set
+ * `CONTENT_LLM_BASE_URL` to any OpenAI-compatible `/v1` root (e.g. Ollama at
+ * `http://localhost:11434/v1`) together with `CONTENT_LLM_MODEL` (e.g.
+ * `qwen3.8:27b-mlx`). Then:
+ *   - requests go to `${CONTENT_LLM_BASE_URL}/chat/completions`, with
+ *     `CONTENT_LLM_API_KEY` as bearer token if set (Ollama needs none);
+ *   - OpenRouter-only fields (`plugins`, `provider`) are not sent;
+ *   - `reasoning_effort` is sent as `CONTENT_LLM_REASONING_EFFORT`
+ *     (default `"none"`; empty string omits it). Thinking models such as
+ *     Qwen 3.x otherwise reason first, which is slow and, on Ollama, breaks
+ *     JSON-schema output;
+ *   - the per-request timeout is `CONTENT_LLM_TIMEOUT_MS` (default 300 s).
+ *
+ * Used by `generate-reform-summaries.ts` and `backfill-citizen-summaries.ts`.
+ * Nothing citizen-facing at request time (RAG, lazy summaries) reads this.
+ */
+export interface ContentLlmEndpoint {
+	/** OpenAI-compatible root without trailing slash; undefined = OpenRouter. */
+	baseUrl?: string;
+	/** Bearer token. For OpenRouter this is OPENROUTER_API_KEY. */
+	apiKey?: string;
+	model: string;
+	/** Extra request-body fields for the local endpoint. */
+	extraBody: Record<string, unknown>;
+	timeoutMs?: number;
+}
+
+export function contentLlmEndpoint(
+	env: Record<string, string | undefined> = process.env,
+): ContentLlmEndpoint {
+	const baseUrl = env.CONTENT_LLM_BASE_URL?.trim().replace(/\/+$/, "");
+	if (!baseUrl) {
+		return {
+			apiKey: env.OPENROUTER_API_KEY,
+			model: env.CONTENT_LLM_MODEL || "google/gemini-2.5-flash-lite",
+			extraBody: {},
+		};
+	}
+	const model = env.CONTENT_LLM_MODEL?.trim();
+	if (!model) {
+		throw new Error(
+			"CONTENT_LLM_BASE_URL is set but CONTENT_LLM_MODEL is not: name the local model (e.g. qwen3.8:27b-mlx)",
+		);
+	}
+	const effort = env.CONTENT_LLM_REASONING_EFFORT ?? "none";
+	const timeoutMs = Number(env.CONTENT_LLM_TIMEOUT_MS ?? 300_000);
+	return {
+		baseUrl,
+		apiKey: env.CONTENT_LLM_API_KEY || undefined,
+		model,
+		extraBody: effort ? { reasoning_effort: effort } : {},
+		timeoutMs:
+			Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 300_000,
+	};
+}
+
+/** Removes `<think>…</think>` blocks some local models inline in content. */
+export function stripThinking(text: string): string {
+	return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+
+/**
  * Privacy routing preferences sent with every OpenRouter request (chat,
  * embeddings, rerank). Citizens' questions can contain personal data, so:
  *
@@ -76,6 +140,16 @@ export interface OpenRouterOptions {
 	 * citizen-facing latency stays low. Omitted → provider default.
 	 */
 	reasoning?: OpenRouterReasoning;
+	/**
+	 * OpenAI-compatible root to call instead of OpenRouter (see
+	 * `contentLlmEndpoint`). When set, `apiKey` may be empty and the
+	 * OpenRouter-only `plugins` field is not sent. JSON path only.
+	 */
+	baseUrl?: string;
+	/** Extra request-body fields, merged last (e.g. `reasoning_effort`). */
+	extraBody?: Record<string, unknown>;
+	/** Per-attempt timeout; default 60 s. */
+	timeoutMs?: number;
 }
 
 export type OpenRouterReasoning =
@@ -242,7 +316,18 @@ export async function callOpenRouter<T>(
 		jsonResponse = true,
 		jsonSchema,
 		reasoning,
+		baseUrl,
+		extraBody,
+		timeoutMs = 60_000,
 	} = options;
+
+	const url = baseUrl ? `${baseUrl}/chat/completions` : OPENROUTER_URL;
+	const headers: Record<string, string> = {
+		"Content-Type": "application/json",
+		"HTTP-Referer": "https://leyabierta.es",
+		"X-Title": "Ley Abierta",
+	};
+	if (apiKey || !baseUrl) headers.Authorization = `Bearer ${apiKey}`;
 
 	let lastError: Error | null = null;
 
@@ -256,15 +341,10 @@ export async function callOpenRouter<T>(
 
 		let response: Response;
 		try {
-			response = await fetch(OPENROUTER_URL, {
+			response = await fetch(url, {
 				method: "POST",
-				signal: AbortSignal.timeout(60_000),
-				headers: {
-					Authorization: `Bearer ${apiKey}`,
-					"Content-Type": "application/json",
-					"HTTP-Referer": "https://leyabierta.es",
-					"X-Title": "Ley Abierta",
-				},
+				signal: AbortSignal.timeout(timeoutMs),
+				headers,
 				body: JSON.stringify({
 					model,
 					messages,
@@ -281,11 +361,13 @@ export async function callOpenRouter<T>(
 										schema: jsonSchema.schema,
 									},
 								},
-								plugins: [{ id: "response-healing" }],
+								// OpenRouter-only plugin; other endpoints may reject it.
+								...(baseUrl ? {} : { plugins: [{ id: "response-healing" }] }),
 							}
 						: jsonResponse
 							? { response_format: { type: "json_object" } }
 							: {}),
+					...(extraBody ?? {}),
 				}),
 			});
 		} catch (err) {
@@ -334,8 +416,8 @@ export async function callOpenRouter<T>(
 			continue;
 		}
 
-		// Clean markdown code fences if present
-		let cleanText = resultText.trim();
+		// Clean inline reasoning blocks and markdown code fences if present
+		let cleanText = stripThinking(resultText);
 		if (cleanText.startsWith("```")) {
 			cleanText = cleanText
 				.replace(/^```(?:json)?\n?/, "")
