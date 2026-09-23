@@ -2,7 +2,10 @@
  * Generate AI reform summaries for reforms missing them.
  *
  * Generates headline, summary, reform_type, and importance for each reform
- * via OpenRouter (model: CONTENT_LLM_MODEL, default google/gemini-2.5-flash-lite).
+ * via OpenRouter. Model: REFORM_SUMMARIES_MODEL, default qwen/qwen3.8-27b with
+ * reasoning off: the model of the offline backfill. On 40 reforms judged blind
+ * it matched the vast.ai Qwen (8.72 vs 8.70/10) while gemini-2.5-flash-lite
+ * scored 7.90 with 5 serious errors vs 2 (2026-09-23).
  * Results cached in reform_summaries table.
  *
  * Gap-filling by design: every run picks up ALL reforms in the window that
@@ -18,13 +21,14 @@
  *   ... --dry-run                 # list what would be processed, no LLM calls
  *   ... --no-write                # call the LLM but do not write to the DB (smoke test)
  *   ... --force                   # regenerate existing summaries in the window
- *   ... --model <openrouter-id>   # override CONTENT_LLM_MODEL
+ *   ... --model <openrouter-id>   # override REFORM_SUMMARIES_MODEL
  *
  * Env: OPENROUTER_API_KEY (required unless --dry-run or a local endpoint),
- * CONTENT_LLM_MODEL, REFORM_SUMMARIES_WEEKS, REFORM_SUMMARIES_LIMIT, DB_PATH.
+ * REFORM_SUMMARIES_MODEL, REFORM_SUMMARIES_WEEKS, REFORM_SUMMARIES_LIMIT, DB_PATH.
  *
  * Local backend (opt-in, e.g. a backfill on Ollama; see contentLlmEndpoint in
- * services/openrouter.ts):
+ * services/openrouter.ts). With CONTENT_LLM_BASE_URL set, the default model is
+ * CONTENT_LLM_MODEL and its reasoning settings apply:
  *   CONTENT_LLM_BASE_URL=http://localhost:11434/v1 CONTENT_LLM_MODEL=qwen3.8:27b-mlx \
  *     bun run packages/api/src/scripts/generate-reform-summaries.ts --no-write --limit 5
  */
@@ -66,7 +70,16 @@ const limitArg = Number(
 	getArg("limit") ?? process.env.REFORM_SUMMARIES_LIMIT ?? 200,
 );
 const endpoint = contentLlmEndpoint();
-const modelId = getArg("model") ?? endpoint.model;
+const DEFAULT_REFORM_MODEL = "qwen/qwen3.8-27b";
+const modelId =
+	getArg("model") ??
+	process.env.REFORM_SUMMARIES_MODEL ??
+	(endpoint.baseUrl ? endpoint.model : DEFAULT_REFORM_MODEL);
+// Qwen on OpenRouter: thinking off, as in the evaluated offline generation.
+const reasoning =
+	!endpoint.baseUrl && modelId.startsWith("qwen/")
+		? ({ enabled: false } as const)
+		: undefined;
 const dryRun = hasFlag("dry-run");
 const noWrite = hasFlag("no-write");
 const force = hasFlag("force");
@@ -195,6 +208,7 @@ async function main() {
 					name: "reform_summary",
 					schema: SUMMARY_SCHEMA,
 				},
+				reasoning,
 				baseUrl: endpoint.baseUrl,
 				extraBody: endpoint.extraBody,
 				timeoutMs: endpoint.timeoutMs,

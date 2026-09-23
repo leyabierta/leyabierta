@@ -241,9 +241,12 @@ vs 8.41 for flash-lite (94% vs 78% inline citation precision, same cost,
 - Synthesis: qwen3.6 judged 8.82 vs 7.17 for gemini-2.5-flash-lite, 99.6% vs 97.1% citation precision; latency 13s vs 2.5s.
 - Gemini Flash Lite + Cohere was the evaluated alternative arm; Gemini Flash Lite is now the default, with Cohere replaced by the LLM rerank (ZDR, see above).
 
-**Generated content (daily cron):** reform summaries, law/article citizen
-summaries and tags, and omnibus topics use `CONTENT_LLM_MODEL` via OpenRouter
-(default `google/gemini-2.5-flash-lite`). The daily generators are gap-filling:
+**Generated content (daily cron):** law/article citizen summaries and tags,
+and omnibus topics use `CONTENT_LLM_MODEL` via OpenRouter (default
+`google/gemini-2.5-flash-lite`). Reform summaries use `REFORM_SUMMARIES_MODEL`
+(default `qwen/qwen3.8-27b`, reasoning off): the model of the offline backfill,
+which a blind judge rated 8.7/10 on 40 reforms vs 7.9 and more than twice the
+serious errors for flash-lite. The daily generators are gap-filling:
 each run processes whatever is still missing (reform summaries: last 26 weeks,
 newest first, `REFORM_SUMMARIES_LIMIT` per run, default 200; citizen tags: norms
 with an empty `citizen_summary`, newest first, `CITIZEN_TAGS_MAX_PER_RUN`,
