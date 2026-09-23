@@ -40,6 +40,33 @@ describe("resolveSubscribeMaterias", () => {
 		);
 	});
 
+	test("a sector with hundreds of materias resolves all of them", () => {
+		const materias = resolveSubscribeMaterias({
+			answers: {
+				workStatus: "cuenta_ajena",
+				sector: "campo",
+				housing: "alquilo",
+			},
+		});
+		expect(materias.length).toBeGreaterThan(60);
+	});
+
+	test("prototype keys resolve to nothing instead of throwing", () => {
+		for (const key of ["__proto__", "constructor", "toString"]) {
+			expect(() =>
+				resolveSubscribeMaterias({
+					answers: {
+						workStatus: key,
+						sector: key,
+						housing: key,
+						family: [key],
+						extras: [key],
+					},
+				}),
+			).not.toThrow();
+		}
+	});
+
 	test("nothing to resolve gives no topics", () => {
 		expect(resolveSubscribeMaterias({})).toEqual([]);
 		expect(resolveSubscribeMaterias({ answers: {} })).toEqual([]);
@@ -57,6 +84,11 @@ describe("resendErrorOf", () => {
 				},
 			}),
 		).toBe("validation_error: The leyabierta.es domain is not verified.");
+		expect(
+			resendErrorOf({
+				error: { name: "x", message: "Invalid `to`: ana.garcia@example.com" },
+			}),
+		).toBe("x: Invalid `to`: <email>");
 	});
 
 	test("success is null", () => {

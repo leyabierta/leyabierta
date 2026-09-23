@@ -194,7 +194,10 @@ export function alertRoutes(_dbService?: DbService) {
 						};
 					}
 
-					if (materias.length > MAX_MATERIAS) {
+					// The cap is for materias the client lists. Materias resolved from
+					// the answers are server-defined: one sector alone maps to up to
+					// ~350 (e.g. "campo"), and capping them rejected most people.
+					if ((body.materias?.length ?? 0) > MAX_MATERIAS) {
 						set.status = 400;
 						return {
 							error: `Máximo ${MAX_MATERIAS} temas permitidos`,

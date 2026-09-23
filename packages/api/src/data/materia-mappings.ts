@@ -151,25 +151,25 @@ export interface OnboardingAnswers {
 	extras: string[];
 }
 
+/**
+ * Own keys only: answers come from the client, and "__proto__" or
+ * "constructor" would otherwise resolve to Object.prototype members.
+ */
+function lookup(map: Record<string, string[]>, key: string | null): string[] {
+	return key && Object.hasOwn(map, key) ? (map[key] ?? []) : [];
+}
+
 /** Compute unique materias from onboarding answers */
 export function computeMaterias(answers: OnboardingAnswers): string[] {
 	const set = new Set<string>(BASE_MATERIAS);
 
-	for (const m of WORK_STATUS_MATERIAS[answers.workStatus] ?? []) set.add(m);
-
-	if (answers.sector) {
-		for (const m of SECTOR_MATERIAS[answers.sector] ?? []) set.add(m);
-	}
-
-	for (const m of HOUSING_MATERIAS[answers.housing] ?? []) set.add(m);
-
-	for (const key of answers.family) {
-		for (const m of FAMILY_MATERIAS[key] ?? []) set.add(m);
-	}
-
-	for (const key of answers.extras) {
-		for (const m of EXTRAS_MATERIAS[key] ?? []) set.add(m);
-	}
+	for (const m of lookup(WORK_STATUS_MATERIAS, answers.workStatus)) set.add(m);
+	for (const m of lookup(SECTOR_MATERIAS, answers.sector)) set.add(m);
+	for (const m of lookup(HOUSING_MATERIAS, answers.housing)) set.add(m);
+	for (const key of answers.family)
+		for (const m of lookup(FAMILY_MATERIAS, key)) set.add(m);
+	for (const key of answers.extras)
+		for (const m of lookup(EXTRAS_MATERIAS, key)) set.add(m);
 
 	return [...set];
 }

@@ -57,7 +57,10 @@ export function resendErrorOf(result: unknown): string | null {
 		result as { error?: { name?: string; message?: string } | null }
 	)?.error;
 	if (!error) return null;
-	return `${error.name ?? "error"}: ${error.message ?? ""}`.slice(0, 300);
+	// Never log an address, even if Resend echoes one back.
+	return `${error.name ?? "error"}: ${error.message ?? ""}`
+		.replace(/\S+@\S+/g, "<email>")
+		.slice(0, 300);
 }
 
 export async function generateHmac(email: string): Promise<string> {
