@@ -109,6 +109,15 @@ describe("formatBlockChange", () => {
 		);
 	});
 
+	test("image links are not text changes", () => {
+		expect(
+			formatBlockChange(
+				"ANEXO I ![imagen](/datos/imagenes/disp/1986/236/26182_001.png)",
+				"ANEXO I ![Imagen: img/x.png](/datos/imagenes/disp/1988/40/03903_001.png)",
+			),
+		).toContain("idéntico");
+	});
+
 	test("respects the character budget", () => {
 		const a = Array.from({ length: 300 }, (_, i) => `palabra${i}`).join(" ");
 		const b = Array.from({ length: 300 }, (_, i) =>
@@ -260,5 +269,26 @@ describe("buildPrompt changes section", () => {
 		expect(user).toContain(
 			"[NUEVO] Artículo 9: Se crea el registro de mediadores.",
 		);
+	});
+
+	test("a single long article gets the whole budget, not 1,200 characters", () => {
+		const long = Array.from({ length: 400 }, (_, i) => `palabra${i}`).join(" ");
+		const changed = long.replace(/palabra(\d*[05]) /g, "cambio$1 ");
+		const { user } = buildPrompt(
+			reform,
+			[
+				{
+					block_id: "a1",
+					title: "Artículo 1",
+					change_type: "modified",
+					previous_text: long,
+					current_text: changed,
+				},
+			],
+			[],
+			false,
+			source(),
+		);
+		expect(user.length).toBeGreaterThan(2500);
 	});
 });

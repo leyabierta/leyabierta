@@ -23,7 +23,7 @@ export interface BlockDiff {
  * Bump when the prompt text or its inputs change: the offline import compares
  * it before the prompt hash, to tell "the code changed" from "the data changed".
  */
-export const PROMPT_VERSION = "2026-09-23.3";
+export const PROMPT_VERSION = "2026-09-23.4";
 
 export interface ReformRow {
 	norm_id: string;
@@ -132,7 +132,15 @@ export function queryBlockDiffs(
 // Markdown emphasis and runs of whitespace carry no meaning for the diff and
 // would otherwise show up as spurious changes.
 function normalizeText(s: string): string {
-	return s.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+	return (
+		s
+			// Images are shown as links to BOE files ("![imagen](/datos/…/26182_001.png)"):
+			// a new file path is not a text change the model can describe.
+			.replace(/!\[[^\]]*\]\([^)]*\)/g, "[imagen]")
+			.replace(/\*\*/g, "")
+			.replace(/\s+/g, " ")
+			.trim()
+	);
 }
 
 function truncateChars(s: string, max: number): string {
@@ -419,10 +427,18 @@ ${text || "(sin texto disponible)"}`;
 		const parts: string[] = [];
 		let used = 0;
 		let shown = 0;
-		for (const d of diffs.slice(0, MAX_DIFF_BLOCKS)) {
+		const toShow = diffs.slice(0, MAX_DIFF_BLOCKS);
+		for (const d of toShow) {
 			// Too little room left to show a change: list it by title instead.
 			if (MAX_CHANGES_CHARS - used < 200) break;
-			const budget = Math.min(1200, MAX_CHANGES_CHARS - used);
+			// At least 1,200 characters per block; with few blocks each one gets
+			// its share of the total (a single long article was cut at 1,200
+			// with 7,000 available).
+			const left = MAX_CHANGES_CHARS - used;
+			const budget = Math.min(
+				left,
+				Math.max(1200, Math.floor(left / (toShow.length - shown))),
+			);
 			const part =
 				d.change_type === "new"
 					? `[NUEVO] ${d.title}: ${truncateChars(normalizeText(d.current_text), budget)}`
