@@ -4,7 +4,7 @@
  * omits it when unset. No network: global fetch is stubbed.
  */
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	callOpenRouter,
 	callOpenRouterStream,
@@ -127,6 +127,17 @@ describe("OpenRouter reasoning passthrough", () => {
 });
 
 describe("errors inside a 200 response", () => {
+	// No real waits between retries: these tests exercise the retry path.
+	const realBackoff = process.env.OPENROUTER_BACKOFF_MS;
+	beforeEach(() => {
+		process.env.OPENROUTER_BACKOFF_MS = "0";
+	});
+	afterEach(() => {
+		if (realBackoff === undefined)
+			Reflect.deleteProperty(process.env, "OPENROUTER_BACKOFF_MS");
+		else process.env.OPENROUTER_BACKOFF_MS = realBackoff;
+	});
+
 	it("a 429 in the body is retried and named rate_limit", async () => {
 		let calls = 0;
 		globalThis.fetch = (async () => {
@@ -145,7 +156,7 @@ describe("errors inside a 200 response", () => {
 		expect(err).toBeInstanceOf(OpenRouterError);
 		expect((err as OpenRouterError).code).toBe("rate_limit");
 		expect(calls).toBe(3);
-	}, 15_000);
+	});
 
 	it("succeeds when a retry returns content", async () => {
 		let calls = 0;
@@ -160,5 +171,5 @@ describe("errors inside a 200 response", () => {
 			messages,
 		});
 		expect(res.data).toEqual({ ok: true });
-	}, 15_000);
+	});
 });

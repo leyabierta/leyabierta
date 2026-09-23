@@ -21,6 +21,28 @@ import {
 
 // ---------- DOM stubs (bun:test runs without jsdom by default) ----------
 
+// These tests replace real globals. Bun runs every test file in one process,
+// so anything left replaced leaks into later files: a setTimeout that never
+// fires made unrelated retry tests in packages/api hang (deploy of 2026-09-24).
+// Restore the originals after every test in this file.
+const STUBBED_GLOBALS = [
+	"window",
+	"navigator",
+	"requestAnimationFrame",
+	"setTimeout",
+	"clearTimeout",
+	"Blob",
+] as const;
+const originalGlobals = STUBBED_GLOBALS.map(
+	(key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+);
+afterEach(() => {
+	for (const [key, descriptor] of originalGlobals) {
+		if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+		else Reflect.deleteProperty(globalThis, key);
+	}
+});
+
 interface UmamiStub {
 	track: ReturnType<typeof mock>;
 }
