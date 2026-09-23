@@ -18,6 +18,7 @@ import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { statusRoutes } from "./routes/status.ts";
 import { LruCache } from "./services/cache.ts";
+import { defaultCacheControl } from "./services/cache-control.ts";
 import { CitizenSummaryService } from "./services/citizen-summary.ts";
 import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
@@ -181,14 +182,11 @@ const app = new Elysia()
 		set.headers["X-Frame-Options"] = "DENY";
 		set.headers["X-Robots-Tag"] = "noindex";
 		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-		// Cache read-only endpoints at Cloudflare edge; skip for health/alerts
-		if (
-			!set.headers["Cache-Control"] &&
-			!path.startsWith("/v1/alerts") &&
-			path !== "/health"
-		) {
-			set.headers["Cache-Control"] =
-				"public, max-age=0, s-maxage=3600, must-revalidate";
+		// Cache read-only endpoints at Cloudflare edge; skip for health/alerts.
+		// Errors get a short TTL or no-store — see services/cache-control.ts.
+		if (!set.headers["Cache-Control"]) {
+			const cacheControl = defaultCacheControl(path, set.status);
+			if (cacheControl) set.headers["Cache-Control"] = cacheControl;
 		}
 		// Structured request logging (skip /health)
 		if (path !== "/health") {
