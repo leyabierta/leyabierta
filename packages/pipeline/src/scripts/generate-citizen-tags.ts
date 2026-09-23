@@ -1,16 +1,25 @@
 /**
  * Generate citizen-friendly tags and summaries for laws using LLM.
  *
- * Reads norms from SQLite, calls Gemini 2.5 Flash Lite via OpenRouter,
- * stores citizen_tags and citizen_summary back in the DB.
+ * Reads norms from SQLite, calls an OpenRouter chat model (CONTENT_LLM_MODEL,
+ * default google/gemini-2.5-flash-lite), stores citizen_tags and
+ * citizen_summary back in the DB.
+ *
+ * Gap-filling: every run processes norms whose citizen_summary is still empty,
+ * newest first, capped per run (--limit, default CITIZEN_TAGS_MAX_PER_RUN or
+ * 100) so a backlog is spread across several daily runs.
  *
  * Usage:
- *   bun run packages/pipeline/src/scripts/generate-citizen-tags.ts [--limit N] [--norm-id ID] [--force]
+ *   bun run packages/pipeline/src/scripts/generate-citizen-tags.ts [--limit N] [--norm-id ID] [--force] [--skip-articles]
+ *
+ * Env: OPENROUTER_API_KEY (required; also read from .env), CONTENT_LLM_MODEL,
+ * CITIZEN_TAGS_MAX_PER_RUN.
  */
 
 import { Database } from "bun:sqlite";
 import { join, resolve } from "node:path";
 import { createSchema } from "../db/schema.ts";
+import { parseLawCitizenMetadata } from "./citizen-tags-validation.ts";
 
 // ── CLI args ──
 
@@ -34,7 +43,7 @@ const MONOREPO_ROOT = resolve(SCRIPT_DIR, "..", "..", "..", "..");
 const WORKSPACE_ROOT = MONOREPO_ROOT;
 
 const envPath = join(MONOREPO_ROOT, ".env");
-let apiKey = process.env.NAN_API_KEY;
+let apiKey = process.env.OPENROUTER_API_KEY;
 
 try {
 	const envContent = await Bun.file(envPath).text();
@@ -47,7 +56,7 @@ try {
 			.slice(eqIdx + 1)
 			.trim()
 			.replace(/^["']|["']$/g, "");
-		if (key === "NAN_API_KEY" && !apiKey) {
+		if (key === "OPENROUTER_API_KEY" && !apiKey) {
 			apiKey = value;
 		}
 	}
@@ -56,18 +65,18 @@ try {
 }
 
 if (!apiKey) {
-	console.error("NAN_API_KEY not found in environment or .env file");
+	console.error("OPENROUTER_API_KEY not found in environment or .env file");
 	process.exit(1);
 }
 
 // ── Constants ──
 
-// gemma4 on the free NaN stack (api.nan.builders). Chosen over Gemini/OpenRouter
-// after an A/B on the law-level citizen summary: gemma4 matched Gemini quality,
-// was the most consistent (0 parse errors, respected the ≤150-char target), and
-// costs $0. See the model A/B (2026-07). OpenRouter is no longer used here.
-const MODEL = "gemma4";
-const API_URL = "https://api.nan.builders/v1/chat/completions";
+// Same env var and default as CONTENT_LLM_MODEL in packages/api/src/services/
+// openrouter.ts (this package cannot import from api). The NaN stack (gemma4)
+// used here until 2026-08 was cancelled.
+const MODEL = process.env.CONTENT_LLM_MODEL || "google/gemini-2.5-flash-lite";
+const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const DEFAULT_MAX_PER_RUN = Number(process.env.CITIZEN_TAGS_MAX_PER_RUN ?? 100);
 const DELAY_MS = 0;
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 3;
@@ -140,14 +149,16 @@ const ARTICLE_SCHEMA = {
 
 // ── Open DB ──
 
-const dbPath = join(WORKSPACE_ROOT, "data", "leyabierta.db");
+const dbPath =
+	process.env.DB_PATH ?? join(WORKSPACE_ROOT, "data", "leyabierta.db");
 const db = new Database(dbPath, { create: true });
 createSchema(db);
 
 // ── Prepared statements ──
 
+// Newest first, so a per-run cap always serves the latest laws before backlog.
 const selectNormsAll = db.prepare(
-	`SELECT id, title, rank, department FROM norms WHERE citizen_summary = '' ORDER BY id`,
+	`SELECT id, title, rank, department FROM norms WHERE citizen_summary = '' ORDER BY published_at DESC, id`,
 );
 const selectNormsAllForce = db.prepare(
 	`SELECT id, title, rank, department FROM norms ORDER BY id`,
@@ -201,8 +212,9 @@ if (normIdArg) {
 	norms = selectNormsAll.all() as NormRow[];
 }
 
-if (limitArg) {
-	const limit = Number.parseInt(limitArg, 10);
+const pendingTotal = norms.length;
+{
+	const limit = limitArg ? Number.parseInt(limitArg, 10) : DEFAULT_MAX_PER_RUN;
 	if (limit > 0) norms = norms.slice(0, limit);
 }
 
@@ -213,7 +225,7 @@ if (norms.length === 0) {
 
 console.log(`\n═══ Citizen Tag Generation ═══`);
 console.log(`Model: ${MODEL}`);
-console.log(`Norms: ${norms.length}`);
+console.log(`Norms: ${norms.length} (of ${pendingTotal} pending)`);
 console.log(`Force: ${force}`);
 console.log(`Skip articles: ${skipArticles}`);
 console.log("");
@@ -390,22 +402,21 @@ ${articleText.slice(0, 2000)}`;
 		continue;
 	}
 
-	const lawData = parseJson(lawResult.content) as {
-		citizen_tags: string[];
-		citizen_summary: string;
-	} | null;
+	// Rejects invalid JSON and blank summaries (see citizen-tags-validation.ts:
+	// a blank one would re-select this norm every run and wipe its articles).
+	const lawData = parseLawCitizenMetadata(lawResult.content);
 
 	if (!lawData) {
 		console.error(
-			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: JSON parse failed`,
+			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: invalid JSON or empty citizen_summary`,
 		);
 		errorCount++;
 		await Bun.sleep(DELAY_MS);
 		continue;
 	}
 
-	const citizenTags = lawData.citizen_tags ?? [];
-	const citizenSummary = lawData.citizen_summary ?? "";
+	const citizenTags = lawData.citizen_tags;
+	const citizenSummary = lawData.citizen_summary;
 
 	totalInputTokens += lawResult.inputTokens;
 	totalOutputTokens += lawResult.outputTokens;
@@ -530,3 +541,6 @@ console.log(`Errors: ${errorCount}`);
 console.log(`Tokens: ${totalInputTokens} in, ${totalOutputTokens} out`);
 console.log(`Total cost: $${totalCost.toFixed(4)}`);
 console.log("");
+
+// Non-zero exit when every norm failed (e.g. bad key), so the daily pipeline alerts.
+if (processedCount === 0 && errorCount > 0) process.exit(1);

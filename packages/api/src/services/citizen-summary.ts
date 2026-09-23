@@ -6,9 +6,9 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { callOpenRouter } from "./openrouter.ts";
+import { CONTENT_LLM_MODEL, callOpenRouter } from "./openrouter.ts";
 
-const MODEL = "google/gemini-2.5-flash-lite";
+const MODEL = CONTENT_LLM_MODEL;
 
 const SYSTEM_PROMPT = `Eres un redactor institucional que traduce artículos legales españoles a lenguaje accesible para ciudadanos.
 
@@ -47,6 +47,14 @@ export class CitizenSummaryService {
 	private stmtGetTags: ReturnType<Database["prepare"]>;
 	// Track in-flight requests to avoid duplicate LLM calls for the same article
 	private pending = new Map<string, Promise<GeneratedSummary | null>>();
+	// Articles already attempted in this process that produced nothing to cache
+	// (the prompt asks for an empty summary on procedural articles, or the call
+	// failed). Without this, every request re-paid the LLM for the same article:
+	// GET /v1/laws/:id/summaries fires up to 5 generations per hit, so a crawler
+	// looping over a law full of procedural articles was an unbounded spend.
+	// Per-process (cleared on the daily API restart) and size-capped.
+	private attempted = new Set<string>();
+	private static readonly MAX_ATTEMPTED = 50_000;
 
 	constructor(db: Database) {
 		this.apiKey = process.env.OPENROUTER_API_KEY ?? null;
@@ -100,6 +108,16 @@ export class CitizenSummaryService {
 			const result = await inflight;
 			return result;
 		}
+
+		// 5. Already tried in this process and nothing was cached: don't re-pay.
+		if (this.attempted.has(cacheKey)) return null;
+		if (this.attempted.size >= CitizenSummaryService.MAX_ATTEMPTED) {
+			// FIFO: a Set iterates in insertion order, so evict only the oldest
+			// entry instead of re-exposing every attempted article at once.
+			const oldest = this.attempted.values().next().value;
+			if (oldest !== undefined) this.attempted.delete(oldest);
+		}
+		this.attempted.add(cacheKey);
 
 		const promise = this.generate(
 			normId,

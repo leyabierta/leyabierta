@@ -20,7 +20,12 @@ import {
 	numbersToDigits,
 } from "./analyzer.ts";
 import { buildArticleAnchor } from "./anchor.ts";
-import { getLlmCaller, getLlmStreamCaller, LLM_BACKEND } from "./backends.ts";
+import {
+	EFFECTIVE_LLM_MODEL,
+	getLlmCaller,
+	getLlmStreamCaller,
+	LLM_BACKEND,
+} from "./backends.ts";
 import { resolveJurisdiction } from "./jurisdiction.ts";
 import type { RetrievedArticle } from "./retrieval.ts";
 import { parseSubchunkId } from "./subchunk.ts";
@@ -31,20 +36,22 @@ import {
 } from "./temporal.ts";
 
 /**
- * Synthesis model — qwen3.6 via NaN.
+ * Synthesis model — the model actually serving the effective LLM_BACKEND
+ * (default: OpenRouter OPENROUTER_LLM_MODEL = google/gemini-2.5-flash-lite).
  *
- * Phase 6 A/B (50 citizen queries × 9.7k norms, gemma4 NaN as cross-family
- * judge, scale 1-10): qwen3.6 beats gemini-2.5-flash-lite on every axis —
- * quality 8.96 vs 7.38, completeness 9.08 vs 6.70, style 9.02 vs 7.90,
- * citation accuracy 8.94 vs 7.80, overall 8.82 vs 7.17. Auto cite-precision
- * 99.6% vs 97.1%. Cost $0 vs $0.05/50q.
+ * The OpenRouter caller overrides whatever model is passed with
+ * OPENROUTER_LLM_MODEL, so this constant is what gets reported in API
+ * responses and traces. With the legacy LLM_BACKEND=nan opt-in it is qwen3.6.
  *
- * Trade-off: latency 13s avg vs 2.5s. Acceptable for Ley Abierta SSE because
- * first-token-time is what users perceive (token streaming masks the total).
+ * History: Phase 6 A/B (50 citizen queries × 9.7k norms) preferred qwen3.6 on
+ * NaN over gemini-2.5-flash-lite on quality (overall 8.82 vs 7.17) with higher
+ * latency (13s vs 2.5s). NaN was cancelled in 2026-08, so Gemini Flash Lite
+ * (the other evaluated arm) is the default.
  *
- * To override per call, pass `model` to `synthesizeAnswer`.
+ * To override per call, pass `model` to `synthesizeAnswer` (ignored by the
+ * OpenRouter backend, which always uses OPENROUTER_LLM_MODEL).
  */
-export const SYNTHESIS_MODEL = "qwen3.6";
+export const SYNTHESIS_MODEL = EFFECTIVE_LLM_MODEL;
 export const MAX_EVIDENCE_TOKENS = 8000;
 
 // ── Citation type ──
@@ -255,7 +262,7 @@ export async function synthesizeAnswer(opts: {
 	systemPrompt: string;
 	/** Override the synthesis model id (default: SYNTHESIS_MODEL). */
 	model?: string;
-	/** Override the LLM transport (default: callNan). Used by research/ab/ scripts. */
+	/** Override the LLM transport (default: getLlmCaller()). Used by research/ab/ scripts. */
 	llmFn?: SynthesisLlmFn;
 }): Promise<SynthesisResult> {
 	const { question, evidenceText, systemPrompt } = opts;

@@ -3,31 +3,35 @@
  *
  * Reads env-var feature flags and returns the right caller for each stage:
  *
- *   LLM_BACKEND=nan (default) | openrouter
- *     Routes query-analyzer, synthesis, post-synthesis (tldr/next_questions),
- *     background citizen-summary generation, and declined-suggestions to either
- *     the NaN qwen3.6 stack (default, $0) or OpenRouter Gemini Flash Lite (paid,
- *     lower-latency).
+ *   LLM_BACKEND=openrouter (default) | nan
+ *     Routes query-analyzer, synthesis, post-synthesis (tldr/next_questions)
+ *     and declined-suggestions. Default: OpenRouter with OPENROUTER_LLM_MODEL.
+ *     "nan" (qwen3.6 on api.nan.builders) is a legacy opt-in kept for research
+ *     harnesses. It is only honoured when NAN_API_KEY is set; otherwise we warn
+ *     and use OpenRouter instead of failing on a missing key.
  *
- *   RERANK_BACKEND=qwen-llm (default) | cohere-or
- *     Routes the reranker to either the NaN qwen3.6 LLM reranker (default) or
- *     Cohere Rerank via OpenRouter (paid, deterministic cross-encoder).
+ *   RERANK_BACKEND=cohere-or (default) | qwen-llm
+ *     Routes the reranker. Default: Cohere Rerank via OpenRouter
+ *     (OPENROUTER_RERANK_MODEL). "qwen-llm" (qwen3.6 LLM rerank on NaN) is a
+ *     legacy opt-in, honoured only when NAN_API_KEY is set.
  *
- *   OPENROUTER_LLM_MODEL=google/gemini-2.5-flash-lite (default for openrouter backend)
- *     The OpenRouter chat model used when LLM_BACKEND=openrouter.
+ *   OPENROUTER_LLM_MODEL=google/gemini-2.5-flash-lite (default)
+ *     The OpenRouter chat model used by the openrouter backend.
  *
- *   OPENROUTER_RERANK_MODEL=cohere/rerank-4-fast (default for cohere-or backend)
- *     The OpenRouter rerank model used when RERANK_BACKEND=cohere-or.
+ *   OPENROUTER_RERANK_MODEL=cohere/rerank-4-fast (default)
+ *     The OpenRouter rerank model used by the cohere-or backend.
  *
- * DEFAULTS: when no env vars are set, behaviour is identical to the pre-PR
- * code — Qwen NaN everywhere. Flip env vars in .env.prod to activate new paths.
+ * History: the NaN stack was the code default until the NaN subscription was
+ * cancelled (2026-08). OpenRouter is now the default so an unset flag can never
+ * route traffic to a dead provider.
  *
  * Opik span names are preserved across backends:
  *   - "query-analysis" for the analyzer
  *   - "synthesis" for synthesis
  *   - "rerank" for the reranker
  *
- * Embeddings are NOT affected by this module (qwen3-nan, untouched).
+ * Embeddings are NOT affected by this module (see embeddings.ts — they run on
+ * OpenRouter qwen/qwen3-embedding-8b).
  */
 
 import { callNan, callNanStream } from "../nan.ts";
@@ -43,25 +47,73 @@ import type { LLMCandidate, LLMRerankResult } from "./qwen-llm-rerank.ts";
 import { qwenLLMRerank } from "./qwen-llm-rerank.ts";
 import { CohereReranker } from "./rerankers/cohere.ts";
 
+// ── Backend resolution ──
+
+export type LlmBackend = "openrouter" | "nan";
+export type RerankBackend = "cohere-or" | "qwen-llm";
+
+/**
+ * Resolve the LLM backend from the environment. Pure (env passed in) so it can
+ * be unit-tested. The NaN opt-in is only honoured when a NaN key is present.
+ */
+export function resolveLlmBackend(
+	env: Record<string, string | undefined>,
+): LlmBackend {
+	const requested = (env.LLM_BACKEND ?? "openrouter").trim().toLowerCase();
+	if (requested === "nan") {
+		if (env.NAN_API_KEY) return "nan";
+		console.warn(
+			"[backends] LLM_BACKEND=nan but NAN_API_KEY is not set — using OpenRouter",
+		);
+		return "openrouter";
+	}
+	if (requested !== "openrouter" && requested !== "") {
+		console.warn(
+			`[backends] Unknown LLM_BACKEND="${requested}" — using OpenRouter`,
+		);
+	}
+	return "openrouter";
+}
+
+/** Same as resolveLlmBackend, for the reranker. */
+export function resolveRerankBackend(
+	env: Record<string, string | undefined>,
+): RerankBackend {
+	const requested = (env.RERANK_BACKEND ?? "cohere-or").trim().toLowerCase();
+	if (requested === "qwen-llm") {
+		if (env.NAN_API_KEY) return "qwen-llm";
+		console.warn(
+			"[backends] RERANK_BACKEND=qwen-llm but NAN_API_KEY is not set — using cohere-or",
+		);
+		return "cohere-or";
+	}
+	if (requested !== "cohere-or" && requested !== "") {
+		console.warn(
+			`[backends] Unknown RERANK_BACKEND="${requested}" — using cohere-or`,
+		);
+	}
+	return "cohere-or";
+}
+
 // ── Env-var constants ──
 
-/** LLM backend: "nan" (default) or "openrouter" */
-export const LLM_BACKEND = (process.env.LLM_BACKEND ?? "nan") as
-	| "nan"
-	| "openrouter";
+/** Effective LLM backend: "openrouter" (default) or "nan" (legacy opt-in). */
+export const LLM_BACKEND: LlmBackend = resolveLlmBackend(process.env);
 
-/** Rerank backend: "qwen-llm" (default) or "cohere-or" */
-export const RERANK_BACKEND = (process.env.RERANK_BACKEND ?? "qwen-llm") as
-	| "qwen-llm"
-	| "cohere-or";
+/** Effective rerank backend: "cohere-or" (default) or "qwen-llm" (legacy opt-in). */
+export const RERANK_BACKEND: RerankBackend = resolveRerankBackend(process.env);
 
-/** OpenRouter chat model used when LLM_BACKEND=openrouter */
+/** OpenRouter chat model used by the openrouter LLM backend. */
 export const OPENROUTER_LLM_MODEL =
-	process.env.OPENROUTER_LLM_MODEL ?? "google/gemini-2.5-flash-lite";
+	process.env.OPENROUTER_LLM_MODEL || "google/gemini-2.5-flash-lite";
 
-/** OpenRouter rerank model used when RERANK_BACKEND=cohere-or */
+/** OpenRouter rerank model used by the cohere-or backend. */
 export const OPENROUTER_RERANK_MODEL =
-	process.env.OPENROUTER_RERANK_MODEL ?? "cohere/rerank-4-fast";
+	process.env.OPENROUTER_RERANK_MODEL || "cohere/rerank-4-fast";
+
+/** Model id that actually serves analyzer/synthesis calls (for logs/traces). */
+export const EFFECTIVE_LLM_MODEL =
+	LLM_BACKEND === "openrouter" ? OPENROUTER_LLM_MODEL : "qwen3.6";
 
 // ── LLM caller types (mirrors AnalyzerLlmFn / SynthesisLlmFn) ──
 
@@ -88,62 +140,43 @@ export type RerankCaller = (
 // ── Factory functions ──
 
 /**
- * Returns the non-streaming LLM caller based on LLM_BACKEND env var.
+ * Returns the non-streaming LLM caller for the effective LLM_BACKEND.
  *
- * When LLM_BACKEND=nan (default): uses callNan with qwen3.6 at api.nan.builders.
- * When LLM_BACKEND=openrouter: uses callOpenRouter with OPENROUTER_LLM_MODEL.
- *
- * The returned caller respects the model override from the options parameter —
- * for NaN, it passes through as-is; for OpenRouter, it overrides with
- * OPENROUTER_LLM_MODEL unless the caller explicitly set one.
+ * openrouter (default): callOpenRouter with OPENROUTER_LLM_MODEL (the model in
+ *   the call options is overridden; OPENROUTER_API_KEY is read from the env).
+ * nan (opt-in): callNan, model passed through as-is.
  */
 export function getLlmCaller(): LlmCaller {
-	if (LLM_BACKEND === "openrouter") {
-		return openRouterLlmCaller;
-	}
-	// Default: NaN (callNan already handles retries, backoff, and json parsing)
-	return callNan as LlmCaller;
+	if (LLM_BACKEND === "nan") return callNan as LlmCaller;
+	return openRouterLlmCaller;
 }
 
-/**
- * Returns the streaming LLM caller based on LLM_BACKEND env var.
- *
- * When LLM_BACKEND=nan (default): uses callNanStream.
- * When LLM_BACKEND=openrouter: uses callOpenRouterStream with OPENROUTER_LLM_MODEL.
- */
+/** Streaming counterpart of getLlmCaller(). */
 export function getLlmStreamCaller(): LlmStreamCaller {
-	if (LLM_BACKEND === "openrouter") {
-		return openRouterStreamCaller;
-	}
-	// Default: NaN streaming
-	return callNanStream as LlmStreamCaller;
+	if (LLM_BACKEND === "nan") return callNanStream as LlmStreamCaller;
+	return openRouterStreamCaller;
 }
 
 /**
- * Returns the rerank caller based on RERANK_BACKEND env var.
+ * Returns the rerank caller for the effective RERANK_BACKEND.
  *
- * When RERANK_BACKEND=qwen-llm (default): uses qwenLLMRerank via NaN.
- * When RERANK_BACKEND=cohere-or: uses CohereReranker via OpenRouter with
- *   OPENROUTER_RERANK_MODEL (default: cohere/rerank-4-fast).
- *
- * The returned function has the same signature as qwenLLMRerank so it drops
- * straight into reranker.ts without changes at the call site.
+ * cohere-or (default): CohereReranker via OpenRouter (OPENROUTER_RERANK_MODEL).
+ *   If OPENROUTER_API_KEY is missing, warns and returns a passthrough caller
+ *   (candidates keep their fused order) rather than throwing.
+ * qwen-llm (opt-in): qwenLLMRerank via NaN.
  */
 export function getRerankCaller(nanApiKey?: string): RerankCaller {
-	if (RERANK_BACKEND === "cohere-or") {
-		const orKey = process.env.OPENROUTER_API_KEY ?? "";
-		if (!orKey) {
-			console.warn(
-				"[backends] RERANK_BACKEND=cohere-or but OPENROUTER_API_KEY is not set — falling back to qwen-llm rerank",
-			);
-			// Graceful degradation: fall back to qwen-llm so prod doesn't explode if
-			// the env var is missing after a partial deploy.
-			return makeQwenRerankCaller(nanApiKey);
-		}
-		return makeCohereOrRerankCaller(orKey);
+	if (RERANK_BACKEND === "qwen-llm") {
+		return makeQwenRerankCaller(nanApiKey);
 	}
-	// Default: qwen-llm rerank via NaN
-	return makeQwenRerankCaller(nanApiKey);
+	const orKey = process.env.OPENROUTER_API_KEY ?? "";
+	if (!orKey) {
+		console.warn(
+			"[backends] OPENROUTER_API_KEY is not set — rerank disabled (passthrough)",
+		);
+		return passthroughRerankCaller;
+	}
+	return makeCohereOrRerankCaller(orKey);
 }
 
 // ── Private helpers ──
@@ -151,8 +184,7 @@ export function getRerankCaller(nanApiKey?: string): RerankCaller {
 /**
  * OpenRouter non-streaming caller. Overrides the model to OPENROUTER_LLM_MODEL
  * while preserving all other options (prompts, temperature, jsonSchema, etc.)
- * from the call site. The `apiKey` parameter is used only as a last-resort
- * fallback; OPENROUTER_API_KEY takes precedence.
+ * from the call site. OPENROUTER_API_KEY takes precedence over `apiKey`.
  */
 async function openRouterLlmCaller<T>(
 	_apiKey: string,
@@ -178,6 +210,21 @@ async function* openRouterStreamCaller(
 		model: OPENROUTER_LLM_MODEL,
 	});
 }
+
+/** Keeps the incoming (fused) order. Used when no rerank provider is available. */
+const passthroughRerankCaller: RerankCaller = async (
+	_query,
+	candidates,
+	topK,
+) => ({
+	results: candidates.slice(0, topK).map((c, i) => ({
+		key: c.key,
+		relevanceScore: 1 - i * 0.01,
+		rank: i + 1,
+	})),
+	backend: "none",
+	cost: 0,
+});
 
 /** Build a rerank caller that delegates to qwenLLMRerank via NaN. */
 function makeQwenRerankCaller(nanApiKey?: string): RerankCaller {

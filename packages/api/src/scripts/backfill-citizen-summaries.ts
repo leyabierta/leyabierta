@@ -1,10 +1,10 @@
 /**
  * Backfill citizen summaries for all articles that don't have one.
  *
- * Uses Qwen 3.6 (unlimited tokens) instead of Gemini 2.5 Flash Lite.
- * The prompt from iteration 7 (few-shot examples) was tested and meets
- * all exit conditions: Qwen wins ≥ Gemini wins, empty rate ≤ 5%,
- * error rate ≤ 5%.
+ * LLM: OpenRouter, model CONTENT_LLM_MODEL (default google/gemini-2.5-flash-lite).
+ * The prompt (iteration 7, few-shot) was tuned on Qwen 3.6 via NaN, which was
+ * cancelled in 2026-08. Manual script, NOT run by the daily cron; the full
+ * scope is ~335K articles, so always start with --limit.
  *
  * Usage:
  *   bun run packages/api/src/scripts/backfill-citizen-summaries.ts [--limit N] [--dry-run] [--force]
@@ -21,12 +21,12 @@
  * longest article in the corpus is ~327K chars; long articles (> 5K chars)
  * are dispatched solo per call, small ones batched in groups of 5.
  *
- * Estimated runtime: ~335K articles × 30s / 5 concurrent ≈ 56 hours ≈ 2.3 days
- * Cost: $0 (unlimited tokens on Qwen endpoint)
+ * Env: OPENROUTER_API_KEY (required), CONTENT_LLM_MODEL.
  */
 
 import { Database } from "bun:sqlite";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { CONTENT_LLM_MODEL } from "../services/openrouter.ts";
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -49,10 +49,11 @@ const API_BATCH_SIZE = Math.max(
 const SOLO_THRESHOLD_CHARS = Number(process.env.QWEN_SOLO_THRESHOLD ?? 5000);
 const CHECKPOINT_INTERVAL = 100; // checkpoint every N articles
 const REQUEST_TIMEOUT_MS = 180_000; // 3 minutes per individual request
-const HERMES_BASE_URL = "https://api.nan.builders/v1";
-const NAN_API_KEY = process.env.NAN_API_KEY;
-if (!NAN_API_KEY) {
-	console.error("Error: NAN_API_KEY env var is required");
+const LLM_BASE_URL = "https://openrouter.ai/api/v1";
+const LLM_MODEL = CONTENT_LLM_MODEL;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+if (!OPENROUTER_API_KEY) {
+	console.error("Error: OPENROUTER_API_KEY env var is required");
 	process.exit(1);
 }
 
@@ -271,28 +272,35 @@ interface BatchSummary {
 	citizen_tags: string[];
 }
 
+// Structured outputs require an object at the top level (OpenAI-style
+// providers reject a bare array), so the batch is wrapped in { articles }.
+// No minLength/maxLength/minItems: length and tag count are validated
+// downstream and reinforced via the prompt (ADR 2026-05-06).
 const BATCH_SCHEMA = {
 	name: "citizen_metadata_batch",
 	strict: true,
 	schema: {
-		type: "array",
-		items: {
-			type: "object",
-			properties: {
-				article_id: { type: "string" },
-				// NaN endpoint hangs (>60s, never returns) when the schema
-				// includes minLength/maxLength/minItems — keeps regenerating
-				// until they match. Length/tag-count are validated downstream
-				// and reinforced via the prompt. See ADR 2026-05-06.
-				citizen_summary: { type: "string" },
-				citizen_tags: {
-					type: "array",
-					items: { type: "string" },
+		type: "object",
+		properties: {
+			articles: {
+				type: "array",
+				items: {
+					type: "object",
+					properties: {
+						article_id: { type: "string" },
+						citizen_summary: { type: "string" },
+						citizen_tags: {
+							type: "array",
+							items: { type: "string" },
+						},
+					},
+					required: ["article_id", "citizen_summary", "citizen_tags"],
+					additionalProperties: false,
 				},
 			},
-			required: ["article_id", "citizen_summary", "citizen_tags"],
-			additionalProperties: false,
 		},
+		required: ["articles"],
+		additionalProperties: false,
 	},
 };
 
@@ -320,15 +328,17 @@ async function callQwenBatch(
 	const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
 	try {
-		const res = await fetch(`${HERMES_BASE_URL}/chat/completions`, {
+		const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
 			method: "POST",
 			signal: controller.signal,
 			headers: {
-				Authorization: `Bearer ${NAN_API_KEY}`,
+				Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+				"HTTP-Referer": "https://leyabierta.es",
+				"X-Title": "Ley Abierta",
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				model: "qwen3.6",
+				model: LLM_MODEL,
 				messages: [
 					{ role: "system", content: SYSTEM_PROMPT },
 					{ role: "user", content: prompt },
@@ -338,11 +348,6 @@ async function callQwenBatch(
 				// produces only one summary, so 2K is enough for any solo call;
 				// keep the cap as a safety against runaway generation.
 				max_tokens: 2000,
-				// Disable Qwen thinking: A/B with Sonnet judge showed thinking-OFF
-				// is ~9x faster (3s vs 28s), 0% errors (vs 20% with 524s), and
-				// slightly higher quality (8.56 vs 8.44/10). The reasoning chain
-				// added latency without translating into better summaries.
-				chat_template_kwargs: { enable_thinking: false },
 				response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
 			}),
 		});
@@ -393,6 +398,15 @@ async function callQwenBatch(
 		for (const extractor of extractors) {
 			try {
 				parsed = extractor(text);
+				// Unwrap the { articles: [...] } envelope from BATCH_SCHEMA
+				if (
+					parsed &&
+					!Array.isArray(parsed) &&
+					typeof parsed === "object" &&
+					Array.isArray((parsed as { articles?: unknown }).articles)
+				) {
+					parsed = (parsed as unknown as { articles: BatchSummary[] }).articles;
+				}
 				// Validate it's an array
 				if (Array.isArray(parsed)) break;
 				// If it's an object, wrap in array (single item)

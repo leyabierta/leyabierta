@@ -23,7 +23,7 @@ export function hasFlag(name: string): boolean {
 
 export function setupDb(): { db: Database; dbService: DbService } {
 	const repoRoot = join(import.meta.dir, "../../../../");
-	const dbPath = join(repoRoot, "data", "leyabierta.db");
+	const dbPath = process.env.DB_PATH ?? join(repoRoot, "data", "leyabierta.db");
 	const db = new Database(dbPath);
 	db.exec("PRAGMA journal_mode = WAL");
 	db.exec("PRAGMA foreign_keys = ON");

@@ -161,43 +161,56 @@ Citation-grounded legal Q&A. Citizens ask plain-language questions, the system r
 **Architecture:**
 1. **Query analysis** — LLM extracts keywords, materias, jurisdiction, temporal intent, named-law hints
 2. **Hybrid retrieval** — Vector search (cosine similarity) + BM25 (article-level FTS), fused with Reciprocal Rank Fusion (RRF), plus collection density and recency signals
-3. **Reranking** — qwen3.6 LLM reranker (default) or Cohere Rerank 4 Fast via OpenRouter (opt-in) narrows from ~80 candidates to 15
+3. **Reranking** — Cohere Rerank 4 Fast via OpenRouter narrows from ~80 candidates to 15 (passthrough of the fused order if the rerank call fails)
 4. **Temporal enrichment** — Version history headers injected for time-sensitive questions
 5. **Synthesis** — LLM generates answer with inline citations `[BOE-A-XXXX-XXXX, Artículo N]`
 6. **Citation verification** — Post-hoc check that every citation maps to a real article
 
-**Models and costs (prod default — full NaN stack):**
+**Models (prod default — OpenRouter):**
 
-All RAG components default to `api.nan.builders` (free, OpenAI-compatible). Requires **`NAN_API_KEY`**.
+Every AI component runs on OpenRouter and needs only **`OPENROUTER_API_KEY`**.
+The NaN provider (`api.nan.builders`, `NAN_API_KEY`) that served the stack until
+2026-08 was cancelled; live code no longer needs it.
 
-> The variable used to be called `HERMES_API_KEY` and some archived research
-> scripts still read that name. Production (`.env` on the server) and all live
-> code use `NAN_API_KEY` — following the old name gets you a RAG stack that
-> silently fails to authenticate.
+| Component | Model | Env override |
+|---|---|---|
+| Embeddings | `qwen/qwen3-embedding-8b` (4096 dims) | — (fixed: must match the stored vectors) |
+| Query analyzer | `google/gemini-2.5-flash-lite` | `OPENROUTER_LLM_MODEL` |
+| Reranker | `cohere/rerank-4-fast` | `OPENROUTER_RERANK_MODEL` |
+| Synthesis | `google/gemini-2.5-flash-lite` (streaming) | `OPENROUTER_LLM_MODEL` |
 
-| Component | Model | Provider | Cost | Env override |
-|---|---|---|---|---|
-| Embeddings | `qwen3-embedding` (4096 dims) | NaN | $0 | — (not configurable) |
-| Query analyzer | `qwen3.6` | NaN | $0 | `LLM_BACKEND=openrouter` |
-| Reranker | `qwen3.6` LLM rerank | NaN | $0 | `RERANK_BACKEND=cohere-or` |
-| Synthesis | `qwen3.6` (streaming) | NaN | $0 | `LLM_BACKEND=openrouter` |
+**Embeddings compatibility:** the corpus vectors were generated with
+Qwen3-Embedding-8B via NaN and are stored under the historical model key
+`qwen3-nan` (SQLite `embeddings.model` and `vectors-int8.bin`). OpenRouter serves
+the same weights: re-embedding stored blocks in the exact corpus input format
+(`title: <norm> | text: <article>\n\n<text>`) gives cosine ≈ 0.9999 against the
+stored vectors, so query embeddings from OpenRouter search the existing index
+with no re-embed. Do not rename the `qwen3-nan` key without relabeling the store.
 
-**Opt-in alternative backends (PR #107):**
-- `LLM_BACKEND=openrouter` → routes analyzer + synthesis to `google/gemini-2.5-flash-lite` via OpenRouter (faster, ~2.5s vs 13s synthesis; lower quality).
-- `RERANK_BACKEND=cohere-or` → routes reranker to `cohere/rerank-4-fast` via OpenRouter.
-- Both default to NaN if the env var is absent or `OPENROUTER_API_KEY` is not set. Embeddings are always Qwen NaN — not affected by these flags.
+**Legacy opt-ins (research only):** `LLM_BACKEND=nan` (qwen3.6 analyzer +
+synthesis) and `RERANK_BACKEND=qwen-llm` (qwen3.6 LLM rerank) still exist in
+`backends.ts` but are only honoured when `NAN_API_KEY` is set; otherwise the code
+logs a warning and uses OpenRouter. Defaults are `LLM_BACKEND=openrouter`,
+`RERANK_BACKEND=cohere-or`.
 
-**A/B verdict (Phase 5+6, 50 citizen queries × 9.7k norms):**
-- Retrieval: measured +30 pp R@1 on hand-curated 50-query set (overfit risk); v3-100 synthetic shows statistical tie (p=0.79 McNemar). Decision to use Qwen is justified by cost ($0 vs ~$5-9/mo), not quality gap.
-- Synthesis: judge overall 8.82 vs 7.17 (gemma4 NaN as cross-family judge), 99.6% citation precision vs 97.1%.
-- Latency trade: synthesis 13s vs 2.5s. Acceptable for SSE streaming; first-token-time is what users perceive.
+**Historical A/B (Phase 5+6, 50 citizen queries × 9.7k norms, NaN era):**
+- Retrieval: qwen3.6 analyzer + LLM rerank measured +30 pp R@1 on the hand-curated 50-query set (overfit risk); the v3-100 synthetic set showed a statistical tie (p=0.79 McNemar).
+- Synthesis: qwen3.6 judged 8.82 vs 7.17 for gemini-2.5-flash-lite, 99.6% vs 97.1% citation precision; latency 13s vs 2.5s.
+- Gemini Flash Lite + Cohere was the evaluated alternative arm and is now the default.
 
-The `NAN_STACK` env flag was removed in the Phase 6 cleanup. Qwen NaN is the unconditional default; OpenRouter/Cohere are opt-in only.
+**Generated content (daily cron):** reform summaries, law/article citizen
+summaries and tags, and omnibus topics use `CONTENT_LLM_MODEL` via OpenRouter
+(default `google/gemini-2.5-flash-lite`). The daily generators are gap-filling:
+each run processes whatever is still missing (reform summaries: last 26 weeks,
+newest first, `REFORM_SUMMARIES_LIMIT` per run, default 200; citizen tags: norms
+with an empty `citizen_summary`, newest first, `CITIZEN_TAGS_MAX_PER_RUN`,
+default 100). In `scripts/daily-pipeline.sh` the AI steps (3b–6) are non-fatal:
+a failure alerts and the run continues to OG images, emails and the index rebuild.
 
-**Threshold note:** raw `bestScore` is NOT informative about correctness with this stack (hit/miss score distributions overlap, separation ~0.04 on the eval). The `LOW_CONFIDENCE_THRESHOLD` gate is kept at 0.40 (effectively off) to catch catastrophic embedding failures only. For real "low-confidence" UX warnings we need a different signal (rerank top-1 score, candidate diversity) — TBD.
+**Threshold note:** raw `bestScore` is NOT informative about correctness with the Qwen embedding stack (hit/miss score distributions overlap, separation ~0.04 on the eval). The `LOW_CONFIDENCE_THRESHOLD` gate is kept at 0.40 (effectively off) to catch catastrophic embedding failures only. For real "low-confidence" UX warnings we need a different signal (rerank top-1 score, candidate diversity) — TBD.
 
 **Embedding store:**
-- 483,983 Gemini embeddings + 486,145 Qwen embeddings from 9,737-9,738 vigente norms
+- 483,983 Gemini embeddings + 486,145 Qwen embeddings (`qwen3-nan` key) from 9,737-9,738 vigente norms; new norms are embedded daily by `embed-corpus.ts` via OpenRouter
 - Both live concurrently in the SQLite `embeddings` table keyed by `(norm_id, block_id, model)`
 - Switching the prod model is purely a config flip — no re-embed needed at switch time
 - Stored as BLOBs (crash-safe, incremental add/remove)
@@ -246,7 +259,7 @@ job (`send-notifications.ts`) finds subscribers whose materias match and sends f
 - **Trigger:** Cron runs daily. Checks `reform_summaries` vs `notified_reforms` table.
 - **Matching:** Subscriber's materias ∩ reform's materias, filtered by jurisdiction.
 - **Template:** 1 reform → focused single-reform email. N reforms → card list.
-- **Cost:** $0 per email (no LLM). Summaries are pre-generated by `generate-reform-summaries.ts`.
+- **No LLM at send time.** Summaries are pre-generated by `generate-reform-summaries.ts`.
 - **Contacts:** Stored in Resend Audiences (not local DB). Double opt-in with HMAC tokens.
 
 ### Web (`packages/web/`)
@@ -448,8 +461,8 @@ bun run ingest
 # Ingest analisis: fetch materias/notas/refs from BOE + enrich JSON cache
 bun run ingest-analisis
 
-# Generate AI reform summaries (batch, uses OpenRouter)
-bun run packages/api/src/scripts/generate-reform-summaries.ts [--since 2026-03-01] [--force]
+# Generate AI reform summaries (batch, OpenRouter, gap-filling; --no-write for a smoke test)
+bun run packages/api/src/scripts/generate-reform-summaries.ts [--since 2026-03-01] [--limit N] [--no-write] [--force]
 
 # Send email notifications for new reforms (event-driven, uses Resend)
 bun run packages/api/src/scripts/send-notifications.ts              # normal cron run

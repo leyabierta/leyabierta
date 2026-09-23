@@ -1,11 +1,9 @@
 /**
  * Reranker — rescores candidate articles by relevance to the query.
  *
- * Default backend: qwen3.6 LLM rerank via NaN (Phase 5 A/B: +18 pp R@1
- * over cohere/rerank-4-pro on this Spanish-legal corpus, with $0 cost).
- *
- * Optional backend: Cohere Rerank via OpenRouter. Activate by setting
- * RERANK_BACKEND=cohere-or in .env.prod. Zero-risk: revert by unsetting.
+ * Default backend: Cohere Rerank via OpenRouter (cohere/rerank-4-fast,
+ * RERANK_BACKEND=cohere-or). Legacy opt-in: qwen3.6 LLM rerank via NaN
+ * (RERANK_BACKEND=qwen-llm, only honoured when NAN_API_KEY is set).
  *
  * Backend routing is delegated to `backends.ts` via `getRerankCaller()`.
  * Opik span name "rerank" is emitted regardless of backend by the caller
@@ -34,7 +32,7 @@ interface RerankerConfig {
 /**
  * Rerank candidates by relevance to the query.
  * Routes to the backend selected by the RERANK_BACKEND env var
- * (default: "qwen-llm" — qwen3.6 via NaN; alternative: "cohere-or").
+ * (default: "cohere-or" — Cohere via OpenRouter; legacy opt-in: "qwen-llm").
  *
  * @param query - The user's question
  * @param candidates - Articles to rerank (already retrieved)
@@ -73,8 +71,9 @@ export async function rerank(
 	// at first call but the cost is negligible (object creation, no I/O).
 	const caller = getRerankCaller(nanKey ?? undefined);
 
-	// If on default qwen-llm backend and no NaN key, fall back to passthrough
-	// (preserves pre-PR behaviour when NAN_API_KEY is unset).
+	// qwen-llm opt-in without a NaN key: passthrough instead of a doomed call.
+	// (resolveRerankBackend already demotes qwen-llm when NAN_API_KEY is unset,
+	// so this only triggers if the key disappears between resolution and use.)
 	if (RERANK_BACKEND === "qwen-llm" && !nanKey) {
 		return {
 			results: candidates.slice(0, topK).map((c, i) => ({
