@@ -316,6 +316,21 @@ describe("GET /v1/changelog", () => {
 		expect(typeof body.error).toBe("string");
 	});
 
+	test.each([
+		"weeks=",
+		"limit=",
+		"offset=",
+		"weeks=&limit=&offset=",
+	])("empty %s falls back to the default (as before)", async (qs) => {
+		const res = await request(`/v1/changelog?${qs}`);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as ChangelogResponse;
+		expect(body.weeks).toBe(4);
+		expect(body.limit).toBe(50);
+		expect(body.offset).toBe(0);
+		expect(body.reforms).toHaveLength(2);
+	});
+
 	test("jurisdiction is accepted as an alias of jurisdiccion", async () => {
 		const a = (await (
 			await request("/v1/changelog?jurisdiccion=es")

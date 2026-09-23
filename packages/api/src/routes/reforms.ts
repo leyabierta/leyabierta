@@ -15,15 +15,17 @@ const MAX_CHANGELOG_OFFSET = 10_000;
 
 /**
  * Parse an optional integer query param. Returns the fallback when absent
- * and null when present but not a plain integer (e.g. "abc", "1.5", "").
+ * or empty (`?weeks=` always meant "default" and must keep working), and
+ * null when present but not a plain integer (e.g. "abc", "1.5").
  */
 function parseIntParam(
 	raw: string | undefined,
 	fallback: number,
 ): number | null {
-	if (raw === undefined) return fallback;
-	if (!/^-?\d+$/.test(raw.trim())) return null;
-	return Number(raw);
+	const value = raw?.trim();
+	if (!value) return fallback;
+	if (!/^-?\d+$/.test(value)) return null;
+	return Number(value);
 }
 
 export function reformRoutes(dbService: DbService) {
