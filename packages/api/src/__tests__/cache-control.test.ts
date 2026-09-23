@@ -31,6 +31,11 @@ describe("defaultCacheControl", () => {
 		expect(defaultCacheControl("/v1/laws", 400)).toBe(NO_STORE);
 	});
 
+	test("unknown status names are not cached (fallback is 500, not 200)", () => {
+		expect(toStatusCode("Totally Made Up")).toBe(500);
+		expect(defaultCacheControl("/v1/laws", "Totally Made Up")).toBe(NO_STORE);
+	});
+
 	test("skips alerts and health", () => {
 		expect(defaultCacheControl("/v1/alerts/subscribe", 200)).toBeUndefined();
 		expect(defaultCacheControl("/health", 200)).toBeUndefined();

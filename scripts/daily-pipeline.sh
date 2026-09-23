@@ -205,6 +205,66 @@ fi
 
 log "=== Daily pipeline started ==="
 
+# ── Step 0.5 (opt-in, one-shot): restore laws whose text regressed (A5b) ────
+# Before PR #170 a late-arriving reform re-rendered a law at an older date and
+# rolled its text back (e.g. Estatuto de los Trabajadores, leyes 93f61f1).
+# scripts/ad-hoc/restore-regressed-texts.ts re-renders those files at their
+# latest reform date and commits the correction; Step 1.5 then pushes it with
+# the day's commits, so nothing is pushed to leyes from outside this server.
+#
+# OFF unless the flag file below exists in the deployed tree (refs/tags/prod).
+# The flag file is also the ALLOW-LIST (`--only`): one norm ID per line, `#`
+# comments. Only the laws listed there can be written, so production never
+# commits a law nobody reviewed: the list is the reviewed dry run on a clone of
+# leyes, pasted into the PR that enables this step. A flagged law that is not
+# listed is only reported in the log. An empty list = dry run in production.
+# Disable: merge a PR that removes the file. Left on, it re-scans every day and
+# is idempotent (0 commits once the listed laws are fixed). The correction
+# commits ("— texto restaurado a la versión vigente") are ordinary commits in
+# leyes and can be reverted there.
+#
+# Runs BEFORE Step 1 so data/json has been enriched by yesterday's Step 3, and
+# only on a clean leyes tree: that way the failure path can discard uncommitted
+# changes knowing they are this step's own half-written files, not leftovers of
+# an earlier run that someone may need to inspect. The run is capped with
+# `timeout` INSIDE the container, so a hung BOE request cannot hold the lock
+# all day, and the process is really dead before the reset. Non-fatal: a
+# failure alerts and the normal run goes on.
+RESTORE_FLAG="$REPO_DIR/scripts/ad-hoc/restore-regressed-texts.enabled"
+RESTORE_TIMEOUT=${RESTORE_TIMEOUT:-1800}
+if [ -f "$RESTORE_FLAG" ]; then
+  log "→ Step 0.5: Restore regressed law texts (flag present)"
+  set +e
+  leyes_dirty=$(docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" status --porcelain --untracked-files=no 2>&1)
+  dirty_status=$?
+  set -e
+  if [ "$dirty_status" -ne 0 ] || [ -n "$leyes_dirty" ]; then
+    log "  ⚠ leyes tree not clean (or git status failed) — skipping Step 0.5: $(scrub "$leyes_dirty")"
+    send_alert "leyabierta restore-regressed-texts skipped" "leyes working tree not clean before Step 0.5: $(scrub "$leyes_dirty")"
+  else
+    set +e
+    # scripts/ is not in the image; copy it next to packages/ (the script uses
+    # relative imports). `/.` copies the contents even if /app/scripts exists.
+    docker cp "$REPO_DIR/scripts/." "$CONTAINER:/app/scripts" >> "$LOG" 2>&1 \
+      && docker exec "$CONTAINER" timeout "$RESTORE_TIMEOUT" \
+           bun run scripts/ad-hoc/restore-regressed-texts.ts \
+           --repo "$LEYES_DIR_CONTAINER" \
+           --only scripts/ad-hoc/restore-regressed-texts.enabled --apply >> "$LOG" 2>&1
+    restore_status=$?
+    set -e
+    if [ "$restore_status" -ne 0 ]; then
+      log "  ⚠ restore-regressed-texts failed (exit $restore_status) — discarding its uncommitted changes in leyes"
+      # The tree was clean when the step started, so anything uncommitted now
+      # is a partial write of this step and must not be swept into Step 1's
+      # first commit. Commits already made are complete laws and stay.
+      docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" reset -q --hard HEAD >> "$LOG" 2>&1 || true
+      send_alert "leyabierta restore-regressed-texts failed" "exit=$restore_status — see /opt/leyabierta/logs/daily-pipeline.log"
+    else
+      log "  ✓ Restore regressed texts done"
+    fi
+  fi
+fi
+
 # ── Step 1: Pipeline bootstrap (BOE → markdown + git commits) ──────────────
 log "→ Step 1: Pipeline bootstrap"
 docker exec "$CONTAINER" bun run pipeline bootstrap --country es --concurrency 2 >> "$LOG" 2>&1
