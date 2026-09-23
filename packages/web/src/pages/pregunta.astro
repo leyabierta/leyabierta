@@ -166,6 +166,20 @@ import AskChat from "../components/AskChat.tsx";
 		color: var(--text-muted);
 	}
 
+	/* Remaining questions today (live region, empty until the API reports it) */
+	:global(.ask-quota) {
+		margin: 0.375rem 0 0;
+		font-size: 0.75rem;
+		color: var(--text-muted);
+		text-align: right;
+	}
+
+	/* Collapse when empty, but never display:none: a live region that is
+	   hidden when its text arrives is not announced by screen readers. */
+	:global(.ask-quota:empty) {
+		margin: 0;
+	}
+
 	:global(.ask-submit) {
 		gap: 0.4rem;
 		font-size: 0.8125rem;
@@ -429,6 +443,17 @@ import AskChat from "../components/AskChat.tsx";
 		border: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
 		border-radius: 12px;
 		color: var(--danger);
+		font-size: 0.875rem;
+	}
+
+	/* Question quota reached: a notice, not a failure */
+	:global(.ask-turn-limit) {
+		padding: 0.875rem 1rem;
+		background: var(--warning-bg);
+		border: 1px solid var(--border-light);
+		border-left: 3px solid var(--warning);
+		border-radius: 8px;
+		color: var(--warning-text);
 		font-size: 0.875rem;
 	}
 

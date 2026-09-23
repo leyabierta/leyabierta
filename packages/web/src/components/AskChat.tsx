@@ -152,6 +152,8 @@ interface Turn {
 	question: string;
 	response: AskResponse | null;
 	error: string | null;
+	/** "limit" = the question quota was reached (429), shown as a notice. */
+	errorKind?: "limit";
 	currentStep?: ProgressStep;
 	progressMeta?: Partial<Record<ProgressStep, ProgressMeta>>;
 }
@@ -353,6 +355,59 @@ async function* parseSSE(
 // ── Component ──
 
 const STORAGE_KEY = "leyabierta_ask_history";
+
+interface AskQuotaInfo {
+	remainingToday: number;
+	limitPerDay: number;
+}
+
+type QuotaReason = "per_minute" | "per_day" | "global_day";
+
+const QUOTA_FALLBACK_MESSAGES: Record<QuotaReason, string> = {
+	per_minute: "Has hecho muchas preguntas seguidas. Espera un minuto.",
+	per_day: "Has alcanzado el límite de preguntas al día. Vuelve mañana.",
+	global_day:
+		"El servicio de preguntas ha alcanzado su límite diario. Vuelve mañana.",
+};
+
+/** Read the API's 429 body ({ error, reason, remainingToday, limitPerDay }). */
+async function readQuotaError(
+	res: Response,
+): Promise<{ message: string; quota: AskQuotaInfo | null }> {
+	try {
+		const body = (await res.json()) as {
+			error?: string;
+			reason?: QuotaReason;
+			remainingToday?: number;
+			limitPerDay?: number;
+		};
+		const reason = body.reason ?? "per_minute";
+		const message =
+			typeof body.error === "string" && body.error
+				? body.error
+				: QUOTA_FALLBACK_MESSAGES[reason];
+		const quota =
+			typeof body.limitPerDay === "number"
+				? {
+						// When the whole service is closed for the day, the person's
+						// own remaining count is irrelevant.
+						remainingToday:
+							reason === "global_day" ? 0 : (body.remainingToday ?? 0),
+						limitPerDay: body.limitPerDay,
+					}
+				: null;
+		return { message, quota };
+	} catch {
+		// Generic limiter 429 (plain "Too many requests") or unreadable body.
+		return { message: QUOTA_FALLBACK_MESSAGES.per_minute, quota: null };
+	}
+}
+
+function quotaText(q: AskQuotaInfo): string {
+	if (q.remainingToday <= 0) return "No te quedan preguntas por hoy.";
+	if (q.remainingToday === 1) return "Te queda 1 pregunta hoy.";
+	return `Te quedan ${q.remainingToday} de ${q.limitPerDay} preguntas hoy.`;
+}
 
 function loadTurns(): Turn[] {
 	try {
@@ -864,6 +919,7 @@ export default function AskChat() {
 	const [turns, setTurns] = useState<Turn[]>(loadTurns);
 	const [question, setQuestion] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [quota, setQuota] = useState<AskQuotaInfo | null>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const abortRef = useRef<AbortController | null>(null);
@@ -908,15 +964,18 @@ export default function AskChat() {
 			});
 
 			if (res.status === 429) {
+				const limit = await readQuotaError(res);
+				if (limit.quota) setQuota(limit.quota);
 				setTurns((prev) => {
 					const updated = [...prev];
 					updated[turnIndex] = {
 						...updated[turnIndex],
-						error:
-							"Has hecho demasiadas preguntas. Espera un minuto e inténtalo de nuevo.",
+						error: limit.message,
+						errorKind: "limit",
 					};
 					return updated;
 				});
+				track("question_failed", { error_type: "rate_limited" });
 				return;
 			}
 			if (!res.ok || !res.body) {
@@ -975,7 +1034,19 @@ export default function AskChat() {
 			}
 
 			for await (const sseEvent of parseSSE(res)) {
-				if (sseEvent.event === "progress") {
+				if (sseEvent.event === "quota") {
+					try {
+						const q = JSON.parse(sseEvent.data) as AskQuotaInfo;
+						if (
+							typeof q.remainingToday === "number" &&
+							typeof q.limitPerDay === "number"
+						) {
+							setQuota(q);
+						}
+					} catch {
+						/* ignore malformed quota events */
+					}
+				} else if (sseEvent.event === "progress") {
 					try {
 						const progress = JSON.parse(sseEvent.data) as {
 							step: ProgressStep;
@@ -1305,11 +1376,16 @@ export default function AskChat() {
 								</p>
 							)}
 
-							{turn.error && (
-								<div className="ask-turn-error">
-									<p>{turn.error}</p>
-								</div>
-							)}
+							{turn.error &&
+								(turn.errorKind === "limit" ? (
+									<div className="ask-turn-limit" role="status">
+										<p>{turn.error}</p>
+									</div>
+								) : (
+									<div className="ask-turn-error">
+										<p>{turn.error}</p>
+									</div>
+								))}
 						</div>
 					))}
 
@@ -1393,6 +1469,10 @@ export default function AskChat() {
 						Preguntar
 					</button>
 				</div>
+				{/* Always mounted so screen readers pick up updates to the live region. */}
+				<p className="ask-quota" aria-live="polite" aria-atomic="true">
+					{quota ? quotaText(quota) : ""}
+				</p>
 			</div>
 
 			{!hasHistory && !loading && (

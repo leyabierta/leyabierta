@@ -153,6 +153,39 @@ Endpoints:
 - `GET /v1/feed.xml` — RSS feed of recent reforms
 - `GET /health` — status + law count
 - `POST /v1/ask` — RAG Q&A: ask a legal question, get a cited answer
+- `POST /v1/ask/stream` — same, as Server-Sent Events (`stage`, `quota`, `progress`, `chunk`, `done`, `error`)
+
+**Rate limiting.** Every endpoint goes through the in-memory per-IP limiter in
+`services/rate-limiter.ts` (search 30/min, ask 20/min, rest 60/min). Clients are
+identified by `CF-Connecting-IP`: the API port is bound to `127.0.0.1` and the
+only way in is the Cloudflare Tunnel, which sets that header itself.
+
+**Question quota (`/v1/ask`, `/v1/ask/stream`).** Each question spends
+OpenRouter credit, so on top of the limiter there is a quota
+(`services/ask-quota.ts`): per person `ASK_PER_MINUTE_LIMIT` (default 2) and
+`ASK_PER_DAY_LIMIT` (default 10), and `ASK_GLOBAL_DAILY_LIMIT` (default 200) for
+everyone together. "Day" = Europe/Madrid calendar day.
+- **Identity:** `HMAC-SHA256(daily random salt, IP)` (IPv6 truncated to /64),
+  only from `CF-Connecting-IP` (then the socket address; `X-Forwarded-For` is
+  never trusted here). Raw IPs are never stored. At day change all counters
+  and the old salt are deleted (also purged hourly), so nothing is kept > 48 h.
+- **Storage:** dedicated SQLite file `ask-quota.db` next to `DB_PATH`
+  (`ASK_QUOTA_DB_PATH`), not `leyabierta.db`: counters survive the several
+  deploys per day, and the pipeline's long write transactions can never block a
+  quota write (bun:sqlite is synchronous). Falls back to in-memory counters if
+  the file is unusable.
+- **What counts:** a question counts once it passes validation and the pipeline
+  is available (route-level `beforeHandle`, before any LLM call). 4xx/503
+  responses do not count; declined or failed answers do (credit was spent).
+  Requests with a valid `X-API-Key` (`API_BYPASS_KEY`) skip the quota.
+- **Responses:** 429 JSON `{ error, reason: "per_minute"|"per_day"|"global_day",
+  retryAfterSeconds, remainingToday, limitPerDay }`, `Retry-After`,
+  `Cache-Control: no-store`. For `/ask/stream` the 429 is sent before the SSE
+  stream opens. Allowed requests get `X-RateLimit-Limit/Remaining` and, on the
+  stream, an `event: quota` with `{ remainingToday, limitPerDay }` (the web
+  `/pregunta` shows it; cross-origin JS cannot read the headers).
+- `POST /v1/_eval/retrieval` (internal) answers 404 unless the request carries
+  the bypass key, whenever `API_BYPASS_KEY` is configured.
 
 ### RAG Pipeline (`packages/api/src/services/rag/`)
 
