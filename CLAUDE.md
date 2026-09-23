@@ -143,7 +143,7 @@ Endpoints:
 - `GET /v1/laws/:id/graph` — relationship graph data
 - `GET /v1/ranks` — rank types with counts
 - `GET /v1/materias` — subject categories with counts
-- `GET /v1/changelog` — recent reforms with AI summaries (filters: jurisdiction, since, limit)
+- `GET /v1/changelog` — recent reforms with AI summaries (params: jurisdiccion, weeks ≤ 12, limit ≤ 100, offset; echoes applied weeks/limit/offset + `weeks_clamped`, `has_more`)
 - `GET /v1/reforms/personal` — reforms filtered by materias + jurisdiction (for /mis-cambios)
 - `GET /v1/omnibus` — list recent omnibus laws with topic counts
 - `GET /v1/omnibus/:normId` — omnibus detail with per-topic AI breakdowns

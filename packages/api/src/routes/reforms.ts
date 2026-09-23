@@ -7,6 +7,27 @@ import type { DbService } from "../services/db.ts";
 
 const JURISDICTION_RE = /^es(-[a-z]{2})?$/;
 
+const DEFAULT_CHANGELOG_WEEKS = 4;
+const MAX_CHANGELOG_WEEKS = 12;
+const DEFAULT_CHANGELOG_LIMIT = 50;
+const MAX_CHANGELOG_LIMIT = 100;
+const MAX_CHANGELOG_OFFSET = 10_000;
+
+/**
+ * Parse an optional integer query param. Returns the fallback when absent
+ * or empty (`?weeks=` always meant "default" and must keep working), and
+ * null when present but not a plain integer (e.g. "abc", "1.5").
+ */
+function parseIntParam(
+	raw: string | undefined,
+	fallback: number,
+): number | null {
+	const value = raw?.trim();
+	if (!value) return fallback;
+	if (!/^-?\d+$/.test(value)) return null;
+	return Number(value);
+}
+
 export function reformRoutes(dbService: DbService) {
 	return new Elysia({ prefix: "/v1" })
 		.get(
@@ -110,34 +131,109 @@ export function reformRoutes(dbService: DbService) {
 		)
 		.get(
 			"/changelog",
-			({ query }) => {
-				const weeks = query.weeks ? Math.min(Number(query.weeks), 12) : 4;
-				const jurisdiction = query.jurisdiccion || undefined;
-				const limit = query.limit ? Math.min(Number(query.limit), 100) : 50;
+			({ query, set }) => {
+				// `since` was advertised by old docs but never implemented. Reject
+				// it loudly instead of silently applying a different window.
+				if (query.since?.trim()) {
+					set.status = 400;
+					return {
+						error: `since is not supported; use weeks (1-${MAX_CHANGELOG_WEEKS}) and offset`,
+					};
+				}
+				const weeks = parseIntParam(query.weeks, DEFAULT_CHANGELOG_WEEKS);
+				const limit = parseIntParam(query.limit, DEFAULT_CHANGELOG_LIMIT);
+				const offset = parseIntParam(query.offset, 0);
+				if (weeks === null || weeks < 1) {
+					set.status = 400;
+					return { error: "weeks must be a positive integer" };
+				}
+				if (limit === null || limit < 1) {
+					set.status = 400;
+					return { error: "limit must be a positive integer" };
+				}
+				if (offset === null || offset < 0 || offset > MAX_CHANGELOG_OFFSET) {
+					set.status = 400;
+					return {
+						error: `offset must be an integer between 0 and ${MAX_CHANGELOG_OFFSET}`,
+					};
+				}
+
+				// `jurisdiction` is accepted as an alias because the public docs
+				// advertised it for a long time; `jurisdiccion` wins if both are set.
+				const jurisdiction =
+					query.jurisdiccion || query.jurisdiction || undefined;
+				if (jurisdiction && !JURISDICTION_RE.test(jurisdiction)) {
+					set.status = 400;
+					return { error: "invalid jurisdiction format" };
+				}
+
+				// Clamp instead of rejecting (backwards compatible), but report
+				// the window actually applied so callers are never misled.
+				const effectiveWeeks = Math.min(weeks, MAX_CHANGELOG_WEEKS);
+				const effectiveLimit = Math.min(limit, MAX_CHANGELOG_LIMIT);
 
 				const since = new Date();
-				since.setDate(since.getDate() - weeks * 7);
+				since.setDate(since.getDate() - effectiveWeeks * 7);
 				const sinceStr = since.toISOString().slice(0, 10);
 
-				const reforms = dbService.getChangelog(sinceStr, jurisdiction, limit);
+				// Fetch one extra row to know whether another page exists
+				// without a separate COUNT query.
+				const rows = dbService.getChangelog(
+					sinceStr,
+					jurisdiction,
+					effectiveLimit + 1,
+					offset,
+				);
+				const hasMore = rows.length > effectiveLimit;
+				const reforms = hasMore ? rows.slice(0, effectiveLimit) : rows;
 
 				const today = new Date().toISOString().slice(0, 10);
 
 				return {
 					reforms,
 					date_range: `${sinceStr} to ${today}`,
+					weeks: effectiveWeeks,
+					weeks_requested: weeks,
+					weeks_clamped: weeks > effectiveWeeks,
+					limit: effectiveLimit,
+					offset,
+					has_more: hasMore,
 				};
 			},
 			{
 				query: t.Object({
-					weeks: t.Optional(t.String()),
-					jurisdiccion: t.Optional(t.String()),
-					limit: t.Optional(t.String()),
+					weeks: t.Optional(
+						t.String({
+							description: `Time window in weeks (default ${DEFAULT_CHANGELOG_WEEKS}, max ${MAX_CHANGELOG_WEEKS}; larger values are clamped and reported via weeks_clamped)`,
+						}),
+					),
+					jurisdiccion: t.Optional(
+						t.String({ description: "Jurisdiction code, e.g. es or es-ct" }),
+					),
+					jurisdiction: t.Optional(
+						t.String({ description: "Alias of jurisdiccion" }),
+					),
+					limit: t.Optional(
+						t.String({
+							description: `Page size (default ${DEFAULT_CHANGELOG_LIMIT}, max ${MAX_CHANGELOG_LIMIT})`,
+						}),
+					),
+					offset: t.Optional(
+						t.String({
+							description: `Rows to skip for pagination (default 0, max ${MAX_CHANGELOG_OFFSET}). Use has_more to know if another page exists.`,
+						}),
+					),
+					since: t.Optional(
+						t.String({
+							description:
+								"Not supported: returns 400. Use weeks to set the time window.",
+						}),
+					),
 				}),
 				detail: {
 					summary: "Public changelog",
 					description:
-						"Returns recent reforms with AI summaries. Filterable by jurisdiction and time window (weeks).",
+						"Returns recent reforms with AI summaries, newest first. Filterable by jurisdiction and time window (weeks), paginated with limit/offset. The response echoes the parameters actually applied (weeks, weeks_requested, weeks_clamped, limit, offset) and has_more.",
 					tags: ["Reformas"],
 				},
 			},

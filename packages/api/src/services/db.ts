@@ -1332,6 +1332,7 @@ export class DbService {
 		since: string,
 		jurisdiction?: string,
 		limit = 50,
+		offset = 0,
 	): Array<{
 		id: string;
 		title: string;
@@ -1346,6 +1347,7 @@ export class DbService {
 		materia_count: number;
 		omnibus_topic_count: number;
 	}> {
+		// Defensive only: the /v1/changelog route already rejects bad codes with 400.
 		if (jurisdiction && !/^es(-[a-z]{2})?$/.test(jurisdiction)) {
 			return [];
 		}
@@ -1377,10 +1379,13 @@ export class DbService {
 		const today = new Date().toISOString().slice(0, 10);
 
 		const sql = `
-			SELECT DISTINCT n.id, n.title, n.rank, n.status, r.date, r.source_id,
+			SELECT n.id, n.title, n.rank, n.status, r.date, r.source_id,
 				rs.headline, rs.summary, rs.reform_type, rs.importance,
 				(SELECT COUNT(*) FROM materias WHERE norm_id = r.norm_id) as materia_count,
 				(SELECT COUNT(*) FROM omnibus_topics WHERE norm_id = r.norm_id) as omnibus_topic_count
+			-- No DISTINCT: every join is on a full primary key (reforms PK
+			-- norm_id+date+source_id, reform_summaries PK on the same triple,
+			-- norms.id), so each reform yields exactly one row.
 			FROM reforms r
 			JOIN norms n ON n.id = r.norm_id
 			LEFT JOIN reform_summaries rs
@@ -1389,8 +1394,10 @@ export class DbService {
 			  AND r.date <= ?
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
 			  ${jurisdictionClause}
-			ORDER BY r.date DESC
-			LIMIT ?
+			-- Tie-breakers make the order total, so offset pages never overlap
+			-- or skip rows: many reforms share a date (dozens on busy BOE days).
+			ORDER BY r.date DESC, n.id ASC, r.source_id ASC
+			LIMIT ? OFFSET ?
 		`;
 
 		return this.db
@@ -1411,7 +1418,7 @@ export class DbService {
 				},
 				SqlParams
 			>(sql)
-			.all(since, today, ...jurisdictionParams, limit);
+			.all(since, today, ...jurisdictionParams, limit, offset);
 	}
 
 	upsertReformSummary(

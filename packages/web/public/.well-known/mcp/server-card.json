@@ -56,7 +56,7 @@
 		{
 			"name": "get_changelog",
 			"description": "Ultimas reformas legislativas con resumenes",
-			"endpoint": "GET /v1/changelog?jurisdiction={jurisdiction}&since={date}&limit={n}"
+			"endpoint": "GET /v1/changelog?jurisdiccion={jurisdiction}&weeks={n}&limit={n}&offset={n}"
 		}
 	]
 }
