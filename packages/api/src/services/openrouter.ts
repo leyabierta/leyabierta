@@ -136,6 +136,11 @@ export function openRouterProviderField(
 
 const MAX_RETRIES = 2;
 const BACKOFF_MS = 2000;
+/** Pause before retry N (tests set OPENROUTER_BACKOFF_MS=0 to skip real waits). */
+function backoffMs(attempt: number): number {
+	const base = Number(process.env.OPENROUTER_BACKOFF_MS ?? BACKOFF_MS);
+	return (Number.isFinite(base) && base >= 0 ? base : BACKOFF_MS) * attempt;
+}
 
 export interface OpenRouterMessage {
 	role: "system" | "user" | "assistant";
@@ -216,7 +221,7 @@ export async function* callOpenRouterStream(
 	let response: Response | null = null;
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		if (attempt > 0) {
-			await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
+			await new Promise((r) => setTimeout(r, backoffMs(attempt)));
 		}
 		const res = await fetch(OPENROUTER_URL, {
 			method: "POST",
@@ -349,7 +354,7 @@ export async function callOpenRouter<T>(
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		if (attempt > 0) {
-			const delay = BACKOFF_MS * attempt;
+			const delay = backoffMs(attempt);
 			await new Promise((r) => setTimeout(r, delay));
 		}
 
