@@ -47,10 +47,16 @@ START=$(date +%s)
 # Use process substitution instead of pipe to avoid subshell variable scoping.
 # In a pipe (cmd | while read), the while loop runs in a subshell so COUNT
 # never increments in the parent shell. Process substitution keeps everything
-# in the same shell.
+# in the same shell. A process substitution's exit status is lost (and
+# `wait $!` needs bash >= 4.4), so astro's status comes as the last line,
+# after a newline in case astro's last output lacks one. (No quotes in
+# comments inside the substitution: bash 3.2 misparses them.)
 COUNT=0
+BUILD_STATUS=""
 while IFS= read -r line; do
-  if echo "$line" | grep -qE '├─|└─|\(\+[0-9]'; then
+  if [[ "$line" == __ASTRO_BUILD_EXIT__=* ]]; then
+    BUILD_STATUS="${line#__ASTRO_BUILD_EXIT__=}"
+  elif echo "$line" | grep -qE '├─|└─|\(\+[0-9]'; then
     COUNT=$((COUNT + 1))
     # Print progress every 500 pages
     if [ $((COUNT % 500)) -eq 0 ]; then
@@ -70,7 +76,19 @@ while IFS= read -r line; do
   else
     echo "$line"
   fi
-done < <(bunx astro build 2>&1)
+done < <(
+  set +e
+  bunx astro build 2>&1
+  rc=$?
+  printf '\n__ASTRO_BUILD_EXIT__=%s\n' "$rc"
+)
+
+# A failed build must fail this script: otherwise the asset guard passes and
+# a partial dist/ could be deployed.
+if [ "$BUILD_STATUS" != "0" ]; then
+  echo "[build] ERROR: astro build failed (exit ${BUILD_STATUS:-unknown})" >&2
+  exit "${BUILD_STATUS:-1}"
+fi
 
 ELAPSED=$(( $(date +%s) - START ))
 echo "[build] Done: $COUNT pages in ${ELAPSED}s"
