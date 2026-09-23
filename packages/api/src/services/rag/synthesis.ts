@@ -13,6 +13,7 @@
 
 import type { Database } from "bun:sqlite";
 import { getNanApiKey } from "../nan-api-key.ts";
+import type { OpenRouterReasoning } from "../openrouter.ts";
 import {
 	describeNormScope,
 	isModifierNorm,
@@ -22,9 +23,12 @@ import {
 import { buildArticleAnchor } from "./anchor.ts";
 import {
 	EFFECTIVE_LLM_MODEL,
+	EFFECTIVE_SYNTHESIS_MODEL,
 	getLlmCaller,
 	getLlmStreamCaller,
 	LLM_BACKEND,
+	resolveSynthesisReasoning,
+	SYNTHESIS_REASONING,
 } from "./backends.ts";
 import { resolveJurisdiction } from "./jurisdiction.ts";
 import type { RetrievedArticle } from "./retrieval.ts";
@@ -36,22 +40,20 @@ import {
 } from "./temporal.ts";
 
 /**
- * Synthesis model — the model actually serving the effective LLM_BACKEND
- * (default: OpenRouter OPENROUTER_LLM_MODEL = google/gemini-2.5-flash-lite).
+ * Synthesis model — the model that writes the answer, reported as
+ * `meta.model` (default: OpenRouter OPENROUTER_SYNTHESIS_MODEL =
+ * openai/gpt-6-luna, with SYNTHESIS_REASONING = { effort: "minimal" }).
+ * With the legacy LLM_BACKEND=nan opt-in it is qwen3.6.
  *
- * The OpenRouter caller overrides whatever model is passed with
- * OPENROUTER_LLM_MODEL, so this constant is what gets reported in API
- * responses and traces. With the legacy LLM_BACKEND=nan opt-in it is qwen3.6.
+ * AUX_MODEL (OPENROUTER_LLM_MODEL, default google/gemini-2.5-flash-lite)
+ * serves the cheap side calls: streaming tldr/next_questions, declined
+ * suggestions and lazy per-article citizen summaries.
  *
- * History: Phase 6 A/B (50 citizen queries × 9.7k norms) preferred qwen3.6 on
- * NaN over gemini-2.5-flash-lite on quality (overall 8.82 vs 7.17) with higher
- * latency (13s vs 2.5s). NaN was cancelled in 2026-08, so Gemini Flash Lite
- * (the other evaluated arm) is the default.
- *
- * To override per call, pass `model` to `synthesizeAnswer` (ignored by the
- * OpenRouter backend, which always uses OPENROUTER_LLM_MODEL).
+ * History: 2026-09-23 ZDR eval (packages/eval/results/2026-09-23-model-zdr.md)
+ * — gpt-6-luna judged 9.23 vs 8.41 for gemini-2.5-flash-lite, same cost.
  */
-export const SYNTHESIS_MODEL = EFFECTIVE_LLM_MODEL;
+export const SYNTHESIS_MODEL = EFFECTIVE_SYNTHESIS_MODEL;
+const AUX_MODEL = EFFECTIVE_LLM_MODEL;
 export const MAX_EVIDENCE_TOKENS = 8000;
 
 // ── Citation type ──
@@ -252,6 +254,7 @@ export type SynthesisLlmFn = <T>(
 		maxTokens?: number;
 		jsonResponse?: boolean;
 		jsonSchema?: { name: string; schema: Record<string, unknown> };
+		reasoning?: OpenRouterReasoning;
 	},
 ) => Promise<{ data: T; cost: number; tokensIn: number; tokensOut: number }>;
 
@@ -270,6 +273,10 @@ export async function synthesizeAnswer(opts: {
 	// directly. Otherwise route through the backend factory (LLM_BACKEND env var).
 	const llmFn = (opts.llmFn ?? getLlmCaller()) as SynthesisLlmFn;
 	const model = opts.model ?? SYNTHESIS_MODEL;
+	const reasoning =
+		opts.model && opts.model !== SYNTHESIS_MODEL
+			? resolveSynthesisReasoning(opts.model, process.env)
+			: SYNTHESIS_REASONING;
 	// For NaN backend: use getNanApiKey(). For OpenRouter backend: the factory
 	// reads OPENROUTER_API_KEY internally — apiKey arg is passed but unused.
 	const apiKey =
@@ -284,6 +291,7 @@ export async function synthesizeAnswer(opts: {
 		next_questions: string[];
 	}>(apiKey, {
 		model,
+		...(reasoning ? { reasoning } : {}),
 		messages: [
 			{ role: "system", content: systemPrompt },
 			{
@@ -360,6 +368,7 @@ export function synthesizeStream(opts: {
 	const streamCaller = getLlmStreamCaller();
 	return streamCaller(apiKey, {
 		model: SYNTHESIS_MODEL,
+		...(SYNTHESIS_REASONING ? { reasoning: SYNTHESIS_REASONING } : {}),
 		messages: [
 			{ role: "system", content: systemPrompt },
 			{
@@ -465,7 +474,7 @@ export function generateMissingSummaries(opts: {
 		const truncatedText = article.text.slice(0, 1500);
 
 		llmCaller<{ summary: string }>(apiKey, {
-			model: SYNTHESIS_MODEL,
+			model: AUX_MODEL,
 			messages: [
 				{
 					role: "system",
@@ -534,7 +543,7 @@ export async function generatePostSynthExtras(opts: {
 			tldr: string;
 			next_questions: string[];
 		}>(apiKey, {
-			model: SYNTHESIS_MODEL,
+			model: AUX_MODEL,
 			messages: [
 				{
 					role: "system",
@@ -596,7 +605,7 @@ export async function generateDeclinedSuggestions(opts: {
 	const llmCaller = getLlmCaller();
 	try {
 		const result = await llmCaller<{ suggested_questions: string[] }>(apiKey, {
-			model: SYNTHESIS_MODEL,
+			model: AUX_MODEL,
 			messages: [
 				{
 					role: "system",

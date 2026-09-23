@@ -76,6 +76,12 @@ import Legal from "../layouts/Legal.astro";
 					<td>Unos minutos; no se guarda en disco</td>
 				</tr>
 				<tr>
+					<td>Seudónimo de tu dirección IP (una huella calculada con una clave aleatoria que cambia cada día) y el número de preguntas que has hecho ese día</td>
+					<td>Limitar las preguntas por persona (2 por minuto y 10 al día) para contener el coste del servicio y evitar abusos</td>
+					<td>Interés legítimo (art. 6.1.f RGPD)</td>
+					<td>Hasta que termina el día (hora de Madrid); como máximo 48 horas</td>
+				</tr>
+				<tr>
 					<td>Datos de navegación agregados</td>
 					<td>Estadísticas anónimas del sitio (Umami, alojado en nuestro servidor)</td>
 					<td>Interés legítimo (art. 6.1.f RGPD); exención AEPD para analítica de medición de audiencia</td>
@@ -113,6 +119,18 @@ import Legal from "../layouts/Legal.astro";
 			<li>
 				Tu pregunta llega a nuestro servidor en Alemania a través de Cloudflare, que
 				protege el sitio frente a ataques.
+			</li>
+			<li>
+				Para que el servicio llegue a todos, cada persona puede hacer como máximo
+				10 preguntas al día y 2 por minuto. Para contarlas no guardamos tu dirección IP.
+				Guardamos una huella de ella, calculada con una clave aleatoria que cambia cada
+				día, y el número de preguntas que has hecho ese día. Esa huella no se guarda
+				junto al texto de tus preguntas. Mientras dura el día, quien administra el
+				servidor tiene la clave y podría recalcular a qué dirección IP corresponde cada
+				huella. Por eso la tratamos como un dato seudonimizado, no anónimo, y solo la
+				usamos para contar preguntas. Cuando termina el día (hora de Madrid) borramos las
+				huellas, los contadores y la clave, y desde ese momento nadie puede relacionarlas
+				con tu IP. En ningún caso se conservan más de 48 horas.
 			</li>
 			<li>
 				Para encontrar los artículos relevantes y redactar la respuesta, enviamos el

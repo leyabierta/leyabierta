@@ -9,13 +9,13 @@
 import type {
 	Block,
 	Norm,
-	NormAnalisis,
 	NormMetadata,
 	Paragraph,
 	Rank,
 	Reform,
 	Version,
 } from "../models.ts";
+import { parseCachedAnalisis } from "./analisis.ts";
 
 /**
  * Infer CSS class from paragraph text when the original class was lost
@@ -77,13 +77,6 @@ interface CachedVersion {
 	text: string;
 }
 
-/** Shape of one entry in the `referencias` arrays in the JSON cache. */
-interface CachedReference {
-	normId: string;
-	relation: string;
-	text: string;
-}
-
 /** Reconstruct a Norm from its cached JSON representation. */
 export function jsonToNorm(raw: Record<string, unknown>): Norm {
 	const m = raw.metadata as CachedMetadata;
@@ -140,33 +133,7 @@ export function jsonToNorm(raw: Record<string, unknown>): Norm {
 	}
 
 	// Load analisis if present in enriched JSON cache
-	let analisis: NormAnalisis | undefined;
-	const rawAnalisis = raw.analisis as Record<string, unknown> | undefined;
-	if (rawAnalisis) {
-		const refs = rawAnalisis.referencias as
-			| Record<string, unknown[]>
-			| undefined;
-		analisis = {
-			materias: (rawAnalisis.materias as string[]) ?? [],
-			notas: (rawAnalisis.notas as string[]) ?? [],
-			referencias: {
-				anteriores: ((refs?.anteriores as CachedReference[]) ?? []).map(
-					(r) => ({
-						normId: r.normId,
-						relation: r.relation,
-						text: r.text,
-					}),
-				),
-				posteriores: ((refs?.posteriores as CachedReference[]) ?? []).map(
-					(r) => ({
-						normId: r.normId,
-						relation: r.relation,
-						text: r.text,
-					}),
-				),
-			},
-		};
-	}
+	const analisis = parseCachedAnalisis(raw);
 
 	return { metadata, blocks, reforms, analisis };
 }

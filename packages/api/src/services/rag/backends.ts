@@ -10,13 +10,38 @@
  *     harnesses. It is only honoured when NAN_API_KEY is set; otherwise we warn
  *     and use OpenRouter instead of failing on a missing key.
  *
- *   RERANK_BACKEND=cohere-or (default) | qwen-llm
- *     Routes the reranker. Default: Cohere Rerank via OpenRouter
- *     (OPENROUTER_RERANK_MODEL). "qwen-llm" (qwen3.6 LLM rerank on NaN) is a
- *     legacy opt-in, honoured only when NAN_API_KEY is set.
+ *   RERANK_BACKEND=llm (default) | none | cohere-or | qwen-llm
+ *     Routes the reranker.
+ *     - "llm": listwise LLM rerank through OpenRouter with
+ *       OPENROUTER_RERANK_LLM_MODEL (llm-rerank.ts). Works under OpenRouter
+ *       Zero Data Retention, which the account enforces.
+ *     - "none": keep the fused (RRF + boosts) order, no extra call.
+ *     - "cohere-or": Cohere Rerank via OpenRouter /rerank
+ *       (OPENROUTER_RERANK_MODEL). Opt-in only: Cohere has no ZDR endpoint, so
+ *       on a ZDR account every call 404s and falls back to the fused order.
+ *     - "qwen-llm": legacy qwen3.6 LLM rerank on NaN, honoured only when
+ *       NAN_API_KEY is set.
+ *     Eval 2026-09-23 (82 citizen queries, packages/eval/results/
+ *     2026-09-23-model-zdr.md): llm vs none = Hit@1 67.1% vs 43.9%.
  *
  *   OPENROUTER_LLM_MODEL=google/gemini-2.5-flash-lite (default)
- *     The OpenRouter chat model used by the openrouter backend.
+ *     The OpenRouter chat model for the query analyzer and the auxiliary
+ *     calls (post-synthesis tldr/next_questions in streaming mode,
+ *     declined-suggestions, lazy per-article citizen summaries).
+ *
+ *   OPENROUTER_SYNTHESIS_MODEL=openai/gpt-6-luna (default)
+ *     The OpenRouter chat model that writes the answer (JSON and streaming).
+ *     Eval 2026-09-23: judge 9.23 vs 8.41 for flash-lite, 94% vs 78% inline
+ *     citation precision, same cost, ~2.5× latency.
+ *
+ *   OPENROUTER_SYNTHESIS_REASONING=minimal|low|medium|high|none|default
+ *     Reasoning effort sent with synthesis calls. Default: "minimal" for
+ *     openai/* models (as evaluated; OpenRouter maps it to 0 reasoning
+ *     tokens on gpt-6-luna), nothing otherwise. "none" sends effort "none";
+ *     "default" sends no field (gpt-6-luna then reasons at "medium").
+ *
+ *   OPENROUTER_RERANK_LLM_MODEL=google/gemini-2.5-flash-lite (default)
+ *     The chat model used by the "llm" rerank backend.
  *
  *   OPENROUTER_RERANK_MODEL=cohere/rerank-4-fast (default)
  *     The OpenRouter rerank model used by the cohere-or backend.
@@ -38,19 +63,20 @@ import { callNan, callNanStream } from "../nan.ts";
 import { getNanApiKey } from "../nan-api-key.ts";
 import type {
 	OpenRouterOptions,
+	OpenRouterReasoning,
 	OpenRouterResult,
 	StreamDelta,
 	StreamDone,
 } from "../openrouter.ts";
 import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
-import type { LLMCandidate, LLMRerankResult } from "./qwen-llm-rerank.ts";
-import { qwenLLMRerank } from "./qwen-llm-rerank.ts";
+import type { LLMCandidate, LLMRerankResult } from "./llm-rerank.ts";
+import { llmRerank, qwenLLMRerank } from "./llm-rerank.ts";
 import { CohereReranker } from "./rerankers/cohere.ts";
 
 // ── Backend resolution ──
 
 export type LlmBackend = "openrouter" | "nan";
-export type RerankBackend = "cohere-or" | "qwen-llm";
+export type RerankBackend = "llm" | "none" | "cohere-or" | "qwen-llm";
 
 /**
  * Resolve the LLM backend from the environment. Pure (env passed in) so it can
@@ -75,24 +101,25 @@ export function resolveLlmBackend(
 	return "openrouter";
 }
 
-/** Same as resolveLlmBackend, for the reranker. */
+/**
+ * Same as resolveLlmBackend, for the reranker. Default "llm" (ZDR-compatible
+ * LLM rerank on OpenRouter). Unknown values fall back to the default.
+ */
 export function resolveRerankBackend(
 	env: Record<string, string | undefined>,
 ): RerankBackend {
-	const requested = (env.RERANK_BACKEND ?? "cohere-or").trim().toLowerCase();
+	const requested = (env.RERANK_BACKEND ?? "llm").trim().toLowerCase();
+	if (requested === "" || requested === "llm") return "llm";
+	if (requested === "none" || requested === "cohere-or") return requested;
 	if (requested === "qwen-llm") {
 		if (env.NAN_API_KEY) return "qwen-llm";
 		console.warn(
-			"[backends] RERANK_BACKEND=qwen-llm but NAN_API_KEY is not set — using cohere-or",
+			"[backends] RERANK_BACKEND=qwen-llm but NAN_API_KEY is not set — using llm",
 		);
-		return "cohere-or";
+		return "llm";
 	}
-	if (requested !== "cohere-or" && requested !== "") {
-		console.warn(
-			`[backends] Unknown RERANK_BACKEND="${requested}" — using cohere-or`,
-		);
-	}
-	return "cohere-or";
+	console.warn(`[backends] Unknown RERANK_BACKEND="${requested}" — using llm`);
+	return "llm";
 }
 
 // ── Env-var constants ──
@@ -100,20 +127,70 @@ export function resolveRerankBackend(
 /** Effective LLM backend: "openrouter" (default) or "nan" (legacy opt-in). */
 export const LLM_BACKEND: LlmBackend = resolveLlmBackend(process.env);
 
-/** Effective rerank backend: "cohere-or" (default) or "qwen-llm" (legacy opt-in). */
+/** Effective rerank backend (default "llm"). */
 export const RERANK_BACKEND: RerankBackend = resolveRerankBackend(process.env);
 
 /** OpenRouter chat model used by the openrouter LLM backend. */
 export const OPENROUTER_LLM_MODEL =
 	process.env.OPENROUTER_LLM_MODEL || "google/gemini-2.5-flash-lite";
 
-/** OpenRouter rerank model used by the cohere-or backend. */
+/** OpenRouter chat model used by the "llm" rerank backend. */
+export const OPENROUTER_RERANK_LLM_MODEL =
+	process.env.OPENROUTER_RERANK_LLM_MODEL || "google/gemini-2.5-flash-lite";
+
+/** OpenRouter rerank model used by the cohere-or backend (opt-in). */
 export const OPENROUTER_RERANK_MODEL =
 	process.env.OPENROUTER_RERANK_MODEL || "cohere/rerank-4-fast";
 
-/** Model id that actually serves analyzer/synthesis calls (for logs/traces). */
+/** OpenRouter chat model that writes the answer (distinct from the analyzer). */
+export const OPENROUTER_SYNTHESIS_MODEL =
+	process.env.OPENROUTER_SYNTHESIS_MODEL || "openai/gpt-6-luna";
+
+/** Model id that serves analyzer + auxiliary calls (for logs/traces). */
 export const EFFECTIVE_LLM_MODEL =
 	LLM_BACKEND === "openrouter" ? OPENROUTER_LLM_MODEL : "qwen3.6";
+
+/** Model id that serves synthesis (reported as `meta.model`). */
+export const EFFECTIVE_SYNTHESIS_MODEL =
+	LLM_BACKEND === "openrouter" ? OPENROUTER_SYNTHESIS_MODEL : "qwen3.6";
+
+/**
+ * Reasoning setting for synthesis calls. Pure (env passed in) for tests.
+ * Explicit OPENROUTER_SYNTHESIS_REASONING wins ("none" → omit the field);
+ * otherwise OpenAI reasoning models get { effort: "minimal" } — the setting
+ * used in the 2026-09-23 eval — and every other model gets nothing, so e.g.
+ * Gemini Flash Lite keeps its non-thinking default.
+ */
+export function resolveSynthesisReasoning(
+	model: string,
+	env: Record<string, string | undefined>,
+): OpenRouterReasoning | undefined {
+	const raw = env.OPENROUTER_SYNTHESIS_REASONING?.trim().toLowerCase();
+	if (raw) {
+		// "default" = send nothing (provider default — for openai/gpt-6-luna
+		// that is effort "medium", i.e. reasoning ON). "none"/"off" must be sent
+		// explicitly: omitting the field does NOT turn reasoning off.
+		if (raw === "default") return undefined;
+		if (raw === "none" || raw === "off") return { effort: "none" };
+		if (
+			raw === "minimal" ||
+			raw === "low" ||
+			raw === "medium" ||
+			raw === "high"
+		)
+			return { effort: raw };
+		console.warn(
+			`[backends] Unknown OPENROUTER_SYNTHESIS_REASONING="${raw}" — using model default`,
+		);
+	}
+	return model.startsWith("openai/") ? { effort: "minimal" } : undefined;
+}
+
+/** Effective reasoning setting for synthesis (OpenRouter backend only). */
+export const SYNTHESIS_REASONING: OpenRouterReasoning | undefined =
+	LLM_BACKEND === "openrouter"
+		? resolveSynthesisReasoning(OPENROUTER_SYNTHESIS_MODEL, process.env)
+		: undefined;
 
 // ── LLM caller types (mirrors AnalyzerLlmFn / SynthesisLlmFn) ──
 
@@ -142,8 +219,9 @@ export type RerankCaller = (
 /**
  * Returns the non-streaming LLM caller for the effective LLM_BACKEND.
  *
- * openrouter (default): callOpenRouter with OPENROUTER_LLM_MODEL (the model in
- *   the call options is overridden; OPENROUTER_API_KEY is read from the env).
+ * openrouter (default): callOpenRouter with the model given by the call site
+ *   (analyzer → EFFECTIVE_LLM_MODEL, synthesis → EFFECTIVE_SYNTHESIS_MODEL);
+ *   OPENROUTER_API_KEY is read from the env.
  * nan (opt-in): callNan, model passed through as-is.
  */
 export function getLlmCaller(): LlmCaller {
@@ -160,13 +238,20 @@ export function getLlmStreamCaller(): LlmStreamCaller {
 /**
  * Returns the rerank caller for the effective RERANK_BACKEND.
  *
- * cohere-or (default): CohereReranker via OpenRouter (OPENROUTER_RERANK_MODEL).
- *   If OPENROUTER_API_KEY is missing, warns and returns a passthrough caller
- *   (candidates keep their fused order) rather than throwing.
- * qwen-llm (opt-in): qwenLLMRerank via NaN.
+ * llm (default): llmRerank via OpenRouter (OPENROUTER_RERANK_LLM_MODEL).
+ * none: passthrough — the fused order, no network call.
+ * cohere-or (opt-in): CohereReranker via OpenRouter (OPENROUTER_RERANK_MODEL).
+ * qwen-llm (legacy opt-in): qwenLLMRerank via NaN.
+ *
+ * The OpenRouter backends warn and return passthrough when
+ * OPENROUTER_API_KEY is missing, rather than throwing.
  */
-export function getRerankCaller(nanApiKey?: string): RerankCaller {
-	if (RERANK_BACKEND === "qwen-llm") {
+export function getRerankCaller(
+	nanApiKey?: string,
+	backend: RerankBackend = RERANK_BACKEND,
+): RerankCaller {
+	if (backend === "none") return passthroughRerankCaller;
+	if (backend === "qwen-llm") {
 		return makeQwenRerankCaller(nanApiKey);
 	}
 	const orKey = process.env.OPENROUTER_API_KEY ?? "";
@@ -176,39 +261,32 @@ export function getRerankCaller(nanApiKey?: string): RerankCaller {
 		);
 		return passthroughRerankCaller;
 	}
-	return makeCohereOrRerankCaller(orKey);
+	if (backend === "cohere-or") return makeCohereOrRerankCaller(orKey);
+	return makeLlmRerankCaller(orKey);
 }
 
 // ── Private helpers ──
 
 /**
- * OpenRouter non-streaming caller. Overrides the model to OPENROUTER_LLM_MODEL
- * while preserving all other options (prompts, temperature, jsonSchema, etc.)
- * from the call site. OPENROUTER_API_KEY takes precedence over `apiKey`.
+ * OpenRouter non-streaming caller. Uses the model the call site passes
+ * (analyzer and synthesis can differ) and preserves all other options.
+ * OPENROUTER_API_KEY takes precedence over `apiKey`.
  */
 async function openRouterLlmCaller<T>(
 	_apiKey: string,
 	options: LlmCallerOptions,
 ): Promise<OpenRouterResult<T>> {
 	const orKey = process.env.OPENROUTER_API_KEY ?? _apiKey;
-	return callOpenRouter<T>(orKey, {
-		...options,
-		model: OPENROUTER_LLM_MODEL,
-	});
+	return callOpenRouter<T>(orKey, options);
 }
 
-/**
- * OpenRouter streaming caller. Same model override as above, SSE-streamed.
- */
+/** OpenRouter streaming caller (same contract as above, SSE-streamed). */
 async function* openRouterStreamCaller(
 	_apiKey: string,
 	options: Omit<LlmCallerOptions, "jsonResponse" | "jsonSchema">,
 ): AsyncGenerator<StreamDelta | StreamDone> {
 	const orKey = process.env.OPENROUTER_API_KEY ?? _apiKey;
-	yield* callOpenRouterStream(orKey, {
-		...options,
-		model: OPENROUTER_LLM_MODEL,
-	});
+	yield* callOpenRouterStream(orKey, options);
 }
 
 /** Keeps the incoming (fused) order. Used when no rerank provider is available. */
@@ -225,6 +303,15 @@ const passthroughRerankCaller: RerankCaller = async (
 	backend: "none",
 	cost: 0,
 });
+
+/** Build a rerank caller that delegates to llmRerank via OpenRouter. */
+function makeLlmRerankCaller(orKey: string): RerankCaller {
+	return (query, candidates, topK) =>
+		llmRerank(orKey, query, candidates, topK, {
+			model: OPENROUTER_RERANK_LLM_MODEL,
+			label: "llm-rerank",
+		});
+}
 
 /** Build a rerank caller that delegates to qwenLLMRerank via NaN. */
 function makeQwenRerankCaller(nanApiKey?: string): RerankCaller {

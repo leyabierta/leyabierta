@@ -5,9 +5,8 @@
  */
 
 import { Database } from "bun:sqlite";
-import { timingSafeEqual } from "node:crypto";
 import { appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
@@ -17,6 +16,7 @@ import { lawRoutes, type SearchResponse } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { statusRoutes } from "./routes/status.ts";
+import { AskQuota, askLimitsFromEnv } from "./services/ask-quota.ts";
 import { LruCache } from "./services/cache.ts";
 import { defaultCacheControl } from "./services/cache-control.ts";
 import { CitizenSummaryService } from "./services/citizen-summary.ts";
@@ -34,7 +34,11 @@ import { EMBEDDING_MODEL_KEY } from "./services/rag/retrieval.ts";
 import { flushTraces } from "./services/rag/tracing.ts";
 import { getSharedVectorIndex } from "./services/rag/vector-index-singleton.ts";
 import { vectorSearchPooled } from "./services/rag/vector-pool.ts";
-import { createRateLimiter, getClientIp } from "./services/rate-limiter.ts";
+import {
+	createRateLimiter,
+	getClientIp,
+	hasBypassKey,
+} from "./services/rate-limiter.ts";
 import { StatusService } from "./services/status.ts";
 
 const DB_PATH = process.env.DB_PATH ?? "./data/leyabierta.db";
@@ -106,6 +110,25 @@ const generalLimiter = createRateLimiter(60); // 60 req/min per IP for other end
 const askLimiter = createRateLimiter(20); // 20 req/min per IP for RAG (each /v1/ask makes several external LLM calls)
 const API_BYPASS_KEY = process.env.API_BYPASS_KEY ?? "";
 
+// Question quota for /v1/ask and /v1/ask/stream (cost control): per person
+// per minute and per day, plus a global daily cap. Counters live in a small
+// dedicated SQLite file so they survive deploys; see services/ask-quota.ts.
+const askQuota = ragPipeline
+	? new AskQuota({
+			limits: askLimitsFromEnv(),
+			path:
+				process.env.ASK_QUOTA_DB_PATH ?? join(dirname(DB_PATH), "ask-quota.db"),
+		})
+	: null;
+if (askQuota) {
+	const { perMinute, perDay, globalPerDay } = askQuota.limits;
+	console.log(
+		`[ask-quota] ${perMinute}/min and ${perDay}/day per person, ${globalPerDay}/day global`,
+	);
+	// Drop yesterday's counters and salt even if nobody asks today.
+	setInterval(() => askQuota.purgeStale(), 60 * 60 * 1000).unref();
+}
+
 // ── Graceful shutdown ───────────────────────────────────────────────
 let isShuttingDown = false;
 
@@ -118,6 +141,7 @@ function shutdown(signal: string) {
 	setTimeout(async () => {
 		process.stderr.write("[shutdown] drain complete, exiting\n");
 		await flushTraces();
+		askQuota?.close();
 		db.close();
 		process.exit(0);
 	}, 30_000);
@@ -170,12 +194,7 @@ const app = new Elysia()
 			return { error: "Server is shutting down" };
 		}
 		// Rate limiting (skip /health and trusted clients with bypass key)
-		const apiKey = request.headers.get("x-api-key") ?? "";
-		const hasBypass =
-			API_BYPASS_KEY &&
-			apiKey.length === API_BYPASS_KEY.length &&
-			timingSafeEqual(Buffer.from(apiKey), Buffer.from(API_BYPASS_KEY));
-		if (path !== "/health" && !hasBypass) {
+		if (path !== "/health" && !hasBypassKey(request, API_BYPASS_KEY)) {
 			const ip = getClientIp(request);
 			const isAsk = path === "/v1/ask" || path === "/v1/ask/stream";
 			const isSearch =
@@ -284,7 +303,7 @@ app
 	.use(reformRoutes(dbService))
 	.use(statusRoutes(statusService))
 	.use(omnibusRoutes(dbService))
-	.use(askRoutes(ragPipeline))
+	.use(askRoutes(ragPipeline, { quota: askQuota, bypassKey: API_BYPASS_KEY }))
 	.get(
 		"/health",
 		() => {

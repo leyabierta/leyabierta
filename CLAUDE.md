@@ -153,6 +153,39 @@ Endpoints:
 - `GET /v1/feed.xml` — RSS feed of recent reforms
 - `GET /health` — status + law count
 - `POST /v1/ask` — RAG Q&A: ask a legal question, get a cited answer
+- `POST /v1/ask/stream` — same, as Server-Sent Events (`stage`, `quota`, `progress`, `chunk`, `done`, `error`)
+
+**Rate limiting.** Every endpoint goes through the in-memory per-IP limiter in
+`services/rate-limiter.ts` (search 30/min, ask 20/min, rest 60/min). Clients are
+identified by `CF-Connecting-IP`: the API port is bound to `127.0.0.1` and the
+only way in is the Cloudflare Tunnel, which sets that header itself.
+
+**Question quota (`/v1/ask`, `/v1/ask/stream`).** Each question spends
+OpenRouter credit, so on top of the limiter there is a quota
+(`services/ask-quota.ts`): per person `ASK_PER_MINUTE_LIMIT` (default 2) and
+`ASK_PER_DAY_LIMIT` (default 10), and `ASK_GLOBAL_DAILY_LIMIT` (default 200) for
+everyone together. "Day" = Europe/Madrid calendar day.
+- **Identity:** `HMAC-SHA256(daily random salt, IP)` (IPv6 truncated to /64),
+  only from `CF-Connecting-IP` (then the socket address; `X-Forwarded-For` is
+  never trusted here). Raw IPs are never stored. At day change all counters
+  and the old salt are deleted (also purged hourly), so nothing is kept > 48 h.
+- **Storage:** dedicated SQLite file `ask-quota.db` next to `DB_PATH`
+  (`ASK_QUOTA_DB_PATH`), not `leyabierta.db`: counters survive the several
+  deploys per day, and the pipeline's long write transactions can never block a
+  quota write (bun:sqlite is synchronous). Falls back to in-memory counters if
+  the file is unusable.
+- **What counts:** a question counts once it passes validation and the pipeline
+  is available (route-level `beforeHandle`, before any LLM call). 4xx/503
+  responses do not count; declined or failed answers do (credit was spent).
+  Requests with a valid `X-API-Key` (`API_BYPASS_KEY`) skip the quota.
+- **Responses:** 429 JSON `{ error, reason: "per_minute"|"per_day"|"global_day",
+  retryAfterSeconds, remainingToday, limitPerDay }`, `Retry-After`,
+  `Cache-Control: no-store`. For `/ask/stream` the 429 is sent before the SSE
+  stream opens. Allowed requests get `X-RateLimit-Limit/Remaining` and, on the
+  stream, an `event: quota` with `{ remainingToday, limitPerDay }` (the web
+  `/pregunta` shows it; cross-origin JS cannot read the headers).
+- `POST /v1/_eval/retrieval` (internal) answers 404 unless the request carries
+  the bypass key, whenever `API_BYPASS_KEY` is configured.
 
 ### RAG Pipeline (`packages/api/src/services/rag/`)
 
@@ -161,7 +194,7 @@ Citation-grounded legal Q&A. Citizens ask plain-language questions, the system r
 **Architecture:**
 1. **Query analysis** — LLM extracts keywords, materias, jurisdiction, temporal intent, named-law hints
 2. **Hybrid retrieval** — Vector search (cosine similarity) + BM25 (article-level FTS), fused with Reciprocal Rank Fusion (RRF), plus collection density and recency signals
-3. **Reranking** — Cohere Rerank 4 Fast via OpenRouter narrows from ~80 candidates to 15 (passthrough of the fused order if the rerank call fails)
+3. **Reranking** — listwise LLM rerank (`google/gemini-2.5-flash-lite` via OpenRouter, `llm-rerank.ts`) narrows from ~80 candidates to 15 (passthrough of the fused order if the rerank call fails)
 4. **Temporal enrichment** — Version history headers injected for time-sensitive questions
 5. **Synthesis** — LLM generates answer with inline citations `[BOE-A-XXXX-XXXX, Artículo N]`
 6. **Citation verification** — Post-hoc check that every citation maps to a real article
@@ -175,9 +208,9 @@ The NaN provider (`api.nan.builders`, `NAN_API_KEY`) that served the stack until
 | Component | Model | Env override |
 |---|---|---|
 | Embeddings | `qwen/qwen3-embedding-8b` (4096 dims) | — (fixed: must match the stored vectors) |
-| Query analyzer | `google/gemini-2.5-flash-lite` | `OPENROUTER_LLM_MODEL` |
-| Reranker | `cohere/rerank-4-fast` | `OPENROUTER_RERANK_MODEL` |
-| Synthesis | `google/gemini-2.5-flash-lite` (streaming) | `OPENROUTER_LLM_MODEL` |
+| Query analyzer (+ auxiliary calls: streaming tldr/next questions, declined suggestions, lazy article summaries) | `google/gemini-2.5-flash-lite` | `OPENROUTER_LLM_MODEL` |
+| Reranker | `google/gemini-2.5-flash-lite` (LLM listwise rerank) | `RERANK_BACKEND` (`llm`/`none`/`cohere-or`), `OPENROUTER_RERANK_LLM_MODEL` |
+| Synthesis (JSON + streaming; `meta.model`) | `openai/gpt-6-luna`, reasoning `{effort: "minimal"}` | `OPENROUTER_SYNTHESIS_MODEL`, `OPENROUTER_SYNTHESIS_REASONING` (`minimal`/`low`/`medium`/`high`/`none`/`default`; default `minimal` for `openai/*`, nothing otherwise; `default` omits the field, which on gpt-6-luna means reasoning at `medium`) |
 
 **Embeddings compatibility:** the corpus vectors were generated with
 Qwen3-Embedding-8B via NaN and are stored under the historical model key
@@ -191,12 +224,22 @@ with no re-embed. Do not rename the `qwen3-nan` key without relabeling the store
 synthesis) and `RERANK_BACKEND=qwen-llm` (qwen3.6 LLM rerank) still exist in
 `backends.ts` but are only honoured when `NAN_API_KEY` is set; otherwise the code
 logs a warning and uses OpenRouter. Defaults are `LLM_BACKEND=openrouter`,
-`RERANK_BACKEND=cohere-or`.
+`RERANK_BACKEND=llm`.
+
+**Zero Data Retention:** the OpenRouter account enforces ZDR, so every model
+must have a ZDR endpoint. Cohere and Voyage rerank models have none (404 on
+every call), which is why `cohere-or` is opt-in only and the default reranker
+is an LLM rerank on a ZDR chat model. Eval 2026-09-23 (82 citizen queries):
+LLM rerank vs fused order = Hit@1 67.1% vs 43.9% (McNemar p=0.0002), +$0.0015
+and +1.2 s per question. Same eval, synthesis: `openai/gpt-6-luna` judged 9.23
+vs 8.41 for flash-lite (94% vs 78% inline citation precision, same cost,
+~2.5× latency), so it is the synthesis default. See
+`packages/eval/results/2026-09-23-model-zdr.md`.
 
 **Historical A/B (Phase 5+6, 50 citizen queries × 9.7k norms, NaN era):**
 - Retrieval: qwen3.6 analyzer + LLM rerank measured +30 pp R@1 on the hand-curated 50-query set (overfit risk); the v3-100 synthetic set showed a statistical tie (p=0.79 McNemar).
 - Synthesis: qwen3.6 judged 8.82 vs 7.17 for gemini-2.5-flash-lite, 99.6% vs 97.1% citation precision; latency 13s vs 2.5s.
-- Gemini Flash Lite + Cohere was the evaluated alternative arm and is now the default.
+- Gemini Flash Lite + Cohere was the evaluated alternative arm; Gemini Flash Lite is now the default, with Cohere replaced by the LLM rerank (ZDR, see above).
 
 **Generated content (daily cron):** reform summaries, law/article citizen
 summaries and tags, and omnibus topics use `CONTENT_LLM_MODEL` via OpenRouter
@@ -227,7 +270,7 @@ a failure alerts and the run continues to OG images, emails and the index rebuil
 - `pipeline.ts` — orchestrates all stages
 - `embeddings.ts` — vector search, embedding generation, SQLite store
 - `blocks-fts.ts` — BM25 article-level search
-- `reranker.ts` — Cohere/LLM reranking
+- `reranker.ts` / `llm-rerank.ts` — reranking (LLM listwise by default)
 - `temporal.ts` — version history enrichment
 - `subchunk.ts` — article sub-chunking by apartados
 - `tracing.ts` — Opik observability integration (shared by RAG and hybrid search)

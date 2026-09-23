@@ -101,6 +101,9 @@ function computeNorms(
 
 // ── Shared fetch with retry ──
 
+/** Per-attempt timeout for OpenRouter embedding requests (query or batch). */
+const OPENROUTER_EMBED_TIMEOUT_MS = 30_000;
+
 export async function fetchWithRetry(
 	apiKey: string,
 	modelId: string,
@@ -147,6 +150,10 @@ export async function fetchWithRetry(
 						encoding_format: "float",
 						...openRouterProviderField(),
 					}),
+					// Without a timeout a stalled OpenRouter connection hangs the
+					// caller forever (seen in the 2026-09-23 eval run). The signal
+					// also bounds reading the body; a timeout is retried below.
+					signal: AbortSignal.timeout(OPENROUTER_EMBED_TIMEOUT_MS),
 				});
 
 				if (response.status === 429 || response.status >= 500) {
