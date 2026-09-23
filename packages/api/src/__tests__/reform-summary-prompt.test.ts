@@ -36,7 +36,7 @@ describe("formatBlockChange", () => {
 
 	test("identical text (after dropping markdown and whitespace) says so", () => {
 		expect(formatBlockChange("Uno **dos**  tres.", "Uno dos\ntres.")).toContain(
-			"el texto no cambia",
+			"idéntico antes y después",
 		);
 	});
 
@@ -144,7 +144,7 @@ describe("omnibus is decided by the law that makes the change", () => {
 			false,
 			getSourceInfo(db, "OMNI"),
 		);
-		expect(user).toContain("ley ómnibus que modifica 12 leyes distintas");
+		expect(user).toContain("ley ómnibus: modifica a la vez 12 leyes distintas");
 		expect(user).toContain(
 			"Norma que introduce el cambio: Ley de medidas fiscales, administrativas y del orden social",
 		);

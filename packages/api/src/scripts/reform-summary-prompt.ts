@@ -155,7 +155,7 @@ export function formatBlockChange(
 	const a = normalizeText(previous);
 	const b = normalizeText(current);
 	if (a === b)
-		return "(el texto no cambia: posible cambio de numeración, formato o vigencia)";
+		return "(el texto de este artículo es idéntico antes y después: el cambio no se ve en el texto)";
 
 	const rewrite = () =>
 		`(texto reescrito casi por completo)\n  antes: ${truncateChars(a, Math.floor(maxChars * 0.4))}\n  ahora: ${truncateChars(b, Math.floor(maxChars * 0.6))}`;
@@ -282,6 +282,7 @@ Cómo leer los cambios:
 - En cada artículo modificado se muestra solo lo que cambia, con unas palabras de contexto: [-texto-] es texto suprimido y {+texto+} es texto añadido. "…" indica texto sin cambios omitido.
 - Si un artículo se reescribió casi por completo, se muestra el principio de la versión anterior ("antes") y de la nueva ("ahora").
 - [NUEVO] es un artículo que no existía antes.
+- Si un artículo aparece como idéntico antes y después, NO supongas en qué consistió el cambio (ni "formal", ni "de numeración", ni "sin efectos"): di solo que se modifica ese artículo sin cambios visibles en su texto.
 
 Reglas:
 - Español correcto con acentos (á, é, í, ó, ú, ñ, ¿, ¡)
@@ -356,9 +357,12 @@ ${parts.join("\n\n") || "(sin bloques afectados disponibles)"}`;
 	if (isOmnibusSource(source)) {
 		const scope =
 			source.lawsModified >= OMNIBUS_MIN_LAWS_MODIFIED
-				? `modifica ${source.lawsModified} leyes distintas`
-				: `abarca ${source.materiaCount} temas distintos`;
-		user += `\n\nNOTA: La norma que introduce este cambio es una ley ómnibus que ${scope}. Contextualiza el titular y resumen mencionando que esta reforma forma parte de una ley más amplia que agrupa múltiples temas no relacionados.`;
+				? `modifica a la vez ${source.lawsModified} leyes distintas`
+				: `abarca ${source.materiaCount} materias distintas`;
+		// Context, not a claim to repeat: "temas no relacionados" is often not
+		// true (a child-protection law amending several related laws), and the
+		// summary must stay about what changes in THIS law.
+		user += `\n\nCONTEXTO: La norma que introduce este cambio es una ley ómnibus: ${scope}. Puedes mencionarlo brevemente, pero el titular y el resumen deben centrarse en lo que cambia en esta ley.`;
 	}
 
 	return { system, user };
