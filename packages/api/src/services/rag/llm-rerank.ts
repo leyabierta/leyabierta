@@ -16,11 +16,21 @@
  * — the fused order is kept — so a rerank problem never fails the answer.
  */
 
+import { openRouterProviderField } from "../openrouter.ts";
+
 const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 const NAN_CHAT_URL = "https://api.nan.builders/v1/chat/completions";
 
 /** Characters of article text shown to the model per candidate. */
 export const LLM_RERANK_SNIPPET_CHARS = 600;
+
+/**
+ * Characters of the candidate title line shown to the model. The title embeds
+ * the full norm title, which reaches 1,656 chars on some BOE norms; uncapped,
+ * an 80-candidate prompt could grow to ~50k tokens. 400 keeps ~97% of vigente
+ * norm titles intact and bounds the prompt to roughly 80 × 1,000 chars.
+ */
+export const LLM_RERANK_TITLE_CHARS = 400;
 
 export interface LLMCandidate {
 	key: string; // normId:blockId
@@ -78,7 +88,7 @@ export function buildLlmRerankUserMessage(
 	const numbered = candidates
 		.map(
 			(c, i) =>
-				`${i + 1}. ${c.title}\n${c.text.slice(0, LLM_RERANK_SNIPPET_CHARS)}`,
+				`${i + 1}. ${c.title.slice(0, LLM_RERANK_TITLE_CHARS)}\n${c.text.slice(0, LLM_RERANK_SNIPPET_CHARS)}`,
 		)
 		.join("\n\n");
 	return `Pregunta: ${query}\n\nFragmentos:\n${numbered}\n\nDevuelve los ${topK} más relevantes.`;
@@ -95,7 +105,7 @@ export function parseLlmRerankResponse(
 	candidates: LLMCandidate[],
 	topK: number,
 ): LLMRerankResult[] | null {
-	let parsed: { ranked?: Array<{ id: number; score?: number }> };
+	let parsed: unknown;
 	try {
 		parsed = JSON.parse(raw);
 	} catch {
@@ -107,12 +117,19 @@ export function parseLlmRerankResponse(
 			return null;
 		}
 	}
-	if (!Array.isArray(parsed.ranked)) return null;
+	// `null`, a bare number or an array are valid JSON but not our shape.
+	if (!parsed || typeof parsed !== "object") return null;
+	const ranked = (parsed as { ranked?: unknown }).ranked;
+	if (!Array.isArray(ranked)) return null;
 
 	const seen = new Set<number>();
 	const picked: Array<{ idx: number; score: number }> = [];
-	for (const r of parsed.ranked) {
-		const id = Number(r?.id);
+	for (const entry of ranked) {
+		// Accept both {"id": n, "score": s} and a bare n.
+		const r = (
+			typeof entry === "object" && entry !== null ? entry : { id: entry }
+		) as { id?: unknown; score?: unknown };
+		const id = Number(r.id);
 		if (!Number.isInteger(id) || id < 1 || id > candidates.length) continue;
 		if (seen.has(id)) continue;
 		seen.add(id);
@@ -174,6 +191,7 @@ export async function llmRerank(
 	}
 	if (!apiKey) return passthrough(candidates, topK, `${label}-no-key`);
 
+	const url = opts.url ?? OPENROUTER_CHAT_URL;
 	const body = JSON.stringify({
 		model: opts.model ?? "google/gemini-2.5-flash-lite",
 		messages: [
@@ -189,6 +207,9 @@ export async function llmRerank(
 		max_tokens: 1500,
 		temperature: 0.1,
 		response_format: { type: "json_object" },
+		// Same ZDR / no-data-collection routing as every other OpenRouter call:
+		// the prompt carries the citizen's question.
+		...(url === OPENROUTER_CHAT_URL ? openRouterProviderField() : {}),
 		...opts.extraBody,
 	});
 
@@ -198,7 +219,7 @@ export async function llmRerank(
 	let lastError = "unknown";
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		try {
-			const res = await doFetch(opts.url ?? OPENROUTER_CHAT_URL, {
+			const res = await doFetch(url, {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${apiKey}`,
