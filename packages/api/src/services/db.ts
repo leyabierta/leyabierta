@@ -1332,6 +1332,7 @@ export class DbService {
 		since: string,
 		jurisdiction?: string,
 		limit = 50,
+		offset = 0,
 	): Array<{
 		id: string;
 		title: string;
@@ -1389,8 +1390,10 @@ export class DbService {
 			  AND r.date <= ?
 			  AND (rs.importance IS NULL OR rs.importance NOT IN ('skip'))
 			  ${jurisdictionClause}
-			ORDER BY r.date DESC
-			LIMIT ?
+			-- Tie-breakers make the order total, so offset pages never overlap
+			-- or skip rows: many reforms share a date (dozens on busy BOE days).
+			ORDER BY r.date DESC, n.id ASC, r.source_id ASC
+			LIMIT ? OFFSET ?
 		`;
 
 		return this.db
@@ -1411,7 +1414,7 @@ export class DbService {
 				},
 				SqlParams
 			>(sql)
-			.all(since, today, ...jurisdictionParams, limit);
+			.all(since, today, ...jurisdictionParams, limit, offset);
 	}
 
 	upsertReformSummary(

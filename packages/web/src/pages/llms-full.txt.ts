@@ -176,9 +176,9 @@ Tipos de rango (constitución, ley orgánica, ley, real decreto, etc.) con conte
 Categorías temáticas con conteos.
 
 ### Changelog
-\`GET /v1/changelog?jurisdiction=es&since=2024-01-01&limit=50\`
+\`GET /v1/changelog?jurisdiccion=es&weeks=4&limit=50&offset=0\`
 
-Reformas recientes con resúmenes generados por IA.
+Reformas recientes con resúmenes generados por IA, de la más reciente a la más antigua. \`weeks\` admite hasta 12 (si pides más, se aplica 12 y la respuesta lo indica con \`weeks_clamped\`); \`limit\` hasta 100. Para paginar, suma \`limit\` a \`offset\` mientras \`has_more\` sea \`true\`.
 
 ### Reformas personalizadas
 \`GET /v1/reforms/personal?materias=IRPF,Empleo&jurisdiction=es-vc\`

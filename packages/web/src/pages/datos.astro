@@ -204,12 +204,15 @@ import Base from "../layouts/Base.astro";
 				<div class="endpoint-group">
 					<h3 class="endpoint-title">Últimas reformas con resúmenes</h3>
 					<div class="code-block">
-						<button class="copy-btn" data-copy="curl 'https://api.leyabierta.es/v1/changelog?jurisdiction=es&limit=20'" aria-label="Copiar comando">Copiar</button>
-						<pre><code>curl 'https://api.leyabierta.es/v1/changelog?jurisdiction=es&amp;limit=20'</code></pre>
+						<button class="copy-btn" data-copy="curl 'https://api.leyabierta.es/v1/changelog?jurisdiccion=es&limit=20'" aria-label="Copiar comando">Copiar</button>
+						<pre><code>curl 'https://api.leyabierta.es/v1/changelog?jurisdiccion=es&amp;limit=20'</code></pre>
 					</div>
 					<p class="endpoint-desc">
 						Reformas recientes con resúmenes generados por IA. Filtra por jurisdicción
-						y por fecha con <code class="inline-code">since=YYYY-MM-DD</code>.
+						con <code class="inline-code">jurisdiccion=es-ct</code> y por período con
+						<code class="inline-code">weeks=N</code> (hasta 12). Pagina con
+						<code class="inline-code">offset</code> mientras
+						<code class="inline-code">has_more</code> sea <code class="inline-code">true</code>.
 					</p>
 				</div>
 			</div>
@@ -326,7 +329,7 @@ import Base from "../layouts/Base.astro";
 					<pre><code
 >#!/bin/sh
 # Últimas reformas laborales en España
-curl -s 'https://api.leyabierta.es/v1/changelog?jurisdiction=es&amp;limit=50' \
+curl -s 'https://api.leyabierta.es/v1/changelog?jurisdiccion=es&amp;limit=50' \
   | jq -r '
       .reforms[]
       | select(.materias[]? | test("Trabajo|Empleo|Laboral"; "i"))

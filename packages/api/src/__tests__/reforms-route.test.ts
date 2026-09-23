@@ -196,3 +196,134 @@ describe("GET /v1/reforms/personal", () => {
 		expect(body.reforms).toEqual([]);
 	});
 });
+
+interface ChangelogResponse {
+	error?: string;
+	reforms: Array<{ id: string; date: string; source_id: string }>;
+	date_range: string;
+	weeks: number;
+	weeks_requested: number;
+	weeks_clamped: boolean;
+	limit: number;
+	offset: number;
+	has_more: boolean;
+}
+
+describe("GET /v1/changelog", () => {
+	// 25 extra reforms, several sharing a date, so paging depends on a
+	// total order (date alone would let SQLite return ties in any order).
+	function seedManyReforms(count: number) {
+		for (let i = 0; i < count; i++) {
+			const d = new Date();
+			d.setDate(d.getDate() - 1 - Math.floor(i / 5));
+			insertReform(
+				"BOE-A-2024-1000",
+				d.toISOString().slice(0, 10),
+				`BOE-A-2026-${String(10000 + i)}`,
+			);
+		}
+	}
+	function insertReform(normId: string, date: string, sourceId: string) {
+		db.run("INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)", [
+			normId,
+			date,
+			sourceId,
+		]);
+	}
+	const key = (r: { id: string; date: string; source_id: string }) =>
+		`${r.id}|${r.date}|${r.source_id}`;
+
+	test("defaults are unchanged and applied parameters are reported", async () => {
+		const res = await request("/v1/changelog");
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as ChangelogResponse;
+		expect(body.weeks).toBe(4);
+		expect(body.weeks_requested).toBe(4);
+		expect(body.weeks_clamped).toBe(false);
+		expect(body.limit).toBe(50);
+		expect(body.offset).toBe(0);
+		expect(body.has_more).toBe(false);
+		// Seed: two reforms 7 days ago; the 90-day-old one is outside 4 weeks.
+		expect(body.reforms).toHaveLength(2);
+		expect(body.date_range).toMatch(/^\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}$/);
+	});
+
+	test("weeks above the cap is clamped and the clamp is visible", async () => {
+		const res = await request("/v1/changelog?weeks=26");
+		const body = (await res.json()) as ChangelogResponse;
+		expect(res.status).toBe(200);
+		expect(body.weeks).toBe(12);
+		expect(body.weeks_requested).toBe(26);
+		expect(body.weeks_clamped).toBe(true);
+		const since = new Date();
+		since.setDate(since.getDate() - 12 * 7);
+		expect(body.date_range.startsWith(since.toISOString().slice(0, 10))).toBe(
+			true,
+		);
+	});
+
+	test("limit above 100 is capped and reported", async () => {
+		const res = await request("/v1/changelog?limit=500");
+		const body = (await res.json()) as ChangelogResponse;
+		expect(body.limit).toBe(100);
+	});
+
+	test("offset pages are disjoint, consecutive and cover every row", async () => {
+		seedManyReforms(25);
+		const all = (await (
+			await request("/v1/changelog?limit=100")
+		).json()) as ChangelogResponse;
+		expect(all.reforms).toHaveLength(27);
+		expect(all.has_more).toBe(false);
+
+		const pages: ChangelogResponse[] = [];
+		for (const offset of [0, 10, 20]) {
+			const res = await request(`/v1/changelog?limit=10&offset=${offset}`);
+			expect(res.status).toBe(200);
+			pages.push((await res.json()) as ChangelogResponse);
+		}
+		expect(pages.map((p) => p.reforms.length)).toEqual([10, 10, 7]);
+		expect(pages.map((p) => p.has_more)).toEqual([true, true, false]);
+		expect(pages.map((p) => p.offset)).toEqual([0, 10, 20]);
+
+		const paged = pages.flatMap((p) => p.reforms.map(key));
+		expect(new Set(paged).size).toBe(paged.length);
+		expect(paged).toEqual(all.reforms.map(key));
+	});
+
+	test("offset past the end returns an empty page", async () => {
+		const res = await request("/v1/changelog?offset=500");
+		const body = (await res.json()) as ChangelogResponse;
+		expect(res.status).toBe(200);
+		expect(body.reforms).toEqual([]);
+		expect(body.has_more).toBe(false);
+	});
+
+	test.each([
+		"offset=-1",
+		"offset=abc",
+		"offset=1.5",
+		"offset=10001",
+		"limit=0",
+		"limit=abc",
+		"weeks=0",
+		"weeks=abc",
+		"jurisdiccion=xx",
+	])("invalid %s returns 400", async (qs) => {
+		const res = await request(`/v1/changelog?${qs}`);
+		expect(res.status).toBe(400);
+		const body = (await res.json()) as ChangelogResponse;
+		expect(typeof body.error).toBe("string");
+	});
+
+	test("jurisdiction is accepted as an alias of jurisdiccion", async () => {
+		const a = (await (
+			await request("/v1/changelog?jurisdiccion=es")
+		).json()) as ChangelogResponse;
+		const b = (await (
+			await request("/v1/changelog?jurisdiction=es")
+		).json()) as ChangelogResponse;
+		expect(a.reforms.map((r) => r.id)).toEqual(["BOE-A-2024-1000"]);
+		expect(b.reforms).toEqual(a.reforms);
+	});
+});
