@@ -154,7 +154,7 @@ function renderTextWithCitations(
 								{citation.citizenSummary}
 							</span>
 						)}
-						<span className="ask-cite-tooltip-action">Ver en Ley Abierta</span>
+						<span className="ask-cite-tooltip-action">Ver en el BOE ↗</span>
 					</span>
 				</span>,
 			);

@@ -65,6 +65,9 @@ describe("legacyTextTabRedirect", () => {
 		expect(legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229/?tab=texto"))).toBe(
 			"https://www.boe.es/buscar/act.php?id=BOE-A-1978-31229",
 		);
+		expect(legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229?tab=texto"))).toBe(
+			"https://www.boe.es/buscar/act.php?id=BOE-A-1978-31229",
+		);
 		expect(legacyTextTabRedirect(u("/leyes/DOGC-f-2019-90497?tab=texto"))).toBe(
 			"https://www.boe.es/buscar/act.php?id=DOGC-f-2019-90497",
 		);
