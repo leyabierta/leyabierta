@@ -6,6 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { GitService } from "../../packages/api/src/services/git.ts";
 import type {
 	Block,
 	Norm,
@@ -22,8 +23,10 @@ import {
 	applyPlans,
 	inspectFile,
 	isRegenerable,
+	parseAllowList,
 	parseFileFrontmatter,
 	planFinding,
+	restrictToAllowList,
 	scanRepo,
 } from "../ad-hoc/restore-regressed-texts.ts";
 
@@ -187,6 +190,29 @@ describe("planning", () => {
 	});
 });
 
+describe("allow-list (--only)", () => {
+	test("parses one ID per line, ignoring comments and blanks", () => {
+		expect(
+			parseAllowList(
+				"# revisado el 23/09\nBOE-A-1978-31229\n\n  BOE-A-2015-11430  # ET\n",
+			),
+		).toEqual(new Set(["BOE-A-1978-31229", "BOE-A-2015-11430"]));
+		expect(parseAllowList("# vacío: solo informe\n").size).toBe(0);
+	});
+
+	test("a regenerable law that is not listed is left alone", async () => {
+		const norm = await loadNorm();
+		const md = renderAt(norm, "1992-08-28");
+		const plan = planFinding(inspectFile(REL, md, NOW)!, md, norm, norm);
+		expect(isRegenerable(plan)).toBe(true);
+		const [kept] = restrictToAllowList([plan], new Set(["BOE-A-1978-31229"]));
+		expect(isRegenerable(kept!)).toBe(true);
+		const [blocked] = restrictToAllowList([plan], new Set());
+		expect(isRegenerable(blocked!)).toBe(false);
+		expect(blocked!.skipReason).toContain("lista autorizada");
+	});
+});
+
 describe("apply", () => {
 	function git(repo: string, args: string[]): string {
 		const env = { ...process.env } as Record<string, string>;
@@ -245,5 +271,23 @@ describe("apply", () => {
 		const again = await run();
 		expect(again.committed).toEqual([]);
 		expect(scanRepo(repo, NOW).findings).toEqual([]);
+
+		// The API's versions/diff endpoints pick commits by Source-Date: from
+		// the latest reform on they must serve the corrected text.
+		const corrected = renderAt(norm, "2024-02-17");
+		const api = new GitService(repo);
+		expect(await api.getFileAtDate(REL, "2024-02-17")).toBe(corrected);
+		expect(await api.getFileAtDate(REL, "2026-09-23")).toBe(corrected);
+
+		// The next daily run (same reforms, no Source-Id on the correction)
+		// must neither re-commit the reforms nor roll the file back.
+		const before = git(repo, ["rev-parse", "HEAD"]);
+		const created = await commitNormsChronologically([norm], {
+			repoPath: repo,
+			dataDir: `${repo}d`,
+		});
+		expect(created).toBe(0);
+		expect(git(repo, ["rev-parse", "HEAD"])).toBe(before);
+		expect(readFileSync(join(repo, REL), "utf-8")).toBe(corrected);
 	});
 });

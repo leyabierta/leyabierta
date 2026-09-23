@@ -28,7 +28,7 @@
  *     fetch writes its JSON into a throwaway temp dir, never into data/json.
  *   --source cache: `jsonToNorm` from data/json, like `pipeline rebuild`. The
  *     JSON cache drops paragraph CSS classes, so headings come out as plain
- *     paragraphs where the file had `####` — use it only offline/for testing.
+ *     paragraphs where the file had `####` — dry run only (`--apply` refuses it).
  * `materias` / `notas` / `referencias_*` are carried over from the file itself,
  * so the correction commit changes the text and `ultima_actualizacion` only.
  * It is rendered at the law's latest plausible reform date, written through
@@ -60,13 +60,15 @@
  *
  * Usage:
  *   bun run scripts/ad-hoc/restore-regressed-texts.ts --repo PATH \
- *     [--source boe|cache] [--json DIR] [--apply] [--report FILE]
+ *     [--source boe|cache] [--json DIR] [--apply] [--report FILE] [--only FILE]
  *
  *   --repo    leyes checkout (default: $REPO_PATH; required otherwise)
  *   --source  where to re-render from (default: boe)
  *   --json    JSON cache dir (default: ./data/json)
  *   --apply   write + commit the flagged files (default: dry run)
  *   --report  also write the findings as JSON to FILE
+ *   --only    only regenerate the norm IDs listed in FILE (one per line, `#`
+ *             comments); everything else is reported but left alone
  *
  * HOW TO RUN IN PRODUCTION: inside the api container (it owns /data/leyes and
  * /data/json) while the daily pipeline is NOT running, then let Step 1.5 of
@@ -78,6 +80,11 @@
  *     --repo /data/leyes                      # dry run: review the list
  *   docker exec code-api-1 bun run scripts/ad-hoc/restore-regressed-texts.ts \
  *     --repo /data/leyes --apply
+ *
+ * Unattended alternative: Step 0.5 of scripts/daily-pipeline.sh runs it with
+ * `--apply --only scripts/ad-hoc/restore-regressed-texts.enabled` when that
+ * file exists at the prod tag. The file is the reviewed list of IDs, so
+ * production can only write laws a person already checked in a dry run.
  *
  * Full procedure and trade-offs: the PR that added this script.
  */
@@ -375,7 +382,9 @@ export function buildCorrectionCommit(
 ): CommitInfo {
 	const { metadata } = norm;
 	return {
-		commitType: "correccion",
+		// Not "correccion": in these commits that means a BOE corrección de
+		// errores. This is a regeneration by the pipeline itself.
+		commitType: "fix-pipeline",
 		subject: `${metadata.shortTitle} — texto restaurado a la versión vigente`,
 		body: [
 			`El fichero estaba generado a fecha ${plan.renderedAt ?? "(sin fecha)"} aunque su última`,
@@ -397,6 +406,32 @@ export function buildCorrectionCommit(
 		filePath: plan.relPath,
 		content: plan.content ?? "",
 	};
+}
+
+/**
+ * Parse an allow-list: one norm ID per line, `#` comments and blank lines
+ * ignored. Used by the unattended run in daily-pipeline.sh (the list lives in
+ * the flag file), so production only ever writes laws a person reviewed.
+ */
+export function parseAllowList(text: string): Set<string> {
+	return new Set(
+		text
+			.split("\n")
+			.map((l) => l.replace(/#.*/, "").trim())
+			.filter(Boolean),
+	);
+}
+
+/** Mark every plan whose law is not in `allowed` as not regenerable. */
+export function restrictToAllowList(
+	plans: readonly Plan[],
+	allowed: ReadonlySet<string>,
+): Plan[] {
+	return plans.map((p) =>
+		allowed.has(p.id) || p.skipReason
+			? p
+			: { ...p, skipReason: "no está en la lista autorizada (--only)" },
+	);
 }
 
 /** A plan that can be written: reforms match and the path checks passed. */
@@ -502,7 +537,20 @@ async function main() {
 		process.exit(2);
 	}
 	const reportPath = arg("--report");
+	const onlyPath = arg("--only");
+	const allowed = onlyPath
+		? parseAllowList(readFileSync(onlyPath, "utf-8"))
+		: undefined;
 	const apply = process.argv.includes("--apply");
+	if (apply && sourceKind === "cache") {
+		// jsonToNorm drops paragraph CSS classes: committing from the cache
+		// would demote headings and drop lines like "#### DISPONGO:" in the
+		// public repo. The cache is for offline dry runs only.
+		console.error(
+			"--source cache es solo para dry run; --apply exige --source boe.",
+		);
+		process.exit(2);
+	}
 
 	if (apply) {
 		// Refuse to mix our commits with someone else's staged work.
@@ -527,7 +575,7 @@ async function main() {
 					}),
 				);
 
-	const plans: Plan[] = findings.map((f) => {
+	const planned: Plan[] = findings.map((f) => {
 		const md = readFileSync(join(repoPath, f.relPath), "utf-8");
 		const plan = planFinding(f, md, sources.get(f.id), loadCache(f.id));
 		try {
@@ -541,6 +589,7 @@ async function main() {
 		} catch {}
 		return plan;
 	});
+	const plans = allowed ? restrictToAllowList(planned, allowed) : planned;
 
 	const fixable = plans.filter(isRegenerable);
 	const rest = plans.filter((p) => !isRegenerable(p));
