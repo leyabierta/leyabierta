@@ -34,9 +34,11 @@
  *     Eval 2026-09-23: judge 9.23 vs 8.41 for flash-lite, 94% vs 78% inline
  *     citation precision, same cost, ~2.5× latency.
  *
- *   OPENROUTER_SYNTHESIS_REASONING=minimal|low|medium|high|none
+ *   OPENROUTER_SYNTHESIS_REASONING=minimal|low|medium|high|none|default
  *     Reasoning effort sent with synthesis calls. Default: "minimal" for
- *     openai/* models (as evaluated), unset (provider default) otherwise.
+ *     openai/* models (as evaluated; OpenRouter maps it to 0 reasoning
+ *     tokens on gpt-6-luna), nothing otherwise. "none" sends effort "none";
+ *     "default" sends no field (gpt-6-luna then reasons at "medium").
  *
  *   OPENROUTER_RERANK_LLM_MODEL=google/gemini-2.5-flash-lite (default)
  *     The chat model used by the "llm" rerank backend.
@@ -165,7 +167,11 @@ export function resolveSynthesisReasoning(
 ): OpenRouterReasoning | undefined {
 	const raw = env.OPENROUTER_SYNTHESIS_REASONING?.trim().toLowerCase();
 	if (raw) {
-		if (raw === "none" || raw === "off") return undefined;
+		// "default" = send nothing (provider default — for openai/gpt-6-luna
+		// that is effort "medium", i.e. reasoning ON). "none"/"off" must be sent
+		// explicitly: omitting the field does NOT turn reasoning off.
+		if (raw === "default") return undefined;
+		if (raw === "none" || raw === "off") return { effort: "none" };
 		if (
 			raw === "minimal" ||
 			raw === "low" ||

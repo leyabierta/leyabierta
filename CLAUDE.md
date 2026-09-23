@@ -177,7 +177,7 @@ The NaN provider (`api.nan.builders`, `NAN_API_KEY`) that served the stack until
 | Embeddings | `qwen/qwen3-embedding-8b` (4096 dims) | — (fixed: must match the stored vectors) |
 | Query analyzer (+ auxiliary calls: streaming tldr/next questions, declined suggestions, lazy article summaries) | `google/gemini-2.5-flash-lite` | `OPENROUTER_LLM_MODEL` |
 | Reranker | `google/gemini-2.5-flash-lite` (LLM listwise rerank) | `RERANK_BACKEND` (`llm`/`none`/`cohere-or`), `OPENROUTER_RERANK_LLM_MODEL` |
-| Synthesis (JSON + streaming; `meta.model`) | `openai/gpt-6-luna`, reasoning `{effort: "minimal"}` | `OPENROUTER_SYNTHESIS_MODEL`, `OPENROUTER_SYNTHESIS_REASONING` (`minimal`/`low`/`medium`/`high`/`none`; default `minimal` for `openai/*`, unset otherwise) |
+| Synthesis (JSON + streaming; `meta.model`) | `openai/gpt-6-luna`, reasoning `{effort: "minimal"}` | `OPENROUTER_SYNTHESIS_MODEL`, `OPENROUTER_SYNTHESIS_REASONING` (`minimal`/`low`/`medium`/`high`/`none`/`default`; default `minimal` for `openai/*`, nothing otherwise; `default` omits the field, which on gpt-6-luna means reasoning at `medium`) |
 
 **Embeddings compatibility:** the corpus vectors were generated with
 Qwen3-Embedding-8B via NaN and are stored under the historical model key

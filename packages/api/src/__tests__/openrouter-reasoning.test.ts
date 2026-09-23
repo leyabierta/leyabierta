@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import {
 	callOpenRouter,
 	callOpenRouterStream,
+	OpenRouterError,
 } from "../services/openrouter.ts";
 
 const realFetch = globalThis.fetch;
@@ -75,5 +76,52 @@ describe("OpenRouter reasoning passthrough", () => {
 		expect(bodies[0]?.reasoning).toEqual({ effort: "minimal" });
 		expect(bodies[0]?.stream).toBe(true);
 		expect(text).toBe("Sí.");
+	});
+
+	it("streaming never yields reasoning deltas as answer text", async () => {
+		capture(
+			() =>
+				new Response(
+					'data: {"choices":[{"delta":{"reasoning":"PENSANDO en secreto","reasoning_details":[{"type":"reasoning.text","text":"PENSANDO"}]}}]}\n\n' +
+						'data: {"choices":[{"delta":{"content":"Respuesta."}}]}\n\n' +
+						"data: [DONE]\n\n",
+					{ status: 200 },
+				),
+		);
+		let text = "";
+		for await (const ev of callOpenRouterStream("k", {
+			model: "openai/gpt-6-luna",
+			messages,
+		})) {
+			if (ev.type === "delta") text += ev.text;
+		}
+		expect(text).toBe("Respuesta.");
+	});
+
+	it("streaming throws on a mid-stream error event instead of ending as if complete", async () => {
+		capture(
+			() =>
+				new Response(
+					'data: {"choices":[{"delta":{"content":"Según"}}]}\n\n' +
+						'data: {"error":{"code":429,"message":"openai/gpt-6-luna is temporarily rate-limited upstream"},"choices":[{"delta":{"content":""},"finish_reason":"error"}]}\n\n' +
+						"data: [DONE]\n\n",
+					{ status: 200 },
+				),
+		);
+		const seen: string[] = [];
+		let caught: unknown = null;
+		try {
+			for await (const ev of callOpenRouterStream("k", {
+				model: "openai/gpt-6-luna",
+				messages,
+			})) {
+				seen.push(ev.type === "delta" ? ev.text : "<done>");
+			}
+		} catch (err) {
+			caught = err;
+		}
+		expect(caught).toBeInstanceOf(OpenRouterError);
+		expect((caught as OpenRouterError).code).toBe("stream_error");
+		expect(seen).toEqual(["Según"]);
 	});
 });

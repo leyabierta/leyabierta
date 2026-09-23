@@ -78,15 +78,31 @@ describe("resolveSynthesisReasoning", () => {
 		).toBeUndefined();
 	});
 
-	it("honours an explicit effort and 'none'", () => {
+	it("honours an explicit effort", () => {
 		expect(
 			resolveSynthesisReasoning("openai/gpt-6-luna", {
 				OPENROUTER_SYNTHESIS_REASONING: "low",
 			}),
 		).toEqual({ effort: "low" });
+	});
+
+	it("'none' sends effort none explicitly (omitting it = provider default)", () => {
+		// Verified on OpenRouter 2026-09-23: gpt-6-luna with no `reasoning`
+		// field spent 39 reasoning tokens on a one-line question (default
+		// effort "medium"); with effort "none" or "minimal" it spent 0.
+		for (const v of ["none", "off", " NONE "]) {
+			expect(
+				resolveSynthesisReasoning("openai/gpt-6-luna", {
+					OPENROUTER_SYNTHESIS_REASONING: v,
+				}),
+			).toEqual({ effort: "none" });
+		}
+	});
+
+	it("'default' sends no reasoning field", () => {
 		expect(
 			resolveSynthesisReasoning("openai/gpt-6-luna", {
-				OPENROUTER_SYNTHESIS_REASONING: "none",
+				OPENROUTER_SYNTHESIS_REASONING: "default",
 			}),
 		).toBeUndefined();
 	});
