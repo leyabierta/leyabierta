@@ -125,3 +125,40 @@ describe("OpenRouter reasoning passthrough", () => {
 		expect(seen).toEqual(["Según"]);
 	});
 });
+
+describe("errors inside a 200 response", () => {
+	it("a 429 in the body is retried and named rate_limit", async () => {
+		let calls = 0;
+		globalThis.fetch = (async () => {
+			calls++;
+			return new Response(
+				JSON.stringify({
+					error: { code: 429, message: "temporarily rate-limited upstream" },
+				}),
+				{ status: 200 },
+			);
+		}) as unknown as typeof fetch;
+		const err = await callOpenRouter("k", {
+			model: "qwen/qwen3.8-27b",
+			messages,
+		}).catch((e) => e);
+		expect(err).toBeInstanceOf(OpenRouterError);
+		expect((err as OpenRouterError).code).toBe("rate_limit");
+		expect(calls).toBe(3);
+	}, 15_000);
+
+	it("succeeds when a retry returns content", async () => {
+		let calls = 0;
+		globalThis.fetch = (async () =>
+			++calls === 1
+				? new Response(JSON.stringify({ error: { code: 429 } }), {
+						status: 200,
+					})
+				: jsonOk()) as unknown as typeof fetch;
+		const res = await callOpenRouter<{ ok: boolean }>("k", {
+			model: "qwen/qwen3.8-27b",
+			messages,
+		});
+		expect(res.data).toEqual({ ok: true });
+	}, 15_000);
+});

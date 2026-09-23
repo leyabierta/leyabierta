@@ -419,6 +419,7 @@ export async function callOpenRouter<T>(
 				completion_tokens?: number;
 			};
 			choices?: Array<{ message?: { content?: string } }>;
+			error?: { code?: number | string; message?: string };
 		};
 		const usage = rawData.usage ?? {};
 		if (process.env.DEBUG_OPENROUTER) {
@@ -427,10 +428,14 @@ export async function callOpenRouter<T>(
 		const resultText = rawData.choices?.[0]?.message?.content ?? "";
 
 		if (!resultText) {
-			lastError = new OpenRouterError(
-				"empty_response",
-				"LLM returned empty content",
-			);
+			// OpenRouter reports some upstream failures (e.g. a 429 rate limit)
+			// inside a 200 response; name them instead of "empty content".
+			lastError = rawData.error
+				? new OpenRouterError(
+						rawData.error.code === 429 ? "rate_limit" : "upstream_error",
+						`Upstream error ${rawData.error.code ?? ""}: ${String(rawData.error.message ?? "").slice(0, 200)}`,
+					)
+				: new OpenRouterError("empty_response", "LLM returned empty content");
 			continue;
 		}
 
