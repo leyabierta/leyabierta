@@ -11,6 +11,15 @@
  *   BASE=http://127.0.0.1:8001/v1 MODEL=qwen3.8-27b CONC=64 \
  *     bun run packages/api/src/scripts/article-summaries-offline.ts generate <in.jsonl> <out.jsonl> [--limit N]
  *   bun run packages/api/src/scripts/article-summaries-offline.ts import <generated.jsonl> [--apply] [--db PATH]
+ *     [--replace-from <export.jsonl>]
+ *
+ * Regeneration of existing (older, lower-quality) summaries of chosen laws:
+ *   ... export <out.jsonl> --regenerate <norm-ids.json>
+ * writes their articles with `previous_summary_hash`; an export file
+ * whose rows carry `previous_summary_hash` (the hash of the summary at export
+ * time) can be passed with --replace-from; import then replaces those
+ * summaries and their article tags, but only if they are still exactly the
+ * ones exported.
  *
  * Generation uses the production prompt v10 (citizen-summary-backfill-prompt.ts)
  * with one article per request (the server batches; one article per request
@@ -43,7 +52,11 @@ const positional = args
 	.slice(1)
 	.filter(
 		(a, i, all) =>
-			!a.startsWith("--") && all[i - 1] !== "--db" && all[i - 1] !== "--limit",
+			!a.startsWith("--") &&
+			all[i - 1] !== "--db" &&
+			all[i - 1] !== "--limit" &&
+			all[i - 1] !== "--replace-from" &&
+			all[i - 1] !== "--regenerate",
 	);
 
 type ExportRow = BackfillArticle & { input_hash: string };
@@ -127,6 +140,44 @@ async function exportPending(outFile: string) {
 	);
 }
 
+/**
+ * Regeneration export: articles of the given laws that already have a
+ * (non-empty) summary, with the hash of that summary so that import
+ * --replace-from only replaces it if it is still the same.
+ */
+async function exportRegenerate(outFile: string, normsFile: string) {
+	const db = new Database(DB_PATH, { readonly: true });
+	const normIds = JSON.parse(await Bun.file(normsFile).text()) as string[];
+	const query = db.prepare(
+		`SELECT n.id AS norm_id, n.title AS norm_title, b.block_id,
+		        b.title AS block_title, b.current_text, c.summary
+		 FROM norms n JOIN blocks b ON b.norm_id = n.id
+		 JOIN citizen_article_summaries c ON c.norm_id = n.id AND c.block_id = b.block_id
+		 WHERE n.id = ? AND n.status = 'vigente' AND n.citizen_summary != ''
+		   AND b.block_type = 'precepto' AND length(b.current_text) >= 50
+		   AND c.summary != ''
+		 ORDER BY b.position`,
+	);
+	const out: string[] = [];
+	for (const id of normIds)
+		for (const r of query.all(id) as (BackfillArticle & { summary: string })[])
+			out.push(
+				JSON.stringify({
+					norm_id: r.norm_id,
+					norm_title: r.norm_title,
+					block_id: r.block_id,
+					block_title: r.block_title,
+					current_text: r.current_text,
+					input_hash: textHash(r.current_text),
+					previous_summary_hash: textHash(r.summary),
+				}),
+			);
+	await Bun.write(outFile, out.join("\n") + (out.length ? "\n" : ""));
+	console.log(
+		`export (regenerate): ${out.length} articles of ${normIds.length} laws written to ${outFile}`,
+	);
+}
+
 async function generate(inFile: string, outFile: string) {
 	await runGeneration({
 		items: readJsonl<ExportRow>(inFile).rows,
@@ -167,14 +218,37 @@ function importGenerated(file: string, apply: boolean) {
 		: new Database(DB_PATH, { readonly: true });
 	db.run("PRAGMA busy_timeout = 30000");
 	const { rows, badLines } = readJsonl<unknown>(file);
-	const report = importRows(db, rows, { apply });
+	const replaceFrom = flag("--replace-from");
+	let replace: Map<string, string> | undefined;
+	if (replaceFrom) {
+		replace = new Map();
+		for (const e of readJsonl<{
+			norm_id: string;
+			block_id: string;
+			previous_summary_hash?: string;
+		}>(replaceFrom).rows)
+			if (e.previous_summary_hash)
+				replace.set(`${e.norm_id}|${e.block_id}`, e.previous_summary_hash);
+		console.log(`replace mode: ${replace.size} summaries may be replaced`);
+	}
+	const report = importRows(db, rows, { apply, replace });
 	console.log(
 		`${apply ? "APPLIED" : "DRY RUN (use --apply to write)"}: ${JSON.stringify({ ...report, badLines })}`,
 	);
 }
 
 const [first, second] = positional;
-if (cmd === "export" && first) await exportPending(first);
+const regenerate = flag("--regenerate");
+if (
+	args.includes("--regenerate") &&
+	(!regenerate || regenerate.startsWith("--"))
+) {
+	console.error("--regenerate needs a JSON file with the law ids");
+	process.exit(1);
+}
+if (cmd === "export" && first && regenerate)
+	await exportRegenerate(first, regenerate);
+else if (cmd === "export" && first) await exportPending(first);
 else if (cmd === "generate" && first && second) await generate(first, second);
 else if (cmd === "import" && first)
 	importGenerated(first, args.includes("--apply"));
