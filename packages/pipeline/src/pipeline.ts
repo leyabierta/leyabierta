@@ -120,6 +120,12 @@ function readExisting(repoPath: string, filePath: string): string | undefined {
  * frontmatter metadata. Before this, every daily `bootstrap` commit rewrote
  * the file without `materias` / `notas` / `referencias_*`, because `fetchNorm`
  * didn't load análisis at all.
+ *
+ * Trade-off: the file's copy can outlive a removal at the BOE. That is no
+ * worse than the source it falls back from: Step 3 only ever inserts or
+ * replaces análisis rows (never deletes), so the DB and the JSON cache keep
+ * removed references too, and the fallback only applies when the cache has
+ * no análisis at all.
  */
 export function resolveAnalisis(
 	norm: Pick<Norm, "analisis">,

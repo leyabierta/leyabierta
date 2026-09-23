@@ -7,6 +7,7 @@
 
 import type { LegislativeClient } from "../country.ts";
 import type { NormAnalisis } from "../models.ts";
+import { canonicalRefs } from "../transform/analisis.ts";
 import { withRetry } from "../utils/retry.ts";
 import {
 	DEFAULT_MATERIAS_PATH,
@@ -78,7 +79,8 @@ export class BoeClient implements LegislativeClient {
 	 * Análisis in the same shape `ingest-analisis` stores it (and writes to the
 	 * JSON cache): materias resolved from the ELI codes (falling back to the
 	 * partial /analisis list), materias sorted like the DB query, references
-	 * without a target norm dropped. Undefined when the BOE has none.
+	 * without a target norm dropped, deduplicated and ordered like the DB
+	 * (`canonicalRefs`). Undefined when the BOE has none.
 	 *
 	 * Used by `fetchNorm` for norms that have no análisis in the JSON cache yet
 	 * (new norms), so their first commit to `leyes` is not missing materias.
@@ -98,8 +100,8 @@ export class BoeClient implements LegislativeClient {
 			materias,
 			notas: analisis.notas,
 			referencias: {
-				anteriores: analisis.referencias.anteriores.filter((r) => r.normId),
-				posteriores: analisis.referencias.posteriores.filter((r) => r.normId),
+				anteriores: canonicalRefs(analisis.referencias.anteriores),
+				posteriores: canonicalRefs(analisis.referencias.posteriores),
 			},
 		};
 		const empty =

@@ -25,8 +25,10 @@ import {
 	fetchNorm,
 	resolveAnalisis,
 } from "../src/pipeline.ts";
+import { BoeClient } from "../src/spain/boe-client.ts";
 import { resolveMaterias } from "../src/spain/materias.ts";
 import {
+	canonicalRefs,
 	parseCachedAnalisis,
 	readAnalisisFromMarkdown,
 } from "../src/transform/analisis.ts";
@@ -116,6 +118,60 @@ describe("transform/analisis", () => {
 		).toEqual(["Empleo"]);
 		expect([...missing]).toEqual(["2"]);
 		expect(resolveMaterias(["9"], {}, ["Parcial"])).toEqual(["Parcial"]);
+	});
+
+	test("canonicalRefs: DB shape — no empty target, one per (target, relation), sorted", () => {
+		expect(
+			canonicalRefs([
+				{ normId: "BOE-B-1958-7949", relation: "DEROGA", text: "b" },
+				{ normId: "", relation: "CITA", text: "sin destino" },
+				{ normId: "BOE-A-1977-165", relation: "SE MODIFICA", text: "old" },
+				{ normId: "BOE-A-1977-165", relation: "DEROGA", text: "a" },
+				{ normId: "BOE-A-1977-165", relation: "SE MODIFICA", text: "new" },
+			]),
+		).toEqual([
+			{ normId: "BOE-A-1977-165", relation: "DEROGA", text: "a" },
+			{ normId: "BOE-A-1977-165", relation: "SE MODIFICA", text: "new" },
+			{ normId: "BOE-B-1958-7949", relation: "DEROGA", text: "b" },
+		]);
+	});
+
+	test("BoeClient.getNormAnalisis matches the Step-3 cache shape (no reorder churn)", async () => {
+		// A new law's first commit uses the BOE; its next one uses the cache
+		// Step 3 wrote from the DB. Both must render the same frontmatter.
+		const client = new BoeClient(0, "/nonexistent/materias.json");
+		client.getAnalisis = async () => ({
+			materias: ["Zeta", "Alfa", "Alfa"],
+			notas: ["Nota 1"],
+			referencias: {
+				anteriores: [
+					{ normId: "BOE-A-2000-2", relation: "DEROGA", text: "dos" },
+					{ normId: "BOE-A-2000-1", relation: "DEROGA", text: "uno" },
+				],
+				posteriores: [
+					{ normId: "", relation: "CITA", text: "x" },
+					{ normId: "BOE-A-2020-9", relation: "SE MODIFICA", text: "m" },
+				],
+			},
+		});
+		client.getMateriaCodes = async () => [];
+		const fresh = await client.getNormAnalisis("BOE-A-1999-1");
+		const cache = parseCachedAnalisis({
+			analisis: {
+				materias: ["Alfa", "Zeta"],
+				notas: ["Nota 1"],
+				referencias: {
+					anteriores: [
+						{ normId: "BOE-A-2000-1", relation: "DEROGA", text: "uno" },
+						{ normId: "BOE-A-2000-2", relation: "DEROGA", text: "dos" },
+					],
+					posteriores: [
+						{ normId: "BOE-A-2020-9", relation: "SE MODIFICA", text: "m" },
+					],
+				},
+			},
+		});
+		expect(fresh).toEqual(cache);
 	});
 
 	test("resolveAnalisis: the norm's análisis wins, else the file's", async () => {

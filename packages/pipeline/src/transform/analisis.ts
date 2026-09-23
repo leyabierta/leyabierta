@@ -61,6 +61,35 @@ export function analisisToFrontmatter(
 	return out;
 }
 
+/** Code-unit (byte-order for BMP text) comparison, like SQLite's BINARY. */
+const binaryCompare = (a: string, b: string): number =>
+	a < b ? -1 : a > b ? 1 : 0;
+
+/**
+ * References in the exact shape Step 3 (`ingest-analisis`) stores them in the
+ * JSON cache: dropped when they have no target norm, one per
+ * (target, relation) with the last text winning (the DB primary key +
+ * `INSERT OR REPLACE`), sorted by target then relation (the DB query order).
+ *
+ * `BoeClient.getNormAnalisis` must produce this shape: otherwise a new law's
+ * first commit would carry the BOE's order and its next commit, rendered from
+ * the Step-3 cache, would reorder every reference in the public `leyes` diff.
+ */
+export function canonicalRefs(list: readonly Ref[]): Ref[] {
+	const byKey = new Map<string, Ref>();
+	for (const r of list) {
+		if (!r.normId) continue;
+		const key = `${r.normId}\u0000${r.relation}`;
+		byKey.delete(key);
+		byKey.set(key, { normId: r.normId, relation: r.relation, text: r.text });
+	}
+	return [...byKey.values()].sort(
+		(a, b) =>
+			binaryCompare(a.normId, b.normId) ||
+			binaryCompare(a.relation, b.relation),
+	);
+}
+
 const strings = (v: unknown): string[] =>
 	Array.isArray(v) ? v.map((x) => String(x)) : [];
 

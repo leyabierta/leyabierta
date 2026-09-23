@@ -200,17 +200,21 @@ async function main() {
 	const queryNotas = db.prepare<{ nota: string }, [string]>(
 		"SELECT nota FROM notas WHERE norm_id = ? ORDER BY position",
 	);
+	// Explicit ORDER BY (the primary-key order these queries already returned):
+	// the leyes frontmatter renders references in this order, and
+	// BoeClient.getNormAnalisis (canonicalRefs) reproduces it for new laws, so
+	// it must not depend on which index the query planner happens to pick.
 	const queryRefsAnt = db.prepare<
 		{ relation: string; target_id: string; text: string },
 		[string]
 	>(
-		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'anterior'",
+		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'anterior' ORDER BY target_id, relation",
 	);
 	const queryRefsPost = db.prepare<
 		{ relation: string; target_id: string; text: string },
 		[string]
 	>(
-		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'posterior'",
+		"SELECT relation, target_id, text FROM referencias WHERE norm_id = ? AND direction = 'posterior' ORDER BY target_id, relation",
 	);
 
 	let enriched = 0;
