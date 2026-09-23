@@ -176,6 +176,31 @@ describe("GET /v1/reforms/personal", () => {
 		expect(body.reforms[0]?.id).toBe("BOE-A-2024-2000");
 	});
 
+	test("jurisdiction is accepted as an alias of jurisdiccion", async () => {
+		const res = await request(
+			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiction=es-pv&limit=100",
+		);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as PersonalReformsResponse;
+		expect(body.reforms.map((r) => r.id)).toEqual(["BOE-A-2024-2000"]);
+	});
+
+	test("jurisdiccion wins over jurisdiction when both are set", async () => {
+		const res = await request(
+			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiccion=es&jurisdiction=es-pv&limit=100",
+		);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as PersonalReformsResponse;
+		expect(body.reforms).toEqual([]);
+	});
+
+	test("invalid jurisdiction alias returns 400", async () => {
+		const res = await request(
+			"/v1/reforms/personal?materias=Educaci%C3%B3n&jurisdiction=xx",
+		);
+		expect(res.status).toBe(400);
+	});
+
 	test("returns empty reforms array when no matches", async () => {
 		const res = await request(
 			"/v1/reforms/personal?materias=NonexistentMateria&weeks=4",
