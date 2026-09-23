@@ -6,7 +6,7 @@
  * the registry.
  */
 
-import type { Block, NormMetadata, Reform } from "./models.ts";
+import type { Block, NormAnalisis, NormMetadata, Reform } from "./models.ts";
 
 /**
  * Fetches raw legislative text and metadata from an official source.
@@ -17,6 +17,13 @@ export interface LegislativeClient {
 
 	/** Download norm metadata. */
 	getMetadata(normId: string): Promise<Uint8Array>;
+
+	/**
+	 * Optional: subject categories, notes and cross-references for a norm.
+	 * `fetchNorm` calls it only when the JSON cache has no análisis for the
+	 * norm yet; failures are non-fatal. Undefined when the source has none.
+	 */
+	getNormAnalisis?(normId: string): Promise<NormAnalisis | undefined>;
 
 	/** Cleanup (close connections, etc). */
 	close(): Promise<void>;

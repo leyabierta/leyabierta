@@ -6,15 +6,25 @@
  */
 
 import type { LegislativeClient } from "../country.ts";
+import type { NormAnalisis } from "../models.ts";
 import { withRetry } from "../utils/retry.ts";
+import {
+	DEFAULT_MATERIAS_PATH,
+	loadMateriaLookup,
+	resolveMaterias,
+} from "./materias.ts";
 
 const BASE_URL = "https://www.boe.es/datosabiertos/api";
 const DEFAULT_DELAY_MS = 200; // ~5 req/s courtesy limit
 
 export class BoeClient implements LegislativeClient {
 	private lastRequestAt = 0;
+	private materiaLookup: Record<string, string> | undefined;
 
-	constructor(private readonly delayMs = DEFAULT_DELAY_MS) {}
+	constructor(
+		private readonly delayMs = DEFAULT_DELAY_MS,
+		private readonly materiasPath = DEFAULT_MATERIAS_PATH,
+	) {}
 
 	async getText(normId: string): Promise<Uint8Array> {
 		const url = `${BASE_URL}/legislacion-consolidada/id/${normId}/texto`;
@@ -62,6 +72,42 @@ export class BoeClient implements LegislativeClient {
 				),
 			},
 		};
+	}
+
+	/**
+	 * Análisis in the same shape `ingest-analisis` stores it (and writes to the
+	 * JSON cache): materias resolved from the ELI codes (falling back to the
+	 * partial /analisis list), materias sorted like the DB query, references
+	 * without a target norm dropped. Undefined when the BOE has none.
+	 *
+	 * Used by `fetchNorm` for norms that have no análisis in the JSON cache yet
+	 * (new norms), so their first commit to `leyes` is not missing materias.
+	 */
+	async getNormAnalisis(normId: string): Promise<NormAnalisis | undefined> {
+		this.materiaLookup ??= loadMateriaLookup(this.materiasPath);
+		const analisis = await this.getAnalisis(normId);
+		const codes = await this.getMateriaCodes(normId);
+		const materias = [
+			...new Set(
+				resolveMaterias(codes, this.materiaLookup, analisis.materias).filter(
+					Boolean,
+				),
+			),
+		].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+		const result: NormAnalisis = {
+			materias,
+			notas: analisis.notas,
+			referencias: {
+				anteriores: analisis.referencias.anteriores.filter((r) => r.normId),
+				posteriores: analisis.referencias.posteriores.filter((r) => r.normId),
+			},
+		};
+		const empty =
+			result.materias.length === 0 &&
+			result.notas.length === 0 &&
+			result.referencias.anteriores.length === 0 &&
+			result.referencias.posteriores.length === 0;
+		return empty ? undefined : result;
 	}
 
 	/**

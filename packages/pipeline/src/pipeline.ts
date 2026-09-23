@@ -15,8 +15,12 @@ import type {
 } from "./country.ts";
 import { buildCommitInfo } from "./git/message.ts";
 import { GitRepo } from "./git/repo.ts";
-import type { Norm, NormMetadata, Reform } from "./models.ts";
+import type { Norm, NormAnalisis, NormMetadata, Reform } from "./models.ts";
 import { SPAIN_JURISDICTION_CODES } from "./spain/jurisdictions.ts";
+import {
+	readAnalisisFromMarkdown,
+	readCachedAnalisis,
+} from "./transform/analisis.ts";
 import { renderNormAtDate } from "./transform/markdown.ts";
 import { normToFilepath } from "./transform/slug.ts";
 import { extractReforms, parseTextXml } from "./transform/xml-parser.ts";
@@ -109,6 +113,22 @@ function readExisting(repoPath: string, filePath: string): string | undefined {
 }
 
 /**
+ * The análisis (materias, notas, referencias) to render a commit with.
+ *
+ * The norm's own análisis wins (JSON cache / BOE). When it has none, keep what
+ * the file on disk already carries: a commit must never silently drop
+ * frontmatter metadata. Before this, every daily `bootstrap` commit rewrote
+ * the file without `materias` / `notas` / `referencias_*`, because `fetchNorm`
+ * didn't load análisis at all.
+ */
+export function resolveAnalisis(
+	norm: Pick<Norm, "analisis">,
+	existingMarkdown: string | undefined,
+): NormAnalisis | undefined {
+	return norm.analisis ?? readAnalisisFromMarkdown(existingMarkdown);
+}
+
+/**
  * Commit all reforms of a norm to the git repo.
  */
 export async function commitNorm(
@@ -135,12 +155,13 @@ export async function commitNorm(
 		const isFirst = i === 0;
 		const commitType = isFirst ? "bootstrap" : "reforma";
 
+		const existing = readExisting(cfg.repoPath, filePath);
 		const markdown = renderNormAtDate(
 			metadata,
 			blocks,
-			resolveRenderDate(reform.date, readExisting(cfg.repoPath, filePath)),
+			resolveRenderDate(reform.date, existing),
 			norm.reforms,
-			norm.analisis,
+			resolveAnalisis(norm, existing),
 		);
 		const changed = repo.writeAndAdd(filePath, markdown);
 
@@ -239,12 +260,13 @@ export async function commitNormsChronologically(
 		const commitType = isFirst ? "bootstrap" : "reforma";
 
 		const filePath = normToFilepath(metadata);
+		const existing = readExisting(cfg.repoPath, filePath);
 		const markdown = renderNormAtDate(
 			metadata,
 			blocks,
-			resolveRenderDate(reform.date, readExisting(cfg.repoPath, filePath)),
+			resolveRenderDate(reform.date, existing),
 			norm.reforms,
-			norm.analisis,
+			resolveAnalisis(norm, existing),
 		);
 		const changed = repo.writeAndAdd(filePath, markdown);
 
@@ -383,10 +405,32 @@ export async function fetchNorm(
 		];
 	}
 
-	const norm: Norm = { metadata, blocks, reforms };
+	// Análisis (materias, notas, referencias). The /texto and /metadatos
+	// endpoints don't carry it, and this function rewrites the JSON cache, so
+	// without this the daily run both committed files without `materias` to
+	// `leyes` AND wiped `analisis` from the cache until Step 3
+	// (`ingest-analisis`) put it back. Prefer the cache: Step 3 refreshes it
+	// from the DB every day, so it is what the DB/API already serve. Only a
+	// norm with nothing cached (a new one) asks the source, and a failure there
+	// never fails the norm — the commit then keeps the file's own análisis.
+	const jsonDir = `${dataDir}/json`;
+	let analisis = readCachedAnalisis(`${jsonDir}/${metadata.id}.json`);
+	if (!analisis && client.getNormAnalisis) {
+		try {
+			analisis = await client.getNormAnalisis(normId);
+		} catch (err) {
+			console.warn(
+				`[pipeline] ${normId}: análisis unavailable (${err instanceof Error ? err.message : err}); ` +
+					"committing without it — ingest-analisis fills it in later.",
+			);
+		}
+	}
+
+	const norm: Norm = analisis
+		? { metadata, blocks, reforms, analisis }
+		: { metadata, blocks, reforms };
 
 	// Save JSON cache
-	const jsonDir = `${dataDir}/json`;
 	await Bun.write(
 		`${jsonDir}/${metadata.id}.json`,
 		JSON.stringify(normToJson(norm), null, 2),

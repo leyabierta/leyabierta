@@ -13,6 +13,7 @@
 import { Database } from "bun:sqlite";
 import { createSchema } from "./db/schema.ts";
 import { BoeClient } from "./spain/boe-client.ts";
+import { resolveMaterias } from "./spain/materias.ts";
 
 const dbPath = process.argv[2] || "./data/leyabierta.db";
 const concurrency = Number(
@@ -91,13 +92,12 @@ async function main() {
 		// republishes the reference table). Unresolved codes are dropped and
 		// tallied; if NONE of the codes resolve we fall back to the partial but
 		// real names from the /analisis endpoint rather than storing nothing.
-		const resolved: string[] = [];
-		for (const code of materiaCodes) {
-			const name = materiaLookup[code];
-			if (name) resolved.push(name);
-			else missingCodes.add(code);
-		}
-		const fullMaterias = resolved.length > 0 ? resolved : analisis.materias;
+		const fullMaterias = resolveMaterias(
+			materiaCodes,
+			materiaLookup,
+			analisis.materias,
+			missingCodes,
+		);
 
 		// DB writes are synchronous and fast — no contention issue
 		db.transaction(() => {
