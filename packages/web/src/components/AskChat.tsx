@@ -1305,7 +1305,7 @@ export default function AskChat() {
 																	className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
 																>
 																	<a
-																		href={`/leyes/${c.normId}/${c.anchor ? `#${c.anchor}` : ""}`}
+																		href={`/leyes/${c.normId}/${c.anchor ? `texto/#${c.anchor}` : ""}`}
 																		target="_blank"
 																		rel="noopener noreferrer"
 																		className="ask-citation-link"

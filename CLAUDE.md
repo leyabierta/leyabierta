@@ -310,14 +310,15 @@ job (`send-notifications.ts`) finds subscribers whose materias match and sends f
 Citizen-facing website built with Astro (`output: "static"`, deployed to Cloudflare Pages).
 
 **Architecture: 100% static, no islands.**
-All pages are pre-rendered at build time. Law detail pages (Resumen, Reformas, Texto) render entirely from frontmatter and markdown — no API calls needed. Interactive behavior (tab switching, search form, theme toggle) uses inline `<script>` with vanilla JS. No UI framework (React, Svelte, etc.) is installed.
+All pages are pre-rendered at build time. Law pages render from frontmatter, markdown and the build manifests (`/v1/build-manifest`, `/v1/build-manifest/articles`, fetched once by `build-with-progress.sh`) — no per-page API calls. Interactive behavior (search form, theme toggle) uses inline `<script>` with vanilla JS. No UI framework (React, Svelte, etc.) is installed.
 
 **When to introduce islands:**
 When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components.
 
 **Current pages:**
 - `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results via API
-- `/laws/[id]` — law detail with static tabs (summary, reforms timeline, full text)
+- `/leyes/[id]/` — law summary page, indexable, **own content only**: citizen summary, "Qué ha cambiado" (reform timeline with AI headlines), "Artículo por artículo" (every AI article summary, each linking to its article on `/texto/`), temas, related laws. No BOE article text. `noindex` only if the law has none of the three kinds of own content (`isIndexableLaw`, fails open if a manifest is missing).
+- `/leyes/[id]/texto/` — full consolidated text with each article's AI summary next to it; `noindex, follow`, never in a sitemap. Old `/leyes/[id]/#articulo-N` / `#texto` links are forwarded client-side, `?tab=texto` by the Worker (301).
 - `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
 - `/mis-cambios` — personal legislative changelog (client-side, filtered by user's materias)
 - `/cambios` — public changelog of all recent reforms (client-side)
@@ -363,7 +364,10 @@ Every norm identified by its BOE/regional ID must appear in exactly one jurisdic
 
 1. **ELI URL** in the norm's metadata source field (e.g. `/eli/es-an/...` → `es-an`, `/eli/es/...` → `es`)
 2. **Regional bulletin prefix** in the norm ID for autonomous community bulletins (BOJA → `es-an`, BON → `es-nc`, DOGV → `es-vc`, BOA → `es-ar`, etc.)
-3. **`metadata.country` field** in the JSON cache (`data/json/<id>.json`) as a last resort
+3. **Autonomic `departamento`** (e.g. "Comunidad Autónoma de La Rioja" → `es-ri`) — covers `BOE-A-…` laws the BOE publishes before assigning their ELI
+4. **`metadata.country` field** in the JSON cache (`data/json/<id>.json`) as a last resort
+
+All of it lives in one function, `resolveJurisdiction` (`packages/pipeline/src/spain/jurisdictions.ts`), used by the metadata parser, `normToFilepath`, the frontmatter and the DB ingest. It returns `es` only when nothing marks the norm as autonomic, and throws when it is autonomic (by `ámbito` or `departamento`) but no rule names its community.
 
 Never silently default to `es` when the above resolution fails — a missing jurisdiction is a bug that must surface loudly, not be papered over. An incorrect `es` fallback is harder to detect than a thrown error.
 
@@ -394,6 +398,8 @@ Do **not** use `find leyes -name "*.md" | wc -l`. The DB deduplicates by ID duri
 ### Past incidents
 
 **2026-04-28 — server-history-divergence:** A manual backfill script used simplified jurisdiction logic with an `es` fallback and wrote 2 autonomous community norms into the `es/` folder instead of their correct jurisdiction folders. The pipeline itself handled the same norms correctly; the bug was in the ad-hoc script. The misclassified files were detected and corrected in the subsequent cleanup. These invariants and the `assertUniqueByNormId` check were introduced as a direct result.
+
+**2026-09 — autonomic laws without ELI in `es/`:** BOE-A-2026-10117 (La Rioja), BOE-A-2026-12186 and BOE-A-2026-13298 (Asturias) were fetched before the BOE assigned their ELI; with no `url_eli` and a `BOE-A` id, the three copies of the resolver fell back to `es`. The resolver was unified and learned the `departamento` rule; `scripts/ad-hoc/move-misplaced-norms.ts` moves such files with `GitRepo.moveNorm` (removal + new path in one commit).
 
 ## Design Principles
 

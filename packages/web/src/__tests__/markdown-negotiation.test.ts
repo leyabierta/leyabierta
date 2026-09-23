@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { lawIdFromPath, prefersMarkdown } from "../worker/index.ts";
+import {
+	lawIdFromPath,
+	legacyTextTabRedirect,
+	prefersMarkdown,
+} from "../worker/index.ts";
 
 describe("prefersMarkdown", () => {
 	const req = (method: string, accept?: string) =>
@@ -37,10 +41,43 @@ describe("lawIdFromPath", () => {
 		expect(lawIdFromPath("/leyes/BOE-A-2023-12203")).toBe("BOE-A-2023-12203");
 	});
 
+	test("also serves the full-text page (/leyes/<id>/texto/)", () => {
+		expect(lawIdFromPath("/leyes/BOE-A-2023-12203/texto/")).toBe(
+			"BOE-A-2023-12203",
+		);
+		expect(lawIdFromPath("/leyes/BOE-A-2023-12203/texto")).toBe(
+			"BOE-A-2023-12203",
+		);
+	});
+
 	test("returns null for non-law paths", () => {
 		expect(lawIdFromPath("/")).toBeNull();
 		expect(lawIdFromPath("/leyes/")).toBeNull();
 		expect(lawIdFromPath("/leyes/BOE-A-2023-12203/reformas/")).toBeNull();
 		expect(lawIdFromPath("/cambios/reforma/")).toBeNull();
+	});
+});
+
+describe("legacyTextTabRedirect", () => {
+	const u = (s: string) => new URL(s, "https://leyabierta.es");
+
+	test("sends the old ?tab=texto law URL to the text page", () => {
+		expect(legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229/?tab=texto"))).toBe(
+			"https://leyabierta.es/leyes/BOE-A-1978-31229/texto/",
+		);
+		expect(legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229?tab=texto"))).toBe(
+			"https://leyabierta.es/leyes/BOE-A-1978-31229/texto/",
+		);
+	});
+
+	test("leaves every other URL alone", () => {
+		expect(legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229/"))).toBeNull();
+		expect(
+			legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229/?tab=reformas")),
+		).toBeNull();
+		expect(
+			legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229/texto/?tab=texto")),
+		).toBeNull();
+		expect(legacyTextTabRedirect(u("/cambios/?tab=texto"))).toBeNull();
 	});
 });
