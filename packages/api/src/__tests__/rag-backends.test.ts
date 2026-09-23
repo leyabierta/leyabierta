@@ -10,6 +10,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	resolveLlmBackend,
 	resolveRerankBackend,
+	resolveSynthesisReasoning,
 } from "../services/rag/backends.ts";
 
 describe("resolveLlmBackend", () => {
@@ -61,5 +62,56 @@ describe("resolveRerankBackend", () => {
 
 	it("treats unknown values as llm", () => {
 		expect(resolveRerankBackend({ RERANK_BACKEND: "voyage" })).toBe("llm");
+	});
+});
+
+describe("resolveSynthesisReasoning", () => {
+	it("uses minimal effort for OpenAI reasoning models by default", () => {
+		expect(resolveSynthesisReasoning("openai/gpt-6-luna", {})).toEqual({
+			effort: "minimal",
+		});
+	});
+
+	it("sends nothing for other models (e.g. Gemini keeps its default)", () => {
+		expect(
+			resolveSynthesisReasoning("google/gemini-2.5-flash-lite", {}),
+		).toBeUndefined();
+	});
+
+	it("honours an explicit effort", () => {
+		expect(
+			resolveSynthesisReasoning("openai/gpt-6-luna", {
+				OPENROUTER_SYNTHESIS_REASONING: "low",
+			}),
+		).toEqual({ effort: "low" });
+	});
+
+	it("'none' sends effort none explicitly (omitting it = provider default)", () => {
+		// Verified on OpenRouter 2026-09-23: gpt-6-luna with no `reasoning`
+		// field spent 39 reasoning tokens on a one-line question (default
+		// effort "medium"); with effort "none" or "minimal" it spent 0.
+		for (const v of ["none", "off", " NONE "]) {
+			expect(
+				resolveSynthesisReasoning("openai/gpt-6-luna", {
+					OPENROUTER_SYNTHESIS_REASONING: v,
+				}),
+			).toEqual({ effort: "none" });
+		}
+	});
+
+	it("'default' sends no reasoning field", () => {
+		expect(
+			resolveSynthesisReasoning("openai/gpt-6-luna", {
+				OPENROUTER_SYNTHESIS_REASONING: "default",
+			}),
+		).toBeUndefined();
+	});
+
+	it("falls back to the model default on unknown values", () => {
+		expect(
+			resolveSynthesisReasoning("openai/gpt-6-luna", {
+				OPENROUTER_SYNTHESIS_REASONING: "max",
+			}),
+		).toEqual({ effort: "minimal" });
 	});
 });
