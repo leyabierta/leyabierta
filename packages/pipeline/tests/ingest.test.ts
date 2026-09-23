@@ -618,6 +618,30 @@ describe("ingestJsonDir", () => {
 		expect(row.country).toBe("es");
 		expect(row.jurisdiction).toBe("es-an");
 	});
+
+	test("resolves an autonomic BOE-A norm without ELI by departamento", async () => {
+		// Cache entry written before the BOE assigned the ELI (BOE-A-2026-10117).
+		const norm = makeNormJson({
+			metadata: {
+				...makeNormJson().metadata,
+				id: "BOE-A-2026-10117",
+				country: "es",
+				department: "Comunidad Autónoma de La Rioja",
+				source: "https://www.boe.es/buscar/act.php?id=BOE-A-2026-10117",
+			},
+		});
+		await writeFile(
+			join(tempDir, "BOE-A-2026-10117.json"),
+			JSON.stringify(norm),
+		);
+
+		await ingestJsonDir(db, tempDir);
+
+		const row = db
+			.query("SELECT jurisdiction FROM norms WHERE id = 'BOE-A-2026-10117'")
+			.get() as { jurisdiction: string };
+		expect(row.jurisdiction).toBe("es-ri");
+	});
 });
 
 describe("validateNorm", () => {
