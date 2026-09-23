@@ -195,7 +195,7 @@ Cada ley tiene frontmatter YAML con:
 - \`rango\`: Tipo de norma
 - \`fecha_publicacion\`: Fecha de publicación original (ISO 8601)
 - \`ultima_actualizacion\`: Fecha de última reforma
-- \`estado\`: "vigente" o "derogado"
+- \`estado\`: "vigente" o "derogada"
 - \`departamento\`: Órgano emisor
 - \`fuente\`: URL al BOE
 - \`articulos\`: Número de artículos
