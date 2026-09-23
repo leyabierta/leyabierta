@@ -20,6 +20,8 @@
  *   const { results } = await reranker.rerank(query, candidates, topK);
  */
 
+import { openRouterProviderField } from "../../openrouter.ts";
+
 const COHERE_RERANK_URL = "https://api.cohere.com/v2/rerank";
 const COHERE_RERANK_MODEL_DEFAULT = "rerank-v3.5"; // latest as of Phase 6 cutoff
 const OPENROUTER_RERANK_URL = "https://openrouter.ai/api/v1/rerank";
@@ -205,6 +207,7 @@ export class CohereReranker {
 					query,
 					documents,
 					top_n: topK,
+					...openRouterProviderField(),
 				}),
 			});
 		} catch (err) {

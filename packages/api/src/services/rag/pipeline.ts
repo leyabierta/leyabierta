@@ -15,6 +15,10 @@
 
 import type { Database } from "bun:sqlite";
 import {
+	createAskLogPurger,
+	resolveAskLogRetentionDays,
+} from "./ask-log-retention.ts";
+import {
 	bm25HybridSearch,
 	ensureBlocksFts,
 	ensureBlocksFtsVocab,
@@ -94,6 +98,8 @@ export class RagPipeline {
 
 	private insertSummaryStmt: ReturnType<Database["prepare"]>;
 	private insertAskLogStmt: ReturnType<Database["prepare"]>;
+	/** Enforces the ask_log retention limit promised in /privacidad/. */
+	private purgeAskLog: () => void;
 
 	constructor(
 		private db: Database,
@@ -149,6 +155,15 @@ export class RagPipeline {
 			`INSERT INTO ask_log (question, jurisdiction, answer, declined, citations_count, articles_retrieved, latency_ms, model, best_score, tokens_in, tokens_out, cost_usd)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		);
+
+		// Questions are free text and may contain personal data: keep them only
+		// for ASK_LOG_RETENTION_DAYS (default 90). Purge once at startup, then at
+		// most once a day from the insert paths below.
+		this.purgeAskLog = createAskLogPurger(
+			this.db,
+			resolveAskLogRetentionDays(process.env),
+		);
+		this.purgeAskLog();
 	}
 
 	async ask(request: AskRequest): Promise<AskResponse> {
@@ -181,6 +196,7 @@ export class RagPipeline {
 					logErr instanceof Error ? logErr.message : "unknown",
 				);
 			}
+			this.purgeAskLog();
 			const {
 				_bestScore: _bs,
 				_cost: _c,
@@ -684,6 +700,7 @@ export class RagPipeline {
 			} catch {
 				/* ignore */
 			}
+			this.purgeAskLog();
 
 			trace.end({
 				answer: fullText.slice(0, 500),

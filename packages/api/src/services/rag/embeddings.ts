@@ -8,6 +8,7 @@
 
 import { open, rename, rm } from "node:fs/promises";
 import { getNanApiKey } from "../nan-api-key.ts";
+import { openRouterProviderField } from "../openrouter.ts";
 
 const NAN_EMBEDDINGS_URL = "https://api.nan.builders/v1/embeddings";
 const BATCH_SIZE = 50; // articles per API call
@@ -144,6 +145,7 @@ export async function fetchWithRetry(
 						model: modelId,
 						input,
 						encoding_format: "float",
+						...openRouterProviderField(),
 					}),
 				});
 
