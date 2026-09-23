@@ -8,7 +8,11 @@
 
 import type { Database } from "bun:sqlite";
 import { generatedTextProblem, textHash } from "./article-summary-import.ts";
-import { buildReformPrompt, type ReformRow } from "./reform-summary-prompt.ts";
+import {
+	buildReformPrompt,
+	PROMPT_VERSION,
+	type ReformRow,
+} from "./reform-summary-prompt.ts";
 import {
 	type SummaryResponse,
 	validateReformSummary,
@@ -25,6 +29,7 @@ export interface GeneratedReformRow {
 	source_id: string;
 	reform_date: string;
 	input_hash: string;
+	prompt_version?: string;
 	model?: string;
 	result: unknown;
 }
@@ -139,6 +144,10 @@ export function importReformRows(
 		}
 		if (hasSummary.get(r.norm_id, r.source_id, r.reform_date)) {
 			skip("already_has_summary");
+			continue;
+		}
+		if (r.prompt_version !== PROMPT_VERSION) {
+			skip("prompt_version_changed");
 			continue;
 		}
 		const prompt = buildReformPrompt(db, reform);

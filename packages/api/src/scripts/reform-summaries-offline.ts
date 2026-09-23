@@ -23,6 +23,7 @@ import { readJsonl, runGeneration } from "./offline-llm.ts";
 import { importReformRows, promptHash } from "./reform-summary-import.ts";
 import {
 	buildReformPrompt,
+	PROMPT_VERSION,
 	REFORM_SYSTEM_PROMPT,
 	type ReformRow,
 	SUMMARY_SCHEMA,
@@ -49,6 +50,7 @@ interface ExportRow {
 	is_new_law: boolean;
 	user: string;
 	input_hash: string;
+	prompt_version: string;
 }
 
 async function exportPending(outFile: string) {
@@ -77,6 +79,7 @@ async function exportPending(outFile: string) {
 			is_new_law: prompt.isNewLaw,
 			user: prompt.user,
 			input_hash: promptHash(prompt),
+			prompt_version: PROMPT_VERSION,
 		};
 		writer.write(`${JSON.stringify(row)}\n`);
 		written++;
@@ -110,6 +113,7 @@ async function generate(inFile: string, outFile: string) {
 			if (first === -1 || last <= first) throw new Error("no JSON object");
 			return {
 				input_hash: r.input_hash,
+				prompt_version: r.prompt_version,
 				model,
 				result: JSON.parse(res.text.slice(first, last + 1)),
 				finish: res.finish,

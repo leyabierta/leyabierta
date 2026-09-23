@@ -15,7 +15,15 @@ export interface BlockDiff {
 	change_type: "modified" | "new";
 	previous_text: string;
 	current_text: string;
+	/** A version was longer than queryBlockDiffs' cap and was cut. */
+	truncated?: boolean;
 }
+
+/**
+ * Bump when the prompt text or its inputs change: the offline import compares
+ * it before the prompt hash, to tell "the code changed" from "the data changed".
+ */
+export const PROMPT_VERSION = "2026-09-23.2";
 
 export interface ReformRow {
 	norm_id: string;
@@ -70,14 +78,14 @@ export function queryBlockDiffs(
 	maxTextLen = 50_000,
 ): BlockDiff[] {
 	const blocks = db
-		.query<{ block_id: string; title: string }, [string, string]>(
+		.query<{ block_id: string; title: string }, [string, string, string]>(
 			`SELECT b.block_id, b.title
        FROM reform_blocks rb
        JOIN blocks b ON b.norm_id = rb.norm_id AND b.block_id = rb.block_id
-       WHERE rb.reform_source_id = ? AND rb.norm_id = ?
+       WHERE rb.reform_source_id = ? AND rb.norm_id = ? AND rb.reform_date = ?
        ORDER BY b.position`,
 		)
-		.all(sourceId, normId);
+		.all(sourceId, normId, reformDate);
 
 	const diffs: BlockDiff[] = [];
 	for (const block of blocks) {
@@ -103,6 +111,7 @@ export function queryBlockDiffs(
 				change_type: "new",
 				previous_text: "",
 				current_text: truncate(versions[0]!.text),
+				truncated: versions[0]!.text.length > maxTextLen,
 			});
 		} else {
 			diffs.push({
@@ -111,6 +120,9 @@ export function queryBlockDiffs(
 				change_type: "modified",
 				previous_text: truncate(versions[1]!.text),
 				current_text: truncate(versions[0]!.text),
+				truncated:
+					versions[0]!.text.length > maxTextLen ||
+					versions[1]!.text.length > maxTextLen,
 			});
 		}
 	}
@@ -139,28 +151,37 @@ function lastWords(s: string, n: number): string {
 	return words.length > n ? `… ${words.slice(-n).join(" ")}` : s.trim();
 }
 
+// Bound on the word diff's edit distance (in tokens, words and spaces). A
+// deterministic limit, unlike jsdiff's clock-based `timeout`: the offline
+// import rebuilds the prompt and compares its hash, so the same input must
+// always give the same prompt. Beyond it the change is shown as a rewrite.
+const MAX_EDIT_LENGTH = 1500;
+
 /**
  * What changed in a modified block, in words, for the prompt: unchanged text
  * is reduced to a few words of context around each change, deletions are
- * written [-así-] and insertions {+así+}. A near-total rewrite (or a diff that
- * times out) falls back to the beginning of both versions. The old prompt sent
- * only the first 500 characters of each version: in half of the modified
+ * written [-así-] and insertions {+así+}. A near-total rewrite (or one too
+ * large to diff) falls back to the beginning of both versions. The old prompt
+ * sent only the first 500 characters of each version: in half of the modified
  * articles both fragments were identical and the model had to guess.
  */
 export function formatBlockChange(
 	previous: string,
 	current: string,
 	maxChars = 1200,
+	truncated = false,
 ): string {
 	const a = normalizeText(previous);
 	const b = normalizeText(current);
 	if (a === b)
-		return "(el texto de este artículo es idéntico antes y después: el cambio no se ve en el texto)";
+		return truncated
+			? "(artículo muy largo: el cambio no está en la parte analizada del texto)"
+			: "(el texto de este artículo es idéntico antes y después: el cambio no se ve en el texto)";
 
 	const rewrite = () =>
-		`(texto reescrito casi por completo)\n  antes: ${truncateChars(a, Math.floor(maxChars * 0.4))}\n  ahora: ${truncateChars(b, Math.floor(maxChars * 0.6))}`;
+		`(texto reescrito casi por completo)\n  antes: ${truncateChars(a, Math.floor(maxChars * 0.4)) || "(vacío)"}\n  ahora: ${truncateChars(b, Math.floor(maxChars * 0.6)) || "(vacío)"}`;
 
-	const parts = diffWordsWithSpace(a, b, { timeout: 500 });
+	const parts = diffWordsWithSpace(a, b, { maxEditLength: MAX_EDIT_LENGTH });
 	if (!parts) return rewrite();
 
 	const changed = parts
@@ -170,21 +191,29 @@ export function formatBlockChange(
 
 	const out: string[] = [];
 	parts.forEach((p, i) => {
-		if (p.removed) out.push(`[-${p.value.trim()}-]`);
-		else if (p.added) out.push(`{+${p.value.trim()}+}`);
+		const value = p.value.trim();
+		// A change of whitespace only ("ciudadanos, en" → "ciudadanos,en").
+		if ((p.removed || p.added) && !value) return;
+		if (p.removed) out.push(`[-${value}-]`);
+		else if (p.added) out.push(`{+${value}+}`);
 		else if (i === 0) out.push(lastWords(p.value, CONTEXT_WORDS));
 		else if (i === parts.length - 1)
 			out.push(firstWords(p.value, CONTEXT_WORDS));
 		else {
-			const words = p.value.trim().split(" ");
+			const words = value.split(" ");
 			out.push(
 				words.length > 2 * CONTEXT_WORDS
 					? `${words.slice(0, CONTEXT_WORDS).join(" ")} … ${words.slice(-CONTEXT_WORDS).join(" ")}`
-					: p.value.trim(),
+					: value,
 			);
 		}
 	});
-	return truncateChars(out.filter(Boolean).join(" "), maxChars);
+	// No space before punctuation that follows a marker: "{+diecisiete+}."
+	const text = out
+		.filter(Boolean)
+		.join(" ")
+		.replace(/([+-][}\]]) ([.,;:)])/g, "$1$2");
+	return truncateChars(text, maxChars);
 }
 
 /** The law that makes the change (reforms.source_id). */
@@ -239,7 +268,7 @@ export function getSourceInfo(db: Database, sourceId: string): SourceInfo {
 export function getMaterias(db: Database, normId: string): string[] {
 	return db
 		.query<{ materia: string }, [string]>(
-			"SELECT materia FROM materias WHERE norm_id = ?",
+			"SELECT materia FROM materias WHERE norm_id = ? ORDER BY materia",
 		)
 		.all(normId)
 		.map((r) => r.materia);
@@ -291,6 +320,16 @@ Reglas:
 - Lenguaje ciudadano, no jurídico
 - Sé preciso: qué cambió, para quién, desde cuándo`;
 
+// Some laws have hundreds of materias (a 11,800-character line was seen).
+const MAX_MATERIAS_SHOWN = 25;
+
+function materiasLine(materias: string[]): string {
+	if (materias.length === 0) return "";
+	const shown = materias.slice(0, MAX_MATERIAS_SHOWN).join(", ");
+	const rest = materias.length - MAX_MATERIAS_SHOWN;
+	return `Materias: ${shown}${rest > 0 ? ` y ${rest} más` : ""}`;
+}
+
 /** Total characters of changes sent per reform (≈ 2K tokens). */
 export const MAX_CHANGES_CHARS = 7000;
 
@@ -305,15 +344,18 @@ export function buildPrompt(
 
 	let user: string;
 	if (isNewLaw) {
+		// Each block cut on its own (as before the word diff): one long preamble
+		// must not hide the articles that follow it.
 		const text = diffs
-			.map((d) => d.current_text)
+			.slice(0, 10)
+			.map((d) => truncateChars(normalizeText(d.current_text), 500))
 			.join("\n\n")
 			.slice(0, 3000);
 		user = `NUEVA LEY publicada el ${reform.date}
 
 Título: ${reform.title}
 Rango: ${reform.rank}
-${materias.length > 0 ? `Materias: ${materias.join(", ")}` : ""}
+${materiasLine(materias)}
 
 Primeros artículos:
 ${text || "(sin texto disponible)"}`;
@@ -327,7 +369,7 @@ ${text || "(sin texto disponible)"}`;
 			const part =
 				d.change_type === "new"
 					? `[NUEVO] ${d.title}: ${truncateChars(normalizeText(d.current_text), budget)}`
-					: `[MODIFICADO] ${d.title}: ${formatBlockChange(d.previous_text, d.current_text, budget)}`;
+					: `[MODIFICADO] ${d.title}: ${formatBlockChange(d.previous_text, d.current_text, budget, d.truncated)}`;
 			parts.push(part);
 			used += part.length;
 			shown++;
@@ -348,7 +390,7 @@ ${text || "(sin texto disponible)"}`;
 
 Ley modificada: ${reform.title}
 Rango: ${reform.rank}
-${sourceLine}${materias.length > 0 ? `Materias: ${materias.join(", ")}` : ""}
+${sourceLine}${materiasLine(materias)}
 
 Cambios:
 ${parts.join("\n\n") || "(sin bloques afectados disponibles)"}`;
@@ -357,11 +399,13 @@ ${parts.join("\n\n") || "(sin bloques afectados disponibles)"}`;
 	if (isOmnibusSource(source)) {
 		const scope =
 			source.lawsModified >= OMNIBUS_MIN_LAWS_MODIFIED
-				? `modifica a la vez ${source.lawsModified} leyes distintas`
-				: `abarca ${source.materiaCount} materias distintas`;
+				? "modifica a la vez muchas leyes distintas"
+				: "abarca muchas materias distintas";
 		// Context, not a claim to repeat: "temas no relacionados" is often not
 		// true (a child-protection law amending several related laws), and the
-		// summary must stay about what changes in THIS law.
+		// summary must stay about what changes in THIS law. No counts: the
+		// number of laws a source modifies grows as the corpus does, and the
+		// prompt must stay stable between an offline export and its import.
 		user += `\n\nCONTEXTO: La norma que introduce este cambio es una ley ómnibus: ${scope}. Puedes mencionarlo brevemente, pero el titular y el resumen deben centrarse en lo que cambia en esta ley.`;
 	}
 

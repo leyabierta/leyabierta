@@ -6,7 +6,10 @@ import {
 	promptHash,
 	validateGeneratedReform,
 } from "../scripts/reform-summary-import.ts";
-import { buildReformPrompt } from "../scripts/reform-summary-prompt.ts";
+import {
+	buildReformPrompt,
+	PROMPT_VERSION,
+} from "../scripts/reform-summary-prompt.ts";
 
 const RESULT = {
 	headline: "Se amplía a cuatro meses el plazo de solicitud",
@@ -55,6 +58,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 	input_hash: promptHash(
 		buildReformPrompt(db, reformOf("N", "S", "2021-06-01")),
 	),
+	prompt_version: PROMPT_VERSION,
 	model: "qwen3.8-27b",
 	result: RESULT,
 	...over,
@@ -146,6 +150,13 @@ describe("importReformRows", () => {
 		const report = importReformRows(db, [generated], { apply: true });
 		expect(report.skipped).toEqual({ source_data_changed: 1 });
 		expect(summaries()).toHaveLength(0);
+	});
+
+	test("rows built by another prompt version are skipped as such", () => {
+		const report = importReformRows(db, [row({ prompt_version: "old" })], {
+			apply: true,
+		});
+		expect(report.skipped).toEqual({ prompt_version_changed: 1 });
 	});
 
 	test("an original publication is stored as new_law", () => {

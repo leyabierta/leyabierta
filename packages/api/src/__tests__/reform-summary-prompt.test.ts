@@ -50,6 +50,42 @@ describe("formatBlockChange", () => {
 		expect(out).toContain("ahora: Se crea la Agencia");
 	});
 
+	test("whitespace-only changes leave no empty markers", () => {
+		const out = formatBlockChange(
+			`${FILLER}ciudadanos, en su caso, la cuantía es de tres euros.`,
+			`${FILLER}ciudadanos,en su caso, la cuantía es de cuatro euros.`,
+		);
+		expect(out).not.toContain("[--]");
+		expect(out).not.toContain("{++}");
+		expect(out).toContain("[-tres-] {+cuatro+}");
+	});
+
+	test("no space between a marker and the punctuation after it", () => {
+		const out = formatBlockChange(
+			`${FILLER}El plazo es de quince días.`,
+			`${FILLER}El plazo es de diecisiete días.`,
+		);
+		expect(out).toContain("{+diecisiete+} días.");
+		expect(
+			formatBlockChange(`${FILLER}Son dieciséis.`, `${FILLER}Son diecisiete.`),
+		).toContain("[-dieciséis-] {+diecisiete+}.");
+	});
+
+	test("is deterministic for a large diff (no clock-based timeout)", () => {
+		const a = Array.from({ length: 6000 }, (_, i) => `w${i}`).join(" ");
+		const b = Array.from({ length: 6000 }, (_, i) =>
+			i % 2 === 0 ? `x${i}` : `w${i}`,
+		).join(" ");
+		const first = formatBlockChange(a, b);
+		for (let i = 0; i < 3; i++) expect(formatBlockChange(a, b)).toBe(first);
+	});
+
+	test("a cut version that looks identical is not reported as identical", () => {
+		expect(formatBlockChange("Igual.", "Igual.", 1200, true)).toContain(
+			"artículo muy largo",
+		);
+	});
+
 	test("respects the character budget", () => {
 		const a = Array.from({ length: 300 }, (_, i) => `palabra${i}`).join(" ");
 		const b = Array.from({ length: 300 }, (_, i) =>
@@ -144,7 +180,9 @@ describe("omnibus is decided by the law that makes the change", () => {
 			false,
 			getSourceInfo(db, "OMNI"),
 		);
-		expect(user).toContain("ley ómnibus: modifica a la vez 12 leyes distintas");
+		expect(user).toContain(
+			"ley ómnibus: modifica a la vez muchas leyes distintas",
+		);
 		expect(user).toContain(
 			"Norma que introduce el cambio: Ley de medidas fiscales, administrativas y del orden social",
 		);
