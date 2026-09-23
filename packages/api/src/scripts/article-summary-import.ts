@@ -48,6 +48,15 @@ const SECOND_PERSON = word("tú|tienes|puedes|usted|ustedes|debes");
 const ENGLISH = word("the|and|shall|which|must|summary");
 const REASONING = /<\/?think>|(?<![\p{L}])thinking(?![\p{L}])/iu;
 
+/** Script, control-character and reasoning problems in generated text. */
+export function generatedTextProblem(text: string): string | null {
+	if (REASONING.test(text)) return "reasoning_leak";
+	if (UNSAFE_CHARS.test(text)) return "unsafe_chars";
+	if (FOREIGN_SCRIPT.test(text)) return "foreign_script";
+	if (ENGLISH.test(text)) return "english";
+	return null;
+}
+
 export function validateGeneratedRow(
 	row: unknown,
 ):

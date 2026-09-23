@@ -39,10 +39,9 @@ import {
 	OpenRouterError,
 } from "../services/openrouter.ts";
 import {
-	buildPrompt,
-	getMaterias,
-	isOriginalPublication,
-	queryBlockDiffs,
+	buildReformPrompt,
+	getSourceInfo,
+	isOmnibusSource,
 	SUMMARY_SCHEMA,
 } from "./reform-summary-prompt.ts";
 import {
@@ -138,9 +137,11 @@ async function main() {
 
 	if (omnibusOnly) {
 		const beforeCount = reforms.length;
-		reforms = reforms.filter((r) => getMaterias(db, r.norm_id).length >= 15);
+		reforms = reforms.filter((r) =>
+			isOmnibusSource(getSourceInfo(db, r.source_id)),
+		);
 		console.log(
-			`   Omnibus filter: ${reforms.length}/${beforeCount} reforms from omnibus norms (15+ materias)`,
+			`   Omnibus filter: ${reforms.length}/${beforeCount} reforms made by omnibus laws`,
 		);
 	}
 
@@ -155,7 +156,7 @@ async function main() {
 	if (dryRun) console.log(`   Mode: DRY RUN (no LLM calls)`);
 	if (noWrite) console.log(`   Mode: NO WRITE (LLM calls, no DB writes)`);
 	if (force) console.log(`   Mode: FORCE (regenerate existing)`);
-	if (omnibusOnly) console.log(`   Mode: OMNIBUS ONLY (15+ materias)`);
+	if (omnibusOnly) console.log(`   Mode: OMNIBUS ONLY (made by omnibus laws)`);
 	console.log();
 
 	if (reforms.length === 0) {
@@ -169,40 +170,18 @@ async function main() {
 	let totalCost = 0;
 
 	for (const reform of reforms) {
-		const diffs = queryBlockDiffs(
-			db,
-			reform.norm_id,
-			reform.source_id,
-			reform.date,
-		);
-		const materias = getMaterias(db, reform.norm_id);
-		const isOmnibus = materias.length >= 15;
-		const isNewLaw = isOriginalPublication(
-			db,
-			reform.norm_id,
-			reform.source_id,
-			reform.date,
-		);
+		const { system, user, isNewLaw, blocks } = buildReformPrompt(db, reform);
 
 		if (isNewLaw) skippedNewLaw++;
 
 		if (dryRun) {
 			const type = isNewLaw ? "new_law" : "modification";
 			console.log(
-				`  [dry] ${reform.date} | ${type} | ${diffs.length} blocks | ${reform.title.slice(0, 60)}...`,
+				`  [dry] ${reform.date} | ${type} | ${blocks} blocks | ${reform.title.slice(0, 60)}...`,
 			);
 			processed++;
 			continue;
 		}
-
-		const { system, user } = buildPrompt(
-			reform,
-			diffs,
-			materias,
-			isNewLaw,
-			isOmnibus,
-			materias.length,
-		);
 
 		try {
 			const result = await callOpenRouter<SummaryResponse>(apiKey, {

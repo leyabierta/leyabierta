@@ -11,6 +11,7 @@
 		"@leyabierta/pipeline": "workspace:*",
 		"@resvg/resvg-js": "^2.6.2",
 		"@types/js-yaml": "4.0.9",
+		"diff": "^9.0.0",
 		"elysia": "1.4.28",
 		"js-yaml": "4.3.0",
 		"opik": "^2.0.1",
