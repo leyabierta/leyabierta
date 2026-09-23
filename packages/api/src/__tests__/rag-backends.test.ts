@@ -37,19 +37,29 @@ describe("resolveLlmBackend", () => {
 });
 
 describe("resolveRerankBackend", () => {
-	it("defaults to cohere-or when unset", () => {
-		expect(resolveRerankBackend({})).toBe("cohere-or");
+	it("defaults to the ZDR-compatible llm rerank when unset", () => {
+		expect(resolveRerankBackend({})).toBe("llm");
 	});
 
-	it("falls back to cohere-or when qwen-llm is requested without NAN_API_KEY", () => {
-		expect(resolveRerankBackend({ RERANK_BACKEND: "qwen-llm" })).toBe(
+	it("honours none and the cohere-or opt-in", () => {
+		expect(resolveRerankBackend({ RERANK_BACKEND: "none" })).toBe("none");
+		expect(resolveRerankBackend({ RERANK_BACKEND: "cohere-or" })).toBe(
 			"cohere-or",
 		);
+		expect(resolveRerankBackend({ RERANK_BACKEND: " LLM " })).toBe("llm");
+	});
+
+	it("falls back to llm when qwen-llm is requested without NAN_API_KEY", () => {
+		expect(resolveRerankBackend({ RERANK_BACKEND: "qwen-llm" })).toBe("llm");
 	});
 
 	it("allows the qwen-llm opt-in only with NAN_API_KEY", () => {
 		expect(
 			resolveRerankBackend({ RERANK_BACKEND: "qwen-llm", NAN_API_KEY: "k" }),
 		).toBe("qwen-llm");
+	});
+
+	it("treats unknown values as llm", () => {
+		expect(resolveRerankBackend({ RERANK_BACKEND: "voyage" })).toBe("llm");
 	});
 });

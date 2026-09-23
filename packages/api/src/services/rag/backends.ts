@@ -10,13 +10,25 @@
  *     harnesses. It is only honoured when NAN_API_KEY is set; otherwise we warn
  *     and use OpenRouter instead of failing on a missing key.
  *
- *   RERANK_BACKEND=cohere-or (default) | qwen-llm
- *     Routes the reranker. Default: Cohere Rerank via OpenRouter
- *     (OPENROUTER_RERANK_MODEL). "qwen-llm" (qwen3.6 LLM rerank on NaN) is a
- *     legacy opt-in, honoured only when NAN_API_KEY is set.
+ *   RERANK_BACKEND=llm (default) | none | cohere-or | qwen-llm
+ *     Routes the reranker.
+ *     - "llm": listwise LLM rerank through OpenRouter with
+ *       OPENROUTER_RERANK_LLM_MODEL (llm-rerank.ts). Works under OpenRouter
+ *       Zero Data Retention, which the account enforces.
+ *     - "none": keep the fused (RRF + boosts) order, no extra call.
+ *     - "cohere-or": Cohere Rerank via OpenRouter /rerank
+ *       (OPENROUTER_RERANK_MODEL). Opt-in only: Cohere has no ZDR endpoint, so
+ *       on a ZDR account every call 404s and falls back to the fused order.
+ *     - "qwen-llm": legacy qwen3.6 LLM rerank on NaN, honoured only when
+ *       NAN_API_KEY is set.
+ *     Eval 2026-09-23 (82 citizen queries, packages/eval/results/
+ *     2026-09-23-model-zdr.md): llm vs none = Hit@1 67.1% vs 43.9%.
  *
  *   OPENROUTER_LLM_MODEL=google/gemini-2.5-flash-lite (default)
  *     The OpenRouter chat model used by the openrouter backend.
+ *
+ *   OPENROUTER_RERANK_LLM_MODEL=google/gemini-2.5-flash-lite (default)
+ *     The chat model used by the "llm" rerank backend.
  *
  *   OPENROUTER_RERANK_MODEL=cohere/rerank-4-fast (default)
  *     The OpenRouter rerank model used by the cohere-or backend.
@@ -43,14 +55,14 @@ import type {
 	StreamDone,
 } from "../openrouter.ts";
 import { callOpenRouter, callOpenRouterStream } from "../openrouter.ts";
-import type { LLMCandidate, LLMRerankResult } from "./qwen-llm-rerank.ts";
-import { qwenLLMRerank } from "./qwen-llm-rerank.ts";
+import type { LLMCandidate, LLMRerankResult } from "./llm-rerank.ts";
+import { llmRerank, qwenLLMRerank } from "./llm-rerank.ts";
 import { CohereReranker } from "./rerankers/cohere.ts";
 
 // ── Backend resolution ──
 
 export type LlmBackend = "openrouter" | "nan";
-export type RerankBackend = "cohere-or" | "qwen-llm";
+export type RerankBackend = "llm" | "none" | "cohere-or" | "qwen-llm";
 
 /**
  * Resolve the LLM backend from the environment. Pure (env passed in) so it can
@@ -75,24 +87,25 @@ export function resolveLlmBackend(
 	return "openrouter";
 }
 
-/** Same as resolveLlmBackend, for the reranker. */
+/**
+ * Same as resolveLlmBackend, for the reranker. Default "llm" (ZDR-compatible
+ * LLM rerank on OpenRouter). Unknown values fall back to the default.
+ */
 export function resolveRerankBackend(
 	env: Record<string, string | undefined>,
 ): RerankBackend {
-	const requested = (env.RERANK_BACKEND ?? "cohere-or").trim().toLowerCase();
+	const requested = (env.RERANK_BACKEND ?? "llm").trim().toLowerCase();
+	if (requested === "" || requested === "llm") return "llm";
+	if (requested === "none" || requested === "cohere-or") return requested;
 	if (requested === "qwen-llm") {
 		if (env.NAN_API_KEY) return "qwen-llm";
 		console.warn(
-			"[backends] RERANK_BACKEND=qwen-llm but NAN_API_KEY is not set — using cohere-or",
+			"[backends] RERANK_BACKEND=qwen-llm but NAN_API_KEY is not set — using llm",
 		);
-		return "cohere-or";
+		return "llm";
 	}
-	if (requested !== "cohere-or" && requested !== "") {
-		console.warn(
-			`[backends] Unknown RERANK_BACKEND="${requested}" — using cohere-or`,
-		);
-	}
-	return "cohere-or";
+	console.warn(`[backends] Unknown RERANK_BACKEND="${requested}" — using llm`);
+	return "llm";
 }
 
 // ── Env-var constants ──
@@ -100,14 +113,18 @@ export function resolveRerankBackend(
 /** Effective LLM backend: "openrouter" (default) or "nan" (legacy opt-in). */
 export const LLM_BACKEND: LlmBackend = resolveLlmBackend(process.env);
 
-/** Effective rerank backend: "cohere-or" (default) or "qwen-llm" (legacy opt-in). */
+/** Effective rerank backend (default "llm"). */
 export const RERANK_BACKEND: RerankBackend = resolveRerankBackend(process.env);
 
 /** OpenRouter chat model used by the openrouter LLM backend. */
 export const OPENROUTER_LLM_MODEL =
 	process.env.OPENROUTER_LLM_MODEL || "google/gemini-2.5-flash-lite";
 
-/** OpenRouter rerank model used by the cohere-or backend. */
+/** OpenRouter chat model used by the "llm" rerank backend. */
+export const OPENROUTER_RERANK_LLM_MODEL =
+	process.env.OPENROUTER_RERANK_LLM_MODEL || "google/gemini-2.5-flash-lite";
+
+/** OpenRouter rerank model used by the cohere-or backend (opt-in). */
 export const OPENROUTER_RERANK_MODEL =
 	process.env.OPENROUTER_RERANK_MODEL || "cohere/rerank-4-fast";
 
@@ -160,13 +177,20 @@ export function getLlmStreamCaller(): LlmStreamCaller {
 /**
  * Returns the rerank caller for the effective RERANK_BACKEND.
  *
- * cohere-or (default): CohereReranker via OpenRouter (OPENROUTER_RERANK_MODEL).
- *   If OPENROUTER_API_KEY is missing, warns and returns a passthrough caller
- *   (candidates keep their fused order) rather than throwing.
- * qwen-llm (opt-in): qwenLLMRerank via NaN.
+ * llm (default): llmRerank via OpenRouter (OPENROUTER_RERANK_LLM_MODEL).
+ * none: passthrough — the fused order, no network call.
+ * cohere-or (opt-in): CohereReranker via OpenRouter (OPENROUTER_RERANK_MODEL).
+ * qwen-llm (legacy opt-in): qwenLLMRerank via NaN.
+ *
+ * The OpenRouter backends warn and return passthrough when
+ * OPENROUTER_API_KEY is missing, rather than throwing.
  */
-export function getRerankCaller(nanApiKey?: string): RerankCaller {
-	if (RERANK_BACKEND === "qwen-llm") {
+export function getRerankCaller(
+	nanApiKey?: string,
+	backend: RerankBackend = RERANK_BACKEND,
+): RerankCaller {
+	if (backend === "none") return passthroughRerankCaller;
+	if (backend === "qwen-llm") {
 		return makeQwenRerankCaller(nanApiKey);
 	}
 	const orKey = process.env.OPENROUTER_API_KEY ?? "";
@@ -176,7 +200,8 @@ export function getRerankCaller(nanApiKey?: string): RerankCaller {
 		);
 		return passthroughRerankCaller;
 	}
-	return makeCohereOrRerankCaller(orKey);
+	if (backend === "cohere-or") return makeCohereOrRerankCaller(orKey);
+	return makeLlmRerankCaller(orKey);
 }
 
 // ── Private helpers ──
@@ -225,6 +250,15 @@ const passthroughRerankCaller: RerankCaller = async (
 	backend: "none",
 	cost: 0,
 });
+
+/** Build a rerank caller that delegates to llmRerank via OpenRouter. */
+function makeLlmRerankCaller(orKey: string): RerankCaller {
+	return (query, candidates, topK) =>
+		llmRerank(orKey, query, candidates, topK, {
+			model: OPENROUTER_RERANK_LLM_MODEL,
+			label: "llm-rerank",
+		});
+}
 
 /** Build a rerank caller that delegates to qwenLLMRerank via NaN. */
 function makeQwenRerankCaller(nanApiKey?: string): RerankCaller {

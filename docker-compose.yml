@@ -30,8 +30,11 @@ services:
       # cancelled in 2026-08; "nan"/"qwen-llm" are legacy opt-ins that the code
       # only honours when NAN_API_KEY is set).
       - LLM_BACKEND=${LLM_BACKEND:-openrouter}
-      - RERANK_BACKEND=${RERANK_BACKEND:-cohere-or}
+      # llm = ZDR-compatible LLM rerank on OpenRouter. cohere-or is opt-in only:
+      # Cohere has no Zero Data Retention endpoint (404 on a ZDR account).
+      - RERANK_BACKEND=${RERANK_BACKEND:-llm}
       - OPENROUTER_LLM_MODEL=${OPENROUTER_LLM_MODEL:-google/gemini-2.5-flash-lite}
+      - OPENROUTER_RERANK_LLM_MODEL=${OPENROUTER_RERANK_LLM_MODEL:-google/gemini-2.5-flash-lite}
       - OPENROUTER_RERANK_MODEL=${OPENROUTER_RERANK_MODEL:-cohere/rerank-4-fast}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"

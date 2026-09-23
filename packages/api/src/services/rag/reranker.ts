@@ -1,9 +1,11 @@
 /**
  * Reranker — rescores candidate articles by relevance to the query.
  *
- * Default backend: Cohere Rerank via OpenRouter (cohere/rerank-4-fast,
- * RERANK_BACKEND=cohere-or). Legacy opt-in: qwen3.6 LLM rerank via NaN
- * (RERANK_BACKEND=qwen-llm, only honoured when NAN_API_KEY is set).
+ * Default backend: listwise LLM rerank via OpenRouter (RERANK_BACKEND=llm,
+ * model OPENROUTER_RERANK_LLM_MODEL, default google/gemini-2.5-flash-lite),
+ * which works under OpenRouter Zero Data Retention. Opt-ins: "none" (fused
+ * order), "cohere-or" (Cohere via OpenRouter — no ZDR endpoint) and the legacy
+ * "qwen-llm" (qwen3.6 on NaN, only honoured when NAN_API_KEY is set).
  *
  * Backend routing is delegated to `backends.ts` via `getRerankCaller()`.
  * Opik span name "rerank" is emitted regardless of backend by the caller
@@ -32,7 +34,7 @@ interface RerankerConfig {
 /**
  * Rerank candidates by relevance to the query.
  * Routes to the backend selected by the RERANK_BACKEND env var
- * (default: "cohere-or" — Cohere via OpenRouter; legacy opt-in: "qwen-llm").
+ * (default: "llm" — LLM rerank via OpenRouter; see backends.ts).
  *
  * @param query - The user's question
  * @param candidates - Articles to rerank (already retrieved)
@@ -63,7 +65,7 @@ export async function rerank(
 		};
 	}
 
-	// For cohere-or backend: OPENROUTER_API_KEY is read inside getRerankCaller().
+	// For the OpenRouter backends: OPENROUTER_API_KEY is read inside getRerankCaller().
 	// For qwen-llm backend: nanKey is passed to the qwenLLMRerank call.
 	const nanKey = config.nanApiKey ?? getNanApiKey();
 

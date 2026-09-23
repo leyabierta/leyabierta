@@ -26,6 +26,7 @@ import {
 	isSectoralNorm,
 	normalizePeriodicTitle,
 } from "./analyzer.ts";
+import { RERANK_BACKEND } from "./backends.ts";
 import {
 	bm25HitsToRanked,
 	dispatchBm25Stages,
@@ -952,7 +953,7 @@ export async function runRetrievalCore(
 	const rerankSpan = trace?.span("rerank", "tool", {
 		inputCandidates: allFusedArticles.length,
 		topK: TOP_K,
-		backend: "nan-llm",
+		backend: RERANK_BACKEND,
 	});
 	const rerankStart = Date.now();
 	let articles: RetrievedArticle[];
