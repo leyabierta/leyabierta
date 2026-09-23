@@ -63,7 +63,9 @@ export function reformSitemapEntries(
 			// and a pre-1970 one is rejected outright — those entries keep the URL
 			// and simply omit the tag.
 			const lastmod = clampLastmod(reforma.fecha, opts.todayIso);
-			entries.push(isEmittableLastmod(lastmod) ? { loc, lastmod } : { loc });
+			entries.push(
+				isEmittableLastmod(lastmod, opts.todayIso) ? { loc, lastmod } : { loc },
+			);
 		}
 	}
 

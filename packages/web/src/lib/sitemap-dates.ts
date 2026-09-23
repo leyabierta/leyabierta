@@ -41,13 +41,24 @@ export function clampLastmod(fecha: string, todayIso: string): string {
 export const MIN_LASTMOD_ISO = "1970-01-01";
 
 /**
- * Whether a date can be emitted as `<lastmod>` at all.
+ * Whether a date can be emitted as `<lastmod>` at all: a real calendar date
+ * in `[MIN_LASTMOD_ISO, todayIso]`.
  *
  * A pre-1970 reform date is perfectly good data — the Ley Hipotecaria really
  * was amended in 1927 — so the URL stays in the sitemap. Only the `<lastmod>`
  * is dropped, because `<lastmod>` is optional in the protocol and a date we
  * invent to satisfy the parser would be a lie about when the page changed.
+ *
+ * The upper bound exists because the BOE itself ships corrupt dates:
+ * BOE-A-1985-26400 carries `fecha_publicacion="29291119"` on the version its
+ * derogation note was added in (the same `<version>` says `fpub="20210224"`),
+ * so its frontmatter says `ultima_actualizacion: 2929-11-19` and
+ * sitemap-leyes.xml advertised a lastmod nine centuries in the future.
  */
-export function isEmittableLastmod(fecha: string): boolean {
-	return fecha >= MIN_LASTMOD_ISO;
+export function isEmittableLastmod(fecha: string, todayIso: string): boolean {
+	return (
+		isPlausibleReformDate(fecha, Number(todayIso.slice(0, 4))) &&
+		fecha >= MIN_LASTMOD_ISO &&
+		fecha <= todayIso
+	);
 }

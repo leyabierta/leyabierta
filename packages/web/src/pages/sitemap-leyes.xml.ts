@@ -12,6 +12,7 @@ import { isEmittableLastmod } from "../lib/sitemap-dates.ts";
 export const prerender = true;
 
 const SITE_URL = "https://leyabierta.es";
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 export const GET: APIRoute = async () => {
 	const laws = await getCollection("laws");
@@ -39,8 +40,7 @@ export const GET: APIRoute = async () => {
 		// reported 158 "Invalid date" errors for two months.
 		const lastmod =
 			d.ultima_actualizacion &&
-			/^\d{4}-\d{2}-\d{2}$/.test(d.ultima_actualizacion) &&
-			isEmittableLastmod(d.ultima_actualizacion)
+			isEmittableLastmod(d.ultima_actualizacion, TODAY_ISO)
 				? `\n    <lastmod>${d.ultima_actualizacion}</lastmod>`
 				: "";
 		urls.push(`  <url>
