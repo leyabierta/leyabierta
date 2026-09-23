@@ -138,7 +138,8 @@ const MAX_RETRIES = 2;
 const BACKOFF_MS = 2000;
 /** Pause before retry N (tests set OPENROUTER_BACKOFF_MS=0 to skip real waits). */
 function backoffMs(attempt: number): number {
-	const base = Number(process.env.OPENROUTER_BACKOFF_MS ?? BACKOFF_MS);
+	const raw = process.env.OPENROUTER_BACKOFF_MS;
+	const base = raw ? Number(raw) : BACKOFF_MS;
 	return (Number.isFinite(base) && base >= 0 ? base : BACKOFF_MS) * attempt;
 }
 
