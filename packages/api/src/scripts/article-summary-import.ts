@@ -27,7 +27,22 @@ export interface GeneratedRow {
 // Prompt v10 asks for 80-300 characters; very short articles legitimately
 // produce shorter summaries, and the prompt tolerates ~20% over the target.
 export const MIN_SUMMARY_CHARS = 20;
-export const MAX_SUMMARY_CHARS = 320;
+/** Absolute cap, for the longest articles; see maxSummaryChars. */
+export const MAX_SUMMARY_CHARS = 600;
+
+/**
+ * Longest acceptable summary for an article of `articleChars` characters. A
+ * fixed 320-character cap rejected 29% of the summaries of the main codes
+ * (long articles with several apartados, where the essentials don't fit), and
+ * forcing them shorter drops data. A summary close to the length of a short
+ * article is still rejected.
+ */
+export function maxSummaryChars(articleChars: number): number {
+	if (articleChars < 1000) return 320;
+	if (articleChars < 2000) return 400;
+	if (articleChars < 5000) return 500;
+	return MAX_SUMMARY_CHARS;
+}
 export const MIN_TAGS = 3;
 export const MAX_TAGS = 5;
 export const MAX_TAG_CHARS = 60;
@@ -235,6 +250,10 @@ export function importRows(
 		}
 		if (textHash(current.text) !== r.input_hash) {
 			skip("source_text_changed");
+			continue;
+		}
+		if (v.summary.length > maxSummaryChars(current.text.length)) {
+			skip("too_long");
 			continue;
 		}
 		let replace = false;
