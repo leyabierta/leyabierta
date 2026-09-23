@@ -47,6 +47,19 @@ export function getSiteUrl(): string {
 
 // ── HMAC helpers ────────────────────────────────────────────────────────
 
+/**
+ * The resend SDK (v6) does not throw on API errors: it resolves to
+ * `{ data: null, error }`. Returns a loggable description of that error (never
+ * the recipient), or null when the call succeeded.
+ */
+export function resendErrorOf(result: unknown): string | null {
+	const error = (
+		result as { error?: { name?: string; message?: string } | null }
+	)?.error;
+	if (!error) return null;
+	return `${error.name ?? "error"}: ${error.message ?? ""}`.slice(0, 300);
+}
+
 export async function generateHmac(email: string): Promise<string> {
 	const encoder = new TextEncoder();
 	const key = await crypto.subtle.importKey(
@@ -133,7 +146,7 @@ export async function sendConfirmationEmail(
 
 	try {
 		const unsubHeader = buildListUnsubscribeHeader(cancelUrl);
-		await resend.emails.send({
+		const result = await resend.emails.send({
 			from: FROM_EMAIL,
 			to: email,
 			subject: "Confirma tu suscripción — Ley Abierta",
@@ -142,6 +155,11 @@ export async function sendConfirmationEmail(
 				"List-Unsubscribe": unsubHeader,
 			},
 		});
+		const sendError = resendErrorOf(result);
+		if (sendError) {
+			console.error(`[email] Resend rejected the email: ${sendError}`);
+			return false;
+		}
 		return true;
 	} catch (err) {
 		console.error("[email] Failed to send confirmation:", err);
@@ -156,7 +174,7 @@ export async function sendFollowConfirmationEmail(
 	token: string,
 ): Promise<boolean> {
 	const confirmUrl = `${SITE_URL}/alertas/seguir/confirmar?token=${encodeURIComponent(token)}`;
-	const normUrl = `${SITE_URL}/laws/${normId}`;
+	const normUrl = `${SITE_URL}/leyes/${normId}/`;
 
 	const html = `
 <!DOCTYPE html>
@@ -193,12 +211,17 @@ export async function sendFollowConfirmationEmail(
 	}
 
 	try {
-		await resend.emails.send({
+		const result = await resend.emails.send({
 			from: FROM_EMAIL,
 			to: email,
 			subject: `Confirma que quieres seguir: ${normTitle} — Ley Abierta`,
 			html,
 		});
+		const sendError = resendErrorOf(result);
+		if (sendError) {
+			console.error(`[email] Resend rejected the email: ${sendError}`);
+			return false;
+		}
 		return true;
 	} catch (err) {
 		console.error("[email] Failed to send follow confirmation:", err);
@@ -236,7 +259,7 @@ export async function sendWelcomeEmail(email: string): Promise<boolean> {
 
 	try {
 		const unsubHeader = buildListUnsubscribeHeader(cancelUrl);
-		await resend.emails.send({
+		const result = await resend.emails.send({
 			from: FROM_EMAIL,
 			to: email,
 			subject: "Bienvenido/a a Ley Abierta",
@@ -245,6 +268,11 @@ export async function sendWelcomeEmail(email: string): Promise<boolean> {
 				"List-Unsubscribe": unsubHeader,
 			},
 		});
+		const sendError = resendErrorOf(result);
+		if (sendError) {
+			console.error(`[email] Resend rejected the email: ${sendError}`);
+			return false;
+		}
 		return true;
 	} catch (err) {
 		console.error("[email] Failed to send welcome:", err);
@@ -267,7 +295,7 @@ export async function sendNotificationEmail(
 	try {
 		const cancelUrl = await buildUnsubscribeUrl(email);
 		const unsubHeader = buildListUnsubscribeHeader(cancelUrl);
-		await resend.emails.send({
+		const result = await resend.emails.send({
 			from: FROM_EMAIL,
 			to: email,
 			subject,
@@ -276,6 +304,11 @@ export async function sendNotificationEmail(
 				"List-Unsubscribe": unsubHeader,
 			},
 		});
+		const sendError = resendErrorOf(result);
+		if (sendError) {
+			console.error(`[email] Resend rejected the email: ${sendError}`);
+			return false;
+		}
 		return true;
 	} catch (err) {
 		console.error(

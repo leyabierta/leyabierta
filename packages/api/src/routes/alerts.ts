@@ -6,6 +6,7 @@
  */
 
 import { Elysia, t } from "elysia";
+import { computeMaterias } from "../data/materia-mappings.ts";
 import { PROFILES } from "../data/profiles.ts";
 import {
 	getSituationsByIds,
@@ -17,6 +18,7 @@ import {
 	generateHmac,
 	getAudienceId,
 	getResend,
+	resendErrorOf,
 	sendConfirmationEmail,
 	sendFollowConfirmationEmail,
 	sendWelcomeEmail,
@@ -77,6 +79,35 @@ function isGetRateLimited(ip: string): boolean {
 }
 
 // ── Routes ──────────────────────────────────────────────────────────────
+
+export interface SubscribeAnswers {
+	workStatus?: string;
+	sector?: string | null;
+	housing?: string | null;
+	family?: string[];
+	extras?: string[];
+}
+
+/**
+ * Topics of a subscription: explicit materias, or the /mi-situacion answers
+ * (what the web sends), resolved server-side like /v1/reforms/personal.
+ * Empty when neither is given (legacy situationIds are handled apart).
+ */
+export function resolveSubscribeMaterias(body: {
+	materias?: string[];
+	answers?: SubscribeAnswers;
+}): string[] {
+	if (body.materias && body.materias.length > 0) return body.materias;
+	const answers = body.answers;
+	if (!answers?.workStatus) return [];
+	return computeMaterias({
+		workStatus: answers.workStatus,
+		sector: answers.sector || null,
+		housing: answers.housing || "familiares",
+		family: answers.family ?? [],
+		extras: answers.extras ?? [],
+	});
+}
 
 export function alertRoutes(_dbService?: DbService) {
 	return (
@@ -151,8 +182,7 @@ export function alertRoutes(_dbService?: DbService) {
 						};
 					}
 
-					// Accept materias (new) or situationIds (legacy)
-					const materias = body.materias ?? [];
+					const materias = resolveSubscribeMaterias(body);
 					const legacySituations = body.situationIds
 						? getSituationsByIds(body.situationIds)
 						: [];
@@ -174,8 +204,14 @@ export function alertRoutes(_dbService?: DbService) {
 					const email = body.email;
 					const jurisdiction = body.jurisdiction ?? "es";
 
+					// Duplicate contact: continue silently (send the confirmation anyway,
+					// they may not have confirmed the first time). Any other failure is
+					// logged; the reply stays a generic 200 to avoid email enumeration.
+					// resend v6 returns API errors instead of throwing them.
+					const isDuplicate = (message: string) =>
+						message.includes("already exists") || message.includes("duplicate");
 					try {
-						await resend.contacts.create({
+						const created = await resend.contacts.create({
 							audienceId,
 							email,
 							unsubscribed: true,
@@ -190,17 +226,14 @@ export function alertRoutes(_dbService?: DbService) {
 								consent_ip: ip,
 							},
 						});
+						const createError = resendErrorOf(created);
+						if (createError && !isDuplicate(createError))
+							console.error(
+								`[alerts] Resend contacts.create failed: ${createError}`,
+							);
 					} catch (err: unknown) {
-						// Duplicate contact — silently continue (send confirmation anyway
-						// since they may not have confirmed the first time)
-						const isDuplicate =
-							err instanceof Error &&
-							(err.message?.includes("already exists") ||
-								err.message?.includes("duplicate"));
-						if (!isDuplicate) {
+						if (!(err instanceof Error && isDuplicate(err.message ?? "")))
 							console.error("[alerts] Resend contacts.create failed:", err);
-							// Still return generic 200 to avoid email enumeration
-						}
 					}
 
 					// Mirror to unified subscriptions table. Same confirm token as the
@@ -242,6 +275,19 @@ export function alertRoutes(_dbService?: DbService) {
 						email: t.String({ format: "email" }),
 						situationIds: t.Optional(t.Array(t.String())),
 						materias: t.Optional(t.Array(t.String())),
+						answers: t.Optional(
+							t.Object({
+								workStatus: t.Optional(t.String({ maxLength: 40 })),
+								sector: t.Optional(t.Nullable(t.String({ maxLength: 40 }))),
+								housing: t.Optional(t.Nullable(t.String({ maxLength: 40 }))),
+								family: t.Optional(
+									t.Array(t.String({ maxLength: 40 }), { maxItems: 20 }),
+								),
+								extras: t.Optional(
+									t.Array(t.String({ maxLength: 40 }), { maxItems: 20 }),
+								),
+							}),
+						),
 						jurisdiction: t.Optional(t.String()),
 					}),
 					detail: {
@@ -286,20 +332,22 @@ export function alertRoutes(_dbService?: DbService) {
 						};
 					}
 
+					// The subscriptions table is the source of truth for sending
+					// (send-notifications.ts no longer reads the Resend audience), so a
+					// failed contact update is logged but does not block confirming.
 					try {
-						// Update the contact to mark as subscribed
-						await resend.contacts.update({
+						const updated = await resend.contacts.update({
 							audienceId,
 							id: email,
 							unsubscribed: false,
 						});
+						const updateError = resendErrorOf(updated);
+						if (updateError)
+							console.error(
+								`[alerts] Resend contacts.update failed: ${updateError}`,
+							);
 					} catch (err) {
 						console.error("[alerts] Resend contacts.update failed:", err);
-						set.status = 503;
-						return {
-							error:
-								"No pudimos procesar tu solicitud. Inténtalo de nuevo en unos minutos.",
-						};
 					}
 
 					// Confirm all subscription rows for this email in the unified table.
