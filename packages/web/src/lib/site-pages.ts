@@ -25,6 +25,9 @@ export interface SitemapEntry {
  * reconoce esta URL": not rejected, simply never offered.
  */
 export const SECONDARY_PAGES: SitemapEntry[] = [
+	// Search + browse entry point: target of the navbar form and of the
+	// JSON-LD SearchAction. Its static part links every jurisdiction and hub.
+	{ path: "/leyes/", changefreq: "weekly", priority: "0.8" },
 	{ path: "/cambios/", changefreq: "daily", priority: "0.6" },
 	{ path: "/cambios/recientes/", changefreq: "daily", priority: "0.7" },
 	// Topic hubs: new indexable pages that link into the corpus and target

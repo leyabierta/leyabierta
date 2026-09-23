@@ -2,6 +2,8 @@
 import { getCollection } from "astro:content";
 import Base from "../layouts/Base.astro";
 import TopicHubs from "../components/TopicHubs.astro";
+import { JURISDICTION_LABELS } from "../lib/law-search";
+import "../lib/law-search.css";
 
 const laws = await getCollection("laws");
 
@@ -39,29 +41,6 @@ const dates = laws.map(l => l.data.fecha_publicacion).filter(Boolean).sort();
 const earliest = dates[0] ?? "1835";
 const earliestYear = earliest.slice(0, 4);
 const vigentes = laws.filter(l => l.data.estado === "vigente").length;
-
-const RANK_LABELS: Record<string, string> = {
-	constitucion: "Constitución", ley_organica: "Ley Orgánica", ley: "Ley",
-	real_decreto_ley: "Decreto urgente", real_decreto_legislativo: "Decreto legislativo",
-	real_decreto: "Real Decreto", orden: "Orden", resolucion: "Resolución",
-	acuerdo_internacional: "Acuerdo internacional", circular: "Circular",
-	instruccion: "Instrucción", decreto: "Decreto", reglamento: "Reglamento",
-	acuerdo: "Acuerdo",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-	vigente: "En vigor",
-	derogada: "Ya no está en vigor",
-	parcialmente_derogada: "Parcialmente en vigor",
-};
-
-const JURISDICTION_LABELS: Record<string, string> = {
-	"es": "Estatal", "es-an": "Andalucía", "es-ar": "Aragón", "es-as": "Asturias",
-	"es-cb": "Cantabria", "es-cl": "Castilla y León", "es-cm": "Castilla-La Mancha",
-	"es-cn": "Canarias", "es-ct": "Cataluña", "es-ex": "Extremadura", "es-ga": "Galicia",
-	"es-ib": "Illes Balears", "es-mc": "Murcia", "es-md": "Madrid", "es-nc": "Navarra",
-	"es-pv": "País Vasco", "es-ri": "La Rioja", "es-vc": "C. Valenciana",
-};
 
 const TOPICS = [
 	"Vivienda", "Trabajo", "Salud", "Educación", "Impuestos",
@@ -551,29 +530,8 @@ const TOPICS = [
 		}
 	</style>
 
-	<!-- Styles for JS-injected content (must be global since Astro scopes don't apply to innerHTML) -->
+	<!-- Styles for JS-injected landing content (global: Astro scopes don't reach innerHTML). Search result styles live in src/lib/law-search.css. -->
 	<style is:global>
-		/* ── Search result cards (injected via JS) ── */
-		.law-card { padding: 1rem 0; transition: background 0.15s; }
-		.law-card:hover { background: var(--surface); margin: 0 -1rem; padding: 1rem; border-radius: 8px; }
-		.law-card + .law-card { border-top: 1px solid var(--border-light); }
-		.law-card-short-title { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--accent); margin-bottom: 0.125rem; }
-		.law-card-title {
-			font-family: var(--font-serif); font-weight: 600; font-size: 1.0625rem; line-height: 1.45;
-			color: var(--text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-		}
-		.law-card-title:hover { color: var(--accent); text-decoration: none; }
-		.law-card-official-title { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-		.law-card-meta { margin-top: 0.5rem; display: flex; gap: 0.5rem 0.75rem; flex-wrap: wrap; align-items: center; font-size: 0.8125rem; color: var(--text-muted); }
-		.law-card-meta .meta-sep { color: var(--border); font-size: 0.5rem; }
-		.law-card-id { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text-muted); opacity: 0.7; }
-		.results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); }
-		.results-info { font-size: 0.8125rem; color: var(--text-muted); }
-		.sort-select { padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-secondary); font-size: 0.8125rem; font-family: var(--font-sans); cursor: pointer; }
-		.results-filter-badge { display: inline-flex; align-items: center; gap: 0.375rem; background: var(--accent-bg); color: var(--accent); font-size: 0.8125rem; font-weight: 500; padding: 0.25rem 0.625rem; border-radius: 4px; margin-bottom: 1rem; }
-		.results-filter-clear { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.125rem; opacity: 0.6; }
-		.results-filter-clear:hover { opacity: 1; }
-
 		/* ── Dynamic landing sections (JS-injected) ── */
 		.change-list { list-style: none; margin: 0; padding: 0; }
 		.change-item { padding: 1.25rem 0; border-bottom: 1px solid var(--border-light); }
@@ -622,9 +580,6 @@ const TOPICS = [
 		.recent-title:hover { color: var(--accent); text-decoration: none; }
 		.recent-official { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-		@media (max-width: 768px) {
-			.law-card-title { -webkit-line-clamp: 2; font-size: 1rem; }
-		}
 	</style>
 
 	<!-- ── Hero ── -->
@@ -696,7 +651,7 @@ const TOPICS = [
 					<div class="hero-eyebrow">Legislación autonómica</div>
 					<h2>Explora por territorio</h2>
 				</div>
-				<a href="/?country=es" class="see-all">Ver las {jurisdictions.length} jurisdicciones &rarr;</a>
+				<a href="/leyes/#jurisdicciones" class="see-all">Ver las {jurisdictions.length} jurisdicciones &rarr;</a>
 			</div>
 
 			<div class="region-layout">
@@ -910,50 +865,72 @@ const TOPICS = [
 		</section>
 	</div>
 
-	<script is:inline define:vars={{ RANK_LABELS, STATUS_LABELS, JURISDICTION_LABELS }}>
+	<script>
+	import { createLawSearch, JURISDICTION_LABELS } from "../lib/law-search";
+
 	(function () {
-		function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-		var API = document.documentElement.dataset.api;
-		var searchInput = document.getElementById("search-input");
-		var searchBtn = document.getElementById("search-btn");
-		var resultsSection = document.getElementById("search-results-section");
-		var resultsDiv = document.getElementById("search-results");
-		var landingDiv = document.getElementById("landing-content");
+		function esc(s: unknown) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+		var API = document.documentElement.dataset.api ?? "";
+		var searchInput = document.getElementById("search-input") as HTMLInputElement;
+		var searchBtn = document.getElementById("search-btn")!;
+		var resultsSection = document.getElementById("search-results-section")!;
+		var resultsDiv = document.getElementById("search-results")!;
+		var landingDiv = document.getElementById("landing-content")!;
 		var heroSection = document.getElementById("hero-section");
 		var searchHints = document.getElementById("search-hints");
-		var currentPage = 1;
-		var currentCountry = "";
-		var currentSort = "";
 
 		// Shorter placeholder on narrow screens so it doesn't get cut mid-word.
 		if (searchInput && window.innerWidth <= 480) {
 			searchInput.placeholder = "Busca una ley…";
 		}
-		var LIMIT = 20;
+
+		// Fetching, rendering, pagination and URL sync live in src/lib/law-search.ts,
+		// shared with /leyes/. The home only decides what to hide while searching.
+		var search = createLawSearch({
+			api: API,
+			input: searchInput,
+			results: resultsDiv,
+			basePath: "/",
+			scrollTarget: resultsSection,
+			onActive: function () {
+				if (heroSection) heroSection.classList.add("search-active");
+				if (searchHints) searchHints.style.display = "none";
+				resultsSection.style.display = "block";
+				landingDiv.style.display = "none";
+			},
+			onIdle: function () {
+				resultsSection.style.display = "none";
+				landingDiv.style.display = "block";
+				if (searchHints) searchHints.style.display = "";
+				if (heroSection) heroSection.classList.remove("search-active");
+			},
+		});
+		function doSearch(page: number) { search.run(page); }
 
 		// Topic chips
-		document.querySelectorAll(".search-hints a[data-topic]").forEach(function (chip) {
+		document.querySelectorAll<HTMLAnchorElement>(".search-hints a[data-topic]").forEach(function (chip) {
 			chip.addEventListener("click", function (e) {
 				e.preventDefault();
-				searchInput.value = this.dataset.topic;
+				searchInput.value = chip.dataset.topic ?? "";
 				doSearch(1);
 			});
 		});
 
 		// CTA search
-		var ctaInput = document.getElementById("cta-search-input");
+		var ctaInput = document.getElementById("cta-search-input") as HTMLInputElement | null;
 		var ctaBtn = document.getElementById("cta-search-btn");
-		if (ctaBtn) {
+		if (ctaBtn && ctaInput) {
+			var cta = ctaInput;
 			ctaBtn.addEventListener("click", function () {
-				if (ctaInput.value.trim()) {
-					searchInput.value = ctaInput.value.trim();
+				if (cta.value.trim()) {
+					searchInput.value = cta.value.trim();
 					doSearch(1);
 					window.scrollTo({ top: 0, behavior: "smooth" });
 				}
 			});
-			ctaInput.addEventListener("keydown", function (e) {
-				if (e.key === "Enter" && ctaInput.value.trim()) {
-					searchInput.value = ctaInput.value.trim();
+			cta.addEventListener("keydown", function (e) {
+				if (e.key === "Enter" && cta.value.trim()) {
+					searchInput.value = cta.value.trim();
 					doSearch(1);
 					window.scrollTo({ top: 0, behavior: "smooth" });
 				}
@@ -961,7 +938,7 @@ const TOPICS = [
 		}
 
 		// Region list + map interaction
-		var regionData = {};
+		var regionData: Record<string, { name: string; count: string }> = {};
 		var REGION_NAMES = JURISDICTION_LABELS;
 
 		// ── Map colors: re-applied on theme change ──
@@ -970,7 +947,7 @@ const TOPICS = [
 			var border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2a3040';
 			var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 			if (isDark) border = '#3a4255';
-			document.querySelectorAll("#spain-map [data-region]").forEach(function (p) {
+			document.querySelectorAll<SVGElement>("#spain-map [data-region]").forEach(function (p) {
 				p.setAttribute("fill", surface);
 				p.setAttribute("stroke", border);
 				p.setAttribute("stroke-width", isDark ? "1.2" : "1");
@@ -983,16 +960,16 @@ const TOPICS = [
 		});
 		var observer = new MutationObserver(function () { applyMapColors(); });
 		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-		document.querySelectorAll("#region-list li").forEach(function (li) {
-			var jur = li.dataset.jurisdiction;
+		document.querySelectorAll<HTMLElement>("#region-list li").forEach(function (li) {
+			var jur = li.dataset.jurisdiction ?? "";
 			regionData[jur] = {
 				name: REGION_NAMES[jur] || jur,
-				count: li.querySelector(".count").textContent
+				count: li.querySelector(".count")?.textContent ?? ""
 			};
 			li.addEventListener("mouseenter", function () { highlightRegion(jur); });
 			li.addEventListener("mouseleave", function () { highlightRegion(null); });
 			li.addEventListener("click", function () {
-				currentCountry = jur;
+				search.setJurisdiction(jur);
 				if (window.la) window.la.track("filter_applied", { kind: "jurisdiction", value: jur, source: "list" });
 				doSearch(1);
 			});
@@ -1005,27 +982,28 @@ const TOPICS = [
 		if (isDark) {
 			mapStroke = '#3a4255';
 		}
-		document.querySelectorAll("#spain-map [data-region]").forEach(function (path) {
+		document.querySelectorAll<SVGElement>("#spain-map [data-region]").forEach(function (path) {
+			var region = path.dataset.region ?? "";
 			path.setAttribute("fill", initSurface);
 			path.setAttribute("stroke", mapStroke);
 			path.setAttribute("stroke-width", isDark ? "1.2" : "1");
 			path.style.cursor = "pointer";
 			path.style.transition = "fill 100ms";
-			path.addEventListener("mouseenter", function () { highlightRegion(this.dataset.region); });
+			path.addEventListener("mouseenter", function () { highlightRegion(region); });
 			path.addEventListener("mouseleave", function () { highlightRegion(null); });
 			path.addEventListener("click", function () {
-				currentCountry = this.dataset.region;
-				if (window.la) window.la.track("filter_applied", { kind: "jurisdiction", value: currentCountry, source: "map" });
+				search.setJurisdiction(region);
+				if (window.la) window.la.track("filter_applied", { kind: "jurisdiction", value: region, source: "map" });
 				doSearch(1);
 			});
 		});
 
-		function highlightRegion(jur) {
+		function highlightRegion(jur: string | null) {
 			// Start from base colors
 			applyMapColors();
 			// Update map
 			var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-			document.querySelectorAll("#spain-map [data-region]").forEach(function (p) {
+			document.querySelectorAll<SVGElement>("#spain-map [data-region]").forEach(function (p) {
 				if (p.dataset.region === jur) {
 					p.setAttribute("fill", accent);
 					p.setAttribute("stroke", accent);
@@ -1034,19 +1012,20 @@ const TOPICS = [
 			});
 
 			// Update list
-			document.querySelectorAll("#region-list li").forEach(function (li) {
+			document.querySelectorAll<HTMLElement>("#region-list li").forEach(function (li) {
 				li.classList.toggle("active", li.dataset.jurisdiction === jur);
 			});
 
 			// Update peek
 			var peek = document.getElementById("region-peek");
+			if (!peek) return;
 			if (jur && regionData[jur]) {
 				var r = regionData[jur];
 				peek.innerHTML = '<div class="region-peek-name">' + esc(r.name) + '</div>' +
 					'<div class="region-peek-count">' + r.count + ' leyes consolidadas</div>' +
 					'<a class="region-peek-link" style="cursor:pointer">Ver legislación de ' + esc(r.name) + ' →</a>';
-				peek.querySelector(".region-peek-link").addEventListener("click", function () {
-					currentCountry = jur;
+				peek.querySelector(".region-peek-link")?.addEventListener("click", function () {
+					search.setJurisdiction(jur);
 					doSearch(1);
 				});
 			} else {
@@ -1057,192 +1036,28 @@ const TOPICS = [
 		// Initialize map default colors
 		highlightRegion(null);
 
-		function doSearch(page) {
-			currentPage = page || 1;
-			var q = searchInput.value.trim();
-
-			if (!q && !currentCountry) {
-				resultsSection.style.display = "none";
-				landingDiv.style.display = "block";
-				if (searchHints) searchHints.style.display = "";
-				if (heroSection) heroSection.classList.remove("search-active");
-				history.replaceState(null, "", "/");
-				return;
-			}
-
-			if (heroSection) heroSection.classList.add("search-active");
-
-			if (searchHints) searchHints.style.display = "none";
-
-			// Track first page only (avoid double-counting paginations as searches).
-			if (window.la && currentPage === 1 && q) {
-				window.la.track("search_submit", {
-					q_len: q.length,
-					has_jurisdiction: !!currentCountry,
-				});
-			}
-
-			var params = new URLSearchParams();
-			if (q) params.set("q", q);
-			if (currentCountry) params.set("jurisdiction", currentCountry);
-			if (currentSort) params.set("sort", currentSort);
-			params.set("limit", String(LIMIT));
-			params.set("offset", String((currentPage - 1) * LIMIT));
-
-			resultsDiv.innerHTML = '<div style="display:flex;flex-direction:column;gap:1rem;padding:1rem 0">' +
-				'<div style="padding:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:8px"><div style="height:0.875rem;background:linear-gradient(90deg,var(--border) 25%,var(--surface) 50%,var(--border) 75%);background-size:200% 100%;animation:skeleton-pulse 1.5s ease-in-out infinite;border-radius:4px;width:70%;margin-bottom:0.625rem"></div><div style="height:0.875rem;background:linear-gradient(90deg,var(--border) 25%,var(--surface) 50%,var(--border) 75%);background-size:200% 100%;animation:skeleton-pulse 1.5s ease-in-out infinite;border-radius:4px;width:90%;margin-bottom:0.625rem"></div><div style="height:0.875rem;background:linear-gradient(90deg,var(--border) 25%,var(--surface) 50%,var(--border) 75%);background-size:200% 100%;animation:skeleton-pulse 1.5s ease-in-out infinite;border-radius:4px;width:40%"></div></div></div>';
-			resultsSection.style.display = "block";
-			landingDiv.style.display = "none";
-
-			// Update URL
-			var urlParams = new URLSearchParams();
-			if (q) urlParams.set("q", q);
-			if (currentCountry) urlParams.set("jurisdiction", currentCountry);
-			if (currentSort) urlParams.set("sort", currentSort);
-			if (currentPage > 1) urlParams.set("page", String(currentPage));
-			history.replaceState(null, "", "/?" + urlParams.toString());
-
-			var fetchUrl = API + "/v1/laws?" + params.toString();
-			requestAnimationFrame(function () { setTimeout(doFetch, 0); });
-			function doFetch() {
-			fetch(fetchUrl)
-				.then(function (r) { return r.json(); })
-				.then(function (result) {
-					if (result.data.length === 0) {
-						// Zero-results event: PII-filtered query.
-						if (window.la && q) {
-							var sanitized = window.la.sanitize(q);
-							window.la.track("search_zero_results", {
-								had_pii: sanitized.had_pii,
-								query: sanitized.query,
-								jurisdiction: currentCountry || null,
-							});
-						}
-						resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">No se encontraron resultados. Prueba con otro término.</div>';
-						return;
-					}
-
-					var offset = (currentPage - 1) * LIMIT;
-					var totalPages = Math.ceil(result.total / LIMIT);
-					var html = "";
-
-					if (currentCountry) {
-						var countryName = JURISDICTION_LABELS[currentCountry] || currentCountry;
-						html += '<div class="results-filter-badge">' + esc(countryName) + ' <button type="button" class="results-filter-clear" id="clear-country" aria-label="Quitar filtro">&times;</button></div>';
-					}
-
-					var hasQuery = searchInput.value.trim();
-					html += '<div class="results-header">';
-					var totalLabel = result.capped ? 'más de ' + result.total.toLocaleString("es", { useGrouping: "always" }) : result.total.toLocaleString("es", { useGrouping: "always" });
-					html += '<span class="results-info">Mostrando ' + (offset + 1) + '–' + Math.min(offset + LIMIT, result.total) + ' de ' + totalLabel + '</span>';
-					html += '<select class="sort-select" id="sort-select">';
-					html += '<option value=""' + (currentSort === "" ? ' selected' : '') + '>' + (hasQuery ? 'Más relevantes' : 'Más recientes') + '</option>';
-					if (hasQuery) html += '<option value="recent"' + (currentSort === "recent" ? ' selected' : '') + '>Más recientes</option>';
-					html += '<option value="oldest"' + (currentSort === "oldest" ? ' selected' : '') + '>Más antiguas</option>';
-					html += '<option value="title"' + (currentSort === "title" ? ' selected' : '') + '>Alfabético</option>';
-					html += '</select></div>';
-
-					for (var i = 0; i < result.data.length; i++) {
-						var law = result.data[i];
-						html += '<article class="law-card">';
-						if (law.citizen_summary) {
-							html += '<a href="/leyes/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.citizen_summary) + '</a>';
-							html += '<p class="law-card-official-title">' + esc(law.title) + '</p>';
-						} else {
-							if (law.short_title && law.short_title !== law.title && law.short_title.length > 25) {
-								html += '<span class="law-card-short-title">' + esc(law.short_title) + '</span>';
-							}
-							html += '<a href="/leyes/' + encodeURIComponent(law.id) + '/" class="law-card-title">' + esc(law.title) + '</a>';
-						}
-						html += '<div class="law-card-meta">';
-						html += '<span class="badge badge-' + esc(law.status) + '" style="text-transform:none">' + esc(STATUS_LABELS[law.status] || law.status) + '</span>';
-						html += '<span class="meta-sep">&middot;</span>';
-						html += '<span>' + esc(RANK_LABELS[law.rank] || law.rank) + '</span>';
-						html += '<span class="meta-sep">&middot;</span>';
-						html += '<span>' + law.published_at + '</span>';
-						html += '<span class="law-card-id">' + esc(law.id) + '</span>';
-						html += '</div></article>';
-					}
-
-					if (window.innerWidth <= 768) {
-						resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-					}
-
-					if (totalPages > 1) {
-						html += '<nav class="pagination">';
-						if (currentPage > 1) html += '<span class="page-num" data-page="' + (currentPage - 1) + '">&larr;</span>';
-						var startPage = Math.max(1, currentPage - 4);
-						var endPage = Math.min(totalPages, startPage + 9);
-						if (startPage > 1) html += '<span class="page-num" data-page="1">1</span><span class="page-ellipsis">&hellip;</span>';
-						for (var p = startPage; p <= endPage; p++) {
-							html += '<span class="page-num' + (p === currentPage ? ' current' : '') + '" data-page="' + p + '">' + p + '</span>';
-						}
-						if (endPage < totalPages) html += '<span class="page-ellipsis">&hellip;</span><span class="page-num" data-page="' + totalPages + '">' + totalPages + '</span>';
-						if (currentPage < totalPages) html += '<span class="page-num" data-page="' + (currentPage + 1) + '">&rarr;</span>';
-						html += '</nav>';
-					}
-
-					resultsDiv.innerHTML = html;
-
-					// search_result_click: track which position the user clicked.
-					if (window.la) {
-						resultsDiv.querySelectorAll(".law-card .law-card-title").forEach(function (link, idx) {
-							link.addEventListener("click", function () {
-								window.la.track("search_result_click", {
-									position: offset + idx + 1,
-									law_id: (this.getAttribute("href") || "").replace(/\/laws\/|\/$/g, ""),
-									had_query: !!q,
-								});
-							});
-						});
-					}
-
-					resultsDiv.querySelectorAll(".page-num").forEach(function (el) {
-						el.style.cursor = "pointer";
-						el.addEventListener("click", function () { doSearch(Number(this.dataset.page)); });
-					});
-
-					var sortSelect = document.getElementById("sort-select");
-					if (sortSelect) {
-						sortSelect.addEventListener("change", function () {
-							currentSort = this.value;
-							if (window.la) window.la.track("filter_applied", { kind: "sort", value: currentSort || "default" });
-							doSearch(1);
-						});
-					}
-
-					var clearBtn = document.getElementById("clear-country");
-					if (clearBtn) {
-						clearBtn.addEventListener("click", function () {
-							currentCountry = "";
-							if (window.la) window.la.track("filter_applied", { kind: "jurisdiction_cleared" });
-							doSearch(1);
-						});
-					}
-				})
-				.catch(function () {
-					resultsDiv.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)">Error al buscar. La API no está disponible.</div>';
-				});
-			}
-		}
-
 		searchBtn.addEventListener("click", function () { doSearch(1); });
 		searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") doSearch(1); });
 
-		// Restore from URL params
-		var urlParams = new URLSearchParams(window.location.search);
-		if (urlParams.get("q") || urlParams.get("jurisdiction")) {
-			searchInput.value = urlParams.get("q") || "";
-			currentCountry = urlParams.get("jurisdiction") || "";
-			currentSort = urlParams.get("sort") || "";
-			doSearch(Number(urlParams.get("page") || "1"));
-		}
+		// Restore a search from the URL (/?q=… links and shared searches).
+		search.restoreFromUrl();
 
 		// Load dynamic landing data
+		interface MostReformedResponse { data: Array<{ id: string; title: string; published_at?: string | null; reform_count: number }> }
+		interface RecentReformsResponse { data: Array<{ id: string; title: string; citizen_summary?: string | null; last_reform?: string | null; reform_count: number }> }
+		interface StatusResponse { last_reform_date?: string | null; corpus_max_published_at?: string | null }
+		function setHtml(id: string, html: string) {
+			var el = document.getElementById(id);
+			if (el) el.innerHTML = html;
+		}
+		function hideParent(id: string) {
+			var parent = document.getElementById(id)?.parentElement;
+			if (parent) parent.style.display = "none";
+		}
 		var ric = window.requestIdleCallback || function (cb) { setTimeout(cb, 1); };
 		ric(function () {
 
-		fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
+		fetch(API + "/v1/most-reformed").then(function (r) { return r.json() as Promise<MostReformedResponse>; }).then(function (data) {
 			var currentYear = new Date().getFullYear();
 			var html = '<ol class="rank-list">';
 			var limit = Math.min(data.data.length, 10);
@@ -1257,13 +1072,13 @@ const TOPICS = [
 				html += '</div></div></li>';
 			}
 			html += '</ol>';
-			document.getElementById("most-reformed").innerHTML = html;
+			setHtml("most-reformed", html);
 		}).catch(function () {
-			document.getElementById("most-reformed").parentElement.style.display = "none";
+			hideParent("most-reformed");
 		});
 
-		fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
-			function formatDate(iso) {
+		fetch(API + "/v1/recent-reforms").then(function (r) { return r.json() as Promise<RecentReformsResponse>; }).then(function (data) {
+			function formatDate(iso: string | null | undefined) {
 				if (!iso) return "";
 				var d = new Date(iso + "T00:00:00");
 				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -1282,16 +1097,16 @@ const TOPICS = [
 				html += '<div class="change-id">' + esc(r.id) + '</div></li>';
 			}
 			html += '</ul>';
-			document.getElementById("recent-reforms").innerHTML = html;
+			setHtml("recent-reforms", html);
 		}).catch(function () {
-			document.getElementById("recent-reforms").parentElement.style.display = "none";
+			hideParent("recent-reforms");
 		});
 
 		// Freshness note: when did we last sync with the BOE? Degrades silently if /v1/status
 		// doesn't exist yet or fails — the note simply stays hidden, no gaps or console errors.
 		fetch(API + "/v1/status").then(function (r) {
 			if (!r.ok) throw new Error("status endpoint unavailable");
-			return r.json();
+			return r.json() as Promise<StatusResponse | null>;
 		}).then(function (data) {
 			var isoDate = data && (data.last_reform_date || data.corpus_max_published_at);
 			if (!isoDate) return;
@@ -1314,7 +1129,6 @@ const TOPICS = [
 	</script>
 
 	<style is:global>
-		@keyframes skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 		.loading-spinner {
 			display: inline-block; width: 1.25rem; height: 1.25rem;
 			border: 2px solid var(--border); border-top-color: var(--accent);
