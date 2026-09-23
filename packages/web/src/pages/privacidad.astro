@@ -127,10 +127,11 @@ import Legal from "../layouts/Legal.astro";
 				no usarlas para entrenar sus modelos.
 			</li>
 			<li>
-				En nuestro servidor guardamos la pregunta y la respuesta, junto con registros
-				técnicos del proceso, durante <strong>90 días</strong> para detectar errores y
-				medir la calidad del servicio. Pasado ese plazo se borran automáticamente. Nunca publicamos las preguntas:
-				se excluyen de las copias públicas de la base de datos.
+				En nuestro servidor guardamos la pregunta y la respuesta, junto con algunos
+				datos técnicos de esa respuesta (cuánto tardó, cuántas citas incluye, qué modelo
+				la generó), durante <strong>90 días</strong> para detectar errores y medir la
+				calidad del servicio. Pasado ese plazo se borran automáticamente. Nunca publicamos
+				las preguntas: se excluyen de las copias públicas de la base de datos.
 			</li>
 			<li>
 				Tu navegador guarda la conversación mientras tengas abierta la pestaña, para
@@ -255,7 +256,7 @@ import Legal from "../layouts/Legal.astro";
 					<td>Proveedores de modelos a los que enruta OpenRouter</td>
 					<td>Generar la respuesta y convertir la pregunta o la búsqueda de leyes en un vector de búsqueda</td>
 					<td>Texto de la pregunta o de la búsqueda, y artículos de ley; con retención cero</td>
-					<td>Actualmente: Google (modelo Gemini, EE. UU. / UE), DeepInfra (EE. UU.) y Nebius (Países Bajos)</td>
+					<td>Actualmente: Google (modelo Gemini, EE. UU. / UE), Microsoft (servicio Azure, modelo GPT de OpenAI, EE. UU. / UE), DeepInfra (EE. UU.) y Nebius (Países Bajos)</td>
 				</tr>
 				<tr>
 					<td>Resend, Inc.</td>
@@ -293,6 +294,11 @@ import Legal from "../layouts/Legal.astro";
 			<li>
 				<strong>Google</strong> (proveedor del modelo Gemini): certificación en el Marco de
 				Privacidad de Datos UE-EE. UU. y cláusulas contractuales tipo.
+			</li>
+			<li>
+				<strong>Microsoft</strong> (Azure, proveedor del modelo GPT de OpenAI):
+				certificación en el Marco de Privacidad de Datos UE-EE. UU. y cláusulas
+				contractuales tipo.
 			</li>
 			<li>
 				<strong>Resend:</strong> cláusulas contractuales tipo aprobadas por la Comisión

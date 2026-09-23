@@ -236,7 +236,7 @@ a failure alerts and the run continues to OG images, emails and the index rebuil
 
 ### Opik Observability
 
-All AI paths are instrumented with [Opik](https://www.comet.com/site/products/opik/) for latency, cost, and quality monitoring.
+All AI paths are instrumented with [Opik](https://www.comet.com/site/products/opik/) for latency, cost, and quality monitoring — **for local development and research only. Opik is OFF in production** (decision 2026-09-23): traces hold the full question and law-search text, and the privacy policy promises we keep nothing beyond `ask_log` (90 days). Tracing only starts when `OPIK_ENABLED=true` **and** `OPIK_URL_OVERRIDE` or `OPIK_API_KEY` is set (`resolveOpikConfig()` in `tracing.ts`); a leftover URL/key in `.env.prod` does not turn it on. Never set `OPIK_ENABLED` in production without first updating `/privacidad/`.
 
 **Project: `leyabierta-rag`** — single project for all traces (configured via `OPIK_PROJECT` env var or defaults to `leyabierta-rag`).
 
@@ -249,9 +249,9 @@ All AI paths are instrumented with [Opik](https://www.comet.com/site/products/op
 
 **Decision rationale:** `hybrid-laws-search` shares `leyabierta-rag` instead of a separate project so both search paths (RAG Q&A and norm listing) are visible in a single Opik UI view. Differentiation is by trace `name` field, which Opik supports as a filter.
 
-**Privacy of questions (see `/privacidad/#preguntas`):** questions are free text and may contain personal data. Every OpenRouter request sends `provider: { zdr: true, data_collection: "deny", ignore: ["siliconflow"] }` (`openRouterProviderField()` in `services/openrouter.ts`; the account also enforces ZDR), so only Zero-Data-Retention endpoints are used — a model/reranker without a ZDR endpoint returns 404 (Cohere rerank today → passthrough). `ask_log` rows are purged after `ASK_LOG_RETENTION_DAYS` (default 90, `services/rag/ask-log-retention.ts`), wired in the API server (`index.ts`: at startup + hourly tick, at most once a day) — deliberately not in `RagPipeline`, so eval scripts on a local DB never delete rows. The privacy policy promises the same 90 days for Opik traces (which hold the full question and law-search text); that must be enforced on the Opik side (ClickHouse TTL or a cron) — nothing in this repo does it. The cohere-or reranker always goes through OpenRouter, even if `COHERE_API_KEY` is set. Never send user IPs or identifiers upstream, and never send question text to Umami.
+**Privacy of questions (see `/privacidad/#preguntas`):** questions are free text and may contain personal data. Every OpenRouter request sends `provider: { zdr: true, data_collection: "deny", ignore: ["siliconflow"] }` (`openRouterProviderField()` in `services/openrouter.ts`; the account also enforces ZDR), so only Zero-Data-Retention endpoints are used — a model/reranker without a ZDR endpoint returns 404 (Cohere rerank today → passthrough). `ask_log` rows are purged after `ASK_LOG_RETENTION_DAYS` (default 90, `services/rag/ask-log-retention.ts`), wired in the API server (`index.ts`: at startup + hourly tick, at most once a day) — deliberately not in `RagPipeline`, so eval scripts on a local DB never delete rows. Opik tracing is off in production (see above), so `ask_log` is the only place questions are stored server-side. The cohere-or reranker always goes through OpenRouter, even if `COHERE_API_KEY` is set. Never send user IPs or identifiers upstream, and never send question text to Umami.
 
-**Tracing is always safe-to-fail:** every Opik call is wrapped in try-catch. A tracing failure never breaks the user response. Disabled gracefully when `OPIK_API_KEY` is not set.
+**Tracing is always safe-to-fail:** every Opik call is wrapped in try-catch. A tracing failure never breaks the user response. A no-op unless `OPIK_ENABLED=true`.
 
 ### Email notifications
 

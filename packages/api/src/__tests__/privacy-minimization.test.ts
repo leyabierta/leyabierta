@@ -17,6 +17,7 @@ import {
 	getRerankCaller,
 	type RerankCaller,
 } from "../services/rag/backends.ts";
+import { resolveOpikConfig } from "../services/rag/tracing.ts";
 
 function makeDb(): Database {
 	const db = new Database(":memory:");
@@ -177,5 +178,34 @@ describe("cohere-or rerank caller", () => {
 			ignore: ["siliconflow"],
 		});
 		expect(res.results[0]?.key).toBe("N:b");
+	});
+});
+
+describe("resolveOpikConfig (tracing is opt-in, off in production)", () => {
+	it("stays off with only a URL or key set (prod .env leftovers)", () => {
+		expect(
+			resolveOpikConfig({ OPIK_URL_OVERRIDE: "http://opik:5173/api" }),
+		).toBeNull();
+		expect(resolveOpikConfig({ OPIK_API_KEY: "k" })).toBeNull();
+		expect(
+			resolveOpikConfig({
+				OPIK_ENABLED: "false",
+				OPIK_URL_OVERRIDE: "http://opik:5173/api",
+			}),
+		).toBeNull();
+	});
+	it("stays off when enabled but nothing to connect to", () => {
+		expect(resolveOpikConfig({ OPIK_ENABLED: "true" })).toBeNull();
+	});
+	it("turns on only with OPIK_ENABLED=true plus a URL or key", () => {
+		expect(
+			resolveOpikConfig({
+				OPIK_ENABLED: "true",
+				OPIK_URL_OVERRIDE: "http://localhost:5173/api",
+			}),
+		).toEqual({
+			apiUrl: "http://localhost:5173/api",
+			projectName: "leyabierta-rag",
+		});
 	});
 });

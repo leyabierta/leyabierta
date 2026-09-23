@@ -10,12 +10,41 @@
  * must NEVER break the RAG pipeline or user response. If Opik is down or
  * misconfigured, the pipeline runs identically — just without traces.
  *
- * Disabled gracefully when OPIK_API_KEY is not set (no-op in development).
+ * STRICTLY OPT-IN: tracing only starts when OPIK_ENABLED=true AND an Opik
+ * URL or key is configured. Traces hold the citizen's full question and law
+ * search text, so Opik is for local development / research only and is OFF
+ * in production (the privacy policy promises nothing is kept beyond ask_log's
+ * 90 days). A leftover OPIK_URL_OVERRIDE / OPIK_API_KEY in an env file is not
+ * enough to turn it on.
  */
 
 import { Opik, type Span, type SpanType, type Trace } from "opik";
 
 // ── Client singleton ──
+
+export interface OpikConfig {
+	apiKey?: string;
+	apiUrl?: string;
+	projectName: string;
+}
+
+/**
+ * Resolve the Opik config from env, or null when tracing must stay off.
+ * Pure (env passed in) for tests.
+ */
+export function resolveOpikConfig(
+	env: Record<string, string | undefined>,
+): OpikConfig | null {
+	if ((env.OPIK_ENABLED ?? "").trim().toLowerCase() !== "true") return null;
+	const apiKey = env.OPIK_API_KEY || undefined;
+	const apiUrl = env.OPIK_URL_OVERRIDE || undefined;
+	if (!apiKey && !apiUrl) return null;
+	return {
+		...(apiKey ? { apiKey } : {}),
+		...(apiUrl ? { apiUrl } : {}),
+		projectName: env.OPIK_PROJECT ?? "leyabierta-rag",
+	};
+}
 
 let client: Opik | null = null;
 let initAttempted = false;
@@ -25,20 +54,12 @@ function getClient(): Opik | null {
 	if (initAttempted) return null;
 	initAttempted = true;
 
-	const apiKey = process.env.OPIK_API_KEY;
-	const apiUrl = process.env.OPIK_URL_OVERRIDE;
-
-	if (!apiKey && !apiUrl) return null;
+	const config = resolveOpikConfig(process.env);
+	if (!config) return null;
 
 	try {
-		client = new Opik({
-			...(apiKey ? { apiKey } : {}),
-			...(apiUrl ? { apiUrl } : {}),
-			projectName: process.env.OPIK_PROJECT ?? "leyabierta-rag",
-		});
-		console.log(
-			`[tracing] Opik initialized (project: ${process.env.OPIK_PROJECT ?? "leyabierta-rag"})`,
-		);
+		client = new Opik(config);
+		console.log(`[tracing] Opik initialized (project: ${config.projectName})`);
 		return client;
 	} catch (err) {
 		console.warn("[tracing] Failed to initialize Opik:", err);
