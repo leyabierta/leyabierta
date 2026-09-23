@@ -367,7 +367,8 @@ export async function callOpenRouter<T>(
 					temperature,
 					max_tokens: maxTokens,
 					...(reasoning ? { reasoning } : {}),
-					...openRouterProviderField(),
+					// OpenRouter-only routing field; custom endpoints don't know it.
+					...(baseUrl ? {} : openRouterProviderField()),
 					...(jsonSchema
 						? {
 								response_format: {
