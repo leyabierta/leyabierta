@@ -205,6 +205,44 @@ fi
 
 log "=== Daily pipeline started ==="
 
+# ── Step 0.5 (opt-in, one-shot): restore laws whose text regressed (A5b) ────
+# Before PR #170 a late-arriving reform re-rendered a law at an older date and
+# rolled its text back (e.g. Estatuto de los Trabajadores, leyes 93f61f1).
+# scripts/ad-hoc/restore-regressed-texts.ts re-renders those files at their
+# latest reform date and commits the correction; Step 1.5 then pushes it with
+# the day's commits, so nothing is pushed to leyes from outside this server.
+#
+# OFF unless the flag file below exists in the deployed tree (refs/tags/prod).
+# Enable: merge a PR that adds it. Disable: merge a PR that removes it. While it
+# is on it re-scans every day (idempotent: after the first run it finds 0 files
+# and commits nothing). The correction commits are ordinary commits in leyes
+# ("— texto restaurado a la versión vigente") and can be reverted there.
+#
+# Runs BEFORE Step 1 so the leyes tree is clean and data/json has been enriched
+# by yesterday's Step 3. Non-fatal: a failure alerts, discards any half-written
+# file and lets the normal run go on.
+RESTORE_FLAG="$REPO_DIR/scripts/ad-hoc/restore-regressed-texts.enabled"
+if [ -f "$RESTORE_FLAG" ]; then
+  log "→ Step 0.5: Restore regressed law texts (flag present)"
+  set +e
+  # scripts/ is not in the image; copy it next to packages/ (the script uses
+  # relative imports). `/.` copies the contents even if /app/scripts exists.
+  docker cp "$REPO_DIR/scripts/." "$CONTAINER:/app/scripts" >> "$LOG" 2>&1 \
+    && docker exec "$CONTAINER" bun run scripts/ad-hoc/restore-regressed-texts.ts \
+         --repo "$LEYES_DIR_CONTAINER" --apply >> "$LOG" 2>&1
+  restore_status=$?
+  set -e
+  if [ "$restore_status" -ne 0 ]; then
+    log "  ⚠ restore-regressed-texts failed (exit $restore_status) — discarding uncommitted changes in leyes"
+    # Only generated files, and before Step 1 the tree has no other pending
+    # work: a partial write must not be swept into Step 1's first commit.
+    docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" reset -q --hard HEAD >> "$LOG" 2>&1 || true
+    send_alert "leyabierta restore-regressed-texts failed" "exit=$restore_status — see /opt/leyabierta/logs/daily-pipeline.log"
+  else
+    log "  ✓ Restore regressed texts done"
+  fi
+fi
+
 # ── Step 1: Pipeline bootstrap (BOE → markdown + git commits) ──────────────
 log "→ Step 1: Pipeline bootstrap"
 docker exec "$CONTAINER" bun run pipeline bootstrap --country es --concurrency 2 >> "$LOG" 2>&1
