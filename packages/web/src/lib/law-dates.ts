@@ -39,6 +39,10 @@ export function effectiveLastUpdated(
 	const maxYear = Number(today.slice(0, 4));
 	let latest: string | undefined;
 	const consider = (d: string | undefined) => {
+		// `d > today` is what rejects a future date within the current year
+		// (isPlausibleReformDate only bounds the year). Note this is the web's
+		// isPlausibleReformDate (window: build year), not the pipeline's
+		// (window: today + 5 years); the two are not interchangeable.
 		if (!d || d > today || !isPlausibleReformDate(d, maxYear)) return;
 		if (!latest || d > latest) latest = d;
 	};

@@ -199,6 +199,12 @@ describe("resolveRenderDate", () => {
 		);
 	});
 
+	test("falls back to the reform date when the frontmatter never closes", () => {
+		const unclosed =
+			'---\ntitulo: X\n\n# X\n\nultima_actualizacion: "2025-01-01"\n';
+		expect(resolveRenderDate("2020-01-01", unclosed)).toBe("2020-01-01");
+	});
+
 	test("reads the date only from the frontmatter", () => {
 		const body = "---\ntitulo: X\n---\n\nultima_actualizacion: 2099-01-01\n";
 		expect(resolveRenderDate("2020-01-01", body)).toBe("2020-01-01");

@@ -85,11 +85,18 @@ export function resolveRenderDate(
 ): string {
 	if (!existingMarkdown?.startsWith("---\n")) return reformDate;
 	const end = existingMarkdown.indexOf("\n---", 4);
-	const frontmatter =
-		end === -1 ? existingMarkdown : existingMarkdown.slice(0, end);
+	// No closing `---`: we can't tell frontmatter from body, and a date quoted
+	// in the legal text must never steer the render. Fall back to the reform.
+	if (end === -1) return reformDate;
+	const frontmatter = existingMarkdown.slice(0, end);
 	const current = frontmatter.match(
 		/^ultima_actualizacion: ["']?(\d{4}-\d{2}-\d{2})["']?$/m,
 	)?.[1];
+	// This is the pipeline's isPlausibleReformDate (window: today + 5 years),
+	// NOT the web's same-named helper in packages/web/src/lib/sitemap-dates.ts
+	// (window: build year). They are intentionally different and not
+	// interchangeable. A plausible-but-future date here only makes the render
+	// include more versions, never fewer, so it cannot make the text stale.
 	if (current && current > reformDate && isPlausibleReformDate(current)) {
 		return current;
 	}
