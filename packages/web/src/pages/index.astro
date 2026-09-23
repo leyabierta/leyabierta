@@ -947,7 +947,7 @@ const TOPICS = [
 			var border = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2a3040';
 			var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 			if (isDark) border = '#3a4255';
-			document.querySelectorAll("#spain-map [data-region]").forEach(function (p) {
+			document.querySelectorAll<SVGElement>("#spain-map [data-region]").forEach(function (p) {
 				p.setAttribute("fill", surface);
 				p.setAttribute("stroke", border);
 				p.setAttribute("stroke-width", isDark ? "1.2" : "1");
@@ -960,11 +960,11 @@ const TOPICS = [
 		});
 		var observer = new MutationObserver(function () { applyMapColors(); });
 		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-		document.querySelectorAll("#region-list li").forEach(function (li) {
-			var jur = li.dataset.jurisdiction;
+		document.querySelectorAll<HTMLElement>("#region-list li").forEach(function (li) {
+			var jur = li.dataset.jurisdiction ?? "";
 			regionData[jur] = {
 				name: REGION_NAMES[jur] || jur,
-				count: li.querySelector(".count").textContent
+				count: li.querySelector(".count")?.textContent ?? ""
 			};
 			li.addEventListener("mouseenter", function () { highlightRegion(jur); });
 			li.addEventListener("mouseleave", function () { highlightRegion(null); });
@@ -982,28 +982,28 @@ const TOPICS = [
 		if (isDark) {
 			mapStroke = '#3a4255';
 		}
-		document.querySelectorAll("#spain-map [data-region]").forEach(function (path) {
+		document.querySelectorAll<SVGElement>("#spain-map [data-region]").forEach(function (path) {
+			var region = path.dataset.region ?? "";
 			path.setAttribute("fill", initSurface);
 			path.setAttribute("stroke", mapStroke);
 			path.setAttribute("stroke-width", isDark ? "1.2" : "1");
 			path.style.cursor = "pointer";
 			path.style.transition = "fill 100ms";
-			path.addEventListener("mouseenter", function () { highlightRegion(this.dataset.region); });
+			path.addEventListener("mouseenter", function () { highlightRegion(region); });
 			path.addEventListener("mouseleave", function () { highlightRegion(null); });
 			path.addEventListener("click", function () {
-				var region = this.dataset.region;
 				search.setJurisdiction(region);
 				if (window.la) window.la.track("filter_applied", { kind: "jurisdiction", value: region, source: "map" });
 				doSearch(1);
 			});
 		});
 
-		function highlightRegion(jur) {
+		function highlightRegion(jur: string | null) {
 			// Start from base colors
 			applyMapColors();
 			// Update map
 			var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-			document.querySelectorAll("#spain-map [data-region]").forEach(function (p) {
+			document.querySelectorAll<SVGElement>("#spain-map [data-region]").forEach(function (p) {
 				if (p.dataset.region === jur) {
 					p.setAttribute("fill", accent);
 					p.setAttribute("stroke", accent);
@@ -1012,18 +1012,19 @@ const TOPICS = [
 			});
 
 			// Update list
-			document.querySelectorAll("#region-list li").forEach(function (li) {
+			document.querySelectorAll<HTMLElement>("#region-list li").forEach(function (li) {
 				li.classList.toggle("active", li.dataset.jurisdiction === jur);
 			});
 
 			// Update peek
 			var peek = document.getElementById("region-peek");
+			if (!peek) return;
 			if (jur && regionData[jur]) {
 				var r = regionData[jur];
 				peek.innerHTML = '<div class="region-peek-name">' + esc(r.name) + '</div>' +
 					'<div class="region-peek-count">' + r.count + ' leyes consolidadas</div>' +
 					'<a class="region-peek-link" style="cursor:pointer">Ver legislación de ' + esc(r.name) + ' →</a>';
-				peek.querySelector(".region-peek-link").addEventListener("click", function () {
+				peek.querySelector(".region-peek-link")?.addEventListener("click", function () {
 					search.setJurisdiction(jur);
 					doSearch(1);
 				});
@@ -1042,10 +1043,21 @@ const TOPICS = [
 		search.restoreFromUrl();
 
 		// Load dynamic landing data
+		interface MostReformedResponse { data: Array<{ id: string; title: string; published_at?: string | null; reform_count: number }> }
+		interface RecentReformsResponse { data: Array<{ id: string; title: string; citizen_summary?: string | null; last_reform?: string | null; reform_count: number }> }
+		interface StatusResponse { last_reform_date?: string | null; corpus_max_published_at?: string | null }
+		function setHtml(id: string, html: string) {
+			var el = document.getElementById(id);
+			if (el) el.innerHTML = html;
+		}
+		function hideParent(id: string) {
+			var parent = document.getElementById(id)?.parentElement;
+			if (parent) parent.style.display = "none";
+		}
 		var ric = window.requestIdleCallback || function (cb) { setTimeout(cb, 1); };
 		ric(function () {
 
-		fetch(API + "/v1/most-reformed").then(function (r) { return r.json(); }).then(function (data) {
+		fetch(API + "/v1/most-reformed").then(function (r) { return r.json() as Promise<MostReformedResponse>; }).then(function (data) {
 			var currentYear = new Date().getFullYear();
 			var html = '<ol class="rank-list">';
 			var limit = Math.min(data.data.length, 10);
@@ -1060,13 +1072,13 @@ const TOPICS = [
 				html += '</div></div></li>';
 			}
 			html += '</ol>';
-			document.getElementById("most-reformed").innerHTML = html;
+			setHtml("most-reformed", html);
 		}).catch(function () {
-			document.getElementById("most-reformed").parentElement.style.display = "none";
+			hideParent("most-reformed");
 		});
 
-		fetch(API + "/v1/recent-reforms").then(function (r) { return r.json(); }).then(function (data) {
-			function formatDate(iso) {
+		fetch(API + "/v1/recent-reforms").then(function (r) { return r.json() as Promise<RecentReformsResponse>; }).then(function (data) {
+			function formatDate(iso: string | null | undefined) {
 				if (!iso) return "";
 				var d = new Date(iso + "T00:00:00");
 				var months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -1085,16 +1097,16 @@ const TOPICS = [
 				html += '<div class="change-id">' + esc(r.id) + '</div></li>';
 			}
 			html += '</ul>';
-			document.getElementById("recent-reforms").innerHTML = html;
+			setHtml("recent-reforms", html);
 		}).catch(function () {
-			document.getElementById("recent-reforms").parentElement.style.display = "none";
+			hideParent("recent-reforms");
 		});
 
 		// Freshness note: when did we last sync with the BOE? Degrades silently if /v1/status
 		// doesn't exist yet or fails — the note simply stays hidden, no gaps or console errors.
 		fetch(API + "/v1/status").then(function (r) {
 			if (!r.ok) throw new Error("status endpoint unavailable");
-			return r.json();
+			return r.json() as Promise<StatusResponse | null>;
 		}).then(function (data) {
 			var isoDate = data && (data.last_reform_date || data.corpus_max_published_at);
 			if (!isoDate) return;

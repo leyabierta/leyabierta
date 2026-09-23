@@ -183,7 +183,9 @@ export function renderLawResults(
 			html += `<a href="${href}" class="law-card-title">${esc(law.title)}</a>`;
 		}
 		html += '<div class="law-card-meta">';
-		html += `<span class="badge badge-${esc(law.status)}" style="text-transform:none">${esc(STATUS_LABELS[law.status] || law.status)}</span>`;
+		// Only known statuses become a class name; anything else gets no badge colour.
+		const statusClass = STATUS_LABELS[law.status] ? ` badge-${law.status}` : "";
+		html += `<span class="badge${statusClass}" style="text-transform:none">${esc(STATUS_LABELS[law.status] || law.status)}</span>`;
 		html += '<span class="meta-sep">&middot;</span>';
 		html += `<span>${esc(RANK_LABELS[law.rank] || law.rank)}</span>`;
 		html += '<span class="meta-sep">&middot;</span>';
@@ -194,10 +196,15 @@ export function renderLawResults(
 
 	if (totalPages > 1) {
 		const page = state.page;
-		const num = (p: number, label: string | number = p, current = false) =>
-			`<button type="button" class="page-num${current ? " current" : ""}" data-page="${p}"${current ? ' aria-current="page"' : ""}>${label}</button>`;
+		const num = (
+			p: number,
+			label: string | number = p,
+			current = false,
+			ariaLabel = "",
+		) =>
+			`<button type="button" class="page-num${current ? " current" : ""}" data-page="${p}"${current ? ' aria-current="page"' : ""}${ariaLabel ? ` aria-label="${ariaLabel}"` : ""}>${label}</button>`;
 		html += '<nav class="pagination" aria-label="Páginas de resultados">';
-		if (page > 1) html += num(page - 1, "&larr;");
+		if (page > 1) html += num(page - 1, "&larr;", false, "Página anterior");
 		const startPage = Math.max(1, page - 4);
 		const endPage = Math.min(totalPages, startPage + 9);
 		if (startPage > 1)
@@ -205,7 +212,8 @@ export function renderLawResults(
 		for (let p = startPage; p <= endPage; p++) html += num(p, p, p === page);
 		if (endPage < totalPages)
 			html += `<span class="page-ellipsis">&hellip;</span>${num(totalPages)}`;
-		if (page < totalPages) html += num(page + 1, "&rarr;");
+		if (page < totalPages)
+			html += num(page + 1, "&rarr;", false, "Página siguiente");
 		html += "</nav>";
 	}
 
@@ -239,12 +247,18 @@ export interface LawSearch {
 /** Browser controller: fetch, render, pagination, sort, filter, URL sync. */
 export function createLawSearch(opts: LawSearchOptions): LawSearch {
 	const state: LawSearchState = { q: "", jurisdiction: "", sort: "", page: 1 };
+	// The request in flight, if any. Each new search (or going back to idle)
+	// aborts it, so a slow earlier response can never overwrite newer results.
+	let inflight: AbortController | null = null;
 
 	function run(page = 1): void {
 		state.page = page;
 		state.q = opts.input.value.trim();
+		inflight?.abort();
+		inflight = null;
 
 		if (!state.q && !state.jurisdiction) {
+			opts.results.removeAttribute("aria-busy");
 			opts.results.innerHTML = "";
 			opts.onIdle?.();
 			history.replaceState(null, "", opts.basePath);
@@ -271,15 +285,25 @@ export function createLawSearch(opts: LawSearchOptions): LawSearch {
 
 		const snapshot = { ...state };
 		const fetchUrl = `${opts.api}/v1/laws?${apiParams(snapshot).toString()}`;
+		const controller = new AbortController();
+		inflight = controller;
+		const { signal } = controller;
 		requestAnimationFrame(() => {
 			setTimeout(() => {
-				fetch(fetchUrl)
+				if (signal.aborted) return;
+				fetch(fetchUrl, { signal })
 					.then((r) => r.json() as Promise<LawSearchResponse>)
-					.then((result) => render(result, snapshot))
-					.catch(() => {
-						opts.results.innerHTML = SEARCH_ERROR_HTML;
+					.then((result) => {
+						if (!signal.aborted) render(result, snapshot);
 					})
-					.finally(() => opts.results.removeAttribute("aria-busy"));
+					.catch(() => {
+						if (!signal.aborted) opts.results.innerHTML = SEARCH_ERROR_HTML;
+					})
+					.finally(() => {
+						if (signal.aborted) return;
+						opts.results.removeAttribute("aria-busy");
+						if (inflight === controller) inflight = null;
+					});
 			}, 0);
 		});
 	}
@@ -330,16 +354,17 @@ export function createLawSearch(opts: LawSearchOptions): LawSearch {
 			el.addEventListener("click", () => run(Number(el.dataset.page)));
 		}
 
-		opts.results
-			.querySelector<HTMLSelectElement>(".sort-select")
-			?.addEventListener("change", (e) => {
-				state.sort = (e.target as HTMLSelectElement).value;
-				window.la?.track("filter_applied", {
-					kind: "sort",
-					value: state.sort || "default",
-				});
-				run(1);
+		const sortSelect = opts.results.querySelector(
+			".sort-select",
+		) as HTMLSelectElement | null;
+		sortSelect?.addEventListener("change", () => {
+			state.sort = sortSelect.value;
+			window.la?.track("filter_applied", {
+				kind: "sort",
+				value: state.sort || "default",
 			});
+			run(1);
+		});
 
 		opts.results
 			.querySelector("[data-clear-jurisdiction]")

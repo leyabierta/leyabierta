@@ -312,7 +312,7 @@ const FREQUENT = [
 				const region = !s.jurisdiction
 					? ""
 					: s.jurisdiction === "es"
-						? "leyes estatales"
+						? "Leyes estatales"
 						: (JURISDICTION_LABELS[s.jurisdiction] ?? s.jurisdiction);
 				if (s.q) return `Resultados para «${s.q}»${region ? ` · ${region}` : ""}`;
 				return s.jurisdiction === "es" ? "Leyes estatales" : `Leyes de ${region}`;
