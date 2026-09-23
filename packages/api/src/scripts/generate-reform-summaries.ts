@@ -33,6 +33,10 @@ import {
 	callOpenRouter,
 	OpenRouterError,
 } from "../services/openrouter.ts";
+import {
+	type SummaryResponse,
+	validateReformSummary,
+} from "./reform-summary-validation.ts";
 
 // ── CLI ──
 
@@ -59,7 +63,7 @@ const omnibusOnly = hasFlag("omnibus-only");
 const apiKey = process.env.OPENROUTER_API_KEY;
 if (!apiKey && !dryRun) {
 	console.error(
-		"Set OPENROUTER_API_KEY env variable (or use --dry-run to skip AI)",
+		"Set OPENROUTER_API_KEY env variable (--no-write still calls the LLM; only --dry-run skips AI)",
 	);
 	process.exit(1);
 }
@@ -83,13 +87,6 @@ interface BlockDiff {
 	change_type: "modified" | "new";
 	previous_text: string;
 	current_text: string;
-}
-
-interface SummaryResponse {
-	headline: string;
-	summary: string;
-	importance: "high" | "normal" | "low" | "skip";
-	reform_type: "new_law" | "modification" | "correction" | "derogation";
 }
 
 const SUMMARY_SCHEMA = {
@@ -199,50 +196,6 @@ function isOriginalPublication(
 		)
 		.get(normId);
 	return earliest?.date === reformDate;
-}
-
-// ── Validation ──
-
-function validateResponse(data: unknown): {
-	result: SummaryResponse | null;
-	reason: string;
-} {
-	if (!data || typeof data !== "object")
-		return { result: null, reason: "not an object" };
-	const d = data as Record<string, unknown>;
-
-	let headline = typeof d.headline === "string" ? d.headline : "";
-	let summary = typeof d.summary === "string" ? d.summary : "";
-	const importance = typeof d.importance === "string" ? d.importance : "";
-	const reformType = typeof d.reform_type === "string" ? d.reform_type : "";
-
-	// Truncate instead of rejecting — structured outputs should prevent this,
-	// but belt-and-suspenders for models that don't fully support json_schema
-	if (headline.length > 100) {
-		headline = `${headline.slice(0, 97)}...`;
-	}
-	if (summary.length > 500) {
-		summary = `${summary.slice(0, 497)}...`;
-	}
-
-	if (!["high", "normal", "low", "skip"].includes(importance))
-		return { result: null, reason: `invalid importance: "${importance}"` };
-	if (
-		!["new_law", "modification", "correction", "derogation"].includes(
-			reformType,
-		)
-	)
-		return { result: null, reason: `invalid reform_type: "${reformType}"` };
-
-	return {
-		result: {
-			headline,
-			summary,
-			importance: importance as SummaryResponse["importance"],
-			reform_type: reformType as SummaryResponse["reform_type"],
-		},
-		reason: "ok",
-	};
 }
 
 // ── Prompt construction ──
@@ -446,7 +399,7 @@ async function main() {
 				},
 			});
 
-			const { result: validated, reason } = validateResponse(result.data);
+			const { result: validated, reason } = validateReformSummary(result.data);
 			if (!validated) {
 				console.error(`  ❌ ${reform.norm_id} ${reform.date}: ${reason}`);
 				errors++;

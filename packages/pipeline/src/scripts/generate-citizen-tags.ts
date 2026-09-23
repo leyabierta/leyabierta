@@ -19,6 +19,7 @@
 import { Database } from "bun:sqlite";
 import { join, resolve } from "node:path";
 import { createSchema } from "../db/schema.ts";
+import { parseLawCitizenMetadata } from "./citizen-tags-validation.ts";
 
 // ── CLI args ──
 
@@ -401,22 +402,21 @@ ${articleText.slice(0, 2000)}`;
 		continue;
 	}
 
-	const lawData = parseJson(lawResult.content) as {
-		citizen_tags: string[];
-		citizen_summary: string;
-	} | null;
+	// Rejects invalid JSON and blank summaries (see citizen-tags-validation.ts:
+	// a blank one would re-select this norm every run and wipe its articles).
+	const lawData = parseLawCitizenMetadata(lawResult.content);
 
 	if (!lawData) {
 		console.error(
-			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: JSON parse failed`,
+			`[${i + 1}/${norms.length}] ${norm.id} — ERROR: invalid JSON or empty citizen_summary`,
 		);
 		errorCount++;
 		await Bun.sleep(DELAY_MS);
 		continue;
 	}
 
-	const citizenTags = lawData.citizen_tags ?? [];
-	const citizenSummary = lawData.citizen_summary ?? "";
+	const citizenTags = lawData.citizen_tags;
+	const citizenSummary = lawData.citizen_summary;
 
 	totalInputTokens += lawResult.inputTokens;
 	totalOutputTokens += lawResult.outputTokens;
