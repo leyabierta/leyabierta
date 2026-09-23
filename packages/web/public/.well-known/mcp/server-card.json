@@ -16,7 +16,7 @@
 		{
 			"name": "search_laws",
 			"description": "Buscar leyes por texto, rango, estado, materia o jurisdiccion",
-			"endpoint": "GET /v1/laws?q={query}&country={country}&rank={rank}&status={status}&materia={materia}"
+			"endpoint": "GET /v1/laws?q={query}&country={country}&rank={rank}&status={status}&materia={materia}&jurisdiction={jurisdiction}"
 		},
 		{
 			"name": "get_law",

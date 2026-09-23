@@ -4,8 +4,8 @@
       "anchor": "https://api.leyabierta.es/v1/",
       "service-desc": [
         {
-          "href": "https://api.leyabierta.es/v1/docs",
-          "type": "text/html"
+          "href": "https://api.leyabierta.es/swagger/json",
+          "type": "application/vnd.oai.openapi+json"
         }
       ],
       "service-doc": [
