@@ -132,6 +132,14 @@ export function reformRoutes(dbService: DbService) {
 		.get(
 			"/changelog",
 			({ query, set }) => {
+				// `since` was advertised by old docs but never implemented. Reject
+				// it loudly instead of silently applying a different window.
+				if (query.since?.trim()) {
+					set.status = 400;
+					return {
+						error: `since is not supported; use weeks (1-${MAX_CHANGELOG_WEEKS}) and offset`,
+					};
+				}
 				const weeks = parseIntParam(query.weeks, DEFAULT_CHANGELOG_WEEKS);
 				const limit = parseIntParam(query.limit, DEFAULT_CHANGELOG_LIMIT);
 				const offset = parseIntParam(query.offset, 0);
@@ -213,6 +221,12 @@ export function reformRoutes(dbService: DbService) {
 					offset: t.Optional(
 						t.String({
 							description: `Rows to skip for pagination (default 0, max ${MAX_CHANGELOG_OFFSET}). Use has_more to know if another page exists.`,
+						}),
+					),
+					since: t.Optional(
+						t.String({
+							description:
+								"Not supported: returns 400. Use weeks to set the time window.",
 						}),
 					),
 				}),

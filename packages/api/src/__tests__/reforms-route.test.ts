@@ -199,7 +199,12 @@ describe("GET /v1/reforms/personal", () => {
 
 interface ChangelogResponse {
 	error?: string;
-	reforms: Array<{ id: string; date: string; source_id: string }>;
+	reforms: Array<{
+		id: string;
+		date: string;
+		source_id: string;
+		headline?: string | null;
+	}>;
 	date_range: string;
 	weeks: number;
 	weeks_requested: number;
@@ -309,6 +314,8 @@ describe("GET /v1/changelog", () => {
 		"weeks=0",
 		"weeks=abc",
 		"jurisdiccion=xx",
+		"since=2024-01-01",
+		"jurisdiction=es&since=2024-01-01&limit=50",
 	])("invalid %s returns 400", async (qs) => {
 		const res = await request(`/v1/changelog?${qs}`);
 		expect(res.status).toBe(400);
@@ -321,6 +328,7 @@ describe("GET /v1/changelog", () => {
 		"limit=",
 		"offset=",
 		"weeks=&limit=&offset=",
+		"since=",
 	])("empty %s falls back to the default (as before)", async (qs) => {
 		const res = await request(`/v1/changelog?${qs}`);
 		expect(res.status).toBe(200);
@@ -329,6 +337,31 @@ describe("GET /v1/changelog", () => {
 		expect(body.limit).toBe(50);
 		expect(body.offset).toBe(0);
 		expect(body.reforms).toHaveLength(2);
+	});
+
+	test("a reform with a summary yields exactly one row (no DISTINCT needed)", async () => {
+		const recent = new Date();
+		recent.setDate(recent.getDate() - 7);
+		db.run(
+			`INSERT INTO reform_summaries (norm_id, source_id, reform_date, headline, summary, importance)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			[
+				"BOE-A-2024-1000",
+				"BOE-A-2024-9001",
+				recent.toISOString().slice(0, 10),
+				"Titular",
+				"Resumen",
+				"high",
+			],
+		);
+		const body = (await (
+			await request("/v1/changelog")
+		).json()) as ChangelogResponse;
+		expect(body.reforms).toHaveLength(2);
+		expect(new Set(body.reforms.map(key)).size).toBe(2);
+		expect(body.reforms.filter((r) => r.headline === "Titular")).toHaveLength(
+			1,
+		);
 	});
 
 	test("jurisdiction is accepted as an alias of jurisdiccion", async () => {
