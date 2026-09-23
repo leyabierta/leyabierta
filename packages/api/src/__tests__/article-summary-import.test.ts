@@ -134,7 +134,7 @@ describe("importRows", () => {
 
 	test("apply inserts summary and article-level tags", () => {
 		const report = importRows(db, [row()], { apply: true });
-		expect(report).toEqual({ total: 1, inserted: 1, skipped: {} });
+		expect(report).toEqual({ total: 1, inserted: 1, replaced: 0, skipped: {} });
 		expect(
 			db
 				.prepare(
@@ -230,5 +230,86 @@ describe("importRows", () => {
 				.all(),
 		).toEqual([{ tag: "previa" }]);
 		expect(count("citizen_article_summaries")).toBe(1);
+	});
+
+	describe("replace mode (regenerating old summaries)", () => {
+		const OLD = "Resumen antiguo de baja calidad.";
+		beforeEach(() => {
+			db.run(
+				"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES ('N', 'a1', ?)",
+				[OLD],
+			);
+			db.run(
+				"INSERT INTO citizen_tags (norm_id, block_id, tag) VALUES ('N', 'a1', 'vieja'), ('N', '', 'de ley')",
+			);
+		});
+		const replace = (summary = OLD) => new Map([["N|a1", textHash(summary)]]);
+		const current = () =>
+			db
+				.prepare(
+					"SELECT summary FROM citizen_article_summaries WHERE norm_id='N' AND block_id='a1'",
+				)
+				.get();
+		const articleTags = () =>
+			db
+				.prepare(
+					"SELECT tag FROM citizen_tags WHERE norm_id='N' AND block_id='a1' ORDER BY tag",
+				)
+				.all()
+				.map((r) => (r as { tag: string }).tag);
+
+		test("without replace an existing summary is kept", () => {
+			importRows(db, [row()], { apply: true });
+			expect(current()).toEqual({ summary: OLD });
+		});
+
+		test("replaces the exported summary and its article tags only", () => {
+			const report = importRows(db, [row()], {
+				apply: true,
+				replace: replace(),
+			});
+			expect(report.replaced).toBe(1);
+			expect(current()).toEqual({ summary: row().summary });
+			expect(articleTags()).toEqual(["convocatoria", "plazos", "solicitudes"]);
+			// Law-level tags are untouched.
+			expect(
+				db
+					.prepare(
+						"SELECT tag FROM citizen_tags WHERE norm_id='N' AND block_id=''",
+					)
+					.all(),
+			).toEqual([{ tag: "de ley" }]);
+		});
+
+		test("does not replace a summary that changed since the export", () => {
+			const report = importRows(db, [row()], {
+				apply: true,
+				replace: replace("Otro resumen que había al exportar."),
+			});
+			expect(report.skipped).toEqual({ summary_changed_since_export: 1 });
+			expect(current()).toEqual({ summary: OLD });
+			expect(articleTags()).toEqual(["vieja"]);
+		});
+
+		test("dry run reports the replacement but writes nothing", () => {
+			const report = importRows(db, [row()], {
+				apply: false,
+				replace: replace(),
+			});
+			expect(report.replaced).toBe(1);
+			expect(current()).toEqual({ summary: OLD });
+		});
+
+		test("the article text check still applies", () => {
+			db.run(
+				"UPDATE blocks SET current_text = current_text || ' Reformado.' WHERE norm_id='N' AND block_id='a1'",
+			);
+			const report = importRows(db, [row()], {
+				apply: true,
+				replace: replace(),
+			});
+			expect(report.skipped).toEqual({ source_text_changed: 1 });
+			expect(current()).toEqual({ summary: OLD });
+		});
 	});
 });

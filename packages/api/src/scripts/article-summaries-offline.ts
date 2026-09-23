@@ -11,6 +11,13 @@
  *   BASE=http://127.0.0.1:8001/v1 MODEL=qwen3.8-27b CONC=64 \
  *     bun run packages/api/src/scripts/article-summaries-offline.ts generate <in.jsonl> <out.jsonl> [--limit N]
  *   bun run packages/api/src/scripts/article-summaries-offline.ts import <generated.jsonl> [--apply] [--db PATH]
+ *     [--replace-from <export.jsonl>]
+ *
+ * Regeneration of existing (older, lower-quality) summaries: an export file
+ * whose rows carry `previous_summary_hash` (the hash of the summary at export
+ * time) can be passed with --replace-from; import then replaces those
+ * summaries and their article tags, but only if they are still exactly the
+ * ones exported.
  *
  * Generation uses the production prompt v10 (citizen-summary-backfill-prompt.ts)
  * with one article per request (the server batches; one article per request
@@ -43,7 +50,10 @@ const positional = args
 	.slice(1)
 	.filter(
 		(a, i, all) =>
-			!a.startsWith("--") && all[i - 1] !== "--db" && all[i - 1] !== "--limit",
+			!a.startsWith("--") &&
+			all[i - 1] !== "--db" &&
+			all[i - 1] !== "--limit" &&
+			all[i - 1] !== "--replace-from",
 	);
 
 type ExportRow = BackfillArticle & { input_hash: string };
@@ -167,7 +177,20 @@ function importGenerated(file: string, apply: boolean) {
 		: new Database(DB_PATH, { readonly: true });
 	db.run("PRAGMA busy_timeout = 30000");
 	const { rows, badLines } = readJsonl<unknown>(file);
-	const report = importRows(db, rows, { apply });
+	const replaceFrom = flag("--replace-from");
+	let replace: Map<string, string> | undefined;
+	if (replaceFrom) {
+		replace = new Map();
+		for (const e of readJsonl<{
+			norm_id: string;
+			block_id: string;
+			previous_summary_hash?: string;
+		}>(replaceFrom).rows)
+			if (e.previous_summary_hash)
+				replace.set(`${e.norm_id}|${e.block_id}`, e.previous_summary_hash);
+		console.log(`replace mode: ${replace.size} summaries may be replaced`);
+	}
+	const report = importRows(db, rows, { apply, replace });
 	console.log(
 		`${apply ? "APPLIED" : "DRY RUN (use --apply to write)"}: ${JSON.stringify({ ...report, badLines })}`,
 	);

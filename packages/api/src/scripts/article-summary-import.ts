@@ -109,21 +109,37 @@ export function validateGeneratedRow(
 export interface ImportReport {
 	total: number;
 	inserted: number;
+	replaced: number;
 	skipped: Record<string, number>;
 }
 
 /**
  * Inserts valid rows whose article still has the exact text the summary was
- * generated from and has no summary yet. Never overwrites: an existing summary
- * (even an empty one) or existing article tags are left untouched.
+ * generated from and has no summary yet. By default never overwrites: an
+ * existing summary (even an empty one) or existing article tags are left
+ * untouched.
+ *
+ * `replace` (regeneration of old summaries) maps `norm_id|block_id` to the
+ * hash of the summary seen at export time: that summary, and only if it is
+ * still exactly the same, is replaced together with its article tags.
  * With `apply: false` nothing is written (the report is the same).
  */
 export function importRows(
 	db: Database,
 	rows: unknown[],
-	opts: { apply: boolean; batchSize?: number; pauseMs?: number },
+	opts: {
+		apply: boolean;
+		batchSize?: number;
+		pauseMs?: number;
+		replace?: Map<string, string>;
+	},
 ): ImportReport {
-	const report: ImportReport = { total: rows.length, inserted: 0, skipped: {} };
+	const report: ImportReport = {
+		total: rows.length,
+		inserted: 0,
+		replaced: 0,
+		skipped: {},
+	};
 	const skip = (reason: string) => {
 		report.skipped[reason] = (report.skipped[reason] ?? 0) + 1;
 	};
@@ -143,6 +159,27 @@ export function importRows(
 	const insertTag = db.prepare(
 		"INSERT OR IGNORE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
 	);
+	const getSummary = db.prepare(
+		"SELECT summary FROM citizen_article_summaries WHERE norm_id = ? AND block_id = ?",
+	);
+	const updateSummary = db.prepare(
+		"UPDATE citizen_article_summaries SET summary = ? WHERE norm_id = ? AND block_id = ?",
+	);
+	const deleteTags = db.prepare(
+		"DELETE FROM citizen_tags WHERE norm_id = ? AND block_id = ?",
+	);
+	// The summary is still the one seen at export time.
+	const unchangedSinceExport = (normId: string, blockId: string) => {
+		const expected = opts.replace?.get(`${normId}|${blockId}`);
+		const current = getSummary.get(normId, blockId) as {
+			summary: string;
+		} | null;
+		return (
+			expected !== undefined &&
+			current !== null &&
+			textHash(current.summary) === expected
+		);
+	};
 
 	// generate appends an ok:false row for an attempt and an ok:true row when a
 	// later run succeeds; the failure is then not a real skip.
@@ -158,6 +195,7 @@ export function importRows(
 		block_id: string;
 		summary: string;
 		tags: string[];
+		replace: boolean;
 	};
 	const accepted: Accepted[] = [];
 
@@ -199,15 +237,24 @@ export function importRows(
 			skip("source_text_changed");
 			continue;
 		}
+		let replace = false;
 		if (hasSummary.get(r.norm_id, r.block_id)) {
-			skip("already_has_summary");
-			continue;
+			if (!opts.replace?.has(key)) {
+				skip("already_has_summary");
+				continue;
+			}
+			if (!unchangedSinceExport(r.norm_id, r.block_id)) {
+				skip("summary_changed_since_export");
+				continue;
+			}
+			replace = true;
 		}
 		accepted.push({
 			norm_id: r.norm_id,
 			block_id: r.block_id,
 			summary: v.summary,
 			tags: v.tags,
+			replace,
 		});
 	}
 
@@ -219,6 +266,18 @@ export function importRows(
 		const chunk = accepted.slice(i, i + batchSize);
 		const write = db.transaction((items: Accepted[]) => {
 			for (const a of items) {
+				if (a.replace) {
+					// Re-check inside the transaction, like the insert below.
+					if (!unchangedSinceExport(a.norm_id, a.block_id)) {
+						skip("summary_changed_since_export");
+						continue;
+					}
+					updateSummary.run(a.summary, a.norm_id, a.block_id);
+					deleteTags.run(a.norm_id, a.block_id);
+					for (const t of a.tags) insertTag.run(a.norm_id, a.block_id, t);
+					report.replaced++;
+					continue;
+				}
 				// Re-check inside the transaction: the daily pipeline or the lazy
 				// summary route may have filled it since the scan above.
 				const res = insertSummary.run(a.norm_id, a.block_id, a.summary);
@@ -237,7 +296,11 @@ export function importRows(
 			if (pauseMs > 0) Bun.sleepSync(pauseMs);
 		} else {
 			for (const a of chunk)
-				if (hasSummary.get(a.norm_id, a.block_id)) skip("already_has_summary");
+				if (a.replace)
+					if (unchangedSinceExport(a.norm_id, a.block_id)) report.replaced++;
+					else skip("summary_changed_since_export");
+				else if (hasSummary.get(a.norm_id, a.block_id))
+					skip("already_has_summary");
 				else report.inserted++;
 		}
 	}
