@@ -113,7 +113,7 @@ function renderTextWithCitations(
 					className="ask-cite-wrapper"
 				>
 					<a
-						href={`/leyes/${normId}/${citation.anchor ? `#${citation.anchor}` : ""}`}
+						href={`/leyes/${normId}/${citation.anchor ? `texto/#${citation.anchor}` : ""}`}
 						target="_blank"
 						rel="noopener noreferrer"
 						className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}

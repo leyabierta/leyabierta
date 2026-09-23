@@ -1,59 +1,31 @@
 ---
 import { getCollection } from "astro:content";
 import { promises as fs } from "node:fs";
-import MarkdownIt from "markdown-it";
-import sanitizeHtml from "sanitize-html";
 import Base from "../../layouts/Base.astro";
-import { safeJsonLd } from "../../lib/escape";
+import { escapeHtml, safeJsonLd } from "../../lib/escape";
 import { getLaw } from "../../lib/api.ts";
-import { bakeArticleSummaries } from "../../lib/article-summaries.ts";
+import {
+	AI_SUMMARIES_EXPLAINER_HREF,
+	articleLabel,
+	matchArticleSummaries,
+} from "../../lib/article-summaries.ts";
 import { reformCanonicalPath } from "../../lib/reform-experiment.ts";
-import { loadArticleSummaries, loadManifest } from "../../lib/manifest.ts";
+import {
+	isIndexableLaw,
+	loadArticleSummaries,
+	loadManifest,
+} from "../../lib/manifest.ts";
 import { hubsForLaw } from "../../components/topic-hubs";
 import { effectiveLastUpdated } from "../../lib/law-dates.ts";
-
-// Shift all heading levels down by 1 (h1→h2, h2→h3, etc.) so the page
-// has a single H1 — the law title rendered in the header above the tabs.
-const md = new MarkdownIt();
-md.renderer.rules.heading_open = (tokens, idx, options, _env, self) => {
-	const token = tokens[idx];
-	const origLevel = Number(token.tag.slice(1));
-	const level = Math.min(origLevel + 1, 6);
-	token.tag = `h${level}`;
-	// Add id to headings for linking.
-	// Articles get predictable IDs: "articulo-90", "articulo-1-bis"
-	// Other headings (titles, chapters, sections) get slugified IDs.
-	if (origLevel >= 2) {
-		const contentToken = tokens[idx + 1];
-		if (contentToken?.content) {
-			const text = contentToken.content;
-			// Try to extract a predictable article ID first
-			const artMatch = text.match(/^Art[ií]culo\s+(\d+(?:\.\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?)/i);
-			if (artMatch) {
-				const artId = artMatch[1]
-					.toLowerCase()
-					.replace(/\s+/g, "-")
-					.replace(/\./g, "-");
-				token.attrSet("id", `articulo-${artId}`);
-			} else {
-				const slug = text
-					.toLowerCase()
-					.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-					.replace(/[^a-z0-9]+/g, "-")
-					.replace(/^-|-$/g, "")
-					.slice(0, 60);
-				token.attrSet("id", slug);
-			}
-		}
-	}
-	return self.renderToken(tokens, idx, options);
-};
-md.renderer.rules.heading_close = (tokens, idx, options, _env, self) => {
-	const token = tokens[idx];
-	const level = Math.min(Number(token.tag.slice(1)) + 1, 6);
-	token.tag = `h${level}`;
-	return self.renderToken(tokens, idx, options);
-};
+import {
+	boeUrl,
+	capitalize,
+	formatDate,
+	lawTextPath,
+	RANK_LABELS,
+	STATUS_LABELS,
+} from "../../lib/law-labels.ts";
+import { lawBody, renderLawHtml } from "../../lib/law-text.ts";
 
 // A related norm shown in the "Normas relacionadas" internal-linking block.
 interface RelatedLaw {
@@ -187,51 +159,43 @@ if (manifest) {
 	}
 }
 
-// Read and render the markdown body on-demand (not during content sync)
-let htmlContent = "";
-if (entry.body) {
-	const raw = await fs.readFile(entry.body, "utf-8");
-	const bodyMatch = raw.match(/^---[\s\S]*?---\s*([\s\S]*)$/);
-	const body = bodyMatch?.[1] ?? raw;
-	htmlContent = sanitizeHtml(md.render(body), {
-		allowedTags: [
-			"h1", "h2", "h3", "h4", "h5", "h6",
-			"p", "ul", "ol", "li", "em", "strong", "a",
-			"table", "thead", "tbody", "tr", "th", "td",
-			"blockquote", "br", "span", "div", "sup", "sub",
-			"hr", "code", "pre", "dl", "dt", "dd",
-		],
-		allowedAttributes: {
-			a: ["href", "title"],
-			th: ["colspan", "rowspan"],
-			td: ["colspan", "rowspan"],
-			span: ["class"],
-			div: ["class"],
-			h2: ["id"], h3: ["id"], h4: ["id"], h5: ["id"], h6: ["id"],
-		},
-		allowedSchemes: ["https", "http"],
-	});
-	// Bake per-article citizen summaries into the HTML (SEO-visible) instead of
-	// the old client-side fetch+tooltip. No-op when the manifest is absent.
-	htmlContent = bakeArticleSummaries(htmlContent, loadArticleSummaries()?.[id!]);
+// Article summaries ("Artículo por artículo"). The legal text itself lives on
+// /leyes/[id]/texto/; here we only need each summary's anchor there, so the
+// body is rendered (unsanitized: sanitizing never touches heading ids or text)
+// with the same renderer and matcher the text page uses, and then dropped.
+const articlePairs = loadArticleSummaries()?.[id!];
+let articleItems: Array<{ label: string; summary: string; href: string }> = [];
+if (articlePairs?.some(([, s]) => s)) {
+	let html = "";
+	if (entry.body) {
+		const raw = await fs.readFile(entry.body, "utf-8");
+		html = renderLawHtml(lawBody(raw), false);
+	}
+	articleItems = matchArticleSummaries(html, articlePairs, { inject: false }).items.map(
+		(item) => ({
+			label: articleLabel(item.heading, item.section),
+			summary: item.summary,
+			// Relative to /leyes/<id>/: keeps 1,000+ links per big code short.
+			href: `texto/${item.anchor ? `#${item.anchor}` : ""}`,
+		}),
+	);
 }
+// Pre-rendered as one string: as Astro template nodes every element would
+// also carry a scoped-style attribute (~90 bytes per article on big codes).
+const articleListHtml = articleItems
+	.map(
+		(a) =>
+			`<li><h3><a href="${escapeHtml(a.href)}">${escapeHtml(a.label)}</a></h3><p>${escapeHtml(a.summary)}</p></li>`,
+	)
+	.join("");
 
-const RANK_LABELS: Record<string, string> = {
-	constitucion: "Constitución",
-	ley_organica: "Ley Orgánica",
-	ley: "Ley",
-	real_decreto_ley: "Decreto urgente",
-	real_decreto_legislativo: "Decreto legislativo",
-	real_decreto: "Real Decreto",
-	orden: "Orden",
-	decreto: "Decreto",
-	circular: "Circular",
-	resolucion: "Resolución",
-	acuerdo_internacional: "Acuerdo internacional",
-	instruccion: "Instrucción",
-	reglamento: "Reglamento",
-	acuerdo: "Acuerdo",
-};
+// AI headline/summary per reform, looked up by date + reforming norm.
+const reformSummaries = new Map(
+	(manifest?.reforms?.[id!] ?? []).map((r) => [`${r.date}|${r.source}`, r]),
+);
+const indexable = isIndexableLaw(id!);
+const hasAiContent =
+	!!citizenSummary || articleItems.length > 0 || reformSummaries.size > 0;
 
 // legislationType accepts free text (schema.org examples: "law", "decree", "loi organique")
 const RANK_LEGISLATION_TYPES: Record<string, string> = {
@@ -250,22 +214,6 @@ const RANK_LEGISLATION_TYPES: Record<string, string> = {
 	reglamento: "Regulation",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-	vigente: "En vigor",
-	derogada: "Ya no está en vigor",
-	parcialmente_derogada: "Parcialmente en vigor",
-};
-
-const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-function formatDate(iso: string): string {
-	if (!iso) return '';
-	const [y, m, d] = iso.split('-');
-	return `${parseInt(d!, 10)} de ${MONTHS[parseInt(m!, 10) - 1]} de ${y}`;
-}
-
-function capitalize(s: string): string {
-	return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
-}
 
 const reforms = (law.reformas ?? []).slice().reverse();
 // Prefer DB-sourced materias from the manifest (the published leyes frontmatter
@@ -310,6 +258,7 @@ const seoDescription = [
 	ogType="article"
 	ogImage={`${import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es"}/og/${id}`}
 	canonicalUrl={`/leyes/${id}/`}
+	noindex={!indexable}
 >
 	<!-- JSON-LD: Legislation -->
 	<script type="application/ld+json" set:html={safeJsonLd({
@@ -397,160 +346,7 @@ const seoDescription = [
 		.meta-item svg { flex-shrink: 0; opacity: 0.5; }
 		.meta-id { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); position: relative; top: 0.5px; }
 
-		/* ── Tabs ── */
-		.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
-		.tab {
-			padding: 0.5rem 1rem;
-			font-size: 0.8125rem;
-			font-weight: 500;
-			color: var(--text-muted);
-			cursor: pointer;
-			border: none;
-			background: none;
-			border-bottom: 2px solid transparent;
-			margin-bottom: -1px;
-			font-family: var(--font-sans);
-		}
-		.tab:hover { color: var(--text); }
-		.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-		.tab-badge {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			min-width: 1.25rem;
-			height: 1.25rem;
-			padding: 0 0.3rem;
-			border-radius: 100px;
-			background: var(--accent-bg);
-			color: var(--accent);
-			font-size: 0.6875rem;
-			font-weight: 600;
-			margin-left: 0.375rem;
-		}
-		.tab-panel { display: none; padding-top: 1.5rem; }
-		.tab-panel.active { display: block; }
-		.tab-panel-texto.active { display: flex; }
-
-		/* ── Content ── */
-		.law-content {
-			font-family: var(--font-serif);
-			line-height: 1.8;
-			font-size: 0.9375rem;
-			overflow-wrap: break-word;
-			word-break: break-word;
-		}
-		.law-content :global(h2) { font-size: 1.125rem; font-weight: 700; margin: 2.5rem 0 0.75rem; text-align: center; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text); padding: 0.5rem 0; border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border-light); }
-		.law-content :global(h3) { font-size: 1rem; font-weight: 700; color: var(--accent); margin: 2rem 0 0.5rem; font-family: var(--font-sans); text-align: center; text-transform: uppercase; letter-spacing: 0.03em; }
-		.law-content :global(h4) { font-size: 0.875rem; font-weight: 600; margin: 1.5rem 0 0.5rem; text-align: center; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.02em; }
-		.law-content :global(h5) { font-size: 0.8125rem; font-weight: 600; margin: 1.25rem 0 0.375rem; text-align: center; color: var(--text-muted); font-style: italic; }
-		.law-content :global(h6) { font-size: 0.9375rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: var(--text); padding-bottom: 0.25rem; border-bottom: 1px solid var(--border-light); }
-		.law-content :global(p) { margin-bottom: 0.75rem; }
-		:global(.law-rubric) { text-align: center; font-weight: 700; color: var(--text); margin-top: -0.25rem; font-family: var(--font-sans); font-size: 0.875rem; }
-		/* Offset for scroll-to with sticky header */
-		.law-content :global([id]) { scroll-margin-top: 4rem; }
-		.law-content :global(hr) { border: none; border-top: 1px solid var(--border-light); margin: 1.5rem 0 0.75rem; }
-
-		/* ── Text tab layout with TOC ── */
-		.tab-panel-texto {
-			gap: 0;
-			align-items: flex-start;
-			/* Break out of container to use full viewport width */
-			margin-left: calc(-50vw + 50%);
-			margin-right: calc(-50vw + 50%);
-			padding-left: max(1.25rem, calc(50vw - 36rem));
-			padding-right: max(1.25rem, calc(50vw - 36rem));
-		}
-		.tab-panel-texto .law-content {
-			flex: 1;
-			min-width: 0;
-			max-width: 52rem;
-		}
-		.toc {
-			position: sticky;
-			top: 4rem;
-			width: 240px;
-			flex-shrink: 0;
-			max-height: calc(100vh - 5rem);
-			overflow-y: auto;
-			font-size: 0.8125rem;
-			margin-right: 1.5rem;
-			padding-right: 1rem;
-			border-right: 1px solid var(--border-light);
-			scrollbar-width: thin;
-			scrollbar-color: var(--border-light) transparent;
-		}
-		.toc-header {
-			font-size: 0.6875rem;
-			font-weight: 600;
-			text-transform: uppercase;
-			letter-spacing: 0.05em;
-			color: var(--text-muted);
-			margin-bottom: 0.5rem;
-			padding-bottom: 0.375rem;
-			border-bottom: 1px solid var(--border-light);
-		}
-		.toc-list :global(.toc-item) {
-			display: block;
-			padding: 0.2rem 0.375rem;
-			color: var(--text-muted);
-			text-decoration: none;
-			border-radius: 3px;
-			line-height: 1.35;
-			margin-bottom: 0.0625rem;
-			transition: color 0.1s, background 0.1s;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-		}
-		.toc-list :global(.toc-item:hover) {
-			color: var(--accent);
-			background: var(--accent-faint);
-			text-decoration: none;
-		}
-		.toc-list :global(.toc-item.toc-active) {
-			color: var(--accent);
-			font-weight: 600;
-			background: var(--accent-bg);
-		}
-		.toc-list :global(.toc-level-2) { font-weight: 600; color: var(--text); margin-top: 0.625rem; }
-		.toc-list :global(.toc-level-3) { padding-left: 0.625rem; margin-top: 0.375rem; font-weight: 600; color: var(--text-secondary); }
-		.toc-list :global(.toc-level-4) { padding-left: 1.125rem; }
-		.toc-list :global(.toc-level-5) { padding-left: 1.5rem; }
-		.toc-list :global(.toc-level-6) { padding-left: 1.875rem; color: var(--text-muted); }
-
-		@media (max-width: 960px) {
-			.tab-panel-texto {
-				margin-left: 0;
-				margin-right: 0;
-				padding-left: 0;
-				padding-right: 0;
-			}
-			.toc { display: none; }
-		}
-
 		/* ── Resumen components ── */
-
-		/* ── View toggle ── */
-		.view-toggle {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.375rem;
-			padding: 0.5rem 0;
-			border: none;
-			background: none;
-			font-size: 0.8125rem;
-			font-weight: 500;
-			color: var(--accent);
-			cursor: pointer;
-			font-family: var(--font-sans);
-			margin-bottom: 1rem;
-		}
-		.view-toggle:hover { text-decoration: underline; }
-		.technical-details {
-			border-top: 1px solid var(--border-light);
-			padding-top: 1.25rem;
-			margin-top: 0.5rem;
-		}
 
 		.quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
 		.stat-card { display: flex; align-items: center; gap: 0.625rem; padding: 0.875rem 1rem; background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; }
@@ -595,77 +391,6 @@ const seoDescription = [
 			border: 1px solid var(--border-light);
 			border-radius: 100px;
 			margin: 0.1875rem 0.125rem;
-		}
-
-		/* ── Topic highlight in full text ── */
-		:global(.topic-highlight) {
-			background: var(--warning-bg);
-			border-left: 3px solid var(--warning);
-			padding-left: 0.75rem;
-			margin-left: -0.75rem;
-			border-radius: 0 4px 4px 0;
-		}
-
-		/* ── Baked citizen article summaries (server-rendered <details>) ── */
-		:global(.law-content details.article-summary) {
-			margin: 0.375rem 0 1.25rem;
-			text-align: left;
-		}
-		:global(.law-content .article-summary-toggle) {
-			display: inline-flex;
-			align-items: center;
-			gap: 0.4rem;
-			cursor: pointer;
-			list-style: none;
-			font-family: var(--font-sans);
-			font-size: 0.8125rem;
-			font-weight: 500;
-			color: var(--accent);
-			padding: 0.875rem 0;
-			user-select: none;
-		}
-		:global(.law-content .article-summary-toggle::-webkit-details-marker) {
-			display: none;
-		}
-		:global(.law-content .article-summary-toggle::before) {
-			content: "";
-			width: 0;
-			height: 0;
-			border-left: 5px solid currentColor;
-			border-top: 4px solid transparent;
-			border-bottom: 4px solid transparent;
-			transition: transform 0.15s ease;
-		}
-		:global(.law-content details.article-summary[open] .article-summary-toggle::before) {
-			transform: rotate(90deg);
-		}
-		:global(.law-content .article-summary-toggle:hover) {
-			text-decoration: underline;
-		}
-		:global(.law-content .article-summary-body) {
-			margin-top: 0.5rem;
-			padding: 0.75rem 0.875rem;
-			background: var(--accent-bg);
-			border: 1px solid var(--border-light);
-			border-radius: 10px;
-		}
-		:global(.law-content .article-summary-kicker) {
-			display: block;
-			font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
-			font-size: 0.6875rem;
-			text-transform: uppercase;
-			letter-spacing: 0.12em;
-			color: var(--text-muted);
-			margin-bottom: 0.375rem;
-		}
-		:global(.law-content .article-summary-text) {
-			margin: 0;
-			font-size: 0.9375rem;
-			color: var(--text-secondary);
-			line-height: 1.6;
-		}
-		@media (prefers-reduced-motion: reduce) {
-			:global(.law-content .article-summary-toggle::before) { transition: none; }
 		}
 
 		.section { margin-bottom: 2rem; }
@@ -765,14 +490,75 @@ const seoDescription = [
 			.law-header { flex-direction: column; }
 			.meta-grid { grid-template-columns: 1fr; }
 			.quick-stats { grid-template-columns: repeat(2, 1fr); }
-			.tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-			.tabs::-webkit-scrollbar { display: none; }
-			.tab { white-space: nowrap; flex-shrink: 0; font-size: 0.75rem; padding: 0.5rem 0.75rem; }
-			.law-content { font-size: 0.875rem; }
 			.follow-card { flex-direction: column; gap: 0.5rem; }
 			.follow-icon { display: none; }
 			.follow-input-row { flex-direction: column; }
 		}
+
+		/* ── Own-content sections (summary page) ── */
+		.law-section { margin: 2.5rem 0 0; }
+		.law-section-heading {
+			font-family: var(--font-serif);
+			font-size: 1.25rem;
+			font-weight: 700;
+			color: var(--text);
+			margin: 0 0 0.5rem;
+			padding-bottom: 0.5rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.law-section-intro { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 1rem; }
+
+		/* AI note: warm cream = the system speaking in a human voice (DESIGN.md). */
+		.ai-note {
+			font-size: 0.8125rem;
+			color: var(--text-secondary);
+			line-height: 1.55;
+			margin: 0.75rem 0 0;
+			padding: 0.5rem 0.75rem;
+			background: var(--tierra-warm);
+			border: 1px solid var(--tierra-deep);
+			border-radius: 8px;
+		}
+
+		.text-cta {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.75rem 1.25rem;
+			padding: 1rem 1.25rem;
+			margin: 0 0 1.5rem;
+			background: var(--accent-faint);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+		}
+		.text-cta p { margin: 0; flex: 1 1 18rem; font-size: 0.875rem; color: var(--text-secondary); line-height: 1.55; }
+		.text-cta-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+		.btn-primary, .btn-outline {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			padding: 0.5rem 0.875rem;
+			border-radius: 6px;
+			font-size: 0.8125rem;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+		.btn-primary { background: var(--accent); color: #fff; border: 1.5px solid var(--accent); }
+		.btn-primary:hover { color: #fff; text-decoration: underline; }
+		.btn-outline { background: var(--surface); color: var(--text-secondary); border: 1.5px solid var(--border); }
+		.btn-outline:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+		.reform-headline { font-family: var(--font-serif); font-size: 1rem; font-weight: 600; color: var(--text); margin: 0.25rem 0 0; line-height: 1.4; }
+		.reform-summary { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; margin: 0.25rem 0 0; }
+
+		.art-list { list-style: none; padding: 0; margin: 0; }
+		.art-list :global(li) { padding: 0.875rem 0; border-bottom: 1px solid var(--border-light); }
+		.art-list :global(li:last-child) { border-bottom: none; }
+		.art-list :global(h3) { font-family: var(--font-serif); font-size: 1rem; font-weight: 600; line-height: 1.4; margin: 0 0 0.25rem; }
+		.art-list :global(h3 a) { color: var(--text); }
+		.art-list :global(h3 a:hover) { color: var(--accent); }
+		.art-list :global(p) { font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.65; margin: 0; }
 	</style>
 
 	<a href="/" class="back-link" id="back-link">&larr; Volver</a>
@@ -840,215 +626,219 @@ const seoDescription = [
 		))}
 	</div>
 
-	<!-- Tabs -->
-	<div class="tabs">
-		<button class="tab active" data-tab="resumen">Resumen</button>
-		<button class="tab" data-tab="reformas">Historial de cambios{reforms.length > 1 && <span class="tab-badge">{reforms.length}</span>}</button>
-		<button class="tab" data-tab="texto">Texto completo</button>
-	</div>
-
-	<!-- Tab: Resumen (static) -->
-	<div class="tab-panel active" id="tab-resumen">
+	<!-- Own content only: no BOE article text on this page. The full text is on
+	     /leyes/[id]/texto/ (noindex), linked from here and from every article. -->
+	<div id="resumen">
 		{citizenSummary && (
 			<div class="citizen-summary-card">
-				<div class="citizen-summary-label">Resumen ciudadano</div>
+				<div class="citizen-summary-label">Resumen en lenguaje sencillo</div>
 				<p class="citizen-summary">{citizenSummary}</p>
 			</div>
 		)}
 
-		<div class="quick-stats">
-			{articleCount > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
-			)}
-			{reforms.length > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{reforms.length}</div><div class="stat-label">Versiones</div></div></div>
-			)}
-			{materias.length > 0 && (
-				<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Categorías</div></div></div>
-			)}
+		{hasAiContent && (
+			<p class="ai-note">
+				Los resúmenes de esta página están escritos en lenguaje sencillo y generados con IA a partir
+				del texto oficial. No son asesoramiento jurídico: lo que vale es el texto publicado en el BOE.{" "}
+				<a href={AI_SUMMARIES_EXPLAINER_HREF}>Cómo los hacemos</a>.
+			</p>
+		)}
+	</div>
+
+	<div class="text-cta" style="margin-top: 1.5rem;">
+		<p>
+			{articleItems.length > 0
+				? "El texto completo de la ley, con el resumen de cada artículo a su lado."
+				: "El texto completo de la ley, tal como lo publica el BOE."}
+		</p>
+		<div class="text-cta-actions">
+			<a href={lawTextPath(id!)} class="btn-primary">Leer el texto completo</a>
+			<a href={boeUrl(law.identificador)} target="_blank" rel="noopener" class="btn-outline">Ver en el BOE</a>
+		</div>
+	</div>
+
+	<div class="quick-stats">
+		{articleCount > 0 && (
+			<div class="stat-card"><div><div class="stat-value">{articleCount}</div><div class="stat-label">Artículos</div></div></div>
+		)}
+		{reforms.length > 0 && (
+			<div class="stat-card"><div><div class="stat-value">{reforms.length}</div><div class="stat-label">Versiones</div></div></div>
+		)}
+		{materias.length > 0 && (
+			<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Categorías</div></div></div>
+		)}
+	</div>
+
+	<!-- Qué ha cambiado: reform timeline with AI headlines where available -->
+	<section class="law-section" id="reformas" aria-labelledby="reformas-heading">
+		<h2 class="law-section-heading" id="reformas-heading">Qué ha cambiado</h2>
+		{reforms.length <= 1 ? (
+			<p class="law-section-intro">Esta ley no tiene modificaciones registradas desde su publicación.</p>
+		) : (
+			<>
+				<p class="law-section-intro">
+					{reforms.length - 1} {reforms.length - 1 === 1 ? "modificación" : "modificaciones"} desde su publicación, de la más reciente a la más antigua.
+				</p>
+				<ul class="timeline">
+					{reforms.map((reform, i) => {
+						const isOriginal = i === reforms.length - 1;
+						// Link to the reform's canonical URL form (path for the
+						// experiment cohort, query for the rest) so internal links and
+						// the sitemap agree. `from=law` stays a UI-only param — it
+						// drives the back link and is absent from the canonical.
+						const canonical = reformCanonicalPath(id, reform.fecha);
+						const reformaUrl = !isOriginal
+							? `${canonical}${canonical.includes("?") ? "&" : "?"}from=law`
+							: null;
+						const rs = isOriginal ? undefined : reformSummaries.get(`${reform.fecha}|${reform.fuente}`);
+						return (
+							<li class="timeline-item">
+								<div class="timeline-dot"></div>
+								<div class="timeline-date">{formatDate(reform.fecha)}</div>
+								{rs?.headline && <p class="reform-headline">{rs.headline}</p>}
+								{rs?.summary && <p class="reform-summary">{rs.summary}</p>}
+								<div class="timeline-detail">
+									{isOriginal ? 'Versión original' : `Reforma`}
+									{' '}<span style="font-family:var(--font-mono);font-size:0.6875rem">{reform.fuente}</span>
+								</div>
+								{reformaUrl && <a href={reformaUrl} class="timeline-link">Ver qué cambió &rarr;</a>}
+							</li>
+						);
+					})}
+				</ul>
+			</>
+		)}
+	</section>
+
+	<!-- Artículo por artículo: every plain-language article summary -->
+	{articleItems.length > 0 && (
+		<section class="law-section" id="articulos" aria-labelledby="articulos-heading">
+			<h2 class="law-section-heading" id="articulos-heading">Artículo por artículo</h2>
+			<p class="law-section-intro">
+				Qué dice cada artículo, en lenguaje sencillo ({articleItems.length.toLocaleString("es-ES")} {articleItems.length === 1 ? "artículo" : "artículos"} con resumen).
+				Pulsa en un artículo para leer su texto oficial.
+			</p>
+			<ol class="art-list" set:html={articleListHtml} />
+		</section>
+	)}
+
+	<div class="law-section">
+	<!-- Technical details (always visible) -->
+	<div class="technical-details" id="technical-details">
+		<div class="card">
+			<h2 class="card-heading">Información general</h2>
+			<div class="meta-grid">
+				<div><div class="meta-item-label">Tipo de ley</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
+				<div><div class="meta-item-label">Vigencia</div><div class="meta-item-value">{STATUS_LABELS[law.estado] ?? capitalize(law.estado.replace(/_/g, ' '))}</div></div>
+				<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">{formatDate(law.fecha_publicacion)}</div></div>
+				<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">{law.departamento}</div></div>
+			</div>
 		</div>
 
-		<!-- Technical details (always visible) -->
-		<div class="technical-details" id="technical-details">
-			<div class="card">
-				<h2 class="card-heading">Información general</h2>
-				<div class="meta-grid">
-					<div><div class="meta-item-label">Tipo de ley</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
-					<div><div class="meta-item-label">Vigencia</div><div class="meta-item-value">{STATUS_LABELS[law.estado] ?? capitalize(law.estado.replace(/_/g, ' '))}</div></div>
-					<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">{formatDate(law.fecha_publicacion)}</div></div>
-					<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">{law.departamento}</div></div>
-				</div>
-			</div>
-
-			{materias.length > 0 && (
-				<div class="section">
-					<h2 class="section-heading">Temas</h2>
-					<div>
-						{materias.map((m) => (
-							<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
-						))}
-					</div>
-				</div>
-			)}
-
-			{notas.length > 0 && (
-				<div class="section">
-					<h2 class="section-heading">Notas oficiales</h2>
-					{notas.map((nota) => (
-						<p class="nota-item">{nota}</p>
+		{materias.length > 0 && (
+			<div class="section">
+				<h2 class="section-heading">Temas</h2>
+				<div>
+					{materias.map((m) => (
+						<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
 					))}
 				</div>
-			)}
+			</div>
+		)}
 
-			{refsAnt.length > 0 && (
-				<div class="section">
-					<h2 class="section-heading">Leyes en las que se basa</h2>
-					<ul class="ref-list">
-						{refsAnt.map((ref) => (
-							<li>
-								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-								{ref.norma && (allIds.has(ref.norma) ? <> <a href={`/leyes/${ref.norma}/`}>{ref.norma}</a></> : <> <span class="ref-id">{ref.norma}</span></>)}
-							</li>
-						))}
-					</ul>
-				</div>
-			)}
+		{notas.length > 0 && (
+			<div class="section">
+				<h2 class="section-heading">Notas oficiales</h2>
+				{notas.map((nota) => (
+					<p class="nota-item">{nota}</p>
+				))}
+			</div>
+		)}
 
-			{refsPost.length > 0 && (
-				<div class="section">
-					<h2 class="section-heading">Leyes que la modifican</h2>
-					<ul class="ref-list">
-						{refsPost.map((ref) => (
-							<li>
-								{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
-								{ref.norma && (allIds.has(ref.norma) ? <> <a href={`/leyes/${ref.norma}/`}>{ref.norma}</a></> : <> <span class="ref-id">{ref.norma}</span></>)}
-							</li>
-						))}
-					</ul>
-				</div>
-			)}
-		</div>
-
-		{related.length > 0 && (
-			<div class="section" id="related-laws">
-				<h2 class="section-heading">Normas relacionadas</h2>
-				<ul class="ref-list ref-list-related">
-					{related.map((r) => (
-						<li><a href={`/leyes/${r.id}/`}>{r.titulo}</a></li>
+		{refsAnt.length > 0 && (
+			<div class="section">
+				<h2 class="section-heading">Leyes en las que se basa</h2>
+				<ul class="ref-list">
+					{refsAnt.map((ref) => (
+						<li>
+							{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
+							{ref.norma && (allIds.has(ref.norma) ? <> <a href={`/leyes/${ref.norma}/`}>{ref.norma}</a></> : <> <span class="ref-id">{ref.norma}</span></>)}
+						</li>
 					))}
 				</ul>
 			</div>
 		)}
 
-		<!-- Follow this law -->
-		<div class="follow-card" id="follow-card">
-			<div class="follow-icon">
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-			</div>
-			<div class="follow-content">
-				<h2 class="follow-heading">¿Quieres saber cuándo cambia esta ley?</h2>
-				<p class="follow-desc">Recibe un aviso por email cada vez que se publique una modificación.</p>
-				<form class="follow-form" id="follow-form" data-norm-id={id}>
-					<div class="follow-input-row">
-						<input
-							type="email"
-							name="email"
-							placeholder="Tu email"
-							required
-							class="follow-input"
-							autocomplete="email"
-						/>
-						<button type="submit" class="follow-btn">Seguir esta ley</button>
-					</div>
-				</form>
-				<p class="follow-msg" id="follow-msg" style="display: none;"></p>
-			</div>
-		</div>
-
-		{citizenTags.length > 0 && (
-			<div class="citizen-tags">
-				{citizenTags.map((tag) => (
-					<span class="citizen-tag">{tag}</span>
-				))}
-			</div>
-		)}
-	</div>
-
-	<!-- Tab: Reformas (static) -->
-	<div class="tab-panel" id="tab-reformas">
-		{reforms.length <= 1 ? (
-			<p style="color: var(--text-muted); font-size: 0.9375rem;">Esta ley no tiene modificaciones registradas desde su publicación.</p>
-		) : (
-			<ul class="timeline">
-				{reforms.map((reform, i) => {
-					const isOriginal = i === reforms.length - 1;
-					// Link to the reform's canonical URL form (path for the
-					// experiment cohort, query for the rest) so internal links and
-					// the sitemap agree. `from=law` stays a UI-only param — it
-					// drives the back link and is absent from the canonical.
-					const canonical = reformCanonicalPath(id, reform.fecha);
-					const reformaUrl = !isOriginal
-						? `${canonical}${canonical.includes("?") ? "&" : "?"}from=law`
-						: null;
-					return (
-						<li class="timeline-item">
-							<div class="timeline-dot"></div>
-							<div class="timeline-date">{formatDate(reform.fecha)}</div>
-							<div class="timeline-detail">
-								{isOriginal ? 'Versión original' : `Reforma`}
-								{' '}<span style="font-family:var(--font-mono);font-size:0.6875rem">{reform.fuente}</span>
-							</div>
-							{reformaUrl && <a href={reformaUrl} class="timeline-link">Ver qué cambió &rarr;</a>}
+		{refsPost.length > 0 && (
+			<div class="section">
+				<h2 class="section-heading">Leyes que la modifican</h2>
+				<ul class="ref-list">
+					{refsPost.map((ref) => (
+						<li>
+							{ref.texto.replace(/^[,\s]+/, '').replace(/[,\s]+$/, '')}
+							{ref.norma && (allIds.has(ref.norma) ? <> <a href={`/leyes/${ref.norma}/`}>{ref.norma}</a></> : <> <span class="ref-id">{ref.norma}</span></>)}
 						</li>
-					);
-				})}
-			</ul>
+					))}
+				</ul>
+			</div>
 		)}
 	</div>
 
-	<!-- Tab: Texto completo (static, pre-rendered from Markdown) -->
-	<div class="tab-panel tab-panel-texto" id="tab-texto">
-		<nav class="toc" id="toc" aria-label="Índice del texto">
-			<div class="toc-header">Índice</div>
-			<div class="toc-list" id="toc-list"></div>
-		</nav>
-		<div class="law-content" set:html={htmlContent} />
+	{related.length > 0 && (
+		<div class="section" id="related-laws">
+			<h2 class="section-heading">Normas relacionadas</h2>
+			<ul class="ref-list ref-list-related">
+				{related.map((r) => (
+					<li><a href={`/leyes/${r.id}/`}>{r.titulo}</a></li>
+				))}
+			</ul>
+		</div>
+	)}
+
+	<!-- Follow this law -->
+	<div class="follow-card" id="follow-card">
+		<div class="follow-icon">
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+		</div>
+		<div class="follow-content">
+			<h2 class="follow-heading">¿Quieres saber cuándo cambia esta ley?</h2>
+			<p class="follow-desc">Recibe un aviso por email cada vez que se publique una modificación.</p>
+			<form class="follow-form" id="follow-form" data-norm-id={id}>
+				<div class="follow-input-row">
+					<input
+						type="email"
+						name="email"
+						placeholder="Tu email"
+						required
+						class="follow-input"
+						autocomplete="email"
+					/>
+					<button type="submit" class="follow-btn">Seguir esta ley</button>
+				</div>
+			</form>
+			<p class="follow-msg" id="follow-msg" style="display: none;"></p>
+		</div>
 	</div>
 
-	<!-- Tab switching with URL hash persistence -->
-	<script is:inline>
+	{citizenTags.length > 0 && (
+		<div class="citizen-tags">
+			{citizenTags.map((tag) => (
+				<span class="citizen-tag">{tag}</span>
+			))}
+		</div>
+	)}
+	</div>
+
+	<!-- Old links pointed at tabs and article anchors on this page (/leyes/X/#texto,
+	     /leyes/X/#articulo-14, ?tab=texto). The text now lives on /texto/: send
+	     those there, keeping the anchor. -->
+	<script is:inline define:vars={{ textPath: lawTextPath(id!) }}>
 		(function() {
-			var tabs = document.querySelectorAll('.tab');
-			function activateTab(name) {
-				tabs.forEach(function(t) { t.classList.remove('active'); });
-				document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-				var target = document.querySelector('.tab[data-tab="' + name + '"]');
-				var panel = document.getElementById('tab-' + name);
-				if (target && panel) {
-					target.classList.add('active');
-					panel.classList.add('active');
-				}
-			}
-			tabs.forEach(function(tab) {
-				tab.addEventListener('click', function() {
-					activateTab(tab.dataset.tab);
-					history.replaceState(null, '', '#' + tab.dataset.tab);
-				});
-			});
-			// Restore tab from URL hash on load
-			var hash = location.hash.replace('#', '');
-			if (hash && document.getElementById('tab-' + hash)) {
-				activateTab(hash);
-			} else if (hash && hash.indexOf('articulo-') === 0) {
-				// Deep-link to an article: switch to texto tab and scroll to it
-				activateTab('texto');
-				var target = document.getElementById(hash);
-				if (target) {
-					setTimeout(function() {
-						var top = target.getBoundingClientRect().top + window.scrollY - 80;
-						window.scrollTo({ top: top, behavior: 'smooth' });
-					}, 100);
-				}
+			var hash = decodeURIComponent(location.hash.slice(1));
+			var tab = new URLSearchParams(location.search).get('tab');
+			if (tab === 'texto' || hash === 'texto' ||
+				(hash && hash !== 'resumen' && hash !== 'reformas' && !document.getElementById(hash))) {
+				location.replace(textPath + (hash && hash !== 'texto' ? '#' + encodeURIComponent(hash) : ''));
 			}
 		})();
 	</script>
@@ -1117,120 +907,5 @@ const seoDescription = [
 			});
 		})();
 	</script>
-
-	<!-- Style rubric paragraphs (subtitles after structural headings) -->
-	<script is:inline>
-	(function() {
-		var lawContent = document.querySelector('.law-content');
-		if (!lawContent) return;
-		// Find paragraphs that immediately follow h2/h3/h4 (structural headings)
-		var headings = lawContent.querySelectorAll('h2, h3, h4');
-		headings.forEach(function(h) {
-			var next = h.nextElementSibling;
-			// Skip <hr> elements between heading and rubric
-			while (next && next.tagName === 'HR') { next = next.nextElementSibling; }
-			if (!next || next.tagName !== 'P') return;
-			var text = next.textContent.trim();
-			// Rubrics: short text (< 120 chars), no period at end, not a sentence
-			if (text.length > 0 && text.length < 120 && !text.endsWith('.') && !text.includes('. ')) {
-				next.classList.add('law-rubric');
-			}
-		});
-	})();
-	</script>
-
-	<!-- Build table of contents from headings in law content -->
-	<script is:inline>
-	(function() {
-		var tocList = document.getElementById('toc-list');
-		var lawContent = document.querySelector('.law-content');
-		if (!tocList || !lawContent) return;
-
-		var headings = lawContent.querySelectorAll('h2, h3, h4, h5, h6');
-		if (headings.length === 0) {
-			document.getElementById('toc')?.remove();
-			return;
-		}
-
-		var frag = document.createDocumentFragment();
-		var tocHeadings = [];
-		headings.forEach(function(h, i) {
-			if (!h.id) { h.id = 'sec-' + i; }
-			var level = parseInt(h.tagName.charAt(1));
-			var text = h.textContent.replace(/\s+/g, ' ').trim();
-			if (text.length < 2) return;
-
-			// For articles (h5/h6), shorten to just "Art. N"
-			var label = text;
-			if (level >= 5) {
-				var artMatch = text.match(/^Art[ií]culo\s+(\d+[-\d]*)/i);
-				if (artMatch) {
-					label = 'Art. ' + artMatch[1];
-				}
-			}
-
-			tocHeadings.push(h);
-			var link = document.createElement('a');
-			link.href = '#' + h.id;
-			link.className = 'toc-item toc-level-' + level;
-			link.textContent = label;
-			link.title = text;
-			link.addEventListener('click', function(e) {
-				e.preventDefault();
-				var top = h.getBoundingClientRect().top + window.scrollY - 80;
-				window.scrollTo({ top: top, behavior: 'smooth' });
-				history.replaceState(null, '', '#' + h.id);
-			});
-			frag.appendChild(link);
-		});
-
-		if (tocHeadings.length < 2) {
-			document.getElementById('toc')?.remove();
-			return;
-		}
-
-		tocList.appendChild(frag);
-
-		// Highlight current section: find the last heading above the viewport top
-		var tocItems = tocList.querySelectorAll('.toc-item');
-		var ticking = false;
-		function updateTocHighlight() {
-			var scrollTop = window.scrollY + 100;
-			var activeIdx = 0;
-			for (var i = 0; i < tocHeadings.length; i++) {
-				if (tocHeadings[i].offsetTop <= scrollTop) {
-					activeIdx = i;
-				} else {
-					break;
-				}
-			}
-			tocItems.forEach(function(item, j) {
-				item.classList.toggle('toc-active', j === activeIdx);
-			});
-			// Scroll active TOC item into view within the sidebar
-			var activeItem = tocItems[activeIdx];
-			if (activeItem) {
-				var tocEl = document.getElementById('toc');
-				if (tocEl) {
-					var itemTop = activeItem.offsetTop - tocEl.offsetTop;
-					var tocScroll = tocEl.scrollTop;
-					var tocHeight = tocEl.clientHeight;
-					if (itemTop < tocScroll + 40 || itemTop > tocScroll + tocHeight - 40) {
-						tocEl.scrollTop = itemTop - tocHeight / 3;
-					}
-				}
-			}
-			ticking = false;
-		}
-		window.addEventListener('scroll', function() {
-			if (!ticking) {
-				requestAnimationFrame(updateTocHighlight);
-				ticking = true;
-			}
-		}, { passive: true });
-		updateTocHighlight();
-	})();
-	</script>
-
 
 </Base>

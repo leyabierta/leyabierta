@@ -14,6 +14,34 @@ import {
 
 type SqlParams = SQLQueryBindings[];
 
+/**
+ * The heading an article block renders with in the legal-text markdown: the
+ * first line of its text ("Artículo 1." / "Artículo 1. Ámbito de aplicación.")
+ * when the text starts with a short heading line, otherwise the block title.
+ */
+export function articleHeading(text: string | null, title: string): string {
+	if (!text) return title.trim();
+	const nl = text.indexOf("\n");
+	if (nl > 0) {
+		const first = text.slice(0, nl).trim();
+		if (first && first.length <= 250) return first;
+	}
+	return title.trim();
+}
+
+/**
+ * Coarse text key used to detect blocks that share a heading. Deliberately
+ * coarser than the web matcher's normKey (drops spaces and punctuation too):
+ * anything the web would consider equal is equal here, so no collision is
+ * missed; an extra placeholder is harmless.
+ */
+function coarseKey(s: string): string {
+	return s
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[^a-z0-9]/g, "");
+}
+
 /** Escape LIKE wildcards in user-supplied strings to prevent unintended matching. */
 export function escapeLike(s: string): string {
 	return s.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -1846,25 +1874,61 @@ export class DbService {
 	 * citizen summaries into the static HTML instead of fetching them
 	 * client-side (which left them invisible to search engines).
 	 *
-	 * The title is the block title — the same key the /laws/:id/summaries
-	 * endpoint returns — so the build-time matcher against the rendered article
-	 * headings mirrors the old client-side logic exactly.
+	 * Each pair is keyed by the article *heading as it appears in the legal
+	 * text* (first line of `current_text`, e.g. "Artículo 1."), not by
+	 * `blocks.title`: BOE titles are sometimes abbreviated ("Art 1" in the
+	 * Código Civil and Código de Comercio), so title matching silently dropped
+	 * ~98% of those codes' summaries. Pairs are in document order (block
+	 * position) and, when a summarized block shares its heading with other
+	 * blocks of the same norm (e.g. "Primera." under both adicionales and
+	 * transitorias), those siblings are emitted as `[heading, ""]`
+	 * placeholders so the web matcher can consume headings in order instead
+	 * of stamping one summary on every "Primera.".
 	 */
 	getArticleSummariesManifest(): Record<string, Array<[string, string]>> {
 		const rows = this.db
-			.query<{ norm_id: string; title: string; summary: string }, []>(
-				`SELECT cas.norm_id AS norm_id, b.title AS title, cas.summary AS summary
-				 FROM citizen_article_summaries cas
-				 JOIN blocks b
-				   ON b.norm_id = cas.norm_id AND b.block_id = cas.block_id
-				 WHERE cas.summary != '' AND b.title != ''
-				 ORDER BY cas.norm_id`,
+			.query<
+				{
+					norm_id: string;
+					title: string;
+					head: string | null;
+					summary: string | null;
+				},
+				[]
+			>(
+				`SELECT b.norm_id AS norm_id, b.title AS title,
+				        substr(b.current_text, 1, 400) AS head, cas.summary AS summary
+				 FROM blocks b
+				 LEFT JOIN citizen_article_summaries cas
+				   ON cas.norm_id = b.norm_id AND cas.block_id = b.block_id
+				 WHERE b.norm_id IN (
+				   SELECT DISTINCT norm_id FROM citizen_article_summaries WHERE summary != ''
+				 )
+				 ORDER BY b.norm_id, b.position`,
 			)
 			.all();
 
 		const out: Record<string, Array<[string, string]>> = {};
-		for (const row of rows) {
-			(out[row.norm_id] ??= []).push([row.title, row.summary]);
+		let i = 0;
+		while (i < rows.length) {
+			const normId = rows[i]!.norm_id;
+			const blocks: Array<{ heading: string; summary: string }> = [];
+			for (; i < rows.length && rows[i]!.norm_id === normId; i++) {
+				const row = rows[i]!;
+				const heading = articleHeading(row.head, row.title);
+				if (!heading) continue;
+				blocks.push({ heading, summary: row.summary ?? "" });
+			}
+			const summarizedKeys = new Set(
+				blocks.filter((b) => b.summary).map((b) => coarseKey(b.heading)),
+			);
+			const pairs: Array<[string, string]> = [];
+			for (const b of blocks) {
+				if (b.summary || summarizedKeys.has(coarseKey(b.heading))) {
+					pairs.push([b.heading, b.summary]);
+				}
+			}
+			if (pairs.some(([, s]) => s)) out[normId] = pairs;
 		}
 		return out;
 	}
@@ -1888,6 +1952,10 @@ export class DbService {
 				is_sneaked: number;
 				block_ids: string[];
 			}>
+		>;
+		reforms: Record<
+			string,
+			Array<{ date: string; source: string; headline: string; summary: string }>
 		>;
 	} {
 		// 1. All norms with citizen_summary
@@ -1988,7 +2056,39 @@ export class DbService {
 			});
 		}
 
-		return { citizens, omnibus };
+		// 4. AI reform headlines/summaries, keyed by norm, newest first. Powers
+		// the "Qué ha cambiado" timeline on the static law page.
+		const reformRows = this.db
+			.query<
+				{
+					norm_id: string;
+					source_id: string;
+					reform_date: string;
+					headline: string;
+					summary: string;
+				},
+				[]
+			>(
+				`SELECT norm_id, source_id, reform_date, headline, summary
+				 FROM reform_summaries
+				 WHERE headline != '' OR summary != ''
+				 ORDER BY norm_id, reform_date DESC`,
+			)
+			.all();
+		const reforms: Record<
+			string,
+			Array<{ date: string; source: string; headline: string; summary: string }>
+		> = {};
+		for (const row of reformRows) {
+			(reforms[row.norm_id] ??= []).push({
+				date: row.reform_date,
+				source: row.source_id,
+				headline: row.headline,
+				summary: row.summary,
+			});
+		}
+
+		return { citizens, omnibus, reforms };
 	}
 
 	/**

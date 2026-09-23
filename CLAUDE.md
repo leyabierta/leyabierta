@@ -310,14 +310,15 @@ job (`send-notifications.ts`) finds subscribers whose materias match and sends f
 Citizen-facing website built with Astro (`output: "static"`, deployed to Cloudflare Pages).
 
 **Architecture: 100% static, no islands.**
-All pages are pre-rendered at build time. Law detail pages (Resumen, Reformas, Texto) render entirely from frontmatter and markdown — no API calls needed. Interactive behavior (tab switching, search form, theme toggle) uses inline `<script>` with vanilla JS. No UI framework (React, Svelte, etc.) is installed.
+All pages are pre-rendered at build time. Law pages render from frontmatter, markdown and the build manifests (`/v1/build-manifest`, `/v1/build-manifest/articles`, fetched once by `build-with-progress.sh`) — no per-page API calls. Interactive behavior (search form, theme toggle) uses inline `<script>` with vanilla JS. No UI framework (React, Svelte, etc.) is installed.
 
 **When to introduce islands:**
 When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components.
 
 **Current pages:**
 - `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results via API
-- `/laws/[id]` — law detail with static tabs (summary, reforms timeline, full text)
+- `/leyes/[id]/` — law summary page, indexable, **own content only**: citizen summary, "Qué ha cambiado" (reform timeline with AI headlines), "Artículo por artículo" (every AI article summary, each linking to its article on `/texto/`), temas, related laws. No BOE article text. `noindex` only if the law has none of the three kinds of own content (`isIndexableLaw`, fails open if a manifest is missing).
+- `/leyes/[id]/texto/` — full consolidated text with each article's AI summary next to it; `noindex, follow`, never in a sitemap. Old `/leyes/[id]/#articulo-N` / `#texto` links are forwarded client-side, `?tab=texto` by the Worker (301).
 - `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
 - `/mis-cambios` — personal legislative changelog (client-side, filtered by user's materias)
 - `/cambios` — public changelog of all recent reforms (client-side)

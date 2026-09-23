@@ -134,3 +134,70 @@ describe("loadManifest()", () => {
 		expect(loadManifest()).toBeNull();
 	});
 });
+
+describe("isIndexableLaw()", () => {
+	const ARTICLES_PATH = join(TEST_DIR, "articles.json");
+	let isIndexableLaw: typeof import("../lib/manifest.ts").isIndexableLaw;
+
+	function load(manifest: object | null, articles: object | null) {
+		if (manifest) {
+			writeFileSync(MANIFEST_PATH, JSON.stringify(manifest));
+			process.env.BUILD_MANIFEST_PATH = MANIFEST_PATH;
+		}
+		if (articles) {
+			writeFileSync(ARTICLES_PATH, JSON.stringify(articles));
+			process.env.BUILD_ARTICLE_SUMMARIES_PATH = ARTICLES_PATH;
+		}
+		delete require.cache[require.resolve("../lib/manifest.ts")];
+		isIndexableLaw = require("../lib/manifest.ts").isIndexableLaw;
+	}
+
+	afterEach(() => {
+		// biome-ignore lint/performance/noDelete: `delete` is the only way to unset an env var
+		delete process.env.BUILD_ARTICLE_SUMMARIES_PATH;
+	});
+
+	const MANIFEST = {
+		citizens: {
+			"CON-RESUMEN": { summary: "Resumen", tags: [], materias: [] },
+			"SOLO-TEMAS": { summary: "", tags: [], materias: ["Empleo"] },
+		},
+		omnibus: {},
+		reforms: {
+			"CON-TITULARES": [
+				{
+					date: "2025-01-01",
+					source: "BOE-A-2025-1",
+					headline: "H",
+					summary: "S",
+				},
+			],
+		},
+	};
+	const ARTICLES = {
+		"CON-ARTICULOS": [["Artículo 1.", "uno"]],
+		"SOLO-HUECOS": [["Primera.", ""]],
+	};
+
+	it("indexes laws with any content of our own", () => {
+		load(MANIFEST, ARTICLES);
+		expect(isIndexableLaw("CON-RESUMEN")).toBe(true);
+		expect(isIndexableLaw("CON-TITULARES")).toBe(true);
+		expect(isIndexableLaw("CON-ARTICULOS")).toBe(true);
+	});
+
+	it("marks thin laws (BOE text only) as not indexable", () => {
+		load(MANIFEST, ARTICLES);
+		expect(isIndexableLaw("SOLO-TEMAS")).toBe(false);
+		expect(isIndexableLaw("SOLO-HUECOS")).toBe(false);
+		expect(isIndexableLaw("NADA")).toBe(false);
+	});
+
+	it("fails open when a manifest is missing", () => {
+		load(MANIFEST, null);
+		expect(isIndexableLaw("NADA")).toBe(true);
+		clearManifestPath();
+		load(null, ARTICLES);
+		expect(isIndexableLaw("NADA")).toBe(true);
+	});
+});
