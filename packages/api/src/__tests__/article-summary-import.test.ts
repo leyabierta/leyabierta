@@ -72,6 +72,7 @@ describe("validateGeneratedRow", () => {
 		"Se protegen los mustélidos y los ñandús en los centros de recuperación.",
 		"El Tribunal de Túnez y el río Túria se citan como ejemplos del convenio.",
 		"Durante el primer quinquenio, el valor del parámetro α del Factor de Sostenibilidad será 0,25.",
+		"Las ayudas se destinan a municipios <10.000 habitantes y a residentes >65 años de edad.",
 	])("accepts Spanish words that contain a flagged word: %s", (summary) => {
 		expect(validateGeneratedRow(row({ summary })).ok).toBe(true);
 	});

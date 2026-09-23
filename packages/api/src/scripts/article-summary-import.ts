@@ -38,8 +38,8 @@ export const MAX_TAG_CHARS = 60;
 const FOREIGN_SCRIPT =
 	/[^\p{Script=Latin}\p{Script=Greek}\p{Script=Common}\p{Script=Inherited}]/u;
 // Control and invisible format characters (NUL, zero-width space...) and
-// angle brackets: summaries are shown in /pregunta citations and law pages.
-const UNSAFE_CHARS = /[\p{Cc}\p{Cf}<>]/u;
+// HTML-like tags. Bare < and > stay: "municipios <10.000 hab" is legitimate.
+const UNSAFE_CHARS = /[\p{Cc}\p{Cf}]|<\/?[a-z][^>]*>/iu;
 // `\b` only knows ASCII letters (even with the `u` flag): "túneles" would
 // match "tú" and "andén" would match "and". Use Unicode letter lookarounds.
 const word = (alternatives: string) =>
