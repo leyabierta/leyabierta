@@ -21,7 +21,6 @@
  */
 
 import { Database } from "bun:sqlite";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { importRows, textHash } from "./article-summary-import.ts";
 import {
 	BATCH_SCHEMA,
@@ -30,6 +29,7 @@ import {
 	parseBatchContent,
 	SYSTEM_PROMPT,
 } from "./citizen-summary-backfill-prompt.ts";
+import { readJsonl, runGeneration } from "./offline-llm.ts";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -47,22 +47,6 @@ const positional = args
 	);
 
 type ExportRow = BackfillArticle & { input_hash: string };
-
-// Tolerates malformed lines (e.g. the last one, if generate was killed while
-// appending): they are skipped and counted instead of aborting the run.
-function readJsonl<T>(path: string): { rows: T[]; badLines: number } {
-	const rows: T[] = [];
-	let badLines = 0;
-	for (const line of readFileSync(path, "utf8").split("\n")) {
-		if (!line.trim()) continue;
-		try {
-			rows.push(JSON.parse(line) as T);
-		} catch {
-			badLines++;
-		}
-	}
-	return { rows, badLines };
-}
 
 // Placeholder articles with nothing to summarize: "(Suprimido)", "(Derogado)",
 // or a bare chapter/title heading stored as a precepto.
@@ -144,117 +128,36 @@ async function exportPending(outFile: string) {
 }
 
 async function generate(inFile: string, outFile: string) {
-	const base = process.env.BASE ?? "http://127.0.0.1:8001/v1";
-	const model = process.env.MODEL ?? "qwen3.8-27b";
-	const concurrency = Number(process.env.CONC ?? 64);
-	const limit = Number(flag("--limit") ?? 0);
-	// Local endpoints only: never send a key unless explicitly given.
-	const apiKey = process.env.GENERATE_API_KEY;
-
-	const done = new Set<string>();
-	if (existsSync(outFile))
-		for (const o of readJsonl<{
-			ok: boolean;
-			norm_id: string;
-			block_id: string;
-		}>(outFile).rows)
-			if (o.ok) done.add(`${o.norm_id}|${o.block_id}`);
-	let items = readJsonl<ExportRow>(inFile).rows.filter(
-		(a) => !done.has(`${a.norm_id}|${a.block_id}`),
-	);
-	if (limit > 0) items = items.slice(0, limit);
-	console.log(`generate: ${items.length} to do, ${done.size} already done`);
-
-	let next = 0;
-	let ok = 0;
-	let failed = 0;
-	const started = Date.now();
-
-	async function one(a: ExportRow) {
-		let lastError = "";
-		for (let attempt = 0; attempt < 3; attempt++) {
-			try {
-				const res = await fetch(`${base}/chat/completions`, {
-					method: "POST",
-					signal: AbortSignal.timeout(600_000),
-					headers: {
-						"Content-Type": "application/json",
-						...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-					},
-					body: JSON.stringify({
-						model,
-						temperature: 0.2,
-						max_tokens: 1000,
-						messages: [
-							{ role: "system", content: SYSTEM_PROMPT },
-							{ role: "user", content: buildBatchPrompt([a]) },
-						],
-						response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
-						chat_template_kwargs: { enable_thinking: false },
-					}),
-				});
-				if (!res.ok)
-					throw new Error(
-						`http_${res.status}: ${(await res.text()).slice(0, 200)}`,
-					);
-				const data = (await res.json()) as {
-					choices?: {
-						message?: { content?: string };
-						finish_reason?: string;
-					}[];
-					usage?: unknown;
-				};
-				const text = (data.choices?.[0]?.message?.content ?? "")
-					.replace(/<think>[\s\S]*?<\/think>/g, "")
-					.trim();
-				const parsed = parseBatchContent(text, 1);
-				if ("error" in parsed) throw new Error(parsed.error.slice(0, 200));
-				const out = parsed.outputs[0];
-				if (!out) throw new Error("empty");
-				appendFileSync(
-					outFile,
-					`${JSON.stringify({
-						ok: true,
-						norm_id: a.norm_id,
-						block_id: a.block_id,
-						input_hash: a.input_hash,
-						model,
-						summary: out.citizen_summary,
-						tags: out.citizen_tags,
-						finish: data.choices?.[0]?.finish_reason,
-						usage: data.usage,
-					})}\n`,
-				);
-				ok++;
-				return;
-			} catch (e) {
-				lastError = (e as Error).message;
-			}
-		}
-		failed++;
-		appendFileSync(
-			outFile,
-			`${JSON.stringify({ ok: false, norm_id: a.norm_id, block_id: a.block_id, error: lastError.slice(0, 300) })}\n`,
-		);
-	}
-
-	const timer = setInterval(() => {
-		const s = (Date.now() - started) / 1000;
-		const rate = ok / s;
-		console.log(
-			`[${s.toFixed(0)}s] ok=${ok} failed=${failed} ${rate.toFixed(2)}/s eta ${((items.length - ok - failed) / Math.max(rate, 0.01) / 60).toFixed(0)} min`,
-		);
-	}, 30_000);
-	await Promise.all(
-		Array.from({ length: concurrency }, async () => {
-			while (next < items.length) {
-				const item = items[next++];
-				if (item) await one(item);
-			}
+	await runGeneration({
+		items: readJsonl<ExportRow>(inFile).rows,
+		outFile,
+		keyNames: ["norm_id", "block_id"],
+		limit: Number(flag("--limit") ?? 0),
+		body: (a) => ({
+			temperature: 0.2,
+			max_tokens: 1000,
+			messages: [
+				{ role: "system", content: SYSTEM_PROMPT },
+				{ role: "user", content: buildBatchPrompt([a]) },
+			],
+			response_format: { type: "json_schema", json_schema: BATCH_SCHEMA },
+			chat_template_kwargs: { enable_thinking: false },
 		}),
-	);
-	clearInterval(timer);
-	console.log(`generate: done, ok=${ok} failed=${failed}`);
+		toRow: (a, result, model) => {
+			const parsed = parseBatchContent(result.text, 1);
+			if ("error" in parsed) throw new Error(parsed.error.slice(0, 200));
+			const out = parsed.outputs[0];
+			if (!out) throw new Error("empty");
+			return {
+				input_hash: a.input_hash,
+				model,
+				summary: out.citizen_summary,
+				tags: out.citizen_tags,
+				finish: result.finish,
+				usage: result.usage,
+			};
+		},
+	});
 }
 
 function importGenerated(file: string, apply: boolean) {
