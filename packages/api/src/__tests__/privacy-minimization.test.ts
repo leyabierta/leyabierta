@@ -13,7 +13,10 @@ import {
 	purgeOldAskLog,
 	resolveAskLogRetentionDays,
 } from "../services/rag/ask-log-retention.ts";
-import { getRerankCaller } from "../services/rag/backends.ts";
+import {
+	getRerankCaller,
+	type RerankCaller,
+} from "../services/rag/backends.ts";
 
 function makeDb(): Database {
 	const db = new Database(":memory:");
@@ -153,7 +156,13 @@ describe("cohere-or rerank caller", () => {
 			);
 		}) as typeof fetch;
 
-		const rerank = getRerankCaller();
+		// Ask for cohere-or explicitly: #177 adds a second `backend` parameter and
+		// changes the default RERANK_BACKEND. Before #177 the extra argument is
+		// ignored and the default is already cohere-or, so this passes in both
+		// merge orders.
+		const rerank = (
+			getRerankCaller as (nanApiKey?: string, backend?: string) => RerankCaller
+		)(undefined, "cohere-or");
 		const candidates = ["a", "b", "c"].map((k) => ({
 			key: `N:${k}`,
 			title: k,
