@@ -8,19 +8,29 @@
  *   3. import   (server, dry-run by default) validated rows → DB
  *
  * Usage:
- *   bun run packages/api/src/scripts/reform-summaries-offline.ts export <out.jsonl> [--db PATH]
+ *   bun run packages/api/src/scripts/reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] [--db PATH]
  *   BASE=http://127.0.0.1:8001/v1 MODEL=qwen3.8-27b CONC=64 \
  *     bun run packages/api/src/scripts/reform-summaries-offline.ts generate <in.jsonl> <out.jsonl> [--limit N]
- *   bun run packages/api/src/scripts/reform-summaries-offline.ts import <generated.jsonl> [--apply] [--db PATH]
+ *   bun run packages/api/src/scripts/reform-summaries-offline.ts import <generated.jsonl> [--apply]
+ *     [--replace-from <export.jsonl>] [--db PATH]
  *
  * The prompt is the production one (reform-summary-prompt.ts), built on the
  * server at export time. Each row carries a hash of it; import rebuilds the
  * prompt from the DB and skips the row if anything it was built from changed.
+ *
+ * Regeneration: `export --regenerate-existing` writes the reforms of in-force
+ * laws that already have a summary, each with `previous_summary_hash`. Passing
+ * that export to `import --replace-from` replaces those summaries, each only
+ * if it is still the one seen at export time.
  */
 
 import { Database } from "bun:sqlite";
 import { readJsonl, runGeneration } from "./offline-llm.ts";
-import { importReformRows, promptHash } from "./reform-summary-import.ts";
+import {
+	importReformRows,
+	promptHash,
+	summaryHash,
+} from "./reform-summary-import.ts";
 import {
 	buildReformPrompt,
 	PROMPT_VERSION,
@@ -40,7 +50,10 @@ const positional = args
 	.slice(1)
 	.filter(
 		(a, i, all) =>
-			!a.startsWith("--") && all[i - 1] !== "--db" && all[i - 1] !== "--limit",
+			!a.startsWith("--") &&
+			all[i - 1] !== "--db" &&
+			all[i - 1] !== "--limit" &&
+			all[i - 1] !== "--replace-from",
 	);
 
 interface ExportRow {
@@ -51,22 +64,29 @@ interface ExportRow {
 	user: string;
 	input_hash: string;
 	prompt_version: string;
+	previous_summary_hash?: string;
 }
 
-async function exportPending(outFile: string) {
+async function exportPending(outFile: string, regenerate: boolean) {
 	const db = new Database(DB_PATH, { readonly: true });
 	// Newest first: recent changes are what citizens look for first. Dates
 	// in the future are corrupt BOE metadata (see list-corrupt-reform-dates.ts).
+	// Regeneration takes the reforms that already have a summary instead.
 	const reforms = db
 		.prepare(
-			`SELECT r.norm_id, n.title, n.rank, r.date, r.source_id
+			`SELECT r.norm_id, n.title, n.rank, r.date, r.source_id,
+			        rs.headline AS prev_headline, rs.summary AS prev_summary
 			 FROM reforms r JOIN norms n ON n.id = r.norm_id
 			 LEFT JOIN reform_summaries rs
 			   ON rs.norm_id = r.norm_id AND rs.source_id = r.source_id AND rs.reform_date = r.date
-			 WHERE rs.norm_id IS NULL AND n.status = 'vigente' AND r.date <= date('now')
+			 WHERE rs.norm_id IS ${regenerate ? "NOT NULL" : "NULL"}
+			   AND n.status = 'vigente' AND r.date <= date('now')
 			 ORDER BY r.date DESC, r.norm_id, r.source_id`,
 		)
-		.all() as ReformRow[];
+		.all() as (ReformRow & {
+		prev_headline: string | null;
+		prev_summary: string | null;
+	})[];
 
 	const writer = Bun.file(outFile).writer();
 	let written = 0;
@@ -81,11 +101,18 @@ async function exportPending(outFile: string) {
 			input_hash: promptHash(prompt),
 			prompt_version: PROMPT_VERSION,
 		};
+		if (regenerate)
+			row.previous_summary_hash = summaryHash(
+				reform.prev_headline ?? "",
+				reform.prev_summary ?? "",
+			);
 		writer.write(`${JSON.stringify(row)}\n`);
 		written++;
 	}
 	await writer.end();
-	console.log(`export: ${written} reforms written to ${outFile}`);
+	console.log(
+		`export${regenerate ? " (regenerate)" : ""}: ${written} reforms written to ${outFile}`,
+	);
 }
 
 async function generate(inFile: string, outFile: string) {
@@ -130,20 +157,33 @@ function importGenerated(file: string, apply: boolean) {
 		: new Database(DB_PATH, { readonly: true });
 	db.run("PRAGMA busy_timeout = 30000");
 	const { rows, badLines } = readJsonl<unknown>(file);
-	const report = importReformRows(db, rows, { apply });
+	const replaceFrom = flag("--replace-from");
+	let replace: Map<string, string> | undefined;
+	if (replaceFrom) {
+		replace = new Map();
+		for (const e of readJsonl<ExportRow>(replaceFrom).rows)
+			if (e.previous_summary_hash)
+				replace.set(
+					`${e.norm_id}|${e.source_id}|${e.reform_date}`,
+					e.previous_summary_hash,
+				);
+		console.log(`replace mode: ${replace.size} summaries may be replaced`);
+	}
+	const report = importReformRows(db, rows, { apply, replace });
 	console.log(
 		`${apply ? "APPLIED" : "DRY RUN (use --apply to write)"}: ${JSON.stringify({ ...report, badLines })}`,
 	);
 }
 
 const [first, second] = positional;
-if (cmd === "export" && first) await exportPending(first);
+if (cmd === "export" && first)
+	await exportPending(first, args.includes("--regenerate-existing"));
 else if (cmd === "generate" && first && second) await generate(first, second);
 else if (cmd === "import" && first)
 	importGenerated(first, args.includes("--apply"));
 else {
 	console.error(
-		"Usage: reform-summaries-offline.ts export <out.jsonl> | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply]",
+		"Usage: reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply] [--replace-from <export.jsonl>]",
 	);
 	process.exit(1);
 }

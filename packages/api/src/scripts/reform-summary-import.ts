@@ -18,6 +18,11 @@ import {
 	validateReformSummary,
 } from "./reform-summary-validation.ts";
 
+/** Hash of an existing summary, so a replacement never overwrites a newer one. */
+export function summaryHash(headline: string, summary: string): string {
+	return textHash(`${headline}\n${summary}`);
+}
+
 /** Hash of exactly what the model saw; import rebuilds it from the DB. */
 export function promptHash(prompt: { system: string; user: string }): string {
 	return textHash(`${prompt.system}\n\n${prompt.user}`);
@@ -65,23 +70,34 @@ export function validateGeneratedReform(
 export interface ReformImportReport {
 	total: number;
 	inserted: number;
+	replaced: number;
 	skipped: Record<string, number>;
 }
 
 /**
  * Inserts valid rows for reforms that still exist, belong to an in-force law,
  * have no summary yet and whose prompt, rebuilt from the DB now, is exactly
- * the one the model saw. Never overwrites an existing summary.
+ * the one the model saw. By default never overwrites an existing summary.
+ *
+ * `replace` (regeneration of old summaries) maps `norm_id|source_id|date` to
+ * the `summaryHash` seen at export time: that summary, and only if it is
+ * still exactly the same, is replaced.
  * With `apply: false` nothing is written (the report is the same).
  */
 export function importReformRows(
 	db: Database,
 	rows: unknown[],
-	opts: { apply: boolean; batchSize?: number; pauseMs?: number },
+	opts: {
+		apply: boolean;
+		batchSize?: number;
+		pauseMs?: number;
+		replace?: Map<string, string>;
+	},
 ): ReformImportReport {
 	const report: ReformImportReport = {
 		total: rows.length,
 		inserted: 0,
+		replaced: 0,
 		skipped: {},
 	};
 	const skip = (reason: string) => {
@@ -103,6 +119,26 @@ export function importReformRows(
 		   (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
 	);
+	const getSummary = db.prepare(
+		"SELECT headline, summary FROM reform_summaries WHERE norm_id = ? AND source_id = ? AND reform_date = ?",
+	);
+	const update = db.prepare(
+		`UPDATE reform_summaries
+		 SET reform_type = ?, headline = ?, summary = ?, importance = ?, generated_at = datetime('now'), model = ?
+		 WHERE norm_id = ? AND source_id = ? AND reform_date = ?`,
+	);
+	const currentHash = (r: GeneratedReformRow) => {
+		const cur = getSummary.get(r.norm_id, r.source_id, r.reform_date) as {
+			headline: string;
+			summary: string;
+		} | null;
+		return cur ? summaryHash(cur.headline, cur.summary) : null;
+	};
+	// The summary is still the one seen at export time.
+	const unchangedSinceExport = (r: GeneratedReformRow) => {
+		const expected = opts.replace?.get(keyOf(r));
+		return expected !== undefined && currentHash(r) === expected;
+	};
 
 	const okKeys = new Set<string>();
 	for (const row of rows) {
@@ -113,6 +149,7 @@ export function importReformRows(
 	type Accepted = {
 		row: GeneratedReformRow;
 		summary: SummaryResponse;
+		replace: boolean;
 	};
 	const accepted: Accepted[] = [];
 	const seen = new Set<string>();
@@ -127,11 +164,12 @@ export function importReformRows(
 			continue;
 		}
 		const key = keyOf(r);
+		// Only accepted rows count as seen: a rejected row must not block a
+		// later, valid retry of the same reform in the same file.
 		if (seen.has(key)) {
 			skip("duplicate_in_file");
 			continue;
 		}
-		seen.add(key);
 
 		const reform = getReform.get(
 			r.norm_id,
@@ -142,9 +180,21 @@ export function importReformRows(
 			skip("reform_missing_or_not_vigente");
 			continue;
 		}
+		let replace = false;
 		if (hasSummary.get(r.norm_id, r.source_id, r.reform_date)) {
-			skip("already_has_summary");
-			continue;
+			if (!opts.replace?.has(key)) {
+				skip("already_has_summary");
+				continue;
+			}
+			if (!unchangedSinceExport(r)) {
+				skip(
+					currentHash(r) === summaryHash(v.summary.headline, v.summary.summary)
+						? "already_replaced"
+						: "summary_changed_since_export",
+				);
+				continue;
+			}
+			replace = true;
 		}
 		if (r.prompt_version !== PROMPT_VERSION) {
 			skip("prompt_version_changed");
@@ -157,7 +207,8 @@ export function importReformRows(
 		}
 		// Same rule as the daily generator: an original publication is a new law.
 		if (prompt.isNewLaw) v.summary.reform_type = "new_law";
-		accepted.push({ row: r, summary: v.summary });
+		seen.add(key);
+		accepted.push({ row: r, summary: v.summary, replace });
 	}
 
 	// Small transactions with a pause: the API keeps serving while this runs.
@@ -166,14 +217,36 @@ export function importReformRows(
 	for (let i = 0; i < accepted.length; i += batchSize) {
 		const chunk = accepted.slice(i, i + batchSize);
 		if (!opts.apply) {
-			for (const { row } of chunk)
-				if (hasSummary.get(row.norm_id, row.source_id, row.reform_date))
+			for (const { row, replace } of chunk)
+				if (replace)
+					if (unchangedSinceExport(row)) report.replaced++;
+					else skip("summary_changed_since_export");
+				else if (hasSummary.get(row.norm_id, row.source_id, row.reform_date))
 					skip("already_has_summary");
 				else report.inserted++;
 			continue;
 		}
 		db.transaction((items: Accepted[]) => {
-			for (const { row, summary } of items) {
+			for (const { row, summary, replace } of items) {
+				if (replace) {
+					// Re-check inside the transaction, like the insert below.
+					if (!unchangedSinceExport(row)) {
+						skip("summary_changed_since_export");
+						continue;
+					}
+					update.run(
+						summary.reform_type,
+						summary.headline,
+						summary.summary,
+						summary.importance,
+						row.model ?? "",
+						row.norm_id,
+						row.source_id,
+						row.reform_date,
+					);
+					report.replaced++;
+					continue;
+				}
 				const res = insert.run(
 					row.norm_id,
 					row.source_id,

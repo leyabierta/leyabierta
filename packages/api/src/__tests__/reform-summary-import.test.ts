@@ -4,6 +4,7 @@ import { createSchema } from "@leyabierta/pipeline";
 import {
 	importReformRows,
 	promptHash,
+	summaryHash,
 	validateGeneratedReform,
 } from "../scripts/reform-summary-import.ts";
 import {
@@ -126,7 +127,12 @@ describe("importReformRows", () => {
 
 	test("apply inserts with the model name", () => {
 		const report = importReformRows(db, [row()], { apply: true });
-		expect(report).toEqual({ total: 1, inserted: 1, skipped: {} });
+		expect(report).toEqual({
+			total: 1,
+			inserted: 1,
+			replaced: 0,
+			skipped: {},
+		});
 		const [s] = summaries();
 		expect(s?.headline).toBe(RESULT.headline);
 		expect(s?.model).toBe("qwen3.8-27b");
@@ -188,6 +194,93 @@ describe("importReformRows", () => {
 			duplicate_in_file: 1,
 			reform_missing_or_not_vigente: 2,
 			failed_then_retried_ok: 1,
+		});
+	});
+
+	describe("replace (regeneration)", () => {
+		const KEY = "N|S|2021-06-01";
+		const seedOld = () =>
+			db.run(
+				"INSERT INTO reform_summaries (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model) VALUES ('N', 'S', '2021-06-01', 'modification', 'viejo', 'resumen viejo', 'normal', '2026-09-23 18:04:00', 'google/gemini-2.5-flash-lite')",
+			);
+		const exported = () =>
+			new Map([[KEY, summaryHash("viejo", "resumen viejo")]]);
+
+		test("replaces the summary seen at export time, with model and date", () => {
+			seedOld();
+			const dry = importReformRows(db, [row()], {
+				apply: false,
+				replace: exported(),
+			});
+			expect(dry.replaced).toBe(1);
+			expect(summaries()[0]?.headline).toBe("viejo");
+
+			const report = importReformRows(db, [row()], {
+				apply: true,
+				replace: exported(),
+			});
+			expect(report).toEqual({
+				total: 1,
+				inserted: 0,
+				replaced: 1,
+				skipped: {},
+			});
+			const [s] = summaries();
+			expect(s?.headline).toBe(RESULT.headline);
+			expect(s?.summary).toBe(RESULT.summary);
+			expect(s?.model).toBe("qwen3.8-27b");
+			expect(s?.generated_at).not.toBe("2026-09-23 18:04:00");
+		});
+
+		test("a summary changed since export is left alone", () => {
+			seedOld();
+			db.run(
+				"UPDATE reform_summaries SET summary = 'otro' WHERE norm_id = 'N'",
+			);
+			const report = importReformRows(db, [row()], {
+				apply: true,
+				replace: exported(),
+			});
+			expect(report.skipped).toEqual({ summary_changed_since_export: 1 });
+			expect(summaries()[0]?.summary).toBe("otro");
+		});
+
+		test("running the import twice reports already_replaced", () => {
+			seedOld();
+			importReformRows(db, [row()], { apply: true, replace: exported() });
+			const again = importReformRows(db, [row()], {
+				apply: true,
+				replace: exported(),
+			});
+			expect(again.skipped).toEqual({ already_replaced: 1 });
+		});
+
+		test("reforms not in the export are still never overwritten", () => {
+			seedOld();
+			const report = importReformRows(db, [row()], {
+				apply: true,
+				replace: new Map([["N|N|2020-01-01", "x"]]),
+			});
+			expect(report.skipped).toEqual({ already_has_summary: 1 });
+			expect(summaries()[0]?.headline).toBe("viejo");
+		});
+
+		test("a stale prompt still blocks the replacement", () => {
+			seedOld();
+			const report = importReformRows(db, [row({ prompt_version: "old" })], {
+				apply: true,
+				replace: exported(),
+			});
+			expect(report.skipped).toEqual({ prompt_version_changed: 1 });
+			expect(summaries()[0]?.headline).toBe("viejo");
+		});
+
+		test("rows without a previous summary are inserted", () => {
+			const report = importReformRows(db, [row()], {
+				apply: true,
+				replace: exported(),
+			});
+			expect(report.inserted).toBe(1);
 		});
 	});
 });
