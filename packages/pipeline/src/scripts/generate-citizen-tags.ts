@@ -19,6 +19,7 @@
 import { Database } from "bun:sqlite";
 import { join, resolve } from "node:path";
 import { createSchema } from "../db/schema.ts";
+import { hasForeignScript } from "../utils/generated-text.ts";
 import { parseLawCitizenMetadata } from "./citizen-tags-validation.ts";
 
 // ── CLI args ──
@@ -504,6 +505,15 @@ ${articleText.slice(0, 2000)}`;
 
 			for (const article of batchData) {
 				if (!article.block_id || !validBlockIds.has(article.block_id)) continue;
+				// Model switched language ("…por servicio军事"): store nothing for
+				// this article (the lazy route regenerates it on demand).
+				if (
+					hasForeignScript(
+						article.citizen_summary ?? "",
+						...(article.citizen_tags ?? []),
+					)
+				)
+					continue;
 
 				if (article.citizen_tags && article.citizen_tags.length > 0) {
 					for (const tag of article.citizen_tags) {

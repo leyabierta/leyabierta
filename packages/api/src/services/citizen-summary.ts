@@ -6,6 +6,7 @@
  */
 
 import type { Database } from "bun:sqlite";
+import { hasForeignScript } from "@leyabierta/pipeline";
 import { CONTENT_LLM_MODEL, callOpenRouter } from "./openrouter.ts";
 
 const MODEL = CONTENT_LLM_MODEL;
@@ -158,6 +159,13 @@ export class CitizenSummaryService {
 			});
 
 			const { citizen_summary, citizen_tags } = result.data;
+			// A language switch ("…por servicio军事") is never stored or shown.
+			if (hasForeignScript(citizen_summary, ...citizen_tags)) {
+				console.error(
+					`citizen-summary: foreign script for ${normId}/${blockId}, discarded`,
+				);
+				return null;
+			}
 
 			// Persist to DB
 			if (citizen_summary) {

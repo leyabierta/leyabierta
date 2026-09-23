@@ -5,6 +5,8 @@
  * top-level CLI/DB code.
  */
 
+import { hasForeignScript } from "../utils/generated-text.ts";
+
 export interface LawCitizenMetadata {
 	citizen_tags: string[];
 	citizen_summary: string;
@@ -18,6 +20,8 @@ export interface LawCitizenMetadata {
  * `citizen_summary = ''`, so writing "" would re-select the same norm on every
  * run (a paid call per day, forever, always at the head of the newest-first
  * queue) and each pass would also wipe the norm's existing article summaries.
+ * Text in another script (the model switched language) is rejected the same
+ * way: nothing is written and the norm is retried on the next run.
  */
 export function parseLawCitizenMetadata(
 	raw: string,
@@ -41,6 +45,8 @@ export function parseLawCitizenMetadata(
 				.map((t) => t.trim())
 				.filter((t) => t.length > 0)
 		: [];
+
+	if (hasForeignScript(summary, ...tags)) return null;
 
 	return { citizen_tags: tags, citizen_summary: summary };
 }

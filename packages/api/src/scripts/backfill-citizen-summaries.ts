@@ -33,6 +33,7 @@
 
 import { Database } from "bun:sqlite";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { hasForeignScript } from "@leyabierta/pipeline";
 import { contentLlmEndpoint, stripThinking } from "../services/openrouter.ts";
 import {
 	BATCH_SCHEMA,
@@ -704,6 +705,12 @@ async function main() {
 				// True empty: model explicitly returned "". With minLength:10 in the
 				// schema this should be unreachable, but kept as a safety net.
 				progress.empty++;
+			} else if (
+				output &&
+				hasForeignScript(output.citizen_summary, ...output.citizen_tags)
+			) {
+				// Model switched language ("…por servicio军事"): never stored.
+				progress.errors++;
 			} else if (output) {
 				progress.success++;
 

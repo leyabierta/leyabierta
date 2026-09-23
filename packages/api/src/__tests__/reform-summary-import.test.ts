@@ -87,7 +87,7 @@ describe("validateGeneratedReform", () => {
 		],
 		[
 			{ result: { ...RESULT, summary: `${RESULT.summary} 法律` } },
-			"foreign_script",
+			"invalid: foreign script (model switched language)",
 		],
 		[
 			{

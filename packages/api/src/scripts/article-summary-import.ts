@@ -8,6 +8,7 @@
 
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
+import { FOREIGN_SCRIPT } from "@leyabierta/pipeline";
 
 /** Short fingerprint of the article text the summary was generated from. */
 export function textHash(text: string): string {
@@ -48,11 +49,6 @@ export const MIN_TAGS = 3;
 export const MAX_TAGS = 5;
 export const MAX_TAG_CHARS = 60;
 
-// Latin script (incl. accents), plus digits, punctuation and symbols shared
-// by all scripts, and Greek (formulas: "el parámetro α"). Anything else (CJK,
-// Cyrillic...) is a model glitch.
-const FOREIGN_SCRIPT =
-	/[^\p{Script=Latin}\p{Script=Greek}\p{Script=Common}\p{Script=Inherited}]/u;
 // Control and invisible format characters (NUL, zero-width space...) and
 // HTML-like tags. Bare < and > stay: "municipios <10.000 hab" is legitimate.
 const UNSAFE_CHARS = /[\p{Cc}\p{Cf}]|<\/?[a-z][^>]*>/iu;
