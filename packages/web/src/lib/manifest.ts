@@ -19,6 +19,20 @@ export interface BuildManifest {
 		{ summary: string; tags: string[]; materias: string[] }
 	>;
 	omnibus: Record<string, OmnibusTopic[]>;
+	/**
+	 * AI headline + summary per reform, newest first. Optional: manifests from
+	 * an API older than this field simply have no reform headlines.
+	 */
+	reforms?: Record<string, ReformSummary[]>;
+}
+
+export interface ReformSummary {
+	/** ISO date of the reform (matches `reformas[].fecha` in the frontmatter). */
+	date: string;
+	/** BOE id of the reforming norm (matches `reformas[].fuente`). */
+	source: string;
+	headline: string;
+	summary: string;
 }
 
 /**
@@ -102,4 +116,37 @@ export function loadManifest(): BuildManifest | null {
 		_manifest = null;
 		return null;
 	}
+}
+
+/** What a law page has of its own (beyond the BOE text). */
+export interface LawOwnContent {
+	citizenSummary: boolean;
+	reformHeadlines: boolean;
+	articleSummaries: boolean;
+}
+
+export function lawOwnContent(id: string): LawOwnContent {
+	const manifest = loadManifest();
+	const articles = loadArticleSummaries();
+	return {
+		citizenSummary: !!manifest?.citizens[id]?.summary,
+		reformHeadlines: (manifest?.reforms?.[id]?.length ?? 0) > 0,
+		articleSummaries: !!articles?.[id]?.some(([, s]) => s.length > 0),
+	};
+}
+
+/**
+ * Whether `/leyes/[id]/` is worth indexing: it must carry at least one piece
+ * of our own content (citizen summary, reform headlines or article
+ * summaries); otherwise it is a thin page over the BOE text and gets
+ * `noindex` + is left out of the sitemap.
+ *
+ * Fails open: when either manifest is missing (local dev, or a failed fetch
+ * in CI) we cannot tell, so the page stays indexable rather than silently
+ * dropping thousands of laws from Google.
+ */
+export function isIndexableLaw(id: string): boolean {
+	if (!loadManifest() || !loadArticleSummaries()) return true;
+	const c = lawOwnContent(id);
+	return c.citizenSummary || c.reformHeadlines || c.articleSummaries;
 }

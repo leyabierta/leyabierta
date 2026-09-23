@@ -1,5 +1,5 @@
 /**
- * Sitemap: core pages + the ~12k law detail pages, generated from Content
+ * Sitemap: core pages + the indexable law summary pages, generated from Content
  * Collections at build time. One of two child sitemaps referenced by the
  * /sitemap.xml index (see sitemap.xml.ts and sitemap-reformas.xml.ts).
  */
@@ -7,6 +7,7 @@
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
 import { effectiveLastUpdated, todayIso } from "../lib/law-dates.ts";
+import { isIndexableLaw } from "../lib/manifest.ts";
 import { SECONDARY_PAGES } from "../lib/site-pages.ts";
 import { isEmittableLastmod } from "../lib/sitemap-dates.ts";
 
@@ -35,6 +36,10 @@ export const GET: APIRoute = async () => {
 
 	for (const law of laws) {
 		const d = law.data;
+		// Thin law pages (no citizen summary, no reform headlines, no article
+		// summaries) are `noindex`; listing them here would contradict that.
+		// The full-text pages (/leyes/<id>/texto/) are noindex and never listed.
+		if (!isIndexableLaw(d.identificador)) continue;
 		// Only emit lastmod for dates Google accepts — see isEmittableLastmod.
 		// sitemap-reformas.xml applies the same rule through the same helper;
 		// when this one held the rule inline, reformas didn't get it and Google

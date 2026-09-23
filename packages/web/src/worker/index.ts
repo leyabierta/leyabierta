@@ -56,10 +56,24 @@ export function prefersMarkdown(request: Request): boolean {
 	return /text\/markdown/i.test(accept);
 }
 
-/** Extracts a norm id from a law page path (`/leyes/<id>/`), or null. */
+/** Extracts a norm id from a law page path (`/leyes/<id>/` or its full-text
+ *  page `/leyes/<id>/texto/`), or null. */
 export function lawIdFromPath(pathname: string): string | null {
-	const m = pathname.match(/^\/leyes\/([^/]+)\/?$/);
+	const m = pathname.match(/^\/leyes\/([^/]+)(?:\/texto)?\/?$/);
 	return m ? decodeURIComponent(m[1]!) : null;
+}
+
+/**
+ * The law page used to hold the full text in a "Texto" tab; it now lives on
+ * `/leyes/<id>/texto/`. Old `?tab=texto` links get a permanent redirect there
+ * (hash anchors like `#articulo-14` never reach the server; the law page
+ * forwards those client-side). Returns the target URL, or null.
+ */
+export function legacyTextTabRedirect(url: URL): string | null {
+	if (url.searchParams.get("tab") !== "texto") return null;
+	const m = url.pathname.match(/^\/leyes\/([^/]+)\/?$/);
+	if (!m) return null;
+	return new URL(`/leyes/${m[1]}/texto/`, url).toString();
 }
 
 function markdownBody(body: string): Response {
@@ -410,6 +424,9 @@ export default {
 			const md = await markdownResponse(env, url);
 			if (md) return md;
 		}
+
+		const textTab = legacyTextTabRedirect(url);
+		if (textTab) return Response.redirect(textTab, 301);
 
 		if (url.pathname.startsWith(REFORM_PATH_PREFIX)) {
 			const result = await renderReformResponse(env, url);

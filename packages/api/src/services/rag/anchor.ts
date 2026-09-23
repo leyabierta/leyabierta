@@ -5,7 +5,8 @@
  * "articulo-90". For "Artículo 1 bis" returns "articulo-1-bis".
  *
  * This MUST stay in sync with the heading ID logic in
- * packages/web/src/pages/laws/[id].astro — both use the same convention
+ * articleAnchor in packages/web/src/lib/law-text.ts (the ids on
+ * /leyes/[id]/texto/) — both use the same convention
  * so that citation links land on the correct anchor.
  *
  * Returns "" if the title doesn't look like an article reference.

@@ -48,11 +48,12 @@ function insertBlock(
 	blockId: string,
 	title: string,
 	position: number,
+	currentText = "texto del articulo",
 ) {
 	db.run(
 		`INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text)
-     VALUES (?, ?, 'articulo', ?, ?, 'texto del articulo')`,
-		[normId, blockId, title, position],
+     VALUES (?, ?, 'articulo', ?, ?, ?)`,
+		[normId, blockId, title, position, currentText],
 	);
 }
 
@@ -80,6 +81,7 @@ describe("getBuildManifest()", () => {
 		const result = svc.getBuildManifest();
 		expect(result.citizens).toEqual({});
 		expect(result.omnibus).toEqual({});
+		expect(result.reforms).toEqual({});
 	});
 
 	it("returns citizen summaries for norms that have them", () => {
@@ -210,5 +212,94 @@ describe("getArticleSummariesManifest()", () => {
 
 		const result = svc.getArticleSummariesManifest();
 		expect(result["BOE-A-2024-001"]).toEqual([["Artículo 1", "válido"]]);
+	});
+
+	it("keys pairs by the heading printed in the text, not the BOE title", () => {
+		// Código Civil: titles are "Art 1" but the text says "Artículo 1."; the
+		// title-keyed manifest rendered 16 of its 1,322 summaries.
+		insertNorm("BOE-A-1889-4763");
+		insertBlock(
+			"BOE-A-1889-4763",
+			"a1",
+			"Art 1",
+			0,
+			"Artículo 1.\n\n1. Las fuentes...",
+		);
+		insertArticleSummary("BOE-A-1889-4763", "a1", "Fuentes del derecho");
+
+		expect(svc.getArticleSummariesManifest()["BOE-A-1889-4763"]).toEqual([
+			["Artículo 1.", "Fuentes del derecho"],
+		]);
+	});
+
+	it("orders pairs by position and adds placeholders for repeated headings", () => {
+		insertNorm("BOE-A-2024-001");
+		insertBlock(
+			"BOE-A-2024-001",
+			"dt1",
+			"Primera",
+			2,
+			"Primera.\n\ntransitoria",
+		);
+		insertBlock(
+			"BOE-A-2024-001",
+			"a1",
+			"Artículo 1",
+			0,
+			"Artículo 1.\n\ntexto",
+		);
+		insertBlock(
+			"BOE-A-2024-001",
+			"a2",
+			"Artículo 2",
+			1,
+			"Artículo 2.\n\ntexto",
+		);
+		insertBlock("BOE-A-2024-001", "da1", "Primera", 3, "Primera.\n\nadicional");
+		insertArticleSummary("BOE-A-2024-001", "a1", "uno");
+		insertArticleSummary("BOE-A-2024-001", "da1", "adicional primera");
+
+		// a2 has no summary and no namesake → omitted; dt1 has no summary but
+		// shares "Primera." with da1 → "" placeholder, in document order.
+		expect(svc.getArticleSummariesManifest()["BOE-A-2024-001"]).toEqual([
+			["Artículo 1.", "uno"],
+			["Primera.", ""],
+			["Primera.", "adicional primera"],
+		]);
+	});
+});
+
+describe("getBuildManifest() reforms", () => {
+	it("returns AI reform headlines per norm, newest first", () => {
+		insertNorm("BOE-A-2015-11430");
+		for (const [date, source, headline] of [
+			["2023-03-01", "BOE-A-2023-100", "Antigua"],
+			["2025-06-01", "BOE-A-2025-200", "Reciente"],
+		]) {
+			db.run(
+				"INSERT INTO reforms (norm_id, date, source_id) VALUES (?, ?, ?)",
+				["BOE-A-2015-11430", date!, source!],
+			);
+			db.run(
+				`INSERT INTO reform_summaries (norm_id, source_id, reform_date, headline, summary)
+         VALUES (?, ?, ?, ?, 'resumen')`,
+				["BOE-A-2015-11430", source!, date!, headline!],
+			);
+		}
+
+		expect(svc.getBuildManifest().reforms["BOE-A-2015-11430"]).toEqual([
+			{
+				date: "2025-06-01",
+				source: "BOE-A-2025-200",
+				headline: "Reciente",
+				summary: "resumen",
+			},
+			{
+				date: "2023-03-01",
+				source: "BOE-A-2023-100",
+				headline: "Antigua",
+				summary: "resumen",
+			},
+		]);
 	});
 });
