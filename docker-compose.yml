@@ -36,6 +36,12 @@ services:
       - OPENROUTER_LLM_MODEL=${OPENROUTER_LLM_MODEL:-google/gemini-2.5-flash-lite}
       - OPENROUTER_RERANK_LLM_MODEL=${OPENROUTER_RERANK_LLM_MODEL:-google/gemini-2.5-flash-lite}
       - OPENROUTER_RERANK_MODEL=${OPENROUTER_RERANK_MODEL:-cohere/rerank-4-fast}
+      # Question quota for /v1/ask + /v1/ask/stream (each question spends
+      # OpenRouter credit). Per person (daily-rotated IP hash) and global.
+      # Counters persist in /data/ask-quota.db so deploys do not reset them.
+      - ASK_PER_MINUTE_LIMIT=${ASK_PER_MINUTE_LIMIT:-2}
+      - ASK_PER_DAY_LIMIT=${ASK_PER_DAY_LIMIT:-10}
+      - ASK_GLOBAL_DAILY_LIMIT=${ASK_GLOBAL_DAILY_LIMIT:-200}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     deploy:

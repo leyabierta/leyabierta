@@ -3,7 +3,9 @@
  */
 
 import { Elysia, t } from "elysia";
+import type { AskQuota, AskQuotaDecision } from "../services/ask-quota.ts";
 import type { RagPipeline } from "../services/rag/pipeline.ts";
+import { getQuotaClientIp, hasBypassKey } from "../services/rate-limiter.ts";
 
 const askBody = t.Object({
 	question: t.String(),
@@ -27,7 +29,72 @@ function validateQuestion(
 	return q;
 }
 
-export function askRoutes(pipeline: RagPipeline | null) {
+export interface AskRoutesOptions {
+	/** Question quota; `null` disables it (tests, or no pipeline). */
+	quota?: AskQuota | null;
+	/** X-API-Key value that skips the quota (operator scripts, evals). */
+	bypassKey?: string;
+}
+
+type QuotaServer = Parameters<typeof getQuotaClientIp>[1];
+
+/** Quota decision per request, handed from beforeHandle to the handler. */
+const quotaDecisions = new WeakMap<Request, AskQuotaDecision>();
+
+export function askRoutes(
+	pipeline: RagPipeline | null,
+	options: AskRoutesOptions = {},
+) {
+	const { quota = null, bypassKey = "" } = options;
+
+	/**
+	 * Count the question against the quota, or reject it with 429.
+	 *
+	 * Runs as a route-level beforeHandle, i.e. after body-schema validation
+	 * and before the handler, so:
+	 *   - requests that will be answered with 4xx/503 (bad body, question too
+	 *     short/long, pipeline missing) are NOT counted: they cost nothing;
+	 *   - an accepted question IS counted before any LLM call, and stays
+	 *     counted even if the answer ends up declined or fails midway. The
+	 *     credit was already spent (embedding, analyzer, rerank, part of the
+	 *     synthesis), and refunding failures would let a client loop on a
+	 *     failing question for free;
+	 *   - for /ask/stream the 429 is a plain JSON response, sent before the
+	 *     SSE stream is opened.
+	 */
+	const checkQuota = ({
+		body,
+		request,
+		set,
+		server,
+	}: {
+		body: { question: string };
+		request: Request;
+		set: { status?: number | string; headers: Record<string, unknown> };
+		server: QuotaServer;
+	}) => {
+		if (!quota || !pipeline) return;
+		if (typeof validateQuestion(body.question) !== "string") return;
+		if (hasBypassKey(request, bypassKey)) return;
+
+		const decision = quota.consume(getQuotaClientIp(request, server));
+		quotaDecisions.set(request, decision);
+		set.headers["X-RateLimit-Limit"] = String(decision.limitPerDay);
+		set.headers["X-RateLimit-Remaining"] = String(decision.remainingToday);
+		if (decision.allowed) return;
+
+		set.status = 429;
+		set.headers["Retry-After"] = String(decision.retryAfterSeconds);
+		set.headers["Cache-Control"] = "no-store";
+		return {
+			error: decision.message,
+			reason: decision.reason,
+			retryAfterSeconds: decision.retryAfterSeconds,
+			remainingToday: decision.remainingToday,
+			limitPerDay: decision.limitPerDay,
+		};
+	};
+
 	return new Elysia({ prefix: "/v1" })
 		.post(
 			"/ask",
@@ -63,6 +130,7 @@ export function askRoutes(pipeline: RagPipeline | null) {
 			},
 			{
 				body: askBody,
+				beforeHandle: checkQuota,
 				detail: {
 					summary: "Ask a question about Spanish legislation",
 					description:
@@ -73,7 +141,7 @@ export function askRoutes(pipeline: RagPipeline | null) {
 		)
 		.post(
 			"/ask/stream",
-			async function* ({ body, set }) {
+			async function* ({ body, set, request }) {
 				// Set SSE headers up front so error yields below also carry the
 				// correct Content-Type and no-buffering hints.
 				set.headers["Content-Type"] = "text/event-stream";
@@ -103,6 +171,13 @@ export function askRoutes(pipeline: RagPipeline | null) {
 					// Without this, CF returns 524 even though the server is still
 					// working on retrieval.
 					yield `event: stage\ndata: ${JSON.stringify({ stage: "retrieval_started" })}\n\n`;
+					// Cross-origin clients cannot read X-RateLimit-* without
+					// Access-Control-Expose-Headers, so the remaining quota also
+					// travels in the stream. Older clients ignore unknown events.
+					const decision = quotaDecisions.get(request);
+					if (decision?.allowed) {
+						yield `event: quota\ndata: ${JSON.stringify({ remainingToday: decision.remainingToday, limitPerDay: decision.limitPerDay })}\n\n`;
+					}
 					for await (const event of pipeline.askStream({
 						question: validated,
 						jurisdiction: body.jurisdiction,
@@ -133,6 +208,7 @@ export function askRoutes(pipeline: RagPipeline | null) {
 			},
 			{
 				body: askBody,
+				beforeHandle: checkQuota,
 				detail: {
 					summary: "Ask a question (streaming)",
 					description:
@@ -143,7 +219,14 @@ export function askRoutes(pipeline: RagPipeline | null) {
 		)
 		.post(
 			"/_eval/retrieval",
-			async ({ body, set }) => {
+			async ({ body, set, request }) => {
+				// Internal eval hook: it spends credit (embedding + analyzer) and
+				// sits outside the question quota, so when a bypass key is
+				// configured (production) only callers holding it may use it.
+				if (bypassKey && !hasBypassKey(request, bypassKey)) {
+					set.status = 404;
+					return { error: "Not found" };
+				}
 				if (!pipeline) {
 					set.status = 503;
 					return { error: "RAG pipeline unavailable." };
