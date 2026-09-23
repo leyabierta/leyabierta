@@ -231,6 +231,21 @@ describe("matchArticleSummaries", () => {
 		expect(items[1]!.section).toBe("DISPOSICIONES TRANSITORIAS");
 		expect(items[2]!.section).toBe("DISPOSICIONES ADICIONALES");
 	});
+
+	test("carries the BOE block id of each pair, when the manifest has it", () => {
+		const html = renderLawHtml(
+			["##### Artículo 1.", "texto", "##### Artículo 2.", "texto"].join("\n\n"),
+		);
+		const { items } = matchArticleSummaries(
+			html,
+			[
+				["Artículo 1.", "uno", "art1"],
+				["Artículo 2.", "dos"], // older manifest: no block id
+			],
+			{ inject: false },
+		);
+		expect(items.map((i) => i.blockId)).toEqual(["art1", null]);
+	});
 });
 
 describe("articleLabel", () => {

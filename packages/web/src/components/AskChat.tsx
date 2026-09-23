@@ -21,6 +21,7 @@ import {
 	renderMarkdownWithCitations,
 	TextWithCitations,
 } from "../lib/citations";
+import { boeUrl } from "../lib/law-labels";
 
 // ── Lottie (lazy-loaded to avoid blocking first paint, ~30KB) ──
 const DotLottieReact = lazy(async () => {
@@ -1305,7 +1306,7 @@ export default function AskChat() {
 																	className={`ask-citation-card${c.verified === false ? " ask-citation-approx" : ""}`}
 																>
 																	<a
-																		href={`/leyes/${c.normId}/${c.anchor ? `texto/#${c.anchor}` : ""}`}
+																		href={boeUrl(c.normId, c.blockId)}
 																		target="_blank"
 																		rel="noopener noreferrer"
 																		className="ask-citation-link"

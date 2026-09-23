@@ -116,7 +116,7 @@ Cuerpo: \`{"question": "¿Cuántos días de vacaciones me corresponden?"}\`
 Devuelve una respuesta en lenguaje llano fundamentada en la legislación vigente, con citas verificables a artículos concretos en formato \`[BOE-A-XXXX-XXXX, Artículo N]\`. Cada cita se comprueba contra un artículo real (verificación post-hoc). Es la vía preferente para un agente: pregunta directa → respuesta citada, en vez de buscar y leer manualmente. Streaming vía SSE disponible.
 
 ### Texto de cualquier ley en Markdown
-Cualquier ficha de ley sirve su texto en Markdown limpio con la cabecera \`Accept: text/markdown\` (negociación de contenido), p.ej. \`GET https://leyabierta.es/leyes/:id/\` con \`Accept: text/markdown\`. Evita parsear HTML para citar el articulado. En HTML, \`/leyes/:id/\` es el resumen de la ley (resumen ciudadano, cambios y resúmenes por artículo generados con IA) y \`/leyes/:id/texto/\` el texto consolidado completo, con anclas por artículo (\`#articulo-14\`).
+Cualquier ficha de ley sirve su texto en Markdown limpio con la cabecera \`Accept: text/markdown\` (negociación de contenido), p.ej. \`GET https://leyabierta.es/leyes/:id/\` con \`Accept: text/markdown\`. Evita parsear HTML para citar el articulado. En HTML, \`/leyes/:id/\` es el resumen de la ley (resumen ciudadano, cambios y resúmenes por artículo generados con IA) y cada resumen por artículo enlaza al artículo en el texto consolidado del BOE (\`https://www.boe.es/buscar/act.php?id=:id#a14\`).
 
 ### Buscar leyes
 \`GET /v1/laws\`

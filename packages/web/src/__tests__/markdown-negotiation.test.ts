@@ -61,12 +61,15 @@ describe("lawIdFromPath", () => {
 describe("legacyTextTabRedirect", () => {
 	const u = (s: string) => new URL(s, "https://leyabierta.es");
 
-	test("sends the old ?tab=texto law URL to the text page", () => {
+	test("sends the old ?tab=texto law URL to the text on the BOE", () => {
 		expect(legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229/?tab=texto"))).toBe(
-			"https://leyabierta.es/leyes/BOE-A-1978-31229/texto/",
+			"https://www.boe.es/buscar/act.php?id=BOE-A-1978-31229",
 		);
 		expect(legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229?tab=texto"))).toBe(
-			"https://leyabierta.es/leyes/BOE-A-1978-31229/texto/",
+			"https://www.boe.es/buscar/act.php?id=BOE-A-1978-31229",
+		);
+		expect(legacyTextTabRedirect(u("/leyes/DOGC-f-2019-90497?tab=texto"))).toBe(
+			"https://www.boe.es/buscar/act.php?id=DOGC-f-2019-90497",
 		);
 	});
 
@@ -79,5 +82,10 @@ describe("legacyTextTabRedirect", () => {
 			legacyTextTabRedirect(u("/leyes/BOE-A-1978-31229/texto/?tab=texto")),
 		).toBeNull();
 		expect(legacyTextTabRedirect(u("/cambios/?tab=texto"))).toBeNull();
+	});
+
+	test("malformed percent-encoding is ignored instead of throwing", () => {
+		expect(legacyTextTabRedirect(u("/leyes/%E0%A4%A/?tab=texto"))).toBeNull();
+		expect(lawIdFromPath("/leyes/%E0%A4%A/")).toBeNull();
 	});
 });

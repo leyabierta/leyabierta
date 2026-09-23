@@ -41,7 +41,7 @@ export const GET: APIRoute = async () => {
 
 ## Contenido en Markdown
 - Cualquier ficha de ley devuelve su texto en Markdown limpio si se solicita con la cabecera \`Accept: text/markdown\` — p.ej. \`curl -H "Accept: text/markdown" https://leyabierta.es/leyes/BOE-A-1978-31229/\`. Pensado para que un agente cite el texto legal sin parsear HTML.
-- Páginas de ley: \`/leyes/:id/\` es el resumen (resumen ciudadano, cambios y un resumen por artículo, generados con IA); \`/leyes/:id/texto/\` es el texto consolidado completo en HTML, con anclas por artículo (p.ej. \`/leyes/BOE-A-1978-31229/texto/#articulo-14\`).
+- Páginas de ley: \`/leyes/:id/\` es el resumen (resumen ciudadano, cambios y un resumen por artículo, generados con IA); el texto consolidado completo en HTML está en el BOE (\`https://www.boe.es/buscar/act.php?id=:id\`, con anclas por artículo, p.ej. \`#a14\`), y en Markdown en \`/leyes/:id/\` con \`Accept: text/markdown\`.
 
 ## Código fuente
 - [GitHub](https://github.com/leyabierta/leyabierta): Código fuente del proyecto (AGPL-3.0)

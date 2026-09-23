@@ -64,6 +64,12 @@ export interface Citation {
 	articleTitle: string;
 	/** Predictable HTML anchor ID (e.g. "articulo-90") for deep-linking */
 	anchor: string;
+	/**
+	 * BOE block id of the cited article (e.g. "a90", "art1019"), which is also
+	 * its anchor on the BOE page (`act.php?id=<normId>#<blockId>`). Only set
+	 * for verified citations: an approximate one may point at another article.
+	 */
+	blockId?: string;
 	citizenSummary?: string;
 	verified: boolean;
 }
@@ -387,6 +393,7 @@ export function verifyCitations(
 	rawCitations: Array<{ normId: string; articleTitle: string }>,
 	articles: Array<{
 		normId: string;
+		blockId?: string;
 		blockTitle: string;
 		normTitle: string;
 		citizenSummary?: string;
@@ -394,11 +401,20 @@ export function verifyCitations(
 ): Citation[] {
 	const evidenceByNorm = new Map<
 		string,
-		{ blockTitle: string; normTitle: string; citizenSummary?: string }[]
+		{
+			blockId?: string;
+			blockTitle: string;
+			normTitle: string;
+			citizenSummary?: string;
+		}[]
 	>();
 	for (const a of articles) {
 		const list = evidenceByNorm.get(a.normId) ?? [];
 		list.push({
+			// Sub-chunks ("a14__2") point at their parent article's block.
+			blockId: a.blockId
+				? (parseSubchunkId(a.blockId)?.parentBlockId ?? a.blockId)
+				: undefined,
 			blockTitle: a.blockTitle,
 			normTitle: a.normTitle,
 			citizenSummary: a.citizenSummary,
@@ -412,28 +428,24 @@ export function verifyCitations(
 		if (!normArticles) continue;
 
 		const citeLower = (c.articleTitle ?? "").toLowerCase();
-		const matchedArticle =
-			normArticles.find((a) => {
-				const b = a.blockTitle.toLowerCase();
-				return (
-					b === citeLower || citeLower.startsWith(b) || b.startsWith(citeLower)
-				);
-			}) ?? normArticles[0];
-
-		if (!matchedArticle) continue;
-
-		const strictMatch = normArticles.some((a) => {
+		const strictArticle = normArticles.find((a) => {
 			const b = a.blockTitle.toLowerCase();
 			return (
 				b === citeLower || citeLower.startsWith(b) || b.startsWith(citeLower)
 			);
 		});
+		const matchedArticle = strictArticle ?? normArticles[0];
+
+		if (!matchedArticle) continue;
+
+		const strictMatch = strictArticle !== undefined;
 
 		validCitations.push({
 			normId: c.normId,
 			normTitle: matchedArticle.normTitle,
 			articleTitle: c.articleTitle,
 			anchor: buildArticleAnchor(c.articleTitle),
+			...(strictArticle?.blockId ? { blockId: strictArticle.blockId } : {}),
 			citizenSummary: matchedArticle.citizenSummary,
 			verified: strictMatch,
 		});

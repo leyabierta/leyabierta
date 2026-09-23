@@ -38,7 +38,8 @@ export const GET: APIRoute = async () => {
 		const d = law.data;
 		// Thin law pages (no citizen summary, no reform headlines, no article
 		// summaries) are `noindex`; listing them here would contradict that.
-		// The full-text pages (/leyes/<id>/texto/) are noindex and never listed.
+		// The full-text pages (/leyes/<id>/texto/, only built with
+		// BUILD_TEXT_PAGES) are noindex and never listed.
 		if (!isIndexableLaw(d.identificador)) continue;
 		// Only emit lastmod for dates Google accepts — see isEmittableLastmod.
 		// sitemap-reformas.xml applies the same rule through the same helper;

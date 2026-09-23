@@ -5,10 +5,12 @@
  * - `/leyes/[id]/texto/` injects each summary as a visible, labelled note right
  *   after its article heading (`bakeArticleSummaries`).
  * - `/leyes/[id]/` lists every summary ("Artículo por artículo") and links each
- *   one to the anchor of its article on the text page (`matchArticleSummaries`).
+ *   one to its article on the BOE (`blockId`), or on the text page when that
+ *   page is built (`matchArticleSummaries`).
  */
 
 import { escapeHtml } from "./escape.ts";
+import type { ArticleSummaryPair } from "./manifest.ts";
 
 /** Where the "generado con IA" labels link to (explains how summaries are made). */
 export const AI_SUMMARIES_EXPLAINER_HREF = "/sobre/#resumenes-ia";
@@ -96,6 +98,8 @@ export interface ArticleSummaryItem {
 	anchor: string | null;
 	/** Closest structural heading above the article (e.g. "DISPOSICIONES TRANSITORIAS"). */
 	section: string | null;
+	/** BOE block id of the article (its anchor on the BOE page), when known. */
+	blockId: string | null;
 }
 
 /**
@@ -123,7 +127,7 @@ export interface ArticleSummaryItem {
  */
 export function matchArticleSummaries(
 	html: string,
-	pairs: Array<[string, string]> | undefined,
+	pairs: ArticleSummaryPair[] | undefined,
 	options: { inject: boolean },
 ): { html: string; items: ArticleSummaryItem[] } {
 	if (!pairs || pairs.length === 0) return { html, items: [] };
@@ -240,13 +244,14 @@ export function matchArticleSummaries(
 	out += html.slice(last);
 
 	const items: ArticleSummaryItem[] = [];
-	pairs.forEach(([heading, summary], i) => {
+	pairs.forEach(([heading, summary, blockId], i) => {
 		if (!summary) return;
 		items.push({
 			heading,
 			summary,
 			anchor: anchors[i]!,
 			section: sections[i]!,
+			blockId: blockId || null,
 		});
 	});
 	return { html: options.inject ? out : html, items };
@@ -255,7 +260,7 @@ export function matchArticleSummaries(
 /** Inject visible summary notes after their matching article headings. */
 export function bakeArticleSummaries(
 	html: string,
-	pairs: Array<[string, string]> | undefined,
+	pairs: ArticleSummaryPair[] | undefined,
 ): string {
 	return matchArticleSummaries(html, pairs, { inject: true }).html;
 }

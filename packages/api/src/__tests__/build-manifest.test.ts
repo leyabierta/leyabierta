@@ -184,7 +184,7 @@ describe("getArticleSummariesManifest()", () => {
 		expect(svc.getArticleSummariesManifest()).toEqual({});
 	});
 
-	it("groups [title, summary] pairs per norm", () => {
+	it("groups [heading, summary, blockId] triples per norm", () => {
 		insertNorm("BOE-A-2024-001");
 		insertBlock("BOE-A-2024-001", "art-1", "Artículo 1", 0);
 		insertBlock("BOE-A-2024-001", "art-2", "Artículo 2", 1);
@@ -197,10 +197,12 @@ describe("getArticleSummariesManifest()", () => {
 		const result = svc.getArticleSummariesManifest();
 		expect(Object.keys(result)).toHaveLength(2);
 		expect(result["BOE-A-2024-001"]).toEqual([
-			["Artículo 1", "resumen uno"],
-			["Artículo 2", "resumen dos"],
+			["Artículo 1", "resumen uno", "art-1"],
+			["Artículo 2", "resumen dos", "art-2"],
 		]);
-		expect(result["BOE-A-2024-002"]).toEqual([["Artículo 1", "otro resumen"]]);
+		expect(result["BOE-A-2024-002"]).toEqual([
+			["Artículo 1", "otro resumen", "art-1"],
+		]);
 	});
 
 	it("omits empty summaries and titleless blocks", () => {
@@ -211,7 +213,9 @@ describe("getArticleSummariesManifest()", () => {
 		insertArticleSummary("BOE-A-2024-001", "preamble", "sin título");
 
 		const result = svc.getArticleSummariesManifest();
-		expect(result["BOE-A-2024-001"]).toEqual([["Artículo 1", "válido"]]);
+		expect(result["BOE-A-2024-001"]).toEqual([
+			["Artículo 1", "válido", "art-1"],
+		]);
 	});
 
 	it("keys pairs by the heading printed in the text, not the BOE title", () => {
@@ -228,7 +232,7 @@ describe("getArticleSummariesManifest()", () => {
 		insertArticleSummary("BOE-A-1889-4763", "a1", "Fuentes del derecho");
 
 		expect(svc.getArticleSummariesManifest()["BOE-A-1889-4763"]).toEqual([
-			["Artículo 1.", "Fuentes del derecho"],
+			["Artículo 1.", "Fuentes del derecho", "a1"],
 		]);
 	});
 
@@ -262,9 +266,9 @@ describe("getArticleSummariesManifest()", () => {
 		// a2 has no summary and no namesake → omitted; dt1 has no summary but
 		// shares "Primera." with da1 → "" placeholder, in document order.
 		expect(svc.getArticleSummariesManifest()["BOE-A-2024-001"]).toEqual([
-			["Artículo 1.", "uno"],
-			["Primera.", ""],
-			["Primera.", "adicional primera"],
+			["Artículo 1.", "uno", "a1"],
+			["Primera.", "", "dt1"],
+			["Primera.", "adicional primera", "da1"],
 		]);
 	});
 });

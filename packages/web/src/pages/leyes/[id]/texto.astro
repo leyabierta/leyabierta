@@ -6,16 +6,27 @@
  * Not for search engines: the text itself is the BOE's, so this page is
  * `noindex, follow` and stays out of every sitemap. The indexable page is
  * /leyes/[id]/, which carries only our own content and links here.
+ *
+ * DISABLED BY DEFAULT: only built with `BUILD_TEXT_PAGES=true`. These ~12k
+ * pages push the deploy past the Workers Free limit of 20,000 static assets,
+ * so for now "texto completo" links go to the BOE instead (see boeUrl). Kept
+ * so it can come back as-is on a paid Workers plan.
  */
 import { getCollection } from "astro:content";
 import { promises as fs } from "node:fs";
 import Base from "../../../layouts/Base.astro";
 import { bakeArticleSummaries } from "../../../lib/article-summaries.ts";
-import { boeUrl, RANK_LABELS, STATUS_LABELS } from "../../../lib/law-labels.ts";
+import {
+	BUILD_TEXT_PAGES,
+	boeUrl,
+	RANK_LABELS,
+	STATUS_LABELS,
+} from "../../../lib/law-labels.ts";
 import { lawBody, renderLawHtml } from "../../../lib/law-text.ts";
 import { loadArticleSummaries } from "../../../lib/manifest.ts";
 
 export async function getStaticPaths() {
+	if (!BUILD_TEXT_PAGES) return [];
 	const laws = await getCollection("laws");
 	return laws.map((entry) => ({
 		params: { id: entry.data.identificador },
