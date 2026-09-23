@@ -70,7 +70,17 @@ export interface OpenRouterOptions {
 	maxTokens?: number;
 	jsonResponse?: boolean;
 	jsonSchema?: { name: string; schema: Record<string, unknown> };
+	/**
+	 * OpenRouter unified reasoning control, sent as-is when set. Used for
+	 * reasoning models (e.g. openai/gpt-6-luna → { effort: "minimal" }) so
+	 * citizen-facing latency stays low. Omitted → provider default.
+	 */
+	reasoning?: OpenRouterReasoning;
 }
+
+export type OpenRouterReasoning =
+	| { effort: "none" | "minimal" | "low" | "medium" | "high" }
+	| { enabled: boolean };
 
 export interface OpenRouterResult<T> {
 	data: T;
@@ -106,7 +116,13 @@ export async function* callOpenRouterStream(
 	apiKey: string,
 	options: Omit<OpenRouterOptions, "jsonResponse" | "jsonSchema">,
 ): AsyncGenerator<StreamDelta | StreamDone> {
-	const { model, messages, temperature = 0.2, maxTokens = 4000 } = options;
+	const {
+		model,
+		messages,
+		temperature = 0.2,
+		maxTokens = 4000,
+		reasoning,
+	} = options;
 
 	let response: Response | null = null;
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -129,6 +145,7 @@ export async function* callOpenRouterStream(
 				max_tokens: maxTokens,
 				stream: true,
 				stream_options: { include_usage: true },
+				...(reasoning ? { reasoning } : {}),
 			}),
 		});
 		if (res.status === 429) continue;
@@ -172,26 +189,40 @@ export async function* callOpenRouterStream(
 			const payload = trimmed.slice(6);
 			if (payload === "[DONE]") continue;
 
-			try {
-				const parsed = JSON.parse(payload) as {
-					choices?: Array<{ delta?: { content?: string } }>;
-					usage?: {
-						prompt_tokens?: number;
-						completion_tokens?: number;
-						cost?: number;
-					};
+			let parsed: {
+				error?: { message?: string; code?: number | string };
+				choices?: Array<{ delta?: { content?: string } }>;
+				usage?: {
+					prompt_tokens?: number;
+					completion_tokens?: number;
+					cost?: number;
 				};
-				const content = parsed.choices?.[0]?.delta?.content;
-				if (content) {
-					yield { type: "delta", text: content };
-				}
-				if (parsed.usage) {
-					tokensIn = parsed.usage.prompt_tokens ?? 0;
-					tokensOut = parsed.usage.completion_tokens ?? 0;
-					cost = parsed.usage.cost ?? 0;
-				}
+			};
+			try {
+				parsed = JSON.parse(payload);
 			} catch {
-				// skip unparseable lines
+				continue; // skip unparseable lines
+			}
+			// Mid-stream failures (upstream rate limit, provider error) arrive as
+			// an HTTP 200 SSE event with an `error` field. Swallowing it would end
+			// the stream "successfully" with an empty or truncated answer that is
+			// then logged and shown as if it were complete.
+			if (parsed.error) {
+				throw new OpenRouterError(
+					"stream_error",
+					`Stream error ${parsed.error.code ?? ""}: ${String(parsed.error.message ?? "").slice(0, 200)}`,
+				);
+			}
+			// Only `delta.content` is user-visible. Reasoning models may send
+			// `delta.reasoning` / `reasoning_details`; those are never yielded.
+			const content = parsed.choices?.[0]?.delta?.content;
+			if (content) {
+				yield { type: "delta", text: content };
+			}
+			if (parsed.usage) {
+				tokensIn = parsed.usage.prompt_tokens ?? 0;
+				tokensOut = parsed.usage.completion_tokens ?? 0;
+				cost = parsed.usage.cost ?? 0;
 			}
 		}
 	}
@@ -210,6 +241,7 @@ export async function callOpenRouter<T>(
 		maxTokens = 4000,
 		jsonResponse = true,
 		jsonSchema,
+		reasoning,
 	} = options;
 
 	let lastError: Error | null = null;
@@ -238,6 +270,7 @@ export async function callOpenRouter<T>(
 					messages,
 					temperature,
 					max_tokens: maxTokens,
+					...(reasoning ? { reasoning } : {}),
 					...(jsonSchema
 						? {
 								response_format: {
