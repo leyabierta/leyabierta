@@ -18,6 +18,7 @@ import {
 import { hubsForLaw } from "../../components/topic-hubs";
 import { effectiveLastUpdated } from "../../lib/law-dates.ts";
 import {
+	BUILD_TEXT_PAGES,
 	boeUrl,
 	capitalize,
 	formatDate,
@@ -159,12 +160,19 @@ if (manifest) {
 	}
 }
 
-// Article summaries ("Artículo por artículo"). The legal text itself lives on
-// /leyes/[id]/texto/; here we only need each summary's anchor there, so the
-// body is rendered (unsanitized: sanitizing never touches heading ids or text)
-// with the same renderer and matcher the text page uses, and then dropped.
+// Article summaries ("Artículo por artículo"). Each one links to its article
+// in the official text on the BOE (`#<blockId>`, the BOE anchor), or to our
+// own /leyes/[id]/texto/ when that page is built (BUILD_TEXT_PAGES). The body
+// is rendered (unsanitized: sanitizing never touches heading ids or text) with
+// the same renderer and matcher the text page uses, for labels, sections and
+// the old "#articulo-N" ids, and then dropped.
 const articlePairs = loadArticleSummaries()?.[id!];
-let articleItems: Array<{ label: string; summary: string; href: string }> = [];
+let articleItems: Array<{
+	label: string;
+	summary: string;
+	href: string;
+	anchor: string | null;
+}> = [];
 if (articlePairs?.some(([, s]) => s)) {
 	let html = "";
 	if (entry.body) {
@@ -175,17 +183,24 @@ if (articlePairs?.some(([, s]) => s)) {
 		(item) => ({
 			label: articleLabel(item.heading, item.section),
 			summary: item.summary,
-			// Relative to /leyes/<id>/: keeps 1,000+ links per big code short.
-			href: `texto/${item.anchor ? `#${item.anchor}` : ""}`,
+			href: BUILD_TEXT_PAGES
+				? // Relative to /leyes/<id>/: keeps 1,000+ links per big code short.
+					`texto/${item.anchor ? `#${item.anchor}` : ""}`
+				: // No block id (older manifest) → the BOE page without an anchor.
+					boeUrl(law.identificador, item.blockId),
+			anchor: item.anchor,
 		}),
 	);
 }
+// Old links to "/leyes/<id>/#articulo-14" land on that article's entry (its
+// `id`) and the script at the bottom forwards them to the article's link.
+const articleLinkAttrs = BUILD_TEXT_PAGES ? "" : ' target="_blank" rel="noopener"';
 // Pre-rendered as one string: as Astro template nodes every element would
 // also carry a scoped-style attribute (~90 bytes per article on big codes).
 const articleListHtml = articleItems
 	.map(
 		(a) =>
-			`<li><h3><a href="${escapeHtml(a.href)}">${escapeHtml(a.label)}</a></h3><p>${escapeHtml(a.summary)}</p></li>`,
+			`<li${a.anchor ? ` id="${escapeHtml(a.anchor)}"` : ""}><h3><a href="${escapeHtml(a.href)}"${articleLinkAttrs}>${escapeHtml(a.label)}</a></h3><p>${escapeHtml(a.summary)}</p></li>`,
 	)
 	.join("");
 
@@ -558,6 +573,17 @@ const seoDescription = [
 		.art-list :global(h3) { font-family: var(--font-serif); font-size: 1rem; font-weight: 600; line-height: 1.4; margin: 0 0 0.25rem; }
 		.art-list :global(h3 a) { color: var(--text); }
 		.art-list :global(h3 a:hover) { color: var(--accent); }
+		/* External (BOE) article links: say where they go, without per-item markup. */
+		.art-list :global(h3 a[target="_blank"]::after) {
+			content: "BOE ↗";
+			margin-left: 0.5rem;
+			font-family: var(--font-sans);
+			font-size: 0.6875rem;
+			font-weight: 600;
+			letter-spacing: 0.04em;
+			color: var(--text-muted);
+			white-space: nowrap;
+		}
 		.art-list :global(p) { font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.65; margin: 0; }
 	</style>
 
@@ -627,7 +653,8 @@ const seoDescription = [
 	</div>
 
 	<!-- Own content only: no BOE article text on this page. The full text is on
-	     /leyes/[id]/texto/ (noindex), linked from here and from every article. -->
+	     the BOE (or on /leyes/[id]/texto/, noindex, when BUILD_TEXT_PAGES builds
+	     it), linked from here and from every article. -->
 	<div id="resumen">
 		{citizenSummary && (
 			<div class="citizen-summary-card">
@@ -646,15 +673,29 @@ const seoDescription = [
 	</div>
 
 	<div class="text-cta" style="margin-top: 1.5rem;">
-		<p>
-			{articleItems.length > 0
-				? "El texto completo de la ley, con el resumen de cada artículo a su lado."
-				: "El texto completo de la ley, tal como lo publica el BOE."}
-		</p>
-		<div class="text-cta-actions">
-			<a href={lawTextPath(id!)} class="btn-primary">Leer el texto completo</a>
-			<a href={boeUrl(law.identificador)} target="_blank" rel="noopener" class="btn-outline">Ver en el BOE</a>
-		</div>
+		{BUILD_TEXT_PAGES ? (
+			<>
+				<p>
+					{articleItems.length > 0
+						? "El texto completo de la ley, con el resumen de cada artículo a su lado."
+						: "El texto completo de la ley, tal como lo publica el BOE."}
+				</p>
+				<div class="text-cta-actions">
+					<a href={lawTextPath(id!)} class="btn-primary">Leer el texto completo</a>
+					<a href={boeUrl(law.identificador)} target="_blank" rel="noopener" class="btn-outline">Ver en el BOE</a>
+				</div>
+			</>
+		) : (
+			<>
+				<p>El texto completo y oficial de la ley, tal como lo publica el Boletín Oficial del Estado (BOE).</p>
+				<div class="text-cta-actions">
+					<a href={boeUrl(law.identificador)} target="_blank" rel="noopener" class="btn-primary">
+						Ver texto completo en el BOE
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+					</a>
+				</div>
+			</>
+		)}
 	</div>
 
 	<div class="quick-stats">
@@ -716,7 +757,9 @@ const seoDescription = [
 			<h2 class="law-section-heading" id="articulos-heading">Artículo por artículo</h2>
 			<p class="law-section-intro">
 				Qué dice cada artículo, en lenguaje sencillo ({articleItems.length.toLocaleString("es-ES")} {articleItems.length === 1 ? "artículo" : "artículos"} con resumen).
-				Pulsa en un artículo para leer su texto oficial.
+				{BUILD_TEXT_PAGES
+					? "Pulsa en un artículo para leer su texto oficial."
+					: "Pulsa en un artículo para leer su texto oficial en el BOE."}
 			</p>
 			<ol class="art-list" set:html={articleListHtml} />
 		</section>
@@ -830,18 +873,38 @@ const seoDescription = [
 	</div>
 
 	<!-- Old links pointed at tabs and article anchors on this page (/leyes/X/#texto,
-	     /leyes/X/#articulo-14, ?tab=texto). The text now lives on /texto/: send
-	     those there, keeping the anchor. -->
-	<script is:inline define:vars={{ textPath: lawTextPath(id!) }}>
-		(function() {
-			var hash = decodeURIComponent(location.hash.slice(1));
-			var tab = new URLSearchParams(location.search).get('tab');
-			if (tab === 'texto' || hash === 'texto' ||
-				(hash && hash !== 'resumen' && hash !== 'reformas' && !document.getElementById(hash))) {
-				location.replace(textPath + (hash && hash !== 'texto' ? '#' + encodeURIComponent(hash) : ''));
-			}
-		})();
-	</script>
+	     /leyes/X/#articulo-14, ?tab=texto). With BUILD_TEXT_PAGES the text lives
+	     on /texto/: send those there, keeping the anchor. Otherwise the text is
+	     on the BOE: #texto / ?tab=texto go to the law there, and an article
+	     anchor goes to that article on the BOE when it has a summary entry here
+	     (the entry carries the old id); if not, we stay on this page. -->
+	{BUILD_TEXT_PAGES ? (
+		<script is:inline define:vars={{ textPath: lawTextPath(id!) }}>
+			(function() {
+				var hash = decodeURIComponent(location.hash.slice(1));
+				var tab = new URLSearchParams(location.search).get('tab');
+				if (tab === 'texto' || hash === 'texto' ||
+					(hash && hash !== 'resumen' && hash !== 'reformas' && !document.getElementById(hash))) {
+					location.replace(textPath + (hash && hash !== 'texto' ? '#' + encodeURIComponent(hash) : ''));
+				}
+			})();
+		</script>
+	) : (
+		<script is:inline define:vars={{ boeLawUrl: boeUrl(law.identificador) }}>
+			(function() {
+				var hash = decodeURIComponent(location.hash.slice(1));
+				var tab = new URLSearchParams(location.search).get('tab');
+				if (tab === 'texto' || hash === 'texto') {
+					location.replace(boeLawUrl);
+					return;
+				}
+				if (!/^articulo-/.test(hash)) return;
+				var el = document.getElementById(hash);
+				var link = el && el.closest('.art-list') && el.querySelector('h3 a');
+				if (link) location.replace(link.href);
+			})();
+		</script>
+	)}
 
 	<!-- Follow form handler -->
 	<script is:inline define:vars={{ apiBase: import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es" }}>

@@ -11,7 +11,8 @@ TOTAL=$(find "$LAWS_DIR" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
 # Fallback if we can't count laws
 if [ "$TOTAL" -eq 0 ]; then
   echo "[build] Could not count laws in $LAWS_DIR — running without progress"
-  exec bunx astro build
+  bunx astro build
+  exec bash scripts/check-asset-count.sh dist
 fi
 
 # ── Fetch build manifest (1 API call instead of ~12K per-page calls) ──
@@ -73,3 +74,7 @@ done < <(bunx astro build 2>&1)
 
 ELAPSED=$(( $(date +%s) - START ))
 echo "[build] Done: $COUNT pages in ${ELAPSED}s"
+
+# Workers Free caps a deploy at 20,000 static assets: fail here, clearly,
+# rather than at `wrangler deploy` (see scripts/check-asset-count.sh).
+bash scripts/check-asset-count.sh dist

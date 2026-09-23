@@ -7,6 +7,7 @@
 
 import MarkdownIt from "markdown-it";
 import type { ReactNode } from "react";
+import { boeUrl } from "./law-labels";
 
 const md = new MarkdownIt({ html: false, breaks: true, linkify: false });
 
@@ -24,6 +25,8 @@ export interface Citation {
 	articleTitle: string;
 	/** Predictable HTML anchor ID for deep-linking (e.g., "articulo-90") */
 	anchor?: string;
+	/** BOE block id of the article = its anchor on the BOE page (e.g. "a90") */
+	blockId?: string;
 	/** Citizen-friendly summary of the article */
 	citizenSummary?: string;
 	/** Whether the citation is verified or approximate */
@@ -113,7 +116,7 @@ function renderTextWithCitations(
 					className="ask-cite-wrapper"
 				>
 					<a
-						href={`/leyes/${normId}/${citation.anchor ? `texto/#${citation.anchor}` : ""}`}
+						href={boeUrl(normId, citation.blockId)}
 						target="_blank"
 						rel="noopener noreferrer"
 						className={`ask-cite-link${citation.verified === false ? " ask-cite-approx" : ""}`}

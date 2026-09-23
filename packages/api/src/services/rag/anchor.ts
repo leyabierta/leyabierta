@@ -6,8 +6,9 @@
  *
  * This MUST stay in sync with the heading ID logic in
  * articleAnchor in packages/web/src/lib/law-text.ts (the ids on
- * /leyes/[id]/texto/) — both use the same convention
- * so that citation links land on the correct anchor.
+ * /leyes/[id]/texto/, only built with BUILD_TEXT_PAGES) — both use the same
+ * convention. Citation links on the web now go to the BOE using the
+ * citation's `blockId` instead; this anchor is kept for API consumers.
  *
  * Returns "" if the title doesn't look like an article reference.
  */

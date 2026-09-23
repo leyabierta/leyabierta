@@ -36,11 +36,18 @@ export interface ReformSummary {
 }
 
 /**
- * Per-norm article summaries: `normId → [articleTitle, citizenSummary][]`.
+ * One article in the article-summaries manifest: `[heading, summary, blockId]`.
+ * `blockId` is the BOE block id (= anchor on the BOE page); it is optional
+ * because manifests from an API older than that field only carry two entries.
+ */
+export type ArticleSummaryPair = [string, string, string?];
+
+/**
+ * Per-norm article summaries: `normId → ArticleSummaryPair[]`.
  * Loaded from a separate, larger file (see BUILD_ARTICLE_SUMMARIES_PATH) so the
  * main manifest stays lean.
  */
-export type ArticleSummariesManifest = Record<string, Array<[string, string]>>;
+export type ArticleSummariesManifest = Record<string, ArticleSummaryPair[]>;
 
 let _manifest: BuildManifest | null | undefined;
 let _articleSummaries: ArticleSummariesManifest | null | undefined;

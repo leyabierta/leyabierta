@@ -15,6 +15,7 @@
 // based (fast, complete) while still giving crawlers real SSR content on the
 // one route that needs it for SEO.
 
+import { boeUrl } from "../lib/law-labels.ts";
 import {
 	REFORM_PATH_PREFIX,
 	reformCanonicalPath,
@@ -57,23 +58,24 @@ export function prefersMarkdown(request: Request): boolean {
 }
 
 /** Extracts a norm id from a law page path (`/leyes/<id>/` or its full-text
- *  page `/leyes/<id>/texto/`), or null. */
+ *  page `/leyes/<id>/texto/`, when BUILD_TEXT_PAGES builds it), or null. */
 export function lawIdFromPath(pathname: string): string | null {
 	const m = pathname.match(/^\/leyes\/([^/]+)(?:\/texto)?\/?$/);
 	return m ? decodeURIComponent(m[1]!) : null;
 }
 
 /**
- * The law page used to hold the full text in a "Texto" tab; it now lives on
- * `/leyes/<id>/texto/`. Old `?tab=texto` links get a permanent redirect there
- * (hash anchors like `#articulo-14` never reach the server; the law page
- * forwards those client-side). Returns the target URL, or null.
+ * The law page used to hold the full text in a "Texto" tab. We no longer host
+ * the full text (see BUILD_TEXT_PAGES in lib/law-labels.ts): old `?tab=texto`
+ * links go to the official consolidated text on the BOE. Hash anchors like
+ * `#articulo-14` never reach the server; the law page forwards those
+ * client-side. Returns the target URL, or null.
  */
 export function legacyTextTabRedirect(url: URL): string | null {
 	if (url.searchParams.get("tab") !== "texto") return null;
 	const m = url.pathname.match(/^\/leyes\/([^/]+)\/?$/);
 	if (!m) return null;
-	return new URL(`/leyes/${m[1]}/texto/`, url).toString();
+	return boeUrl(decodeURIComponent(m[1]!));
 }
 
 function markdownBody(body: string): Response {
@@ -425,8 +427,10 @@ export default {
 			if (md) return md;
 		}
 
+		// 302, not 301: the full text may come back to our own /texto/ pages
+		// (BUILD_TEXT_PAGES), and browsers cache a 301 to the BOE for good.
 		const textTab = legacyTextTabRedirect(url);
-		if (textTab) return Response.redirect(textTab, 301);
+		if (textTab) return Response.redirect(textTab, 302);
 
 		if (url.pathname.startsWith(REFORM_PATH_PREFIX)) {
 			const result = await renderReformResponse(env, url);

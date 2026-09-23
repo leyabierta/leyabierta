@@ -1884,19 +1884,27 @@ export class DbService {
 	 * transitorias), those siblings are emitted as `[heading, ""]`
 	 * placeholders so the web matcher can consume headings in order instead
 	 * of stamping one summary on every "Primera.".
+	 *
+	 * Each pair also carries the block id (`[heading, summary, blockId]`): it
+	 * is the BOE `<bloque id>`, which the BOE HTML uses as the article's
+	 * anchor, so the web can deep-link every summary to the official text.
 	 */
-	getArticleSummariesManifest(): Record<string, Array<[string, string]>> {
+	getArticleSummariesManifest(): Record<
+		string,
+		Array<[string, string, string]>
+	> {
 		const rows = this.db
 			.query<
 				{
 					norm_id: string;
+					block_id: string;
 					title: string;
 					head: string | null;
 					summary: string | null;
 				},
 				[]
 			>(
-				`SELECT b.norm_id AS norm_id, b.title AS title,
+				`SELECT b.norm_id AS norm_id, b.block_id AS block_id, b.title AS title,
 				        substr(b.current_text, 1, 400) AS head, cas.summary AS summary
 				 FROM blocks b
 				 LEFT JOIN citizen_article_summaries cas
@@ -1908,24 +1916,32 @@ export class DbService {
 			)
 			.all();
 
-		const out: Record<string, Array<[string, string]>> = {};
+		const out: Record<string, Array<[string, string, string]>> = {};
 		let i = 0;
 		while (i < rows.length) {
 			const normId = rows[i]!.norm_id;
-			const blocks: Array<{ heading: string; summary: string }> = [];
+			const blocks: Array<{
+				heading: string;
+				summary: string;
+				blockId: string;
+			}> = [];
 			for (; i < rows.length && rows[i]!.norm_id === normId; i++) {
 				const row = rows[i]!;
 				const heading = articleHeading(row.head, row.title);
 				if (!heading) continue;
-				blocks.push({ heading, summary: row.summary ?? "" });
+				blocks.push({
+					heading,
+					summary: row.summary ?? "",
+					blockId: row.block_id,
+				});
 			}
 			const summarizedKeys = new Set(
 				blocks.filter((b) => b.summary).map((b) => coarseKey(b.heading)),
 			);
-			const pairs: Array<[string, string]> = [];
+			const pairs: Array<[string, string, string]> = [];
 			for (const b of blocks) {
 				if (b.summary || summarizedKeys.has(coarseKey(b.heading))) {
-					pairs.push([b.heading, b.summary]);
+					pairs.push([b.heading, b.summary, b.blockId]);
 				}
 			}
 			if (pairs.some(([, s]) => s)) out[normId] = pairs;

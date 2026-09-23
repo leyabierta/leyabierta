@@ -317,8 +317,8 @@ When a feature genuinely needs client-side state or rich interactivity (e.g., li
 
 **Current pages:**
 - `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results via API
-- `/leyes/[id]/` — law summary page, indexable, **own content only**: citizen summary, "Qué ha cambiado" (reform timeline with AI headlines), "Artículo por artículo" (every AI article summary, each linking to its article on `/texto/`), temas, related laws. No BOE article text. `noindex` only if the law has none of the three kinds of own content (`isIndexableLaw`, fails open if a manifest is missing).
-- `/leyes/[id]/texto/` — full consolidated text with each article's AI summary next to it; `noindex, follow`, never in a sitemap. Old `/leyes/[id]/#articulo-N` / `#texto` links are forwarded client-side, `?tab=texto` by the Worker (301).
+- `/leyes/[id]/` — law summary page, indexable, **own content only**: citizen summary, "Qué ha cambiado" (reform timeline with AI headlines), "Artículo por artículo" (every AI article summary, each linking to its article on the BOE: `https://www.boe.es/buscar/act.php?id=<id>#<block_id>` — the BOE anchor is our `blocks.block_id`), temas, related laws. No BOE article text. `noindex` only if the law has none of the three kinds of own content (`isIndexableLaw`, fails open if a manifest is missing).
+- `/leyes/[id]/texto/` — full consolidated text with each article's AI summary next to it; `noindex, follow`, never in a sitemap. **Not built by default** (`BUILD_TEXT_PAGES=true` to enable): it doubles the static file count and the Workers Free plan caps a deploy at 20,000 assets (the build fails above 19,000 — `packages/web/scripts/check-asset-count.sh`). With it off, "texto completo", article summaries and /pregunta citations link to the BOE; old `#articulo-N` / `#texto` links are forwarded client-side and `?tab=texto` by the Worker (302) to the BOE.
 - `/laws/[id]/diff?from=&to=` — side-by-side diff viewer (diff2html)
 - `/mis-cambios` — personal legislative changelog (client-side, filtered by user's materias)
 - `/cambios` — public changelog of all recent reforms (client-side)
