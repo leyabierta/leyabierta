@@ -78,7 +78,8 @@ describe("formatBlockChange", () => {
 		).join(" ");
 		const first = formatBlockChange(a, b);
 		for (let i = 0; i < 3; i++) expect(formatBlockChange(a, b)).toBe(first);
-	});
+		// Four worst-case diffs: ~1 s each on an idle machine, more under load.
+	}, 30_000);
 
 	test("a cut version that looks identical is not reported as identical", () => {
 		expect(formatBlockChange("Igual.", "Igual.", 1200, true)).toContain(
