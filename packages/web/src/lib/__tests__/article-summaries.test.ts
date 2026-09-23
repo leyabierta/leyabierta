@@ -143,6 +143,42 @@ describe("bakeArticleSummaries", () => {
 		expect(out).toContain("resumen cinco");
 	});
 
+	test("a reworded fallback never takes a summary whose own heading comes later", () => {
+		// Two annexes, each with its own "Artículo 12.". Only the second one
+		// has a summary; the first (unsummarized, no placeholder) must not
+		// grab it through the article-number fallback.
+		const out = bakeArticleSummaries(
+			H("Artículo 12. Inspecciones y pruebas.") +
+				"<p>anexo I</p>" +
+				H("Artículo 12. Distancias entre recipientes."),
+			[["Artículo 12. Distancias entre recipientes.", "resumen distancias"]],
+		);
+		expect(count(out)).toBe(1);
+		expect(out.indexOf("resumen distancias")).toBeGreaterThan(
+			out.indexOf("Distancias entre recipientes."),
+		);
+	});
+
+	test("latin and ordinal suffixes beyond decies are part of the article number", () => {
+		// Before: "103 terdecies" and "103 quaterdecies" both keyed as
+		// "articulo 103", so an unmatched one slid onto its neighbour.
+		const { items } = matchArticleSummaries(
+			H("Artículo 103 terdecies. Sujeto pasivo.", "a") +
+				H("Artículo 103 quaterdecies. Cuantía.", "b") +
+				H("Artículo 30. Afectación.", "c") +
+				H("Artículo 30 tercero. Sujeto pasivo.", "d"),
+			[
+				["Artículo 103 quaterdecies. Cuantía.", "cuantia"],
+				["Artículo 30 tercero. Sujeto pasivo.", "tercero"],
+			],
+			{ inject: false },
+		);
+		expect(items.map((i) => [i.summary, i.anchor])).toEqual([
+			["cuantia", "b"],
+			["tercero", "d"],
+		]);
+	});
+
 	test("matches articles rendered at other heading levels", () => {
 		const out = bakeArticleSummaries(H("Artículo 1", "", "h4"), [
 			["Artículo 1", "tratado"],

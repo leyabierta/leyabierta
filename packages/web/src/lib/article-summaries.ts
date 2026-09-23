@@ -72,12 +72,17 @@ export function renderArticleSummary(summary: string): string {
 /**
  * "articulo 5- competencias del presidente-" → "articulo 5"; "articulo 17 bis-
  * ..." → "articulo 17 bis"; null for headings that are not articles.
+ *
+ * Any single word between the number and the end of the heading's first
+ * sentence is part of the article number: besides bis/ter/quater, tax codes
+ * go up to "quaterdecies", "tervicies", "quinquagies"… and some old laws use
+ * "30 tercero", "91 cuarto". Treating those as plain "articulo 103" made every
+ * "103 …ies" article share one fallback queue, so summaries slid onto the
+ * wrong article.
  */
 function articleNumberKey(key: string): string | null {
 	const m =
-		/^articulo (\d+(?:-\d+)*|unico)(?:[ -]+(bis|ter|quater|quinquies|sexies|septies|octies|novies|decies))?(?=$|[ -])/.exec(
-			key,
-		);
+		/^articulo (\d+(?:-\d+)*|unico)(?: ([a-z]+)(?=-|$))?(?=$|[ -])/.exec(key);
 	if (!m) return null;
 	return m[2] ? `articulo ${m[1]} ${m[2]}` : `articulo ${m[1]}`;
 }
@@ -106,8 +111,9 @@ export interface ArticleSummaryItem {
  * — e.g. "Primera." exists once under the disposiciones transitorias and again
  * under the adicionales — instead of stamping the first summary on both.
  *
- * When no pair has exactly the heading's key, a word-boundary prefix match is
- * tried (longest key first), so a bare title like "Artículo 14" still matches
+ * Exact matches are resolved for the whole text first. Only then, for the
+ * headings still unmatched, a word-boundary prefix match is tried (longest key
+ * first) and finally the article number, so a bare title like "Artículo 14" still matches
  * a heading such as "Artículo 14. Igualdad ante la ley". Articles usually
  * render as h6 (markdown heading levels are shifted down by 1), but some texts
  * (treaties, tariffs) put them at h4/h5, so any h2–h6 heading may match.
@@ -152,47 +158,86 @@ export function matchArticleSummaries(
 		.filter((k) => byHeading.get(k)?.some((i) => pairs[i]?.[1]))
 		.sort((a, b) => b.length - a.length);
 
+	// Every heading, in document order.
+	const headingRe = /<(h[2-6])([^>]*)>([\s\S]*?)<\/\1>/g;
+	const heads: Array<{
+		start: number;
+		end: number;
+		tag: string;
+		attrs: string;
+		inner: string;
+		key: string;
+		idx?: number;
+	}> = [];
+	for (const m of html.matchAll(headingRe)) {
+		heads.push({
+			start: m.index!,
+			end: m.index! + m[0].length,
+			tag: m[1]!,
+			attrs: m[2]!,
+			inner: m[3]!,
+			key: normKey(plainText(m[3]!)),
+		});
+	}
+
+	// Pass 1: exact headings only. Done over the whole text before any fallback
+	// so that a fallback can never take a pair whose own heading appears later
+	// (e.g. an unsummarized "Artículo 12." of one annex grabbing the summary of
+	// the next annex's "Artículo 12.").
+	for (const h of heads) {
+		if (!h.key) continue;
+		const idx = take(byHeading.get(h.key));
+		if (idx !== undefined) {
+			used[idx] = 1;
+			h.idx = idx;
+		}
+	}
+	// Pass 2, for what is left: word-boundary prefix ("Artículo 14" matches
+	// "Artículo 14. Igualdad…"), then same article number with different
+	// wording (the heading was renamed by a later reform).
+	for (const h of heads) {
+		if (h.idx !== undefined || !h.key) continue;
+		let idx: number | undefined;
+		for (const k of prefixKeys) {
+			if (h.key.indexOf(k) !== 0) continue;
+			const next = h.key.charAt(k.length);
+			if (next !== " " && next !== "-") continue;
+			if (hasFree(byHeading.get(k))) {
+				idx = take(byHeading.get(k));
+				break;
+			}
+		}
+		if (idx === undefined) {
+			const art = articleNumberKey(h.key);
+			if (art) idx = take(byArticle.get(art));
+		}
+		if (idx !== undefined) {
+			used[idx] = 1;
+			h.idx = idx;
+		}
+	}
+
 	const anchors: Array<string | null> = pairs.map(() => null);
 	const sections: Array<string | null> = pairs.map(() => null);
 	let section: string | null = null;
-
-	const out = html.replace(
-		/<(h[2-6])([^>]*)>([\s\S]*?)<\/\1>/g,
-		(full, tag: string, attrs: string, inner: string) => {
-			const text = normKey(plainText(inner));
-			if (!text) return full;
-			// 1. Exact heading. 2. Word-boundary prefix ("Artículo 14" matches
-			// "Artículo 14. Igualdad…"). 3. Same article number, different
-			// wording (the heading was renamed by a later reform).
-			let idx = take(byHeading.get(text));
-			if (idx === undefined) {
-				for (const k of prefixKeys) {
-					if (text.indexOf(k) !== 0) continue;
-					const next = text.charAt(k.length);
-					if (next !== " " && next !== "-") continue;
-					if (hasFree(byHeading.get(k))) {
-						idx = take(byHeading.get(k));
-						break;
-					}
-				}
-			}
-			if (idx === undefined) {
-				const art = articleNumberKey(text);
-				if (art) idx = take(byArticle.get(art));
-			}
-			if (idx === undefined) {
-				// Not an article: a structural heading (título, capítulo, sección).
-				if (tag !== "h6") section = plainText(inner) || section;
-				return full;
-			}
-			used[idx] = 1;
-			const summary = pairs[idx]![1];
-			if (!summary) return full;
-			anchors[idx] = /\sid="([^"]+)"/.exec(attrs)?.[1] ?? null;
-			sections[idx] = section;
-			return options.inject ? `${full}${renderArticleSummary(summary)}` : full;
-		},
-	);
+	let out = "";
+	let last = 0;
+	for (const h of heads) {
+		if (h.idx === undefined) {
+			// Not an article: a structural heading (título, capítulo, sección).
+			if (h.key && h.tag !== "h6") section = plainText(h.inner) || section;
+			continue;
+		}
+		const summary = pairs[h.idx]![1];
+		if (!summary) continue;
+		anchors[h.idx] = /\sid="([^"]+)"/.exec(h.attrs)?.[1] ?? null;
+		sections[h.idx] = section;
+		if (options.inject) {
+			out += html.slice(last, h.end) + renderArticleSummary(summary);
+			last = h.end;
+		}
+	}
+	out += html.slice(last);
 
 	const items: ArticleSummaryItem[] = [];
 	pairs.forEach(([heading, summary], i) => {
@@ -204,7 +249,7 @@ export function matchArticleSummaries(
 			section: sections[i]!,
 		});
 	});
-	return { html: out, items };
+	return { html: options.inject ? out : html, items };
 }
 
 /** Inject visible summary notes after their matching article headings. */

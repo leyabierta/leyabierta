@@ -14,13 +14,13 @@ import {
 
 type SqlParams = SQLQueryBindings[];
 
-/** Escape LIKE wildcards in user-supplied strings to prevent unintended matching. */
 /**
  * The heading an article block renders with in the legal-text markdown: the
  * first line of its text ("Artículo 1." / "Artículo 1. Ámbito de aplicación.")
  * when the text starts with a short heading line, otherwise the block title.
  */
-export function articleHeading(text: string, title: string): string {
+export function articleHeading(text: string | null, title: string): string {
+	if (!text) return title.trim();
 	const nl = text.indexOf("\n");
 	if (nl > 0) {
 		const first = text.slice(0, nl).trim();
@@ -42,6 +42,7 @@ function coarseKey(s: string): string {
 		.replace(/[^a-z0-9]/g, "");
 }
 
+/** Escape LIKE wildcards in user-supplied strings to prevent unintended matching. */
 export function escapeLike(s: string): string {
 	return s.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
@@ -1890,7 +1891,7 @@ export class DbService {
 				{
 					norm_id: string;
 					title: string;
-					head: string;
+					head: string | null;
 					summary: string | null;
 				},
 				[]
