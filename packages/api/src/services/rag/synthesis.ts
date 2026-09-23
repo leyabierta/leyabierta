@@ -12,6 +12,7 @@
  */
 
 import type { Database } from "bun:sqlite";
+import { hasForeignScript } from "@leyabierta/pipeline";
 import { getNanApiKey } from "../nan-api-key.ts";
 import type { OpenRouterReasoning } from "../openrouter.ts";
 import {
@@ -520,7 +521,8 @@ export function generateMissingSummaries(opts: {
 					// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of control chars
 					.replace(/[\x00-\x1f]/g, "")
 					.trim();
-				if (sanitized) {
+				// A language switch ("…por servicio军事") is never stored.
+				if (sanitized && !hasForeignScript(sanitized)) {
 					const rootBlockId =
 						parseSubchunkId(article.blockId)?.parentBlockId ?? article.blockId;
 					insertSummaryStmt.run(article.normId, rootBlockId, sanitized);

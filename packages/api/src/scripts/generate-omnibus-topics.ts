@@ -15,6 +15,7 @@
  *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/generate-omnibus-topics.ts --model <openrouter-id>
  */
 
+import { hasForeignScript } from "@leyabierta/pipeline";
 import { BASE_MATERIAS } from "../data/materia-mappings.ts";
 import {
 	CONTENT_LLM_MODEL,
@@ -250,6 +251,13 @@ function validateTopics(data: unknown): {
 			: [];
 
 		if (!topicLabel) continue;
+		// Reject the whole answer (not just this topic, which would vanish
+		// silently): the law is retried on the next run.
+		if (hasForeignScript(topicLabel, headline, summary))
+			return {
+				result: null,
+				reason: "foreign script (model switched language)",
+			};
 
 		if (headline.length > 100) headline = `${headline.slice(0, 97)}...`;
 		if (summary.length > 500) summary = `${summary.slice(0, 497)}...`;

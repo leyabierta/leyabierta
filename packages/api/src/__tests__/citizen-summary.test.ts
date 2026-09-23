@@ -78,4 +78,25 @@ describe("CitizenSummaryService lazy generation cost guard", () => {
 		expect(second?.citizen_summary).toBe(first?.citizen_summary);
 		expect(calls).toBe(1);
 	});
+
+	test("a summary in another script is never stored or served", async () => {
+		stubLlm(
+			'{"citizen_tags":["plazos"],"citizen_summary":"Se puede reclamar en un plazo de un mes军事."}',
+		);
+		const svc = new CitizenSummaryService(db);
+		const res = await svc.getOrGenerate(
+			"N",
+			"a2",
+			"Ley",
+			"Artículo 2",
+			ARTICLE,
+		);
+		expect(res).toBeNull();
+		expect(
+			db.query("SELECT count(*) AS n FROM citizen_article_summaries").get(),
+		).toEqual({ n: 0 });
+		expect(db.query("SELECT count(*) AS n FROM citizen_tags").get()).toEqual({
+			n: 0,
+		});
+	});
 });

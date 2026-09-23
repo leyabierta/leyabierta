@@ -5,6 +5,8 @@
  * top-level CLI/DB code.
  */
 
+import { hasForeignScript } from "@leyabierta/pipeline";
+
 export interface SummaryResponse {
 	headline: string;
 	summary: string;
@@ -50,6 +52,9 @@ export function validateReformSummary(data: unknown): {
 	// retries.
 	if (!headline || !summary)
 		return { result: null, reason: "empty headline or summary" };
+	// Not stored: the reform stays without a row and the next run retries.
+	if (hasForeignScript(headline, summary))
+		return { result: null, reason: "foreign script (model switched language)" };
 
 	return {
 		result: {

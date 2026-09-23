@@ -10,6 +10,7 @@ export * from "./transform/markdown-linter.ts";
 export * from "./transform/slug.ts";
 export * from "./transform/xml-parser.ts";
 export * from "./utils/date.ts";
+export * from "./utils/generated-text.ts";
 export * from "./utils/retry.ts";
 export * from "./utils/state-store.ts";
 

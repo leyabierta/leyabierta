@@ -59,4 +59,15 @@ describe("validateReformSummary", () => {
 		expect(result?.headline.length).toBe(100);
 		expect(result?.summary.length).toBe(500);
 	});
+
+	test("rejects a language switch into another script (retried next run)", () => {
+		for (const over of [
+			{ headline: "Sube el salario mínimo军事" },
+			{ summary: "El Gobierno actualiza la cuantía кредит." },
+		]) {
+			const { result, reason } = validateReformSummary({ ...valid, ...over });
+			expect(result).toBeNull();
+			expect(reason).toBe("foreign script (model switched language)");
+		}
+	});
 });
