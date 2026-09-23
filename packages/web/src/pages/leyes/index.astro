@@ -1,0 +1,352 @@
+---
+import { getCollection } from "astro:content";
+import { TOPIC_HUBS } from "../../components/topic-hubs";
+import Base from "../../layouts/Base.astro";
+import { safeJsonLd } from "../../lib/escape";
+import { JURISDICTION_LABELS } from "../../lib/law-search";
+import "../../lib/law-search.css";
+
+// ── /leyes/ — search results and a way into the corpus ─────────────────────
+//
+// This is the `action` of the navbar search form and the target of the
+// JSON-LD `SearchAction` on every page, and until 2026-09-23 it was a 404.
+//
+// Two jobs:
+//  - With `?q=` (or `?jurisdiction=`), it runs the same client-side search as
+//    the home (src/lib/law-search.ts) and shows the results.
+//  - Without them, it is a static page of real links: every jurisdiction and
+//    every topic hub, rendered at build time so crawlers and no-JS visitors see
+//    them too.
+//
+// A paginated static index by jurisdiction, rank and topic is a larger, later
+// piece of work; this page is the entry point it would hang from.
+
+const laws = await getCollection("laws");
+
+// Dedupe by norm id — the DB is the canonical count source and a transient
+// duplicate across jurisdiction folders must not inflate these numbers.
+const seen = new Set<string>();
+const jurisdictionCounts = new Map<string, number>();
+for (const law of laws) {
+	if (seen.has(law.data.identificador)) continue;
+	seen.add(law.data.identificador);
+	const j = law.data.jurisdiccion;
+	jurisdictionCounts.set(j, (jurisdictionCounts.get(j) ?? 0) + 1);
+}
+const totalLaws = seen.size;
+const fmt = (n: number) => n.toLocaleString("es", { useGrouping: "always" });
+
+// State first, then the autonomous communities alphabetically — a citizen looks
+// for their region by name, not by how many laws it has.
+const stateCount = jurisdictionCounts.get("es") ?? 0;
+const regions = [...jurisdictionCounts.entries()]
+	.filter(([j]) => j !== "es")
+	.map(([j, count]) => ({ code: j, name: JURISDICTION_LABELS[j] ?? j, count }))
+	.sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+const jurisdictionHref = (code: string) =>
+	`/leyes/?jurisdiction=${encodeURIComponent(code)}`;
+
+// Frequent searches, as plain links: they work without JavaScript and give the
+// page something to offer on topics that have no hub yet.
+const FREQUENT = [
+	"Vivienda", "Alquiler", "Trabajo", "Despido", "Pensiones", "Familia",
+	"Herencia", "Extranjería", "Consumidor", "Tráfico", "Educación", "Salud",
+];
+---
+
+<Base
+	title="Buscar leyes"
+	description={`Busca entre más de ${fmt(totalLaws)} leyes españolas vigentes y derogadas, o explóralas por comunidad autónoma y por tema. Texto completo y todos sus cambios.`}
+	ogTitle="Buscar leyes — Ley Abierta"
+	canonicalUrl="/leyes/"
+>
+	<script type="application/ld+json" set:html={safeJsonLd({
+		"@context": "https://schema.org",
+		"@type": "BreadcrumbList",
+		"itemListElement": [
+			{ "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://leyabierta.es/" },
+			{ "@type": "ListItem", "position": 2, "name": "Leyes", "item": "https://leyabierta.es/leyes/" }
+		]
+	})} />
+
+	<div class="leyes-wrap">
+		<div class="leyes-kicker">Índice · Leyes</div>
+		<h1 id="leyes-title">Buscar leyes</h1>
+		<p class="leyes-lede">
+			{fmt(totalLaws)} leyes españolas, estatales y autonómicas, con su texto
+			completo y todos sus cambios. Busca por nombre, número o tema.
+		</p>
+
+		<form class="leyes-search" action="/leyes/" method="get" role="search" id="leyes-search-form">
+			<label for="leyes-q" class="sr-only">Buscar leyes</label>
+			<div class="leyes-search-field">
+				<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg>
+				<input
+					type="search"
+					id="leyes-q"
+					name="q"
+					placeholder="Por ejemplo: alquiler, Estatuto de los Trabajadores, Ley 12/2023"
+					autocomplete="off"
+				/>
+			</div>
+			<button type="submit" class="leyes-search-btn">Buscar</button>
+		</form>
+
+		<noscript>
+			<p class="leyes-noscript">
+				La búsqueda necesita JavaScript. Puedes seguir navegando por territorio
+				o por tema con los enlaces de abajo.
+			</p>
+		</noscript>
+
+		<section class="leyes-results" id="leyes-results-section" aria-live="polite" hidden>
+			<div id="leyes-results"></div>
+		</section>
+
+		<div id="leyes-browse">
+			<section aria-labelledby="h-frecuentes">
+				<h2 id="h-frecuentes">Búsquedas frecuentes</h2>
+				<ul class="leyes-chips">
+					{FREQUENT.map((t) => (
+						<li><a href={`/leyes/?q=${encodeURIComponent(t)}`}>{t}</a></li>
+					))}
+				</ul>
+			</section>
+
+			<section aria-labelledby="h-temas">
+				<h2 id="h-temas">Por tema</h2>
+				<ul class="leyes-hubs">
+					{TOPIC_HUBS.map((hub) => (
+						<li>
+							<a href={hub.path}>
+								<span class="leyes-hub-label">{hub.label}</span>
+								<span class="leyes-hub-blurb">{hub.blurb}</span>
+							</a>
+						</li>
+					))}
+				</ul>
+			</section>
+
+			<section id="jurisdicciones" aria-labelledby="h-territorio">
+				<h2 id="h-territorio">Por territorio</h2>
+				<p class="leyes-note">
+					Cada comunidad autónoma tiene sus propias leyes, además de las estatales,
+					que se aplican en toda España.
+				</p>
+				<ul class="leyes-jur">
+					<li class="leyes-jur-state">
+						<a href={jurisdictionHref("es")}>Leyes estatales</a>
+						<span class="leyes-jur-count">{fmt(stateCount)}</span>
+					</li>
+					{regions.map((r) => (
+						<li>
+							<a href={jurisdictionHref(r.code)}>{r.name}</a>
+							<span class="leyes-jur-count">{fmt(r.count)}</span>
+						</li>
+					))}
+				</ul>
+			</section>
+
+			<section aria-labelledby="h-otras">
+				<h2 id="h-otras">Otras formas de encontrar una ley</h2>
+				<ul class="leyes-more">
+					<li><a href="/pregunta/">Pregunta por tu situación</a> y te decimos qué leyes se aplican, con el artículo exacto.</li>
+					<li><a href="/cambios/">Cambios recientes</a>: las leyes que se han modificado estos días.</li>
+					<li><a href="/datos/">Datos abiertos</a>: descarga todas las leyes o consúltalas con la API.</li>
+				</ul>
+			</section>
+		</div>
+	</div>
+
+	<style>
+		.leyes-wrap { max-width: 52rem; margin: 0 auto; padding: 1rem 0 3rem; }
+		.leyes-kicker {
+			font-family: var(--font-mono);
+			font-size: 0.6875rem;
+			text-transform: uppercase;
+			letter-spacing: 0.15em;
+			color: var(--text-muted);
+			font-weight: 500;
+			margin-bottom: 0.75rem;
+		}
+		h1 {
+			font-family: var(--font-serif);
+			font-size: 2.25rem;
+			font-weight: 700;
+			line-height: 1.15;
+			color: var(--text);
+			margin: 0 0 0.5rem;
+			letter-spacing: -0.01em;
+		}
+		.leyes-lede { font-size: 1rem; line-height: 1.6; color: var(--text-secondary); margin: 0 0 1.5rem; }
+
+		.leyes-search {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 0.375rem 0.375rem 0.375rem 1rem;
+		}
+		.leyes-search:focus-within { border-color: var(--accent); }
+		.leyes-search-field { display: flex; align-items: center; gap: 0.625rem; flex: 1; min-width: 0; }
+		.leyes-search-field svg { width: 18px; height: 18px; color: var(--text-muted); flex: 0 0 auto; }
+		.leyes-search input {
+			flex: 1;
+			min-width: 0;
+			border: none;
+			background: transparent;
+			padding: 0.75rem 0.25rem;
+			font-size: 1rem;
+			font-family: var(--font-sans);
+			color: var(--text);
+			outline: none;
+		}
+		.leyes-search input::placeholder { color: var(--text-muted); }
+		.leyes-search-btn {
+			background: var(--accent);
+			color: #fff;
+			border: none;
+			padding: 0.75rem 1.375rem;
+			font-size: 0.875rem;
+			font-weight: 600;
+			font-family: var(--font-sans);
+			border-radius: 6px;
+			cursor: pointer;
+			min-height: 44px;
+			transition: background 0.15s;
+		}
+		.leyes-search-btn:hover { background: var(--accent-light); }
+
+		.leyes-noscript { font-size: 0.875rem; color: var(--text-muted); margin: 1rem 0 0; }
+		.leyes-results { padding-top: 1.5rem; }
+
+		h2 {
+			font-family: var(--font-serif);
+			font-size: 1.25rem;
+			font-weight: 600;
+			color: var(--text);
+			margin: 2.5rem 0 1rem;
+			padding-bottom: 0.5rem;
+			border-bottom: 1px solid var(--border-light);
+		}
+		.leyes-note { font-size: 0.875rem; line-height: 1.6; color: var(--text-secondary); margin: 0 0 1rem; }
+
+		.leyes-chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+		.leyes-chips a {
+			display: inline-block;
+			font-size: 0.8125rem;
+			font-weight: 500;
+			padding: 0.3rem 0.75rem;
+			border-radius: 4px;
+			background: var(--accent-bg);
+			color: var(--accent);
+		}
+		.leyes-chips a:hover { background: var(--accent); color: #fff; text-decoration: none; }
+
+		.leyes-hubs {
+			list-style: none; padding: 0; margin: 0;
+			display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem;
+		}
+		.leyes-hubs a {
+			display: block; height: 100%;
+			padding: 1.25rem 1.375rem;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			transition: border-color 0.15s ease;
+		}
+		.leyes-hubs a:hover { border-color: var(--accent); text-decoration: none; }
+		.leyes-hub-label { display: block; font-family: var(--font-serif); font-size: 1.0625rem; font-weight: 600; color: var(--text); margin-bottom: 0.375rem; }
+		.leyes-hubs a:hover .leyes-hub-label { color: var(--accent); }
+		.leyes-hub-blurb { display: block; font-size: 0.875rem; line-height: 1.55; color: var(--text-secondary); }
+
+		.leyes-jur {
+			list-style: none; padding: 0; margin: 0;
+			display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); column-gap: 2rem;
+		}
+		.leyes-jur li {
+			display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+			padding: 0.625rem 0; border-bottom: 1px solid var(--border-light);
+		}
+		.leyes-jur a { font-size: 0.9375rem; color: var(--text); font-weight: 500; }
+		.leyes-jur a:hover { color: var(--accent); }
+		.leyes-jur-state { grid-column: 1 / -1; }
+		.leyes-jur-state a { font-family: var(--font-serif); font-size: 1.0625rem; font-weight: 600; }
+		.leyes-jur-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+		.leyes-more { padding-left: 1.25rem; margin: 0; }
+		.leyes-more li { font-size: 0.9375rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 0.5rem; }
+		.leyes-more a { font-weight: 500; }
+
+		@media (max-width: 640px) {
+			h1 { font-size: 1.75rem; }
+			.leyes-search { flex-direction: column; align-items: stretch; padding: 0.5rem; }
+			.leyes-search-field { padding: 0 0.5rem; }
+			.leyes-search-btn { width: 100%; }
+		}
+	</style>
+
+	<script>
+		import {
+			createLawSearch,
+			JURISDICTION_LABELS,
+			type LawSearchState,
+		} from "../../lib/law-search";
+
+		const form = document.getElementById("leyes-search-form") as HTMLFormElement | null;
+		const input = document.getElementById("leyes-q") as HTMLInputElement | null;
+		const section = document.getElementById("leyes-results-section");
+		const results = document.getElementById("leyes-results");
+		const browse = document.getElementById("leyes-browse");
+		const title = document.getElementById("leyes-title");
+
+		if (form && input && section && results && browse && title) {
+			const defaultTitle = title.textContent ?? "";
+			const defaultDocTitle = document.title;
+
+			// The heading and the tab say what is on screen.
+			const describe = (s: Readonly<LawSearchState>): string => {
+				const region = !s.jurisdiction
+					? ""
+					: s.jurisdiction === "es"
+						? "leyes estatales"
+						: (JURISDICTION_LABELS[s.jurisdiction] ?? s.jurisdiction);
+				if (s.q) return `Resultados para «${s.q}»${region ? ` · ${region}` : ""}`;
+				return s.jurisdiction === "es" ? "Leyes estatales" : `Leyes de ${region}`;
+			};
+
+			const search = createLawSearch({
+				api: document.documentElement.dataset.api ?? "",
+				input,
+				results,
+				basePath: "/leyes/",
+				scrollTarget: section,
+				onActive: (s) => {
+					section.hidden = false;
+					browse.hidden = true;
+					const label = describe(s);
+					title.textContent = label;
+					document.title = `${label} — Ley Abierta`;
+				},
+				onIdle: () => {
+					section.hidden = true;
+					browse.hidden = false;
+					title.textContent = defaultTitle;
+					document.title = defaultDocTitle;
+				},
+			});
+
+			// Search in place instead of reloading; without JS the form still
+			// submits to /leyes/?q=… and the links below keep working.
+			form.addEventListener("submit", (e) => {
+				e.preventDefault();
+				search.run(1);
+			});
+
+			search.restoreFromUrl();
+		}
+	</script>
+</Base>

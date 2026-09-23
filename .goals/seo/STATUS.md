@@ -159,6 +159,17 @@ estaban hechas o eran prematuras: la entidad de marca y el enlazado de hubs
 `data/seo/plan-claude-sonnet-5-2026-09-20.json`. Próxima decisión real: la
 lectura del experimento A el 2026-09-22.
 
+### `/leyes/` deja de dar 404 · 2026-09-23 (auditoría A4)
+
+`/leyes/` y `/leyes/?q=…` devolvían 404, y son el `action` del buscador del menú
+y el `target` del `SearchAction` del JSON-LD de todas las páginas. Ahora es una
+página estática real (`pages/leyes/index.astro`, en el sitemap): con `?q=` o
+`?jurisdiction=` muestra los resultados con la misma búsqueda que la home
+(extraída a `lib/law-search.ts`); sin parámetros, enlaces reales a las 18
+jurisdicciones, a los hubs `/temas/*` y a búsquedas frecuentes. El Worker no la
+toca (`lawIdFromPath("/leyes/")` es `null`, pasa directa a `ASSETS`). El índice
+paginado por jurisdicción, rango y tema (B6) sigue pendiente y colgaría de aquí.
+
 ### Límite diario de Cloudflare Workers · 2026-09-19 — pico puntual, no un problema recurrente (#164 revertido)
 
 Aviso de Cloudflare el 2026-09-19: `leyabierta-web` superó el límite diario
