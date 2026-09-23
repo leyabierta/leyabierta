@@ -77,10 +77,11 @@ export interface ReformImportReport {
 }
 
 /**
- * Alerts are for new reforms. An offline import is a backfill of old ones, so
- * a replaced summary, or an inserted one for a reform older than this, is
- * marked as notified: otherwise send-notifications.ts would email it (for a
- * replacement, when its importance changes from "skip").
+ * Alerts are for new reforms. An offline import is a backfill: a summary it
+ * writes (inserted or replaced) for a reform older than this is marked as
+ * notified, otherwise send-notifications.ts would email it (a replacement
+ * too, when its importance changes from "skip"). Recent reforms keep the
+ * normal alert flow, as if the daily cron had written them.
  */
 export const ALERT_WINDOW_DAYS = 30;
 
@@ -137,8 +138,10 @@ export function importReformRows(
 		new Date(Date.now() - ALERT_WINDOW_DAYS * 86_400_000)
 			.toISOString()
 			.slice(0, 10);
-	const needsNoAlert = (r: GeneratedReformRow, replace: boolean) =>
-		replace || r.reform_date < alertCutoff;
+	const needsNoAlert = (r: GeneratedReformRow) => r.reform_date < alertCutoff;
+	const isNotified = db.prepare(
+		"SELECT 1 FROM notified_reforms WHERE norm_id = ? AND source_id = ? AND reform_date = ?",
+	);
 	const markNotified = db.prepare(
 		`INSERT OR IGNORE INTO notified_reforms (norm_id, source_id, reform_date, notified_at)
 		 VALUES (?, ?, ?, datetime('now'))`,
@@ -252,7 +255,11 @@ export function importReformRows(
 					skip("already_has_summary");
 					continue;
 				} else report.inserted++;
-				if (needsNoAlert(row, replace)) report.markedNotified++;
+				if (
+					needsNoAlert(row) &&
+					!isNotified.get(row.norm_id, row.source_id, row.reform_date)
+				)
+					report.markedNotified++;
 			}
 			continue;
 		}
@@ -292,10 +299,12 @@ export function importReformRows(
 					}
 					report.inserted++;
 				}
-				if (needsNoAlert(row, replace)) {
-					markNotified.run(row.norm_id, row.source_id, row.reform_date);
+				if (
+					needsNoAlert(row) &&
+					markNotified.run(row.norm_id, row.source_id, row.reform_date)
+						.changes > 0
+				)
 					report.markedNotified++;
-				}
 			}
 		}).immediate(chunk);
 		if (pauseMs > 0) Bun.sleepSync(pauseMs);

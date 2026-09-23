@@ -24,8 +24,8 @@
  * if it is still the one seen at export time. It takes every existing
  * summary, so run it before importing a backfill you do not want to redo.
  *
- * Import marks replaced summaries, and inserted ones older than
- * ALERT_WINDOW_DAYS, as notified: a backfill must not send alert emails.
+ * Import marks the summaries it writes for reforms older than
+ * ALERT_WINDOW_DAYS as notified: a backfill must not send alert emails.
  */
 
 import { Database } from "bun:sqlite";

@@ -310,18 +310,29 @@ describe("importReformRows", () => {
 			expect(notified()).toHaveLength(0);
 		});
 
-		test("a replaced summary never triggers an alert, however recent", () => {
-			db.run(
-				"INSERT INTO reform_summaries (norm_id, source_id, reform_date, headline, summary, importance) VALUES ('N', 'S', '2021-06-01', 'viejo', 'resumen viejo', 'skip')",
-			);
-			const report = importReformRows(db, [row()], {
+		test("a replaced old summary is marked; a recent one keeps alerting", () => {
+			const seed = () =>
+				db.run(
+					"INSERT OR REPLACE INTO reform_summaries (norm_id, source_id, reform_date, headline, summary, importance) VALUES ('N', 'S', '2021-06-01', 'viejo', 'resumen viejo', 'skip')",
+				);
+			const replace = () =>
+				new Map([["N|S|2021-06-01", summaryHash("viejo", "resumen viejo")]]);
+			seed();
+			const recent = importReformRows(db, [row()], {
 				apply: true,
 				alertCutoff: "2021-05-01",
-				replace: new Map([
-					["N|S|2021-06-01", summaryHash("viejo", "resumen viejo")],
-				]),
+				replace: replace(),
 			});
-			expect(report.replaced).toBe(1);
+			expect(recent.replaced).toBe(1);
+			expect(notified()).toHaveLength(0);
+
+			seed();
+			const old = importReformRows(db, [row()], {
+				apply: true,
+				replace: replace(),
+			});
+			expect(old.replaced).toBe(1);
+			expect(old.markedNotified).toBe(1);
 			expect(notified()).toHaveLength(1);
 		});
 
