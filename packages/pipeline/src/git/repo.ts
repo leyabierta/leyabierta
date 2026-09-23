@@ -213,6 +213,73 @@ export class GitRepo {
 	}
 
 	/**
+	 * Move a norm to another jurisdiction folder, staging BOTH the removal of
+	 * `fromRel` and the new `toRel` so the caller commits them together: the
+	 * norm is never in two folders (or none) at any commit, so
+	 * `assertUniqueByNormId` holds for every commit of the history.
+	 *
+	 * `content` is written through `writeAndAdd`, whose cross-folder check
+	 * passes because the old path is removed from the index first. The move is
+	 * refused when the paths are not the same norm in two different known
+	 * jurisdictions, when `fromRel` is missing, or when `toRel` already exists.
+	 * On a failed write the removal is undone, leaving the index untouched.
+	 */
+	async moveNorm(
+		fromRel: string,
+		toRel: string,
+		content: string,
+	): Promise<void> {
+		const from = parseNormPath(fromRel);
+		const to = parseNormPath(toRel);
+		if (from === null || to === null) {
+			throw new Error(
+				`moveNorm: ${fromRel} → ${toRel} are not both <jurisdiction>/<id>.md norm paths`,
+			);
+		}
+		if (from.normId !== to.normId) {
+			throw new Error(
+				`moveNorm: ${fromRel} → ${toRel} would change the norm id (${from.normId} ≠ ${to.normId})`,
+			);
+		}
+		if (from.jurisdiction === to.jurisdiction) {
+			throw new Error(`moveNorm: ${fromRel} is already in ${to.jurisdiction}`);
+		}
+		if (!existsSync(join(this.path, fromRel))) {
+			throw new Error(`moveNorm: ${fromRel} does not exist`);
+		}
+		if (existsSync(join(this.path, toRel))) {
+			throw new Error(
+				`moveNorm: ${toRel} already exists — refusing to overwrite it`,
+			);
+		}
+		// Builds the index if needed; it must agree with the file on disk.
+		const indexed = this.lookupNormJurisdiction(from.normId);
+		if (indexed !== from.jurisdiction) {
+			throw new Error(
+				`moveNorm: index places ${from.normId} in ${indexed ?? "(nowhere)"}, not in ${from.jurisdiction}`,
+			);
+		}
+
+		await this.run(["rm", "--quiet", "--", fromRel]);
+		this.normIndex?.delete(from.normId);
+		try {
+			this.writeAndAdd(toRel, content);
+			await this.add(toRel);
+		} catch (err) {
+			// Put the old file back (index + worktree) and drop any partial write.
+			await this.run(["reset", "--quiet", "HEAD", "--", fromRel, toRel]).catch(
+				() => {},
+			);
+			await this.run(["checkout", "--", fromRel]).catch(() => {});
+			try {
+				unlinkSync(join(this.path, toRel));
+			} catch {}
+			this.normIndex?.set(from.normId, from.jurisdiction);
+			throw err;
+		}
+	}
+
+	/**
 	 * Where (if anywhere) does a norm with `normId` live in this repo?
 	 * Returns the jurisdiction code if the file exists, or null otherwise.
 	 *

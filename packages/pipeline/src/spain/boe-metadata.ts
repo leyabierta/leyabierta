@@ -7,42 +7,7 @@
 import type { MetadataParser } from "../country.ts";
 import type { NormMetadata, NormStatus, Rank } from "../models.ts";
 import { parseBoeDate } from "../utils/date.ts";
-
-/** Map regional bulletin ID prefixes to jurisdiction codes. */
-const BULLETIN_JURISDICTION: Record<string, string> = {
-	BOA: "es-ar", // Aragón
-	BOJA: "es-an", // Andalucía
-	BOCL: "es-cl", // Castilla y León
-	BOCM: "es-md", // Madrid
-	BOC: "es-cn", // Canarias (also Cantabria via BOCT)
-	BOCT: "es-cb", // Cantabria
-	BOIB: "es-ib", // Islas Baleares
-	BON: "es-nc", // Navarra
-	BOPV: "es-pv", // País Vasco
-	BORM: "es-mc", // Murcia
-	DOCM: "es-cm", // Castilla-La Mancha
-	DOE: "es-ex", // Extremadura
-	DOG: "es-ga", // Galicia
-	DOGC: "es-ct", // Cataluña
-	DOGV: "es-vc", // Comunidad Valenciana
-};
-
-/** Extract jurisdiction from ELI URL or norm ID prefix. */
-function extractJurisdiction(eli: string | undefined, normId: string): string {
-	// 1. Try ELI URL: /eli/es-an/... → es-an
-	if (eli) {
-		const match = eli.match(/\/eli\/(es(?:-[a-z]{2})?)\//);
-		if (match?.[1]) return match[1];
-	}
-
-	// 2. Try regional bulletin prefix: BOJA-... → es-an
-	const prefix = normId.split("-")[0];
-	if (prefix && BULLETIN_JURISDICTION[prefix]) {
-		return BULLETIN_JURISDICTION[prefix];
-	}
-
-	return "es";
-}
+import { resolveJurisdiction } from "./jurisdictions.ts";
 
 // Map BOE rank codes to our Rank values. Source of truth:
 // data/auxiliar/rangos.json (BOE's own catalog). The previous mapping was
@@ -106,6 +71,7 @@ export class BoeMetadataParser implements MetadataParser {
 		const published = parseBoeDate(item.fecha_publicacion as string);
 		const vigencia = parseBoeDate(item.fecha_vigencia as string);
 		const eli = item.url_eli as string | undefined;
+		const ambito = item.ambito as { codigo?: string } | undefined;
 
 		// "1900-01-01" is the sentinel for "BOE returned no usable
 		// fecha_publicacion". Log it so the per-norm commit later (which will
@@ -121,7 +87,15 @@ export class BoeMetadataParser implements MetadataParser {
 			title,
 			shortTitle: extractShortTitle(title),
 			id: normId,
-			country: extractJurisdiction(eli, normId),
+			// The BOE often publishes a consolidated autonomic law days before
+			// it assigns its ELI; the departamento/ámbito still identify the
+			// community, so the norm never lands in es/ by default.
+			country: resolveJurisdiction({
+				id: normId,
+				source: eli,
+				department: dept?.texto,
+				ambitoCode: ambito?.codigo,
+			}),
 			rank,
 			publishedAt: published ?? "1900-01-01",
 			status: deriveStatus(item),

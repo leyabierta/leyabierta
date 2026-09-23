@@ -363,7 +363,10 @@ Every norm identified by its BOE/regional ID must appear in exactly one jurisdic
 
 1. **ELI URL** in the norm's metadata source field (e.g. `/eli/es-an/...` → `es-an`, `/eli/es/...` → `es`)
 2. **Regional bulletin prefix** in the norm ID for autonomous community bulletins (BOJA → `es-an`, BON → `es-nc`, DOGV → `es-vc`, BOA → `es-ar`, etc.)
-3. **`metadata.country` field** in the JSON cache (`data/json/<id>.json`) as a last resort
+3. **Autonomic `departamento`** (e.g. "Comunidad Autónoma de La Rioja" → `es-ri`) — covers `BOE-A-…` laws the BOE publishes before assigning their ELI
+4. **`metadata.country` field** in the JSON cache (`data/json/<id>.json`) as a last resort
+
+All of it lives in one function, `resolveJurisdiction` (`packages/pipeline/src/spain/jurisdictions.ts`), used by the metadata parser, `normToFilepath`, the frontmatter and the DB ingest. It returns `es` only when nothing marks the norm as autonomic, and throws when it is autonomic (by `ámbito` or `departamento`) but no rule names its community.
 
 Never silently default to `es` when the above resolution fails — a missing jurisdiction is a bug that must surface loudly, not be papered over. An incorrect `es` fallback is harder to detect than a thrown error.
 
@@ -394,6 +397,8 @@ Do **not** use `find leyes -name "*.md" | wc -l`. The DB deduplicates by ID duri
 ### Past incidents
 
 **2026-04-28 — server-history-divergence:** A manual backfill script used simplified jurisdiction logic with an `es` fallback and wrote 2 autonomous community norms into the `es/` folder instead of their correct jurisdiction folders. The pipeline itself handled the same norms correctly; the bug was in the ad-hoc script. The misclassified files were detected and corrected in the subsequent cleanup. These invariants and the `assertUniqueByNormId` check were introduced as a direct result.
+
+**2026-09 — autonomic laws without ELI in `es/`:** BOE-A-2026-10117 (La Rioja), BOE-A-2026-12186 and BOE-A-2026-13298 (Asturias) were fetched before the BOE assigned their ELI; with no `url_eli` and a `BOE-A` id, the three copies of the resolver fell back to `es`. The resolver was unified and learned the `departamento` rule; `scripts/ad-hoc/move-misplaced-norms.ts` moves such files with `GitRepo.moveNorm` (removal + new path in one commit).
 
 ## Design Principles
 
