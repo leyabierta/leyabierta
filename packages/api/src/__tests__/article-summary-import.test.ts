@@ -300,6 +300,33 @@ describe("importRows", () => {
 			expect(current()).toEqual({ summary: OLD });
 		});
 
+		test("running the same import again reports already_replaced", () => {
+			importRows(db, [row()], { apply: true, replace: replace() });
+			const again = importRows(db, [row()], {
+				apply: true,
+				replace: replace(),
+			});
+			expect(again.skipped).toEqual({ already_replaced: 1 });
+		});
+
+		test("a file can mix new and replaced summaries", () => {
+			const report = importRows(
+				db,
+				[
+					row(),
+					row({
+						block_id: "a2",
+						input_hash: textHash(TEXT_A2),
+						summary:
+							"El Consejo tiene cinco miembros nombrados por el Gobierno de la comunidad.",
+					}),
+				],
+				{ apply: true, replace: replace() },
+			);
+			expect(report.replaced).toBe(1);
+			expect(report.inserted).toBe(1);
+		});
+
 		test("the article text check still applies", () => {
 			db.run(
 				"UPDATE blocks SET current_text = current_text || ' Reformado.' WHERE norm_id='N' AND block_id='a1'",

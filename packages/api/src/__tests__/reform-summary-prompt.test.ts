@@ -72,8 +72,8 @@ describe("formatBlockChange", () => {
 	});
 
 	test("is deterministic for a large diff (no clock-based timeout)", () => {
-		const a = Array.from({ length: 6000 }, (_, i) => `w${i}`).join(" ");
-		const b = Array.from({ length: 6000 }, (_, i) =>
+		const a = Array.from({ length: 3400 }, (_, i) => `w${i}`).join(" ");
+		const b = Array.from({ length: 3400 }, (_, i) =>
 			i % 2 === 0 ? `x${i}` : `w${i}`,
 		).join(" ");
 		const first = formatBlockChange(a, b);

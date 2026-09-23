@@ -244,7 +244,14 @@ export function importRows(
 				continue;
 			}
 			if (!unchangedSinceExport(r.norm_id, r.block_id)) {
-				skip("summary_changed_since_export");
+				const now = getSummary.get(r.norm_id, r.block_id) as {
+					summary: string;
+				} | null;
+				skip(
+					now?.summary === v.summary
+						? "already_replaced"
+						: "summary_changed_since_export",
+				);
 				continue;
 			}
 			replace = true;
@@ -292,7 +299,10 @@ export function importRows(
 			}
 		});
 		if (opts.apply) {
-			write(chunk);
+			// IMMEDIATE: take the write lock before reading. A deferred transaction
+			// that reads first (replace mode) gets SQLITE_BUSY with no retry if
+			// the API commits a write in between.
+			write.immediate(chunk);
 			if (pauseMs > 0) Bun.sleepSync(pauseMs);
 		} else {
 			for (const a of chunk)

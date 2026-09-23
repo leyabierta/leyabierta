@@ -187,7 +187,7 @@ export function importReformRows(
 				if (res.changes === 0) skip("already_has_summary");
 				else report.inserted++;
 			}
-		})(chunk);
+		}).immediate(chunk);
 		if (pauseMs > 0) Bun.sleepSync(pauseMs);
 	}
 

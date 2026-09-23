@@ -239,6 +239,13 @@ function importGenerated(file: string, apply: boolean) {
 
 const [first, second] = positional;
 const regenerate = flag("--regenerate");
+if (
+	args.includes("--regenerate") &&
+	(!regenerate || regenerate.startsWith("--"))
+) {
+	console.error("--regenerate needs a JSON file with the law ids");
+	process.exit(1);
+}
 if (cmd === "export" && first && regenerate)
 	await exportRegenerate(first, regenerate);
 else if (cmd === "export" && first) await exportPending(first);
