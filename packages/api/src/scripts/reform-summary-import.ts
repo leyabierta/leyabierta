@@ -71,8 +71,18 @@ export interface ReformImportReport {
 	total: number;
 	inserted: number;
 	replaced: number;
+	/** Rows also marked in notified_reforms, so they trigger no alert email. */
+	markedNotified: number;
 	skipped: Record<string, number>;
 }
+
+/**
+ * Alerts are for new reforms. An offline import is a backfill of old ones, so
+ * a replaced summary, or an inserted one for a reform older than this, is
+ * marked as notified: otherwise send-notifications.ts would email it (for a
+ * replacement, when its importance changes from "skip").
+ */
+export const ALERT_WINDOW_DAYS = 30;
 
 /**
  * Inserts valid rows for reforms that still exist, belong to an in-force law,
@@ -92,12 +102,15 @@ export function importReformRows(
 		batchSize?: number;
 		pauseMs?: number;
 		replace?: Map<string, string>;
+		/** "YYYY-MM-DD"; defaults to today minus ALERT_WINDOW_DAYS. */
+		alertCutoff?: string;
 	},
 ): ReformImportReport {
 	const report: ReformImportReport = {
 		total: rows.length,
 		inserted: 0,
 		replaced: 0,
+		markedNotified: 0,
 		skipped: {},
 	};
 	const skip = (reason: string) => {
@@ -118,6 +131,17 @@ export function importReformRows(
 		`INSERT OR IGNORE INTO reform_summaries
 		   (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+	);
+	const alertCutoff =
+		opts.alertCutoff ??
+		new Date(Date.now() - ALERT_WINDOW_DAYS * 86_400_000)
+			.toISOString()
+			.slice(0, 10);
+	const needsNoAlert = (r: GeneratedReformRow, replace: boolean) =>
+		replace || r.reform_date < alertCutoff;
+	const markNotified = db.prepare(
+		`INSERT OR IGNORE INTO notified_reforms (norm_id, source_id, reform_date, notified_at)
+		 VALUES (?, ?, ?, datetime('now'))`,
 	);
 	const getSummary = db.prepare(
 		"SELECT headline, summary FROM reform_summaries WHERE norm_id = ? AND source_id = ? AND reform_date = ?",
@@ -217,13 +241,19 @@ export function importReformRows(
 	for (let i = 0; i < accepted.length; i += batchSize) {
 		const chunk = accepted.slice(i, i + batchSize);
 		if (!opts.apply) {
-			for (const { row, replace } of chunk)
+			for (const { row, replace } of chunk) {
 				if (replace)
 					if (unchangedSinceExport(row)) report.replaced++;
-					else skip("summary_changed_since_export");
-				else if (hasSummary.get(row.norm_id, row.source_id, row.reform_date))
+					else {
+						skip("summary_changed_since_export");
+						continue;
+					}
+				else if (hasSummary.get(row.norm_id, row.source_id, row.reform_date)) {
 					skip("already_has_summary");
-				else report.inserted++;
+					continue;
+				} else report.inserted++;
+				if (needsNoAlert(row, replace)) report.markedNotified++;
+			}
 			continue;
 		}
 		db.transaction((items: Accepted[]) => {
@@ -245,20 +275,27 @@ export function importReformRows(
 						row.reform_date,
 					);
 					report.replaced++;
-					continue;
+				} else {
+					const res = insert.run(
+						row.norm_id,
+						row.source_id,
+						row.reform_date,
+						summary.reform_type,
+						summary.headline,
+						summary.summary,
+						summary.importance,
+						row.model ?? "",
+					);
+					if (res.changes === 0) {
+						skip("already_has_summary");
+						continue;
+					}
+					report.inserted++;
 				}
-				const res = insert.run(
-					row.norm_id,
-					row.source_id,
-					row.reform_date,
-					summary.reform_type,
-					summary.headline,
-					summary.summary,
-					summary.importance,
-					row.model ?? "",
-				);
-				if (res.changes === 0) skip("already_has_summary");
-				else report.inserted++;
+				if (needsNoAlert(row, replace)) {
+					markNotified.run(row.norm_id, row.source_id, row.reform_date);
+					report.markedNotified++;
+				}
 			}
 		}).immediate(chunk);
 		if (pauseMs > 0) Bun.sleepSync(pauseMs);
