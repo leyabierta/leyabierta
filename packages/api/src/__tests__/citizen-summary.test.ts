@@ -395,3 +395,72 @@ describe("CitizenSummaryService spend guards", () => {
 		expect(bodies).toHaveLength(3);
 	});
 });
+
+describe("CitizenSummaryService.pendingArticles (lazy route selection)", () => {
+	const block = (
+		block_id: string,
+		block_type = "precepto",
+		current_text = ARTICLE,
+		citizen_summary: string | null = null,
+	) => ({ block_id, block_type, current_text, citizen_summary });
+
+	test("filters before capping: leading preambles, signatures and giant articles do not take the slots", () => {
+		const db = new Database(":memory:");
+		createSchema(db);
+		process.env.LAZY_SUMMARIES_MAX_INPUT_CHARS = "20000";
+		const svc = new CitizenSummaryService(db);
+		const blocks = [
+			block("pr", "preambulo"),
+			block("pr2", "preambulo"),
+			block("enc", "encabezado"),
+			block("big", "precepto", `Artículo 0.\n${"x ".repeat(15_000)}`),
+			block(
+				"der",
+				"precepto",
+				"Artículo 9.\n(Derogado)                                  ",
+			),
+			block("fi", "firma"),
+			block("done", "precepto", ARTICLE, GOOD),
+			block("empty", "precepto", ARTICLE, ""),
+			block("a1"),
+			block("a2"),
+			block("a3"),
+			block("a4"),
+			block("a5"),
+			block("a6"),
+		];
+		expect(svc.pendingArticles("N", blocks, 5).map((b) => b.block_id)).toEqual([
+			"a1",
+			"a2",
+			"a3",
+			"a4",
+			"a5",
+		]);
+		Reflect.deleteProperty(process.env, "LAZY_SUMMARIES_MAX_INPUT_CHARS");
+		db.close();
+	});
+
+	test("articles already attempted in this process free their slot", async () => {
+		const db = new Database(":memory:");
+		createSchema(db);
+		db.run(
+			"INSERT INTO norms (id, title, country, rank, published_at, status) VALUES ('N', 'Ley', 'es', 'ley', '2026-01-01', 'vigente')",
+		);
+		db.run(
+			`INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a1', 'precepto', 'Artículo 1', 1, '${ARTICLE}')`,
+		);
+		process.env.OPENROUTER_API_KEY = "test-key";
+		process.env.OPENROUTER_BACKOFF_MS = "0";
+		bodies = [];
+		stubLlm(reply("Tienes derecho a reclamar en un plazo de un mes."));
+		const svc = new CitizenSummaryService(db);
+		await svc.getOrGenerate("N", "a1", "Ley", "Artículo 1", ARTICLE);
+		expect(
+			svc
+				.pendingArticles("N", [block("a1"), block("a2")], 5)
+				.map((b) => b.block_id),
+		).toEqual(["a2"]);
+		globalThis.fetch = realFetch;
+		db.close();
+	});
+});
