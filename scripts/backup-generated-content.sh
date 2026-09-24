@@ -7,7 +7,9 @@
 # and logical errors, not against losing the disk.
 #
 # Run daily via /etc/cron.d/leyabierta (04:00, before the 08:30 pipeline).
+# The file holds subscriber emails and confirm/unsubscribe tokens: 0600 only.
 set -euo pipefail
+umask 077
 
 CONTAINER="${API_CONTAINER:-code-api-1}"
 DATA_DIR="${DATA_DIR:-/opt/leyabierta/code/data}" # host side of the container's /data
@@ -20,7 +22,27 @@ TS=$(date -u +%Y%m%d)
 TMP_NAME="tmp-backup-generated-$TS.db"
 OUT="$BACKUP_DIR/generated-content-$TS.db"
 
-cleanup() { rm -f "$DATA_DIR/$TMP_NAME"; }
+ENV_FILE="${ENV_FILE:-/opt/leyabierta/code/.env.prod}"
+
+# Cron has MAILTO="": a failure must reach the same webhook as daily-pipeline.sh.
+send_alert() {
+  local webhook="${ALERT_WEBHOOK_URL:-}"
+  if [ -z "$webhook" ] && [ -r "$ENV_FILE" ]; then
+    webhook=$(grep -E '^ALERT_WEBHOOK_URL=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
+  fi
+  [ -n "$webhook" ] || return 0
+  python3 -c 'import json,sys; print(json.dumps({"title":sys.argv[1],"body":sys.argv[2],"host":"KonarServer"}))' \
+    "leyabierta generated-content backup failed" "$1" \
+    | curl -fsS --max-time 10 -X POST "$webhook" -H "Content-Type: application/json" -d @- >/dev/null 2>&1 || true
+}
+
+cleanup() {
+  local status=$?
+  rm -f "$DATA_DIR/$TMP_NAME"
+  if [ "$status" -ne 0 ]; then
+    send_alert "exit $status — see /opt/leyabierta/logs/backup-generated.log"
+  fi
+}
 trap cleanup EXIT
 
 docker exec "$CONTAINER" bun run packages/api/src/scripts/backup-generated-content.ts "/data/$TMP_NAME"
@@ -29,7 +51,9 @@ gzip -f "$OUT"
 
 SIZE=$(stat -c %s "$OUT.gz")
 if [ "$SIZE" -lt "$MIN_BYTES" ]; then
-  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) generated-content-backup TOO SMALL ($SIZE bytes < $MIN_BYTES): $OUT.gz" >&2
+  # Rename so the rotation below never counts it as a good copy.
+  mv "$OUT.gz" "$OUT.gz.bad"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) generated-content-backup TOO SMALL ($SIZE bytes < $MIN_BYTES): $OUT.gz.bad" >&2
   exit 1
 fi
 

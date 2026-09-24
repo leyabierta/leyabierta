@@ -34,6 +34,9 @@ export function backupGeneratedContent(
 	rmSync(outPath, { force: true });
 	const dst = new Database(outPath, { create: true });
 	const counts: Record<string, number> = {};
+	// One read transaction = one WAL snapshot: all tables from the same moment.
+	// Readers never block the API's writers in WAL mode.
+	src.run("BEGIN");
 	try {
 		for (const table of BACKUP_TABLES) {
 			const ddl = src
@@ -41,30 +44,41 @@ export function backupGeneratedContent(
 				.get(table) as { sql: string } | null;
 			if (!ddl) continue; // table not created yet on this DB
 			dst.run(ddl.sql);
-			const rows = src.query(`SELECT * FROM "${table}"`).all() as Record<
-				string,
-				unknown
-			>[];
-			if (rows.length > 0) {
-				const cols = Object.keys(rows[0] as object);
-				const insert = dst.prepare(
-					`INSERT INTO "${table}" (${cols.map((c) => `"${c}"`).join(",")}) VALUES (${cols.map(() => "?").join(",")})`,
-				);
-				dst.transaction(() => {
-					for (const row of rows) {
-						insert.run(...(cols.map((c) => row[c]) as never[]));
-					}
-				})();
-			}
+			const cols = (
+				src.query(`PRAGMA table_info("${table}")`).all() as { name: string }[]
+			).map((c) => c.name);
+			const insert = dst.prepare(
+				`INSERT INTO "${table}" (${cols.map((c) => `"${c}"`).join(",")}) VALUES (${cols.map(() => "?").join(",")})`,
+			);
+			// Stream rows (iterate) instead of .all(): this runs inside the API
+			// container's memory cgroup, next to the live API process.
+			const select = src.query(
+				`SELECT ${cols.map((c) => `"${c}"`).join(",")} FROM "${table}"`,
+			);
+			let read = 0;
+			dst.transaction(() => {
+				for (const row of select.iterate() as Iterable<
+					Record<string, unknown>
+				>) {
+					insert.run(...(cols.map((c) => row[c]) as never[]));
+					read++;
+				}
+			})();
+			const expected = (
+				src.query(`SELECT count(*) AS n FROM "${table}"`).get() as { n: number }
+			).n;
 			const copied = (
 				dst.query(`SELECT count(*) AS n FROM "${table}"`).get() as { n: number }
 			).n;
-			if (copied !== rows.length) {
-				throw new Error(`${table}: copied ${copied} of ${rows.length} rows`);
+			if (read !== expected || copied !== expected) {
+				throw new Error(
+					`${table}: read ${read}, copied ${copied}, source has ${expected}`,
+				);
 			}
 			counts[table] = copied;
 		}
 	} finally {
+		src.run("COMMIT");
 		dst.close();
 	}
 	return counts;
