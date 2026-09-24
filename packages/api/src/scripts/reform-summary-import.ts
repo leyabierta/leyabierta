@@ -39,6 +39,19 @@ export interface GeneratedReformRow {
 	result: unknown;
 }
 
+/**
+ * The model id as stored in reform_summaries.model: always an OpenRouter-style
+ * `provider/model` id. The offline generator records the served name of the
+ * local vLLM (`qwen3.8-27b`), the same weights as `qwen/qwen3.8-27b`.
+ */
+export function normalizeModelId(model: string | undefined): string {
+	const m = (model ?? "").trim();
+	// Only the bare vLLM served name ("qwen3.8-27b"); anything else (an
+	// OpenRouter id, a local tag like "qwen3.8:27b-mlx") is kept as is.
+	if (/^qwen\d[\w.-]*$/i.test(m)) return `qwen/${m.toLowerCase()}`;
+	return m;
+}
+
 // The prompt asks for at most 15 words; a little slack before rejecting.
 export const MAX_HEADLINE_WORDS = 20;
 const SECOND_PERSON =
@@ -130,8 +143,8 @@ export function importReformRows(
 	);
 	const insert = db.prepare(
 		`INSERT OR IGNORE INTO reform_summaries
-		   (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+		   (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model, prompt_version)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`,
 	);
 	const alertCutoff =
 		opts.alertCutoff ??
@@ -151,7 +164,7 @@ export function importReformRows(
 	);
 	const update = db.prepare(
 		`UPDATE reform_summaries
-		 SET reform_type = ?, headline = ?, summary = ?, importance = ?, generated_at = datetime('now'), model = ?
+		 SET reform_type = ?, headline = ?, summary = ?, importance = ?, generated_at = datetime('now'), model = ?, prompt_version = ?
 		 WHERE norm_id = ? AND source_id = ? AND reform_date = ?`,
 	);
 	const currentHash = (r: GeneratedReformRow) => {
@@ -276,7 +289,8 @@ export function importReformRows(
 						summary.headline,
 						summary.summary,
 						summary.importance,
-						row.model ?? "",
+						normalizeModelId(row.model),
+						PROMPT_VERSION,
 						row.norm_id,
 						row.source_id,
 						row.reform_date,
@@ -291,7 +305,8 @@ export function importReformRows(
 						summary.headline,
 						summary.summary,
 						summary.importance,
-						row.model ?? "",
+						normalizeModelId(row.model),
+						PROMPT_VERSION,
 					);
 					if (res.changes === 0) {
 						skip("already_has_summary");

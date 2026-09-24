@@ -14,7 +14,7 @@ export {
 	normalizeArticle,
 	validateNorm,
 } from "./ingest.ts";
-export { createSchema } from "./schema.ts";
+export { createSchema, hasColumn } from "./schema.ts";
 
 const DEFAULT_DB_PATH = "./data/leyabierta.db";
 

@@ -188,6 +188,7 @@ const SCHEMA_SQL = /* sql */ `
     importance   TEXT NOT NULL DEFAULT '',
     generated_at TEXT NOT NULL DEFAULT '',
     model        TEXT NOT NULL DEFAULT '',
+    prompt_version TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (norm_id, source_id, reform_date),
     FOREIGN KEY (norm_id, reform_date, source_id)
       REFERENCES reforms(norm_id, date, source_id)
@@ -324,4 +325,24 @@ export function createSchema(db: Database): void {
 	} catch {
 		// Column already exists
 	}
+
+	// PROMPT_VERSION of reform-summary-prompt.ts that produced the summary
+	// ('' for summaries written before 2026-09-24). Checked, not try/catch:
+	// any other ALTER failure must surface.
+	if (!hasColumn(db, "reform_summaries", "prompt_version")) {
+		db.exec(
+			"ALTER TABLE reform_summaries ADD COLUMN prompt_version TEXT NOT NULL DEFAULT ''",
+		);
+	}
+}
+
+export function hasColumn(
+	db: Database,
+	table: string,
+	column: string,
+): boolean {
+	return db
+		.query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+		.all()
+		.some((c) => c.name === column);
 }

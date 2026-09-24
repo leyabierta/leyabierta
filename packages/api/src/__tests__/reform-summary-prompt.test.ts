@@ -8,6 +8,9 @@ import {
 	getSourceInfo,
 	isOmnibusSource,
 	MAX_CHANGES_CHARS,
+	REFORM_STYLE_RULES,
+	REFORM_SYSTEM_PROMPT,
+	reformReasoning,
 	type SourceInfo,
 } from "../scripts/reform-summary-prompt.ts";
 
@@ -291,5 +294,21 @@ describe("buildPrompt changes section", () => {
 			source(),
 		);
 		expect(user.length).toBeGreaterThan(2500);
+	});
+});
+
+describe("style rules and model settings", () => {
+	test("the system prompt ends with the style rules", () => {
+		expect(REFORM_SYSTEM_PROMPT.endsWith(REFORM_STYLE_RULES)).toBe(true);
+		expect(REFORM_STYLE_RULES).toContain("ESTILO DE REDACCIÓN");
+		expect(REFORM_STYLE_RULES).toContain("no añadas valoraciones");
+	});
+
+	test("reasoning as evaluated: minimal for openai, off for qwen", () => {
+		expect(reformReasoning("openai/gpt-6-luna")).toEqual({
+			effort: "minimal",
+		});
+		expect(reformReasoning("qwen/qwen3.8-27b")).toEqual({ enabled: false });
+		expect(reformReasoning("google/gemini-2.5-flash-lite")).toBeUndefined();
 	});
 });

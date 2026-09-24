@@ -29,6 +29,7 @@
  */
 
 import { Database } from "bun:sqlite";
+import { hasColumn } from "@leyabierta/pipeline";
 import { readJsonl, runGeneration } from "./offline-llm.ts";
 import {
 	importReformRows,
@@ -160,6 +161,14 @@ function importGenerated(file: string, apply: boolean) {
 		? new Database(DB_PATH, { create: false, readwrite: true })
 		: new Database(DB_PATH, { readonly: true });
 	db.run("PRAGMA busy_timeout = 30000");
+	// The import writes prompt_version; the column is added by createSchema,
+	// which the API runs at startup. Never migrate from here: fail clearly.
+	if (!hasColumn(db, "reform_summaries", "prompt_version")) {
+		console.error(
+			"reform_summaries.prompt_version is missing: run createSchema first (start the API on this DB, or any script that calls it), then retry.",
+		);
+		process.exit(1);
+	}
 	const { rows, badLines } = readJsonl<unknown>(file);
 	const replaceFrom = flag("--replace-from");
 	let replace: Map<string, string> | undefined;
