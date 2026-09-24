@@ -5,11 +5,14 @@
  * fake fetch plays the OpenRouter Batch API.
  */
 
+import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createSchema } from "@leyabierta/pipeline";
 import {
+	assertSameExport,
 	BATCH_MODEL,
 	BATCH_STORED_MODEL,
 	type BatchState,
@@ -18,16 +21,21 @@ import {
 	collectOnce,
 	type ExportRow,
 	type FetchFn,
+	fileSha256,
+	LOST_AFTER_404S,
 	loadState,
 	planBatches,
 	saveState,
 	submitBatches,
 } from "../scripts/reform-batch.ts";
 import {
+	importReformRows,
 	promptHash,
+	summaryHash,
 	validateGeneratedReform,
 } from "../scripts/reform-summary-import.ts";
 import {
+	buildReformPrompt,
 	PROMPT_VERSION,
 	REFORM_JSON_SCHEMA,
 	REFORM_MAX_TOKENS,
@@ -36,6 +44,8 @@ import {
 	reformReasoning,
 } from "../scripts/reform-summary-prompt.ts";
 import { callOpenRouter } from "../services/openrouter.ts";
+
+const SHA = "a".repeat(64);
 
 const SUMMARY = {
 	headline: "La ley cambia el plazo para pedir la ayuda",
@@ -171,7 +181,7 @@ describe("request body", () => {
 describe("planBatches", () => {
 	test("custom_id is the export line; chunks respect the size", () => {
 		const rows = [0, 1, 2, 3, 4].map((n) => exportRow(n));
-		const { state } = planBatches("e.jsonl", rows, { chunk: 2 });
+		const { state } = planBatches("e.jsonl", SHA, rows, { chunk: 2 });
 		expect(state.batches.map((b) => b.custom_ids)).toEqual([
 			["r0", "r1"],
 			["r2", "r3"],
@@ -192,7 +202,7 @@ describe("planBatches", () => {
 			exportRow(0),
 			exportRow(3),
 		];
-		const { state, refused } = planBatches("e.jsonl", rows, {
+		const { state, refused } = planBatches("e.jsonl", SHA, rows, {
 			skipKeys: new Set(["BOE-A-2020-3|BOE-A-2021-3|2021-06-01"]),
 		});
 		expect(Object.keys(state.items)).toEqual(["r0"]);
@@ -205,7 +215,7 @@ describe("planBatches", () => {
 	});
 
 	test("chunk above 2000 is rejected", () => {
-		expect(() => planBatches("e.jsonl", [], { chunk: 2001 })).toThrow();
+		expect(() => planBatches("e.jsonl", SHA, [], { chunk: 2001 })).toThrow();
 	});
 });
 
@@ -213,9 +223,8 @@ describe("submit and collect", () => {
 	test("submits each chunk once and resumes after a failure", async () => {
 		const rows = [0, 1, 2].map((n) => exportRow(n));
 		const statePath = join(dir, "state.json");
-		const { state } = planBatches("e.jsonl", rows, { chunk: 1 });
+		const { state } = planBatches("e.jsonl", SHA, rows, { chunk: 1 });
 		saveState(statePath, state);
-		const users = new Map(rows.map((r, i) => [`r${i}`, r.user]));
 		const api = fakeApi({});
 		let posts = 0;
 		const flaky: FetchFn = async (url, init) => {
@@ -228,7 +237,7 @@ describe("submit and collect", () => {
 				{ apiKey: "k", fetch: flaky },
 				statePath,
 				state,
-				(id) => users.get(id) ?? "",
+				(id) => rows[Number(id.slice(1))],
 				() => {},
 			),
 		).rejects.toThrow("HTTP 500");
@@ -242,7 +251,7 @@ describe("submit and collect", () => {
 			{ apiKey: "k", fetch: api.fetchFn },
 			statePath,
 			resumed,
-			(id) => users.get(id) ?? "",
+			(id) => rows[Number(id.slice(1))],
 			() => {},
 		);
 		expect(n).toBe(2);
@@ -255,10 +264,15 @@ describe("submit and collect", () => {
 	});
 
 	test("refuses a state planned with another prompt version", async () => {
-		const { state } = planBatches("e.jsonl", [exportRow(0)]);
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
 		state.prompt_version = "old";
 		await expect(
-			submitBatches({ apiKey: "k" }, join(dir, "s.json"), state, () => ""),
+			submitBatches(
+				{ apiKey: "k" },
+				join(dir, "s.json"),
+				state,
+				() => undefined,
+			),
 		).rejects.toThrow("export again");
 	});
 
@@ -266,7 +280,7 @@ describe("submit and collect", () => {
 		const rows = [0, 1, 2, 3, 4].map((n) => exportRow(n));
 		const statePath = join(dir, "state.json");
 		const outFile = join(dir, "out.jsonl");
-		const { state } = planBatches("e.jsonl", rows, { chunk: 5 });
+		const { state } = planBatches("e.jsonl", SHA, rows, { chunk: 5 });
 		submitted(state, 0, "b1");
 		saveState(statePath, state);
 		const api = fakeApi({
@@ -298,7 +312,7 @@ describe("submit and collect", () => {
 			outFile,
 			() => {},
 		);
-		expect(res).toEqual({ pending: 0, written: 5, ok: 1 });
+		expect(res).toEqual({ pending: 0, unsubmitted: 0, written: 5, ok: 1 });
 		const out = readRows(outFile);
 		const ok = out[0] ?? {};
 		expect(Object.keys(ok)).toEqual([
@@ -339,7 +353,7 @@ describe("submit and collect", () => {
 	test("rejects a reply the import would reject (second person)", async () => {
 		const statePath = join(dir, "state.json");
 		const outFile = join(dir, "out.jsonl");
-		const { state } = planBatches("e.jsonl", [exportRow(0)]);
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
 		submitted(state, 0, "b1");
 		const bad = { ...SUMMARY, summary: "Ahora puedes pedir la ayuda." };
 		const api = fakeApi({
@@ -367,9 +381,14 @@ describe("submit and collect", () => {
 	test("running batches stay pending; a failed batch fails its rows", async () => {
 		const statePath = join(dir, "state.json");
 		const outFile = join(dir, "out.jsonl");
-		const { state } = planBatches("e.jsonl", [exportRow(0), exportRow(1)], {
-			chunk: 1,
-		});
+		const { state } = planBatches(
+			"e.jsonl",
+			SHA,
+			[exportRow(0), exportRow(1)],
+			{
+				chunk: 1,
+			},
+		);
 		submitted(state, 0, "b1");
 		submitted(state, 1, "b2");
 		const api = fakeApi({
@@ -398,7 +417,7 @@ describe("submit and collect", () => {
 	test("collect is idempotent: no duplicate rows, retries a failed DELETE", async () => {
 		const statePath = join(dir, "state.json");
 		const outFile = join(dir, "out.jsonl");
-		const { state } = planBatches("e.jsonl", [exportRow(0)]);
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
 		submitted(state, 0, "b1");
 		const api = fakeApi({
 			b1: {
@@ -434,8 +453,307 @@ describe("submit and collect", () => {
 			outFile,
 			() => {},
 		);
-		expect(second).toEqual({ pending: 0, written: 0, ok: 0 });
+		expect(second).toEqual({ pending: 0, unsubmitted: 0, written: 0, ok: 0 });
 		expect(readRows(outFile)).toHaveLength(1);
 		expect(loadState(statePath).batches[0]?.deleted_at).toBeDefined();
+	});
+});
+
+describe("guards", () => {
+	test("an export regenerated at the same path (other order) is refused", () => {
+		const path = join(dir, "export.jsonl");
+		const rows = [exportRow(0), exportRow(1)];
+		writeFileSync(path, rows.map((r) => JSON.stringify(r)).join("\n"));
+		const { state } = planBatches(path, fileSha256(path), rows);
+		assertSameExport(state, fileSha256(path));
+		writeFileSync(
+			path,
+			[...rows]
+				.reverse()
+				.map((r) => JSON.stringify(r))
+				.join("\n"),
+		);
+		expect(() => assertSameExport(state, fileSha256(path))).toThrow(
+			"export changed",
+		);
+	});
+
+	test("submit refuses a row that is not the planned reform or prompt", async () => {
+		const rows = [exportRow(0), exportRow(1)];
+		const { state } = planBatches("e.jsonl", SHA, rows);
+		const api = fakeApi({});
+		const opts = { apiKey: "k", fetch: api.fetchFn };
+		const statePath = join(dir, "s.json");
+		// Another reform under r0.
+		await expect(
+			submitBatches(
+				opts,
+				statePath,
+				state,
+				() => rows[1],
+				() => {},
+			),
+		).rejects.toThrow("state planned");
+		// Same reform, different prompt.
+		const other = { ...exportRow(0), user: "otro texto" };
+		await expect(
+			submitBatches(
+				opts,
+				statePath,
+				state,
+				(id) => (id === "r0" ? other : rows[1]),
+				() => {},
+			),
+		).rejects.toThrow("planned input_hash");
+		expect(api.calls).toHaveLength(0);
+	});
+
+	test("maxChunks sends only the first batches", async () => {
+		const rows = [0, 1, 2].map((n) => exportRow(n));
+		const statePath = join(dir, "s.json");
+		const { state } = planBatches("e.jsonl", SHA, rows, { chunk: 1 });
+		const api = fakeApi({});
+		const n = await submitBatches(
+			{ apiKey: "k", fetch: api.fetchFn },
+			statePath,
+			state,
+			(id) => rows[Number(id.slice(1))],
+			() => {},
+			1,
+		);
+		expect(n).toBe(1);
+		expect(state.batches.map((b) => b.id)).toEqual([
+			"batch-0",
+			undefined,
+			undefined,
+		]);
+	});
+
+	test("results fewer than request_counts: not collected, not deleted", async () => {
+		const statePath = join(dir, "s.json");
+		const outFile = join(dir, "out.jsonl");
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0), exportRow(1)]);
+		submitted(state, 0, "b1");
+		const api = fakeApi({
+			b1: {
+				id: "b1",
+				status: "completed",
+				request_counts: { total: 2, completed: 2, failed: 0 },
+				results: [
+					{ custom_id: "r0", response: completion(JSON.stringify(SUMMARY)) },
+				],
+			},
+		});
+		const res = await collectOnce(
+			{ apiKey: "k", fetch: api.fetchFn },
+			statePath,
+			state,
+			outFile,
+			() => {},
+		);
+		expect(res.pending).toBe(1);
+		expect(res.written).toBe(0);
+		expect(state.batches[0]?.collected_at).toBeUndefined();
+		expect(api.calls.filter((c) => c.method === "DELETE")).toHaveLength(0);
+	});
+
+	test("a pagination hint also blocks collection", async () => {
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
+		submitted(state, 0, "b1");
+		const api = fakeApi({
+			b1: {
+				id: "b1",
+				status: "completed",
+				has_more: true,
+				results: [
+					{ custom_id: "r0", response: completion(JSON.stringify(SUMMARY)) },
+				],
+			},
+		});
+		const res = await collectOnce(
+			{ apiKey: "k", fetch: api.fetchFn },
+			join(dir, "s.json"),
+			state,
+			join(dir, "out.jsonl"),
+			() => {},
+		);
+		expect(res).toEqual({ pending: 1, unsubmitted: 0, written: 0, ok: 0 });
+	});
+
+	test("invalid JSON on GET is retried later", async () => {
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
+		submitted(state, 0, "b1");
+		const res = await collectOnce(
+			{
+				apiKey: "k",
+				fetch: async () => new Response("<html>", { status: 200 }),
+			},
+			join(dir, "s.json"),
+			state,
+			join(dir, "out.jsonl"),
+			() => {},
+		);
+		expect(res.pending).toBe(1);
+		expect(state.batches[0]?.collected_at).toBeUndefined();
+	});
+
+	test(`${LOST_AFTER_404S} consecutive 404s mark the batch lost; its rows fail`, async () => {
+		const statePath = join(dir, "s.json");
+		const outFile = join(dir, "out.jsonl");
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
+		submitted(state, 0, "gone");
+		const api = fakeApi({});
+		const opts = { apiKey: "k", fetch: api.fetchFn };
+		for (let i = 1; i < LOST_AFTER_404S; i++) {
+			const r = await collectOnce(opts, statePath, state, outFile, () => {});
+			expect(r.pending).toBe(1);
+		}
+		const last = await collectOnce(opts, statePath, state, outFile, () => {});
+		expect(last).toEqual({ pending: 0, unsubmitted: 0, written: 1, ok: 0 });
+		expect(state.batches[0]?.lost).toBe(`GET 404 x${LOST_AFTER_404S}`);
+		expect(readRows(outFile)[0]).toMatchObject({
+			ok: false,
+			error: `request_error: batch_lost GET 404 x${LOST_AFTER_404S}`,
+		});
+	});
+
+	test("unsubmitted chunks are counted apart from pending ones", async () => {
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
+		const res = await collectOnce(
+			{ apiKey: "k", fetch: fakeApi({}).fetchFn },
+			join(dir, "s.json"),
+			state,
+			join(dir, "out.jsonl"),
+			() => {},
+		);
+		expect(res).toEqual({ pending: 0, unsubmitted: 1, written: 0, ok: 0 });
+	});
+
+	test("a model refusal is recorded as such", async () => {
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
+		submitted(state, 0, "b1");
+		const outFile = join(dir, "out.jsonl");
+		const api = fakeApi({
+			b1: {
+				id: "b1",
+				status: "completed",
+				results: [
+					{
+						custom_id: "r0",
+						response: {
+							status_code: 200,
+							body: {
+								choices: [
+									{
+										message: { content: null, refusal: "no puedo" },
+										finish_reason: "stop",
+									},
+								],
+							},
+						},
+					},
+				],
+			},
+		});
+		await collectOnce(
+			{ apiKey: "k", fetch: api.fetchFn },
+			join(dir, "s.json"),
+			state,
+			outFile,
+			() => {},
+		);
+		expect(readRows(outFile)[0]?.error).toBe("refusal: no puedo");
+	});
+});
+
+describe("end to end: collect → import --replace-from", () => {
+	test("a collected row replaces the exported summary in the DB", async () => {
+		const db = new Database(":memory:");
+		createSchema(db);
+		db.run(
+			"INSERT INTO norms (id, title, country, rank, published_at, status) VALUES ('N', 'Ley de ayudas', 'es', 'ley', '2020-01-01', 'vigente'), ('S', 'Ley de medidas', 'es', 'ley', '2021-01-01', 'vigente')",
+		);
+		db.run(
+			"INSERT INTO reforms (norm_id, date, source_id) VALUES ('N', '2020-01-01', 'N'), ('N', '2021-06-01', 'S')",
+		);
+		db.run(
+			"INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a1', 'precepto', 'Artículo 1', 1, 'Plazo de cuatro meses.')",
+		);
+		db.run(
+			"INSERT INTO versions (norm_id, block_id, date, source_id, text) VALUES ('N', 'a1', '2020-01-01', 'N', 'Plazo de tres meses.'), ('N', 'a1', '2021-06-01', 'S', 'Plazo de cuatro meses.')",
+		);
+		db.run(
+			"INSERT INTO reform_blocks (norm_id, reform_date, reform_source_id, block_id) VALUES ('N', '2021-06-01', 'S', 'a1')",
+		);
+		db.run(
+			"INSERT INTO reform_summaries (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model) VALUES ('N', 'S', '2021-06-01', 'modification', 'viejo', 'resumen viejo', 'normal', '2026-09-23 18:04:00', 'qwen/qwen3.8-27b')",
+		);
+
+		// What `export --regenerate-existing` writes for that reform.
+		const prompt = buildReformPrompt(db, {
+			norm_id: "N",
+			source_id: "S",
+			date: "2021-06-01",
+			title: "Ley de ayudas",
+			rank: "ley",
+		});
+		const exported = {
+			norm_id: "N",
+			source_id: "S",
+			reform_date: "2021-06-01",
+			user: prompt.user,
+			input_hash: promptHash(prompt),
+			prompt_version: PROMPT_VERSION,
+			previous_summary_hash: summaryHash("viejo", "resumen viejo"),
+		};
+		const { state } = planBatches("e.jsonl", SHA, [exported]);
+		const statePath = join(dir, "s.json");
+		const outFile = join(dir, "out.jsonl");
+		const api = fakeApi({});
+		await submitBatches(
+			{ apiKey: "k", fetch: api.fetchFn },
+			statePath,
+			state,
+			() => exported,
+			() => {},
+		);
+		const sent = JSON.parse(
+			api.calls.find((c) => c.method === "POST")?.body ?? "{}",
+		);
+		expect(sent.requests[0].body.messages[1].content).toBe(prompt.user);
+		const id = state.batches[0]?.id ?? "";
+		const done = fakeApi({
+			[id]: {
+				id,
+				status: "completed",
+				request_counts: { total: 1, completed: 1, failed: 0 },
+				results: [
+					{ custom_id: "r0", response: completion(JSON.stringify(SUMMARY)) },
+				],
+			},
+		});
+		await collectOnce(
+			{ apiKey: "k", fetch: done.fetchFn },
+			statePath,
+			state,
+			outFile,
+			() => {},
+		);
+
+		const report = importReformRows(db, readRows(outFile), {
+			apply: true,
+			replace: new Map([["N|S|2021-06-01", exported.previous_summary_hash]]),
+		});
+		expect(report.replaced).toBe(1);
+		expect(report.skipped).toEqual({});
+		const row = db
+			.query("SELECT headline, model, prompt_version FROM reform_summaries")
+			.get() as Record<string, string>;
+		expect(row).toEqual({
+			headline: SUMMARY.headline,
+			model: BATCH_STORED_MODEL,
+			prompt_version: PROMPT_VERSION,
+		});
+		db.close();
 	});
 });

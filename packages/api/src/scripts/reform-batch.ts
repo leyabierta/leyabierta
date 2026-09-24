@@ -19,6 +19,7 @@
  * Kept apart from the CLI so it can be tested with a fake fetch.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { readJsonl } from "./offline-llm.ts";
 import {
@@ -40,6 +41,8 @@ export const BATCH_MODEL = "openai/gpt-6-luna:batch";
 /** The model id stored in reform_summaries.model (same model, same request). */
 export const BATCH_STORED_MODEL = "openai/gpt-6-luna";
 export const MAX_CHUNK = 2000;
+/** Consecutive 404s on GET before a submitted batch is given up as lost. */
+export const LOST_AFTER_404S = 3;
 const TERMINAL = new Set(["completed", "failed", "expired", "cancelled"]);
 
 /** A row of `reform-summaries-offline.ts export`. */
@@ -68,15 +71,25 @@ export interface BatchChunk {
 	collected_at?: string;
 	deleted_at?: string;
 	cost?: number;
+	/** Consecutive 404s on GET; LOST_AFTER_404S of them mark it lost. */
+	not_found?: number;
+	/** Why the batch was given up (its reforms are written as failed). */
+	lost?: string;
 }
 
 export interface BatchState {
 	version: 1;
 	export_file: string;
+	/** sha256 of the export: submit refuses any other content, same path or not. */
+	export_sha256: string;
 	prompt_version: string;
 	model: string;
 	created_at: string;
-	/** custom_id → reform. custom_id is `r<line of the export>`. */
+	/**
+	 * custom_id → reform. custom_id is `r<index of the row among the parsed
+	 * export rows>`; export_sha256 pins which export that index refers to, and
+	 * submit re-checks key and prompt hash of each row before sending it.
+	 */
 	items: Record<string, BatchItem>;
 	batches: BatchChunk[];
 }
@@ -132,6 +145,19 @@ export function batchPayload(
 	});
 }
 
+/** sha256 (hex) of a file's bytes. */
+export function fileSha256(path: string): string {
+	return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+/** Throws unless `sha256` is the export the state was planned from. */
+export function assertSameExport(state: BatchState, sha256: string) {
+	if (state.export_sha256 !== sha256)
+		throw new Error(
+			`the export changed since the state was planned (sha256 ${sha256.slice(0, 12)}… vs ${String(state.export_sha256).slice(0, 12)}…): plan a new state file`,
+		);
+}
+
 /** Why an export row cannot be sent, or undefined. */
 function refusal(
 	r: ExportRow | null,
@@ -158,6 +184,7 @@ function refusal(
  */
 export function planBatches(
 	exportFile: string,
+	exportSha256: string,
 	rows: ExportRow[],
 	opts: { chunk?: number; limit?: number; skipKeys?: Set<string> } = {},
 ): { state: BatchState; refused: Record<string, number> } {
@@ -168,6 +195,7 @@ export function planBatches(
 	const state: BatchState = {
 		version: 1,
 		export_file: exportFile,
+		export_sha256: exportSha256,
 		prompt_version: PROMPT_VERSION,
 		model: BATCH_MODEL,
 		created_at: new Date().toISOString(),
@@ -221,16 +249,42 @@ function headers(api: BatchApi): Record<string, string> {
 }
 
 /**
- * Submits every chunk that has no batch id yet, saving the state after each
- * one, so a rerun resumes where it stopped. `userOf` gives the prompt of a
- * custom_id (from the export).
+ * The prompt to send for a custom_id, checked against what the state planned:
+ * same reform, and a prompt whose hash is the planned `input_hash`. Guards
+ * against a result landing under another reform's key.
+ */
+function checkedUser(
+	state: BatchState,
+	id: string,
+	rowOf: (customId: string) => ExportRow | undefined,
+): string {
+	const item = state.items[id];
+	const row = rowOf(id);
+	if (!item || !row) throw new Error(`${id}: not in the state or the export`);
+	if (keyOf(row) !== keyOf(item))
+		throw new Error(
+			`${id}: the export row is ${keyOf(row)}, the state planned ${keyOf(item)}`,
+		);
+	if (
+		promptHash({ system: REFORM_SYSTEM_PROMPT, user: row.user }) !==
+		item.input_hash
+	)
+		throw new Error(`${id}: prompt differs from the planned input_hash`);
+	return row.user;
+}
+
+/**
+ * Submits chunks that have no batch id yet (at most `maxChunks`), saving the
+ * state after each one, so a rerun resumes where it stopped. `rowOf` gives the
+ * export row of a custom_id; every id of a chunk is checked before it is sent.
  */
 export async function submitBatches(
 	api: BatchApi,
 	statePath: string,
 	state: BatchState,
-	userOf: (customId: string) => string,
+	rowOf: (customId: string) => ExportRow | undefined,
 	log: (msg: string) => void = console.log,
+	maxChunks = Number.POSITIVE_INFINITY,
 ): Promise<number> {
 	if (state.prompt_version !== PROMPT_VERSION)
 		throw new Error(
@@ -240,9 +294,10 @@ export async function submitBatches(
 	let submitted = 0;
 	for (const [n, chunk] of state.batches.entries()) {
 		if (chunk.id) continue;
+		if (submitted >= maxChunks) break;
 		const requests = chunk.custom_ids.map((id) => ({
 			custom_id: id,
-			body: batchRequestBody(userOf(id)),
+			body: batchRequestBody(checkedUser(state, id, rowOf)),
 		}));
 		const res = await fetchFn(api.baseUrl ?? BATCHES_URL, {
 			method: "POST",
@@ -276,7 +331,7 @@ interface BatchResultItem {
 		status_code?: number;
 		body?: {
 			choices?: {
-				message?: { content?: string | null };
+				message?: { content?: string | null; refusal?: string | null };
 				finish_reason?: string;
 			}[];
 			usage?: unknown;
@@ -292,6 +347,35 @@ interface BatchObject {
 	usage?: { cost?: number } | null;
 	results?: BatchResultItem[] | null;
 	error?: unknown;
+	// Not in the documented API (results come inline, whole, with no
+	// pagination); if any appears, the results may be partial.
+	has_more?: unknown;
+	next?: unknown;
+	output_file_id?: unknown;
+	results_url?: unknown;
+}
+
+/**
+ * Why a terminal batch's inline results look incomplete, or undefined: fewer
+ * results than request_counts reports, or a pagination/file hint.
+ */
+export function incompleteResults(batch: BatchObject): string | undefined {
+	for (const k of [
+		"has_more",
+		"next",
+		"output_file_id",
+		"results_url",
+	] as const) {
+		const v = batch[k];
+		if (v !== undefined && v !== null && v !== false)
+			return `unexpected field ${k}`;
+	}
+	const rc = batch.request_counts ?? {};
+	const expected = (rc.completed ?? 0) + (rc.failed ?? 0);
+	const got = batch.results?.length ?? 0;
+	if (batch.status === "completed" && got < expected)
+		return `${got} results for ${expected} finished requests`;
+	return undefined;
 }
 
 /**
@@ -325,6 +409,8 @@ export function resultRow(
 	if (res.response.status_code !== 200)
 		return fail(`http_${res.response.status_code}`);
 	const choice = res.response.body?.choices?.[0];
+	if (choice?.message?.refusal)
+		return fail(`refusal: ${choice.message.refusal}`);
 	if (choice?.finish_reason !== "stop")
 		return fail(`finish_${choice?.finish_reason ?? "none"}`);
 	let result: unknown;
@@ -347,12 +433,24 @@ export function resultRow(
 	return v.ok ? row : fail(`invalid: ${v.reason}`);
 }
 
+export interface CollectReport {
+	/** Submitted batches still to collect or delete. */
+	pending: number;
+	/** Chunks never submitted (collect cannot help them). */
+	unsubmitted: number;
+	written: number;
+	ok: number;
+}
+
 /**
- * One pass over the submitted chunks: a chunk in a terminal status is written
- * to `outFile` (every custom_id gets exactly one row; a missing result is an
- * ok:false row), marked collected, then DELETEd. Chunks still running are left
- * for the next pass. Reforms that already have an ok row in `outFile` are not
- * written again (a crash between writing and saving the state is harmless).
+ * One pass over the submitted chunks: a chunk in a terminal status with
+ * complete results is written to `outFile` (every custom_id gets exactly one
+ * row; a missing result is an ok:false row), marked collected, then DELETEd.
+ * Chunks still running, or whose results look partial, are left for the next
+ * pass. A batch that answers 404 LOST_AFTER_404S times in a row is given up:
+ * its reforms are written as failed. Reforms that already have an ok row in
+ * `outFile` are not written again (a crash before saving the state is
+ * harmless).
  */
 export async function collectOnce(
 	api: BatchApi,
@@ -360,7 +458,7 @@ export async function collectOnce(
 	state: BatchState,
 	outFile: string,
 	log: (msg: string) => void = console.log,
-): Promise<{ pending: number; written: number; ok: number }> {
+): Promise<CollectReport> {
 	const fetchFn = api.fetch ?? fetch;
 	const base = api.baseUrl ?? BATCHES_URL;
 	const done = new Set<string>();
@@ -369,69 +467,120 @@ export async function collectOnce(
 			if (o.ok === true)
 				done.add(`${o.norm_id}|${o.source_id}|${o.reform_date}`);
 
-	let pending = 0;
-	let written = 0;
-	let ok = 0;
+	const report: CollectReport = {
+		pending: 0,
+		unsubmitted: 0,
+		written: 0,
+		ok: 0,
+	};
+	/** Appends one row per reform of the chunk that has no ok row yet. */
+	const writeRows = (
+		chunk: BatchChunk,
+		rowFor: (item: BatchItem, id: string) => Record<string, unknown>,
+	): number => {
+		const lines: string[] = [];
+		for (const id of chunk.custom_ids) {
+			const item = state.items[id];
+			if (!item || done.has(keyOf(item))) continue;
+			const row = rowFor(item, id);
+			if (row.ok === true) {
+				report.ok++;
+				done.add(keyOf(item));
+			}
+			lines.push(JSON.stringify(row));
+		}
+		if (lines.length > 0)
+			writeFileSync(outFile, `${lines.join("\n")}\n`, { flag: "a" });
+		report.written += lines.length;
+		return lines.length;
+	};
+
 	for (const [n, chunk] of state.batches.entries()) {
 		const label = `batch ${n + 1}/${state.batches.length}`;
 		if (!chunk.id) {
-			pending++;
-			log(`${label}: not submitted`);
+			report.unsubmitted++;
 			continue;
 		}
 		if (!chunk.collected_at) {
 			const res = await fetchFn(`${base}/${chunk.id}`, {
 				headers: headers(api),
 			});
+			if (res.status === 404) {
+				chunk.not_found = (chunk.not_found ?? 0) + 1;
+				if (chunk.not_found < LOST_AFTER_404S) {
+					saveState(statePath, state);
+					report.pending++;
+					log(
+						`${label} ${chunk.id}: GET 404 (${chunk.not_found}/${LOST_AFTER_404S}), retry later`,
+					);
+					continue;
+				}
+				// Gone (deleted elsewhere, or past OpenRouter's retention): its
+				// reforms are written as failed, to be sent again.
+				const lost = `GET 404 x${chunk.not_found}`;
+				chunk.lost = lost;
+				const lines = writeRows(chunk, (item) =>
+					resultRow(item, { error: { code: "batch_lost", message: lost } }),
+				);
+				chunk.collected_at = new Date().toISOString();
+				chunk.deleted_at = chunk.collected_at;
+				saveState(statePath, state);
+				log(`${label} ${chunk.id}: LOST (${lost}), ${lines} rows failed`);
+				continue;
+			}
 			if (!res.ok) {
-				pending++;
+				report.pending++;
 				log(`${label} ${chunk.id}: GET HTTP ${res.status}, retry later`);
 				continue;
 			}
-			const batch = (await res.json()) as BatchObject;
+			let batch: BatchObject;
+			try {
+				batch = (await res.json()) as BatchObject;
+			} catch {
+				report.pending++;
+				log(`${label} ${chunk.id}: GET returned invalid JSON, retry later`);
+				continue;
+			}
+			chunk.not_found = 0;
 			chunk.status = batch.status;
 			log(
 				`${label} ${chunk.id}: ${batch.status} ${JSON.stringify(batch.request_counts ?? {})}`,
 			);
 			if (!batch.status || !TERMINAL.has(batch.status)) {
-				pending++;
+				report.pending++;
+				continue;
+			}
+			const incomplete = incompleteResults(batch);
+			if (incomplete) {
+				// Never collect (nor DELETE) a batch whose results may be partial.
+				report.pending++;
+				log(
+					`${label} ${chunk.id}: WARNING results look incomplete (${incomplete}); not collected, not deleted`,
+				);
 				continue;
 			}
 			const byId = new Map<string, BatchResultItem>();
 			for (const r of batch.results ?? [])
 				if (r.custom_id) byId.set(r.custom_id, r);
-			const lines: string[] = [];
-			for (const id of chunk.custom_ids) {
-				const item = state.items[id];
-				if (!item) continue;
-				if (done.has(keyOf(item))) continue;
+			const lines = writeRows(chunk, (item, id) => {
 				const r = byId.get(id);
-				const row = r
-					? resultRow(item, r)
-					: resultRow(item, {
-							error: {
-								code:
-									batch.status === "completed"
-										? "missing_result"
-										: `batch_${batch.status}`,
-								message: batch.error
-									? JSON.stringify(batch.error).slice(0, 200)
-									: "",
-							},
-						});
-				if (row.ok === true) {
-					ok++;
-					done.add(keyOf(item));
-				}
-				lines.push(JSON.stringify(row));
-			}
-			if (lines.length > 0)
-				writeFileSync(outFile, `${lines.join("\n")}\n`, { flag: "a" });
-			written += lines.length;
+				if (r) return resultRow(item, r);
+				return resultRow(item, {
+					error: {
+						code:
+							batch.status === "completed"
+								? "missing_result"
+								: `batch_${batch.status}`,
+						message: batch.error
+							? JSON.stringify(batch.error).slice(0, 200)
+							: "",
+					},
+				});
+			});
 			chunk.cost = batch.usage?.cost;
 			chunk.collected_at = new Date().toISOString();
 			saveState(statePath, state);
-			log(`${label}: ${lines.length} rows written`);
+			log(`${label}: ${lines} rows written`);
 		}
 		if (!chunk.deleted_at) {
 			// Purges OpenRouter's copy now instead of after 30 days.
@@ -446,10 +595,14 @@ export async function collectOnce(
 					`${label}: deleted (${(await del.text().catch(() => "")).slice(0, 160)})`,
 				);
 			} else {
-				pending++;
+				report.pending++;
 				log(`${label}: DELETE HTTP ${del.status}, retry on the next pass`);
 			}
 		}
 	}
-	return { pending, written, ok };
+	if (report.unsubmitted > 0)
+		log(
+			`${report.unsubmitted} batches not submitted yet: run batch-submit to send them`,
+		);
+	return report;
 }
