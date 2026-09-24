@@ -12,7 +12,7 @@ import { AI_SUMMARIES_EXPLAINER_HREF } from "./article-summaries.ts";
 import { escapeHtml } from "./escape.ts";
 
 /** Short label shown next to an AI-written headline. */
-export const AI_BADGE_LABEL = "Resumen con IA";
+export const AI_BADGE_LABEL = "Generado con IA";
 
 /** Which AI-written parts a reform shows (the H1 falls back to the law title). */
 function aiPartsLabel(hasHeadline: boolean, hasSummary: boolean): string {
@@ -37,7 +37,7 @@ export function reformAiNoticeHtml(opts: {
 	return (
 		'<p class="reforma-ai-note" id="aviso-ia">' +
 		`${aiPartsLabel(hasHeadline, hasSummary)} ${plural ? "están generados" : "está generado"} con inteligencia artificial y ${plural ? "pueden" : "puede"} contener errores. ` +
-		`Fuente oficial: <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">la disposición en el BOE ↗</a>. ` +
+		`Fuente oficial: <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">la disposición en el BOE ↗<span class="sr-only"> (se abre en una pestaña nueva)</span></a>. ` +
 		`<a href="${AI_SUMMARIES_EXPLAINER_HREF}">Cómo los hacemos</a>.` +
 		"</p>"
 	);

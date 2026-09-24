@@ -72,8 +72,10 @@ function aiExplainerUrl(siteUrl: string): string {
 	return `${siteUrl}/sobre/#resumenes-ia`;
 }
 
-/** One-line AI notice under a reform: the summary is AI-made, the BOE rules. */
-function buildAiNotice(r: ReformEmailItem, fontSize: number): string {
+/** One-line AI notice under a reform: the summary is AI-made, the BOE rules.
+ *  Empty when the reform shows no AI text (headline and summary both missing). */
+export function buildAiNotice(r: ReformEmailItem, fontSize: number): string {
+	if (!r.headline && !r.summary) return "";
 	return `<p style="margin:8px 0 0;font-size:${fontSize}px;color:#576b80;line-height:1.5;font-family:Arial,Helvetica,sans-serif;">Resumen generado con inteligencia artificial; puede contener errores. Fuente oficial: <a href="${boeDispositionUrl(r)}" style="color:#2b5797;">BOE</a>.</p>`;
 }
 
@@ -101,7 +103,7 @@ function buildFooter(siteUrl: string, unsubUrl: string): string {
 	const prefsUrl = `${siteUrl}/mi-situacion`;
 	return `<tr><td style="padding:0 28px 24px;">
   <hr style="border:none;border-top:1px solid #e8ecf0;margin:0 0 16px;">
-  <p style="margin:0 0 6px;font-size:12px;color:#6b8299;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">
+  <p style="margin:0 0 6px;font-size:12px;color:#576b80;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">
     Los titulares y resúmenes de este correo los genera automáticamente un modelo de inteligencia artificial a partir del texto oficial. No son asesoramiento jurídico: lo que tiene validez es lo publicado en el BOE.
     <a href="${aiExplainerUrl(siteUrl)}" style="color:#2b5797;">Cómo los hacemos</a>
   </p>

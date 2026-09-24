@@ -496,7 +496,7 @@ import Base from "../../../layouts/Base.astro";
 					if (importance === "high") html += '<span class="reforma-importance-badge">Cambio importante</span>';
 					if (topicInfo) html += '<span class="reforma-topic-badge">' + esc(topicInfo.topic_label) + '</span>';
 					var hasAiText = hasHeadline || !!reform.summary;
-					if (hasAiText) html += '<a href="#aviso-ia" class="reforma-ai-badge">Resumen con IA</a>';
+					if (hasAiText) html += '<a href="#aviso-ia" class="reforma-ai-badge">Generado con IA</a>';
 					html += '</div>';
 					html += '<h1 class="reforma-headline">' + esc(headline) + '</h1>';
 					html += '<div class="reforma-law-info">';
@@ -515,7 +515,7 @@ import Base from "../../../layouts/Base.astro";
 						html += '<p class="reforma-ai-note" id="aviso-ia">' + aiParts
 							+ (bothAi ? ' están generados' : ' está generado') + ' con inteligencia artificial y '
 							+ (bothAi ? 'pueden' : 'puede') + ' contener errores. '
-							+ 'Fuente oficial: <a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">la disposición en el BOE ↗</a>. '
+							+ 'Fuente oficial: <a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">la disposición en el BOE ↗<span class="sr-only"> (se abre en una pestaña nueva)</span></a>. '
 							+ '<a href="/sobre/#resumenes-ia">Cómo los hacemos</a>.</p>';
 					}
 

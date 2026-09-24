@@ -53,6 +53,10 @@ describe("reformAiNoticeHtml", () => {
 		);
 		expect(html).toContain(`href="${BOE}"`);
 		expect(html).toContain('href="/sobre/#resumenes-ia"');
+		// The target=_blank link says so to screen readers.
+		expect(html).toContain(
+			'<span class="sr-only"> (se abre en una pestaña nueva)</span>',
+		);
 	});
 
 	test("only one AI part: singular wording", () => {
@@ -88,7 +92,9 @@ describe("reformAiNoticeHtml", () => {
 describe("renderReformContent (Worker SSR) shows the AI notice", () => {
 	test("AI headline: badge near the H1 and notice with the BOE link", () => {
 		const { contentHtml } = renderReformContent(detail({}), OPTS);
-		expect(contentHtml).toContain('class="reforma-ai-badge"');
+		expect(contentHtml).toContain(
+			'class="reforma-ai-badge">Generado con IA</a>',
+		);
 		expect(contentHtml).toContain('id="aviso-ia"');
 		expect(contentHtml).toContain(`href="${BOE}"`);
 		// The badge sits in the date row, before the H1.

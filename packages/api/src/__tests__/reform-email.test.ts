@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	buildAiNotice,
 	buildMultiReformHtml,
 	buildSingleReformHtml,
 	type ReformEmailItem,
@@ -69,6 +70,21 @@ describe("reform alert emails carry the AI notice", () => {
 			`${SITE}/cambios/reforma/?id=BOE-A-2015-11430&date=2026-09-01`,
 		);
 		expect(html).not.toContain(`${SITE}/reforma?`);
+	});
+
+	test("no AI headline or summary: no notice", () => {
+		expect(buildAiNotice(reform({ headline: null, summary: null }), 12)).toBe(
+			"",
+		);
+		expect(buildAiNotice(reform({ headline: null }), 12)).toContain(
+			"inteligencia artificial",
+		);
+	});
+
+	test("footer AI note uses the AA-contrast grey", () => {
+		const html = buildSingleReformHtml(SITE, reform(), UNSUB);
+		const note = html.slice(0, html.indexOf("Los titulares y res"));
+		expect(note.slice(note.lastIndexOf("<p "))).toContain("color:#576b80");
 	});
 
 	test("source ids are URL-encoded in the BOE link", () => {
