@@ -17,7 +17,7 @@
  *
  * Env: OPENROUTER_API_KEY (required; also read from .env), CONTENT_LLM_MODEL,
  * CITIZEN_TAGS_MAX_PER_RUN, ARTICLE_SUMMARIES_MODEL,
- * ARTICLE_SUMMARIES_MAX_PER_RUN (articles per run, default 2000).
+ * ARTICLE_SUMMARIES_MAX_PER_RUN (article requests per run, default 300).
  */
 
 import { Database } from "bun:sqlite";
@@ -29,6 +29,7 @@ import {
 	storeArticleSummary,
 } from "../ai/article-summary.ts";
 import { createSchema } from "../db/schema.ts";
+import { openRouterProviderField } from "../utils/openrouter-privacy.ts";
 import { parseLawCitizenMetadata } from "./citizen-tags-validation.ts";
 
 // ── CLI args ──
@@ -98,9 +99,12 @@ const ARTICLE_MODEL = articleSummariesModel();
 const ARTICLE_CONCURRENCY = 4;
 // Cap on article requests per run, so a huge new code cannot run for hours;
 // articles left over are filled by the lazy API route or an offline backfill.
-const ARTICLE_MAX_PER_RUN = Number(
-	process.env.ARTICLE_SUMMARIES_MAX_PER_RUN ?? 2000,
-);
+// An unset or empty variable means the default (Number("") would be 0).
+const ARTICLE_MAX_PER_RUN = (() => {
+	const raw = process.env.ARTICLE_SUMMARIES_MAX_PER_RUN?.trim();
+	const n = raw ? Number(raw) : Number.NaN;
+	return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 300;
+})();
 
 const LAW_SYSTEM_PROMPT = `Eres un clasificador de legislación española. Tu trabajo es analizar una ley y generar metadatos orientados a ciudadanos, NO a juristas.
 
@@ -131,6 +135,9 @@ const LAW_SCHEMA = {
 const dbPath =
 	process.env.DB_PATH ?? join(WORKSPACE_ROOT, "data", "leyabierta.db");
 const db = new Database(dbPath, { create: true });
+// The API and other cron steps write to the same DB: wait for their locks
+// instead of failing on SQLITE_BUSY.
+db.run("PRAGMA busy_timeout = 5000");
 createSchema(db);
 
 // ── Prepared statements ──
@@ -148,17 +155,24 @@ const selectNormById = db.prepare(
 const selectMaterias = db.prepare(
 	`SELECT materia FROM materias WHERE norm_id = ?`,
 );
+// Articles without any summary row yet: one that has one (even an empty one)
+// is never regenerated here, so no request is paid for nothing.
 const selectPreceptoBlocks = db.prepare(
-	`SELECT block_id, title, current_text FROM blocks WHERE norm_id = ? AND block_type = 'precepto' AND length(current_text) > ? ORDER BY position`,
+	`SELECT b.block_id, b.title, b.current_text FROM blocks b
+	 WHERE b.norm_id = ? AND b.block_type = 'precepto' AND length(b.current_text) > ?
+	   AND NOT EXISTS (SELECT 1 FROM citizen_article_summaries c
+	                   WHERE c.norm_id = b.norm_id AND c.block_id = b.block_id)
+	 ORDER BY b.position`,
 );
 const updateCitizenSummary = db.prepare(
 	`UPDATE norms SET citizen_summary = ? WHERE id = ?`,
 );
-const deleteCitizenTags = db.prepare(
-	`DELETE FROM citizen_tags WHERE norm_id = ?`,
-);
-const deleteArticleSummaries = db.prepare(
-	`DELETE FROM citizen_article_summaries WHERE norm_id = ?`,
+// Law-level tags only (block_id ''). Article summaries and article tags are
+// never deleted here: storeArticleSummary only fills the gaps, so re-running a
+// law (or --force) keeps every article summary it already has, including the
+// offline backfill's.
+const deleteLawTags = db.prepare(
+	`DELETE FROM citizen_tags WHERE norm_id = ? AND block_id = ''`,
 );
 const insertCitizenTag = db.prepare(
 	`INSERT OR REPLACE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)`,
@@ -267,6 +281,8 @@ async function callLlm(
 						type: "json_schema",
 						json_schema: schema,
 					},
+					// Same ZDR routing as every other OpenRouter request.
+					...openRouterProviderField(),
 				}),
 			});
 
@@ -394,8 +410,7 @@ ${articleText.slice(0, 2000)}`;
 	totalCost += lawResult.cost;
 
 	// Store law-level results
-	deleteCitizenTags.run(norm.id);
-	deleteArticleSummaries.run(norm.id);
+	deleteLawTags.run(norm.id);
 	updateCitizenSummary.run(citizenSummary, norm.id);
 
 	for (const tag of citizenTags) {
@@ -456,7 +471,16 @@ ${articleText.slice(0, 2000)}`;
 					continue;
 				}
 				cost += result.cost;
-				if (storeArticleSummary(db, norm.id, block.block_id, result)) stored++;
+				try {
+					if (storeArticleSummary(db, norm.id, block.block_id, result))
+						stored++;
+				} catch (err) {
+					// A locked or busy DB loses this article, not the run.
+					articleFailures.store_error = (articleFailures.store_error ?? 0) + 1;
+					console.error(
+						`    ${norm.id}/${block.block_id}: store failed: ${err}`,
+					);
+				}
 			}
 		};
 		await Promise.all(
@@ -496,3 +520,19 @@ console.log("");
 
 // Non-zero exit when every norm failed (e.g. bad key), so the daily pipeline alerts.
 if (processedCount === 0 && errorCount > 0) process.exit(1);
+// Same when every article request was refused by the API (4xx: 402 out of
+// credit, 401/403 bad key, 404 no ZDR endpoint for the model): nothing is being
+// generated and it will not fix itself.
+const clientErrors = Object.entries(articleFailures)
+	.filter(([reason]) => /^http_4\d\d$/.test(reason))
+	.reduce((n, [, count]) => n + count, 0);
+if (
+	articleRequests > 0 &&
+	articleStored === 0 &&
+	clientErrors === articleRequests
+) {
+	console.error(
+		`All ${articleRequests} article requests were refused by the API (${JSON.stringify(articleFailures)})`,
+	);
+	process.exit(1);
+}

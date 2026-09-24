@@ -285,3 +285,113 @@ describe("request parity with the API's OpenRouter client", () => {
 		expect(bodies[0]).toEqual(shared);
 	});
 });
+
+describe("CitizenSummaryService spend guards", () => {
+	let db: Database;
+	const guardEnv = [
+		"LAZY_SUMMARIES_DAILY_LIMIT",
+		"LAZY_SUMMARIES_CONCURRENCY",
+		"LAZY_SUMMARIES_MAX_INPUT_CHARS",
+	];
+	const savedGuards = Object.fromEntries(
+		guardEnv.map((k) => [k, process.env[k]]),
+	);
+
+	beforeEach(() => {
+		bodies = [];
+		process.env.OPENROUTER_API_KEY = "test-key";
+		process.env.OPENROUTER_BACKOFF_MS = "0";
+		db = new Database(":memory:");
+		createSchema(db);
+		db.run(
+			"INSERT INTO norms (id, title, country, rank, published_at, status) VALUES ('N', 'Ley', 'es', 'ley', '2026-01-01', 'vigente')",
+		);
+		const insert = db.prepare(
+			"INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', ?, ?, ?, ?, ?)",
+		);
+		for (let i = 1; i <= 6; i++)
+			insert.run(`a${i}`, "precepto", `Artículo ${i}`, i, ARTICLE);
+		insert.run("pr", "preambulo", "Preámbulo", 0, ARTICLE);
+		insert.run("fi", "firma", "Firma", 99, ARTICLE);
+	});
+
+	afterEach(() => {
+		globalThis.fetch = realFetch;
+		for (const [k, v] of Object.entries({ ...saved, ...savedGuards }))
+			if (v === undefined) Reflect.deleteProperty(process.env, k);
+			else process.env[k] = v;
+		db.close();
+	});
+
+	test("only articles (precepto): never preambles or signatures", async () => {
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		expect(
+			await svc.getOrGenerate("N", "pr", "Ley", "Preámbulo", ARTICLE),
+		).toBeNull();
+		expect(
+			await svc.getOrGenerate("N", "fi", "Ley", "Firma", ARTICLE),
+		).toBeNull();
+		expect(await svc.getOrGenerate("N", "zz", "Ley", "?", ARTICLE)).toBeNull();
+		expect(bodies).toHaveLength(0);
+	});
+
+	test("articles above the input cap are skipped", async () => {
+		process.env.LAZY_SUMMARIES_MAX_INPUT_CHARS = "100";
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		expect(
+			await svc.getOrGenerate("N", "a1", "Ley", "Artículo 1", ARTICLE),
+		).toBeNull();
+		expect(bodies).toHaveLength(0);
+	});
+
+	test("daily limit per Europe/Madrid day, reset the next day", async () => {
+		process.env.LAZY_SUMMARIES_DAILY_LIMIT = "2";
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		// 23:30 UTC on 2026-09-23 is already 2026-09-24 in Madrid.
+		let now = new Date("2026-09-23T23:30:00Z");
+		svc.now = () => now;
+		for (const id of ["a1", "a2", "a3"])
+			await svc.getOrGenerate("N", id, "Ley", id, ARTICLE);
+		expect(bodies).toHaveLength(2);
+		// Same Madrid day: still capped.
+		now = new Date("2026-09-24T21:00:00Z");
+		await svc.getOrGenerate("N", "a3", "Ley", "a3", ARTICLE);
+		expect(bodies).toHaveLength(2);
+		// Next Madrid day: a3 (skipped, not "attempted") goes through.
+		now = new Date("2026-09-24T22:30:00Z");
+		const r = await svc.getOrGenerate("N", "a3", "Ley", "a3", ARTICLE);
+		expect(r?.citizen_summary).toBe(GOOD);
+		expect(bodies).toHaveLength(3);
+	});
+
+	test("at most LAZY_SUMMARIES_CONCURRENCY calls in flight", async () => {
+		process.env.LAZY_SUMMARIES_CONCURRENCY = "2";
+		let release: () => void = () => {};
+		const gate = new Promise<void>((r) => {
+			release = r;
+		});
+		globalThis.fetch = (async (_url: string, init: RequestInit) => {
+			bodies.push(JSON.parse(String(init.body)));
+			await gate;
+			return new Response(
+				JSON.stringify({ choices: [{ message: { content: reply(GOOD) } }] }),
+				{ status: 200 },
+			);
+		}) as unknown as typeof fetch;
+		const svc = new CitizenSummaryService(db);
+		const calls = ["a1", "a2", "a3", "a4"].map((id) =>
+			svc.getOrGenerate("N", id, "Ley", id, ARTICLE),
+		);
+		await settle();
+		expect(bodies).toHaveLength(2);
+		release();
+		const results = await Promise.all(calls);
+		expect(results.filter((r) => r !== null)).toHaveLength(2);
+		// The skipped ones can be generated later.
+		await svc.getOrGenerate("N", "a3", "Ley", "a3", ARTICLE);
+		expect(bodies).toHaveLength(3);
+	});
+});

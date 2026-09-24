@@ -12,8 +12,14 @@
  *   b) citizen_article_summaries written in the second person ("Tienes
  *      derecho…", "tus deudas") or longer than 600 characters (the absolute
  *      cap). Deleted, with their article-level tags, so they are generated
- *      again (lazy API route, or the offline export of articles without a
- *      summary). Reform summaries in the second person are only LISTED: the
+ *      again. They come back through the offline flow (the export picks every
+ *      vigente article without a summary: article-summaries-offline.ts export
+ *      → generate → import), through the daily cron only when their law is
+ *      reprocessed, or lazily when someone opens the law. Before --apply the
+ *      dry run lists the laws that would be left with no own content at all
+ *      (no law summary, no reform headline, no article summary): their page
+ *      becomes noindex until the summaries are back (isIndexableLaw in
+ *      packages/web/src/lib/manifest.ts). Reform summaries in the second person are only LISTED: the
  *      Batch API reprocessing (reform-summaries-offline.ts export
  *      --regenerate-existing → batch → import --replace-from) replaces every
  *      published reform summary and its import rejects the second person.
@@ -179,7 +185,10 @@ console.log(
 	`b) article summaries to delete: ${secondPerson.length} in the second person, ${tooLong.length} over ${MAX_SUMMARY_CHARS} characters`,
 );
 for (const r of toDelete) {
-	const words = (r.summary.match(SECOND_PERSON) ?? []).join(",");
+	const words = secondPersonWords(
+		r.summary,
+		articleText.get(r.norm_id, r.block_id)?.text ?? "",
+	).join(",");
 	console.log(
 		`   ${r.norm_id}/${r.block_id} (${r.summary.length}${words ? `; ${words}` : ""}): ${r.summary.slice(0, 100)}`,
 	);
@@ -191,6 +200,26 @@ for (const r of reformsSecondPerson)
 	console.log(
 		`   ${r.norm_id}|${r.source_id}|${r.reform_date} [${r.model}]: ${r.headline}`,
 	);
+// Laws whose page would lose all its own content (isIndexableLaw → noindex).
+const deletedByLaw = new Map<string, number>();
+for (const r of toDelete)
+	deletedByLaw.set(r.norm_id, (deletedByLaw.get(r.norm_id) ?? 0) + 1);
+const lawContent = db.query<
+	{ law: number; reforms: number; articles: number },
+	[string]
+>(
+	`SELECT (SELECT count(*) FROM norms WHERE id = ?1 AND citizen_summary != '') AS law,
+	        (SELECT count(*) FROM reform_summaries WHERE norm_id = ?1 AND headline != '') AS reforms,
+	        (SELECT count(*) FROM citizen_article_summaries WHERE norm_id = ?1 AND summary != '') AS articles`,
+);
+const leftEmpty = [...deletedByLaw].filter(([normId, deleted]) => {
+	const c = lawContent.get(normId);
+	return c !== null && c.law === 0 && c.reforms === 0 && c.articles <= deleted;
+});
+console.log(
+	`   laws left with no own content (page → noindex until regenerated): ${leftEmpty.length}`,
+);
+for (const [normId] of leftEmpty) console.log(`   ${normId}`);
 console.log(`c) empty omnibus topics to delete: ${emptyTopics.length}`);
 for (const t of emptyTopics)
 	console.log(`   ${t.norm_id} #${t.topic_index} ${t.topic_label}`);

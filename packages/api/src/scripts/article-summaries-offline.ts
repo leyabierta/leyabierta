@@ -82,8 +82,8 @@ const RANK_ORDER: Record<string, number> = {
 async function exportPending(outFile: string) {
 	const db = new Database(DB_PATH, { readonly: true });
 	// Laws with an empty law-level summary are excluded: the daily
-	// generate-citizen-tags.ts run regenerates them and deletes their article
-	// summaries first, so anything imported there would be thrown away.
+	// generate-citizen-tags.ts run summarizes them, then their articles (and
+	// import skips them too: law_summary_pending).
 	const rows = db
 		.prepare(
 			`SELECT n.id AS norm_id, n.title AS norm_title, n.jurisdiction, n.rank,

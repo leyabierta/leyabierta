@@ -21,6 +21,23 @@ import {
 // response; give reasoning models room before giving up.
 const LAZY_TIMEOUT_MS = 90_000;
 
+/**
+ * Spend guards for request-triggered generation (any visitor or crawler can
+ * trigger it): at most LAZY_SUMMARIES_CONCURRENCY calls in flight (default 3),
+ * at most LAZY_SUMMARIES_DAILY_LIMIT generations per Europe/Madrid day
+ * (default 200; in memory, so a restart resets it), and articles up to
+ * LAZY_SUMMARIES_MAX_INPUT_CHARS (default 20,000). Above any limit the
+ * article is just skipped: the daily cron or an offline backfill fills it.
+ */
+function envInt(name: string, fallback: number): number {
+	const v = Number(process.env[name]);
+	return Number.isFinite(v) && v >= 0 ? Math.floor(v) : fallback;
+}
+
+function madridDay(now: Date): string {
+	return now.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
+}
+
 interface GeneratedSummary {
 	citizen_summary: string;
 	citizen_tags: string[];
@@ -42,6 +59,18 @@ export class CitizenSummaryService {
 	// Per-process (cleared on the daily API restart) and size-capped.
 	private attempted = new Set<string>();
 	private static readonly MAX_ATTEMPTED = 50_000;
+	private stmtBlockType: ReturnType<Database["prepare"]>;
+	private inFlight = 0;
+	private day = "";
+	private generatedToday = 0;
+	private readonly maxConcurrent = envInt("LAZY_SUMMARIES_CONCURRENCY", 3);
+	private readonly dailyLimit = envInt("LAZY_SUMMARIES_DAILY_LIMIT", 200);
+	private readonly maxInputChars = envInt(
+		"LAZY_SUMMARIES_MAX_INPUT_CHARS",
+		20_000,
+	);
+	/** Clock, replaceable in tests. */
+	now: () => Date = () => new Date();
 
 	constructor(db: Database) {
 		this.db = db;
@@ -52,6 +81,9 @@ export class CitizenSummaryService {
 		);
 		this.stmtGetTags = db.prepare(
 			"SELECT tag FROM citizen_tags WHERE norm_id = ? AND block_id = ?",
+		);
+		this.stmtBlockType = db.prepare(
+			"SELECT block_type FROM blocks WHERE norm_id = ? AND block_id = ?",
 		);
 		this.stmtGetArticle = db.prepare(
 			`SELECT n.title AS normTitle, b.title AS blockTitle, b.current_text AS text
@@ -89,9 +121,18 @@ export class CitizenSummaryService {
 		// 2. No API key = no generation
 		if (!this.apiKey) return null;
 
-		// 3. Skip very short articles and placeholders ("(Derogado)", a bare
-		// chapter heading): nothing to summarize.
-		if (articleText.length < 50 || !articleHasSubstance(articleText))
+		// 3. Only articles (block_type 'precepto', like the cron): never
+		// preambles, signatures or notes. Skip very short articles, placeholders
+		// ("(Derogado)", a bare chapter heading) and giant ones.
+		const block = this.stmtBlockType.get(normId, blockId) as {
+			block_type: string;
+		} | null;
+		if (block?.block_type !== "precepto") return null;
+		if (
+			articleText.length < 50 ||
+			articleText.length > this.maxInputChars ||
+			!articleHasSubstance(articleText)
+		)
 			return null;
 
 		// 4. Deduplicate in-flight requests
@@ -104,6 +145,18 @@ export class CitizenSummaryService {
 
 		// 5. Already tried in this process and nothing was cached: don't re-pay.
 		if (this.attempted.has(cacheKey)) return null;
+
+		// 6. Spend guards. Not remembered as attempted: a later request (another
+		// day, a quieter moment) may still generate it.
+		const today = madridDay(this.now());
+		if (today !== this.day) {
+			this.day = today;
+			this.generatedToday = 0;
+		}
+		if (this.generatedToday >= this.dailyLimit) return null;
+		if (this.inFlight >= this.maxConcurrent) return null;
+		this.generatedToday++;
+
 		if (this.attempted.size >= CitizenSummaryService.MAX_ATTEMPTED) {
 			// FIFO: a Set iterates in insertion order, so evict only the oldest
 			// entry instead of re-exposing every attempted article at once.
@@ -112,6 +165,7 @@ export class CitizenSummaryService {
 		}
 		this.attempted.add(cacheKey);
 
+		this.inFlight++;
 		const promise = this.generate(
 			normId,
 			blockId,
@@ -126,6 +180,7 @@ export class CitizenSummaryService {
 			return result;
 		} finally {
 			this.pending.delete(cacheKey);
+			this.inFlight--;
 		}
 	}
 

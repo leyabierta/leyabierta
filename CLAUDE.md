@@ -257,7 +257,13 @@ article (placeholders skipped, > 60K characters left to the offline backfill),
 (`validateArticleSummary`: length cap by article size, 3–5 tags, no second
 person, Latin script) guards those paths and the offline import; each row
 stores `model`, `prompt_version` and `generated_at` ('' for rows written
-before 2026-09-24). Storage never overwrites an existing summary.
+before 2026-09-24). Storage never overwrites an existing summary, and the
+cron never deletes one (it only fills gaps, `ARTICLE_SUMMARIES_MAX_PER_RUN`
+requests per run, default 300; exit 1 if the API refuses every request).
+Request-triggered generation (lazy route + RAG fill) only handles articles
+(`block_type = 'precepto'`) up to `LAZY_SUMMARIES_MAX_INPUT_CHARS` (20,000),
+with at most `LAZY_SUMMARIES_CONCURRENCY` (3) calls in flight and
+`LAZY_SUMMARIES_DAILY_LIMIT` (200) generations per Europe/Madrid day.
 Reform summaries use `REFORM_SUMMARIES_MODEL` (default `openai/gpt-6-luna`, reasoning `{effort: "minimal"}`; `qwen/*` models
 get reasoning off) with the style rules at the end of `REFORM_SYSTEM_PROMPT`
 (short, plain, impersonal, no unsupported value judgements). On 40 held-out

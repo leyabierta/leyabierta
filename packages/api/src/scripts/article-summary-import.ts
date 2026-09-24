@@ -199,8 +199,10 @@ export function importRows(
 			skip("article_missing_or_not_vigente");
 			continue;
 		}
-		// generate-citizen-tags.ts (daily cron) regenerates laws with an empty
-		// law-level summary and first deletes all their article summaries.
+		// Laws with an empty law-level summary are left to the daily cron
+		// (generate-citizen-tags.ts), which summarizes the law and then its
+		// articles. Until 2026-09-24 it also deleted their article summaries
+		// first; it no longer does, so this skip is only conservative.
 		if (!current.normSummary) {
 			skip("law_summary_pending");
 			continue;

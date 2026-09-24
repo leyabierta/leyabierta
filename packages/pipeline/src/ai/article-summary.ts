@@ -142,7 +142,7 @@ export const MAX_TAG_CHARS = 60;
 
 // Control and invisible format characters (NUL, zero-width space...) and
 // HTML-like tags. Bare < and > stay: "municipios <10.000 hab" is legitimate.
-const UNSAFE_CHARS = /[\p{Cc}\p{Cf}]|<\/?[a-z][^>]*>/iu;
+const UNSAFE_CHARS = /[\p{Cc}\p{Cf}]|<\/?[a-z][^<>]*>/iu;
 // `\b` only knows ASCII letters (even with the `u` flag): "túneles" would
 // match "tú" and "andén" would match "and". Use Unicode letter lookarounds.
 const word = (alternatives: string) =>
