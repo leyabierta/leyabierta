@@ -28,7 +28,18 @@ export interface ReformSitemapLaw {
 
 export function reformSitemapEntries(
 	laws: ReformSitemapLaw[],
-	opts: { siteUrl: string; todayIso: string; maxYear: number },
+	opts: {
+		siteUrl: string;
+		todayIso: string;
+		maxYear: number;
+		/**
+		 * When the reform page's own content (AI headline/summary) last changed
+		 * (page-lastmod.ts). A later content date wins over the reform's legal
+		 * date: a 1990 reform whose "qué cambió" was written in 2026 is a page
+		 * that changed in 2026.
+		 */
+		contentDate?: (lawId: string, date: string) => string | undefined;
+	},
 ): ReformSitemapEntry[] {
 	const entries: ReformSitemapEntry[] = [];
 	// A law can be amended by two different norms on the same day, so `reformas[]`
@@ -62,7 +73,11 @@ export function reformSitemapEntries(
 			// lastmod must never be in the future (Google flags it as invalid),
 			// and a pre-1970 one is rejected outright — those entries keep the URL
 			// and simply omit the tag.
-			const lastmod = clampLastmod(reforma.fecha, opts.todayIso);
+			let lastmod = clampLastmod(reforma.fecha, opts.todayIso);
+			const content = opts.contentDate?.(law.identificador, reforma.fecha);
+			if (content && content <= opts.todayIso && content > lastmod) {
+				lastmod = content;
+			}
 			entries.push(
 				isEmittableLastmod(lastmod, opts.todayIso) ? { loc, lastmod } : { loc },
 			);

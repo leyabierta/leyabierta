@@ -21,6 +21,7 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { reformContentDate } from "../lib/page-lastmod-build.ts";
 import { reformSitemapEntries } from "../lib/reform-sitemap.ts";
 
 export const prerender = true;
@@ -34,11 +35,18 @@ export const GET: APIRoute = async () => {
 
 	const entries = reformSitemapEntries(
 		laws.map((l) => l.data),
-		{ siteUrl: SITE_URL, todayIso: TODAY_ISO, maxYear: MAX_YEAR },
+		{
+			siteUrl: SITE_URL,
+			todayIso: TODAY_ISO,
+			maxYear: MAX_YEAR,
+			contentDate: reformContentDate,
+		},
 	);
 
-	// <lastmod> is optional, and omitted for pre-1970 reform dates: Google
-	// rejects those as "Invalid date" and the URL is what we want crawled.
+	// <lastmod> is the later of the reform date and the date its "qué cambió"
+	// text last changed (page-lastmod.ts). It is optional, and omitted when it
+	// would be a pre-1970 date: Google rejects those as "Invalid date" and the
+	// URL is what we want crawled.
 	const urls = entries.map(
 		({ loc, lastmod }) => `  <url>
     <loc>${loc}</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ""}

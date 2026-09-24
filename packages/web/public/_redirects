@@ -54,3 +54,7 @@
 
 # Trailing slash on the new canonical bare path (in case someone links without it)
 /leyes /leyes/ 301
+
+# The /laws/ legacy sitemap served its purpose (redirect discovery after the
+# 2026-05-03 migration; never submitted in GSC). Removed 2026-09-25.
+/sitemap-legacy.xml /sitemap.xml 301

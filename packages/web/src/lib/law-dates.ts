@@ -50,3 +50,22 @@ export function effectiveLastUpdated(
 	for (const r of law.reformas ?? []) consider(r.fecha);
 	return latest;
 }
+
+/**
+ * When the law PAGE last changed: the later of the law's legal update date and
+ * the date our own content on it last changed (see page-lastmod.ts). This is
+ * what sitemap `<lastmod>` and the WebPage `dateModified` advertise; the
+ * visible "última actualización" and the Legislation JSON-LD keep the legal
+ * date. A content date after `today` is ignored (a future lastmod is rejected
+ * by Google).
+ */
+export function pageLastModified(
+	law: LawDateFields,
+	contentDate: string | undefined,
+	today: string = todayIso(),
+): string | undefined {
+	const legal = effectiveLastUpdated(law, today);
+	const content = contentDate && contentDate <= today ? contentDate : undefined;
+	if (!content) return legal;
+	return !legal || content > legal ? content : legal;
+}

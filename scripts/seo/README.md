@@ -33,6 +33,29 @@ nothing and needs no API token — see "Cloudflare" below.
 | `plan.ts` | `MODEL=provider:model` → structured JSON action plan (pure inference) |
 | `benchmark.ts` | Run N models on one snapshot, gate + judge, write a leaderboard |
 | `seo-loop.sh` | Orchestrator for the cron |
+| `resubmit-sitemap.ts` | PUT a sitemap to the Sitemaps API so Google re-reads it |
+| `indexnow.ts` | Ping IndexNow (Bing, Yandex…) with the pages whose own content changed; runs after every deploy |
+
+## Page `<lastmod>` and IndexNow
+
+`<lastmod>` is the date a page last changed, not the law's legal date alone:
+each build hashes the own content it renders (citizen summary, reform
+headlines, article summaries) and publishes `/lastmod.json`
+(`packages/web/src/lib/page-lastmod.ts`). The next build downloads it and only
+moves a page's date when its hash changed. Without a previous file every page
+gets the bootstrap date (2026-09-23). Never set lastmod to the build date.
+
+After each deploy, `deploy.yml` runs
+`indexnow.ts --prev packages/web/.lastmod-prev.json --next packages/web/dist/lastmod.json`
+(non-fatal; sends nothing without a previous state). One-off submission of
+every page with own content, read from production:
+
+```bash
+bun run scripts/seo/indexnow.ts --all --dry-run   # check the count first
+bun run scripts/seo/indexnow.ts --all
+```
+
+The key is public by design: `packages/web/public/<key>.txt`.
 
 ## What the GSC snapshot contains
 

@@ -32,11 +32,18 @@
 /feed.xml
   Cache-Control: public, max-age=0, s-maxage=3600, must-revalidate
 
+# Matching rules add up: without the `!` detach, sitemaps were served with two
+# Cache-Control headers (this one and the `/*` one).
 /sitemap*.xml
+  ! Cache-Control
   Cache-Control: public, max-age=0, s-maxage=86400, must-revalidate
 
-/sitemap-legacy.xml
-  Cache-Control: public, max-age=0, s-maxage=3600, must-revalidate
+# Build state for the next build and IndexNow (src/lib/page-lastmod.ts), not a
+# page. Short edge cache: the next build must read the version just deployed.
+/lastmod.json
+  ! Cache-Control
+  Cache-Control: public, max-age=0, s-maxage=300, must-revalidate
+  X-Robots-Tag: noindex
 
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable

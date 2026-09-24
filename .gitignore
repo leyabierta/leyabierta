@@ -43,6 +43,8 @@ content/
 .claude/
 packages/web/.astro/
 packages/web/.build-manifest.json
+packages/web/.build-manifest-articles.json
+packages/web/.lastmod-prev.json
 
 # generated OG images
 og-images/

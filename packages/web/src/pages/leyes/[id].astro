@@ -16,7 +16,8 @@ import {
 	loadManifest,
 } from "../../lib/manifest.ts";
 import { hubsForLaw } from "../../components/topic-hubs";
-import { effectiveLastUpdated } from "../../lib/law-dates.ts";
+import { effectiveLastUpdated, pageLastModified } from "../../lib/law-dates.ts";
+import { lawContentDate } from "../../lib/page-lastmod-build.ts";
 import {
 	BUILD_TEXT_PAGES,
 	boeUrl,
@@ -134,6 +135,10 @@ const law = entry.data;
 // Never read law.ultima_actualizacion directly: it can lag the reforms list or
 // be corrupt. See lib/law-dates.ts.
 const lastUpdated = effectiveLastUpdated(law);
+// When this PAGE last changed (legal date or our own content, whichever is
+// later), as advertised by sitemap-leyes.xml: the WebPage `dateModified`. The
+// Legislation JSON-LD and the visible date keep the legal date.
+const pageModified = pageLastModified(law, lawContentDate(id!));
 
 // Topic hubs this norm is curated into, so the page can link back to them.
 // The hub→ley link already existed; without this one the cluster is a dead end
@@ -295,6 +300,17 @@ const seoDescription = [
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
 		...(seoAbbreviations.length > 0 ? { "alternateName": seoAbbreviations } : {}),
 		...(law.fuente ? { "sameAs": law.fuente } : {})
+	})} />
+	<!-- JSON-LD: WebPage (when the page changed; the Legislation above keeps the legal date) -->
+	<script type="application/ld+json" set:html={safeJsonLd({
+		"@context": "https://schema.org",
+		"@type": "WebPage",
+		"@id": `https://leyabierta.es/leyes/${id}/#webpage`,
+		"url": `https://leyabierta.es/leyes/${id}/`,
+		"name": law.titulo,
+		"inLanguage": "es",
+		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
+		...(pageModified ? { "dateModified": pageModified } : {})
 	})} />
 	<script type="application/ld+json" set:html={safeJsonLd({
 		"@context": "https://schema.org",

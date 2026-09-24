@@ -393,6 +393,15 @@ jobs:
           fi
           echo "✓ cache purged"
 
+      # Ping IndexNow (Bing, Yandex…) with the URLs whose own content changed in
+      # this build: the diff between the lastmod.json the build downloaded from
+      # production and the one it just deployed (src/lib/page-lastmod.ts). Sends
+      # nothing without a previous state. After the purge, so crawlers that come
+      # right away get the new pages. Non-fatal: the deploy already succeeded.
+      - name: Notify IndexNow of changed pages
+        continue-on-error: true
+        run: bun run scripts/seo/indexnow.ts --prev packages/web/.lastmod-prev.json --next packages/web/dist/lastmod.json
+
       # Keeps the leyes-rebuild-backstop.yml cache marker (`last-leyes-sha-*`)
       # in sync whenever THIS job is the one that actually rebuilt the site, no
       # matter what triggered it (push, workflow_dispatch, or the primary

@@ -2,14 +2,19 @@
  * Sitemap: core pages + the indexable law summary pages, generated from Content
  * Collections at build time. One of two child sitemaps referenced by the
  * /sitemap.xml index (see sitemap.xml.ts and sitemap-reformas.xml.ts).
+ *
+ * `<lastmod>` is when the page last changed: the later of the law's legal
+ * update date and the date its own content last changed (page-lastmod.ts).
+ * Which laws qualify, and how the date is picked, lives in lib/law-sitemap.ts.
  */
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
-import { effectiveLastUpdated, todayIso } from "../lib/law-dates.ts";
+import { todayIso } from "../lib/law-dates.ts";
+import { lawSitemapEntries } from "../lib/law-sitemap.ts";
 import { isIndexableLaw } from "../lib/manifest.ts";
+import { lawContentDate } from "../lib/page-lastmod-build.ts";
 import { SECONDARY_PAGES } from "../lib/site-pages.ts";
-import { isEmittableLastmod } from "../lib/sitemap-dates.ts";
 
 export const prerender = true;
 
@@ -34,24 +39,20 @@ export const GET: APIRoute = async () => {
 		),
 	];
 
-	for (const law of laws) {
-		const d = law.data;
-		// Thin law pages (no citizen summary, no reform headlines, no article
-		// summaries) are `noindex`; listing them here would contradict that.
-		// The full-text pages (/leyes/<id>/texto/, only built with
-		// BUILD_TEXT_PAGES) are noindex and never listed.
-		if (!isIndexableLaw(d.identificador)) continue;
-		// Only emit lastmod for dates Google accepts — see isEmittableLastmod.
-		// sitemap-reformas.xml applies the same rule through the same helper;
-		// when this one held the rule inline, reformas didn't get it and Google
-		// reported 158 "Invalid date" errors for two months.
-		const updated = effectiveLastUpdated(d, TODAY_ISO);
-		const lastmod =
-			updated && isEmittableLastmod(updated, TODAY_ISO)
-				? `\n    <lastmod>${updated}</lastmod>`
-				: "";
+	// The full-text pages (/leyes/<id>/texto/, only built with
+	// BUILD_TEXT_PAGES) are noindex and never listed.
+	const entries = lawSitemapEntries(
+		laws.map((l) => l.data),
+		{
+			siteUrl: SITE_URL,
+			todayIso: TODAY_ISO,
+			isIndexable: isIndexableLaw,
+			contentDate: lawContentDate,
+		},
+	);
+	for (const { loc, lastmod } of entries) {
 		urls.push(`  <url>
-    <loc>${SITE_URL}/leyes/${d.identificador}/</loc>${lastmod}
+    <loc>${loc}</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ""}
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`);
