@@ -10,10 +10,7 @@ name: PR checks
 on:
   pull_request:
     paths:
-      - "packages/web/**"
-      - "packages/pipeline/**"
-      - "packages/api/**"
-      - "packages/shared/**"
+      - "packages/**"
       - "scripts/**"
       - "lefthook.yml"
       - "package.json"
@@ -28,10 +25,7 @@ on:
       - "seo-loop/**"
     # keep these paths in sync with pull_request.paths above
     paths:
-      - "packages/web/**"
-      - "packages/pipeline/**"
-      - "packages/api/**"
-      - "packages/shared/**"
+      - "packages/**"
       - "scripts/**"
       - "lefthook.yml"
       - "package.json"
