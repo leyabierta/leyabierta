@@ -48,8 +48,10 @@ import {
 	getSourceInfo,
 	isOmnibusSource,
 	PROMPT_VERSION,
+	REFORM_JSON_SCHEMA,
+	REFORM_MAX_TOKENS,
+	REFORM_TEMPERATURE,
 	reformReasoning,
-	SUMMARY_SCHEMA,
 } from "./reform-summary-prompt.ts";
 import {
 	type SummaryResponse,
@@ -205,11 +207,9 @@ async function main() {
 					{ role: "system", content: system },
 					{ role: "user", content: user },
 				],
-				temperature: 0.2,
-				jsonSchema: {
-					name: "reform_summary",
-					schema: SUMMARY_SCHEMA,
-				},
+				temperature: REFORM_TEMPERATURE,
+				maxTokens: REFORM_MAX_TOKENS,
+				jsonSchema: REFORM_JSON_SCHEMA,
 				reasoning,
 				baseUrl: endpoint.baseUrl,
 				extraBody: endpoint.extraBody,

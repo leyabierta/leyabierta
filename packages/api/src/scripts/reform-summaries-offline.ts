@@ -14,6 +14,18 @@
  *   bun run packages/api/src/scripts/reform-summaries-offline.ts import <generated.jsonl> [--apply]
  *     [--replace-from <export.jsonl>] [--db PATH]
  *
+ * Instead of `generate`, the OpenRouter Batch API (openai/gpt-6-luna:batch,
+ * the same request as the daily cron; see reform-batch.ts, NOT Zero Data
+ * Retention: public legislation only, never user questions):
+ *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/reform-summaries-offline.ts \
+ *     batch-submit <export.jsonl> <state.json> [--chunk 2000] [--limit N] [--skip-done <out.jsonl>]
+ *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/reform-summaries-offline.ts \
+ *     batch-collect <state.json> <out.jsonl> [--poll-seconds 300] [--once]
+ * batch-submit resumes from <state.json> if it exists. batch-collect writes
+ * rows in the format of `generate` for `import`, and DELETEs each batch it
+ * has read. To send failed rows again: batch-submit the same export with a
+ * NEW state file and `--skip-done <out.jsonl>`, once the old state is collected.
+ *
  * The prompt is the production one (reform-summary-prompt.ts), built on the
  * server at export time. Each row carries a hash of it; import rebuilds the
  * prompt from the DB and skips the row if anything it was built from changed.
@@ -29,8 +41,17 @@
  */
 
 import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
 import { hasColumn } from "@leyabierta/pipeline";
 import { readJsonl, runGeneration } from "./offline-llm.ts";
+import {
+	type ExportRow as BatchExportRow,
+	collectOnce,
+	loadState,
+	planBatches,
+	saveState,
+	submitBatches,
+} from "./reform-batch.ts";
 import {
 	importReformRows,
 	promptHash,
@@ -58,7 +79,10 @@ const positional = args
 			!a.startsWith("--") &&
 			all[i - 1] !== "--db" &&
 			all[i - 1] !== "--limit" &&
-			all[i - 1] !== "--replace-from",
+			all[i - 1] !== "--replace-from" &&
+			all[i - 1] !== "--chunk" &&
+			all[i - 1] !== "--skip-done" &&
+			all[i - 1] !== "--poll-seconds",
 	);
 
 interface ExportRow {
@@ -188,15 +212,92 @@ function importGenerated(file: string, apply: boolean) {
 	);
 }
 
+function batchApiKey(): string {
+	const key = process.env.OPENROUTER_API_KEY ?? "";
+	if (!key) {
+		console.error("Set OPENROUTER_API_KEY");
+		process.exit(1);
+	}
+	return key;
+}
+
+async function batchSubmit(exportFile: string, statePath: string) {
+	const { rows, badLines } = readJsonl<BatchExportRow>(exportFile);
+	const userById = new Map(rows.map((r, line) => [`r${line}`, r.user]));
+	let state: ReturnType<typeof loadState>;
+	if (existsSync(statePath)) {
+		state = loadState(statePath);
+		if (state.export_file !== exportFile)
+			throw new Error(
+				`${statePath} was planned from ${state.export_file}, not ${exportFile}`,
+			);
+		console.log(`resuming ${statePath}`);
+	} else {
+		const skipDone = flag("--skip-done");
+		const skipKeys = new Set<string>();
+		if (skipDone)
+			for (const o of readJsonl<Record<string, unknown>>(skipDone).rows)
+				if (o.ok === true)
+					skipKeys.add(`${o.norm_id}|${o.source_id}|${o.reform_date}`);
+		const plan = planBatches(exportFile, rows, {
+			chunk: Number(flag("--chunk") ?? 2000),
+			limit: Number(flag("--limit") ?? 0),
+			skipKeys,
+		});
+		state = plan.state;
+		console.log(
+			`plan: ${Object.keys(state.items).length} reforms in ${state.batches.length} batches; refused ${JSON.stringify(plan.refused)}; bad lines ${badLines}`,
+		);
+		if (state.batches.length === 0) return;
+		saveState(statePath, state);
+	}
+	const n = await submitBatches(
+		{ apiKey: batchApiKey() },
+		statePath,
+		state,
+		(id) => {
+			const user = userById.get(id);
+			if (user === undefined) throw new Error(`${id} not in ${exportFile}`);
+			return user;
+		},
+	);
+	console.log(`batch-submit: ${n} batches submitted; state in ${statePath}`);
+}
+
+async function batchCollect(statePath: string, outFile: string) {
+	const state = loadState(statePath);
+	const pollMs = Number(flag("--poll-seconds") ?? 300) * 1000;
+	const api = { apiKey: batchApiKey() };
+	for (;;) {
+		const { pending, written, ok } = await collectOnce(
+			api,
+			statePath,
+			state,
+			outFile,
+		);
+		console.log(
+			`[${new Date().toISOString()}] written ${written} (ok ${ok}), batches pending ${pending}`,
+		);
+		if (pending === 0 || args.includes("--once")) break;
+		await Bun.sleep(pollMs);
+	}
+	const cost = state.batches.reduce((sum, b) => sum + (b.cost ?? 0), 0);
+	console.log(`batch-collect: done; reported cost ${cost.toFixed(4)} USD`);
+}
+
 const [first, second] = positional;
 if (cmd === "export" && first)
 	await exportPending(first, args.includes("--regenerate-existing"));
 else if (cmd === "generate" && first && second) await generate(first, second);
 else if (cmd === "import" && first)
 	importGenerated(first, args.includes("--apply"));
+else if (cmd === "batch-submit" && first && second)
+	await batchSubmit(first, second);
+else if (cmd === "batch-collect" && first && second)
+	await batchCollect(first, second);
 else {
 	console.error(
-		"Usage: reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply] [--replace-from <export.jsonl>]",
+		"Usage: reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply] [--replace-from <export.jsonl>] | batch-submit <export.jsonl> <state.json> [--chunk N] [--limit N] [--skip-done <out.jsonl>] | batch-collect <state.json> <out.jsonl> [--poll-seconds N] [--once]",
 	);
 	process.exit(1);
 }
