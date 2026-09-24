@@ -254,7 +254,13 @@ summary stores `model` and the `prompt_version` (`PROMPT_VERSION` of
 `reform-summary-prompt.ts`) that produced it. The cron stores the OpenRouter id
 as given (it already carries the provider prefix; a local endpoint's model name
 is stored as is); the offline import maps the bare vLLM name `qwen3.8-27b` to
-`qwen/qwen3.8-27b`. The daily
+`qwen/qwen3.8-27b`. **Reprocessing in bulk** (e.g. regenerating published
+summaries) goes through the OpenRouter Batch API with the same request as the
+cron: `reform-summaries-offline.ts export [--regenerate-existing]` →
+`batch-submit` (`openai/gpt-6-luna:batch`, ≤2,000 per batch) → `batch-collect`
+(same rows as `generate`, DELETEs each batch) → `import [--replace-from]`. The
+Batch API is **not ZDR**: public legislation only, never user questions
+(`reform-batch.ts`). The daily
 generators are gap-filling:
 each run processes whatever is still missing (reform summaries: last 26 weeks,
 newest first, `REFORM_SUMMARIES_LIMIT` per run, default 200; citizen tags: norms

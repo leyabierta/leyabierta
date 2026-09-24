@@ -369,6 +369,18 @@ export function reformReasoning(
 	return undefined;
 }
 
+/**
+ * Request settings of a reform summary, shared by the daily cron
+ * (generate-reform-summaries.ts, through callOpenRouter) and the Batch API
+ * reprocessing (reform-batch.ts): both must send the model the same request.
+ */
+export const REFORM_TEMPERATURE = 0.2;
+export const REFORM_MAX_TOKENS = 4000;
+export const REFORM_JSON_SCHEMA = {
+	name: "reform_summary",
+	schema: SUMMARY_SCHEMA,
+};
+
 // ── Prompt construction ──
 
 const REFORM_BASE_PROMPT = `Eres un periodista legislativo español. Generas resúmenes claros y precisos de cambios legislativos para ciudadanos.

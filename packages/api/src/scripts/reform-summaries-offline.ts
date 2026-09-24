@@ -14,6 +14,21 @@
  *   bun run packages/api/src/scripts/reform-summaries-offline.ts import <generated.jsonl> [--apply]
  *     [--replace-from <export.jsonl>] [--db PATH]
  *
+ * Instead of `generate`, the OpenRouter Batch API (openai/gpt-6-luna:batch,
+ * the same request as the daily cron; see reform-batch.ts, NOT Zero Data
+ * Retention: public legislation only, never user questions):
+ *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/reform-summaries-offline.ts \
+ *     batch-submit <export.jsonl> <state.json> [--chunk 2000] [--limit N] [--skip-done <out.jsonl>]
+ *       [--once | --max-chunks N]
+ *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/reform-summaries-offline.ts \
+ *     batch-collect <state.json> <out.jsonl> [--poll-seconds 300 (min 30)] [--once] [--accept-incomplete]
+ * batch-submit resumes from <state.json> if it exists (refusing an export
+ * whose content changed); `--once` sends one batch only, to check a real
+ * response before sending the rest (rerun without it). batch-collect writes
+ * rows in the format of `generate` for `import`, and DELETEs each batch it
+ * has read. To send failed rows again: batch-submit the same export with a
+ * NEW state file and `--skip-done <out.jsonl>`, once the old state is collected.
+ *
  * The prompt is the production one (reform-summary-prompt.ts), built on the
  * server at export time. Each row carries a hash of it; import rebuilds the
  * prompt from the DB and skips the row if anything it was built from changed.
@@ -29,8 +44,19 @@
  */
 
 import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
 import { hasColumn } from "@leyabierta/pipeline";
 import { readJsonl, runGeneration } from "./offline-llm.ts";
+import {
+	assertSameExport,
+	type ExportRow as BatchExportRow,
+	collectOnce,
+	fileSha256,
+	loadState,
+	planBatches,
+	saveState,
+	submitBatches,
+} from "./reform-batch.ts";
 import {
 	importReformRows,
 	promptHash,
@@ -58,7 +84,11 @@ const positional = args
 			!a.startsWith("--") &&
 			all[i - 1] !== "--db" &&
 			all[i - 1] !== "--limit" &&
-			all[i - 1] !== "--replace-from",
+			all[i - 1] !== "--replace-from" &&
+			all[i - 1] !== "--chunk" &&
+			all[i - 1] !== "--skip-done" &&
+			all[i - 1] !== "--max-chunks" &&
+			all[i - 1] !== "--poll-seconds",
 	);
 
 interface ExportRow {
@@ -188,15 +218,133 @@ function importGenerated(file: string, apply: boolean) {
 	);
 }
 
+function batchApiKey(): string {
+	const key = process.env.OPENROUTER_API_KEY ?? "";
+	if (!key) {
+		console.error("Set OPENROUTER_API_KEY");
+		process.exit(1);
+	}
+	return key;
+}
+
+/** Polling faster does not speed up a 24 h batch window. */
+const MIN_POLL_SECONDS = 30;
+
+/** A non-negative integer flag, or `fallback`; exits on anything else. */
+function intFlag(name: string, fallback: number): number {
+	const raw = flag(name);
+	if (raw === undefined) return fallback;
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n < 0) {
+		console.error(`${name} must be a non-negative integer, got "${raw}"`);
+		process.exit(1);
+	}
+	return n;
+}
+
+async function batchSubmit(exportFile: string, statePath: string) {
+	const { rows, badLines } = readJsonl<BatchExportRow>(exportFile);
+	const sha256 = fileSha256(exportFile);
+	// --once sends a single batch: check the first real response before the rest.
+	const maxChunks = args.includes("--once")
+		? 1
+		: intFlag("--max-chunks", 0) || Number.POSITIVE_INFINITY;
+	let state: ReturnType<typeof loadState>;
+	if (existsSync(statePath)) {
+		state = loadState(statePath);
+		// Content, not path: an export regenerated at the same path has other
+		// lines, and custom_id is a line number.
+		assertSameExport(state, sha256);
+		const ignored = ["--chunk", "--limit", "--skip-done"].filter((f) =>
+			args.includes(f),
+		);
+		if (ignored.length > 0)
+			console.warn(
+				`WARNING: resuming ${statePath}; ${ignored.join(", ")} only apply when planning and are ignored`,
+			);
+		console.log(`resuming ${statePath}`);
+	} else {
+		const skipDone = flag("--skip-done");
+		const skipKeys = new Set<string>();
+		if (skipDone)
+			for (const o of readJsonl<Record<string, unknown>>(skipDone).rows)
+				if (o.ok === true)
+					skipKeys.add(`${o.norm_id}|${o.source_id}|${o.reform_date}`);
+		const plan = planBatches(exportFile, sha256, rows, {
+			chunk: intFlag("--chunk", 2000),
+			limit: intFlag("--limit", 0),
+			skipKeys,
+		});
+		state = plan.state;
+		console.log(
+			`plan: ${Object.keys(state.items).length} reforms in ${state.batches.length} batches; refused ${JSON.stringify(plan.refused)}; bad lines ${badLines}`,
+		);
+		if (state.batches.length === 0) return;
+		saveState(statePath, state);
+	}
+	const n = await submitBatches(
+		{ apiKey: batchApiKey() },
+		statePath,
+		state,
+		(id) => rows[Number(id.slice(1))],
+		console.log,
+		maxChunks,
+	);
+	const left = state.batches.filter((b) => !b.id).length;
+	console.log(
+		`batch-submit: ${n} batches submitted, ${left} left; state in ${statePath}`,
+	);
+}
+
+async function batchCollect(statePath: string, outFile: string) {
+	const state = loadState(statePath);
+	const pollSeconds = intFlag("--poll-seconds", 300);
+	if (pollSeconds < MIN_POLL_SECONDS) {
+		console.error(`--poll-seconds must be at least ${MIN_POLL_SECONDS}`);
+		process.exit(1);
+	}
+	const api = { apiKey: batchApiKey() };
+	const acceptIncomplete = args.includes("--accept-incomplete");
+	for (;;) {
+		const { pending, unsubmitted, blocked, written, ok } = await collectOnce(
+			api,
+			statePath,
+			state,
+			outFile,
+			console.log,
+			{ acceptIncomplete },
+		);
+		console.log(
+			`[${new Date().toISOString()}] written ${written} (ok ${ok}), batches pending ${pending}, blocked ${blocked}, not submitted ${unsubmitted}`,
+		);
+		// Unsubmitted and blocked batches never change by waiting: stop once
+		// nothing else is left.
+		if (pending === 0 || args.includes("--once")) {
+			if (blocked > 0)
+				console.warn(
+					`WARNING: ${blocked} finished batches have incomplete results and were NOT collected or deleted; check them (GET /api/v1/batches/<id>) and rerun with --accept-incomplete to collect what came back`,
+				);
+			break;
+		}
+		await Bun.sleep(pollSeconds * 1000);
+	}
+	const cost = state.batches.reduce((sum, b) => sum + (b.cost ?? 0), 0);
+	console.log(`batch-collect: done; reported cost ${cost.toFixed(4)} USD`);
+}
+
 const [first, second] = positional;
 if (cmd === "export" && first)
 	await exportPending(first, args.includes("--regenerate-existing"));
 else if (cmd === "generate" && first && second) await generate(first, second);
 else if (cmd === "import" && first)
 	importGenerated(first, args.includes("--apply"));
+else if (cmd === "batch-submit" && first && second)
+	await batchSubmit(first, second);
+else if (cmd === "batch-collect" && first && second)
+	await batchCollect(first, second);
 else {
 	console.error(
-		"Usage: reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply] [--replace-from <export.jsonl>]",
+		"Usage: reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply] [--replace-from <export.jsonl>] | batch-submit <export.jsonl> <state.json> [--chunk N] [--limit N] [--skip-done <out.jsonl>] [--once | --max-chunks N] | batch-collect <state.json> <out.jsonl> [--poll-seconds N≥30] [--once] [--accept-incomplete]",
 	);
 	process.exit(1);
 }
