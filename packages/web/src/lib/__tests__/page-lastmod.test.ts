@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { fetchPrevState } from "../../../scripts/fetch-lastmod.ts";
 import { pageLastModified } from "../law-dates.ts";
 import { lawSitemapEntries, maxLastmod } from "../law-sitemap.ts";
 import {
 	advanceEntries,
 	buildLastmodState,
 	changedKeys,
+	classifyPrevResponse,
 	contentHash,
 	LASTMOD_BOOTSTRAP_DATE,
+	type LastmodEntry,
 	type LastmodManifestInput,
+	type LastmodState,
 	lawContentHash,
 	parseLastmodState,
 	reformContentHashes,
@@ -45,6 +49,26 @@ const content = (): LastmodManifestInput => ({
 		],
 		"BOE-A-3": [["Artículo 1", "", "a1"]],
 	},
+});
+
+/** `n` keys k0..k(n-1), each with hash `h<i>`. */
+const hashes = (n: number, prefix = "h") =>
+	Object.fromEntries(
+		Array.from({ length: n }, (_, i) => [`k${i}`, `${prefix}${i}`]),
+	);
+const prevOf = (cur: Record<string, string>, date = "2026-09-23") =>
+	Object.fromEntries(
+		Object.entries(cur).map(([k, h]) => [k, [h, date] as LastmodEntry]),
+	);
+const state = (
+	laws: Record<string, LastmodEntry>,
+	generated = "2026-09-25",
+): LastmodState => ({
+	version: 1,
+	complete: true,
+	generated,
+	laws,
+	reforms: {},
 });
 
 describe("contentHash", () => {
@@ -95,26 +119,78 @@ describe("reformContentHashes", () => {
 
 describe("advanceEntries", () => {
 	test("without a previous state every entry gets the bootstrap date", () => {
-		expect(advanceEntries(undefined, { x: "h1" }, "2026-10-01")).toEqual({
+		expect(
+			advanceEntries(undefined, { x: "h1" }, "2026-10-01").entries,
+		).toEqual({
 			x: ["h1", LASTMOD_BOOTSTRAP_DATE],
 		});
 	});
+
 	test("the date only moves when the hash changes", () => {
 		const prev = {
 			same: ["h1", "2026-09-23"],
 			changed: ["h2", "2026-09-23"],
-		} as Record<string, [string, string]>;
-		expect(
-			advanceEntries(
-				prev,
-				{ same: "h1", changed: "h3", fresh: "h4" },
-				"2026-10-01",
-			),
-		).toEqual({
+		} as Record<string, LastmodEntry>;
+		const r = advanceEntries(
+			prev,
+			{ same: "h1", changed: "h3", fresh: "h4" },
+			"2026-10-01",
+		);
+		expect(r.entries).toEqual({
 			same: ["h1", "2026-09-23"],
 			changed: ["h3", "2026-10-01"],
 			fresh: ["h4", "2026-10-01"],
 		});
+		expect(r.braked).toBe(false);
+	});
+
+	test("keys missing from a build are kept (marked absent) and not new when they return", () => {
+		const cur = hashes(100);
+		const prev = prevOf(cur);
+		const { k5: _gone, ...without } = cur;
+		const r1 = advanceEntries(prev, without, "2026-10-01");
+		expect(r1.entries.k5).toEqual(["h5", "2026-09-23", 1]);
+		const r2 = advanceEntries(r1.entries, cur, "2026-10-02");
+		expect(r2.entries.k5).toEqual(["h5", "2026-09-23"]);
+		expect(r2.changed).toBe(0);
+	});
+
+	test("mass change (>20%) is re-baselined: new hashes keep the previous date", () => {
+		const cur = hashes(100);
+		const next = { ...cur };
+		for (let i = 0; i < 30; i++) next[`k${i}`] = `x${i}`;
+		next.brandNew = "n";
+		const r = advanceEntries(prevOf(cur), next, "2026-10-01");
+		expect(r.braked).toBe(true);
+		expect(r.changed).toBe(0);
+		expect(r.entries.k0).toEqual(["x0", "2026-09-23"]);
+		expect(r.entries.brandNew).toEqual(["n", LASTMOD_BOOTSTRAP_DATE]);
+	});
+
+	test("mass drop (>10%) also brakes", () => {
+		const cur = hashes(100);
+		const next = { ...cur };
+		for (let i = 0; i < 11; i++) delete next[`k${i}`];
+		next.k50 = "changed";
+		const r = advanceEntries(prevOf(cur), next, "2026-10-01");
+		expect(r.braked).toBe(true);
+		expect(r.entries.k50).toEqual(["changed", "2026-09-23"]);
+		expect(r.entries.k0).toEqual(["h0", "2026-09-23", 1]);
+	});
+
+	test("the brake can be lifted for a real mass change", () => {
+		const cur = hashes(100);
+		const next = hashes(100, "x");
+		const r = advanceEntries(prevOf(cur), next, "2026-10-01", {
+			allowMassChange: true,
+		});
+		expect(r.braked).toBe(false);
+		expect(r.entries.k0).toEqual(["x0", "2026-10-01"]);
+	});
+
+	test("tiny states are not braked", () => {
+		const r = advanceEntries(prevOf(hashes(10)), hashes(10, "x"), "2026-10-01");
+		expect(r.braked).toBe(false);
 	});
 });
 
@@ -124,7 +200,7 @@ describe("buildLastmodState", () => {
 			prev: null,
 			content: content(),
 			today: "2026-09-25",
-		});
+		}).state;
 		expect(first.complete).toBe(true);
 		expect(first.laws["BOE-A-1"]![1]).toBe(LASTMOD_BOOTSTRAP_DATE);
 		expect(first.reforms["BOE-A-1|2024-01-02"]![1]).toBe(
@@ -137,7 +213,7 @@ describe("buildLastmodState", () => {
 			prev: roundTrip,
 			content: content(),
 			today: "2026-09-26",
-		});
+		}).state;
 		expect(same.laws).toEqual(first.laws);
 		expect(changedKeys(roundTrip, same)).toEqual({ laws: [], reforms: [] });
 
@@ -147,7 +223,7 @@ describe("buildLastmodState", () => {
 			prev: roundTrip,
 			content: edited,
 			today: "2026-09-26",
-		});
+		}).state;
 		expect(next.laws["BOE-A-1"]![1]).toBe("2026-09-26");
 		expect(next.reforms["BOE-A-1|2024-01-02"]![1]).toBe(LASTMOD_BOOTSTRAP_DATE);
 		expect(changedKeys(roundTrip, next)).toEqual({
@@ -161,24 +237,111 @@ describe("buildLastmodState", () => {
 			prev: null,
 			content: content(),
 			today: "2026-09-25",
-		});
+		}).state;
 		const carried = buildLastmodState({
 			prev,
 			content: null,
 			today: "2026-09-30",
 		});
-		expect(carried.laws).toEqual(prev.laws);
-		expect(changedKeys(prev, carried)).toEqual({ laws: [], reforms: [] });
+		expect(carried.state.laws).toEqual(prev.laws);
+		expect(carried.warnings.length).toBe(1);
+		expect(changedKeys(prev, carried.state)).toEqual({ laws: [], reforms: [] });
 	});
 
-	test("without content or previous state the output is incomplete (next build bootstraps)", () => {
+	test("without content or previous state the output is an empty incomplete state", () => {
 		const s = buildLastmodState({
 			prev: null,
 			content: null,
 			today: "2026-09-30",
-		});
+		}).state;
 		expect(s.complete).toBe(false);
-		expect(parseLastmodState(JSON.parse(JSON.stringify(s)))).toBeNull();
+		expect(classifyPrevResponse(200, JSON.stringify(s)).kind).toBe("bootstrap");
+	});
+});
+
+describe("classifyPrevResponse (H1: never reset over an existing state)", () => {
+	const existing = JSON.stringify(state({ a: ["h", "2026-09-23"] }));
+
+	test("200 with a valid state → prev", () => {
+		expect(classifyPrevResponse(200, existing).kind).toBe("prev");
+	});
+	test("404 → bootstrap", () => {
+		expect(classifyPrevResponse(404, "").kind).toBe("bootstrap");
+	});
+	test("5xx, network error, HTML challenge, bad shape → retry (not bootstrap)", () => {
+		expect(classifyPrevResponse(503, "").kind).toBe("retry");
+		expect(classifyPrevResponse(0, "").kind).toBe("retry");
+		expect(classifyPrevResponse(200, "<html>Just a moment…</html>").kind).toBe(
+			"retry",
+		);
+		expect(classifyPrevResponse(200, '{"version":1}').kind).toBe("retry");
+		expect(
+			classifyPrevResponse(
+				200,
+				JSON.stringify({
+					...state({ a: ["h", "2026-09-23"] }),
+					complete: false,
+				}),
+			).kind,
+		).toBe("retry");
+	});
+	test("the operator can allow a reset", () => {
+		expect(classifyPrevResponse(503, "", true).kind).toBe("bootstrap");
+	});
+});
+
+describe("fetchPrevState", () => {
+	const noSleep = async () => {};
+
+	test("download fails with an existing state → error after retries, no reset", async () => {
+		let calls = 0;
+		const d = await fetchPrevState(
+			"u",
+			{
+				fetch: async () => {
+					calls++;
+					return { status: 502, body: "" };
+				},
+				sleep: noSleep,
+			},
+			false,
+		);
+		expect(d.kind).toBe("retry");
+		expect(calls).toBe(4);
+	});
+
+	test("a transient failure recovers on retry", async () => {
+		let calls = 0;
+		const body = JSON.stringify(state({ a: ["h", "2026-09-23"] }));
+		const d = await fetchPrevState(
+			"u",
+			{
+				fetch: async () =>
+					++calls < 3
+						? Promise.reject(new Error("timeout"))
+						: { status: 200, body },
+				sleep: noSleep,
+			},
+			false,
+		);
+		expect(d.kind).toBe("prev");
+	});
+
+	test("404 bootstraps without retrying", async () => {
+		let calls = 0;
+		const d = await fetchPrevState(
+			"u",
+			{
+				fetch: async () => {
+					calls++;
+					return { status: 404, body: "" };
+				},
+				sleep: noSleep,
+			},
+			false,
+		);
+		expect(d.kind).toBe("bootstrap");
+		expect(calls).toBe(1);
 	});
 });
 
@@ -204,6 +367,11 @@ describe("parseLastmodState", () => {
 			}),
 		).toBeNull();
 	});
+	test("accepts absent-marked entries", () => {
+		expect(
+			parseLastmodState(state({ a: ["h", "2026-09-23", 1] })),
+		).not.toBeNull();
+	});
 });
 
 describe("changedKeys", () => {
@@ -212,8 +380,21 @@ describe("changedKeys", () => {
 			prev: null,
 			content: content(),
 			today: "2026-09-25",
-		});
+		}).state;
 		expect(changedKeys(null, next)).toEqual({ laws: [], reforms: [] });
+	});
+	test("skips re-baselined and absent keys", () => {
+		const prev = state({
+			a: ["h1", "2026-09-23"],
+			b: ["h2", "2026-09-23"],
+			c: ["h3", "2026-09-23"],
+		});
+		const next = state({
+			a: ["x1", "2026-09-23"], // re-baselined: new hash, old date
+			b: ["x2", "2026-09-25"], // dated in this build
+			c: ["h3", "2026-09-23", 1], // absent
+		});
+		expect(changedKeys(prev, next)).toEqual({ laws: ["b"], reforms: [] });
 	});
 });
 

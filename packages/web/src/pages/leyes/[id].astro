@@ -284,11 +284,15 @@ const seoDescription = [
 	<script type="application/ld+json" set:html={safeJsonLd({
 		"@context": "https://schema.org",
 		"@type": "Legislation",
+		"@id": `https://leyabierta.es/leyes/${id}/#legislation`,
 		"name": law.titulo,
 		"identifier": law.identificador,
 		"description": citizenSummary || law.titulo.slice(0, 160),
 		"legislationDate": law.fecha_publicacion,
-		...(lastUpdated ? { "legislationDateVersion": lastUpdated, "dateModified": lastUpdated } : {}),
+		// The law's legal version date only. When the PAGE changed is the
+		// WebPage's `dateModified` below: two different dateModified values for
+		// one URL would contradict each other.
+		...(lastUpdated ? { "legislationDateVersion": lastUpdated } : {}),
 		"legislationJurisdiction": law.jurisdiccion === "es" ? "ES" : law.jurisdiccion.toUpperCase(),
 		...(law.estado === "vigente" || law.estado?.startsWith("derogad")
 			? { "legislationLegalForce": law.estado === "vigente" ? "InForce" : "NotInForce" }
@@ -310,6 +314,7 @@ const seoDescription = [
 		"name": law.titulo,
 		"inLanguage": "es",
 		"isPartOf": { "@type": "WebSite", "@id": "https://leyabierta.es/#website" },
+		"mainEntity": { "@id": `https://leyabierta.es/leyes/${id}/#legislation` },
 		...(pageModified ? { "dateModified": pageModified } : {})
 	})} />
 	<script type="application/ld+json" set:html={safeJsonLd({

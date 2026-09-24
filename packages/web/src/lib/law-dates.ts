@@ -11,8 +11,9 @@
  * So the effective date is the latest *plausible* date among
  * `ultima_actualizacion` and every `reformas[].fecha`, never after today.
  * Everything that shows or advertises the date — the law page header, its
- * JSON-LD `dateModified`, the /temas hubs, sitemap-leyes lastmod, the RSS
- * feed, llms-full.txt — must go through this helper so they cannot disagree.
+ * JSON-LD `legislationDateVersion`, the /temas hubs, the RSS feed,
+ * llms-full.txt, and (through pageLastModified) sitemap-leyes lastmod — must
+ * go through this helper so they cannot disagree.
  */
 
 import { isPlausibleReformDate } from "./sitemap-dates.ts";
@@ -23,9 +24,20 @@ export interface LawDateFields {
 	reformas?: readonly { fecha: string }[];
 }
 
-/** Build-time "today" (UTC), the default upper bound for every date here. */
+const MADRID_DAY = new Intl.DateTimeFormat("en-CA", {
+	timeZone: "Europe/Madrid",
+	year: "numeric",
+	month: "2-digit",
+	day: "2-digit",
+});
+
+/**
+ * Build-time "today" as a Europe/Madrid calendar day (the BOE's day, and the
+ * day the page-lastmod dates are stamped with), the default upper bound for
+ * every date here.
+ */
 export function todayIso(now: Date = new Date()): string {
-	return now.toISOString().slice(0, 10);
+	return MADRID_DAY.format(now);
 }
 
 /**

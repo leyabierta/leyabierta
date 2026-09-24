@@ -94,7 +94,11 @@ describe("effectiveLastUpdated", () => {
 });
 
 describe("todayIso", () => {
-	test("formats a date as UTC YYYY-MM-DD", () => {
-		expect(todayIso(new Date("2026-09-23T23:30:00Z"))).toBe("2026-09-23");
+	test("formats the Europe/Madrid calendar day as YYYY-MM-DD", () => {
+		// 23:30 UTC in September is already 01:30 of the next day in Madrid.
+		expect(todayIso(new Date("2026-09-23T23:30:00Z"))).toBe("2026-09-24");
+		expect(todayIso(new Date("2026-09-23T21:30:00Z"))).toBe("2026-09-23");
+		// Winter (UTC+1).
+		expect(todayIso(new Date("2026-01-15T22:59:00Z"))).toBe("2026-01-15");
 	});
 });

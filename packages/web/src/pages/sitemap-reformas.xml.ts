@@ -21,13 +21,14 @@
 
 import { getCollection } from "astro:content";
 import type { APIRoute } from "astro";
+import { todayIso } from "../lib/law-dates.ts";
 import { reformContentDate } from "../lib/page-lastmod-build.ts";
 import { reformSitemapEntries } from "../lib/reform-sitemap.ts";
 
 export const prerender = true;
 
 const SITE_URL = "https://leyabierta.es";
-const TODAY_ISO = new Date().toISOString().slice(0, 10);
+const TODAY_ISO = todayIso();
 const MAX_YEAR = new Date().getUTCFullYear() + 1;
 
 export const GET: APIRoute = async () => {

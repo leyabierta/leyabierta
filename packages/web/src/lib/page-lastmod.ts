@@ -14,9 +14,17 @@
  * That keeps `<lastmod>` honest: it only moves when the page really changed,
  * never on every deploy (which would teach Google to ignore our lastmod).
  *
- * Without a usable previous file (first build, download error), no date is
- * invented: every entry gets LASTMOD_BOOTSTRAP_DATE, the day the own content
- * of every ficha really did change.
+ * Safety rails, because a reset or a false mass change cannot be undone once
+ * published (the next build builds on it):
+ * - Bootstrap (every entry = LASTMOD_BOOTSTRAP_DATE, the day the own content
+ *   of every ficha really did change) ONLY when production answers 404 or an
+ *   operator allows it. Any other download failure fails the build
+ *   (classifyPrevResponse, packages/web/scripts/fetch-lastmod.ts).
+ * - Mass-change brake: when too many keys change (or disappear) in one build,
+ *   nothing is dated today — the new hashes are re-baselined with their
+ *   previous dates, unless an operator allows the mass change.
+ * - Keys missing from a build are kept (marked absent), so a manifest that
+ *   comes back complete the next day does not count as "all new".
  *
  * Pure functions only (no fs, no env): the build-time loader is
  * page-lastmod-build.ts, and scripts/seo/indexnow.ts reuses changedKeys().
@@ -29,15 +37,29 @@ export const LASTMOD_BOOTSTRAP_DATE = "2026-09-23";
 
 export const LASTMOD_STATE_VERSION = 1;
 
-/** `[contentHash, isoDate]` */
-export type LastmodEntry = [string, string];
+/**
+ * Mass-change brake: more than this share of a kind's previously present keys
+ * changed (or new) in one build …
+ */
+export const MASS_CHANGE_RATIO = 0.2;
+/** … or more than this share of them disappeared … */
+export const MASS_DROP_RATIO = 0.1;
+/** … and at least this many keys (tiny states are too noisy to judge). */
+export const MASS_CHANGE_MIN_KEYS = 50;
+
+/**
+ * `[contentHash, isoDate]`, or `[contentHash, isoDate, 1]` for a key that was
+ * absent from the build that published it (kept so it does not count as new
+ * when it comes back).
+ */
+export type LastmodEntry = [string, string] | [string, string, 1];
 
 export interface LastmodState {
 	version: number;
 	/**
-	 * False when the build could not see its own content (a manifest was
-	 * missing) and had no previous state to carry: the next build must then
-	 * bootstrap instead of treating every entry as new.
+	 * False only when a bootstrap build could not see its own content (a
+	 * manifest was missing): the state is empty and the next build may
+	 * bootstrap over it.
 	 */
 	complete: boolean;
 	generated: string;
@@ -153,28 +175,82 @@ export function lawContentHashes(
 	return out;
 }
 
+const isAbsent = (e: LastmodEntry | undefined) => e?.[2] === 1;
+
+export interface AdvanceResult {
+	entries: Record<string, LastmodEntry>;
+	/** Keys dated `today` in this build (what IndexNow may announce). */
+	changed: number;
+	/** Previously present keys that are missing now. */
+	dropped: number;
+	/** True when the mass-change brake re-baselined instead of dating. */
+	braked: boolean;
+}
+
 /**
- * Carry dates forward. `prev` undefined = no usable previous state: every
- * entry gets `bootstrap`. Otherwise an unchanged hash keeps its date and a new
- * or changed one gets `today`. Keys absent from `current` are dropped.
+ * Carry dates forward for one kind of key (laws or reforms).
+ *
+ * - `prev` undefined (bootstrap): every entry gets `bootstrap`.
+ * - Unchanged hash keeps its date; a new or changed one gets `today`…
+ * - …unless the change is massive (see MASS_*): then the new hashes keep
+ *   their previous date (new keys get `bootstrap`) and nothing is dated
+ *   today, unless `allowMassChange`.
+ * - Previously known keys missing from `current` are kept, marked absent.
  */
 export function advanceEntries(
 	prev: Record<string, LastmodEntry> | undefined,
 	current: Record<string, string>,
 	today: string,
-	bootstrap: string = LASTMOD_BOOTSTRAP_DATE,
-): Record<string, LastmodEntry> {
-	const out: Record<string, LastmodEntry> = {};
-	for (const key of Object.keys(current).sort()) {
-		const hash = current[key]!;
-		if (!prev) {
-			out[key] = [hash, bootstrap];
-			continue;
+	opts: { bootstrap?: string; allowMassChange?: boolean } = {},
+): AdvanceResult {
+	const bootstrap = opts.bootstrap ?? LASTMOD_BOOTSTRAP_DATE;
+	const entries: Record<string, LastmodEntry> = {};
+	if (!prev) {
+		for (const key of Object.keys(current).sort()) {
+			entries[key] = [current[key]!, bootstrap];
 		}
-		const before = prev[key];
-		out[key] = before && before[0] === hash ? [hash, before[1]] : [hash, today];
+		return { entries, changed: 0, dropped: 0, braked: false };
 	}
-	return out;
+
+	const present = Object.keys(prev).filter((k) => !isAbsent(prev[k]));
+	const changedKeys = Object.keys(current).filter(
+		(k) => prev[k]?.[0] !== current[k],
+	);
+	const dropped = present.filter((k) => !(k in current)).length;
+	const base = present.length;
+	const braked =
+		!opts.allowMassChange &&
+		base >= MASS_CHANGE_MIN_KEYS &&
+		(changedKeys.length > base * MASS_CHANGE_RATIO ||
+			dropped > base * MASS_DROP_RATIO);
+
+	const keys = new Set([...Object.keys(prev), ...Object.keys(current)]);
+	for (const key of [...keys].sort()) {
+		const before = prev[key];
+		const hash = current[key];
+		if (hash === undefined) {
+			// Missing from this build: keep it, marked absent.
+			entries[key] = [before![0], before![1], 1];
+		} else if (before && before[0] === hash) {
+			entries[key] = [hash, before[1]];
+		} else if (braked) {
+			entries[key] = [hash, before?.[1] ?? bootstrap];
+		} else {
+			entries[key] = [hash, today];
+		}
+	}
+	return {
+		entries,
+		changed: braked ? 0 : changedKeys.length,
+		dropped,
+		braked,
+	};
+}
+
+export interface LastmodBuildResult {
+	state: LastmodState;
+	/** Human-readable warnings for the build log (mass-change brake). */
+	warnings: string[];
 }
 
 /** The state this build publishes, from the previous state and its content. */
@@ -183,39 +259,62 @@ export function buildLastmodState(opts: {
 	content: LastmodManifestInput | null;
 	today: string;
 	bootstrap?: string;
-}): LastmodState {
+	allowMassChange?: boolean;
+}): LastmodBuildResult {
 	const { prev, content, today } = opts;
 	if (!content) {
 		// We cannot see our own content (a manifest failed to load). Never
-		// derive dates from that: carry the previous state as-is, or mark the
-		// output incomplete so the next build bootstraps instead of treating
-		// every page as new.
-		return prev
-			? { ...prev, generated: today }
-			: {
-					version: LASTMOD_STATE_VERSION,
-					complete: false,
-					generated: today,
-					laws: {},
-					reforms: {},
-				};
+		// derive dates from that: carry the previous state as-is, or publish an
+		// empty incomplete state that a later build may bootstrap over.
+		return {
+			state: prev
+				? { ...prev, generated: today }
+				: {
+						version: LASTMOD_STATE_VERSION,
+						complete: false,
+						generated: today,
+						laws: {},
+						reforms: {},
+					},
+			warnings: ["own content unavailable (manifest missing): state carried"],
+		};
+	}
+	const advOpts = {
+		bootstrap: opts.bootstrap,
+		allowMassChange: opts.allowMassChange,
+	};
+	const laws = advanceEntries(
+		prev?.laws,
+		lawContentHashes(content),
+		today,
+		advOpts,
+	);
+	const reforms = advanceEntries(
+		prev?.reforms,
+		reformContentHashes(content),
+		today,
+		advOpts,
+	);
+	const warnings: string[] = [];
+	for (const [kind, r] of [
+		["laws", laws],
+		["reforms", reforms],
+	] as const) {
+		if (r.braked) {
+			warnings.push(
+				`mass change in ${kind} (${r.dropped} dropped, more than ${MASS_CHANGE_RATIO * 100}% changed or ${MASS_DROP_RATIO * 100}% dropped): re-baselined without dating today. Set LASTMOD_ALLOW_MASS_CHANGE=1 if the change is real.`,
+			);
+		}
 	}
 	return {
-		version: LASTMOD_STATE_VERSION,
-		complete: true,
-		generated: today,
-		laws: advanceEntries(
-			prev?.laws,
-			lawContentHashes(content),
-			today,
-			opts.bootstrap,
-		),
-		reforms: advanceEntries(
-			prev?.reforms,
-			reformContentHashes(content),
-			today,
-			opts.bootstrap,
-		),
+		state: {
+			version: LASTMOD_STATE_VERSION,
+			complete: true,
+			generated: today,
+			laws: laws.entries,
+			reforms: reforms.entries,
+		},
+		warnings,
 	};
 }
 
@@ -226,7 +325,7 @@ function isEntryMap(v: unknown): v is Record<string, LastmodEntry> {
 	for (const e of Object.values(v)) {
 		if (
 			!Array.isArray(e) ||
-			e.length !== 2 ||
+			(e.length !== 2 && !(e.length === 3 && e[2] === 1)) ||
 			typeof e[0] !== "string" ||
 			typeof e[1] !== "string" ||
 			!ISO_DATE.test(e[1])
@@ -237,35 +336,95 @@ function isEntryMap(v: unknown): v is Record<string, LastmodEntry> {
 	return true;
 }
 
-/**
- * A previous state we can build on, or null. Incomplete, malformed or
- * other-version states are all "no previous state" (→ bootstrap dates).
- */
+/** A well-formed state (complete or not), or null. */
 export function parseLastmodState(raw: unknown): LastmodState | null {
 	if (!raw || typeof raw !== "object") return null;
 	const s = raw as Partial<LastmodState>;
-	if (s.version !== LASTMOD_STATE_VERSION || s.complete !== true) return null;
-	if (typeof s.generated !== "string") return null;
+	if (s.version !== LASTMOD_STATE_VERSION) return null;
+	if (typeof s.complete !== "boolean" || typeof s.generated !== "string") {
+		return null;
+	}
 	if (!isEntryMap(s.laws) || !isEntryMap(s.reforms)) return null;
 	return s as LastmodState;
 }
 
+/** An incomplete state carries no dates, so bootstrapping over it loses none. */
+export function isEmptyIncompleteState(s: LastmodState): boolean {
+	return (
+		!s.complete &&
+		Object.keys(s.laws).length === 0 &&
+		Object.keys(s.reforms).length === 0
+	);
+}
+
+export type PrevStateDecision =
+	| { kind: "prev"; state: LastmodState }
+	| { kind: "bootstrap"; reason: string }
+	| { kind: "retry"; reason: string };
+
 /**
- * Keys whose content is new or changed between two published states — what
- * IndexNow should be told about. Empty without a usable `prev`: a bootstrap
- * is not a change we can attribute to one build.
+ * What to do with the answer for the published /lastmod.json.
+ *
+ * Bootstrap only on a 404 (nothing was ever published), on an empty
+ * incomplete state, or when the operator allows it. Everything else — 5xx,
+ * network error (status 0), an HTML challenge page, invalid JSON, a state of
+ * another shape — is "retry", and the caller fails the build when retries run
+ * out: publishing a reset state over an existing one would wipe every date.
+ */
+export function classifyPrevResponse(
+	status: number,
+	body: string,
+	allowBootstrap = false,
+): PrevStateDecision {
+	if (status === 404)
+		return { kind: "bootstrap", reason: "404: never published" };
+	let reason: string;
+	if (status === 200) {
+		let raw: unknown;
+		try {
+			raw = JSON.parse(body);
+		} catch {
+			raw = undefined;
+		}
+		const state = parseLastmodState(raw);
+		if (state?.complete) return { kind: "prev", state };
+		if (state && isEmptyIncompleteState(state)) {
+			return { kind: "bootstrap", reason: "published state is empty" };
+		}
+		reason =
+			raw === undefined
+				? "body is not JSON"
+				: state
+					? "unexpected incomplete state with entries"
+					: "JSON without the expected shape";
+	} else {
+		reason = status === 0 ? "network error" : `HTTP ${status}`;
+	}
+	return allowBootstrap
+		? { kind: "bootstrap", reason: `${reason} (LASTMOD_ALLOW_BOOTSTRAP=1)` }
+		: { kind: "retry", reason };
+}
+
+/**
+ * Keys dated in `next`'s build (new or changed content) — what IndexNow should
+ * be told about. Re-baselined keys (mass-change brake) and absent keys are
+ * not included, and nothing is without a usable `prev`: a bootstrap is not a
+ * change we can attribute to one build.
  */
 export function changedKeys(
 	prev: LastmodState | null,
 	next: LastmodState | null,
 ): { laws: string[]; reforms: string[] } {
-	if (!prev || !next?.complete) return { laws: [], reforms: [] };
+	if (!prev?.complete || !next?.complete) return { laws: [], reforms: [] };
 	const diff = (
 		a: Record<string, LastmodEntry>,
 		b: Record<string, LastmodEntry>,
 	) =>
 		Object.keys(b)
-			.filter((k) => a[k]?.[0] !== b[k]![0])
+			.filter((k) => {
+				const e = b[k]!;
+				return !isAbsent(e) && e[1] === next.generated && a[k]?.[0] !== e[0];
+			})
 			.sort();
 	return {
 		laws: diff(prev.laws, next.laws),

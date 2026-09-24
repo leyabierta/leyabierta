@@ -3,6 +3,27 @@
 # Usage: bash build-with-progress.sh
 set -euo pipefail
 
+# ── Fetch the published lastmod state (src/lib/page-lastmod.ts) ──
+# The previous build's per-page content hashes + change dates, so this build
+# carries dates forward and only moves <lastmod> where content changed.
+# Only a 404 (never published) bootstraps every page to 2026-09-23; any other
+# failure makes fetch-lastmod.ts exit 1 and this script stops, because a reset
+# state published over the existing one would wipe every date
+# (LASTMOD_ALLOW_BOOTSTRAP=1 to reset on purpose). The file stays outside dist/
+# for scripts/seo/indexnow.ts after the deploy.
+rm -f .lastmod-prev.json
+unset LASTMOD_PREV_PATH LASTMOD_BOOTSTRAP
+echo "[build] Fetching published lastmod.json..."
+LASTMOD_MODE=$(bun scripts/fetch-lastmod.ts .lastmod-prev.json "${SITE_URL:-https://leyabierta.es}")
+if [ "$LASTMOD_MODE" = "prev" ]; then
+  export LASTMOD_PREV_PATH="$(pwd)/.lastmod-prev.json"
+elif [ "$LASTMOD_MODE" = "bootstrap" ]; then
+  export LASTMOD_BOOTSTRAP=1
+else
+  echo "[build] ERROR: unexpected fetch-lastmod result '${LASTMOD_MODE}'" >&2
+  exit 1
+fi
+
 # Resolve laws directory: LAWS_PATH is relative to repo root (2 levels up from packages/web)
 REPO_ROOT="$(cd ../.. && pwd)"
 LAWS_DIR="${REPO_ROOT}/${LAWS_PATH:-../leyes}"
@@ -39,25 +60,6 @@ if curl -sf --max-time 300 -H "x-api-key: ${API_BYPASS_KEY:-}" \
   export BUILD_ARTICLE_SUMMARIES_PATH="$(pwd)/.build-manifest-articles.json"
 else
   echo "[build] WARNING: Article-summaries fetch failed; article summaries will be omitted"
-fi
-
-# ── Fetch the published lastmod state (src/lib/page-lastmod.ts) ──
-# The previous build's per-page content hashes + change dates, so this build
-# can carry dates forward and only move <lastmod> where content changed. If it
-# cannot be fetched (first build, 404, network error) the build does NOT fail:
-# every page gets the bootstrap date instead, and IndexNow sends nothing.
-# The file is kept (outside dist/) for scripts/seo/indexnow.ts after deploy.
-rm -f .lastmod-prev.json
-echo "[build] Fetching published lastmod.json..."
-LASTMOD_HTTP=$(curl -s --retry 3 --retry-delay 2 --max-time 60 \
-  -o .lastmod-prev.json -w '%{http_code}' \
-  "${SITE_URL:-https://leyabierta.es}/lastmod.json" || true)
-if [ "$LASTMOD_HTTP" = "200" ]; then
-  echo "[build] lastmod.json downloaded ($(wc -c < .lastmod-prev.json | tr -d ' ') bytes)"
-  export LASTMOD_PREV_PATH="$(pwd)/.lastmod-prev.json"
-else
-  echo "[build] WARNING: lastmod.json not available (HTTP ${LASTMOD_HTTP:-none}) — page dates bootstrap to 2026-09-23"
-  rm -f .lastmod-prev.json
 fi
 
 echo "[build] Building $TOTAL law pages + static pages"

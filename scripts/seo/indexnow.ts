@@ -7,22 +7,26 @@
  *
  * What changed comes from the two lastmod states of a deploy: the one the
  * build downloaded from production (packages/web/.lastmod-prev.json) and the
- * one it just published (packages/web/dist/lastmod.json). Only URLs whose own
- * content hash changed (or is new) are sent — never the whole site on every
- * deploy. With no previous state (first build, download error) nothing is sent.
+ * one it just published (packages/web/dist/lastmod.json). Only URLs dated in
+ * this build (new or changed own content) are sent — never the whole site on
+ * every deploy, never keys re-baselined by the mass-change brake. With no
+ * previous state (bootstrap) nothing is sent. Every URL is also checked
+ * against the sitemaps: only pages we advertise as indexable are pinged.
  *
  * Usage:
  *   # after each deploy (deploy.yml, non-fatal):
  *   bun run scripts/seo/indexnow.ts --prev packages/web/.lastmod-prev.json --next packages/web/dist/lastmod.json
- *   # one-off initial submission of every page with own content (reads prod):
- *   bun run scripts/seo/indexnow.ts --all
- *   # add --dry-run to print what would be sent.
+ *   # one-off initial submission of every law page with own content (reads prod):
+ *   bun run scripts/seo/indexnow.ts --all [--include-reforms]
+ *   # add --dry-run to print what would be sent; --sitemaps <dir|origin> to
+ *   # choose where the sitemaps are read from (default: next to --next, or prod).
  *
  * The key is public by design (IndexNow proves site ownership with the file
  * at the key location); it lives in packages/web/public/<key>.txt.
  */
 
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
 	changedKeys,
 	type LastmodState,
@@ -36,6 +40,7 @@ export const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 export const INDEXNOW_MAX_URLS = 10_000;
 const SITE_HOST = "leyabierta.es";
 const SITE_ORIGIN = `https://${SITE_HOST}`;
+const SITEMAPS = ["sitemap-leyes.xml", "sitemap-reformas.xml"];
 
 /** Absolute URLs for law ids and `<lawId>|<date>` reform keys. */
 export function keysToUrls(
@@ -53,14 +58,38 @@ export function keysToUrls(
 	return urls;
 }
 
-/** Every URL a state knows about (for the initial submission). */
-export function allKeys(state: LastmodState): {
-	laws: string[];
-	reforms: string[];
-} {
+/** `<loc>` values of a sitemap, XML entities decoded. */
+export function sitemapLocs(xml: string): string[] {
+	return [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) =>
+		m[1]!
+			.replace(/&lt;/g, "<")
+			.replace(/&gt;/g, ">")
+			.replace(/&quot;/g, '"')
+			.replace(/&apos;/g, "'")
+			.replace(/&amp;/g, "&"),
+	);
+}
+
+/** Keep only URLs the sitemaps advertise (indexable, canonical form). */
+export function filterToSitemap(
+	urls: readonly string[],
+	advertised: ReadonlySet<string>,
+): string[] {
+	return urls.filter((u) => advertised.has(u));
+}
+
+/** Every key a state knows about, absent keys excluded (initial submission). */
+export function allKeys(
+	state: LastmodState,
+	includeReforms = false,
+): { laws: string[]; reforms: string[] } {
+	const present = (m: LastmodState["laws"]) =>
+		Object.keys(m)
+			.filter((k) => m[k]!.length === 2)
+			.sort();
 	return {
-		laws: Object.keys(state.laws).sort(),
-		reforms: Object.keys(state.reforms).sort(),
+		laws: present(state.laws),
+		reforms: includeReforms ? present(state.reforms) : [],
 	};
 }
 
@@ -71,18 +100,38 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
 	return out;
 }
 
-async function readState(source: string): Promise<LastmodState | null> {
+async function readText(source: string): Promise<string | null> {
 	try {
 		if (source.startsWith("http")) {
 			const res = await fetch(source);
-			if (!res.ok) return null;
-			return parseLastmodState(await res.json());
+			return res.ok ? await res.text() : null;
 		}
-		if (!existsSync(source)) return null;
-		return parseLastmodState(JSON.parse(readFileSync(source, "utf-8")));
+		return existsSync(source) ? readFileSync(source, "utf-8") : null;
 	} catch {
 		return null;
 	}
+}
+
+async function readState(source: string): Promise<LastmodState | null> {
+	const text = await readText(source);
+	if (text === null) return null;
+	try {
+		return parseLastmodState(JSON.parse(text));
+	} catch {
+		return null;
+	}
+}
+
+/** Union of the sitemap URLs, or null if any sitemap cannot be read. */
+async function readSitemaps(base: string): Promise<Set<string> | null> {
+	const all = new Set<string>();
+	for (const name of SITEMAPS) {
+		const src = base.startsWith("http") ? `${base}/${name}` : join(base, name);
+		const xml = await readText(src);
+		if (xml === null) return null;
+		for (const loc of sitemapLocs(xml)) all.add(loc);
+	}
+	return all;
 }
 
 async function submit(urlList: string[]): Promise<void> {
@@ -113,28 +162,26 @@ function argValue(args: string[], name: string): string | undefined {
 if (import.meta.main) {
 	const args = process.argv.slice(2);
 	const dryRun = args.includes("--dry-run");
+	const nextArg = argValue(args, "--next");
 	let keys: { laws: string[]; reforms: string[] };
 
 	if (args.includes("--all")) {
-		const next = await readState(
-			argValue(args, "--next") ?? `${SITE_ORIGIN}/lastmod.json`,
-		);
-		if (!next) {
+		const next = await readState(nextArg ?? `${SITE_ORIGIN}/lastmod.json`);
+		if (!next?.complete) {
 			console.error("[indexnow] no usable lastmod state — nothing to send");
 			process.exit(1);
 		}
-		keys = allKeys(next);
+		keys = allKeys(next, args.includes("--include-reforms"));
 	} else {
 		const prevPath = argValue(args, "--prev");
-		const nextPath = argValue(args, "--next");
-		if (!prevPath || !nextPath) {
+		if (!prevPath || !nextArg) {
 			console.error(
-				"usage: indexnow.ts --prev <file> --next <file> | --all [--next <file|url>] [--dry-run]",
+				"usage: indexnow.ts --prev <file> --next <file> | --all [--include-reforms] [--next <file|url>] [--sitemaps <dir|url>] [--dry-run]",
 			);
 			process.exit(2);
 		}
 		const prev = await readState(prevPath);
-		const next = await readState(nextPath);
+		const next = await readState(nextArg);
 		if (!prev || !next) {
 			console.log(
 				`[indexnow] previous state: ${prev ? "ok" : "missing"}, new state: ${next ? "ok" : "missing"} — nothing to send`,
@@ -144,9 +191,24 @@ if (import.meta.main) {
 		keys = changedKeys(prev, next);
 	}
 
-	const urls = keysToUrls(keys);
+	const candidates = keysToUrls(keys);
+	if (candidates.length === 0) {
+		console.log("[indexnow] no changed pages — nothing to send");
+		process.exit(0);
+	}
+	const sitemapBase =
+		argValue(args, "--sitemaps") ??
+		(nextArg && !nextArg.startsWith("http") ? dirname(nextArg) : SITE_ORIGIN);
+	const advertised = await readSitemaps(sitemapBase);
+	if (!advertised) {
+		console.error(
+			`[indexnow] cannot read the sitemaps at ${sitemapBase} — not sending`,
+		);
+		process.exit(1);
+	}
+	const urls = filterToSitemap(candidates, advertised);
 	console.log(
-		`[indexnow] ${keys.laws.length} laws + ${keys.reforms.length} reforms changed → ${urls.length} URLs`,
+		`[indexnow] ${keys.laws.length} laws + ${keys.reforms.length} reforms → ${urls.length} URLs in the sitemaps`,
 	);
 	if (urls.length === 0) process.exit(0);
 	if (dryRun) {
