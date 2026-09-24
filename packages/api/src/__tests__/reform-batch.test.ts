@@ -312,7 +312,13 @@ describe("submit and collect", () => {
 			outFile,
 			() => {},
 		);
-		expect(res).toEqual({ pending: 0, unsubmitted: 0, written: 5, ok: 1 });
+		expect(res).toEqual({
+			pending: 0,
+			unsubmitted: 0,
+			blocked: 0,
+			written: 5,
+			ok: 1,
+		});
 		const out = readRows(outFile);
 		const ok = out[0] ?? {};
 		expect(Object.keys(ok)).toEqual([
@@ -453,7 +459,13 @@ describe("submit and collect", () => {
 			outFile,
 			() => {},
 		);
-		expect(second).toEqual({ pending: 0, unsubmitted: 0, written: 0, ok: 0 });
+		expect(second).toEqual({
+			pending: 0,
+			unsubmitted: 0,
+			blocked: 0,
+			written: 0,
+			ok: 0,
+		});
 		expect(readRows(outFile)).toHaveLength(1);
 		expect(loadState(statePath).batches[0]?.deleted_at).toBeDefined();
 	});
@@ -551,7 +563,8 @@ describe("guards", () => {
 			outFile,
 			() => {},
 		);
-		expect(res.pending).toBe(1);
+		expect(res.blocked).toBe(1);
+		expect(res.pending).toBe(0);
 		expect(res.written).toBe(0);
 		expect(state.batches[0]?.collected_at).toBeUndefined();
 		expect(api.calls.filter((c) => c.method === "DELETE")).toHaveLength(0);
@@ -577,7 +590,80 @@ describe("guards", () => {
 			join(dir, "out.jsonl"),
 			() => {},
 		);
-		expect(res).toEqual({ pending: 1, unsubmitted: 0, written: 0, ok: 0 });
+		expect(res).toEqual({
+			pending: 0,
+			unsubmitted: 0,
+			blocked: 1,
+			written: 0,
+			ok: 0,
+		});
+	});
+
+	for (const status of ["expired", "cancelled", "failed"]) {
+		test(`${status} with finished requests but no results is blocked, not polled`, async () => {
+			const { state } = planBatches("e.jsonl", SHA, [exportRow(0)]);
+			submitted(state, 0, "b1");
+			const api = fakeApi({
+				b1: {
+					id: "b1",
+					status,
+					request_counts: { total: 1, completed: 1, failed: 0 },
+					results: null,
+				},
+			});
+			const res = await collectOnce(
+				{ apiKey: "k", fetch: api.fetchFn },
+				join(dir, "s.json"),
+				state,
+				join(dir, "out.jsonl"),
+				() => {},
+			);
+			expect(res).toEqual({
+				pending: 0,
+				unsubmitted: 0,
+				blocked: 1,
+				written: 0,
+				ok: 0,
+			});
+			expect(state.batches[0]?.collected_at).toBeUndefined();
+			expect(api.calls.filter((c) => c.method === "DELETE")).toHaveLength(0);
+		});
+	}
+
+	test("acceptIncomplete collects a blocked batch: missing results fail, then DELETE", async () => {
+		const { state } = planBatches("e.jsonl", SHA, [exportRow(0), exportRow(1)]);
+		submitted(state, 0, "b1");
+		const outFile = join(dir, "out.jsonl");
+		const api = fakeApi({
+			b1: {
+				id: "b1",
+				status: "expired",
+				request_counts: { total: 2, completed: 2, failed: 0 },
+				results: [
+					{ custom_id: "r0", response: completion(JSON.stringify(SUMMARY)) },
+				],
+			},
+		});
+		const res = await collectOnce(
+			{ apiKey: "k", fetch: api.fetchFn },
+			join(dir, "s.json"),
+			state,
+			outFile,
+			() => {},
+			{ acceptIncomplete: true },
+		);
+		expect(res).toEqual({
+			pending: 0,
+			unsubmitted: 0,
+			blocked: 0,
+			written: 2,
+			ok: 1,
+		});
+		expect(readRows(outFile).map((r) => [r.ok, r.error])).toEqual([
+			[true, undefined],
+			[false, "request_error: batch_expired"],
+		]);
+		expect(state.batches[0]?.deleted_at).toBeDefined();
 	});
 
 	test("invalid JSON on GET is retried later", async () => {
@@ -609,7 +695,13 @@ describe("guards", () => {
 			expect(r.pending).toBe(1);
 		}
 		const last = await collectOnce(opts, statePath, state, outFile, () => {});
-		expect(last).toEqual({ pending: 0, unsubmitted: 0, written: 1, ok: 0 });
+		expect(last).toEqual({
+			pending: 0,
+			unsubmitted: 0,
+			blocked: 0,
+			written: 1,
+			ok: 0,
+		});
 		expect(state.batches[0]?.lost).toBe(`GET 404 x${LOST_AFTER_404S}`);
 		expect(readRows(outFile)[0]).toMatchObject({
 			ok: false,
@@ -626,7 +718,13 @@ describe("guards", () => {
 			join(dir, "out.jsonl"),
 			() => {},
 		);
-		expect(res).toEqual({ pending: 0, unsubmitted: 1, written: 0, ok: 0 });
+		expect(res).toEqual({
+			pending: 0,
+			unsubmitted: 1,
+			blocked: 0,
+			written: 0,
+			ok: 0,
+		});
 	});
 
 	test("a model refusal is recorded as such", async () => {

@@ -21,7 +21,7 @@
  *     batch-submit <export.jsonl> <state.json> [--chunk 2000] [--limit N] [--skip-done <out.jsonl>]
  *       [--once | --max-chunks N]
  *   OPENROUTER_API_KEY=... bun run packages/api/src/scripts/reform-summaries-offline.ts \
- *     batch-collect <state.json> <out.jsonl> [--poll-seconds 300] [--once]
+ *     batch-collect <state.json> <out.jsonl> [--poll-seconds 300 (min 30)] [--once] [--accept-incomplete]
  * batch-submit resumes from <state.json> if it exists (refusing an export
  * whose content changed); `--once` sends one batch only, to check a real
  * response before sending the rest (rerun without it). batch-collect writes
@@ -227,6 +227,9 @@ function batchApiKey(): string {
 	return key;
 }
 
+/** Polling faster does not speed up a 24 h batch window. */
+const MIN_POLL_SECONDS = 30;
+
 /** A non-negative integer flag, or `fallback`; exits on anything else. */
 function intFlag(name: string, fallback: number): number {
 	const raw = flag(name);
@@ -295,21 +298,35 @@ async function batchSubmit(exportFile: string, statePath: string) {
 
 async function batchCollect(statePath: string, outFile: string) {
 	const state = loadState(statePath);
-	const pollMs = intFlag("--poll-seconds", 300) * 1000;
+	const pollSeconds = intFlag("--poll-seconds", 300);
+	if (pollSeconds < MIN_POLL_SECONDS) {
+		console.error(`--poll-seconds must be at least ${MIN_POLL_SECONDS}`);
+		process.exit(1);
+	}
 	const api = { apiKey: batchApiKey() };
+	const acceptIncomplete = args.includes("--accept-incomplete");
 	for (;;) {
-		const { pending, unsubmitted, written, ok } = await collectOnce(
+		const { pending, unsubmitted, blocked, written, ok } = await collectOnce(
 			api,
 			statePath,
 			state,
 			outFile,
+			console.log,
+			{ acceptIncomplete },
 		);
 		console.log(
-			`[${new Date().toISOString()}] written ${written} (ok ${ok}), batches pending ${pending}, not submitted ${unsubmitted}`,
+			`[${new Date().toISOString()}] written ${written} (ok ${ok}), batches pending ${pending}, blocked ${blocked}, not submitted ${unsubmitted}`,
 		);
-		// Unsubmitted chunks never finish by waiting: stop once nothing else is left.
-		if (pending === 0 || args.includes("--once")) break;
-		await Bun.sleep(pollMs);
+		// Unsubmitted and blocked batches never change by waiting: stop once
+		// nothing else is left.
+		if (pending === 0 || args.includes("--once")) {
+			if (blocked > 0)
+				console.warn(
+					`WARNING: ${blocked} finished batches have incomplete results and were NOT collected or deleted; check them (GET /api/v1/batches/<id>) and rerun with --accept-incomplete to collect what came back`,
+				);
+			break;
+		}
+		await Bun.sleep(pollSeconds * 1000);
 	}
 	const cost = state.batches.reduce((sum, b) => sum + (b.cost ?? 0), 0);
 	console.log(`batch-collect: done; reported cost ${cost.toFixed(4)} USD`);
@@ -327,7 +344,7 @@ else if (cmd === "batch-collect" && first && second)
 	await batchCollect(first, second);
 else {
 	console.error(
-		"Usage: reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply] [--replace-from <export.jsonl>] | batch-submit <export.jsonl> <state.json> [--chunk N] [--limit N] [--skip-done <out.jsonl>] [--once | --max-chunks N] | batch-collect <state.json> <out.jsonl> [--poll-seconds N] [--once]",
+		"Usage: reform-summaries-offline.ts export <out.jsonl> [--regenerate-existing] | generate <in.jsonl> <out.jsonl> [--limit N] | import <generated.jsonl> [--apply] [--replace-from <export.jsonl>] | batch-submit <export.jsonl> <state.json> [--chunk N] [--limit N] [--skip-done <out.jsonl>] [--once | --max-chunks N] | batch-collect <state.json> <out.jsonl> [--poll-seconds N≥30] [--once] [--accept-incomplete]",
 	);
 	process.exit(1);
 }

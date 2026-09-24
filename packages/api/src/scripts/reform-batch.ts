@@ -370,11 +370,13 @@ export function incompleteResults(batch: BatchObject): string | undefined {
 		if (v !== undefined && v !== null && v !== false)
 			return `unexpected field ${k}`;
 	}
+	// Any terminal status: an expired/cancelled/failed batch may have
+	// finished (and billed) requests whose results are not in the response.
 	const rc = batch.request_counts ?? {};
 	const expected = (rc.completed ?? 0) + (rc.failed ?? 0);
 	const got = batch.results?.length ?? 0;
-	if (batch.status === "completed" && got < expected)
-		return `${got} results for ${expected} finished requests`;
+	if (got < expected)
+		return `${got} results for ${expected} finished requests (status ${batch.status})`;
 	return undefined;
 }
 
@@ -438,6 +440,12 @@ export interface CollectReport {
 	pending: number;
 	/** Chunks never submitted (collect cannot help them). */
 	unsubmitted: number;
+	/**
+	 * Terminal batches whose results look incomplete: not collected, not
+	 * deleted, and not worth polling (waiting will not change them). Check by
+	 * hand; `acceptIncomplete` collects them, missing results as failed rows.
+	 */
+	blocked: number;
 	written: number;
 	ok: number;
 }
@@ -458,6 +466,7 @@ export async function collectOnce(
 	state: BatchState,
 	outFile: string,
 	log: (msg: string) => void = console.log,
+	opts: { acceptIncomplete?: boolean } = {},
 ): Promise<CollectReport> {
 	const fetchFn = api.fetch ?? fetch;
 	const base = api.baseUrl ?? BATCHES_URL;
@@ -470,6 +479,7 @@ export async function collectOnce(
 	const report: CollectReport = {
 		pending: 0,
 		unsubmitted: 0,
+		blocked: 0,
 		written: 0,
 		ok: 0,
 	};
@@ -551,14 +561,19 @@ export async function collectOnce(
 				continue;
 			}
 			const incomplete = incompleteResults(batch);
-			if (incomplete) {
-				// Never collect (nor DELETE) a batch whose results may be partial.
-				report.pending++;
+			if (incomplete && !opts.acceptIncomplete) {
+				// Never collect (nor DELETE) a batch whose results may be partial,
+				// unless asked to after checking it by hand.
+				report.blocked++;
 				log(
-					`${label} ${chunk.id}: WARNING results look incomplete (${incomplete}); not collected, not deleted`,
+					`${label} ${chunk.id}: WARNING results look incomplete (${incomplete}); not collected, not deleted (--accept-incomplete to collect it anyway)`,
 				);
 				continue;
 			}
+			if (incomplete)
+				log(
+					`${label} ${chunk.id}: collecting incomplete results (${incomplete})`,
+				);
 			const byId = new Map<string, BatchResultItem>();
 			for (const r of batch.results ?? [])
 				if (r.custom_id) byId.set(r.custom_id, r);
