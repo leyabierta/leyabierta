@@ -219,10 +219,13 @@ export function lawRoutes(
 					}
 
 					// Fire-and-forget: generate missing summaries for next visit.
-					// Cap at 5 per request to avoid unbounded concurrent AI calls.
-					const missing = blocks
-						.filter((b) => !b.citizen_summary && b.current_text.length >= 50)
-						.slice(0, 5);
+					// Cap at 5 per request to avoid unbounded concurrent AI calls,
+					// counted among the articles that can actually be generated.
+					const missing = citizenSummaryService.pendingArticles(
+						params.id,
+						blocks,
+						5,
+					);
 					for (const b of missing) {
 						citizenSummaryService
 							.getOrGenerate(

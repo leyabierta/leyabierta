@@ -61,6 +61,7 @@ const gitStub: GitService = {
 // Returning undefined synchronously keeps the fire-and-forget path quiet.
 const citizenSummaryStub: CitizenSummaryService = {
 	getOrGenerate: async () => null,
+	pendingArticles: () => [],
 } as unknown as CitizenSummaryService;
 
 // Stub HybridSearcher: returns the BM25 input verbatim so route tests focus

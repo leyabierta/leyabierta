@@ -93,6 +93,36 @@ export class CitizenSummaryService {
 	}
 
 	/**
+	 * The first `limit` blocks of a law that getOrGenerate would actually try:
+	 * articles (block_type 'precepto') with no summary row, 50 to
+	 * maxInputChars characters, with substance, not already attempted in this
+	 * process. Filtering before capping matters: capping first let the leading
+	 * preambles, signatures or giant articles of a law take every slot on
+	 * every request, so its real articles were never generated.
+	 */
+	pendingArticles<
+		T extends {
+			block_id: string;
+			block_type: string;
+			current_text: string;
+			citizen_summary: string | null;
+		},
+	>(normId: string, blocks: T[], limit: number): T[] {
+		const out: T[] = [];
+		for (const b of blocks) {
+			if (out.length >= limit) break;
+			if (b.citizen_summary !== null) continue;
+			if (b.block_type !== "precepto") continue;
+			const n = b.current_text.length;
+			if (n < 50 || n > this.maxInputChars) continue;
+			if (this.attempted.has(`${normId}:${b.block_id}`)) continue;
+			if (!articleHasSubstance(b.current_text)) continue;
+			out.push(b);
+		}
+		return out;
+	}
+
+	/**
 	 * Get the citizen summary for an article. Returns from cache if available,
 	 * otherwise generates on-demand via LLM.
 	 */
