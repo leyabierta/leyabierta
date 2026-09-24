@@ -327,12 +327,22 @@ export function createSchema(db: Database): void {
 	}
 
 	// PROMPT_VERSION of reform-summary-prompt.ts that produced the summary
-	// ('' for summaries written before 2026-09-25).
-	try {
+	// ('' for summaries written before 2026-09-24). Checked, not try/catch:
+	// any other ALTER failure must surface.
+	if (!hasColumn(db, "reform_summaries", "prompt_version")) {
 		db.exec(
 			"ALTER TABLE reform_summaries ADD COLUMN prompt_version TEXT NOT NULL DEFAULT ''",
 		);
-	} catch {
-		// Column already exists
 	}
+}
+
+export function hasColumn(
+	db: Database,
+	table: string,
+	column: string,
+): boolean {
+	return db
+		.query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+		.all()
+		.some((c) => c.name === column);
 }

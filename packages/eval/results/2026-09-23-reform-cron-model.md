@@ -66,14 +66,14 @@ reference Qwen3.8-27B.
 | Held-out, prompt as integrated in production (rerun 2026-09-24) | 9.03 vs 8.00 | 1.70 vs 1.30 | 1.90 vs 1.75 | 27 / 10 / 3 | 0 vs 5 |
 
 The last row regenerates the held-out set with the production
-`REFORM_SYSTEM_PROMPT` (`PROMPT_VERSION` 2026-09-25.1) and the cron's model
+`REFORM_SYSTEM_PROMPT` (`PROMPT_VERSION` 2026-09-24.1) and the cron's model
 settings; the differences with the row above are generation and judge noise.
 On the held-out outputs the summary averages about 285 characters (Qwen about
 315), with no talk about "el texto facilitado".
 
 **Decision (2026-09-24):** the cron uses `openai/gpt-6-luna` with reasoning
-`minimal` and the style rules; published Qwen summaries are to be regenerated
-with the same prompt.
+`minimal` and the style rules; published Qwen summaries will be regenerated in a
+separate step (export --regenerate-existing + batch) with the same prompt.
 
 ## Limits
 

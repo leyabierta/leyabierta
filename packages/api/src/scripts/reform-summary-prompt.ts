@@ -23,7 +23,7 @@ export interface BlockDiff {
  * Bump when the prompt text or its inputs change: the offline import compares
  * it before the prompt hash, to tell "the code changed" from "the data changed".
  */
-export const PROMPT_VERSION = "2026-09-25.1";
+export const PROMPT_VERSION = "2026-09-24.1";
 
 export interface ReformRow {
 	norm_id: string;

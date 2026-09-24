@@ -357,6 +357,7 @@ describe("normalizeModelId", () => {
 		["", ""],
 		[undefined, ""],
 		["local-model", "local-model"],
+		["qwen3.8:27b-mlx", "qwen3.8:27b-mlx"],
 	])("%p → %p", (input, expected) => {
 		expect(normalizeModelId(input)).toBe(expected);
 	});

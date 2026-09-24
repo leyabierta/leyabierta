@@ -250,8 +250,11 @@ get reasoning off) with the style rules at the end of `REFORM_SYSTEM_PROMPT`
 reforms judged blind it scored 8.7–9.0/10 vs 8.0–8.2 for `qwen/qwen3.8-27b`,
 the previous default and the model of the offline backfill, with higher
 fidelity (`packages/eval/results/2026-09-23-reform-cron-model.md`). Each
-summary stores `model` (always `provider/model`) and the `prompt_version`
-(`PROMPT_VERSION` of `reform-summary-prompt.ts`) that produced it. The daily
+summary stores `model` and the `prompt_version` (`PROMPT_VERSION` of
+`reform-summary-prompt.ts`) that produced it. The cron stores the OpenRouter id
+as given (it already carries the provider prefix; a local endpoint's model name
+is stored as is); the offline import maps the bare vLLM name `qwen3.8-27b` to
+`qwen/qwen3.8-27b`. The daily
 generators are gap-filling:
 each run processes whatever is still missing (reform summaries: last 26 weeks,
 newest first, `REFORM_SUMMARIES_LIMIT` per run, default 200; citizen tags: norms

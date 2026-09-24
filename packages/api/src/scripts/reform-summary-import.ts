@@ -46,8 +46,9 @@ export interface GeneratedReformRow {
  */
 export function normalizeModelId(model: string | undefined): string {
 	const m = (model ?? "").trim();
-	if (!m || m.includes("/")) return m;
-	if (/^qwen\d/i.test(m)) return `qwen/${m.toLowerCase()}`;
+	// Only the bare vLLM served name ("qwen3.8-27b"); anything else (an
+	// OpenRouter id, a local tag like "qwen3.8:27b-mlx") is kept as is.
+	if (/^qwen\d[\w.-]*$/i.test(m)) return `qwen/${m.toLowerCase()}`;
 	return m;
 }
 
