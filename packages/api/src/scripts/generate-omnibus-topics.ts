@@ -251,6 +251,10 @@ function validateTopics(data: unknown): {
 			: [];
 
 		if (!topicLabel) continue;
+		// A topic with no summary and no articles is an empty heading on the
+		// web (20 such rows in 6 laws before 2026-09-24): leave it out.
+		if (!summary.trim() && articleCount === 0 && blockIds.length === 0)
+			continue;
 		// Reject the whole answer (not just this topic, which would vanish
 		// silently): the law is retried on the next run.
 		if (hasForeignScript(topicLabel, headline, summary))

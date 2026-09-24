@@ -12,7 +12,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { hasForeignScript } from "@leyabierta/pipeline";
+import type { CitizenSummaryService } from "../citizen-summary.ts";
 import { getNanApiKey } from "../nan-api-key.ts";
 import type { OpenRouterReasoning } from "../openrouter.ts";
 import {
@@ -47,8 +47,9 @@ import {
  * With the legacy LLM_BACKEND=nan opt-in it is qwen3.6.
  *
  * AUX_MODEL (OPENROUTER_LLM_MODEL, default google/gemini-2.5-flash-lite)
- * serves the cheap side calls: streaming tldr/next_questions, declined
- * suggestions and lazy per-article citizen summaries.
+ * serves the cheap side calls: streaming tldr/next_questions and declined
+ * suggestions. Per-article citizen summaries use ARTICLE_SUMMARIES_MODEL
+ * (see generateMissingSummaries).
  *
  * History: 2026-09-23 ZDR eval (packages/eval/results/2026-09-23-model-zdr.md)
  * — gpt-6-luna judged 9.23 vs 8.41 for gemini-2.5-flash-lite, same cost.
@@ -456,84 +457,36 @@ export function verifyCitations(
 
 // ── Background citizen-summary backfill ──
 
+/**
+ * Fire-and-forget: the verified citations of an answer whose article has no
+ * citizen summary get one, through the same generation, validation and
+ * storage as every other path (CitizenSummaryService → @leyabierta/pipeline
+ * ai/article-summary.ts). The whole article is read from the DB by its block
+ * id: a retrieved sub-chunk ("a14__2") is only part of it. Approximate
+ * citations (no block id) are skipped: they may point at another article.
+ */
 export function generateMissingSummaries(opts: {
-	apiKey: string;
 	citations: Citation[];
-	articles: Array<{
-		normId: string;
-		blockId: string;
-		blockTitle: string;
-		text: string;
-		citizenSummary?: string;
-	}>;
-	insertSummaryStmt: ReturnType<Database["prepare"]>;
+	citizenSummaries: Pick<CitizenSummaryService, "generateForBlock">;
 }) {
-	const { citations, articles, insertSummaryStmt } = opts;
-	const apiKey =
-		LLM_BACKEND === "openrouter"
-			? opts.apiKey
-			: (getNanApiKey() ?? opts.apiKey);
-	const llmCaller = getLlmCaller();
-	const missing = citations.filter((c) => !c.citizenSummary);
-	if (missing.length === 0) return;
-
 	const MAX_BACKGROUND_SUMMARIES = 3;
-	const toProcess = missing.slice(0, MAX_BACKGROUND_SUMMARIES);
-
-	for (const citation of toProcess) {
-		const article = articles.find((a) => a.normId === citation.normId);
-		if (!article) continue;
-
-		const truncatedText = article.text.slice(0, 1500);
-
-		llmCaller<{ summary: string }>(apiKey, {
-			model: AUX_MODEL,
-			messages: [
-				{
-					role: "system",
-					content:
-						'Resume este artículo legal en 1-2 frases que entienda cualquier persona sin estudios de derecho. Máximo 180 caracteres. Escribe como si se lo explicaras a tu abuela. Usa palabras cotidianas: "dueño del piso" no "arrendador", "echar del trabajo" no "extinción del contrato". No traduzcas expresiones legales palabra por palabra, reformula la idea completa. Nada de jerga ni nombres técnicos legales (usufructo, curatela, litispendencia...), explica solo el efecto práctico. El resumen debe ser específico de este artículo. Incluye excepciones solo si afectan a mucha gente, omite casos raros. La frase debe sonar natural al leerla en voz alta. Si el artículo no afecta a ciudadanos, responde con summary vacío.',
-				},
-				{
-					role: "user",
-					content: `${article.blockTitle}\n\n${truncatedText}`,
-				},
-			],
-			temperature: 0.1,
-			maxTokens: 150,
-			jsonSchema: {
-				name: "citizen_summary",
-				schema: {
-					type: "object",
-					properties: {
-						summary: { type: "string" },
-					},
-					required: ["summary"],
-					additionalProperties: false,
-				},
-			},
-		})
-			.then((result) => {
-				const summary = result.data.summary?.trim();
-				if (!summary || summary.length > 300) return;
-				const sanitized = summary
-					.replace(/[<>]/g, "")
-					// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of control chars
-					.replace(/[\x00-\x1f]/g, "")
-					.trim();
-				// A language switch ("…por servicio军事") is never stored.
-				if (sanitized && !hasForeignScript(sanitized)) {
-					const rootBlockId =
-						parseSubchunkId(article.blockId)?.parentBlockId ?? article.blockId;
-					insertSummaryStmt.run(article.normId, rootBlockId, sanitized);
-				}
-			})
-			.catch((err) => {
-				console.warn(
-					`Background summary generation failed for ${article.normId}:`,
-					err instanceof Error ? err.message : "unknown error",
-				);
-			});
+	const seen = new Set<string>();
+	const toProcess: Array<{ normId: string; blockId: string }> = [];
+	for (const c of opts.citations) {
+		if (c.citizenSummary || !c.blockId) continue;
+		const key = `${c.normId}|${c.blockId}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		toProcess.push({ normId: c.normId, blockId: c.blockId });
+		if (toProcess.length >= MAX_BACKGROUND_SUMMARIES) break;
+	}
+	for (const { normId, blockId } of toProcess) {
+		opts.citizenSummaries.generateForBlock(normId, blockId).catch((err) => {
+			console.warn(
+				`Background summary generation failed for ${normId}:`,
+				err instanceof Error ? err.message : "unknown error",
+			);
+		});
 	}
 }
 

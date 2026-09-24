@@ -30,6 +30,10 @@
  */
 
 import { Database } from "bun:sqlite";
+import {
+	ARTICLE_SUMMARY_PROMPT_VERSION,
+	articleHasSubstance,
+} from "@leyabierta/pipeline";
 import { importRows, textHash } from "./article-summary-import.ts";
 import {
 	BATCH_SCHEMA,
@@ -60,26 +64,6 @@ const positional = args
 	);
 
 type ExportRow = BackfillArticle & { input_hash: string };
-
-// Placeholder articles with nothing to summarize: "(Suprimido)", "(Derogado)",
-// or a bare chapter/title heading stored as a precepto.
-function hasSubstance(text: string): boolean {
-	const lines = text
-		.split("\n")
-		.map((l) => l.trim())
-		.filter(Boolean);
-	const body = lines.slice(1).join(" ").replace(/\*+/g, "").trim();
-	if (body.length < 40) return false;
-	if (/^\(?(suprimido|derogad[oa]|sin contenido|anulad[oa])\)?\.?$/i.test(body))
-		return false;
-	if (
-		/^(CAPÍTULO|TÍTULO|SECCIÓN|LIBRO|SUBSECCIÓN)\b/.test(lines[0] ?? "") &&
-		lines.length <= 2 &&
-		body.length < 120
-	)
-		return false;
-	return true;
-}
 
 // Priority: state before autonomic, then by rank, then stable id order.
 const RANK_ORDER: Record<string, number> = {
@@ -116,7 +100,7 @@ async function exportPending(outFile: string) {
 	const prio = (r: { jurisdiction: string; rank: string }) =>
 		(r.jurisdiction === "es" ? 0 : 10) + (RANK_ORDER[r.rank] ?? 9);
 	const kept = rows
-		.filter((r) => hasSubstance(r.current_text))
+		.filter((r) => articleHasSubstance(r.current_text))
 		.sort(
 			(a, b) =>
 				prio(a) - prio(b) ||
@@ -202,6 +186,7 @@ async function generate(inFile: string, outFile: string) {
 			return {
 				input_hash: a.input_hash,
 				model,
+				prompt_version: ARTICLE_SUMMARY_PROMPT_VERSION,
 				summary: out.citizen_summary,
 				tags: out.citizen_tags,
 				finish: result.finish,

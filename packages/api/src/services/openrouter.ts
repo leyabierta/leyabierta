@@ -1,14 +1,17 @@
 /**
  * Shared OpenRouter API client with retry, rate limit handling, and JSON parsing.
  *
- * Used by: RAG backends (analyzer, synthesis), citizen-summary.ts, and the
- * content-generation scripts (reform summaries, omnibus topics, citizen
+ * Used by: RAG backends (analyzer, synthesis) and the content-generation
+ * scripts (reform summaries, omnibus topics, citizen
  * summaries backfill).
  */
 
+import { openRouterProviderField } from "@leyabierta/pipeline";
+
 /**
- * Model used for generated citizen content (reform summaries, omnibus topics,
- * per-article citizen summaries). Override with CONTENT_LLM_MODEL (any
+ * Model used for generated citizen content (omnibus topics, the manual
+ * backfill scripts). Per-article summaries use ARTICLE_SUMMARIES_MODEL and
+ * reform summaries REFORM_SUMMARIES_MODEL. Override with CONTENT_LLM_MODEL (any
  * OpenRouter chat model id that supports JSON-schema structured outputs).
  * `packages/pipeline/src/scripts/generate-citizen-tags.ts` reads the same
  * env var with the same default.
@@ -97,42 +100,13 @@ export function stripThinking(text: string): string {
 	return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
-/**
- * Privacy routing preferences sent with every OpenRouter request (chat,
- * embeddings, rerank). Citizens' questions can contain personal data, so:
- *
- *   - `zdr: true` — only route to endpoints with Zero Data Retention
- *     (https://openrouter.ai/docs/guides/features/zdr). The OpenRouter account
- *     also enforces ZDR in its privacy settings; this per-request flag keeps
- *     the guarantee if that account setting is ever relaxed by mistake.
- *   - `data_collection: "deny"` — never route to providers that may store or
- *     train on inputs.
- *   - `ignore: ["siliconflow"]` — SiliconFlow (Singapore) is a ZDR-listed
- *     provider for qwen/qwen3-embedding-8b, but its privacy policy names no
- *     GDPR transfer mechanism. Excluding it keeps question embeddings on
- *     DeepInfra (US) or Nebius (NL). It also only serves an fp8 build, so
- *     excluding it keeps query vectors closer to the stored corpus vectors.
- *
- * Set OPENROUTER_ZDR=false to send no preferences (research/eval only — e.g.
- * to A/B a model that has no ZDR endpoint). Under the account-level ZDR
- * setting such models still return 404.
- */
-export function openRouterPrivacyRouting(
-	env: Record<string, string | undefined> = process.env,
-):
-	| { zdr: true; data_collection: "deny"; ignore: string[] }
-	| Record<string, never> {
-	if ((env.OPENROUTER_ZDR ?? "").trim().toLowerCase() === "false") return {};
-	return { zdr: true, data_collection: "deny", ignore: ["siliconflow"] };
-}
-
-/** Request-body fragment: `{ provider: {...} }`, or `{}` when disabled. */
-export function openRouterProviderField(
-	env: Record<string, string | undefined> = process.env,
-): { provider?: ReturnType<typeof openRouterPrivacyRouting> } {
-	const prefs = openRouterPrivacyRouting(env);
-	return Object.keys(prefs).length > 0 ? { provider: prefs } : {};
-}
+// Privacy routing (ZDR) preferences: defined in @leyabierta/pipeline
+// (utils/openrouter-privacy.ts) so the daily cron sends the same field, and
+// re-exported here unchanged for every API path.
+export {
+	openRouterPrivacyRouting,
+	openRouterProviderField,
+} from "@leyabierta/pipeline";
 
 const MAX_RETRIES = 2;
 const BACKOFF_MS = 2000;

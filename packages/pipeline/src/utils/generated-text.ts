@@ -16,3 +16,17 @@ export const FOREIGN_SCRIPT =
 export function hasForeignScript(...texts: string[]): boolean {
 	return texts.some((t) => FOREIGN_SCRIPT.test(t));
 }
+
+/**
+ * The model id as stored next to a generated text (reform_summaries.model,
+ * citizen_article_summaries.model): an OpenRouter-style `provider/model` id.
+ * The offline generator records the served name of the local vLLM
+ * (`qwen3.8-27b`), the same weights as `qwen/qwen3.8-27b`.
+ */
+export function normalizeModelId(model: string | undefined): string {
+	const m = (model ?? "").trim();
+	// Only the bare vLLM served name ("qwen3.8-27b"); anything else (an
+	// OpenRouter id, a local tag like "qwen3.8:27b-mlx") is kept as is.
+	if (/^qwen\d[\w.-]*$/i.test(m)) return `qwen/${m.toLowerCase()}`;
+	return m;
+}

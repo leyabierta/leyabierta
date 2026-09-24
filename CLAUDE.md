@@ -208,7 +208,8 @@ The NaN provider (`api.nan.builders`, `NAN_API_KEY`) that served the stack until
 | Component | Model | Env override |
 |---|---|---|
 | Embeddings | `qwen/qwen3-embedding-8b` (4096 dims) | — (fixed: must match the stored vectors) |
-| Query analyzer (+ auxiliary calls: streaming tldr/next questions, declined suggestions, lazy article summaries) | `google/gemini-2.5-flash-lite` | `OPENROUTER_LLM_MODEL` |
+| Query analyzer (+ auxiliary calls: streaming tldr/next questions, declined suggestions) | `google/gemini-2.5-flash-lite` | `OPENROUTER_LLM_MODEL` |
+| Per-article citizen summaries (lazy route + RAG background fill; also the daily cron) | `openai/gpt-6-luna`, reasoning `{effort: "minimal"}` | `ARTICLE_SUMMARIES_MODEL` |
 | Reranker | `google/gemini-2.5-flash-lite` (LLM listwise rerank) | `RERANK_BACKEND` (`llm`/`none`/`cohere-or`), `OPENROUTER_RERANK_LLM_MODEL` |
 | Synthesis (JSON + streaming; `meta.model`) | `openai/gpt-6-luna`, reasoning `{effort: "minimal"}` | `OPENROUTER_SYNTHESIS_MODEL`, `OPENROUTER_SYNTHESIS_REASONING` (`minimal`/`low`/`medium`/`high`/`none`/`default`; default `minimal` for `openai/*`, nothing otherwise; `default` omits the field, which on gpt-6-luna means reasoning at `medium`) |
 
@@ -241,10 +242,23 @@ synthesis default. See
 - Synthesis: qwen3.6 judged 8.82 vs 7.17 for gemini-2.5-flash-lite, 99.6% vs 97.1% citation precision; latency 13s vs 2.5s.
 - Gemini Flash Lite + Cohere was the evaluated alternative arm; Gemini Flash Lite is now the default, with Cohere replaced by the LLM rerank (ZDR, see above).
 
-**Generated content (daily cron):** law/article citizen summaries and tags,
+**Generated content (daily cron):** law-level citizen summaries and tags,
 and omnibus topics use `CONTENT_LLM_MODEL` via OpenRouter (default
-`google/gemini-2.5-flash-lite`). Reform summaries use `REFORM_SUMMARIES_MODEL`
-(default `openai/gpt-6-luna`, reasoning `{effort: "minimal"}`; `qwen/*` models
+`google/gemini-2.5-flash-lite`). **Per-article citizen summaries** have one
+generator for every live path — the cron (`generate-citizen-tags.ts`, after a
+law's summary), the lazy route (`GET /v1/laws/:id/summaries`,
+`citizen-summary.ts`) and the RAG background fill: `generateArticleSummary`
+in `packages/pipeline/src/ai/article-summary.ts`, prompt v10
+(`ai/article-summary-prompt.ts`, `ARTICLE_SUMMARY_PROMPT_VERSION`), the whole
+article (placeholders skipped, > 60K characters left to the offline backfill),
+`ARTICLE_SUMMARIES_MODEL` (default `openai/gpt-6-luna`, reasoning minimal; on
+40 unseen articles judged blind 7.80 vs 7.51 for `qwen/qwen3.8-27b`, fidelity
+1.95 vs 1.65, 0 vs 2 serious errors), ZDR. The same validation
+(`validateArticleSummary`: length cap by article size, 3–5 tags, no second
+person, Latin script) guards those paths and the offline import; each row
+stores `model`, `prompt_version` and `generated_at` ('' for rows written
+before 2026-09-24). Storage never overwrites an existing summary.
+Reform summaries use `REFORM_SUMMARIES_MODEL` (default `openai/gpt-6-luna`, reasoning `{effort: "minimal"}`; `qwen/*` models
 get reasoning off) with the style rules at the end of `REFORM_SYSTEM_PROMPT`
 (short, plain, impersonal, no unsupported value judgements). On 40 held-out
 reforms judged blind it scored 8.7–9.0/10 vs 8.0–8.2 for `qwen/qwen3.8-27b`,

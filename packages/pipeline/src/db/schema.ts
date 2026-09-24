@@ -132,6 +132,9 @@ const SCHEMA_SQL = /* sql */ `
     norm_id     TEXT NOT NULL,
     block_id    TEXT NOT NULL,
     summary     TEXT NOT NULL DEFAULT '',
+    model          TEXT NOT NULL DEFAULT '',
+    prompt_version TEXT NOT NULL DEFAULT '',
+    generated_at   TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (norm_id, block_id),
     FOREIGN KEY (norm_id, block_id) REFERENCES blocks(norm_id, block_id)
   );
@@ -333,6 +336,17 @@ export function createSchema(db: Database): void {
 		db.exec(
 			"ALTER TABLE reform_summaries ADD COLUMN prompt_version TEXT NOT NULL DEFAULT ''",
 		);
+	}
+
+	// Who wrote each per-article summary: model id, prompt version
+	// (ARTICLE_SUMMARY_PROMPT_VERSION) and date (datetime('now')). '' for the
+	// summaries written before 2026-09-24, whose origin was not recorded.
+	for (const column of ["model", "prompt_version", "generated_at"]) {
+		if (!hasColumn(db, "citizen_article_summaries", column)) {
+			db.exec(
+				`ALTER TABLE citizen_article_summaries ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`,
+			);
+		}
 	}
 }
 

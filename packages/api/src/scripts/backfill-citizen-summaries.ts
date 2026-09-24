@@ -33,7 +33,11 @@
 
 import { Database } from "bun:sqlite";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { hasForeignScript } from "@leyabierta/pipeline";
+import {
+	ARTICLE_SUMMARY_PROMPT_VERSION,
+	hasForeignScript,
+	normalizeModelId,
+} from "@leyabierta/pipeline";
 import { contentLlmEndpoint, stripThinking } from "../services/openrouter.ts";
 import {
 	BATCH_SCHEMA,
@@ -139,7 +143,9 @@ const stmtUpsertCheckpoint = db.prepare(
 // Write statements: hoisted to module level so we don't recompile the same SQL
 // ~1.5M times during a 433K-article run.
 const stmtInsertSummary = db.prepare(
-	"INSERT OR REPLACE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+	`INSERT OR REPLACE INTO citizen_article_summaries
+	   (norm_id, block_id, summary, model, prompt_version, generated_at)
+	 VALUES (?, ?, ?, ?, ?, datetime('now'))`,
 );
 const stmtInsertTag = db.prepare(
 	"INSERT OR REPLACE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
@@ -730,6 +736,8 @@ async function main() {
 						article.norm_id,
 						article.block_id,
 						output.citizen_summary,
+						normalizeModelId(LLM_MODEL),
+						ARTICLE_SUMMARY_PROMPT_VERSION,
 					);
 					for (const tag of output.citizen_tags) {
 						stmtInsertTag.run(article.norm_id, article.block_id, tag);

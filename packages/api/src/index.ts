@@ -72,7 +72,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const RAG_DATA_DIR = process.env.RAG_DATA_DIR ?? "./data";
 const statusService = new StatusService(db, RAG_DATA_DIR);
 const ragPipeline = OPENROUTER_API_KEY
-	? new RagPipeline(db, OPENROUTER_API_KEY, RAG_DATA_DIR)
+	? new RagPipeline(db, OPENROUTER_API_KEY, RAG_DATA_DIR, citizenSummaryService)
 	: null;
 // ask_log retention promised in /privacidad/ (ASK_LOG_RETENTION_DAYS, default
 // 90). Wired here, in the API server only — not in RagPipeline — so eval and
