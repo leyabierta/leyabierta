@@ -40,6 +40,7 @@ cleanup() {
   # The file is owned by the container user: remove it from inside.
   docker exec "$CONTAINER" rm -f "/data/$TMP_NAME" >/dev/null 2>&1 || true
   if [ "$status" -ne 0 ]; then
+    rm -f "$OUT" # uncompressed copy (emails, tokens) left by a failed cp/chmod/gzip
     send_alert "exit $status — see /opt/leyabierta/logs/backup-generated.log"
   fi
 }
