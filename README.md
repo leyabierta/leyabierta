@@ -145,7 +145,7 @@ TypeScript + Bun. Monorepo con tres paquetes:
 
 - **pipeline** — descarga, parsea, transforma y genera commits
 - **api** — API REST (Elysia) con SQLite + FTS5 para búsqueda full-text
-- **web** — interfaz pública (Astro, 100% estática) con dark mode, SEO, diff viewer, changelog personal (/mis-cambios) y notificaciones por email de cambios legislativos
+- **web** — interfaz pública (Astro, 100% estática) con dark mode, SEO, diff viewer, changelog personal (/cambios/para-mi/, solo en tu navegador) y RSS de cambios legislativos
 
 ## Desarrollo
 

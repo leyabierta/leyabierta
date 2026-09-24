@@ -4,10 +4,6 @@
 /cambios/recientes /cambios/recientes/ 301
 /cambios/para-mi /cambios/para-mi/ 301
 /mi-situacion /mi-situacion/ 301
-/alertas /alertas/ 301
-/alertas/gestionar /alertas/gestionar/ 301
-/alertas/cancelar /alertas/cancelar/ 301
-/alertas/confirmar /alertas/confirmar/ 301
 /sobre-leyabierta /sobre/ 301
 /sobre-leyabierta/ /sobre/ 301
 /sobre /sobre/ 301
@@ -58,3 +54,10 @@
 # The /laws/ legacy sitemap served its purpose (redirect discovery after the
 # 2026-05-03 migration; never submitted in GSC). Removed 2026-09-25.
 /sitemap-legacy.xml /sitemap.xml 301
+
+# === Sin correos (2026-09-24) ===
+# Las alertas por email (Resend) se retiraron: sin cuentas ni emails. Quien quiera
+# seguir cambios tiene /cambios/para-mi/ (en el navegador) y los canales RSS.
+/alertas /cambios/para-mi/ 301
+/alertas/ /cambios/para-mi/ 301
+/alertas/* /cambios/para-mi/ 301

@@ -76,19 +76,8 @@ export interface ReformImportReport {
 	total: number;
 	inserted: number;
 	replaced: number;
-	/** Rows also marked in notified_reforms, so they trigger no alert email. */
-	markedNotified: number;
 	skipped: Record<string, number>;
 }
-
-/**
- * Alerts are for new reforms. An offline import is a backfill: a summary it
- * writes (inserted or replaced) for a reform older than this is marked as
- * notified, otherwise send-notifications.ts would email it (a replacement
- * too, when its importance changes from "skip"). Recent reforms keep the
- * normal alert flow, as if the daily cron had written them.
- */
-export const ALERT_WINDOW_DAYS = 30;
 
 /**
  * Inserts valid rows for reforms that still exist, belong to an in-force law,
@@ -108,15 +97,12 @@ export function importReformRows(
 		batchSize?: number;
 		pauseMs?: number;
 		replace?: Map<string, string>;
-		/** "YYYY-MM-DD"; defaults to today minus ALERT_WINDOW_DAYS. */
-		alertCutoff?: string;
 	},
 ): ReformImportReport {
 	const report: ReformImportReport = {
 		total: rows.length,
 		inserted: 0,
 		replaced: 0,
-		markedNotified: 0,
 		skipped: {},
 	};
 	const skip = (reason: string) => {
@@ -137,19 +123,6 @@ export function importReformRows(
 		`INSERT OR IGNORE INTO reform_summaries
 		   (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model, prompt_version)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`,
-	);
-	const alertCutoff =
-		opts.alertCutoff ??
-		new Date(Date.now() - ALERT_WINDOW_DAYS * 86_400_000)
-			.toISOString()
-			.slice(0, 10);
-	const needsNoAlert = (r: GeneratedReformRow) => r.reform_date < alertCutoff;
-	const isNotified = db.prepare(
-		"SELECT 1 FROM notified_reforms WHERE norm_id = ? AND source_id = ? AND reform_date = ?",
-	);
-	const markNotified = db.prepare(
-		`INSERT OR IGNORE INTO notified_reforms (norm_id, source_id, reform_date, notified_at)
-		 VALUES (?, ?, ?, datetime('now'))`,
 	);
 	const getSummary = db.prepare(
 		"SELECT headline, summary FROM reform_summaries WHERE norm_id = ? AND source_id = ? AND reform_date = ?",
@@ -250,21 +223,12 @@ export function importReformRows(
 		const chunk = accepted.slice(i, i + batchSize);
 		if (!opts.apply) {
 			for (const { row, replace } of chunk) {
-				if (replace)
+				if (replace) {
 					if (unchangedSinceExport(row)) report.replaced++;
-					else {
-						skip("summary_changed_since_export");
-						continue;
-					}
-				else if (hasSummary.get(row.norm_id, row.source_id, row.reform_date)) {
+					else skip("summary_changed_since_export");
+				} else if (hasSummary.get(row.norm_id, row.source_id, row.reform_date))
 					skip("already_has_summary");
-					continue;
-				} else report.inserted++;
-				if (
-					needsNoAlert(row) &&
-					!isNotified.get(row.norm_id, row.source_id, row.reform_date)
-				)
-					report.markedNotified++;
+				else report.inserted++;
 			}
 			continue;
 		}
@@ -306,12 +270,6 @@ export function importReformRows(
 					}
 					report.inserted++;
 				}
-				if (
-					needsNoAlert(row) &&
-					markNotified.run(row.norm_id, row.source_id, row.reform_date)
-						.changes > 0
-				)
-					report.markedNotified++;
 			}
 		}).immediate(chunk);
 		if (pauseMs > 0) Bun.sleepSync(pauseMs);

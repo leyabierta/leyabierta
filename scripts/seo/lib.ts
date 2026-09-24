@@ -344,7 +344,6 @@ export const KEY_PAGES = [
 	"/cambios/",
 	"/cambios/recientes/",
 	"/cambios/para-mi/",
-	"/alertas/",
 	"/mi-situacion/",
 	"/sobre/",
 	"/sobre/api/",
