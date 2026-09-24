@@ -179,7 +179,7 @@ The system only has statutory text. Many legal questions depend on how courts in
 
 504/12,236 laws (4%) means many citizen questions will hit laws not in the embeddings. The selection criterion (top by reforms) misses stable but important laws.
 
-**Recommendation**: Embed all ~9,700 vigente laws. Estimated cost ~$19. The `embed-missing-laws.ts` script already supports incremental merging.
+**Recommendation**: Embed all ~9,700 vigente laws. The `embed-missing-laws.ts` script already supports incremental merging.
 
 ---
 
@@ -216,7 +216,7 @@ Options:
 - The `norms.updated_at` field has the last consolidation date — use it
 
 ### Priority 2: Embed all vigente laws
-~9,300 remaining vigente laws, ~$19 cost. Use `embed-missing-laws.ts` in batches.
+~9,300 remaining vigente laws. Use `embed-missing-laws.ts` in batches.
 This eliminates the coverage gap entirely.
 
 ### Priority 3: Evidence ordering in synthesis

@@ -30,8 +30,8 @@ con GSC como fuente de verdad en vez de un eval harness.
   NO puede tocar la API, el pipeline, datos, secrets, ni la lógica de negocio.
 - **Verificación obligatoria.** Ningún PR se abre si `bun run build`,
   `bunx tsgo --noEmit` o `bun run check` (biome) fallan.
-- **Presupuesto.** Coste de inferencia por iteración ≤ 5 €. Escalar a humano
-  si se supera.
+- **Presupuesto.** Presupuesto de inferencia por iteración: ver docs/ privado.
+  Escalar a humano si se supera.
 - **Privacidad.** Los snapshots de GSC/Umami y la bitácora (`data/seo/`) son
   privados (gitignored). El código y la gobernanza (`.goals/seo/`, `scripts/seo/`)
   son públicos — la transparencia del método es on-brand.
@@ -40,7 +40,7 @@ con GSC como fuente de verdad en vez de un eval harness.
 
 - 3 iteraciones seguidas sin mejora medible en clics ni impresiones → escalar.
 - Un PR del loop rompe algo en producción → pausar el cron, revisar.
-- Presupuesto acumulado > 100 € → escalar.
+- Presupuesto acumulado por encima del límite (ver docs/ privado) → escalar.
 - STOP humano.
 
 ## Fuera de alcance (por ahora)

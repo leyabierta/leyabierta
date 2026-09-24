@@ -10,7 +10,7 @@
  *   - Recall@K: did any chunk of the expected norm land in the top-K
  *     post-rerank `articles[]` of the pipeline?
  *
- * Cost: 65 × (1 analyzer call + 1 embedding call + 1 Cohere rerank) ≈ $0.10.
+ * Calls: 65 × (1 analyzer call + 1 embedding call + 1 Cohere rerank).
  *
  * Usage:
  *   bun packages/api/research/eval-gate.ts                      # write baseline

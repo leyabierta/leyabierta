@@ -216,7 +216,6 @@ The backfill script will:
 - Log failures for manual review
 
 **Estimated runtime:** ~4 days
-**Estimated cost:** $0
 **Expected empty rate:** ~3.3% (handled by retry)
 
 ### Social Media

@@ -55,7 +55,6 @@ export const EMBEDDING_MODELS: Record<string, EmbeddingModel> = {
 	 *
 	 * API: OpenRouter `google/gemini-embedding-2-preview` (requires OPENROUTER_API_KEY).
 	 * Dimensions: 3072 (fixed output size, not MRL-truncatable without re-embedding).
-	 * Cost: ~$0.00013 / 1K tokens via OpenRouter.
 	 *
 	 * DO NOT change the prod default (qwen3-nan). This entry is A/B-only.
 	 */

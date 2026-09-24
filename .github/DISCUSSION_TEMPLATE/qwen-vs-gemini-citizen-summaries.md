@@ -47,7 +47,7 @@ Iteration 7 only changed the prompt (added examples). Everything else was carrie
 ## Next Steps
 
 1. Write the backfill script (see issue #XXX)
-2. Run it against all 436K articles (~4 days, $0 cost)
+2. Run it against all 436K articles (~4 days)
 3. Update the online lazy-gen path to use Qwen instead of Gemini
 
 ## Credits

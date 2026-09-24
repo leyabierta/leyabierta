@@ -315,9 +315,9 @@ on hold until the input is fixed, whatever model writes them.**
 
 1. **Model.** `qwen3.8:27b-mlx` is a valid replacement for flash-lite for this
    content: it is equal or better on every criterion and has perfect format
-   compliance with reasoning off. The Mac needs about a week at full load for
-   the whole backlog, so choose local for independence from the API, not for
-   speed.
+   compliance with reasoning off. Local is not cheaper in practice (the Mac
+   needs about a week at full load for the whole backlog); choose it for
+   independence from the API, not to save money.
 2. **Fix the reform-summary input first.** It limits both models:
    - Show the **changed span** of each block (a word-level diff with some
      context) instead of the first 500 characters of "antes" and "ahora". When
