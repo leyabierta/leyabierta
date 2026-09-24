@@ -10,10 +10,9 @@ name: PR checks
 on:
   pull_request:
     paths:
-      - "packages/web/**"
-      - "packages/pipeline/**"
-      - "packages/api/src/scripts/generate-og-images.ts"
-      - "scripts/smoke-pages.ts"
+      - "packages/**"
+      - "scripts/**"
+      - "lefthook.yml"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/pr-checks.yml"
@@ -26,10 +25,9 @@ on:
       - "seo-loop/**"
     # keep these paths in sync with pull_request.paths above
     paths:
-      - "packages/web/**"
-      - "packages/pipeline/**"
-      - "packages/api/src/scripts/generate-og-images.ts"
-      - "scripts/smoke-pages.ts"
+      - "packages/**"
+      - "scripts/**"
+      - "lefthook.yml"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/pr-checks.yml"
