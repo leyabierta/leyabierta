@@ -116,6 +116,9 @@ jobs:
         env:
           LAWS_PATH: content/laws
           API_BYPASS_KEY: ${{ secrets.API_BYPASS_KEY }}
+          # Smoke build: a PR must not fail because the API (or its tunnel) is
+          # slow; production deploys (deploy.yml) never set this.
+          ALLOW_MISSING_MANIFESTS: "1"
           PUBLIC_UMAMI_WEBSITE_ID: ${{ vars.PUBLIC_UMAMI_WEBSITE_ID }}
 
       - name: Smoke test critical routes

@@ -27,40 +27,99 @@ fi
 # Resolve laws directory: LAWS_PATH is relative to repo root (2 levels up from packages/web)
 REPO_ROOT="$(cd ../.. && pwd)"
 LAWS_DIR="${REPO_ROOT}/${LAWS_PATH:-../leyes}"
-TOTAL=$(find "$LAWS_DIR" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+if [ ! -d "$LAWS_DIR" ]; then
+  echo "[build] ERROR: laws directory $LAWS_DIR does not exist (set LAWS_PATH, relative to the repo root)" >&2
+  exit 1
+fi
+TOTAL=$(find "$LAWS_DIR" -name "*.md" -type f | wc -l | tr -d ' ')
 
-# Fallback if we can't count laws
+# No laws = a site without its law pages: fatal, except for local/smoke builds.
 if [ "$TOTAL" -eq 0 ]; then
-  echo "[build] Could not count laws in $LAWS_DIR — running without progress"
+  if [ "${ALLOW_MISSING_MANIFESTS:-}" != "1" ]; then
+    echo "[build] ERROR: no .md laws in $LAWS_DIR. Refusing to build a site without law pages (ALLOW_MISSING_MANIFESTS=1 for local/smoke builds)." >&2
+    exit 1
+  fi
+  echo "[build] WARNING: no laws in $LAWS_DIR — building without them (ALLOW_MISSING_MANIFESTS=1)"
   bunx astro build
   exec bash scripts/check-asset-count.sh dist
 fi
 
-# ── Fetch build manifest (1 API call instead of ~12K per-page calls) ──
-echo "[build] Fetching build manifest..."
-if curl -sf -H "x-api-key: ${API_BYPASS_KEY:-}" \
-  "${API_URL:-https://api.leyabierta.es}/v1/build-manifest" \
-  -o .build-manifest.json; then
-  MANIFEST_SIZE=$(wc -c < .build-manifest.json | tr -d ' ')
-  echo "[build] Manifest downloaded (${MANIFEST_SIZE} bytes)"
-  export BUILD_MANIFEST_PATH="$(pwd)/.build-manifest.json"
-else
-  echo "[build] WARNING: Manifest fetch failed, falling back to per-page API calls"
-fi
+# ── Build manifests: REQUIRED ──
+# The law pages' own content (citizen summaries, reform headlines, article
+# summaries) comes only from these two files. On 2026-09-24 a transport error
+# on the ~100 MB article manifest was only a warning and the deploy published
+# 12k fichas without article summaries. So each manifest is retried with
+# backoff, validated (JSON, expected shape, minimum size) and, if it still
+# fails, the build stops: better no deploy than a deploy without content.
+# ALLOW_MISSING_MANIFESTS=1 (local builds, CI smoke builds without the API)
+# keeps the old behaviour: warn and build without that manifest.
+MANIFEST_ATTEMPTS="${MANIFEST_ATTEMPTS:-4}"
+# Sizes on 2026-09-24: main 10.4 MB, articles ~100 MB.
+MIN_BUILD_MANIFEST_BYTES="${MIN_BUILD_MANIFEST_BYTES:-5000000}"
+MIN_ARTICLES_MANIFEST_BYTES="${MIN_ARTICLES_MANIFEST_BYTES:-50000000}"
 
-# ── Fetch article-summaries manifest (per-article citizen summaries, ~75 MB) ──
-# Shipped separately from the main manifest because of its size; used to bake
-# article summaries into the static HTML (SEO-visible) instead of client fetch.
-echo "[build] Fetching article-summaries manifest..."
-if curl -sf --max-time 300 -H "x-api-key: ${API_BYPASS_KEY:-}" \
-  "${API_URL:-https://api.leyabierta.es}/v1/build-manifest/articles" \
-  -o .build-manifest-articles.json; then
-  ARTICLES_SIZE=$(wc -c < .build-manifest-articles.json | tr -d ' ')
-  echo "[build] Article summaries downloaded (${ARTICLES_SIZE} bytes)"
-  export BUILD_ARTICLE_SUMMARIES_PATH="$(pwd)/.build-manifest-articles.json"
-else
-  echo "[build] WARNING: Article-summaries fetch failed; article summaries will be omitted"
-fi
+# fetch_manifest <label> <path> <out-file> <main|articles> <min-bytes> <max-time>
+# Returns 0 when <out-file> holds a valid manifest.
+fetch_manifest() {
+  local label="$1" path="$2" out="$3" kind="$4" min="$5" max_time="$6"
+  local url="${API_URL:-https://api.leyabierta.es}${path}"
+  local attempt http rc check delay
+  for attempt in $(seq 1 "$MANIFEST_ATTEMPTS"); do
+    rm -f "$out"
+    rc=0
+    http=$(curl -sS --max-time "$max_time" -H "x-api-key: ${API_BYPASS_KEY:-}" \
+      -o "$out" -w '%{http_code}' "$url") || rc=$?
+    if [ "$rc" -eq 0 ] && [ "$http" = "200" ]; then
+      if check=$(bun scripts/check-manifest.ts "$out" "$kind" "$min" 2>&1); then
+        echo "[build] ${label} OK (${check}), attempt ${attempt}"
+        return 0
+      fi
+      echo "[build] ${label}: attempt ${attempt}/${MANIFEST_ATTEMPTS} invalid: ${check}"
+    else
+      echo "[build] ${label}: attempt ${attempt}/${MANIFEST_ATTEMPTS} failed (curl exit ${rc}, HTTP ${http:-none})"
+      # A 4xx (bad key, wrong path) will not fix itself: fail now. 408/429
+      # are transient and still retried.
+      case "$http" in
+        408 | 429) ;;
+        4??)
+          echo "[build] ${label}: HTTP ${http} is not retryable"
+          rm -f "$out"
+          return 1
+          ;;
+      esac
+    fi
+    if [ "$attempt" -lt "$MANIFEST_ATTEMPTS" ]; then
+      delay=$((attempt * 10))
+      echo "[build] ${label}: retrying in ${delay}s"
+      sleep "$delay"
+    fi
+  done
+  rm -f "$out"
+  return 1
+}
+
+# require_manifest <label> <env-var> <path> <out-file> <kind> <min-bytes> <max-time>
+require_manifest() {
+  local label="$1" var="$2"
+  echo "[build] Fetching ${label}..."
+  if fetch_manifest "$label" "$3" "$4" "$5" "$6" "$7"; then
+    export "$var=$(pwd)/$4"
+  elif [ "${ALLOW_MISSING_MANIFESTS:-}" = "1" ]; then
+    echo "[build] WARNING: ${label} unavailable; building without it (ALLOW_MISSING_MANIFESTS=1)"
+  else
+    echo "[build] ERROR: ${label} unavailable (see the attempts above). Refusing to build a site without its own content (ALLOW_MISSING_MANIFESTS=1 for local/smoke builds)." >&2
+    exit 1
+  fi
+}
+
+# Main manifest: citizen summaries, tags, materias, omnibus, reform headlines
+# (1 API call instead of ~12K per-page calls).
+require_manifest "build manifest" BUILD_MANIFEST_PATH \
+  /v1/build-manifest .build-manifest.json main "$MIN_BUILD_MANIFEST_BYTES" 120
+# Article summaries: shipped separately because of its size; baked into the
+# static HTML (SEO-visible) instead of a client fetch.
+require_manifest "article-summaries manifest" BUILD_ARTICLE_SUMMARIES_PATH \
+  /v1/build-manifest/articles .build-manifest-articles.json articles "$MIN_ARTICLES_MANIFEST_BYTES" 300
 
 echo "[build] Building $TOTAL law pages + static pages"
 START=$(date +%s)
