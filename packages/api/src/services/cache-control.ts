@@ -36,13 +36,13 @@ export function toStatusCode(status: number | string | undefined): number {
 
 /**
  * Cache-Control for a response that did not set its own, or `undefined` when
- * the path must not get a default header (alerts, health).
+ * the path must not get a default header (health).
  */
 export function defaultCacheControl(
 	path: string,
 	status: number | string | undefined,
 ): string | undefined {
-	if (path.startsWith("/v1/alerts") || path === "/health") return undefined;
+	if (path === "/health") return undefined;
 	const code = toStatusCode(status);
 	if (code >= 200 && code < 400) return SUCCESS_CACHE_CONTROL;
 	if (code === 404) return NOT_FOUND_CACHE_CONTROL;

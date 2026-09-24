@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Daily backup of what leyabierta.db cannot rebuild: AI-generated content and
-# subscriptions (see packages/api/src/scripts/backup-generated-content.ts).
+# Daily backup of what leyabierta.db cannot rebuild: the AI-generated content
+# (see packages/api/src/scripts/backup-generated-content.ts).
 # The rest of the DB is derived from the JSON cache (`bun run ingest`).
 #
 # Kept on the server only (decision 2026-09-24): protects against bad imports
 # and logical errors, not against losing the disk.
 #
 # Run daily via /etc/cron.d/leyabierta (04:00, before the 08:30 pipeline).
-# The file holds subscriber emails and confirm/unsubscribe tokens: 0600 only.
+# 0600 all the same: it is our data, nobody else's business on the host.
 set -euo pipefail
 umask 077
 

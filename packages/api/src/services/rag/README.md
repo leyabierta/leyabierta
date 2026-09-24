@@ -9,7 +9,7 @@ y recibe una respuesta anclada a artículos legislativos reales con enlaces veri
 - [x] **Phase 1: Embeddings** ← vector-only achieves 100% across all metrics
 - [x] **Phase 2: Temporal Awareness** ← vector-smart auto-detects temporal intent
 - [x] **Phase 3: UI básica** ← /pregunta con React island + POST /v1/ask
-- [ ] Phase 4: Expansiones (multi-turn, alertas, situación)
+- [ ] Phase 4: Expansiones (multi-turn, situación)
 
 > **Nota:** Graph Traversal (referencias cruzadas) se reclasificó a Phase 2
 > porque las `referencias` son relaciones legislativas formales (SE MODIFICA,
