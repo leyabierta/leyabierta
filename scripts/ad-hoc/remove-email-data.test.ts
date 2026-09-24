@@ -8,6 +8,8 @@ import {
 	planResend,
 } from "./remove-email-data.ts";
 
+const noSleep = async () => {};
+
 function json(data: unknown, status = 200): Response {
 	return new Response(JSON.stringify({ data }), { status });
 }
@@ -49,7 +51,7 @@ describe("remove-email-data", () => {
 		const plan = await planResend(fake, "k");
 		expect(plan.audiences[0]?.contacts).toHaveLength(1);
 		expect(plan.globalContacts).toEqual([]);
-		const res = await applyResend(fake, "k", plan);
+		const res = await applyResend(fake, "k", plan, noSleep);
 		expect(res).toEqual({ deleted: 2, failed: [] });
 		expect(calls.slice(-2)).toEqual([
 			"DELETE /audiences/A1/contacts/C1",
@@ -62,11 +64,37 @@ describe("remove-email-data", () => {
 			url.endsWith("/C1")
 				? new Response(null, { status: 500 })
 				: new Response(null, { status: 404 });
-		const res = await applyResend(fake, "k", {
-			audiences: [{ id: "A1", name: "x", contacts: [{ id: "C1", email: "" }] }],
-			globalContacts: [],
-		});
+		const res = await applyResend(
+			fake,
+			"k",
+			{
+				audiences: [
+					{ id: "A1", name: "x", contacts: [{ id: "C1", email: "" }] },
+				],
+				globalContacts: [],
+			},
+			noSleep,
+		);
 		expect(res.deleted).toBe(1);
 		expect(res.failed).toEqual(["/audiences/A1/contacts/C1 → HTTP 500"]);
+	});
+
+	test("a 429 is retried after Retry-After, then deleted", async () => {
+		const waits: number[] = [];
+		let n = 0;
+		const fake = async () =>
+			++n === 1
+				? new Response(null, { status: 429, headers: { "retry-after": "2" } })
+				: new Response(null, { status: 200 });
+		const res = await applyResend(
+			fake,
+			"k",
+			{ audiences: [], globalContacts: [{ id: "C1", email: "" }] },
+			async (ms: number) => {
+				waits.push(ms);
+			},
+		);
+		expect(res).toEqual({ deleted: 1, failed: [] });
+		expect(waits).toEqual([2000, 300]);
 	});
 });

@@ -120,27 +120,51 @@ export async function planResend(
 			contacts: contacts.data as ResendContact[],
 		});
 	}
+	if (audiences.status === 404) {
+		console.warn(
+			"Resend GET /audiences → HTTP 404: no audiences API on this account",
+		);
+	}
 	// Newer accounts keep contacts outside audiences.
 	const global = await getJson(fetchFn, key, "/contacts");
 	if (global.status < 400) plan.globalContacts = global.data as ResendContact[];
+	else
+		console.warn(
+			`Resend GET /contacts → HTTP ${global.status}: global contacts not listed (check the dashboard by hand)`,
+		);
 	return plan;
 }
+
+/** Resend allows ~2 requests/s per account: pause between deletions. */
+const PAUSE_MS = 300;
+const MAX_RETRIES = 4;
 
 export async function applyResend(
 	fetchFn: Fetch,
 	key: string,
 	plan: ResendPlan,
+	sleep: (ms: number) => Promise<unknown> = Bun.sleep,
 ): Promise<{ deleted: number; failed: string[] }> {
 	const failed: string[] = [];
 	let deleted = 0;
 	const del = async (path: string) => {
-		const res = await fetchFn(`${RESEND_API}${path}`, {
-			method: "DELETE",
-			headers: { Authorization: `Bearer ${key}` },
-		});
-		// 404 = already gone: the goal is reached.
-		if (res.ok || res.status === 404) deleted++;
-		else failed.push(`${path} → HTTP ${res.status}`);
+		for (let attempt = 0; ; attempt++) {
+			const res = await fetchFn(`${RESEND_API}${path}`, {
+				method: "DELETE",
+				headers: { Authorization: `Bearer ${key}` },
+			});
+			if (res.status === 429 && attempt < MAX_RETRIES) {
+				// Honour Retry-After (seconds); otherwise back off 1 s, 2 s, 4 s…
+				const retryAfter = Number(res.headers.get("retry-after"));
+				await sleep(retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt);
+				continue;
+			}
+			// 404 = already gone: the goal is reached.
+			if (res.ok || res.status === 404) deleted++;
+			else failed.push(`${path} → HTTP ${res.status}`);
+			await sleep(PAUSE_MS);
+			return;
+		}
 	};
 	for (const a of plan.audiences) {
 		const audience = encodeURIComponent(a.id);
