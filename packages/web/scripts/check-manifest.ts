@@ -14,6 +14,9 @@ import { readFileSync, statSync } from "node:fs";
 
 export type ManifestKind = "main" | "articles";
 
+const isObject = (v: unknown): v is object =>
+	!!v && typeof v === "object" && !Array.isArray(v);
+
 export function validateManifest(
 	text: string,
 	kind: ManifestKind,
@@ -40,17 +43,23 @@ export function validateManifest(
 	}
 	const obj = raw as Record<string, unknown>;
 	if (kind === "main") {
-		const citizens = obj.citizens;
-		if (
-			!citizens ||
-			typeof citizens !== "object" ||
-			typeof obj.omnibus !== "object"
-		) {
-			return { ok: false, reason: "missing 'citizens' or 'omnibus'" };
+		for (const field of ["citizens", "omnibus", "reforms"]) {
+			if (!isObject(obj[field])) {
+				return { ok: false, reason: `'${field}' missing or not an object` };
+			}
 		}
-		const n = Object.keys(citizens).length;
-		if (n === 0) return { ok: false, reason: "'citizens' is empty" };
-		return { ok: true, summary: `${n} citizens, ${bytes} bytes` };
+		// omnibus may legitimately be empty; citizens and reforms never are.
+		for (const field of ["citizens", "reforms"]) {
+			if (Object.keys(obj[field] as object).length === 0) {
+				return { ok: false, reason: `'${field}' is empty` };
+			}
+		}
+		const n = Object.keys(obj.citizens as object).length;
+		const r = Object.keys(obj.reforms as object).length;
+		return {
+			ok: true,
+			summary: `${n} citizens, reforms for ${r} laws, ${bytes} bytes`,
+		};
 	}
 	const n = Object.keys(obj).length;
 	if (n === 0) return { ok: false, reason: "no norms" };

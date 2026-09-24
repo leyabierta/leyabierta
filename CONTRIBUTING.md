@@ -46,6 +46,22 @@ bun run api      # http://localhost:3000
 bun run web      # http://localhost:4321
 ```
 
+### Build completo de la web en local
+
+`packages/web/build-with-progress.sh` es el build de producción: descarga los
+manifests de la API (resúmenes, titulares de reformas, resúmenes por artículo),
+que necesitan la clave `API_BYPASS_KEY`, y **falla** si no puede descargarlos o
+si no encuentra las leyes (`LAWS_PATH`, relativo a la raíz del repo; por defecto
+`../leyes`). Así producción nunca publica fichas sin contenido.
+
+Sin clave (o sin el repo `leyes`), usa `ALLOW_MISSING_MANIFESTS=1`: el build
+avisa y sigue sin ese contenido.
+
+```bash
+cd packages/web
+ALLOW_MISSING_MANIFESTS=1 bash build-with-progress.sh
+```
+
 ## Convenciones
 
 - **Código y comentarios** en inglés

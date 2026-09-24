@@ -27,11 +27,19 @@ fi
 # Resolve laws directory: LAWS_PATH is relative to repo root (2 levels up from packages/web)
 REPO_ROOT="$(cd ../.. && pwd)"
 LAWS_DIR="${REPO_ROOT}/${LAWS_PATH:-../leyes}"
-TOTAL=$(find "$LAWS_DIR" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+if [ ! -d "$LAWS_DIR" ]; then
+  echo "[build] ERROR: laws directory $LAWS_DIR does not exist (set LAWS_PATH, relative to the repo root)" >&2
+  exit 1
+fi
+TOTAL=$(find "$LAWS_DIR" -name "*.md" -type f | wc -l | tr -d ' ')
 
-# Fallback if we can't count laws
+# No laws = a site without its law pages: fatal, except for local/smoke builds.
 if [ "$TOTAL" -eq 0 ]; then
-  echo "[build] Could not count laws in $LAWS_DIR — running without progress"
+  if [ "${ALLOW_MISSING_MANIFESTS:-}" != "1" ]; then
+    echo "[build] ERROR: no .md laws in $LAWS_DIR. Refusing to build a site without law pages (ALLOW_MISSING_MANIFESTS=1 for local/smoke builds)." >&2
+    exit 1
+  fi
+  echo "[build] WARNING: no laws in $LAWS_DIR — building without them (ALLOW_MISSING_MANIFESTS=1)"
   bunx astro build
   exec bash scripts/check-asset-count.sh dist
 fi
@@ -69,6 +77,16 @@ fetch_manifest() {
       echo "[build] ${label}: attempt ${attempt}/${MANIFEST_ATTEMPTS} invalid: ${check}"
     else
       echo "[build] ${label}: attempt ${attempt}/${MANIFEST_ATTEMPTS} failed (curl exit ${rc}, HTTP ${http:-none})"
+      # A 4xx (bad key, wrong path) will not fix itself: fail now. 408/429
+      # are transient and still retried.
+      case "$http" in
+        408 | 429) ;;
+        4??)
+          echo "[build] ${label}: HTTP ${http} is not retryable"
+          rm -f "$out"
+          return 1
+          ;;
+      esac
     fi
     if [ "$attempt" -lt "$MANIFEST_ATTEMPTS" ]; then
       delay=$((attempt * 10))
@@ -89,7 +107,7 @@ require_manifest() {
   elif [ "${ALLOW_MISSING_MANIFESTS:-}" = "1" ]; then
     echo "[build] WARNING: ${label} unavailable; building without it (ALLOW_MISSING_MANIFESTS=1)"
   else
-    echo "[build] ERROR: ${label} unavailable after ${MANIFEST_ATTEMPTS} attempts. Refusing to build a site without its own content (ALLOW_MISSING_MANIFESTS=1 for local/smoke builds)." >&2
+    echo "[build] ERROR: ${label} unavailable (see the attempts above). Refusing to build a site without its own content (ALLOW_MISSING_MANIFESTS=1 for local/smoke builds)." >&2
     exit 1
   fi
 }
