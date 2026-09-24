@@ -194,7 +194,7 @@ The system only has statutory text. Many legal questions depend on how courts in
 6. **Collection density RRF**: aggregate article scores by norm as 4th RRF system
 7. **Diversity penalty**: diminishing returns per norm (1st: 1.0, 2nd: 0.7, 3rd: 0.5, 4th+: 0.3)
 8. **Omnibus law penalty**: PGE/medidas urgentes get 0.15x boost for non-temporal questions
-9. **4 missing core laws embedded**: LAU, LOPDGDD, LETA, Ley Vivienda ($0.02)
+9. **4 missing core laws embedded**: LAU, LOPDGDD, LETA, Ley Vivienda
 10. **Fixed embedding path**: API was loading 56-law file instead of 500-law file
 
 ### Eval improvements

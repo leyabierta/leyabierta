@@ -2,7 +2,7 @@
 
 ## The Story
 
-We needed to generate citizen-friendly summaries for 436,000 Spanish legal articles. The production model (Gemini 2.5 Flash Lite) costs ~$0.01 per 30-article run. Qwen 3.6 has unlimited tokens for free. Could it produce summaries of equal quality?
+We needed to generate citizen-friendly summaries for 436,000 Spanish legal articles. The production model (Gemini 2.5 Flash Lite) is billed per token. Qwen 3.6 had no per-token billing. Could it produce summaries of equal quality?
 
 **Answer: Yes.** After 7 iterations of prompt engineering, Qwen 3.6 meets all exit conditions.
 
@@ -14,7 +14,6 @@ We needed to generate citizen-friendly summaries for 436,000 Spanish legal artic
 | Ties (good) | 21 | 21 |
 | Empty rate | 3.3% | 0% |
 | Error rate | 0% | 0% |
-| Cost per run | **$0** | ~$0.01 |
 
 ## What Worked
 

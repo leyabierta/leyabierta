@@ -196,7 +196,7 @@ Not tested — the production schema worked fine.
 
 ### For open-source civic tech
 
-1. **Model choice matters for cost.** Qwen 3.6 at $0 vs Gemini at ~$0.01 per 30-article run. For 436K articles, that's ~$1,450 saved. Over time, this compounds.
+1. **Model choice matters.** Qwen 3.6 ran at no marginal API cost, unlike Gemini. For 436K articles, that difference compounds.
 
 2. **Quality and cost aren't always inversely correlated.** Qwen 3.6 produces summaries of equal or better quality than Gemini 2.5 Flash Lite, at zero marginal cost. The key is prompt engineering.
 

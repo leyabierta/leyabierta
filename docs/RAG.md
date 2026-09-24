@@ -72,7 +72,7 @@ Pregunta del ciudadano
 
 ### Detalle de cada etapa
 
-**1. Query Analysis.** Un LLM barato (Gemini 2.5 Flash Lite, ~$0.0001/query) analiza la pregunta y extrae:
+**1. Query Analysis.** Un LLM ligero (Gemini 2.5 Flash Lite) analiza la pregunta y extrae:
 - `keywords`: términos del ciudadano ("paternidad", "alquiler")
 - `legalSynonyms`: cómo aparecen esos conceptos en el texto legal ("nacimiento y cuidado del menor", "arrendamiento")
 - `materias`: categorías temáticas ("Derecho laboral")
@@ -108,21 +108,21 @@ Pregunta del ciudadano
 
 ### Qué previene respuestas incorrectas
 
-| Control | Qué hace | Coste |
+| Control | Qué hace | Llamada LLM |
 |---------|----------|-------|
-| Filtro de normas derogadas | `AND n.status != 'derogada'` en todas las queries SQL | $0 |
-| Article type penalty | Disposiciones transitorias (0.3x), derogatorias (0.1x), finales (0.5x), adicionales (0.7x) | $0 |
-| Diversity penalty | Cada artículo adicional de la misma norma puntua menos (1.0 → 0.7 → 0.5 → 0.3) | $0 |
-| Legal hierarchy boost | Leyes fundamentales estatales no se eliminan del evidence a favor de normas sectoriales | $0 |
-| Non-legal gate | Si el analyzer detecta que la pregunta no es legal, declina sin gastar en retrieval | $0 |
-| Absorbed modifier penalty | Normas que `MODIFICA` otra ley cuya base se actualizo después reciben 0.05x | $0 |
-| Periodic family detection | Series de normas anuales (SMI, IPREM): solo la más reciente puntua; las antiguas 0.02x | $0 |
-| Publication age decay | Normas no fundamentales (reales decretos, ordenes) pierden relevancia con la edad: `1/(1+edad/5)` | $0 |
-| Evidence ordering 3 niveles | Ley general > sectorial > autonomica > modificadora. El LLM ve primero lo más aplicable | $0 |
-| Top-1 highlighting | El artículo principal se marca visualmente para reforzar primacy bias | $0 |
-| Metadata headers | Cada artículo lleva contexto: `[TEXTO CONSOLIDADO | Última actualizacion: YYYY-MM-DD]` | $0 |
-| Low confidence threshold | Si la mejor puntuación de retrieval es < 0.38, no se pasa evidencia al LLM | $0 |
-| Numbers to digits | Convierte "diecinueve semanas" → "19 semanas" en la evidencia para evitar que el LLM "corrija" cifras | $0 |
+| Filtro de normas derogadas | `AND n.status != 'derogada'` en todas las queries SQL | no |
+| Article type penalty | Disposiciones transitorias (0.3x), derogatorias (0.1x), finales (0.5x), adicionales (0.7x) | no |
+| Diversity penalty | Cada artículo adicional de la misma norma puntua menos (1.0 → 0.7 → 0.5 → 0.3) | no |
+| Legal hierarchy boost | Leyes fundamentales estatales no se eliminan del evidence a favor de normas sectoriales | no |
+| Non-legal gate | Si el analyzer detecta que la pregunta no es legal, declina sin gastar en retrieval | no |
+| Absorbed modifier penalty | Normas que `MODIFICA` otra ley cuya base se actualizo después reciben 0.05x | no |
+| Periodic family detection | Series de normas anuales (SMI, IPREM): solo la más reciente puntua; las antiguas 0.02x | no |
+| Publication age decay | Normas no fundamentales (reales decretos, ordenes) pierden relevancia con la edad: `1/(1+edad/5)` | no |
+| Evidence ordering 3 niveles | Ley general > sectorial > autonomica > modificadora. El LLM ve primero lo más aplicable | no |
+| Top-1 highlighting | El artículo principal se marca visualmente para reforzar primacy bias | no |
+| Metadata headers | Cada artículo lleva contexto: `[TEXTO CONSOLIDADO | Última actualizacion: YYYY-MM-DD]` | no |
+| Low confidence threshold | Si la mejor puntuación de retrieval es < 0.38, no se pasa evidencia al LLM | no |
+| Numbers to digits | Convierte "diecinueve semanas" → "19 semanas" en la evidencia para evitar que el LLM "corrija" cifras | no |
 
 ### Por qué estos controles
 
@@ -183,18 +183,16 @@ Para restaurar los embeddings originales: `bun run packages/api/research/context
 
 ---
 
-## Modelos y costes
+## Modelos
 
-| Componente | Modelo | Coste por query | Por qué |
-|------------|--------|-----------------|---------|
-| Analyzer | `google/gemini-2.5-flash-lite` | ~$0.0001 | Barato y rápido. Solo extrae keywords y flags |
-| Embeddings | `google/gemini-embedding-2-preview` | ~$0.0000 (pre-generados) | #1 en MTEB general, 3072 dimensiones, 8K contexto, $0.20/M tokens |
-| Reranker | `cohere/rerank-v4-pro` | $0 (free tier) | 1,000 req/mes gratis. Buena calidad de reranking |
-| Synthesis | `google/gemini-2.5-flash-lite` | ~$0.0006 | Mejor balance coste/calidad. 98% norm hits |
+| Componente | Modelo | Por qué |
+|------------|--------|---------|
+| Analyzer | `google/gemini-2.5-flash-lite` | Rápido. Solo extrae keywords y flags |
+| Embeddings | `google/gemini-embedding-2-preview` (pre-generados) | #1 en MTEB general, 3072 dimensiones, 8K contexto |
+| Reranker | `cohere/rerank-v4-pro` | Buena calidad de reranking |
+| Synthesis | `google/gemini-2.5-flash-lite` | Buen equilibrio calidad/latencia. 98% norm hits |
 
-**Coste total por query:** ~$0.001 (menos de una milesima de dolar).
-
-**Coste de embeddings (one-time):** ~$16 para 484K embeddings de 9,738 normas vigentes.
+Embeddings generados una sola vez: 484K embeddings de 9,738 normas vigentes.
 
 ### Formato de embeddings
 
@@ -309,7 +307,7 @@ Un solo archivo, crash-safe, inserciones atómicas, consultas SQL para metadata.
 
 ### ¿Por qué Gemini Embedding 2?
 
-Es #1 en MTEB general y #7 en benchmarks legales (MLEB). Soporta 8K tokens de contexto (importante para artículos largos), cuesta $0.20/M tokens, y está disponible vía OpenRouter. No elegimos embeddings especializados en legal (Voyage-law-2) porque requieren vendor lock-in y no soportan español nativamente.
+Es #1 en MTEB general y #7 en benchmarks legales (MLEB). Soporta 8K tokens de contexto (importante para artículos largos) y está disponible vía OpenRouter. No elegimos embeddings especializados en legal (Voyage-law-2) porque requieren vendor lock-in y no soportan español nativamente.
 
 ### ¿Por qué Cohere Rerank?
 

@@ -37,8 +37,8 @@ production `CONTENT_LLM_MODEL`.
    - A reform summary takes ~7.5–13 s; an article, ~4–8 s in batches of 5.
    - Parallel requests do not help on the MLX engine (`OLLAMA_NUM_PARALLEL` 1
      or 4 give the same aggregate throughput).
-   - For reference, the same backlog on OpenRouter flash-lite would cost about
-     $13 (measured $0.00022 per reform and $0.00014 per article).
+   - For reference, the same backlog on OpenRouter flash-lite would take about
+     an hour.
 
 Scripts and raw outputs were kept locally (scratch, not committed). The code
 change that makes a local backend possible is the opt-in
@@ -292,22 +292,21 @@ Reading the table:
 
 - **Total workload:** ≈ 70M prompt tokens (reforms ≈ 52M; articles ≈ 18M,
   mostly the shared system prompt) and ≈ 8M output tokens.
-- **DGX Spark / GB10 at ~$0.50/h**, with vLLM or SGLang continuous batching of
-  8–16 requests:
+- **DGX Spark / GB10**, with vLLM or SGLang continuous batching of 8–16
+  requests:
   - prefill ~1.5–3k tok/s and aggregate decode ~150–300 tok/s;
-  - ≈ 20–30 h, about $10–15;
+  - ≈ 20–30 h;
   - its memory bandwidth is about half the M4 Max's, so single-stream decode
     is slower. The gain comes only from batching, which Ollama's MLX engine
     does not give on the Mac.
-- **One H100 at ~$2–3/h with vLLM:** ≈ 3–6 h, about $10–15.
-- **OpenRouter flash-lite for comparison (measured):** 34,468 × $0.00022 +
-  36,478 × $0.00014 ≈ **$13**, in about an hour.
+- **One H100 with vLLM:** ≈ 3–6 h.
+- **OpenRouter flash-lite for comparison:** about an hour.
 
-## OpenRouter spend
+## OpenRouter use
 
-**$0.0092** in total: 22 flash-lite reform summaries and 10 flash-lite article
-batches. The budget was $0.05, and the account ledger was checked before
-starting. The judge ran on the Claude CLI, not OpenRouter. Qwen ran locally.
+Only a few flash-lite calls: 22 reform summaries and 10 article batches, under
+a small fixed budget. The judge ran on the Claude CLI, not OpenRouter. Qwen ran
+locally.
 
 ## Recommendation
 
@@ -316,10 +315,9 @@ on hold until the input is fixed, whatever model writes them.**
 
 1. **Model.** `qwen3.8:27b-mlx` is a valid replacement for flash-lite for this
    content: it is equal or better on every criterion and has perfect format
-   compliance with reasoning off. Being local does not make it cheaper in
-   practice. The whole backlog on flash-lite is ~$13, while the Mac needs about
-   a week at full load. Choose local for independence from the API budget, not
-   to save money.
+   compliance with reasoning off. The Mac needs about a week at full load for
+   the whole backlog, so choose local for independence from the API, not for
+   speed.
 2. **Fix the reform-summary input first.** It limits both models:
    - Show the **changed span** of each block (a word-level diff with some
      context) instead of the first 500 characters of "antes" and "ahora". When
