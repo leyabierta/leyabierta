@@ -2,10 +2,11 @@
  * Generate AI reform summaries for reforms missing them.
  *
  * Generates headline, summary, reform_type, and importance for each reform
- * via OpenRouter. Model: REFORM_SUMMARIES_MODEL, default qwen/qwen3.8-27b with
- * reasoning off: the model of the offline backfill. On 40 reforms judged blind
- * it matched the vast.ai Qwen (8.72 vs 8.70/10) while gemini-2.5-flash-lite
- * scored 7.90 with 5 serious errors vs 2 (2026-09-23).
+ * via OpenRouter. Model: REFORM_SUMMARIES_MODEL, default openai/gpt-6-luna
+ * with reasoning { effort: "minimal" } and the style rules of the prompt
+ * (REFORM_STYLE_RULES). On 40 held-out reforms judged blind it scored 8.70 vs
+ * 8.18/10 for qwen/qwen3.8-27b (the previous default, reasoning off), with
+ * higher fidelity (2026-09-24). Qwen models keep reasoning off.
  * Results cached in reform_summaries table.
  *
  * Gap-filling by design: every run picks up ALL reforms in the window that
@@ -46,6 +47,8 @@ import {
 	buildReformPrompt,
 	getSourceInfo,
 	isOmnibusSource,
+	PROMPT_VERSION,
+	reformReasoning,
 	SUMMARY_SCHEMA,
 } from "./reform-summary-prompt.ts";
 import {
@@ -70,7 +73,7 @@ const limitArg = Number(
 	getArg("limit") ?? process.env.REFORM_SUMMARIES_LIMIT ?? 200,
 );
 const endpoint = contentLlmEndpoint();
-const DEFAULT_REFORM_MODEL = "qwen/qwen3.8-27b";
+const DEFAULT_REFORM_MODEL = "openai/gpt-6-luna";
 // A local endpoint keeps CONTENT_LLM_MODEL: REFORM_SUMMARIES_MODEL names an
 // OpenRouter model, which a local server would not know.
 const modelId =
@@ -78,11 +81,7 @@ const modelId =
 	(endpoint.baseUrl
 		? endpoint.model
 		: process.env.REFORM_SUMMARIES_MODEL?.trim() || DEFAULT_REFORM_MODEL);
-// Qwen on OpenRouter: thinking off, as in the evaluated offline generation.
-const reasoning =
-	!endpoint.baseUrl && modelId.startsWith("qwen/")
-		? ({ enabled: false } as const)
-		: undefined;
+const reasoning = endpoint.baseUrl ? undefined : reformReasoning(modelId);
 const dryRun = hasFlag("dry-run");
 const noWrite = hasFlag("no-write");
 const force = hasFlag("force");
@@ -248,6 +247,7 @@ async function main() {
 					summary: validated.summary,
 					importance: validated.importance,
 					model: modelId,
+					promptVersion: PROMPT_VERSION,
 				},
 			);
 

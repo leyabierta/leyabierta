@@ -23,7 +23,7 @@ export interface BlockDiff {
  * Bump when the prompt text or its inputs change: the offline import compares
  * it before the prompt hash, to tell "the code changed" from "the data changed".
  */
-export const PROMPT_VERSION = "2026-09-23.4";
+export const PROMPT_VERSION = "2026-09-25.1";
 
 export interface ReformRow {
 	norm_id: string;
@@ -353,9 +353,25 @@ export function isOriginalPublication(
 	return earliest?.date === reformDate;
 }
 
+// ── Model settings ──
+
+/**
+ * Reasoning settings for a reform-summary model on OpenRouter, as evaluated:
+ * openai/* (gpt-6-luna) with minimal effort (its default is medium: slower
+ * and costlier for no measured gain), Qwen with thinking off. Other models
+ * get the provider default.
+ */
+export function reformReasoning(
+	model: string,
+): { effort: "minimal" } | { enabled: false } | undefined {
+	if (model.startsWith("openai/")) return { effort: "minimal" };
+	if (model.startsWith("qwen/")) return { enabled: false };
+	return undefined;
+}
+
 // ── Prompt construction ──
 
-export const REFORM_SYSTEM_PROMPT = `Eres un periodista legislativo español. Generas resúmenes claros y precisos de cambios legislativos para ciudadanos.
+const REFORM_BASE_PROMPT = `Eres un periodista legislativo español. Generas resúmenes claros y precisos de cambios legislativos para ciudadanos.
 
 Responde SOLO con JSON:
 {
@@ -383,6 +399,26 @@ Reglas:
 - Explica el cambio concreto (cifras, plazos, sujetos, requisitos) cuando se vea: de qué a qué pasa
 - Lenguaje ciudadano, no jurídico
 - Sé preciso: qué cambió, para quién, desde cuándo`;
+
+/**
+ * Style rules (2026-09-24), appended to the base prompt. Written after the
+ * Qwen 3.8 backfill, whose style (short, plain, impersonal) read best, so that
+ * openai/gpt-6-luna writes the same way. Blind judge on 40 held-out reforms
+ * never used for tuning: 8.70 vs 8.18 for Qwen, fidelity 1.68 vs 1.38
+ * (packages/eval/results/2026-09-23-reform-cron-model.md).
+ */
+export const REFORM_STYLE_RULES = `
+
+ESTILO DE REDACCIÓN (obligatorio, además de todo lo anterior):
+- Escribe como un buen periodista de servicio público: frases completas, cortas y naturales, en voz activa y con un sujeto claro (quién hace qué).
+- Titular: 8 a 13 palabras que digan el cambio concreto. Resumen: 2 o 3 frases, entre 200 y 320 caracteres.
+- Sin punto y coma, sin comillas, sin paréntesis y sin listas.
+- No cites números de artículos, apartados ni letras salvo que sean imprescindibles para entender el cambio: describe lo que regulan.
+- Nunca hables del material ni de tu tarea ("el texto facilitado", "el material", "no se puede precisar"). Si el cambio no se aprecia en la redacción, dilo con naturalidad en una frase.
+- No uses "la ciudadanía", "tú" ni "usted": nombra a quien afecta (trabajadores, empresas, contribuyentes, ayuntamientos...).
+- Precisión ante todo: no añadas valoraciones ni efectos que el texto no diga (agiliza, mejora, moderniza, refuerza).`;
+
+export const REFORM_SYSTEM_PROMPT = `${REFORM_BASE_PROMPT}${REFORM_STYLE_RULES}`;
 
 // Some laws have hundreds of materias (a 11,800-character line was seen).
 const MAX_MATERIAS_SHOWN = 25;

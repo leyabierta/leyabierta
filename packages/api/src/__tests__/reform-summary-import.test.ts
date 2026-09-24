@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createSchema } from "@leyabierta/pipeline";
 import {
 	importReformRows,
+	normalizeModelId,
 	promptHash,
 	summaryHash,
 	validateGeneratedReform,
@@ -125,7 +126,7 @@ describe("importReformRows", () => {
 		expect(summaries()).toHaveLength(0);
 	});
 
-	test("apply inserts with the model name", () => {
+	test("apply inserts with the model name (provider-prefixed) and prompt version", () => {
 		const report = importReformRows(db, [row()], { apply: true });
 		expect(report).toEqual({
 			total: 1,
@@ -136,7 +137,8 @@ describe("importReformRows", () => {
 		});
 		const [s] = summaries();
 		expect(s?.headline).toBe(RESULT.headline);
-		expect(s?.model).toBe("qwen3.8-27b");
+		expect(s?.model).toBe("qwen/qwen3.8-27b");
+		expect(s?.prompt_version).toBe(PROMPT_VERSION);
 		expect(s?.reform_type).toBe("modification");
 	});
 
@@ -230,7 +232,8 @@ describe("importReformRows", () => {
 			const [s] = summaries();
 			expect(s?.headline).toBe(RESULT.headline);
 			expect(s?.summary).toBe(RESULT.summary);
-			expect(s?.model).toBe("qwen3.8-27b");
+			expect(s?.model).toBe("qwen/qwen3.8-27b");
+			expect(s?.prompt_version).toBe(PROMPT_VERSION);
 			expect(s?.generated_at).not.toBe("2026-09-23 18:04:00");
 		});
 
@@ -341,5 +344,20 @@ describe("importReformRows", () => {
 			expect(report.markedNotified).toBe(1);
 			expect(notified()).toHaveLength(0);
 		});
+	});
+});
+
+describe("normalizeModelId", () => {
+	test.each([
+		["qwen3.8-27b", "qwen/qwen3.8-27b"],
+		["Qwen3.8-27B", "qwen/qwen3.8-27b"],
+		["qwen/qwen3.8-27b", "qwen/qwen3.8-27b"],
+		["openai/gpt-6-luna", "openai/gpt-6-luna"],
+		["openai/gpt-6-luna:batch", "openai/gpt-6-luna:batch"],
+		["", ""],
+		[undefined, ""],
+		["local-model", "local-model"],
+	])("%p → %p", (input, expected) => {
+		expect(normalizeModelId(input)).toBe(expected);
 	});
 });

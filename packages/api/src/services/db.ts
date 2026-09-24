@@ -1459,16 +1459,18 @@ export class DbService {
 			summary: string;
 			importance: string;
 			model: string;
+			promptVersion?: string;
 		},
 	): void {
 		this.db
 			.query(
-				`INSERT INTO reform_summaries (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+				`INSERT INTO reform_summaries (norm_id, source_id, reform_date, reform_type, headline, summary, importance, generated_at, model, prompt_version)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
 			 ON CONFLICT (norm_id, source_id, reform_date)
 			 DO UPDATE SET reform_type = excluded.reform_type, headline = excluded.headline,
 				summary = excluded.summary, importance = excluded.importance,
-				generated_at = excluded.generated_at, model = excluded.model`,
+				generated_at = excluded.generated_at, model = excluded.model,
+				prompt_version = excluded.prompt_version`,
 			)
 			.run(
 				normId,
@@ -1479,6 +1481,7 @@ export class DbService {
 				data.summary,
 				data.importance,
 				data.model,
+				data.promptVersion ?? "",
 			);
 	}
 

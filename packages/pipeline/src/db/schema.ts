@@ -188,6 +188,7 @@ const SCHEMA_SQL = /* sql */ `
     importance   TEXT NOT NULL DEFAULT '',
     generated_at TEXT NOT NULL DEFAULT '',
     model        TEXT NOT NULL DEFAULT '',
+    prompt_version TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (norm_id, source_id, reform_date),
     FOREIGN KEY (norm_id, reform_date, source_id)
       REFERENCES reforms(norm_id, date, source_id)
@@ -320,6 +321,16 @@ export function createSchema(db: Database): void {
 	try {
 		db.exec(
 			"ALTER TABLE omnibus_topics ADD COLUMN block_ids TEXT NOT NULL DEFAULT ''",
+		);
+	} catch {
+		// Column already exists
+	}
+
+	// PROMPT_VERSION of reform-summary-prompt.ts that produced the summary
+	// ('' for summaries written before 2026-09-25).
+	try {
+		db.exec(
+			"ALTER TABLE reform_summaries ADD COLUMN prompt_version TEXT NOT NULL DEFAULT ''",
 		);
 	} catch {
 		// Column already exists
