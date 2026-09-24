@@ -52,6 +52,27 @@ import Base from "../../../layouts/Base.astro";
 			line-height: 1.35; color: var(--text); margin: 0 0 0.625rem;
 			letter-spacing: -0.01em;
 		}
+		.reforma-topic-badge {
+			font-size: 0.6875rem; font-weight: 600; color: var(--accent);
+			background: var(--accent-bg); padding: 0.125rem 0.5rem; border-radius: 4px;
+		}
+		/* AI notice: the headline (H1) and summary are AI-written — say so next
+		   to the headline and link to the official disposition on the BOE.
+		   Kept in sync with src/lib/ai-notice.ts (used by the Worker SSR). */
+		.reforma-ai-badge {
+			font-size: 0.6875rem; font-weight: 600; color: var(--text-secondary);
+			background: var(--tierra-warm); border: 1px solid var(--tierra-deep);
+			padding: 0.0625rem 0.5rem; border-radius: 4px; text-decoration: none;
+		}
+		.reforma-ai-badge:hover { border-color: var(--accent); color: var(--accent); }
+		.reforma-ai-note {
+			font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.55;
+			margin: -1.25rem 0 2rem; padding: 0.5rem 0.75rem;
+			background: var(--tierra-warm); border: 1px solid var(--tierra-deep);
+			border-radius: 8px;
+		}
+		.reforma-header + .reforma-ai-note { margin-top: 0; }
+		.reforma-ai-note a { color: var(--accent); text-decoration: underline; }
 		.reforma-law-info { font-size: 0.875rem; color: var(--text-muted); line-height: 1.55; }
 		.reforma-law-info a { color: var(--accent); text-decoration: underline; }
 
@@ -473,7 +494,9 @@ import Base from "../../../layouts/Base.astro";
 					html += '<span class="reforma-date">' + esc(formatDate(reform.date)) + '</span>';
 					if (typeLabel) html += '<span class="reforma-type-badge"> · ' + esc(typeLabel) + '</span>';
 					if (importance === "high") html += '<span class="reforma-importance-badge">Cambio importante</span>';
-					if (topicInfo) html += '<span style="font-size:0.6875rem;font-weight:600;color:var(--accent);background:var(--accent-bg);padding:0.125rem 0.5rem;border-radius:4px">' + esc(topicInfo.topic_label) + '</span>';
+					if (topicInfo) html += '<span class="reforma-topic-badge">' + esc(topicInfo.topic_label) + '</span>';
+					var hasAiText = hasHeadline || !!reform.summary;
+					if (hasAiText) html += '<a href="#aviso-ia" class="reforma-ai-badge">Resumen con IA</a>';
 					html += '</div>';
 					html += '<h1 class="reforma-headline">' + esc(headline) + '</h1>';
 					html += '<div class="reforma-law-info">';
@@ -484,6 +507,16 @@ import Base from "../../../layouts/Base.astro";
 					// ── Summary ──
 					if (reform.summary) {
 						html += '<div class="reforma-summary">' + esc(reform.summary) + '</div>';
+					}
+					// Same markup as reformAiNoticeHtml() in src/lib/ai-notice.ts.
+					if (hasAiText) {
+						var bothAi = hasHeadline && !!reform.summary;
+						var aiParts = bothAi ? "El titular y el resumen" : (hasHeadline ? "El titular" : "El resumen");
+						html += '<p class="reforma-ai-note" id="aviso-ia">' + aiParts
+							+ (bothAi ? ' están generados' : ' está generado') + ' con inteligencia artificial y '
+							+ (bothAi ? 'pueden' : 'puede') + ' contener errores. '
+							+ 'Fuente oficial: <a href="' + esc(data.source_url) + '" target="_blank" rel="noopener">la disposición en el BOE ↗</a>. '
+							+ '<a href="/sobre/#resumenes-ia">Cómo los hacemos</a>.</p>';
 					}
 
 					// ── Empty topic intersection ──
