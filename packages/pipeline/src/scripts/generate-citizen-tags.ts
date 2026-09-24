@@ -2,8 +2,11 @@
  * Generate citizen-friendly tags and summaries for laws using LLM.
  *
  * Reads norms from SQLite, calls an OpenRouter chat model (CONTENT_LLM_MODEL,
- * default google/gemini-2.5-flash-lite), stores citizen_tags and
- * citizen_summary back in the DB.
+ * default google/gemini-2.5-flash-lite) for the law-level summary and tags,
+ * stores them back in the DB, then summarizes every article of the law with
+ * the shared per-article generator (ai/article-summary.ts: prompt v10, whole
+ * article, ARTICLE_SUMMARIES_MODEL, default openai/gpt-6-luna), the same as
+ * the lazy API route and the RAG background fill.
  *
  * Gap-filling: every run processes norms whose citizen_summary is still empty,
  * newest first, capped per run (--limit, default CITIZEN_TAGS_MAX_PER_RUN or
@@ -13,13 +16,20 @@
  *   bun run packages/pipeline/src/scripts/generate-citizen-tags.ts [--limit N] [--norm-id ID] [--force] [--skip-articles]
  *
  * Env: OPENROUTER_API_KEY (required; also read from .env), CONTENT_LLM_MODEL,
- * CITIZEN_TAGS_MAX_PER_RUN.
+ * CITIZEN_TAGS_MAX_PER_RUN, ARTICLE_SUMMARIES_MODEL,
+ * ARTICLE_SUMMARIES_MAX_PER_RUN (article requests per run, default 300).
  */
 
 import { Database } from "bun:sqlite";
 import { join, resolve } from "node:path";
+import {
+	articleHasSubstance,
+	articleSummariesModel,
+	generateArticleSummary,
+	storeArticleSummary,
+} from "../ai/article-summary.ts";
 import { createSchema } from "../db/schema.ts";
-import { hasForeignScript } from "../utils/generated-text.ts";
+import { openRouterProviderField } from "../utils/openrouter-privacy.ts";
 import { parseLawCitizenMetadata } from "./citizen-tags-validation.ts";
 
 // ── CLI args ──
@@ -82,22 +92,24 @@ const DELAY_MS = 0;
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5_000;
-const ARTICLE_BATCH_SIZE = 10;
-const ARTICLE_THRESHOLD = 20;
 const ARTICLE_MIN_TEXT_LENGTH = 50;
+const ARTICLE_MODEL = articleSummariesModel();
+// Concurrent article requests: gpt-6-luna answers some requests with an
+// upstream 429 above ~4 (retried by generateArticleSummary).
+const ARTICLE_CONCURRENCY = 4;
+// Cap on article requests per run, so a huge new code cannot run for hours;
+// articles left over are filled by the lazy API route or an offline backfill.
+// An unset or empty variable means the default (Number("") would be 0).
+const ARTICLE_MAX_PER_RUN = (() => {
+	const raw = process.env.ARTICLE_SUMMARIES_MAX_PER_RUN?.trim();
+	const n = raw ? Number(raw) : Number.NaN;
+	return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 300;
+})();
 
 const LAW_SYSTEM_PROMPT = `Eres un clasificador de legislación española. Tu trabajo es analizar una ley y generar metadatos orientados a ciudadanos, NO a juristas.
 
 - citizen_tags: 5-10 tags en español llano. Piensa en cómo buscaría un ciudadano normal. Incluye situaciones específicas, no solo temas genéricos. Ejemplo para la Ley de Seguridad Social: "subsidio mayores 52", "prestación por desempleo", "baja por maternidad", "pensión viudedad", "incapacidad temporal".
 - citizen_summary: Frase de máximo 150 caracteres en lenguaje llano. Sin jerga legal. Con acentos correctos.`;
-
-const ARTICLE_SYSTEM_PROMPT = `Eres un redactor institucional que traduce artículos legales españoles a lenguaje accesible para ciudadanos.
-
-Tono: serio e informativo, como una institución pública que explica derechos y obligaciones. NO uses tono coloquial ni de blog. Evita jerga jurídica, pero mantén la seriedad. Ejemplo: "Tienes derecho a..." es correcto; "Puedes..." es demasiado informal.
-
-- citizen_tags: 3-5 tags en español llano, como buscaría un ciudadano normal.
-- citizen_summary: Resumen de máximo 280 caracteres. Lenguaje claro y serio, sin jerga legal. Con acentos correctos. Incluye los datos concretos más relevantes (plazos, requisitos, cantidades) cuando los haya.
-Si un artículo es puramente procedimental o técnico, devuelve citizen_tags vacío y citizen_summary vacío.`;
 
 // ── JSON Schemas for structured outputs ──
 
@@ -118,41 +130,14 @@ const LAW_SCHEMA = {
 	},
 };
 
-const ARTICLE_ITEM_SCHEMA = {
-	type: "object" as const,
-	properties: {
-		block_id: { type: "string" as const },
-		citizen_tags: {
-			type: "array" as const,
-			items: { type: "string" as const },
-		},
-		citizen_summary: { type: "string" as const },
-	},
-	required: ["block_id", "citizen_tags", "citizen_summary"],
-	additionalProperties: false,
-};
-
-const ARTICLE_SCHEMA = {
-	name: "article_citizen_metadata",
-	strict: true,
-	schema: {
-		type: "object",
-		properties: {
-			articles: {
-				type: "array",
-				items: ARTICLE_ITEM_SCHEMA,
-			},
-		},
-		required: ["articles"],
-		additionalProperties: false,
-	},
-};
-
 // ── Open DB ──
 
 const dbPath =
 	process.env.DB_PATH ?? join(WORKSPACE_ROOT, "data", "leyabierta.db");
 const db = new Database(dbPath, { create: true });
+// The API and other cron steps write to the same DB: wait for their locks
+// instead of failing on SQLITE_BUSY.
+db.run("PRAGMA busy_timeout = 5000");
 createSchema(db);
 
 // ── Prepared statements ──
@@ -170,23 +155,27 @@ const selectNormById = db.prepare(
 const selectMaterias = db.prepare(
 	`SELECT materia FROM materias WHERE norm_id = ?`,
 );
+// Articles without any summary row yet: one that has one (even an empty one)
+// is never regenerated here, so no request is paid for nothing.
 const selectPreceptoBlocks = db.prepare(
-	`SELECT block_id, title, current_text FROM blocks WHERE norm_id = ? AND block_type = 'precepto' AND length(current_text) > ? ORDER BY position`,
+	`SELECT b.block_id, b.title, b.current_text FROM blocks b
+	 WHERE b.norm_id = ? AND b.block_type = 'precepto' AND length(b.current_text) > ?
+	   AND NOT EXISTS (SELECT 1 FROM citizen_article_summaries c
+	                   WHERE c.norm_id = b.norm_id AND c.block_id = b.block_id)
+	 ORDER BY b.position`,
 );
 const updateCitizenSummary = db.prepare(
 	`UPDATE norms SET citizen_summary = ? WHERE id = ?`,
 );
-const deleteCitizenTags = db.prepare(
-	`DELETE FROM citizen_tags WHERE norm_id = ?`,
-);
-const deleteArticleSummaries = db.prepare(
-	`DELETE FROM citizen_article_summaries WHERE norm_id = ?`,
+// Law-level tags only (block_id ''). Article summaries and article tags are
+// never deleted here: storeArticleSummary only fills the gaps, so re-running a
+// law (or --force) keeps every article summary it already has, including the
+// offline backfill's.
+const deleteLawTags = db.prepare(
+	`DELETE FROM citizen_tags WHERE norm_id = ? AND block_id = ''`,
 );
 const insertCitizenTag = db.prepare(
 	`INSERT OR REPLACE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)`,
-);
-const insertArticleSummary = db.prepare(
-	`INSERT OR REPLACE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)`,
 );
 
 // ── Select norms to process ──
@@ -225,7 +214,7 @@ if (norms.length === 0) {
 }
 
 console.log(`\n═══ Citizen Tag Generation ═══`);
-console.log(`Model: ${MODEL}`);
+console.log(`Model: ${MODEL} (laws), ${ARTICLE_MODEL} (articles)`);
 console.log(`Norms: ${norms.length} (of ${pendingTotal} pending)`);
 console.log(`Force: ${force}`);
 console.log(`Skip articles: ${skipArticles}`);
@@ -238,6 +227,9 @@ let totalOutputTokens = 0;
 let totalCost = 0;
 let processedCount = 0;
 let errorCount = 0;
+let articleRequests = 0;
+let articleStored = 0;
+const articleFailures: Record<string, number> = {};
 
 // ── LLM call with retries ──
 
@@ -289,6 +281,8 @@ async function callLlm(
 						type: "json_schema",
 						json_schema: schema,
 					},
+					// Same ZDR routing as every other OpenRouter request.
+					...openRouterProviderField(),
 				}),
 			});
 
@@ -332,14 +326,6 @@ async function callLlm(
 		}
 	}
 	return null;
-}
-
-function parseJson(raw: string): unknown | null {
-	try {
-		return JSON.parse(raw);
-	} catch {
-		return null;
-	}
 }
 
 // ── Process norms ──
@@ -424,8 +410,7 @@ ${articleText.slice(0, 2000)}`;
 	totalCost += lawResult.cost;
 
 	// Store law-level results
-	deleteCitizenTags.run(norm.id);
-	deleteArticleSummaries.run(norm.id);
+	deleteLawTags.run(norm.id);
 	updateCitizenSummary.run(citizenSummary, norm.id);
 
 	for (const tag of citizenTags) {
@@ -445,96 +430,69 @@ ${articleText.slice(0, 2000)}`;
 		continue;
 	}
 
-	const preceptoBlocks = selectPreceptoBlocks.all(
-		norm.id,
-		ARTICLE_MIN_TEXT_LENGTH,
-	) as { block_id: string; title: string; current_text: string }[];
+	const preceptoBlocks = (
+		selectPreceptoBlocks.all(norm.id, ARTICLE_MIN_TEXT_LENGTH) as {
+			block_id: string;
+			title: string;
+			current_text: string;
+		}[]
+	).filter((block) => articleHasSubstance(block.current_text));
 
-	if (preceptoBlocks.length > ARTICLE_THRESHOLD) {
-		const batchCount = Math.ceil(preceptoBlocks.length / ARTICLE_BATCH_SIZE);
-		let articleTagCount = 0;
-		let articleCost = 0;
-
+	const budget = Math.max(0, ARTICLE_MAX_PER_RUN - articleRequests);
+	const toSummarize = preceptoBlocks.slice(0, budget);
+	if (toSummarize.length < preceptoBlocks.length)
 		console.log(
-			`  → ${preceptoBlocks.length} articles, tagging ${batchCount} batches...`,
+			`  → article cap reached (${ARTICLE_MAX_PER_RUN}/run): ${preceptoBlocks.length - toSummarize.length} articles left without summary`,
 		);
 
-		for (let b = 0; b < batchCount; b++) {
-			const batch = preceptoBlocks.slice(
-				b * ARTICLE_BATCH_SIZE,
-				(b + 1) * ARTICLE_BATCH_SIZE,
-			);
-
-			const articlesText = batch
-				.map(
-					(block) =>
-						`[${block.block_id}] ${block.title}\n${block.current_text.slice(0, 500)}`,
-				)
-				.join("\n\n---\n\n");
-
-			const articleUserPrompt = `LEY: ${norm.title}\n\nARTÍCULOS:\n\n${articlesText}`;
-
-			await Bun.sleep(DELAY_MS);
-
-			const batchResult = await callLlm(
-				ARTICLE_SYSTEM_PROMPT,
-				articleUserPrompt,
-				4000,
-				ARTICLE_SCHEMA,
-			);
-
-			if (!batchResult) continue;
-
-			const batchParsed = parseJson(batchResult.content) as {
-				articles: Array<{
-					block_id: string;
-					citizen_tags: string[];
-					citizen_summary: string;
-				}>;
-			} | null;
-
-			if (!batchParsed) continue;
-			const batchData = batchParsed.articles;
-
-			totalInputTokens += batchResult.inputTokens;
-			totalOutputTokens += batchResult.outputTokens;
-			totalCost += batchResult.cost;
-			articleCost += batchResult.cost;
-
-			const validBlockIds = new Set(batch.map((b) => b.block_id));
-
-			for (const article of batchData) {
-				if (!article.block_id || !validBlockIds.has(article.block_id)) continue;
-				// Model switched language ("…por servicio军事"): store nothing for
-				// this article. It stays without a summary until the lazy API route
-				// or an offline backfill fills it.
-				if (
-					hasForeignScript(
-						article.citizen_summary ?? "",
-						...(article.citizen_tags ?? []),
-					)
-				)
+	if (toSummarize.length > 0) {
+		let stored = 0;
+		let cost = 0;
+		let next = 0;
+		const worker = async () => {
+			while (next < toSummarize.length) {
+				const block = toSummarize[next++];
+				if (!block) continue;
+				articleRequests++;
+				const result = await generateArticleSummary({
+					apiKey: apiKey as string,
+					article: {
+						norm_title: norm.title,
+						block_title: block.title,
+						current_text: block.current_text,
+					},
+					model: ARTICLE_MODEL,
+				});
+				if (!result.ok) {
+					// Invalid (second person, too long, another script...) or failed:
+					// nothing is stored; the lazy route or a backfill can retry.
+					articleFailures[result.reason] =
+						(articleFailures[result.reason] ?? 0) + 1;
 					continue;
-
-				if (article.citizen_tags && article.citizen_tags.length > 0) {
-					for (const tag of article.citizen_tags) {
-						insertCitizenTag.run(norm.id, article.block_id, tag);
-					}
-					articleTagCount += article.citizen_tags.length;
 				}
-
-				if (article.citizen_summary) {
-					insertArticleSummary.run(
-						norm.id,
-						article.block_id,
-						article.citizen_summary,
+				cost += result.cost;
+				try {
+					if (storeArticleSummary(db, norm.id, block.block_id, result))
+						stored++;
+				} catch (err) {
+					// A locked or busy DB loses this article, not the run.
+					articleFailures.store_error = (articleFailures.store_error ?? 0) + 1;
+					console.error(
+						`    ${norm.id}/${block.block_id}: store failed: ${err}`,
 					);
 				}
 			}
-		}
-
+		};
+		await Promise.all(
+			Array.from(
+				{ length: Math.min(ARTICLE_CONCURRENCY, toSummarize.length) },
+				worker,
+			),
+		);
+		articleStored += stored;
+		totalCost += cost;
 		console.log(
-			`  → ${articleTagCount} article tags generated ($${articleCost.toFixed(3)})`,
+			`  → ${stored}/${toSummarize.length} article summaries ($${cost.toFixed(3)})`,
 		);
 	}
 
@@ -550,8 +508,31 @@ console.log(`\n═══ Summary ═══`);
 console.log(`Processed: ${processedCount}/${norms.length}`);
 console.log(`Errors: ${errorCount}`);
 console.log(`Tokens: ${totalInputTokens} in, ${totalOutputTokens} out`);
+console.log(
+	`Articles: ${articleStored} summaries stored of ${articleRequests} requested${
+		Object.keys(articleFailures).length
+			? ` (not stored: ${JSON.stringify(articleFailures)})`
+			: ""
+	}`,
+);
 console.log(`Total cost: $${totalCost.toFixed(4)}`);
 console.log("");
 
 // Non-zero exit when every norm failed (e.g. bad key), so the daily pipeline alerts.
 if (processedCount === 0 && errorCount > 0) process.exit(1);
+// Same when every article request was refused by the API (4xx: 402 out of
+// credit, 401/403 bad key, 404 no ZDR endpoint for the model): nothing is being
+// generated and it will not fix itself.
+const clientErrors = Object.entries(articleFailures)
+	.filter(([reason]) => /^http_4\d\d$/.test(reason))
+	.reduce((n, [, count]) => n + count, 0);
+if (
+	articleRequests > 0 &&
+	articleStored === 0 &&
+	clientErrors === articleRequests
+) {
+	console.error(
+		`All ${articleRequests} article requests were refused by the API (${JSON.stringify(articleFailures)})`,
+	);
+	process.exit(1);
+}

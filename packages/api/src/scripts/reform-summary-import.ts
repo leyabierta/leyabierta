@@ -7,7 +7,8 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { generatedTextProblem, textHash } from "./article-summary-import.ts";
+import { generatedTextProblem, normalizeModelId } from "@leyabierta/pipeline";
+import { textHash } from "./article-summary-import.ts";
 import {
 	buildReformPrompt,
 	PROMPT_VERSION,
@@ -39,18 +40,9 @@ export interface GeneratedReformRow {
 	result: unknown;
 }
 
-/**
- * The model id as stored in reform_summaries.model: always an OpenRouter-style
- * `provider/model` id. The offline generator records the served name of the
- * local vLLM (`qwen3.8-27b`), the same weights as `qwen/qwen3.8-27b`.
- */
-export function normalizeModelId(model: string | undefined): string {
-	const m = (model ?? "").trim();
-	// Only the bare vLLM served name ("qwen3.8-27b"); anything else (an
-	// OpenRouter id, a local tag like "qwen3.8:27b-mlx") is kept as is.
-	if (/^qwen\d[\w.-]*$/i.test(m)) return `qwen/${m.toLowerCase()}`;
-	return m;
-}
+// The model id as stored: see normalizeModelId in @leyabierta/pipeline
+// (shared with the per-article summaries import).
+export { normalizeModelId } from "@leyabierta/pipeline";
 
 // The prompt asks for at most 15 words; a little slack before rejecting.
 export const MAX_HEADLINE_WORDS = 20;

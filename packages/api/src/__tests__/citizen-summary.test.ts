@@ -1,15 +1,25 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { createSchema } from "@leyabierta/pipeline";
+import {
+	ARTICLE_SUMMARY_PROMPT_VERSION,
+	articleSummaryRequestBody,
+	createSchema,
+} from "@leyabierta/pipeline";
 import { CitizenSummaryService } from "../services/citizen-summary.ts";
+import { callOpenRouter } from "../services/openrouter.ts";
+import { generateMissingSummaries } from "../services/rag/synthesis.ts";
 
 const realFetch = globalThis.fetch;
-const realKey = process.env.OPENROUTER_API_KEY;
-let calls = 0;
+const saved = {
+	OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+	OPENROUTER_BACKOFF_MS: process.env.OPENROUTER_BACKOFF_MS,
+	ARTICLE_SUMMARIES_MODEL: process.env.ARTICLE_SUMMARIES_MODEL,
+};
+let bodies: Record<string, unknown>[] = [];
 
 function stubLlm(content: string) {
-	globalThis.fetch = (async () => {
-		calls++;
+	globalThis.fetch = (async (_url: string, init: RequestInit) => {
+		bodies.push(JSON.parse(String(init.body)));
 		return new Response(
 			JSON.stringify({
 				choices: [{ message: { content } }],
@@ -20,45 +30,67 @@ function stubLlm(content: string) {
 	}) as unknown as typeof fetch;
 }
 
-const ARTICLE = "Texto del artículo con suficiente longitud. ".repeat(5);
+const reply = (
+	summary: string,
+	tags = ["plazos", "reclamaciones", "trámites"],
+) =>
+	JSON.stringify({
+		articles: [
+			{
+				article_id: "ARTÍCULO_1",
+				citizen_summary: summary,
+				citizen_tags: tags,
+			},
+		],
+	});
 
-describe("CitizenSummaryService lazy generation cost guard", () => {
+const GOOD =
+	"El ciudadano puede reclamar en un plazo de un mes desde la notificación de la resolución.";
+const ARTICLE = `Artículo 2. Reclamaciones.\n${"El interesado podrá reclamar en el plazo de un mes desde la notificación. ".repeat(3)}`;
+
+/** Resolves once the fire-and-forget work has had time to run. */
+const settle = () => new Promise((r) => setTimeout(r, 20));
+
+describe("CitizenSummaryService (lazy route)", () => {
 	let db: Database;
 
 	beforeEach(() => {
-		calls = 0;
+		bodies = [];
 		process.env.OPENROUTER_API_KEY = "test-key";
+		process.env.OPENROUTER_BACKOFF_MS = "0";
+		Reflect.deleteProperty(process.env, "ARTICLE_SUMMARIES_MODEL");
 		db = new Database(":memory:");
 		createSchema(db);
 		db.run(
 			"INSERT INTO norms (id, title, country, rank, published_at, status) VALUES ('N', 'Ley', 'es', 'ley', '2026-01-01', 'vigente')",
 		);
 		db.run(
-			"INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a1', 'precepto', 'Artículo 1', 1, ''), ('N', 'a2', 'precepto', 'Artículo 2', 2, '')",
+			`INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a1', 'precepto', 'Artículo 1', 1, ''), ('N', 'a2', 'precepto', 'Artículo 2', 2, '${ARTICLE}')`,
 		);
 	});
 
 	afterEach(() => {
 		globalThis.fetch = realFetch;
-		if (realKey === undefined)
-			Reflect.deleteProperty(process.env, "OPENROUTER_API_KEY");
-		else process.env.OPENROUTER_API_KEY = realKey;
+		for (const [k, v] of Object.entries(saved))
+			if (v === undefined) Reflect.deleteProperty(process.env, k);
+			else process.env[k] = v;
 		db.close();
 	});
 
-	test("an article that yields an empty summary is not re-generated on every request", async () => {
-		stubLlm('{"citizen_tags":[],"citizen_summary":""}');
+	test("an article whose summary fails validation is not re-generated on every request", async () => {
+		stubLlm(reply("Tienes derecho a reclamar en un plazo de un mes."));
 		const svc = new CitizenSummaryService(db);
 		for (let i = 0; i < 5; i++) {
-			await svc.getOrGenerate("N", "a1", "Ley", "Artículo 1", ARTICLE);
+			await svc.getOrGenerate("N", "a2", "Ley", "Artículo 2", ARTICLE);
 		}
-		expect(calls).toBe(1);
+		expect(bodies).toHaveLength(1);
+		expect(
+			db.query("SELECT count(*) AS n FROM citizen_article_summaries").get(),
+		).toEqual({ n: 0 });
 	});
 
-	test("a non-empty summary is cached in the DB and served without new calls", async () => {
-		stubLlm(
-			'{"citizen_tags":["plazos"],"citizen_summary":"Tienes derecho a reclamar en un plazo de un mes."}',
-		);
+	test("a valid summary is stored with model, prompt version and date, and served from the DB", async () => {
+		stubLlm(reply(GOOD));
 		const svc = new CitizenSummaryService(db);
 		const first = await svc.getOrGenerate(
 			"N",
@@ -74,15 +106,33 @@ describe("CitizenSummaryService lazy generation cost guard", () => {
 			"Artículo 2",
 			ARTICLE,
 		);
-		expect(first?.citizen_summary).toContain("plazo");
-		expect(second?.citizen_summary).toBe(first?.citizen_summary);
-		expect(calls).toBe(1);
+		expect(first?.citizen_summary).toBe(GOOD);
+		expect(second).toEqual(first);
+		expect(bodies).toHaveLength(1);
+		const row = db
+			.query(
+				"SELECT model, prompt_version, generated_at FROM citizen_article_summaries",
+			)
+			.get() as Record<string, string>;
+		expect(row.model).toBe("openai/gpt-6-luna");
+		expect(row.prompt_version).toBe(ARTICLE_SUMMARY_PROMPT_VERSION);
+		expect(row.generated_at).not.toBe("");
+	});
+
+	test("the request is the shared one: v10 prompt, whole article, luna minimal, ZDR", async () => {
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		await svc.getOrGenerate("N", "a2", "Ley", "Artículo 2", ARTICLE);
+		expect(bodies[0]).toEqual(
+			articleSummaryRequestBody(
+				{ norm_title: "Ley", block_title: "Artículo 2", current_text: ARTICLE },
+				"openai/gpt-6-luna",
+			),
+		);
 	});
 
 	test("a summary in another script is never stored or served", async () => {
-		stubLlm(
-			'{"citizen_tags":["plazos"],"citizen_summary":"Se puede reclamar en un plazo de un mes军事."}',
-		);
+		stubLlm(reply(`${GOOD}军事`));
 		const svc = new CitizenSummaryService(db);
 		const res = await svc.getOrGenerate(
 			"N",
@@ -98,5 +148,250 @@ describe("CitizenSummaryService lazy generation cost guard", () => {
 		expect(db.query("SELECT count(*) AS n FROM citizen_tags").get()).toEqual({
 			n: 0,
 		});
+	});
+
+	test("an existing empty row is respected: no paid call", async () => {
+		db.run(
+			"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES ('N', 'a2', '')",
+		);
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		expect(
+			await svc.getOrGenerate("N", "a2", "Ley", "Artículo 2", ARTICLE),
+		).toBeNull();
+		expect(bodies).toHaveLength(0);
+	});
+
+	test("placeholder articles are not sent", async () => {
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		await svc.getOrGenerate(
+			"N",
+			"a1",
+			"Ley",
+			"Artículo 1",
+			"Artículo 1.\n(Derogado)                                                   ",
+		);
+		expect(bodies).toHaveLength(0);
+	});
+});
+
+describe("RAG background fill (generateMissingSummaries)", () => {
+	let db: Database;
+
+	beforeEach(() => {
+		bodies = [];
+		process.env.OPENROUTER_API_KEY = "test-key";
+		process.env.OPENROUTER_BACKOFF_MS = "0";
+		db = new Database(":memory:");
+		createSchema(db);
+		db.run(
+			"INSERT INTO norms (id, title, country, rank, published_at, status) VALUES ('N', 'Ley', 'es', 'ley', '2026-01-01', 'vigente')",
+		);
+		db.run(
+			`INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', 'a2', 'precepto', 'Artículo 2', 2, '${ARTICLE}')`,
+		);
+	});
+
+	afterEach(() => {
+		globalThis.fetch = realFetch;
+		for (const [k, v] of Object.entries(saved))
+			if (v === undefined) Reflect.deleteProperty(process.env, k);
+			else process.env[k] = v;
+		db.close();
+	});
+
+	test("summarizes the cited article's whole text from the DB with the shared request", async () => {
+		stubLlm(reply(GOOD));
+		generateMissingSummaries({
+			citations: [
+				{
+					normId: "N",
+					normTitle: "Ley",
+					articleTitle: "Artículo 2",
+					anchor: "articulo-2",
+					blockId: "a2",
+					verified: true,
+				},
+			],
+			citizenSummaries: new CitizenSummaryService(db),
+		});
+		await settle();
+		expect(bodies).toHaveLength(1);
+		expect(bodies[0]).toEqual(
+			articleSummaryRequestBody(
+				{ norm_title: "Ley", block_title: "Artículo 2", current_text: ARTICLE },
+				"openai/gpt-6-luna",
+			),
+		);
+		expect(
+			db.query("SELECT summary, model FROM citizen_article_summaries").get(),
+		).toEqual({ summary: GOOD, model: "openai/gpt-6-luna" });
+	});
+
+	test("approximate citations (no block id) and already summarized ones are skipped", async () => {
+		stubLlm(reply(GOOD));
+		generateMissingSummaries({
+			citations: [
+				{
+					normId: "N",
+					normTitle: "Ley",
+					articleTitle: "Art. 2",
+					anchor: "a",
+					verified: false,
+				},
+				{
+					normId: "N",
+					normTitle: "Ley",
+					articleTitle: "Artículo 2",
+					anchor: "a",
+					blockId: "a2",
+					citizenSummary: "ya existe",
+					verified: true,
+				},
+			],
+			citizenSummaries: new CitizenSummaryService(db),
+		});
+		await settle();
+		expect(bodies).toHaveLength(0);
+	});
+});
+
+describe("request parity with the API's OpenRouter client", () => {
+	afterEach(() => {
+		globalThis.fetch = realFetch;
+	});
+
+	test("callOpenRouter sends the same body for the same settings", async () => {
+		stubLlm(reply(GOOD));
+		bodies = [];
+		const article = {
+			norm_title: "Ley",
+			block_title: "Artículo 2",
+			current_text: ARTICLE,
+		};
+		const shared = articleSummaryRequestBody(article, "openai/gpt-6-luna");
+		const format = shared.response_format as {
+			json_schema: { name: string; schema: Record<string, unknown> };
+		};
+		await callOpenRouter("k", {
+			model: "openai/gpt-6-luna",
+			messages: shared.messages as never,
+			temperature: shared.temperature as number,
+			maxTokens: shared.max_tokens as number,
+			reasoning: { effort: "minimal" },
+			jsonSchema: format.json_schema,
+		});
+		expect(bodies[0]).toEqual(shared);
+	});
+});
+
+describe("CitizenSummaryService spend guards", () => {
+	let db: Database;
+	const guardEnv = [
+		"LAZY_SUMMARIES_DAILY_LIMIT",
+		"LAZY_SUMMARIES_CONCURRENCY",
+		"LAZY_SUMMARIES_MAX_INPUT_CHARS",
+	];
+	const savedGuards = Object.fromEntries(
+		guardEnv.map((k) => [k, process.env[k]]),
+	);
+
+	beforeEach(() => {
+		bodies = [];
+		process.env.OPENROUTER_API_KEY = "test-key";
+		process.env.OPENROUTER_BACKOFF_MS = "0";
+		db = new Database(":memory:");
+		createSchema(db);
+		db.run(
+			"INSERT INTO norms (id, title, country, rank, published_at, status) VALUES ('N', 'Ley', 'es', 'ley', '2026-01-01', 'vigente')",
+		);
+		const insert = db.prepare(
+			"INSERT INTO blocks (norm_id, block_id, block_type, title, position, current_text) VALUES ('N', ?, ?, ?, ?, ?)",
+		);
+		for (let i = 1; i <= 6; i++)
+			insert.run(`a${i}`, "precepto", `Artículo ${i}`, i, ARTICLE);
+		insert.run("pr", "preambulo", "Preámbulo", 0, ARTICLE);
+		insert.run("fi", "firma", "Firma", 99, ARTICLE);
+	});
+
+	afterEach(() => {
+		globalThis.fetch = realFetch;
+		for (const [k, v] of Object.entries({ ...saved, ...savedGuards }))
+			if (v === undefined) Reflect.deleteProperty(process.env, k);
+			else process.env[k] = v;
+		db.close();
+	});
+
+	test("only articles (precepto): never preambles or signatures", async () => {
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		expect(
+			await svc.getOrGenerate("N", "pr", "Ley", "Preámbulo", ARTICLE),
+		).toBeNull();
+		expect(
+			await svc.getOrGenerate("N", "fi", "Ley", "Firma", ARTICLE),
+		).toBeNull();
+		expect(await svc.getOrGenerate("N", "zz", "Ley", "?", ARTICLE)).toBeNull();
+		expect(bodies).toHaveLength(0);
+	});
+
+	test("articles above the input cap are skipped", async () => {
+		process.env.LAZY_SUMMARIES_MAX_INPUT_CHARS = "100";
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		expect(
+			await svc.getOrGenerate("N", "a1", "Ley", "Artículo 1", ARTICLE),
+		).toBeNull();
+		expect(bodies).toHaveLength(0);
+	});
+
+	test("daily limit per Europe/Madrid day, reset the next day", async () => {
+		process.env.LAZY_SUMMARIES_DAILY_LIMIT = "2";
+		stubLlm(reply(GOOD));
+		const svc = new CitizenSummaryService(db);
+		// 23:30 UTC on 2026-09-23 is already 2026-09-24 in Madrid.
+		let now = new Date("2026-09-23T23:30:00Z");
+		svc.now = () => now;
+		for (const id of ["a1", "a2", "a3"])
+			await svc.getOrGenerate("N", id, "Ley", id, ARTICLE);
+		expect(bodies).toHaveLength(2);
+		// Same Madrid day: still capped.
+		now = new Date("2026-09-24T21:00:00Z");
+		await svc.getOrGenerate("N", "a3", "Ley", "a3", ARTICLE);
+		expect(bodies).toHaveLength(2);
+		// Next Madrid day: a3 (skipped, not "attempted") goes through.
+		now = new Date("2026-09-24T22:30:00Z");
+		const r = await svc.getOrGenerate("N", "a3", "Ley", "a3", ARTICLE);
+		expect(r?.citizen_summary).toBe(GOOD);
+		expect(bodies).toHaveLength(3);
+	});
+
+	test("at most LAZY_SUMMARIES_CONCURRENCY calls in flight", async () => {
+		process.env.LAZY_SUMMARIES_CONCURRENCY = "2";
+		let release: () => void = () => {};
+		const gate = new Promise<void>((r) => {
+			release = r;
+		});
+		globalThis.fetch = (async (_url: string, init: RequestInit) => {
+			bodies.push(JSON.parse(String(init.body)));
+			await gate;
+			return new Response(
+				JSON.stringify({ choices: [{ message: { content: reply(GOOD) } }] }),
+				{ status: 200 },
+			);
+		}) as unknown as typeof fetch;
+		const svc = new CitizenSummaryService(db);
+		const calls = ["a1", "a2", "a3", "a4"].map((id) =>
+			svc.getOrGenerate("N", id, "Ley", id, ARTICLE),
+		);
+		await settle();
+		expect(bodies).toHaveLength(2);
+		release();
+		const results = await Promise.all(calls);
+		expect(results.filter((r) => r !== null)).toHaveLength(2);
+		// The skipped ones can be generated later.
+		await svc.getOrGenerate("N", "a3", "Ley", "a3", ARTICLE);
+		expect(bodies).toHaveLength(3);
 	});
 });

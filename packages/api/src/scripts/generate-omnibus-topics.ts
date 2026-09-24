@@ -251,6 +251,14 @@ function validateTopics(data: unknown): {
 			: [];
 
 		if (!topicLabel) continue;
+		// A topic with no summary and no articles is an empty heading on the
+		// web (BOE-A-2021-21315 #16, 2026-09): leave it out. If every topic is
+		// empty the answer is "no valid topics" and the law is retried on the
+		// next run, like any other failure; there is no "nothing to show"
+		// marker for a law (a placeholder row would be rendered), and an answer
+		// made only of empty topics has not been seen.
+		if (!summary.trim() && articleCount === 0 && blockIds.length === 0)
+			continue;
 		// Reject the whole answer (not just this topic, which would vanish
 		// silently): the law is retried on the next run.
 		if (hasForeignScript(topicLabel, headline, summary))

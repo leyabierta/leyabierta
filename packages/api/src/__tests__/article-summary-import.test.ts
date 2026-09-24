@@ -159,6 +159,54 @@ describe("importRows", () => {
 		expect(count("citizen_tags")).toBe(3);
 	});
 
+	test("records the normalized model, the prompt version and the date", () => {
+		importRows(
+			db,
+			[
+				row(),
+				row({
+					block_id: "a2",
+					input_hash: textHash(TEXT_A2),
+					model: "openai/gpt-6-luna",
+					prompt_version: "v11",
+				}),
+			],
+			{ apply: true },
+		);
+		expect(
+			db
+				.prepare(
+					"SELECT block_id, model, prompt_version, generated_at != '' AS dated FROM citizen_article_summaries ORDER BY block_id",
+				)
+				.all(),
+		).toEqual([
+			// Rows from before the version was recorded: always the v10 prompt.
+			{
+				block_id: "a1",
+				model: "qwen/qwen3.8-27b",
+				prompt_version: "v10",
+				dated: 1,
+			},
+			{
+				block_id: "a2",
+				model: "openai/gpt-6-luna",
+				prompt_version: "v11",
+				dated: 1,
+			},
+		]);
+	});
+
+	test("refuses a DB without the traceability columns", () => {
+		const old = new Database(":memory:");
+		old.exec(
+			"CREATE TABLE citizen_article_summaries (norm_id TEXT, block_id TEXT, summary TEXT)",
+		);
+		expect(() => importRows(old, [row()], { apply: false })).toThrow(
+			/run createSchema first/,
+		);
+		old.close();
+	});
+
 	test("never overwrites an existing summary, even an empty one", () => {
 		db.run(
 			"INSERT INTO citizen_article_summaries (norm_id, block_id, summary) VALUES ('N', 'a1', '')",
@@ -315,6 +363,13 @@ describe("importRows", () => {
 			});
 			expect(report.replaced).toBe(1);
 			expect(current()).toEqual({ summary: row().summary });
+			expect(
+				db
+					.prepare(
+						"SELECT model, prompt_version FROM citizen_article_summaries WHERE norm_id='N' AND block_id='a1'",
+					)
+					.get(),
+			).toEqual({ model: "qwen/qwen3.8-27b", prompt_version: "v10" });
 			expect(articleTags()).toEqual(["convocatoria", "plazos", "solicitudes"]);
 			// Law-level tags are untouched.
 			expect(

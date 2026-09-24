@@ -14,6 +14,7 @@
  */
 
 import type { Database } from "bun:sqlite";
+import { CitizenSummaryService } from "../citizen-summary.ts";
 import {
 	bm25HybridSearch,
 	ensureBlocksFts,
@@ -92,13 +93,16 @@ const DECLINE_LOW_CONFIDENCE =
 export class RagPipeline {
 	private embeddedNormIds: string[] | null = null;
 
-	private insertSummaryStmt: ReturnType<Database["prepare"]>;
+	private citizenSummaries: CitizenSummaryService;
 	private insertAskLogStmt: ReturnType<Database["prepare"]>;
 
 	constructor(
 		private db: Database,
 		private apiKey: string,
 		private dataDir: string = "./data",
+		// The API server passes its own instance so the lazy route and the RAG
+		// fill share in-flight dedupe and the "already attempted" memory.
+		citizenSummaries?: CitizenSummaryService,
 	) {
 		// Initialize article-level BM25 index for hybrid search
 		ensureBlocksFts(this.db);
@@ -106,9 +110,8 @@ export class RagPipeline {
 		// Main thread owns the schema; workers only SELECT.
 		ensureBlocksFtsVocab(this.db);
 
-		this.insertSummaryStmt = this.db.prepare(
-			"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
-		);
+		this.citizenSummaries =
+			citizenSummaries ?? new CitizenSummaryService(this.db);
 
 		// ask_log table is defined in schema.ts — ensure it exists for standalone API usage
 		this.db.run(`CREATE TABLE IF NOT EXISTS ask_log (
@@ -317,10 +320,8 @@ export class RagPipeline {
 
 		// Fire-and-forget background citizen-summary backfill.
 		generateMissingSummaries({
-			apiKey: this.apiKey,
 			citations: validCitations,
-			articles,
-			insertSummaryStmt: this.insertSummaryStmt,
+			citizenSummaries: this.citizenSummaries,
 		});
 
 		// Soft-fail watermark when most citations are unverifiable.
@@ -655,10 +656,8 @@ export class RagPipeline {
 			);
 
 			generateMissingSummaries({
-				apiKey: this.apiKey,
 				citations: validCitations,
-				articles,
-				insertSummaryStmt: this.insertSummaryStmt,
+				citizenSummaries: this.citizenSummaries,
 			});
 
 			const latencyMs = Date.now() - start;

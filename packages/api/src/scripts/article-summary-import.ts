@@ -8,7 +8,13 @@
 
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
-import { FOREIGN_SCRIPT } from "@leyabierta/pipeline";
+import {
+	ARTICLE_SUMMARY_PROMPT_VERSION,
+	hasColumn,
+	maxSummaryChars,
+	normalizeModelId,
+	validateArticleSummary,
+} from "@leyabierta/pipeline";
 
 /** Short fingerprint of the article text the summary was generated from. */
 export function textHash(text: string): string {
@@ -21,53 +27,24 @@ export interface GeneratedRow {
 	block_id: string;
 	input_hash: string;
 	model?: string;
+	/** ARTICLE_SUMMARY_PROMPT_VERSION the row was generated with. */
+	prompt_version?: string;
 	summary: string;
 	tags: string[];
 }
 
-// Prompt v10 asks for 80-300 characters. Very short articles legitimately
-// produce shorter summaries; longer ones are accepted up to maxSummaryChars,
-// although the prompt says 300, because for long articles a blind judge
-// preferred them 35/5 over the summaries in production (2026-09-23).
-export const MIN_SUMMARY_CHARS = 20;
-/** Absolute cap, for the longest articles; see maxSummaryChars. */
-export const MAX_SUMMARY_CHARS = 600;
-
-/**
- * Longest acceptable summary for an article of `articleChars` characters. A
- * fixed 320-character cap rejected 29% of the summaries of the main codes
- * (long articles with several apartados, where the essentials don't fit), and
- * forcing them shorter drops data. Short articles keep the 320 cap.
- */
-export function maxSummaryChars(articleChars: number): number {
-	if (articleChars < 1000) return 320;
-	if (articleChars < 2000) return 400;
-	if (articleChars < 5000) return 500;
-	return MAX_SUMMARY_CHARS;
-}
-export const MIN_TAGS = 3;
-export const MAX_TAGS = 5;
-export const MAX_TAG_CHARS = 60;
-
-// Control and invisible format characters (NUL, zero-width space...) and
-// HTML-like tags. Bare < and > stay: "municipios <10.000 hab" is legitimate.
-const UNSAFE_CHARS = /[\p{Cc}\p{Cf}]|<\/?[a-z][^>]*>/iu;
-// `\b` only knows ASCII letters (even with the `u` flag): "túneles" would
-// match "tú" and "andén" would match "and". Use Unicode letter lookarounds.
-const word = (alternatives: string) =>
-	new RegExp(`(?<![\\p{L}\\p{N}])(${alternatives})(?![\\p{L}\\p{N}])`, "iu");
-const SECOND_PERSON = word("tú|tienes|puedes|usted|ustedes|debes");
-const ENGLISH = word("the|and|shall|which|must|summary");
-const REASONING = /<\/?think>|(?<![\p{L}])thinking(?![\p{L}])/iu;
-
-/** Script, control-character and reasoning problems in generated text. */
-export function generatedTextProblem(text: string): string | null {
-	if (REASONING.test(text)) return "reasoning_leak";
-	if (UNSAFE_CHARS.test(text)) return "unsafe_chars";
-	if (FOREIGN_SCRIPT.test(text)) return "foreign_script";
-	if (ENGLISH.test(text)) return "english";
-	return null;
-}
+// Length, tag and text checks are shared with the live generation paths
+// (@leyabierta/pipeline ai/article-summary.ts); re-exported for the scripts
+// and tests that import them from here.
+export {
+	generatedTextProblem,
+	MAX_SUMMARY_CHARS,
+	MAX_TAG_CHARS,
+	MAX_TAGS,
+	MIN_SUMMARY_CHARS,
+	MIN_TAGS,
+	maxSummaryChars,
+} from "@leyabierta/pipeline";
 
 export function validateGeneratedRow(
 	row: unknown,
@@ -85,37 +62,7 @@ export function validateGeneratedRow(
 	if (typeof r.input_hash !== "string" || !/^[0-9a-f]{16}$/.test(r.input_hash))
 		return { ok: false, reason: "no_input_hash" };
 
-	const summary = typeof r.summary === "string" ? r.summary.trim() : "";
-	if (summary.length < MIN_SUMMARY_CHARS)
-		return { ok: false, reason: "too_short" };
-	if (summary.length > MAX_SUMMARY_CHARS)
-		return { ok: false, reason: "too_long" };
-
-	if (!Array.isArray(r.tags)) return { ok: false, reason: "bad_tags" };
-	// Dedupe case-insensitively (the tag PK is case-sensitive), keeping the
-	// first spelling: tags can be proper nouns ("País Vasco").
-	const byLower = new Map<string, string>();
-	for (const t of r.tags) {
-		if (typeof t !== "string") continue;
-		const tag = t.trim();
-		if (tag && !byLower.has(tag.toLowerCase()))
-			byLower.set(tag.toLowerCase(), tag);
-	}
-	const tags = [...byLower.values()];
-	if (tags.length < MIN_TAGS || tags.length > MAX_TAGS)
-		return { ok: false, reason: "bad_tag_count" };
-	if (tags.some((t) => t.length > MAX_TAG_CHARS))
-		return { ok: false, reason: "tag_too_long" };
-
-	const all = `${summary} ${tags.join(" ")}`;
-	if (REASONING.test(all)) return { ok: false, reason: "reasoning_leak" };
-	if (UNSAFE_CHARS.test(all)) return { ok: false, reason: "unsafe_chars" };
-	if (FOREIGN_SCRIPT.test(all)) return { ok: false, reason: "foreign_script" };
-	if (SECOND_PERSON.test(summary))
-		return { ok: false, reason: "second_person" };
-	if (ENGLISH.test(summary)) return { ok: false, reason: "english" };
-
-	return { ok: true, summary, tags };
+	return validateArticleSummary(r.summary, r.tags);
 }
 
 export interface ImportReport {
@@ -146,6 +93,12 @@ export function importRows(
 		replace?: Map<string, string>;
 	},
 ): ImportReport {
+	// The traceability columns come from createSchema (run by the API at
+	// startup); a DB that has not been migrated yet would fail on the INSERT.
+	if (!hasColumn(db, "citizen_article_summaries", "prompt_version"))
+		throw new Error(
+			"citizen_article_summaries has no model/prompt_version/generated_at columns: run createSchema first (e.g. start the API once)",
+		);
 	const report: ImportReport = {
 		total: rows.length,
 		inserted: 0,
@@ -166,7 +119,9 @@ export function importRows(
 		"SELECT 1 FROM citizen_tags WHERE norm_id = ? AND block_id = ? LIMIT 1",
 	);
 	const insertSummary = db.prepare(
-		"INSERT OR IGNORE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
+		`INSERT OR IGNORE INTO citizen_article_summaries
+		   (norm_id, block_id, summary, model, prompt_version, generated_at)
+		 VALUES (?, ?, ?, ?, ?, datetime('now'))`,
 	);
 	const insertTag = db.prepare(
 		"INSERT OR IGNORE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
@@ -175,7 +130,9 @@ export function importRows(
 		"SELECT summary FROM citizen_article_summaries WHERE norm_id = ? AND block_id = ?",
 	);
 	const updateSummary = db.prepare(
-		"UPDATE citizen_article_summaries SET summary = ? WHERE norm_id = ? AND block_id = ?",
+		`UPDATE citizen_article_summaries
+		    SET summary = ?, model = ?, prompt_version = ?, generated_at = datetime('now')
+		  WHERE norm_id = ? AND block_id = ?`,
 	);
 	const deleteTags = db.prepare(
 		"DELETE FROM citizen_tags WHERE norm_id = ? AND block_id = ?",
@@ -207,6 +164,8 @@ export function importRows(
 		block_id: string;
 		summary: string;
 		tags: string[];
+		model: string;
+		promptVersion: string;
 		replace: boolean;
 	};
 	const accepted: Accepted[] = [];
@@ -240,8 +199,10 @@ export function importRows(
 			skip("article_missing_or_not_vigente");
 			continue;
 		}
-		// generate-citizen-tags.ts (daily cron) regenerates laws with an empty
-		// law-level summary and first deletes all their article summaries.
+		// Laws with an empty law-level summary are left to the daily cron
+		// (generate-citizen-tags.ts), which summarizes the law and then its
+		// articles. Until 2026-09-24 it also deleted their article summaries
+		// first; it no longer does, so this skip is only conservative.
 		if (!current.normSummary) {
 			skip("law_summary_pending");
 			continue;
@@ -279,6 +240,10 @@ export function importRows(
 			block_id: r.block_id,
 			summary: v.summary,
 			tags: v.tags,
+			model: normalizeModelId(r.model),
+			// article-summaries-offline.ts generate has always used the v10
+			// prompt; rows written before it recorded the version carry none.
+			promptVersion: r.prompt_version || ARTICLE_SUMMARY_PROMPT_VERSION,
 			replace,
 		});
 	}
@@ -297,7 +262,13 @@ export function importRows(
 						skip("summary_changed_since_export");
 						continue;
 					}
-					updateSummary.run(a.summary, a.norm_id, a.block_id);
+					updateSummary.run(
+						a.summary,
+						a.model,
+						a.promptVersion,
+						a.norm_id,
+						a.block_id,
+					);
 					deleteTags.run(a.norm_id, a.block_id);
 					for (const t of a.tags) insertTag.run(a.norm_id, a.block_id, t);
 					report.replaced++;
@@ -305,7 +276,13 @@ export function importRows(
 				}
 				// Re-check inside the transaction: the daily pipeline or the lazy
 				// summary route may have filled it since the scan above.
-				const res = insertSummary.run(a.norm_id, a.block_id, a.summary);
+				const res = insertSummary.run(
+					a.norm_id,
+					a.block_id,
+					a.summary,
+					a.model,
+					a.promptVersion,
+				);
 				if (res.changes === 0) {
 					skip("already_has_summary");
 					continue;

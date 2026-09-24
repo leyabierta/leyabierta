@@ -1,39 +1,42 @@
 /**
  * On-demand citizen article summary generation.
  *
- * When an article has no citizen_summary, generates one via LLM,
- * caches it in the DB, and returns it. Subsequent requests are instant.
+ * When an article has no citizen_summary, generates one, caches it in the DB
+ * and returns it. Subsequent requests are instant. Generation, validation and
+ * storage are the ones every path shares (@leyabierta/pipeline
+ * ai/article-summary.ts: prompt v10, ARTICLE_SUMMARIES_MODEL, whole article,
+ * model/prompt_version/generated_at stored). Used by GET
+ * /v1/laws/:id/summaries (fire-and-forget) and the RAG background fill.
  */
 
 import type { Database } from "bun:sqlite";
-import { hasForeignScript } from "@leyabierta/pipeline";
-import { CONTENT_LLM_MODEL, callOpenRouter } from "./openrouter.ts";
+import {
+	articleHasSubstance,
+	articleSummariesModel,
+	generateArticleSummary,
+	storeArticleSummary,
+} from "@leyabierta/pipeline";
 
-const MODEL = CONTENT_LLM_MODEL;
+// Lazy calls run in the background, so a slow upstream never delays a
+// response; give reasoning models room before giving up.
+const LAZY_TIMEOUT_MS = 90_000;
 
-const SYSTEM_PROMPT = `Eres un redactor institucional que traduce artículos legales españoles a lenguaje accesible para ciudadanos.
+/**
+ * Spend guards for request-triggered generation (any visitor or crawler can
+ * trigger it): at most LAZY_SUMMARIES_CONCURRENCY calls in flight (default 3),
+ * at most LAZY_SUMMARIES_DAILY_LIMIT generations per Europe/Madrid day
+ * (default 200; in memory, so a restart resets it), and articles up to
+ * LAZY_SUMMARIES_MAX_INPUT_CHARS (default 20,000). Above any limit the
+ * article is just skipped: the daily cron or an offline backfill fills it.
+ */
+function envInt(name: string, fallback: number): number {
+	const v = Number(process.env[name]);
+	return Number.isFinite(v) && v >= 0 ? Math.floor(v) : fallback;
+}
 
-Tono: serio e informativo, como una institución pública que explica derechos y obligaciones. NO uses tono coloquial ni de blog. Evita jerga jurídica, pero mantén la seriedad. Ejemplo: "Tienes derecho a..." es correcto; "Puedes..." es demasiado informal.
-
-- citizen_tags: 3-5 tags en español llano, como buscaría un ciudadano normal.
-- citizen_summary: Resumen de máximo 280 caracteres. Lenguaje claro y serio, sin jerga legal. Con acentos correctos. Incluye los datos concretos más relevantes (plazos, requisitos, cantidades) cuando los haya.
-Si un artículo es puramente procedimental o técnico, devuelve citizen_tags vacío y citizen_summary vacío.`;
-
-const SCHEMA = {
-	name: "article_citizen_metadata",
-	schema: {
-		type: "object" as const,
-		properties: {
-			citizen_tags: {
-				type: "array" as const,
-				items: { type: "string" as const },
-			},
-			citizen_summary: { type: "string" as const },
-		},
-		required: ["citizen_tags", "citizen_summary"],
-		additionalProperties: false,
-	},
-};
+function madridDay(now: Date): string {
+	return now.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
+}
 
 interface GeneratedSummary {
 	citizen_summary: string;
@@ -42,35 +45,50 @@ interface GeneratedSummary {
 
 export class CitizenSummaryService {
 	private apiKey: string | null;
+	private db: Database;
 	private stmtGet: ReturnType<Database["prepare"]>;
-	private stmtInsertSummary: ReturnType<Database["prepare"]>;
-	private stmtInsertTag: ReturnType<Database["prepare"]>;
 	private stmtGetTags: ReturnType<Database["prepare"]>;
+	private stmtGetArticle: ReturnType<Database["prepare"]>;
 	// Track in-flight requests to avoid duplicate LLM calls for the same article
 	private pending = new Map<string, Promise<GeneratedSummary | null>>();
 	// Articles already attempted in this process that produced nothing to cache
-	// (the prompt asks for an empty summary on procedural articles, or the call
-	// failed). Without this, every request re-paid the LLM for the same article:
+	// (a placeholder article, a summary that failed validation, or a failed
+	// call). Without this, every request re-paid the LLM for the same article:
 	// GET /v1/laws/:id/summaries fires up to 5 generations per hit, so a crawler
-	// looping over a law full of procedural articles was an unbounded spend.
+	// looping over a law full of such articles was an unbounded spend.
 	// Per-process (cleared on the daily API restart) and size-capped.
 	private attempted = new Set<string>();
 	private static readonly MAX_ATTEMPTED = 50_000;
+	private stmtBlockType: ReturnType<Database["prepare"]>;
+	private inFlight = 0;
+	private day = "";
+	private generatedToday = 0;
+	private readonly maxConcurrent = envInt("LAZY_SUMMARIES_CONCURRENCY", 3);
+	private readonly dailyLimit = envInt("LAZY_SUMMARIES_DAILY_LIMIT", 200);
+	private readonly maxInputChars = envInt(
+		"LAZY_SUMMARIES_MAX_INPUT_CHARS",
+		20_000,
+	);
+	/** Clock, replaceable in tests. */
+	now: () => Date = () => new Date();
 
 	constructor(db: Database) {
+		this.db = db;
 		this.apiKey = process.env.OPENROUTER_API_KEY ?? null;
 
 		this.stmtGet = db.prepare(
 			"SELECT summary FROM citizen_article_summaries WHERE norm_id = ? AND block_id = ?",
 		);
-		this.stmtInsertSummary = db.prepare(
-			"INSERT OR REPLACE INTO citizen_article_summaries (norm_id, block_id, summary) VALUES (?, ?, ?)",
-		);
-		this.stmtInsertTag = db.prepare(
-			"INSERT OR REPLACE INTO citizen_tags (norm_id, block_id, tag) VALUES (?, ?, ?)",
-		);
 		this.stmtGetTags = db.prepare(
 			"SELECT tag FROM citizen_tags WHERE norm_id = ? AND block_id = ?",
+		);
+		this.stmtBlockType = db.prepare(
+			"SELECT block_type FROM blocks WHERE norm_id = ? AND block_id = ?",
+		);
+		this.stmtGetArticle = db.prepare(
+			`SELECT n.title AS normTitle, b.title AS blockTitle, b.current_text AS text
+			 FROM blocks b JOIN norms n ON n.id = b.norm_id
+			 WHERE b.norm_id = ? AND b.block_id = ?`,
 		);
 	}
 
@@ -95,12 +113,27 @@ export class CitizenSummaryService {
 			).map((r) => r.tag);
 			return { citizen_summary: cached.summary, citizen_tags: tags };
 		}
+		// An empty row is a deliberate "nothing to say" (older prompts returned
+		// "" for procedural articles); storage never overwrites it, so a new
+		// generation would be paid for nothing.
+		if (cached) return null;
 
 		// 2. No API key = no generation
 		if (!this.apiKey) return null;
 
-		// 3. Skip very short articles (likely procedural)
-		if (articleText.length < 50) return null;
+		// 3. Only articles (block_type 'precepto', like the cron): never
+		// preambles, signatures or notes. Skip very short articles, placeholders
+		// ("(Derogado)", a bare chapter heading) and giant ones.
+		const block = this.stmtBlockType.get(normId, blockId) as {
+			block_type: string;
+		} | null;
+		if (block?.block_type !== "precepto") return null;
+		if (
+			articleText.length < 50 ||
+			articleText.length > this.maxInputChars ||
+			!articleHasSubstance(articleText)
+		)
+			return null;
 
 		// 4. Deduplicate in-flight requests
 		const cacheKey = `${normId}:${blockId}`;
@@ -112,6 +145,18 @@ export class CitizenSummaryService {
 
 		// 5. Already tried in this process and nothing was cached: don't re-pay.
 		if (this.attempted.has(cacheKey)) return null;
+
+		// 6. Spend guards. Not remembered as attempted: a later request (another
+		// day, a quieter moment) may still generate it.
+		const today = madridDay(this.now());
+		if (today !== this.day) {
+			this.day = today;
+			this.generatedToday = 0;
+		}
+		if (this.generatedToday >= this.dailyLimit) return null;
+		if (this.inFlight >= this.maxConcurrent) return null;
+		this.generatedToday++;
+
 		if (this.attempted.size >= CitizenSummaryService.MAX_ATTEMPTED) {
 			// FIFO: a Set iterates in insertion order, so evict only the oldest
 			// entry instead of re-exposing every attempted article at once.
@@ -120,6 +165,7 @@ export class CitizenSummaryService {
 		}
 		this.attempted.add(cacheKey);
 
+		this.inFlight++;
 		const promise = this.generate(
 			normId,
 			blockId,
@@ -134,7 +180,32 @@ export class CitizenSummaryService {
 			return result;
 		} finally {
 			this.pending.delete(cacheKey);
+			this.inFlight--;
 		}
+	}
+
+	/**
+	 * Background fill for an article known only by its ids (the RAG path cites
+	 * articles, sometimes through a sub-chunk of them): the whole current text
+	 * is read from the DB, never the retrieved fragment. Never throws.
+	 */
+	async generateForBlock(
+		normId: string,
+		blockId: string,
+	): Promise<GeneratedSummary | null> {
+		const article = this.stmtGetArticle.get(normId, blockId) as {
+			normTitle: string;
+			blockTitle: string;
+			text: string;
+		} | null;
+		if (!article) return null;
+		return this.getOrGenerate(
+			normId,
+			blockId,
+			article.normTitle,
+			article.blockTitle,
+			article.text,
+		);
 	}
 
 	private async generate(
@@ -144,41 +215,40 @@ export class CitizenSummaryService {
 		articleTitle: string,
 		articleText: string,
 	): Promise<GeneratedSummary | null> {
-		const userPrompt = `LEY: ${normTitle}\n\nARTÍCULO:\n${articleTitle}\n${articleText.slice(0, 2000)}`;
-
+		const result = await generateArticleSummary({
+			apiKey: this.apiKey!,
+			article: {
+				norm_title: normTitle,
+				block_title: articleTitle,
+				current_text: articleText,
+			},
+			model: articleSummariesModel(),
+			timeoutMs: LAZY_TIMEOUT_MS,
+		});
+		if (!result.ok) {
+			// A language switch, second person, a summary too long for the
+			// article...: never stored or shown.
+			console.error(
+				`citizen-summary: not stored for ${normId}/${blockId}: ${result.reason}`,
+			);
+			return null;
+		}
 		try {
-			const result = await callOpenRouter<GeneratedSummary>(this.apiKey!, {
-				model: MODEL,
-				messages: [
-					{ role: "system", content: SYSTEM_PROMPT },
-					{ role: "user", content: userPrompt },
-				],
-				temperature: 0.2,
-				maxTokens: 500,
-				jsonSchema: SCHEMA,
-			});
-
-			const { citizen_summary, citizen_tags } = result.data;
-			// A language switch ("…por servicio军事") is never stored or shown.
-			if (hasForeignScript(citizen_summary, ...citizen_tags)) {
-				console.error(
-					`citizen-summary: foreign script for ${normId}/${blockId}, discarded`,
-				);
-				return null;
-			}
-
-			// Persist to DB
-			if (citizen_summary) {
-				this.stmtInsertSummary.run(normId, blockId, citizen_summary);
-				for (const tag of citizen_tags) {
-					this.stmtInsertTag.run(normId, blockId, tag);
-				}
-			}
-
-			return { citizen_summary, citizen_tags };
+			storeArticleSummary(this.db, normId, blockId, result);
 		} catch (err) {
 			console.error(`citizen-summary: failed for ${normId}/${blockId}: ${err}`);
 			return null;
 		}
+		// Serve what is stored: a concurrent writer (cron, import) may have won.
+		const stored = this.stmtGet.get(normId, blockId) as {
+			summary: string;
+		} | null;
+		const tags = (
+			this.stmtGetTags.all(normId, blockId) as { tag: string }[]
+		).map((r) => r.tag);
+		return {
+			citizen_summary: stored?.summary ?? result.summary,
+			citizen_tags: tags,
+		};
 	}
 }
