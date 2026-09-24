@@ -179,7 +179,7 @@ The system only has statutory text. Many legal questions depend on how courts in
 
 504/12,236 laws (4%) means many citizen questions will hit laws not in the embeddings. The selection criterion (top by reforms) misses stable but important laws.
 
-**Recommendation**: Embed all ~9,700 vigente laws. Estimated cost ~$19. The `embed-missing-laws.ts` script already supports incremental merging.
+**Recommendation**: Embed all ~9,700 vigente laws. The `embed-missing-laws.ts` script already supports incremental merging.
 
 ---
 
@@ -194,7 +194,7 @@ The system only has statutory text. Many legal questions depend on how courts in
 6. **Collection density RRF**: aggregate article scores by norm as 4th RRF system
 7. **Diversity penalty**: diminishing returns per norm (1st: 1.0, 2nd: 0.7, 3rd: 0.5, 4th+: 0.3)
 8. **Omnibus law penalty**: PGE/medidas urgentes get 0.15x boost for non-temporal questions
-9. **4 missing core laws embedded**: LAU, LOPDGDD, LETA, Ley Vivienda ($0.02)
+9. **4 missing core laws embedded**: LAU, LOPDGDD, LETA, Ley Vivienda
 10. **Fixed embedding path**: API was loading 56-law file instead of 500-law file
 
 ### Eval improvements
@@ -216,7 +216,7 @@ Options:
 - The `norms.updated_at` field has the last consolidation date — use it
 
 ### Priority 2: Embed all vigente laws
-~9,300 remaining vigente laws, ~$19 cost. Use `embed-missing-laws.ts` in batches.
+~9,300 remaining vigente laws. Use `embed-missing-laws.ts` in batches.
 This eliminates the coverage gap entirely.
 
 ### Priority 3: Evidence ordering in synthesis

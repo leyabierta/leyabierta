@@ -33,7 +33,6 @@ Excluimos leyes masivas (Código Civil 2K+ arts, LEC 900+ arts) para mantener el
 | **Retrieval** | FTS5 + sinónimos estáticos | FTS5 + Query Analyzer (LLM) |
 | **Síntesis** | Mostrar artículos + citizen_summaries | LLM sintetiza respuesta |
 | **Citación** | Links directos a artículos | Citation verifier determinístico |
-| **Coste/query** | $0 | ~$0.003 |
 | **Riesgo alucinación** | Cero (no hay LLM) | Bajo (citation verifier) |
 
 ### Evaluación
@@ -60,14 +59,12 @@ defer B. Si B es claramente mejor: proceder a Phase 1 con embeddings.
 **Model:** google/gemini-2.5-flash-lite via OpenRouter
 **Dataset:** 20 preguntas (10 clear, 5 cross-law, 5 out-of-scope), 52 leyes
 
-| Strategy | Retrieval | Citation | Decline | Latency | Cost/q |
-|----------|:---------:|:--------:|:-------:|:-------:|:------:|
-| FTS5 only | 7% | 100% | 100% | 277ms | ~$0 |
-| **FTS5 + LLM keywords** | **80%** | **100%** | **100%** | **1.0s** | **$0.0003** |
-| FTS5 + LLM + materia | 80% | 90% | 100% | 1.3s | $0.0003 |
-| FTS5 + LLM + materia + tags | 87% | 80% | 100% | 1.5s | $0.0003 |
-
-**Coste total del benchmark:** $0.022 (80 queries). Est. mensual: **$0.82/mes** a 100 q/día.
+| Strategy | Retrieval | Citation | Decline | Latency |
+|----------|:---------:|:--------:|:-------:|:-------:|
+| FTS5 only | 7% | 100% | 100% | 277ms |
+| **FTS5 + LLM keywords** | **80%** | **100%** | **100%** | **1.0s** |
+| FTS5 + LLM + materia | 80% | 90% | 100% | 1.3s |
+| FTS5 + LLM + materia + tags | 87% | 80% | 100% | 1.5s |
 
 #### Conclusiones
 
@@ -77,7 +74,6 @@ defer B. Si B es claramente mejor: proceder a Phase 1 con embeddings.
 3. **Materia/tags añaden ruido.** Más normas recuperadas pero artículos menos relevantes.
    Citation accuracy baja al mezclar evidence irrelevante.
 4. **Decline accuracy 100% en todas.** Prompt injection, off-topic: todas rechazadas correctamente.
-5. **Coste ridículo.** $0.0003/query. Presupuesto de $15/mes = 50,000 queries/mes.
 
 #### Fallos pendientes (3 de 20 preguntas)
 
@@ -105,37 +101,26 @@ El bottleneck ahora es retrieval semántico (embeddings) para los 3 fallos pendi
 
 ## Phase 1: Embeddings + Hybrid Search
 
-### Costes acumulados
-
-| Concepto | Coste | Tokens | Notas |
-|----------|------:|-------:|-------|
-| Phase 0 benchmark (4×20q) | $0.022 | 233K | gemini-2.5-flash-lite |
-| Embeddings openai-small | $0.048 | 2.4M | 8,265 artículos, 48 MB |
-| **Total acumulado** | **$0.070** | **2.6M** | |
-
 ### Embeddings generados
 
 - **Model:** openai/text-embedding-3-small (1536 dims)
 - **Articles:** 8,265 (52 leyes del spike subset)
 - **Size:** 48.4 MB (vectors.bin) + 0.5 MB (meta.json)
 - **Time:** 324s (~5 min)
-- **Cost:** $0.048
 - **Location:** `data/spike-embeddings-openai-small.{meta.json,vectors.bin}`
 
 ### Benchmark Phase 1 (2026-04-09)
 
 6 strategies × 20 questions × gemini-2.5-flash-lite:
 
-| Strategy | Retrieval | Citation | Decline | Latency | Cost/q |
-|----------|:---------:|:--------:|:-------:|:-------:|:------:|
-| FTS5 only | 7% | 100% | 100% | 252ms | ~$0 |
-| FTS5 + LLM keywords | 73% | 82% | 100% | 1.2s | $0.0003 |
-| FTS5 + LLM + materia | 73% | 91% | 80% | 1.6s | $0.0003 |
-| FTS5 + LLM + materia + tags | 73% | 80% | 80% | 2.1s | $0.0003 |
-| **vector-only** | **100%** | **100%** | **100%** | **2.8s** | **$0.0003** |
-| hybrid (FTS5+LLM+vector) | 87% | 86% | 100% | 1.8s | $0.0003 |
-
-**Coste total benchmark:** $0.035 (120 queries)
+| Strategy | Retrieval | Citation | Decline | Latency |
+|----------|:---------:|:--------:|:-------:|:-------:|
+| FTS5 only | 7% | 100% | 100% | 252ms |
+| FTS5 + LLM keywords | 73% | 82% | 100% | 1.2s |
+| FTS5 + LLM + materia | 73% | 91% | 80% | 1.6s |
+| FTS5 + LLM + materia + tags | 73% | 80% | 80% | 2.1s |
+| **vector-only** | **100%** | **100%** | **100%** | **2.8s** |
+| hybrid (FTS5+LLM+vector) | 87% | 86% | 100% | 1.8s |
 
 #### Conclusiones Phase 1
 
@@ -162,16 +147,6 @@ Pregunta → Embed query → Vector search (top-20) → LLM Synthesis → Citati
 No necesitamos FTS5 para retrieval. No necesitamos Query Analyzer para retrieval.
 El Query Analyzer puede ser útil para el prompt de síntesis (mejores instrucciones
 al LLM), pero el retrieval es 100% vector.
-
-### Costes acumulados (actualizado)
-
-| Concepto | Coste | Tokens | Notas |
-|----------|------:|-------:|-------|
-| Phase 0 benchmark (4×20q) | $0.022 | 233K | gemini-2.5-flash-lite |
-| Embeddings openai-small | $0.048 | 2.4M | 8,265 artículos, 48 MB |
-| Phase 1 benchmark (6×20q) | $0.035 | 378K | gemini-2.5-flash-lite + embeddings |
-| Phase 2 benchmark (smart 22q) | $0.011 | 104K | vector-smart + temporal |
-| **Total acumulado** | **$0.116** | **3.1M** | |
 
 ## Phase 2: Temporal Awareness
 
@@ -225,18 +200,6 @@ artículos relevantes en todos los casos. El LLM declina cuando debería:
 - Q403 "Despido viernes" — Desmintió mito urbano con 2 citas
 - Q304 "Casero entrar en piso" — Citó Constitución art. 18
 
-### Costes acumulados (actualizado)
-
-| Concepto | Coste | Tokens |
-|----------|------:|-------:|
-| Phase 0 benchmark | $0.022 | 233K |
-| Embeddings v1 | $0.048 | 2.4M |
-| Phase 1 benchmark | $0.035 | 378K |
-| Phase 2 benchmark | $0.011 | 104K |
-| Embeddings v2 (+3 leyes) | $0.049 | 2.5M |
-| Hard questions benchmark | $0.010 | 90K |
-| **Total acumulado** | **$0.175** | **5.7M** |
-
 ### Tecnologías del spike
 
 - **LLM:** `google/gemini-2.5-flash-lite` via OpenRouter (ya lo usamos para reform summaries)
@@ -247,7 +210,7 @@ artículos relevantes en todos los casos. El LLM declina cuando debería:
 ### Scripts del spike
 
 ```bash
-# 1. Generar citizen_article_summaries para el subset (pre-req, ~$3-5)
+# 1. Generar citizen_article_summaries para el subset (pre-req)
 OPENROUTER_API_KEY=... bun run packages/api/src/scripts/spike-generate-summaries.ts
 
 # 2. Correr Prototipo A (búsqueda mejorada, sin LLM en runtime)
@@ -281,7 +244,7 @@ packages/api/src/
 2. **Zero fabricated citations.** Citation verifier determinístico verifica cada cita.
 3. **Si no sabe, dice "no lo sé."** Nunca inventa.
 4. **Disclaimer legal en cada respuesta.**
-5. **Coste < $15/mes** a 100 queries/día.
+5. **Coste acotado** (presupuesto mensual fijo).
 
 ## Arquitectura objetivo (post-spike)
 

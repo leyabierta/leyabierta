@@ -230,10 +230,10 @@ logs a warning and uses OpenRouter. Defaults are `LLM_BACKEND=openrouter`,
 must have a ZDR endpoint. Cohere and Voyage rerank models have none (404 on
 every call), which is why `cohere-or` is opt-in only and the default reranker
 is an LLM rerank on a ZDR chat model. Eval 2026-09-23 (82 citizen queries):
-LLM rerank vs fused order = Hit@1 67.1% vs 43.9% (McNemar p=0.0002), +$0.0015
-and +1.2 s per question. Same eval, synthesis: `openai/gpt-6-luna` judged 9.23
-vs 8.41 for flash-lite (94% vs 78% inline citation precision, same cost,
-~2.5× latency), so it is the synthesis default. See
+LLM rerank vs fused order = Hit@1 67.1% vs 43.9% (McNemar p=0.0002), +1.2 s
+per question. Same eval, synthesis: `openai/gpt-6-luna` judged 9.23 vs 8.41 for
+flash-lite (94% vs 78% inline citation precision, ~2.5× latency), so it is the
+synthesis default. See
 `packages/eval/results/2026-09-23-model-zdr.md`.
 
 **Historical A/B (Phase 5+6, 50 citizen queries × 9.7k norms, NaN era):**

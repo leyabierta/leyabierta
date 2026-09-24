@@ -122,7 +122,7 @@ bun packages/api/research/ab/build-failed-subset.ts 2>&1 | tee -a "$ORCH_LOG"
 
 # ── Stage 4: run --only-gemini on the failed subset ───────────────────────
 LAST_STAGE="4-rerun-gemini"
-log "Stage 4: re-running Gemini pass on failed queries (~1-1.5h, ~\$0.30)."
+log "Stage 4: re-running Gemini pass on failed queries (~1-1.5h)."
 log "  This will OVERWRITE $GEMINI_PASS with a smaller-entry file."
 log "  (1000-entry version is at $GEMINI_BACKUP.)"
 bun packages/api/research/ab/eval-prod-replica.ts \

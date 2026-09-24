@@ -73,7 +73,7 @@ fines:
 
 - Cualquier acción con `requires_human_review: true`.
 - El plan quiere tocar algo de la blacklist.
-- Coste de la iteración > 5 €.
+- Coste de la iteración por encima del presupuesto (ver docs/ privado).
 - Caída de clics/impresiones > 20% respecto al periodo anterior (posible
   penalización o bug) → NO improvisar, avisar.
 - Dos iteraciones seguidas cuyo PR fue rechazado por el humano.
