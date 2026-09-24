@@ -10,6 +10,18 @@ on:
         required: false
         default: "all"
         type: string
+      # One-shot overrides for the page lastmod state (packages/web/src/lib/
+      # page-lastmod.ts). Never set them as repo variables: they would stay on.
+      lastmod_allow_mass_change:
+        description: "lastmod: date a mass content change (>20% of pages) with today (real re-import)"
+        required: false
+        default: false
+        type: boolean
+      lastmod_allow_bootstrap:
+        description: "lastmod: reset every page date to 2026-09-23 if the published state cannot be read"
+        required: false
+        default: false
+        type: boolean
   # Fired by leyabierta/leyes on push to main (notify-leyabierta.yml)
   # so the static site rebuilds whenever new laws are published.
   repository_dispatch:
@@ -342,6 +354,8 @@ jobs:
           # Umami website ID (public, AEPD-compliant analytics).
           # See packages/web/src/layouts/Base.astro: gated by isProd && PUBLIC_UMAMI_WEBSITE_ID
           PUBLIC_UMAMI_WEBSITE_ID: ${{ vars.PUBLIC_UMAMI_WEBSITE_ID }}
+          LASTMOD_ALLOW_MASS_CHANGE: ${{ github.event.inputs.lastmod_allow_mass_change == 'true' && '1' || '' }}
+          LASTMOD_ALLOW_BOOTSTRAP: ${{ github.event.inputs.lastmod_allow_bootstrap == 'true' && '1' || '' }}
 
       - name: Notify — Deploying
         continue-on-error: true
@@ -392,6 +406,15 @@ jobs:
             exit 0
           fi
           echo "✓ cache purged"
+
+      # Ping IndexNow (Bing, Yandex…) with the URLs whose own content changed in
+      # this build: the diff between the lastmod.json the build downloaded from
+      # production and the one it just deployed (src/lib/page-lastmod.ts). Sends
+      # nothing without a previous state. After the purge, so crawlers that come
+      # right away get the new pages. Non-fatal: the deploy already succeeded.
+      - name: Notify IndexNow of changed pages
+        continue-on-error: true
+        run: bun run scripts/seo/indexnow.ts --prev packages/web/.lastmod-prev.json --next packages/web/dist/lastmod.json
 
       # Keeps the leyes-rebuild-backstop.yml cache marker (`last-leyes-sha-*`)
       # in sync whenever THIS job is the one that actually rebuilt the site, no

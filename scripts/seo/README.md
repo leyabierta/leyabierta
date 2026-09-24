@@ -33,6 +33,56 @@ nothing and needs no API token — see "Cloudflare" below.
 | `plan.ts` | `MODEL=provider:model` → structured JSON action plan (pure inference) |
 | `benchmark.ts` | Run N models on one snapshot, gate + judge, write a leaderboard |
 | `seo-loop.sh` | Orchestrator for the cron |
+| `resubmit-sitemap.ts` | PUT a sitemap to the Sitemaps API so Google re-reads it |
+| `indexnow.ts` | Ping IndexNow (Bing, Yandex…) with the pages whose own content changed; runs after every deploy |
+
+## Page `<lastmod>` and IndexNow
+
+`<lastmod>` is the date a page last changed, not the law's legal date alone:
+each build hashes the own content it renders (citizen summary, reform
+headlines, article summaries) and publishes `/lastmod.json`
+(`packages/web/src/lib/page-lastmod.ts`). The next build downloads it
+(`packages/web/scripts/fetch-lastmod.ts`, cache-busted) and only moves a
+page's date when its hash changed. Never set lastmod to the build date.
+
+Safety rails:
+
+- **Bootstrap only on 404.** Every page gets 2026-09-23 only when production
+  has never published a state. Any other failure (5xx, timeout, HTML challenge,
+  malformed JSON) is retried and then **fails the build**: publishing a reset
+  state would wipe every date. To reset on purpose, run the Deploy workflow by
+  hand with `lastmod_allow_bootstrap`.
+- **Mass-change brake.** If more than 20 % of the laws (or reforms) change in one
+  build, or more than 10 % disappear (≥ 50 keys), nothing is dated today: new
+  hashes keep their previous dates, the build logs a `::warning::`, and
+  IndexNow sends none of them. For a real mass change (a re-import of reform
+  summaries, a new article-summary backfill), run the Deploy workflow by hand
+  with `lastmod_allow_mass_change` **right after the import, before any other
+  deploy**: once a braked build has published the new hashes, the change can no
+  longer be dated.
+- Keys missing from a build stay in the state (marked absent), so a partial
+  manifest does not make every page "new" the next day.
+
+After each deploy, `deploy.yml` runs
+`indexnow.ts --prev packages/web/.lastmod-prev.json --next packages/web/dist/lastmod.json`
+(non-fatal): only URLs dated in this build that are also in the built
+sitemaps. With no previous state it sends nothing.
+
+**Known gap — cancelled runs.** Deploys use `cancel-in-progress`. If a run is
+cancelled after `wrangler deploy` but before the IndexNow step, the next build
+downloads the state that run published, sees no change, and those pages are
+never pinged. Their sitemap `<lastmod>` is still correct, so Bing and Google
+find them on their next sitemap read; to ping them anyway, `--all` (or wait).
+
+One-off initial submission — law pages only (~12k; reforms need
+`--include-reforms`), read from production:
+
+```bash
+bun run scripts/seo/indexnow.ts --all --dry-run   # check the count first
+bun run scripts/seo/indexnow.ts --all
+```
+
+The key is public by design: `packages/web/public/<key>.txt`.
 
 ## What the GSC snapshot contains
 
