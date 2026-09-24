@@ -12,7 +12,6 @@ set -euo pipefail
 umask 077
 
 CONTAINER="${API_CONTAINER:-code-api-1}"
-DATA_DIR="${DATA_DIR:-/opt/leyabierta/code/data}" # host side of the container's /data
 BACKUP_DIR="${GENERATED_BACKUP_DIR:-/opt/leyabierta/backups}"
 RETAIN_COUNT="${GENERATED_BACKUP_RETAIN:-14}"
 MIN_BYTES="${GENERATED_BACKUP_MIN_BYTES:-20000000}" # ~44 MB gzipped on 2026-09-24
@@ -38,15 +37,18 @@ send_alert() {
 
 cleanup() {
   local status=$?
-  rm -f "$DATA_DIR/$TMP_NAME"
+  # The file is owned by the container user: remove it from inside.
+  docker exec "$CONTAINER" rm -f "/data/$TMP_NAME" >/dev/null 2>&1 || true
   if [ "$status" -ne 0 ]; then
+    rm -f "$OUT" # uncompressed copy (emails, tokens) left by a failed cp/chmod/gzip
     send_alert "exit $status — see /opt/leyabierta/logs/backup-generated.log"
   fi
 }
 trap cleanup EXIT
 
 docker exec "$CONTAINER" bun run packages/api/src/scripts/backup-generated-content.ts "/data/$TMP_NAME"
-mv "$DATA_DIR/$TMP_NAME" "$OUT"
+docker cp "$CONTAINER:/data/$TMP_NAME" "$OUT"
+chmod 600 "$OUT"
 gzip -f "$OUT"
 
 SIZE=$(stat -c %s "$OUT.gz")
