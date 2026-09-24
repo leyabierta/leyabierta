@@ -5,6 +5,7 @@
 // src/pages/cambios/reforma/index.astro; see git history on feat/reform-ssr
 // before the restore-from-main commit for the original Astro source.
 
+import { reformAiBadgeHtml, reformAiNoticeHtml } from "./ai-notice.ts";
 import { escapeHtml } from "./escape.ts";
 
 // ── API response shapes (mirrors packages/api/src/routes/reforms.ts, omnibus.ts, laws.ts) ──
@@ -304,6 +305,7 @@ export function renderReformContent(
 	const { topicInfo, topicBlockIds, blocks, unifiedDiffHtml } = opts;
 
 	const hasHeadline = !!(reform.headline && reform.headline.length > 0);
+	const hasAiText = hasHeadline || !!reform.summary;
 	const importance = reform.importance || "";
 	const rankLabel = RANK_LABELS[law.rank] ?? law.rank ?? "";
 	const isDerogatingReform =
@@ -329,6 +331,7 @@ export function renderReformContent(
 		html += '<span class="reforma-importance-badge">Cambio importante</span>';
 	if (topicInfo)
 		html += `<span class="reforma-topic-badge">${esc(topicInfo.topic_label)}</span>`;
+	if (hasAiText) html += reformAiBadgeHtml();
 	html += "</div>";
 	html += `<h1 class="reforma-headline">${esc(headline)}</h1>`;
 	html += '<div class="reforma-law-info">';
@@ -339,6 +342,11 @@ export function renderReformContent(
 	if (reform.summary) {
 		html += `<div class="reforma-summary">${esc(reform.summary)}</div>`;
 	}
+	html += reformAiNoticeHtml({
+		hasHeadline,
+		hasSummary: !!reform.summary,
+		sourceUrl: apiData.source_url,
+	});
 
 	if (topicBlockIds && blocks.length === 0) {
 		html += `<p style="color:var(--text-muted);font-size:0.9375rem;margin-bottom:0.5rem">Los ${topicBlockIds.length} artículo${
