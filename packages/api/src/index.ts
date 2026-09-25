@@ -351,13 +351,29 @@ app.use(
 				title: "Ley Abierta API",
 				version: "0.1.0",
 				description:
-					"REST API for consolidated Spanish legislation. Source: Agencia Estatal BOE.",
+					"REST API for consolidated Spanish legislation. Source: Agencia Estatal BOE.\n\n" +
+					"## Versioning and deprecation\n\n" +
+					"The API is versioned in the URL path (`/v1`). Within `/v1`, additive, " +
+					"backward-compatible changes (new endpoints, new optional fields) ship " +
+					"without notice. A breaking change (removing/renaming a field, changing " +
+					"a status code's meaning) either goes out as a new `/v2` served " +
+					"alongside `/v1`, or the affected `/v1` endpoint is deprecated first.\n\n" +
+					"A deprecated endpoint is announced on " +
+					"[GitHub Releases](https://github.com/leyabierta/leyabierta/releases) and " +
+					"[Discussions](https://github.com/leyabierta/leyabierta/discussions) with " +
+					"at least 90 days' notice before removal, and during that window its " +
+					"responses carry a `Deprecation: true` header (RFC 8594) plus a " +
+					"`Sunset: <date>` header (RFC 9745) naming the removal date. No `/v1` " +
+					"endpoint is deprecated today.\n\n" +
+					"See also [`/llms.txt`](https://leyabierta.es/llms.txt) for an agent-oriented " +
+					"summary and [`/desarrolladores/`](https://leyabierta.es/desarrolladores/) for " +
+					"the full developer guide (rate limits, errors, quickstart).",
 				contact: {
 					name: "Ley Abierta",
 					url: "https://github.com/leyabierta/leyabierta",
 				},
 				license: {
-					name: "MIT",
+					name: "AGPL-3.0",
 					url: "https://github.com/leyabierta/leyabierta/blob/main/LICENSE",
 				},
 			},
