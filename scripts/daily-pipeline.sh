@@ -113,6 +113,7 @@ send_alert() {
       -d "$json" \
       >/dev/null 2>&1 || true
   fi
+  return 0  # no webhook configured is not an error (ERR trap)
 }
 
 # ── Self-update: pull latest version from the prod tag before doing anything ──
@@ -451,6 +452,7 @@ run_ai_step() {
   else
     log "  ✓ $name done"
   fi
+  return 0  # non-fatal by design: never hand a failure to the ERR trap
 }
 
 # ── Step 3b: RAG — embed any vigente articles missing qwen3-nan embeddings ──
@@ -537,16 +539,17 @@ fi
 # only", it publishes whatever local HEAD is ahead of origin/main by).
 log "→ Step 9.6: Push leyes to GitHub"
 push_done=1
-set +e
-push_leyes
-push_status=$?
+# `|| push_status=$?` (not `set +e`): a bare failing call would still fire the
+# ERR trap — `set +e` does not suppress it — and abort before the retry,
+# Step 10 and the heartbeat.
+push_status=0
+push_leyes || push_status=$?
 if [ "$push_status" -ne 0 ]; then
   log "  ⚠ push failed — retrying once after 20s"
   sleep 20
-  push_leyes
-  push_status=$?
+  push_status=0
+  push_leyes || push_status=$?
 fi
-set -e
 if [ "$push_status" -ne 0 ]; then
   log "  ⚠ push failed after retry (status $push_status). Will retry on next daily run."
   send_alert "leyes push failed" "exit=$push_status — will retry on next daily run (today's commits stay local until then)"
