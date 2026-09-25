@@ -7,6 +7,7 @@ import { describe, expect, it } from "bun:test";
 import { swagger } from "@elysiajs/swagger";
 import { Elysia } from "elysia";
 import { createOpenApiDoc } from "../services/openapi-doc.ts";
+import { enrichOpenApiDoc } from "../services/openapi-schemas.ts";
 import { createRateLimiter, getClientIp } from "../services/rate-limiter.ts";
 
 interface OpenApiDoc {
@@ -66,7 +67,7 @@ function buildApp() {
 }
 
 describe("/openapi.json alias", () => {
-	it("serves the same document as /swagger/json, as JSON", async () => {
+	it("serves the same document as /swagger/json, enriched with response schemas, as JSON", async () => {
 		const app = buildApp();
 		const [aliasRes, specRes] = await Promise.all([
 			app.handle(new Request("http://localhost/openapi.json")),
@@ -75,7 +76,13 @@ describe("/openapi.json alias", () => {
 		expect(aliasRes.status).toBe(200);
 		expect(aliasRes.headers.get("content-type")).toContain("application/json");
 		const [alias, spec] = await Promise.all([aliasRes.json(), specRes.json()]);
-		expect(alias).toEqual(spec);
+		// The alias isn't byte-identical to /swagger/json any more: build()
+		// (openapi-doc.ts) runs the fetched document through enrichOpenApiDoc
+		// (openapi-schemas.ts) to add the shared ErrorResponse component and
+		// per-operation response schemas before caching it. That's the whole
+		// point of the alias existing as its own route rather than a plain
+		// redirect to /swagger/json — assert it's the same document, enriched.
+		expect(alias).toEqual(enrichOpenApiDoc(spec));
 	});
 
 	it("points servers at the production API host", async () => {

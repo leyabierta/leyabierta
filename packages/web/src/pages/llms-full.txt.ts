@@ -87,6 +87,64 @@ export const GET: APIRoute = async () => {
 - ${jurisdictionCount} jurisdicciones: España (estatal) + 17 comunidades autónomas
 - Fuente oficial: Agencia Estatal Boletín Oficial del Estado (BOE)
 
+## Cuándo usar Ley Abierta
+
+Encaja bien para:
+- Texto vigente y consolidado de una ley o artículo español (estatal o de
+  comunidad autónoma).
+- Historial de reformas de una ley y comparación entre dos versiones
+  (\`/v1/laws/:id/diff\`).
+- Resúmenes en lenguaje llano de leyes y artículos, generados por IA a
+  partir del texto oficial.
+- Citas verificables a artículos concretos del BOE
+  (\`[BOE-A-XXXX-XXXX, Artículo N]\`, cada una comprobada contra un artículo
+  real).
+- Preguntas en lenguaje natural sobre legislación española vía
+  \`POST /v1/ask\`: la vía recomendada para un agente — pregunta directa,
+  respuesta fundamentada y citada, en vez de buscar y leer manualmente.
+
+No la uses para:
+- Asesoría legal: no somos un despacho de abogados ni sustituimos una
+  consulta jurídica; las respuestas de \`/v1/ask\` son informativas, no un
+  dictamen.
+- Derecho de la Unión Europea, tratados internacionales o legislación de
+  otros países.
+- Jurisprudencia o sentencias judiciales — no indexamos resoluciones de
+  tribunales, solo texto normativo.
+- Legislación no consolidada o derogada como fuente de derecho vigente
+  (aparece marcada \`estado: "derogada"\`, mantenida solo con fines
+  históricos).
+
+Cómo llamarnos como agente:
+- **Negociación de contenido en Markdown**: cualquier ficha de ley responde
+  con \`Accept: text/markdown\` — \`GET https://leyabierta.es/leyes/:id/\` con
+  esa cabecera devuelve el resumen ciudadano en Markdown limpio en vez de
+  HTML, sin necesidad de parsear la página.
+- **REST**: los endpoints descritos en "API REST — Referencia completa" más
+  abajo, todos en JSON salvo los feeds (\`application/xml\`).
+- **Especificación OpenAPI**: [\`https://leyabierta.es/openapi.json\`](https://leyabierta.es/openapi.json)
+  (también en \`https://api.leyabierta.es/openapi.json\`) — parámetros y
+  esquemas de respuesta completos, generados automáticamente.
+- **Errores**: toda respuesta de error de la API es JSON estructurado
+  \`{"error": "...", "code": "...", "hint": "..."}\` con el código HTTP
+  correspondiente (nunca texto plano ni un cuerpo vacío).
+- **Límites de peticiones** (por IP, ventana de 1 minuto): 60/min en general,
+  30/min en búsqueda (\`GET /v1/laws?q=\`), 20/min en \`/v1/ask\` y
+  \`/v1/ask/stream\`. Al superarlos, \`429\` con cabecera \`Retry-After\`.
+- **Cuota de preguntas** (\`/v1/ask\`, \`/v1/ask/stream\`): cada pregunta
+  consume crédito de IA, así que además del límite de peticiones hay una
+  cuota por persona: 2 preguntas/min y 10/día, más un tope global de
+  200/día para todo el sitio. Al superarla, \`429\` con
+  \`{"error", "reason", "retryAfterSeconds", "remainingToday", "limitPerDay"}\`
+  y \`Retry-After\`; las peticiones aceptadas devuelven
+  \`X-RateLimit-Limit\`/\`X-RateLimit-Remaining\`.
+- **Versionado**: la API se versiona en la URL (\`/v1\`). Una futura versión
+  incompatible se serviría en \`/v2\` en paralelo; cualquier endpoint que se
+  fuera a retirar lo anunciaría primero con las cabeceras \`Deprecation\` y
+  \`Sunset\` (RFC 8594/9745) durante un periodo de aviso, con el detalle en
+  [GitHub Releases/Discussions](https://github.com/leyabierta/leyabierta).
+  Hoy no hay ningún endpoint obsoleto.
+
 ## Cobertura
 
 ### Jurisdicciones
@@ -104,6 +162,7 @@ ${rankLines}
 - [Cambios legislativos](https://leyabierta.es/cambios/): Cronología de reformas recientes con resúmenes
 - [Para mí](https://leyabierta.es/cambios/para-mi/): Cambios filtrados por tu situación (se guarda solo en tu navegador)
 - [Sobre Ley Abierta](https://leyabierta.es/sobre/): Misión, datos, metodología
+- [Desarrolladores](https://leyabierta.es/datos/): Portal de desarrolladores — API REST, repositorio Git, RSS, límites de uso, licencia
 
 ## API REST — Referencia completa
 

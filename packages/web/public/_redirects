@@ -61,3 +61,11 @@
 /alertas /cambios/para-mi/ 301
 /alertas/ /cambios/para-mi/ 301
 /alertas/* /cambios/para-mi/ 301
+
+# === Portal de desarrolladores (2026-09-25) ===
+# /datos/ ya era la página de desarrolladores (API REST, repositorio Git,
+# RSS, llms.txt, licencia). /desarrolladores/ es el alias que un agente
+# esperaría encontrar (agent-readiness item "Developer portal") — se redirige
+# a la página real en vez de duplicar el contenido en dos sitios.
+/desarrolladores /datos/ 301
+/desarrolladores/ /datos/ 301

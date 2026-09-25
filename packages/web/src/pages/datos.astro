@@ -158,8 +158,11 @@ import Base from "../layouts/Base.astro";
 			<h2>Acceso programático a toda la legislación</h2>
 			<p class="section-desc">
 				API REST pública sobre toda la legislación española consolidada.
-				Sin autenticación, sin límite de peticiones. Endpoint base:
-				<code class="inline-code">https://api.leyabierta.es/v1</code>
+				Sin autenticación, sin clave de API. Endpoint base:
+				<code class="inline-code">https://api.leyabierta.es/v1</code> — especificación completa en
+				<a href="https://api.leyabierta.es/openapi.json" target="_blank" rel="noopener">openapi.json</a>
+				y documentación interactiva en
+				<a href="https://api.leyabierta.es/swagger" target="_blank" rel="noopener">Swagger</a>.
 			</p>
 
 			<div class="api-endpoints">
@@ -215,14 +218,98 @@ import Base from "../layouts/Base.astro";
 						<code class="inline-code">has_more</code> sea <code class="inline-code">true</code>.
 					</p>
 				</div>
+
+				<div class="endpoint-group">
+					<h3 class="endpoint-title">Historial de reformas de una ley</h3>
+					<div class="code-block">
+						<button class="copy-btn" data-copy="curl 'https://api.leyabierta.es/v1/laws/BOE-A-1978-31229/history'" aria-label="Copiar comando">Copiar</button>
+						<pre><code>curl 'https://api.leyabierta.es/v1/laws/BOE-A-1978-31229/history'</code></pre>
+					</div>
+					<p class="endpoint-desc">
+						Línea temporal de reformas de una ley, con los títulos de los artículos
+						afectados en cada una.
+					</p>
+				</div>
+
+				<div class="endpoint-group">
+					<h3 class="endpoint-title">Texto de una ley en Markdown (negociación de contenido)</h3>
+					<div class="code-block">
+						<button class="copy-btn" data-copy="curl -H 'Accept: text/markdown' 'https://leyabierta.es/leyes/BOE-A-1978-31229/'" aria-label="Copiar comando">Copiar</button>
+						<pre><code>curl -H 'Accept: text/markdown' 'https://leyabierta.es/leyes/BOE-A-1978-31229/'</code></pre>
+					</div>
+					<p class="endpoint-desc">
+						Cualquier ficha de ley (<code class="inline-code">/leyes/:id/</code>)
+						responde con Markdown limpio si envías esa cabecera, en vez del HTML de la
+						página — pensado para que un agente cite el resumen sin parsear el DOM.
+					</p>
+				</div>
+
+				<div class="endpoint-group">
+					<h3 class="endpoint-title">Preguntar en lenguaje natural (RAG)</h3>
+					<div class="code-block">
+						<button class="copy-btn" data-copy="curl -X POST 'https://api.leyabierta.es/v1/ask' -H 'Content-Type: application/json' -d '{&quot;question&quot;:&quot;¿Cuántos días de vacaciones me corresponden?&quot;}'" aria-label="Copiar comando">Copiar</button>
+						<pre><code>curl -X POST 'https://api.leyabierta.es/v1/ask' \
+  -H 'Content-Type: application/json' \
+  -d '&#123;"question":"¿Cuántos días de vacaciones me corresponden?"&#125;'</code></pre>
+					</div>
+					<p class="endpoint-desc">
+						Respuesta en lenguaje llano fundamentada en la legislación vigente, con
+						citas verificables a artículos concretos
+						(<code class="inline-code">[BOE-A-XXXX-XXXX, Artículo N]</code>). Sujeto a la
+						cuota de preguntas — ver abajo. También disponible en streaming
+						(<code class="inline-code">POST /v1/ask/stream</code>, Server-Sent Events).
+					</p>
+				</div>
 			</div>
 
 			<div class="api-note">
 				<p>
-					Todos los endpoints devuelven JSON. Sin autenticación. Sin límites de tasa documentados —
-					aplica cortesía razonable si haces scraping masivo.
+					Todos los endpoints devuelven JSON (los feeds, <code class="inline-code">application/xml</code>).
+					Sin autenticación. Límites de peticiones por IP y minuto:
+					<code class="inline-code">60</code> en general,
+					<code class="inline-code">30</code> en búsqueda (<code class="inline-code">/v1/laws?q=</code>),
+					<code class="inline-code">20</code> en <code class="inline-code">/v1/ask</code> y
+					<code class="inline-code">/v1/ask/stream</code>. Cada respuesta incluye las cabeceras
+					<code class="inline-code">RateLimit</code> / <code class="inline-code">RateLimit-Policy</code>
+					(<a href="https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/" target="_blank" rel="noopener">borrador IETF</a>)
+					y, por compatibilidad, <code class="inline-code">X-RateLimit-Limit</code>/<code class="inline-code">Remaining</code>/<code class="inline-code">Reset</code>.
+					Al superarlos, <code class="inline-code">429</code> con <code class="inline-code">Retry-After</code>.
+				</p>
+				<p>
+					<code class="inline-code">/v1/ask</code> y <code class="inline-code">/v1/ask/stream</code>
+					tienen además una cuota de preguntas por IP (cada pregunta consume crédito de IA):
+					2 por minuto y 10 por día, con un tope global de 200/día para todo el sitio. Al
+					superarla, <code class="inline-code">429</code> con
+					<code class="inline-code">&#123;error, reason, retryAfterSeconds, remainingToday, limitPerDay&#125;</code>.
+				</p>
+				<p>
+					Los errores siempre son JSON estructurado:
+					<code class="inline-code">&#123;"error": "...", "code": "...", "hint": "..."&#125;</code>
+					con el código HTTP correspondiente — nunca texto plano ni un cuerpo vacío.
 				</p>
 			</div>
+		</section>
+
+		<!-- ── 3b. Versionado y compatibilidad ──────────────────── -->
+		<section class="section" id="versionado">
+			<p class="section-kicker">VERSIONADO</p>
+			<h2>Compatibilidad y política de deprecación</h2>
+			<p class="section-desc">
+				La API se versiona en la URL (<code class="inline-code">/v1</code>). Un cambio
+				aditivo y compatible (nuevo endpoint, nuevo campo opcional) se publica sin aviso
+				previo. Un cambio incompatible se serviría en paralelo como
+				<code class="inline-code">/v2</code>, o la ruta afectada de
+				<code class="inline-code">/v1</code> se marcaría obsoleta primero.
+			</p>
+			<p class="section-desc">
+				Una ruta obsoleta se anuncia con al menos 90 días de antelación en
+				<a href="https://github.com/leyabierta/leyabierta/releases" target="_blank" rel="noopener">GitHub Releases</a>
+				y <a href="https://github.com/leyabierta/leyabierta/discussions" target="_blank" rel="noopener">Discussions</a>,
+				y durante ese plazo sus respuestas llevan las cabeceras
+				<code class="inline-code">Deprecation: true</code> (RFC 8594) y
+				<code class="inline-code">Sunset: &lt;fecha&gt;</code> (RFC 9745) con la fecha de
+				retirada. Hoy no hay ninguna ruta obsoleta.
+			</p>
 		</section>
 
 		<!-- ── 4. RSS feeds ─────────────────────────────────────── -->

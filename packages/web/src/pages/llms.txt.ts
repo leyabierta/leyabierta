@@ -24,11 +24,38 @@ export const GET: APIRoute = async () => {
 - ${jurisdictionCount} jurisdicciones: España (estatal) + 17 comunidades autónomas
 - Fuente oficial: Agencia Estatal Boletín Oficial del Estado (BOE)
 
+## Cuándo usar Ley Abierta
+Encaja bien para: texto vigente y consolidado de una ley o artículo español
+(estatal o autonómico), historial de reformas y comparación entre versiones
+(diff), resúmenes en lenguaje llano de leyes y artículos, citas verificables
+a artículos concretos del BOE, y preguntas en lenguaje natural sobre
+legislación española vía \`POST /v1/ask\` (respuesta citada, con cuota por
+IP — ver más abajo).
+
+No la uses para: asesoría legal (no somos un despacho de abogados ni
+sustituimos una consulta jurídica), derecho de la Unión Europea o de otros
+países, ni jurisprudencia o sentencias judiciales. Cubrimos únicamente
+legislación consolidada del BOE (estatal) y de los boletines autonómicos
+(comunidades autónomas), no doctrina ni derecho comparado.
+
+Cómo llamarnos como agente:
+- Negociación de contenido en Markdown: \`Accept: text/markdown\` en
+  \`/leyes/:id/\` devuelve el resumen ciudadano en Markdown limpio en vez de
+  HTML — evita parsear la página.
+- REST: los endpoints listados abajo bajo "API REST", todos en JSON.
+- Especificación completa: [\`https://leyabierta.es/openapi.json\`](https://leyabierta.es/openapi.json).
+- Límites: 60 peticiones/min por IP en general, 30/min en búsqueda
+  (\`/v1/laws?q=\`), 20/min en \`/v1/ask\` y \`/v1/ask/stream\`. \`POST /v1/ask\`
+  además tiene una cuota de preguntas (coste de IA): 2/min y 10/día por
+  persona, 200/día en total — al superarla responde \`429\` con
+  \`Retry-After\` y el cuerpo indica cuándo reintentar.
+
 ## Páginas principales
 - [Inicio](https://leyabierta.es/): Buscador de leyes, estadísticas, últimas reformas
 - [Cambios legislativos](https://leyabierta.es/cambios/): Cronología de reformas recientes con resúmenes
 - [Para mí](https://leyabierta.es/cambios/para-mi/): Cambios filtrados por tu situación (se guarda solo en tu navegador)
 - [Sobre Ley Abierta](https://leyabierta.es/sobre/): Misión, datos, metodología
+- [Desarrolladores](https://leyabierta.es/datos/): Portal de desarrolladores — API REST, repositorio Git, RSS, límites, licencia
 
 ## API REST
 - Especificación OpenAPI: [\`https://leyabierta.es/openapi.json\`](https://leyabierta.es/openapi.json) (también en \`https://api.leyabierta.es/openapi.json\`) — describe todos los endpoints, parámetros y esquemas de respuesta.

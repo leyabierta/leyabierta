@@ -141,70 +141,170 @@ export function askRoutes(
 		)
 		.post(
 			"/ask/stream",
-			async function* ({ body, set, request }) {
-				// Set SSE headers up front so error yields below also carry the
-				// correct Content-Type and no-buffering hints.
-				set.headers["Content-Type"] = "text/event-stream";
-				set.headers["Cache-Control"] = "no-cache, no-transform";
-				set.headers.Connection = "keep-alive";
+			// A plain async function that returns an explicit `Response` wrapping
+			// a `ReadableStream`, NOT an `async function*` generator.
+			//
+			// Elysia's generator/SSE machinery (`createStreamHandler` in
+			// `@elysiajs/*`'s adapter) builds its own default `Content-Type` /
+			// `Cache-Control` under a *lowercase* header key, while this route
+			// used to write `set.headers["Content-Type"]` / `["Cache-Control"]`
+			// (capitalized) — a different object key, so both ended up on the
+			// wire and were joined by the `Headers` constructor into
+			// `Content-Type: text/event-stream, text/plain` and
+			// `Cache-Control: no-cache, no-transform, no-cache`. Separately, for
+			// a generator handler the framework's global `mapResponse` hook
+			// (used here for security headers + the request log line, see
+			// `index.ts`) observed a `set` object whose `status` mutation inside
+			// the generator body never propagated back — the wire response was
+			// correctly 503, but the log line always recorded 200.
+			//
+			// Building the `Response` by hand avoids both: we control every
+			// header key ourselves (lowercase, set once) and `set.status` is a
+			// normal synchronous assignment on the shared request-scoped `set`
+			// object, exactly like every other non-streaming route.
+			async ({ body, set, request }) => {
 				// Hint to nginx-style proxies to disable response buffering. Cloudflare
 				// reads this and (mostly) flushes immediately. Without it CF Tunnel
 				// can hold the response until Content-Length / certain buffer fills.
-				set.headers["X-Accel-Buffering"] = "no";
+				const headers: Record<string, string> = {
+					"content-type": "text/event-stream",
+					"cache-control": "no-cache, no-transform",
+					connection: "keep-alive",
+					"x-accel-buffering": "no",
+				};
 
 				if (!pipeline) {
 					set.status = 503;
-					yield `event: error\ndata: ${JSON.stringify({ error: "El servicio de preguntas no está disponible." })}\n\n`;
-					return;
+					return new Response(
+						`event: error\ndata: ${JSON.stringify({ error: "El servicio de preguntas no está disponible." })}\n\n`,
+						{ status: 503, headers },
+					);
 				}
 
 				const validated = validateQuestion(body.question);
 				if (typeof validated !== "string") {
 					set.status = validated.status;
-					yield `event: error\ndata: ${JSON.stringify({ error: validated.error })}\n\n`;
-					return;
+					return new Response(
+						`event: error\ndata: ${JSON.stringify({ error: validated.error })}\n\n`,
+						{ status: validated.status, headers },
+					);
 				}
 
-				try {
-					// Emit an immediate stage event so the response status + first byte
-					// reach Cloudflare well within its 100s origin-timeout window.
-					// Without this, CF returns 524 even though the server is still
-					// working on retrieval.
-					yield `event: stage\ndata: ${JSON.stringify({ stage: "retrieval_started" })}\n\n`;
-					// Cross-origin clients cannot read X-RateLimit-* without
-					// Access-Control-Expose-Headers, so the remaining quota also
-					// travels in the stream. Older clients ignore unknown events.
-					const decision = quotaDecisions.get(request);
-					if (decision?.allowed) {
-						yield `event: quota\ndata: ${JSON.stringify({ remainingToday: decision.remainingToday, limitPerDay: decision.limitPerDay })}\n\n`;
-					}
-					for await (const event of pipeline.askStream({
-						question: validated,
-						jurisdiction: body.jurisdiction,
-					})) {
-						if (event.type === "chunk") {
-							yield `event: chunk\ndata: ${JSON.stringify(event.text)}\n\n`;
-						} else if (event.type === "keepalive") {
-							// Real event (not SSE comment) so proxies that filter
-							// comments still see byte traffic. Clients ignore unknown
-							// event types per the SSE spec.
-							yield `event: keepalive\ndata: ${JSON.stringify({})}\n\n`;
-						} else if (event.type === "progress") {
-							const progressPayload: Record<string, unknown> = {
-								step: event.step,
-							};
-							if ("meta" in event && event.meta !== undefined) {
-								progressPayload.meta = event.meta;
+				// Cross-origin clients cannot read X-RateLimit-* without
+				// Access-Control-Expose-Headers, so the remaining quota also
+				// travels in the stream. Older clients ignore unknown events.
+				const decision = quotaDecisions.get(request);
+
+				const encoder = new TextEncoder();
+				// Set once the client disconnects (tab closed, fetch aborted): the
+				// ReadableStream's `cancel()` below fires, but any in-flight
+				// `controller.enqueue()` call already past that point throws
+				// "Invalid state: Controller is already closed" — a real error in
+				// the sense that the write failed, but not a pipeline failure, and
+				// not worth an error-level log line. `send()` checks this flag
+				// before every enqueue, and the catch block below only logs when
+				// this is still false.
+				let cancelled = false;
+				// Reference to the pipeline's async generator so `cancel()` can
+				// call `.return()` on it: that runs any `finally` blocks inside
+				// `askStream()` and stops the `for await` loop from pulling more
+				// events — and, more importantly, from spending more LLM
+				// calls/credit — after nobody is listening. The pipeline has no
+				// AbortSignal plumbing today, so this is the strongest signal we
+				// can give it.
+				let iterator: ReturnType<typeof pipeline.askStream> | undefined;
+				const stream = new ReadableStream<Uint8Array>({
+					async start(controller) {
+						const send = (chunk: string) => {
+							if (cancelled) return;
+							controller.enqueue(encoder.encode(chunk));
+						};
+						try {
+							// Emit an immediate stage event so the response status + first
+							// byte reach Cloudflare well within its 100s origin-timeout
+							// window. Without this, CF returns 524 even though the server
+							// is still working on retrieval.
+							send(
+								`event: stage\ndata: ${JSON.stringify({ stage: "retrieval_started" })}\n\n`,
+							);
+							if (decision?.allowed) {
+								send(
+									`event: quota\ndata: ${JSON.stringify({ remainingToday: decision.remainingToday, limitPerDay: decision.limitPerDay })}\n\n`,
+								);
 							}
-							yield `event: progress\ndata: ${JSON.stringify(progressPayload)}\n\n`;
-						} else {
-							yield `event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined, tldr: event.tldr, nextQuestions: event.nextQuestions, suggestedQuestions: event.suggestedQuestions })}\n\n`;
+							iterator = pipeline.askStream({
+								question: validated,
+								jurisdiction: body.jurisdiction,
+							});
+							for await (const event of iterator) {
+								if (cancelled) break;
+								if (event.type === "chunk") {
+									send(`event: chunk\ndata: ${JSON.stringify(event.text)}\n\n`);
+								} else if (event.type === "keepalive") {
+									// Real event (not SSE comment) so proxies that filter
+									// comments still see byte traffic. Clients ignore unknown
+									// event types per the SSE spec.
+									send(`event: keepalive\ndata: ${JSON.stringify({})}\n\n`);
+								} else if (event.type === "progress") {
+									const progressPayload: Record<string, unknown> = {
+										step: event.step,
+									};
+									if ("meta" in event && event.meta !== undefined) {
+										progressPayload.meta = event.meta;
+									}
+									send(
+										`event: progress\ndata: ${JSON.stringify(progressPayload)}\n\n`,
+									);
+								} else {
+									send(
+										`event: done\ndata: ${JSON.stringify({ citations: event.citations, meta: event.meta, declined: event.declined, tldr: event.tldr, nextQuestions: event.nextQuestions, suggestedQuestions: event.suggestedQuestions })}\n\n`,
+									);
+								}
+							}
+						} catch (err) {
+							// A disconnect (cancel() below) can itself surface here as a
+							// thrown error — e.g. controller.enqueue() on an
+							// already-closed controller if something raced `send()`'s
+							// `cancelled` check, or the pipeline's own generator throwing
+							// once `.return()` unwinds it. None of that is a pipeline
+							// failure; only log when the client is still actually there.
+							if (!cancelled) {
+								console.error("RAG stream error:", err);
+								send(
+									`event: error\ndata: ${JSON.stringify({ error: "Error procesando la pregunta." })}\n\n`,
+								);
+							}
+						} finally {
+							if (!cancelled) {
+								try {
+									controller.close();
+								} catch {
+									// Already closed (client disconnected between the last
+									// `cancelled` check and here) — nothing to do.
+								}
+							}
 						}
-					}
-				} catch (err) {
-					console.error("RAG stream error:", err);
-					yield `event: error\ndata: ${JSON.stringify({ error: "Error procesando la pregunta." })}\n\n`;
-				}
+					},
+					// Fires when the client disconnects (tab closed, fetch aborted,
+					// reader.cancel()) — the only place a ReadableStream is told to
+					// stop pulling. Without this, `askStream()` keeps running (and
+					// spending OpenRouter credit) for a consumer nobody is reading
+					// from, and every subsequent `controller.enqueue()` throws
+					// "Invalid state: Controller is already closed", which used to
+					// land in the `catch` above and log as if the pipeline had failed.
+					cancel() {
+						cancelled = true;
+						// Stop the pipeline's generator from pulling more events —
+						// runs its `finally` blocks and ends the `for await` loop on
+						// its next iteration (also guarded by the `cancelled` check
+						// inside the loop, in case `.return()` isn't honoured
+						// immediately by whatever the generator is awaiting).
+						iterator?.return?.(undefined);
+					},
+				});
+
+				set.status = 200;
+				return new Response(stream, { status: 200, headers });
 			},
 			{
 				body: askBody,
@@ -247,6 +347,9 @@ export function askRoutes(
 					return { error: err instanceof Error ? err.message : String(err) };
 				}
 			},
-			{ body: askBody },
+			// Internal-only (requires the bypass key in production, see above) —
+			// hidden from the public OpenAPI doc rather than documented for
+			// third parties. Doesn't change who can call it.
+			{ body: askBody, detail: { hide: true } },
 		);
 }

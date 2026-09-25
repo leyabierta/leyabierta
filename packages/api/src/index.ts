@@ -39,6 +39,8 @@ import {
 	createRateLimiter,
 	getClientIp,
 	hasBypassKey,
+	rateLimitHeader,
+	rateLimitPolicy,
 } from "./services/rate-limiter.ts";
 import { StatusService } from "./services/status.ts";
 
@@ -238,7 +240,22 @@ function finalizeResponse(
 }
 
 const app = new Elysia()
-	.use(cors({ origin: CORS_ORIGINS }))
+	.use(
+		cors({
+			origin: CORS_ORIGINS,
+			// Cross-origin JS can't read a response header unless it's listed
+			// here (CORS-safelisted headers like Content-Type don't need this;
+			// these are the ones we add ourselves for rate limiting/quota).
+			exposeHeaders: [
+				"RateLimit",
+				"RateLimit-Policy",
+				"X-RateLimit-Limit",
+				"X-RateLimit-Remaining",
+				"X-RateLimit-Reset",
+				"Retry-After",
+			],
+		}),
+	)
 	.onBeforeHandle(({ request, set, path }) => {
 		reqTimings.set(request, performance.now());
 		// Reject new requests during shutdown
@@ -256,14 +273,35 @@ const app = new Elysia()
 			const isAsk = path === "/v1/ask" || path === "/v1/ask/stream";
 			const isSearch =
 				path === "/v1/laws" && new URL(request.url).searchParams.has("q");
+			const policyName = isAsk ? "ask" : isSearch ? "search" : "general";
 			const limiter = isAsk
 				? askLimiter
 				: isSearch
 					? searchLimiter
 					: generalLimiter;
-			if (limiter.isLimited(ip)) {
+			const decision = limiter.consume(ip);
+			// IETF draft-ietf-httpapi-ratelimit-headers: advisory on every
+			// response, not just 429s, so a well-behaved client can back off
+			// before it gets blocked. These describe THIS per-IP request-rate
+			// limiter (requests/minute) — a separate concern from the
+			// /v1/ask(/stream) question quota (questions/day, ask-quota.ts),
+			// which sets its own X-RateLimit-Limit/Remaining further down the
+			// pipeline (route-level beforeHandle) and must not be overwritten.
+			set.headers["RateLimit-Policy"] = rateLimitPolicy(policyName, decision);
+			set.headers.RateLimit = rateLimitHeader(policyName, decision);
+			// Legacy de-facto X-RateLimit-* headers, for clients that don't
+			// parse RFC 8941 structured fields yet — skipped on ask endpoints,
+			// where these header names already carry the question quota
+			// (questions/day), a more relevant signal there than the
+			// requests/minute limiter.
+			if (!isAsk) {
+				set.headers["X-RateLimit-Limit"] = String(decision.limit);
+				set.headers["X-RateLimit-Remaining"] = String(decision.remaining);
+				set.headers["X-RateLimit-Reset"] = String(decision.resetSeconds);
+			}
+			if (decision.limited) {
 				set.status = 429;
-				set.headers["Retry-After"] = "60";
+				set.headers["Retry-After"] = String(decision.resetSeconds);
 				return { error: "Too many requests" };
 			}
 		}
@@ -313,13 +351,29 @@ app.use(
 				title: "Ley Abierta API",
 				version: "0.1.0",
 				description:
-					"REST API for consolidated Spanish legislation. Source: Agencia Estatal BOE.",
+					"REST API for consolidated Spanish legislation. Source: Agencia Estatal BOE.\n\n" +
+					"## Versioning and deprecation\n\n" +
+					"The API is versioned in the URL path (`/v1`). Within `/v1`, additive, " +
+					"backward-compatible changes (new endpoints, new optional fields) ship " +
+					"without notice. A breaking change (removing/renaming a field, changing " +
+					"a status code's meaning) either goes out as a new `/v2` served " +
+					"alongside `/v1`, or the affected `/v1` endpoint is deprecated first.\n\n" +
+					"A deprecated endpoint is announced on " +
+					"[GitHub Releases](https://github.com/leyabierta/leyabierta/releases) and " +
+					"[Discussions](https://github.com/leyabierta/leyabierta/discussions) with " +
+					"at least 90 days' notice before removal, and during that window its " +
+					"responses carry a `Deprecation: true` header (RFC 8594) plus a " +
+					"`Sunset: <date>` header (RFC 9745) naming the removal date. No `/v1` " +
+					"endpoint is deprecated today.\n\n" +
+					"See also [`/llms.txt`](https://leyabierta.es/llms.txt) for an agent-oriented " +
+					"summary and [`/desarrolladores/`](https://leyabierta.es/desarrolladores/) for " +
+					"the full developer guide (rate limits, errors, quickstart).",
 				contact: {
 					name: "Ley Abierta",
 					url: "https://github.com/leyabierta/leyabierta",
 				},
 				license: {
-					name: "MIT",
+					name: "AGPL-3.0",
 					url: "https://github.com/leyabierta/leyabierta/blob/main/LICENSE",
 				},
 			},
