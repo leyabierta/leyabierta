@@ -24,6 +24,7 @@ import {
 } from "../../../lib/law-labels.ts";
 import { lawBody, renderLawHtml } from "../../../lib/law-text.ts";
 import { loadArticleSummaries } from "../../../lib/manifest.ts";
+import { codePointLength } from "../../../lib/meta-description.ts";
 import { composeSeoTitle, SEO_TITLE_MAX, shortLawTitle } from "../../../lib/seo-title.ts";
 
 export async function getStaticPaths() {
@@ -52,16 +53,16 @@ if (entry.body) {
 // shows up in Bing's title-length report — reuse the same short subject as
 // the ficha page's <title>, prefixed instead of suffixed.
 const TEXTO_PREFIX = "Texto completo — ";
-const shortSubject = shortLawTitle(
+const coreTitle = shortLawTitle(
 	{
 		id: id!,
 		titulo: law.titulo,
 		rango: law.rango,
 		jurisdiccion: law.jurisdiccion,
 	},
-	SEO_TITLE_MAX - TEXTO_PREFIX.length,
+	SEO_TITLE_MAX - codePointLength(TEXTO_PREFIX),
 );
-const textoTitle = composeSeoTitle(`${TEXTO_PREFIX}${shortSubject}`);
+const textoTitle = composeSeoTitle(`${TEXTO_PREFIX}${coreTitle}`);
 ---
 
 <Base

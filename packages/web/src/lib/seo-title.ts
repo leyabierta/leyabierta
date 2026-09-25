@@ -69,7 +69,6 @@ export const SEO_TITLE_SUFFIX = " — Ley Abierta";
  * extended to cover every `rank` value seen in the corpus so every law gets
  * a disambiguator — not just the 8 most common ranks. */
 const RANK_ABBREVS: Record<string, string> = {
-	constitucion: "CE",
 	real_decreto: "RD",
 	ley_organica: "LO",
 	ley: "L",

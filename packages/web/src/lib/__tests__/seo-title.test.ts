@@ -313,6 +313,14 @@ describe("heuristicSubject", () => {
 	});
 
 	describe("Traspaso de funciones y servicios — keeps the discriminating tail, not the shared head", () => {
+		test("community only, no materia", () => {
+			expect(
+				heuristicSubject(
+					"Real Decreto 1234/1995, de 1 de enero, sobre traspaso de funciones y servicios de la Administración del Estado a la Comunidad Autónoma de Aragón",
+				),
+			).toBe("Traspaso a Aragón");
+		});
+
 		test("community + materia", () => {
 			expect(
 				heuristicSubject(
@@ -335,7 +343,9 @@ describe("heuristicSubject", () => {
 			heuristicSubject(
 				"Resolución de 25 de junio de 2013, de la Dirección General de Relaciones con la Administración de Justicia, sobre prestación económica en la situación de incapacidad temporal por contingencias comunes de los miembros de la Carrera Fiscal",
 			),
-		).not.toMatch(/^Resolución de la Dirección General/i);
+		).toBe(
+			"Prestación económica en la situación de incapacidad temporal por contingencias comunes de los miembros de la Carrera Fiscal",
+		);
 	});
 
 	describe("verb-first subjects are nominalized, never left as a bare conjugated verb (#211 third review)", () => {
