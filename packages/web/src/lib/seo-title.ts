@@ -167,11 +167,23 @@ export const POPULAR_LAW_NAMES: Record<string, string> = {
 	// Ley Concursal (RDLeg 1/2020) — "el texto refundido de la Ley Concursal"
 	// has no del/de la/sobre connector for the heuristic to strip cleanly
 	"BOE-A-2020-4859": "Ley Concursal",
+	// Constitución Española — no own number (curated so `shortLawTitle` can
+	// drop the id disambiguator below: the name is unique on its own)
+	"BOE-A-1978-31229": "Constitución Española",
 };
 if (Object.values(POPULAR_LAW_NAMES).some((name) => name.includes("("))) {
 	throw new Error(
 		"POPULAR_LAW_NAMES entries must not contain '(' — shortLawTitle always appends its own disambiguator in parens",
 	);
+}
+{
+	const names = Object.values(POPULAR_LAW_NAMES);
+	const dupe = names.find((name, i) => names.indexOf(name) !== i);
+	if (dupe) {
+		throw new Error(
+			`POPULAR_LAW_NAMES has a duplicate value ("${dupe}") — shortLawTitle drops the id disambiguator for curated names with no own number, so two ids sharing one curated name would collide`,
+		);
+	}
 }
 
 const MONTH_NAME =
@@ -259,7 +271,7 @@ const RANK_WORDS =
  * by an office ("Resolución de la Dirección General de X, sobre Y" → "de la
  * Dirección General de X, sobre Y") it deliberately does NOT also eat the
  * "de la" that follows — that's the issuing body, not the subject, and
- * `CONTENT_INTRO`'s comma-anchored match reaches the real content ("Y")
+ * `extractIntroClause`'s comma-anchored match reaches the real content ("Y")
  * instead. Folding this into a single "rank + optional number + optional
  * connector" pattern (an earlier version of this fix) got that wrong: for
  * numberless resoluciones/órdenes it greedily swallowed "de la <issuing
@@ -281,7 +293,7 @@ const BOILERPLATE_PREFIXES = [
 	// number, on purpose: this is what tells "Ley 27/2014 del Impuesto…"
 	// (connector introduces the subject) apart from "de la Dirección
 	// General…" on a numberless resolución (connector introduces the
-	// issuing body, left to `CONTENT_INTRO` — see `RANK_WORD_ONLY`).
+	// issuing body, left to `extractIntroClause` — see `RANK_WORD_ONLY`).
 	/^[\d./]+\s*(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/,
 ];
 
@@ -296,20 +308,156 @@ const BOILERPLATE_PREFIXES = [
  * (#211 review: up to 102 norms from one Dirección General collapsed onto
  * the same truncated head before this).
  */
-const CONTENT_INTRO =
-	/^.*?,\s*(?:sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se)\s+/i;
+const CONTENT_INTRO_INLINE =
+	/,\s*(sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se)\s+(.+)$/is;
+const CONTENT_INTRO_LEADING =
+	/^(sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se)\s+(.+)$/is;
+
+/**
+ * A conjugated verb clause is a fine SUBJECT ("por la que se establece X")
+ * but a terrible short TITLE ("Establece X" reads like a fragment, no
+ * subject — #211 third review). "sobre X" / "relativa a X" always introduce
+ * a noun phrase (Spanish prepositions never take a verb), so those are
+ * always safe to drop outright. "por que se X" always introduces a VERB
+ * clause, so X's leading word is nominalized via `VERB_NOMINALIZATION` —
+ * "regula Y" → "Regulación de Y", "establece Y" → "Y" (verb dropped, object
+ * kept) — or, for a verb the table doesn't cover, the whole "por la/el que
+ * se X" clause is kept AS IS rather than leaving a bare conjugated verb.
+ * `null` = drop the verb, keep only the object. A string = the nominal noun
+ * phrase to prepend to the object ("Y" → "<nominal> Y").
+ * Built from the corpus: the first-word distribution of `heuristicSubject`
+ * output over all ~12k norms, every verb-like word with ≥20 occurrences
+ * (`bun run packages/web/scripts/check-seo-title-uniqueness.ts` reports the
+ * current distribution), plus a few explicitly requested in review.
+ */
+export const VERB_NOMINALIZATION: Record<string, string | null> = {
+	// Verb consumed entirely, only the object remains.
+	establece: null,
+	establecen: null,
+	aprueba: null,
+	aprueban: null,
+	adopta: null,
+	adoptan: null,
+	fija: null,
+	fijan: null,
+	dicta: null,
+	dictan: null,
+	publica: null,
+	publican: null,
+	dispone: null,
+	disponen: null,
+	// Nominalized: "regula X" → "regulación de X".
+	regula: "regulación de",
+	regulan: "regulación de",
+	// "modifica X" → "modificación de X" — MUST keep: a norm that modifies
+	// another must never read as if it *were* the norm it modifies.
+	modifica: "modificación de",
+	modifican: "modificación de",
+	deroga: "derogación de",
+	derogan: "derogación de",
+	crea: "creación de",
+	crean: "creación de",
+	desarrolla: "desarrollo de",
+	desarrollan: "desarrollo de",
+	declara: "declaración de",
+	declaran: "declaración de",
+	convoca: "convocatoria de",
+	convocan: "convocatoria de",
+	activa: "activación de",
+	activan: "activación de",
+	reestructura: "reestructuración de",
+	reestructuran: "reestructuración de",
+	determina: "determinación de",
+	determinan: "determinación de",
+	actualiza: "actualización de",
+	actualizan: "actualización de",
+	autoriza: "autorización de",
+	autorizan: "autorización de",
+	aplaza: "aplazamiento de",
+	aplazan: "aplazamiento de",
+	prorroga: "prórroga de",
+	prorrogan: "prórroga de",
+	suspende: "suspensión de",
+	suspenden: "suspensión de",
+	amplía: "ampliación de",
+	amplian: "ampliación de",
+	amplían: "ampliación de",
+};
+
+/** "regula la asignación de recursos…" → "regulación de la asignación de
+ * recursos…"; "establece medidas…" → "medidas…"; an unrecognized verb (not
+ * in `VERB_NOMINALIZATION`) → `${intro} ${tail}` unchanged, so the clause
+ * reads as "Por la que se fomenta…" rather than a bare "Fomenta…". */
+function resolveVerbClause(intro: string, tail: string): string {
+	const m = tail.match(/^(\p{L}+)((?:\s+.+)?)$/su);
+	if (!m) return `${intro} ${tail}`;
+	const verb = m[1]!.toLowerCase();
+	const rest = (m[2] ?? "").trim();
+	if (!(verb in VERB_NOMINALIZATION)) return `${intro} ${tail}`;
+	const nominal = VERB_NOMINALIZATION[verb];
+	if (nominal === null) return rest || `${intro} ${tail}`;
+	return rest ? `${nominal} ${rest}` : `${intro} ${tail}`;
+}
+
+/**
+ * Finds and resolves the FIRST "sobre X" / "relativa a X" / "por que se X"
+ * clause in `text` — comma-anchored (searches anywhere) or, with
+ * `leading: true`, only at the very start (no comma needed: the clause is
+ * already the entire remaining string). Returns `undefined` when there's no
+ * such clause at all.
+ */
+function extractIntroClause(text: string, leading = false): string | undefined {
+	const m = text.match(leading ? CONTENT_INTRO_LEADING : CONTENT_INTRO_INLINE);
+	if (!m) return undefined;
+	const intro = m[1]!;
+	const tail = m[2]!;
+	return /^por/i.test(intro) ? resolveVerbClause(intro, tail) : tail;
+}
+
+/**
+ * A subject starting with a bare preposition ("A entidades adscritas a un
+ * fondo…", "De la Ley…") reads as a cut-off fragment, not a title — real bug
+ * found in review (`BOILERPLATE_PREFIXES`'s number+connector entry can strip
+ * just the number, e.g. "Circular 3/2011 a entidades…, sobre aportaciones…"
+ * → "a entidades…" instead of reaching the real ", sobre aportaciones…"
+ * clause). "para X" and "en materia de X" read as natural title starts
+ * (purpose/topic clauses) and are deliberately NOT included here.
+ */
+export const BARE_PREPOSITION_START =
+	/^(?:a|de|con|sin|ante|bajo|desde|hasta|seg[uú]n|tras)\s+/i;
 
 // Leading filler that reads oddly as the first word of a short title and
-// carries no meaning on its own — dropped once, only at the very start.
-// "por la que se " is the same clause `CONTENT_INTRO` strips mid-string, but
-// also shows up as the very first words once `BOILERPLATE_PREFIXES` has
-// already consumed a leading "Ley N/AAAA " ("Por la que se modifica la Ley
-// 37/1992…" → "Modifica la Ley 37/1992…"). A bare leading article ("La
-// declaración de…" → "Declaración de…") is the same headline convention
-// newspapers use. Both buy back characters on a meaningful share of
-// subjects (#211 second review: 79% of titles truncated with "…").
+// carries no meaning on its own — dropped once, only at the very start. A
+// bare leading article ("La declaración de…" → "Declaración de…") is the
+// same headline convention newspapers use — buys back characters on a
+// meaningful share of subjects (#211 second review: 79% of titles truncated
+// with "…"). "por la que se…" is NOT here — see `extractIntroClause`, which
+// nominalizes or keeps it, but never blindly drops it (#211 third review).
+// A single filler word at a time — applied in a loop (see
+// `stripLeadingFiller`) rather than one multi-word alternative each, so a
+// stray leading preposition on its own ("De Organización y Funcionamiento
+// del Defensor del Pueblo…", `RANK_WORD_ONLY` having already dropped
+// "Reglamento ") gets caught too, not just the "de la"/"del" combos it
+// happens to precede (#211 third review).
+// "con carácter definitivo/urgente/extraordinario y urgente/temporal" is an
+// adverbial aside BOE titles insert BETWEEN the verb and its real object
+// ("aprueba con carácter definitivo el Reglamento…") — without stripping it
+// too, `resolveVerbClause`'s "drop the verb, keep the object" left it
+// dangling as the new leading fragment ("Con carácter definitivo el
+// Reglamento…", #211 third review).
 const LEADING_FILLER =
-	/^(?:sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se\s+|de\s+la\s+|del\s+|de\s+los\s+|de\s+las\s+|el\s+|la\s+|los\s+|las\s+)\s*/i;
+	/^(?:sobre|relativa?\s+a|con\s+car[aá]cter\s+\p{L}+(?:\s+y\s+\p{L}+)?|del?|el|la|los|las)\s+/iu;
+
+/** Repeatedly strips `LEADING_FILLER` until nothing more matches. */
+function stripLeadingFiller(text: string): string {
+	let out = text;
+	let prev: string;
+	do {
+		prev = out;
+		out = out.replace(LEADING_FILLER, "");
+	} while (out !== prev);
+	return out;
+}
 
 // A short connector word right before the ellipsis reads badly ("…de la Ley
 // 25/1983, de…") — `truncateAtWordBoundary` only guarantees a word boundary,
@@ -420,7 +568,7 @@ export function lawAbbreviation(
  * `TRASPASO`), a mid-subject "de la Comunidad Autónoma de X" aside (see
  * `COMUNIDAD_AUTONOMA_ASIDE`), the "por el que se aprueba/publica…" /
  * rank+number boilerplate down to the subject (or, failing that, the
- * "por el/la que se…" tail — see `CONTENT_INTRO`), and trailing "y otras
+ * "por el/la que se…" tail — see `extractIntroClause`), and trailing "y otras
  * leyes complementarias". Titles with none of that boilerplate (e.g.
  * "Constitución Española", "Código Civil") are returned unchanged.
  */
@@ -451,12 +599,26 @@ export function heuristicSubject(titulo: string): string {
 			}
 		}
 		if (!matched) {
-			const stripped = s.replace(CONTENT_INTRO, "");
-			if (stripped !== s) s = stripped;
+			const rescued = extractIntroClause(s);
+			if (rescued !== undefined) s = rescued;
 		}
 	}
 
-	s = s.replace(LEADING_FILLER, "");
+	// Rescue: `BOILERPLATE_PREFIXES`' number+connector entry can strip just
+	// the number and leave a bare-preposition fragment ("a entidades…") when
+	// no connector followed — the real content is a later ", sobre…" clause.
+	if (BARE_PREPOSITION_START.test(s)) {
+		const rescued = extractIntroClause(s);
+		if (rescued !== undefined) s = rescued;
+	}
+
+	// A "sobre X" / "relativa a X" / "por que se X" clause directly at the
+	// start (no comma before it — e.g. `RANK_WORD_ONLY` left "por la que se
+	// X" as the entire remaining string): same resolution as the inline case.
+	const leadingClause = extractIntroClause(s, true);
+	if (leadingClause !== undefined) s = leadingClause;
+
+	s = stripLeadingFiller(s);
 	s = s
 		.replace(/\s+/g, " ")
 		.trim()
@@ -483,7 +645,21 @@ export function shortLawTitle(
 	},
 	maxCore: number = SEO_TITLE_MAX,
 ): string {
-	const subject = POPULAR_LAW_NAMES[law.id] ?? heuristicSubject(law.titulo);
+	const curatedName = POPULAR_LAW_NAMES[law.id];
+	const subject = curatedName ?? heuristicSubject(law.titulo);
+
+	// A curated name is unique by construction (guarded by the duplicate-value
+	// check above) — when the norm also has no own number, the disambiguator
+	// would just be its bare id ("Constitución Española (BOE-A-1978-31229)"),
+	// which adds nothing a citizen would search for. Dropped in that case
+	// only; a curated law WITH a number (Estatuto de los Trabajadores,
+	// LOPDGDD…) keeps it — people do search by number (#211 third review).
+	if (curatedName && extractNumber(law.titulo) === undefined) {
+		return codePointLength(subject) <= maxCore
+			? subject
+			: truncateSubject(subject, maxCore);
+	}
+
 	const disambig = lawAbbreviation(
 		law.rango,
 		law.titulo,

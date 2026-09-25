@@ -260,11 +260,14 @@ describe("heuristicSubject", () => {
 				"Real Decreto de 24 de julio de 1889 por el que se publica el Código Civil",
 			),
 		).toBe("Código Civil");
+		// "establecen" is nominalized (verb dropped, object kept) rather than
+		// left as a bare conjugated verb — see the "verb-first subjects" tests
+		// below (#211 third review).
 		expect(
 			heuristicSubject(
 				"Orden de 18 de junio de 1998 por la que se establecen las condiciones",
 			),
-		).toBe("Establecen las condiciones");
+		).toBe("Condiciones");
 	});
 
 	test("never leaves two different date phrases in the output", () => {
@@ -334,6 +337,95 @@ describe("heuristicSubject", () => {
 			),
 		).not.toMatch(/^Resolución de la Dirección General/i);
 	});
+
+	describe("verb-first subjects are nominalized, never left as a bare conjugated verb (#211 third review)", () => {
+		test("establece/aprueba/adopta/fija/dicta/publica/dispone: verb dropped, object kept", () => {
+			expect(
+				heuristicSubject(
+					"Orden ABC/1/2020, de 1 de enero, por la que se establecen medidas especiales para el uso de bioetanol",
+				),
+			).toBe("Medidas especiales para el uso de bioetanol");
+			expect(
+				heuristicSubject(
+					"Real Decreto 1/2020, de 1 de enero, por el que se adoptan medidas de adaptación a la situación de Estado de alarma",
+				),
+			).toBe("Medidas de adaptación a la situación de Estado de alarma");
+			expect(
+				heuristicSubject(
+					"Orden ABC/2/2020, de 1 de enero, por la que se establece la lista de medicamentos veterinarios",
+				),
+			).toBe("Lista de medicamentos veterinarios");
+		});
+
+		test("regula/regulan → 'Regulación de …'", () => {
+			expect(
+				heuristicSubject(
+					"Orden ABC/3/2020, de 1 de enero, por la que se regula la asignación de recursos a los programas",
+				),
+			).toBe("Regulación de la asignación de recursos a los programas");
+			expect(
+				heuristicSubject(
+					"Real Decreto-ley 16/1977, de 25 de febrero, por el que se regulan los aspectos penales, administrativos y fiscales de los juegos de suerte, envite o azar",
+				),
+			).toBe(
+				"Regulación de los aspectos penales, administrativos y fiscales de los juegos de suerte, envite o azar",
+			);
+		});
+
+		test("modifica/modifican → 'Modificación de …' (MUST keep — a modifying norm must never read as the norm it modifies)", () => {
+			expect(
+				heuristicSubject(
+					"Ley 9/1998, de 21 de abril, por la que se modifica la Ley 37/1992, de 28 de diciembre, del Impuesto sobre el Valor Añadido",
+				),
+			).toBe(
+				"Modificación de la Ley 37/1992 del Impuesto sobre el Valor Añadido",
+			);
+		});
+
+		test("other nominalizations: deroga, crea, desarrolla, declara, convoca, activa, reestructura, determina, actualiza, autoriza, aplaza, prorroga, suspende, amplía", () => {
+			expect(
+				heuristicSubject(
+					"Orden ABC/4/2020, de 1 de enero, por la que se activa la Fase 2 del Plan de Desescalada",
+				),
+			).toBe("Activación de la Fase 2 del Plan de Desescalada");
+			expect(
+				heuristicSubject(
+					"Orden ABC/5/2003, de 1 de enero, por la que se reestructuran los órganos médico periciales",
+				),
+			).toBe("Reestructuración de los órganos médico periciales");
+		});
+
+		test("an unrecognized verb keeps the full 'por la/el que se …' clause rather than a bare conjugated verb", () => {
+			const result = heuristicSubject(
+				"Orden ABC/6/2020, de 1 de enero, por la que se fomenta la investigación en energías renovables",
+			);
+			expect(result).toMatch(/^Por la que se fomenta/i);
+		});
+
+		test("bare-preposition-fragment rescue: 'a entidades…' reaches the real ', sobre …' content instead", () => {
+			// Real bug found in review: BOILERPLATE_PREFIXES' number+connector
+			// entry stripped only the number, leaving "a entidades adscritas a
+			// un fondo de garantía de depósitos, sobre aportaciones…" — a
+			// broken-looking fragment instead of the real content after ", sobre".
+			expect(
+				heuristicSubject(
+					"Circular 3/2011, de 30 de junio, a entidades adscritas a un fondo de garantía de depósitos, sobre aportaciones adicionales a los fondos de garantía de depósitos",
+				),
+			).toBe("Aportaciones adicionales a los fondos de garantía de depósitos");
+		});
+
+		test("a rank word that is also the norm's own name keeps a bare leading preposition from surviving", () => {
+			// Real BOE-A-1983-10613: rank "reglamento", title literally starts
+			// with "Reglamento de Organización…" (not "Real Decreto NNNN…") —
+			// RANK_WORD_ONLY drops "Reglamento ", which used to leave "de
+			// Organización…" (a fragment) instead of continuing to strip it.
+			expect(
+				heuristicSubject(
+					"Reglamento de Organización y Funcionamiento del Defensor del Pueblo, aprobado por las Mesas del Congreso y del Senado, a propuesta del Defensor del Pueblo, en su reunión conjunta de 6 de abril de 1983",
+				),
+			).not.toMatch(/^(?:A|De|Por|Con|Sin|Ante|Bajo|Desde|Hasta|Según|Tras)\s/);
+		});
+	});
 });
 
 describe("shortLawTitle", () => {
@@ -393,7 +485,7 @@ describe("shortLawTitle", () => {
 		).toBe("Estatuto de los Trabajadores (RDLeg 2/2015)");
 	});
 
-	test("Código Civil / Código de Comercio / Ley Hipotecaria / Ley Concursal are curated (no own number to anchor on)", () => {
+	test("Código Civil / Código de Comercio / Ley Hipotecaria / Ley Concursal are curated (no own number to anchor on) — id dropped, the curated name is already unique", () => {
 		expect(
 			shortLawTitle({
 				id: "BOE-A-1889-4763",
@@ -401,7 +493,7 @@ describe("shortLawTitle", () => {
 				titulo:
 					"Real Decreto de 24 de julio de 1889 por el que se publica el Código Civil",
 			}),
-		).toBe("Código Civil (BOE-A-1889-4763)");
+		).toBe("Código Civil");
 		expect(
 			shortLawTitle({
 				id: "BOE-A-1885-6627",
@@ -409,7 +501,7 @@ describe("shortLawTitle", () => {
 				titulo:
 					"Real Decreto de 22 de agosto de 1885 por el que se publica el Código de Comercio",
 			}),
-		).toBe("Código de Comercio (BOE-A-1885-6627)");
+		).toBe("Código de Comercio");
 	});
 
 	test("no curated name contains '(' — never doubles up with the disambiguator's parens", () => {
@@ -425,7 +517,12 @@ describe("shortLawTitle", () => {
 		for (const c of CASES) {
 			const title = shortLawTitle(c, 45);
 			expect(codePointLength(title)).toBeLessThanOrEqual(45);
-			const subject = POPULAR_LAW_NAMES[c.id] ?? heuristicSubject(c.titulo);
+			// A curated name with no own number (Constitución Española) drops the
+			// disambiguator entirely — see the dedicated test below — so it has
+			// no "(abbrev)" to assert on here.
+			if (c.id === "BOE-A-1978-31229") continue;
+			const curated = POPULAR_LAW_NAMES[c.id];
+			const subject = curated ?? heuristicSubject(c.titulo);
 			const abbrev = lawAbbreviation(
 				c.rango,
 				c.titulo,
@@ -451,10 +548,24 @@ describe("shortLawTitle", () => {
 		expect(codePointLength(long)).toBeLessThanOrEqual(45);
 	});
 
-	test("a title with no boilerplate and no number still gets the id disambiguator (uniqueness is never optional)", () => {
-		expect(shortLawTitle(CASES[4]!)).toBe(
-			"Constitución Española (BOE-A-1978-31229)",
-		);
+	test("a NON-curated title with no boilerplate and no number still gets the id disambiguator (uniqueness is never optional)", () => {
+		// A title that doesn't start with a known rank word on purpose — one
+		// that does (e.g. "Reglamento de X") legitimately loses that leading
+		// word to RANK_WORD_ONLY, same as every other rank-led title.
+		expect(
+			shortLawTitle({
+				id: "BOE-A-1900-1",
+				rango: "ley",
+				titulo: "Fuero de los Españoles",
+			}),
+		).toBe("Fuero de los Españoles (BOE-A-1900-1)");
+	});
+
+	test("a CURATED title with no own number drops the id disambiguator — the curated name is unique by construction", () => {
+		// Constitución Española is curated precisely so this can drop the id:
+		// "Constitución Española (BOE-A-1978-31229)" is needlessly technical
+		// for a name this globally unrecognizable (#211 third review).
+		expect(shortLawTitle(CASES[4]!)).toBe("Constitución Española");
 	});
 
 	describe("uniqueness fixtures (real collisions found in the #211 review)", () => {
@@ -619,14 +730,14 @@ describe("seoLawPageTitle", () => {
 		}
 	});
 
-	test("Constitución Española: short, unmodified in substance, disambiguated by its own id", () => {
+	test("Constitución Española: short, unmodified in substance, no id needed (curated + unique)", () => {
 		expect(
 			seoLawPageTitle({
 				id: "BOE-A-1978-31229",
 				rango: "constitucion",
 				titulo: "Constitución Española",
 			}),
-		).toBe("Constitución Española (BOE-A-1978-31229) — Ley Abierta");
+		).toBe("Constitución Española — Ley Abierta");
 	});
 
 	test("LOPDGDD has no double parentheses", () => {

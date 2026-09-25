@@ -21,7 +21,12 @@
  */
 import { Database } from "bun:sqlite";
 import { codePointLength } from "../src/lib/meta-description.ts";
-import { DATE_PHRASE, seoLawPageTitle } from "../src/lib/seo-title.ts";
+import {
+	BARE_PREPOSITION_START,
+	DATE_PHRASE,
+	seoLawPageTitle,
+	VERB_NOMINALIZATION,
+} from "../src/lib/seo-title.ts";
 
 interface Args {
 	db: string;
@@ -81,6 +86,14 @@ function percentile(arr: number[], p: number): number {
 // or skips the mention entirely when the subject already names the community.
 const ELI_CODE = /\bes-[a-z]{2}\b/;
 
+/** The subject portion of a <title>: strip the trailing " (disambiguator)"
+ * and " — Ley Abierta" suffix, leaving what a reader sees as the headline. */
+function subjectOf(title: string): string {
+	return title.replace(/ — Ley Abierta$/, "").replace(/ \([^()]*\)$/, "");
+}
+
+const VERB_WORDS = new Set(Object.keys(VERB_NOMINALIZATION));
+
 function main() {
 	const { db: dbPath, samples } = parseArgs(process.argv.slice(2));
 	const db = new Database(dbPath, { readonly: true });
@@ -100,6 +113,8 @@ function main() {
 	const doubleParens: string[] = [];
 	const eliCodes: string[] = [];
 	const twoDates: string[] = [];
+	const badStarts: string[] = [];
+	const firstWordCounts = new Map<string, number>();
 
 	for (const row of rows) {
 		const title = seoLawPageTitle({
@@ -122,6 +137,18 @@ function main() {
 			twoDates.push(`${row.id}: ${title}`);
 		}
 		if (title.includes("…")) ellipsisCount++;
+
+		const subject = subjectOf(title);
+		const firstWord = subject
+			.split(/\s+/)[0]
+			?.toLowerCase()
+			.replace(/[.,;:]$/, "");
+		if (firstWord) {
+			firstWordCounts.set(firstWord, (firstWordCounts.get(firstWord) ?? 0) + 1);
+			if (VERB_WORDS.has(firstWord) || BARE_PREPOSITION_START.test(subject)) {
+				badStarts.push(`${row.id}: ${title}`);
+			}
+		}
 
 		const nl = codePointLength(title);
 		newLens.push(nl);
@@ -175,6 +202,19 @@ function main() {
 	console.log(`\nTwo date phrases left: ${twoDates.length} titles`);
 	for (const line of twoDates.slice(0, 20)) console.log(`  ${line}`);
 
+	console.log(
+		`\nBad subject starts (conjugated verb or bare preposition fragment): ${badStarts.length} titles`,
+	);
+	for (const line of badStarts.slice(0, 30)) console.log(`  ${line}`);
+
+	const topFirstWords = [...firstWordCounts.entries()].sort(
+		(a, b) => b[1] - a[1],
+	);
+	console.log("\nTop 25 first words of the subject (after):");
+	for (const [word, count] of topFirstWords.slice(0, 25)) {
+		console.log(`  ${count}\t${word}`);
+	}
+
 	console.log(`\n${samples} random samples:`);
 	const shuffled = [...rows].sort(() => Math.random() - 0.5).slice(0, samples);
 	for (const row of shuffled) {
@@ -214,9 +254,15 @@ function main() {
 		);
 		failed = true;
 	}
+	if (badStarts.length > 0) {
+		console.error(
+			`\nFAIL: ${badStarts.length} titles start with a conjugated verb or a bare preposition fragment.`,
+		);
+		failed = true;
+	}
 	if (failed) process.exit(1);
 	console.log(
-		"\nOK: every <title> in the corpus is unique, no double parentheses, no raw ELI codes, no leftover double dates.",
+		"\nOK: every <title> in the corpus is unique, no double parentheses, no raw ELI codes, no leftover double dates, no verb-first/fragment subjects.",
 	);
 }
 
