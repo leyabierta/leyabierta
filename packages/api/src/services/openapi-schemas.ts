@@ -349,6 +349,125 @@ export const RESPONSE_SCHEMAS: Record<
 			},
 		}),
 	},
+	"GET /v1/citizen-tags": {
+		"200": okEntry("Citizen-friendly tag categories with law counts.", {
+			type: "object",
+			properties: {
+				data: { type: "array", items: namedCountSchema("tag") },
+			},
+		}),
+	},
+	"GET /v1/stats": {
+		"200": okEntry(
+			"Aggregate statistics: total laws, articles, versions, reforms, categories, and date range.",
+			{
+				type: "object",
+				properties: {
+					norms: { type: "integer" },
+					articles: { type: "integer" },
+					versions: { type: "integer" },
+					reforms: { type: "integer" },
+					categories: { type: "integer" },
+					oldest: { type: "string", format: "date" },
+					newest: { type: "string", format: "date" },
+				},
+			},
+		),
+	},
+	"GET /v1/most-reformed": {
+		"200": okEntry("The 10 most frequently reformed laws.", {
+			type: "object",
+			properties: {
+				data: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							id: { type: "string" },
+							title: { type: "string" },
+							rank: { type: "string" },
+							reform_count: { type: "integer" },
+							published_at: { type: "string", format: "date" },
+						},
+					},
+				},
+			},
+		}),
+	},
+	"GET /v1/jurisdictions": {
+		"200": okEntry(
+			"All jurisdictions (state + autonomous communities) with law counts.",
+			{
+				type: "object",
+				properties: {
+					data: { type: "array", items: namedCountSchema("jurisdiction") },
+				},
+			},
+		),
+	},
+	"GET /v1/recent-reforms": {
+		"200": okEntry("The 10 most recently reformed laws.", {
+			type: "object",
+			properties: {
+				data: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							id: { type: "string" },
+							title: { type: "string" },
+							last_reform: { type: "string", format: "date" },
+							citizen_summary: { type: "string", nullable: true },
+						},
+					},
+				},
+			},
+		}),
+	},
+	"GET /v1/reforms/{normId}/{date}": {
+		"200": okEntry(
+			"Full detail for a specific reform of a law, with navigation to adjacent reforms.",
+			{
+				type: "object",
+				properties: {
+					law: {
+						type: "object",
+						properties: {
+							id: { type: "string" },
+							title: { type: "string" },
+							short_title: { type: "string" },
+							rank: { type: "string" },
+							status: { type: "string" },
+							source_url: { type: "string", format: "uri" },
+							last_reform_date: {
+								type: "string",
+								format: "date",
+								nullable: true,
+							},
+						},
+					},
+					reform: reformSchema,
+					affected_blocks: { type: "array", items: { type: "string" } },
+					prev_reform_date: { type: "string", format: "date", nullable: true },
+					next_reform_date: { type: "string", format: "date", nullable: true },
+					source_url: { type: "string", format: "uri" },
+				},
+			},
+		),
+		"404": errorEntry("No reform of this law on this date."),
+	},
+	"GET /og/{id}": {
+		"200": {
+			description: "The pre-generated Open Graph share image for this law.",
+			content: {
+				"image/png": { schema: { type: "string", format: "binary" } },
+			},
+		},
+		"400": errorEntry("Missing id."),
+		"404": errorEntry(
+			"No OG image for this id (not yet generated, or the id doesn't exist).",
+		),
+	},
 	"GET /v1/changelog": {
 		"200": okEntry("Recent reforms with AI summaries, newest first.", {
 			type: "object",
@@ -537,6 +656,38 @@ export const RESPONSE_SCHEMAS: Record<
 };
 
 /**
+ * OpenAPI 3.0 requires every response object to carry a `description` (it's
+ * the one required field on a Response Object). The swagger plugin doesn't
+ * set one on its own `"200": {}` placeholder, which is invalid per the spec
+ * (confirmed with `bunx @redocly/cli lint` against the served document) even
+ * though most tooling tolerates it silently. Backfill it for any response
+ * this module didn't already give one, in English to match the rest of the
+ * generated document (operation summaries/descriptions are all English).
+ */
+function withDescriptions(
+	responses: Record<string, unknown>,
+	summary: string | undefined,
+): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const [code, value] of Object.entries(responses)) {
+		if (value && typeof value === "object" && !("description" in value)) {
+			const isError = code === "default" || /^[45]/.test(code);
+			out[code] = {
+				...value,
+				description: isError
+					? "Error response."
+					: summary
+						? `${summary} — successful response.`
+						: "Successful response.",
+			};
+		} else {
+			out[code] = value;
+		}
+	}
+	return out;
+}
+
+/**
  * Merge `ErrorResponse` + the schemas above into an already-built OpenAPI
  * document (as returned by the swagger plugin's `/swagger/json`). Pure
  * function — returns a new object, never mutates `doc`. Documentation only:
@@ -563,24 +714,28 @@ export function enrichOpenApiDoc(doc: unknown): unknown {
 			const overrides = RESPONSE_SCHEMAS[key];
 			const existingResponses =
 				(operation.responses as Record<string, unknown>) ?? {};
+			const mergedResponses = {
+				...existingResponses,
+				...overrides,
+				// Every operation can hit the rate limiter (429) or an
+				// unhandled error (5XX) — add a catch-all for both unless the
+				// operation already declared something more specific for
+				// that code.
+				"429":
+					existingResponses["429"] ??
+					overrides?.["429"] ??
+					errorEntry("Rate limit exceeded."),
+				"5XX":
+					existingResponses["5XX"] ??
+					overrides?.["5XX"] ??
+					errorEntry("Internal server error."),
+			};
 			newMethods[method] = {
 				...operation,
-				responses: {
-					...existingResponses,
-					...overrides,
-					// Every operation can hit the rate limiter (429) or an
-					// unhandled error (5XX) — add a catch-all for both unless the
-					// operation already declared something more specific for
-					// that code.
-					"429":
-						existingResponses["429"] ??
-						overrides?.["429"] ??
-						errorEntry("Rate limit exceeded."),
-					"5XX":
-						existingResponses["5XX"] ??
-						overrides?.["5XX"] ??
-						errorEntry("Internal server error."),
-				},
+				responses: withDescriptions(
+					mergedResponses,
+					typeof operation.summary === "string" ? operation.summary : undefined,
+				),
 			};
 		}
 		paths[path] = newMethods;

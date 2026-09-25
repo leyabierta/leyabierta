@@ -653,6 +653,10 @@ export function lawRoutes(
 						description:
 							"Internal endpoint for CI builds. Returns bulk citizen data and omnibus topics. Requires API bypass key.",
 						tags: ["Sistema"],
+						// Internal-only (requires the bypass key) — hidden from the
+						// public OpenAPI doc rather than documented for third
+						// parties. Doesn't change who can call it.
+						hide: true,
 					},
 				},
 			)
@@ -689,6 +693,10 @@ export function lawRoutes(
 						description:
 							"Internal endpoint for CI builds. Returns per-norm [articleTitle, citizenSummary] pairs so the static build can bake article summaries into the HTML. Requires API bypass key.",
 						tags: ["Sistema"],
+						// Internal-only (requires the bypass key) — hidden from the
+						// public OpenAPI doc rather than documented for third
+						// parties. Doesn't change who can call it.
+						hide: true,
 					},
 				},
 			)

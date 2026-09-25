@@ -93,6 +93,50 @@ describe("enrichOpenApiDoc", () => {
 		}
 	});
 
+	test("every response object gets a 'description' — OpenAPI 3.0 requires it and the swagger plugin doesn't set one", () => {
+		const doc = enriched();
+		for (const methods of Object.values(doc.paths)) {
+			for (const op of Object.values(methods)) {
+				for (const resp of Object.values(op.responses)) {
+					const description = (resp as { description?: unknown }).description;
+					expect(typeof description).toBe("string");
+					expect((description as string).length).toBeGreaterThan(0);
+				}
+			}
+		}
+	});
+
+	test("backfilled success description falls back to generic text when the operation has no summary", () => {
+		const doc = enriched();
+		// /v1/some-future-endpoint has no RESPONSE_SCHEMAS override and no
+		// `summary` in the RAW_DOC fixture, so its bare "200": {} falls back to
+		// the generic text rather than "undefined — successful response.".
+		const resp = doc.paths["/v1/some-future-endpoint"]?.get?.responses[
+			"200"
+		] as { description?: string };
+		expect(resp.description).toBe("Successful response.");
+	});
+
+	test("backfilled success description uses the operation's summary when present", () => {
+		const withSummary = enrichOpenApiDoc({
+			openapi: "3.0.3",
+			info: { title: "t" },
+			paths: {
+				"/x": {
+					get: { summary: "Do the thing", responses: { "200": {} } },
+				},
+			},
+		}) as {
+			paths: Record<
+				string,
+				{ get: { responses: Record<string, { description?: string }> } }
+			>;
+		};
+		expect(withSummary.paths["/x"]?.get?.responses["200"]?.description).toBe(
+			"Do the thing — successful response.",
+		);
+	});
+
 	test("does not clobber a response code an operation already declared", () => {
 		const doc = enriched();
 		const custom = doc.paths["/v1/some-future-endpoint"]?.get?.responses[
