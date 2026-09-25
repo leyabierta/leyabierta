@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { Elysia, t } from "elysia";
-import { structuredError } from "../services/api-errors.ts";
+import { errorResponse, structuredError } from "../services/api-errors.ts";
 
 function buildApp() {
 	return new Elysia()
@@ -216,5 +216,50 @@ describe("structuredError", () => {
 		expect(status).toBe(401);
 		expect(body.code).toBe("UNKNOWN_ERROR");
 		expect(body.error).toBe("Request error");
+	});
+});
+
+// Regression (prod 2026-09-25): with a mapResponse hook registered — as in
+// index.ts — Elysia 1.4 dropped the object returned from onError for
+// NOT_FOUND and answered 404 with an empty body. index.ts returns
+// errorResponse(); this app mirrors that wiring.
+describe("onError with a mapResponse hook", () => {
+	function buildAppWithMapResponse() {
+		return new Elysia()
+			.onError(({ code, error, path, set }) => {
+				const { status, body } = structuredError(code, error, path);
+				set.status = status;
+				set.headers["X-Frame-Options"] = "DENY";
+				return errorResponse(status, body, set.headers);
+			})
+			.mapResponse(({ set }) => {
+				set.headers["X-Frame-Options"] = "DENY";
+			})
+			.get("/health", () => ({ status: "ok" }))
+			.get("/boom", () => {
+				throw new Error("kaboom");
+			});
+	}
+
+	it("keeps the JSON body and headers on an unmatched route (404)", async () => {
+		const res = await buildAppWithMapResponse().handle(
+			new Request("http://localhost/v1/nope"),
+		);
+		expect(res.status).toBe(404);
+		expect(res.headers.get("content-type")).toContain("application/json");
+		expect(res.headers.get("x-frame-options")).toBe("DENY");
+		const body = (await res.json()) as ErrorBody;
+		expect(body.code).toBe("NOT_FOUND");
+		expect(body.hint).toContain("openapi.json");
+	});
+
+	it("keeps the JSON body on an unhandled throw (500) without leaking it", async () => {
+		const res = await buildAppWithMapResponse().handle(
+			new Request("http://localhost/boom"),
+		);
+		expect(res.status).toBe(500);
+		const text = await res.text();
+		expect(text.length).toBeGreaterThan(0);
+		expect(text).not.toContain("kaboom");
 	});
 });

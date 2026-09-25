@@ -15,7 +15,7 @@ import { lawRoutes, type SearchResponse } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { statusRoutes } from "./routes/status.ts";
-import { structuredError } from "./services/api-errors.ts";
+import { errorResponse, structuredError } from "./services/api-errors.ts";
 import { AskQuota, askLimitsFromEnv } from "./services/ask-quota.ts";
 import { LruCache } from "./services/cache.ts";
 import { defaultCacheControl } from "./services/cache-control.ts";
@@ -196,6 +196,47 @@ process.on("exit", (code) => {
 // RSS vs cgroup-cap pressure probe — logs to stderr every 30s when busy.
 startMemProbe();
 
+// Security headers, service-desc Link, cache policy and the request log line
+// for every response. Runs from mapResponse and, for errors, from onError
+// itself (see there). Idempotent per request: never logs twice.
+const finalized = new WeakSet<Request>();
+function finalizeResponse(
+	request: Request,
+	set: { headers: Record<string, string | number>; status?: number | string },
+	path: string,
+): void {
+	if (finalized.has(request)) return;
+	finalized.add(request);
+	set.headers["X-Content-Type-Options"] = "nosniff";
+	set.headers["X-Frame-Options"] = "DENY";
+	set.headers["X-Robots-Tag"] = "noindex";
+	set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+	// Discovery: point agents/tools at the OpenAPI spec from any response.
+	set.headers.Link = '</openapi.json>; rel="service-desc"';
+	// Cache read-only endpoints at Cloudflare edge; skip for health.
+	// Errors get a short TTL or no-store — see services/cache-control.ts.
+	if (!set.headers["Cache-Control"]) {
+		const cacheControl = defaultCacheControl(path, set.status);
+		if (cacheControl) set.headers["Cache-Control"] = cacheControl;
+	}
+	// Structured request logging (skip /health). A true 404 (no route
+	// matched at all) never runs onBeforeHandle, so `start` is unset —
+	// `ms` falls back to 0 rather than throwing.
+	if (path !== "/health") {
+		const start = reqTimings.get(request);
+		const ms = start ? Math.round(performance.now() - start) : 0;
+		if (start) reqTimings.delete(request);
+		console.log(
+			JSON.stringify({
+				method: request.method,
+				path,
+				status: set.status ?? 200,
+				ms,
+			}),
+		);
+	}
+}
+
 const app = new Elysia()
 	.use(cors({ origin: CORS_ORIGINS }))
 	.onBeforeHandle(({ request, set, path }) => {
@@ -233,41 +274,14 @@ const app = new Elysia()
 	// security headers, the service-desc Link, or a log line (PR #209 review).
 	// mapResponse runs for every response, error or not, with `set.status`
 	// already reflecting whatever onError set it to.
-	.mapResponse(({ request, set, path }) => {
-		set.headers["X-Content-Type-Options"] = "nosniff";
-		set.headers["X-Frame-Options"] = "DENY";
-		set.headers["X-Robots-Tag"] = "noindex";
-		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-		// Discovery: point agents/tools at the OpenAPI spec from any response.
-		set.headers.Link = '</openapi.json>; rel="service-desc"';
-		// Cache read-only endpoints at Cloudflare edge; skip for health.
-		// Errors get a short TTL or no-store — see services/cache-control.ts.
-		if (!set.headers["Cache-Control"]) {
-			const cacheControl = defaultCacheControl(path, set.status);
-			if (cacheControl) set.headers["Cache-Control"] = cacheControl;
-		}
-		// Structured request logging (skip /health). A true 404 (no route
-		// matched at all) never runs onBeforeHandle, so `start` is unset —
-		// `ms` falls back to 0 rather than throwing.
-		if (path !== "/health") {
-			const start = reqTimings.get(request);
-			const ms = start ? Math.round(performance.now() - start) : 0;
-			if (start) reqTimings.delete(request);
-			console.log(
-				JSON.stringify({
-					method: request.method,
-					path,
-					status: set.status ?? 200,
-					ms,
-				}),
-			);
-		}
-	});
+	.mapResponse(({ request, set, path }) =>
+		finalizeResponse(request, set, path),
+	);
 
 // ── Structured JSON errors ──────────────────────────────────────────
 // See services/api-errors.ts: normalizes unmatched routes, validation
 // failures, and unhandled throws to `{ error, code, hint }` JSON.
-app.onError(({ code, error, path, set }) => {
+app.onError(({ code, error, path, request, set }) => {
 	const { status, body } = structuredError(code, error, path);
 	set.status = status;
 	// 5xx (and any unrecognized code that lands on 5xx) must be logged
@@ -285,7 +299,10 @@ app.onError(({ code, error, path, set }) => {
 			}),
 		);
 	}
-	return body;
+	// A Response (see errorResponse) skips mapResponse, so apply its headers
+	// and log line here.
+	finalizeResponse(request, set, path);
+	return errorResponse(status, body, set.headers);
 });
 
 const { swagger } = await import("@elysiajs/swagger");
