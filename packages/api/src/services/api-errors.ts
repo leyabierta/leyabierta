@@ -92,3 +92,21 @@ export function structuredError(
 		}
 	}
 }
+
+/** The structured error as a Response. onError must return a Response, not
+ *  the plain object: with a mapResponse hook registered, Elysia 1.4 drops an
+ *  object returned from onError for NOT_FOUND and answers 404 with an empty
+ *  body. `headers` carries whatever the request already set (CORS, security
+ *  headers); the content type is always JSON. */
+export function errorResponse(
+	status: number,
+	body: StructuredError,
+	headers: Record<string, string | number | undefined>,
+): Response {
+	const out: Record<string, string> = {};
+	for (const [k, v] of Object.entries(headers)) {
+		if (v !== undefined) out[k] = String(v);
+	}
+	out["Content-Type"] = "application/json; charset=utf-8";
+	return new Response(JSON.stringify(body), { status, headers: out });
+}
