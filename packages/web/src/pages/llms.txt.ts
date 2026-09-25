@@ -55,6 +55,7 @@ Cómo llamarnos como agente:
 - [Cambios legislativos](https://leyabierta.es/cambios/): Cronología de reformas recientes con resúmenes
 - [Para mí](https://leyabierta.es/cambios/para-mi/): Cambios filtrados por tu situación (se guarda solo en tu navegador)
 - [Sobre Ley Abierta](https://leyabierta.es/sobre/): Misión, datos, metodología
+- [Desarrolladores](https://leyabierta.es/datos/): Portal de desarrolladores — API REST, repositorio Git, RSS, límites, licencia
 
 ## API REST
 - Especificación OpenAPI: [\`https://leyabierta.es/openapi.json\`](https://leyabierta.es/openapi.json) (también en \`https://api.leyabierta.es/openapi.json\`) — describe todos los endpoints, parámetros y esquemas de respuesta.
