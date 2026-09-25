@@ -196,10 +196,29 @@ export function askRoutes(
 				const decision = quotaDecisions.get(request);
 
 				const encoder = new TextEncoder();
+				// Set once the client disconnects (tab closed, fetch aborted): the
+				// ReadableStream's `cancel()` below fires, but any in-flight
+				// `controller.enqueue()` call already past that point throws
+				// "Invalid state: Controller is already closed" — a real error in
+				// the sense that the write failed, but not a pipeline failure, and
+				// not worth an error-level log line. `send()` checks this flag
+				// before every enqueue, and the catch block below only logs when
+				// this is still false.
+				let cancelled = false;
+				// Reference to the pipeline's async generator so `cancel()` can
+				// call `.return()` on it: that runs any `finally` blocks inside
+				// `askStream()` and stops the `for await` loop from pulling more
+				// events — and, more importantly, from spending more LLM
+				// calls/credit — after nobody is listening. The pipeline has no
+				// AbortSignal plumbing today, so this is the strongest signal we
+				// can give it.
+				let iterator: ReturnType<typeof pipeline.askStream> | undefined;
 				const stream = new ReadableStream<Uint8Array>({
 					async start(controller) {
-						const send = (chunk: string) =>
+						const send = (chunk: string) => {
+							if (cancelled) return;
 							controller.enqueue(encoder.encode(chunk));
+						};
 						try {
 							// Emit an immediate stage event so the response status + first
 							// byte reach Cloudflare well within its 100s origin-timeout
@@ -213,10 +232,12 @@ export function askRoutes(
 									`event: quota\ndata: ${JSON.stringify({ remainingToday: decision.remainingToday, limitPerDay: decision.limitPerDay })}\n\n`,
 								);
 							}
-							for await (const event of pipeline.askStream({
+							iterator = pipeline.askStream({
 								question: validated,
 								jurisdiction: body.jurisdiction,
-							})) {
+							});
+							for await (const event of iterator) {
+								if (cancelled) break;
 								if (event.type === "chunk") {
 									send(`event: chunk\ndata: ${JSON.stringify(event.text)}\n\n`);
 								} else if (event.type === "keepalive") {
@@ -241,13 +262,44 @@ export function askRoutes(
 								}
 							}
 						} catch (err) {
-							console.error("RAG stream error:", err);
-							send(
-								`event: error\ndata: ${JSON.stringify({ error: "Error procesando la pregunta." })}\n\n`,
-							);
+							// A disconnect (cancel() below) can itself surface here as a
+							// thrown error — e.g. controller.enqueue() on an
+							// already-closed controller if something raced `send()`'s
+							// `cancelled` check, or the pipeline's own generator throwing
+							// once `.return()` unwinds it. None of that is a pipeline
+							// failure; only log when the client is still actually there.
+							if (!cancelled) {
+								console.error("RAG stream error:", err);
+								send(
+									`event: error\ndata: ${JSON.stringify({ error: "Error procesando la pregunta." })}\n\n`,
+								);
+							}
 						} finally {
-							controller.close();
+							if (!cancelled) {
+								try {
+									controller.close();
+								} catch {
+									// Already closed (client disconnected between the last
+									// `cancelled` check and here) — nothing to do.
+								}
+							}
 						}
+					},
+					// Fires when the client disconnects (tab closed, fetch aborted,
+					// reader.cancel()) — the only place a ReadableStream is told to
+					// stop pulling. Without this, `askStream()` keeps running (and
+					// spending OpenRouter credit) for a consumer nobody is reading
+					// from, and every subsequent `controller.enqueue()` throws
+					// "Invalid state: Controller is already closed", which used to
+					// land in the `catch` above and log as if the pipeline had failed.
+					cancel() {
+						cancelled = true;
+						// Stop the pipeline's generator from pulling more events —
+						// runs its `finally` blocks and ends the `for await` loop on
+						// its next iteration (also guarded by the `cancelled` check
+						// inside the loop, in case `.return()` isn't honoured
+						// immediately by whatever the generator is awaiting).
+						iterator?.return?.(undefined);
 					},
 				});
 
@@ -295,6 +347,9 @@ export function askRoutes(
 					return { error: err instanceof Error ? err.message : String(err) };
 				}
 			},
-			{ body: askBody },
+			// Internal-only (requires the bypass key in production, see above) —
+			// hidden from the public OpenAPI doc rather than documented for
+			// third parties. Doesn't change who can call it.
+			{ body: askBody, detail: { hide: true } },
 		);
 }
