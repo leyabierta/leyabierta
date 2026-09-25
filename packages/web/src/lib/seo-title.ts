@@ -89,6 +89,29 @@ const RANK_ABBREVS: Record<string, string> = {
 const DEFAULT_RANK_ABBREV = "Norma";
 
 /**
+ * Ranks the DB `rango` doesn't distinguish (Navarra's "Ley Foral" is stored as
+ * `otro`, an autonomic "Decreto Legislativo" as `decreto`), read from the
+ * start of the title instead — "Norma 11/2019" told a reader nothing, and
+ * "D 1/2019" hid that it's a text with the force of law. Checked first, in
+ * order (longest first).
+ */
+const TITLE_RANK_ABBREVS: [RegExp, string][] = [
+	[/^decreto[- ]ley\s+foral\b/i, "DLF"],
+	[/^decreto\s+foral\s+legislativo\b/i, "DFLeg"],
+	[/^decreto\s+foral\b/i, "DF"],
+	[/^decreto\s+legislativo\b/i, "DLeg"],
+	[/^ley\s+foral\b/i, "LF"],
+];
+
+function rankAbbrev(rango: string, titulo: string): string {
+	const start = cleanText(titulo);
+	for (const [re, abbrev] of TITLE_RANK_ABBREVS) {
+		if (re.test(start)) return abbrev;
+	}
+	return RANK_ABBREVS[rango] ?? DEFAULT_RANK_ABBREV;
+}
+
+/**
  * Lowercased substrings that mean "this subject already names the
  * community" — checked before appending the jurisdiction to the
  * disambiguator (e.g. "Museos de Euskadi (L 7/2006)" doesn't need
@@ -98,7 +121,7 @@ const DEFAULT_RANK_ABBREV = "Norma";
  * purpose: a false match here only makes a title *less* explicit, and if it
  * ever caused a real collision, `check-seo-title-uniqueness.ts` catches it.
  */
-const JURISDICTION_NAME_ALIASES: Record<string, string[]> = {
+export const JURISDICTION_NAME_ALIASES: Record<string, string[]> = {
 	"es-an": ["andalucía"],
 	"es-ar": ["aragón"],
 	"es-as": ["asturias"],
@@ -200,15 +223,20 @@ const MONTH_NAME =
  * sentence), and only removing the first would leave the rest to eat into
  * the truncation budget — or, worse, read as the norm's own second date.
  */
+// Source typos are tolerated too: a missing "de" before the day or the
+// month ("Real Decreto 1084/1991, 5 de julio,", "Ley 13/2019, de 25
+// abril,") or the year ("de 27 de marzo 2020"), and an "(rectificado)" note
+// right after the date. Without that, the leading comma survived as the
+// first character of 13 titles (", 5 de julio, sobre Sociedades…").
 const DATE_CLAUSE = new RegExp(
-	`,?\\s*de\\s+\\d{1,2}\\s+de\\s+(?:${MONTH_NAME})(?:\\s+de\\s+\\d{4})?\\s*,?`,
+	`,?\\s*(?:de\\s+)?\\d{1,2}\\s+(?:de\\s+)?(?:${MONTH_NAME})(?:\\s+(?:de\\s+)?\\d{4})?(?:\\s*\\(rectificad[oa]\\))?\\s*,?`,
 	"gi",
 );
 
 /** A "DD de MES[ de AAAA]" phrase, for the corpus check's "no two dates left
  * in one title" assertion (a second match means `DATE_CLAUSE` missed one). */
 export const DATE_PHRASE = new RegExp(
-	`\\d{1,2}\\s+de\\s+(?:${MONTH_NAME})(?:\\s+de\\s+\\d{4})?`,
+	`\\d{1,2}\\s+(?:de\\s+)?(?:${MONTH_NAME})(?:\\s+(?:de\\s+)?\\d{4})?`,
 	"gi",
 );
 
@@ -258,9 +286,12 @@ const COMUNIDAD_AUTONOMA_ASIDE =
 const MINISTERIAL_CODE_PREFIX =
 	/^(?:Orden|Resoluci[oó]n|Circular|Instrucci[oó]n)\s+[A-ZÁÉÍÓÚÑ]{2,6}\/\d+\/\d{4}\s*/;
 
-/** The rank words BOE titles start with (same list `RANK_ABBREVS` covers). */
+/** The rank words BOE titles start with (same list `RANK_ABBREVS` covers).
+ * Compound ranks come first — alternation is tried left to right, and a bare
+ * "ley"/"decreto" match on "Ley Foral 11/2019…" left "Foral 11/2019 de la
+ * Administración…" as the subject (223 Navarra norms, #211 fourth review). */
 const RANK_WORDS =
-	"ley\\s+org[aá]nica|ley|real\\s+decreto\\s+legislativo|real\\s+decreto[- ]ley|real\\s+decreto|decreto[- ]ley|decreto|orden|resoluci[oó]n|instrucci[oó]n|reglamento|acuerdo|circular";
+	"ley\\s+foral|ley\\s+de\\s+cantabria|decreto[- ]ley\\s+foral|decreto\\s+foral\\s+legislativo|decreto\\s+foral|decreto\\s+legislativo|ley\\s+org[aá]nica|ley|real\\s+decreto\\s+legislativo|real\\s+decreto[- ]ley|real\\s+decreto|decreto[- ]ley|decreto|orden|resoluci[oó]n|instrucci[oó]n|reglamento|acuerdo|circular";
 
 /**
  * Strips JUST the bare leading rank word, with no attempt at the number or a
@@ -287,9 +318,12 @@ const RANK_WORD_ONLY = new RegExp(`^(?:${RANK_WORDS})\\s+`, "i");
 // down to the law's subject.
 const BOILERPLATE_PREFIXES = [
 	// "…por el que se aprueba/publica el texto refundido de la Ley [del/de la/sobre] X" → "X"
-	/^.*?\bpor\s+el\s+que\s+se\s+(?:aprueba|publica)\s+el\s+texto\s+refundido\s+de\s+la\s+ley\s+(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
+	// (the refunded law's own number, if any, goes too: "…de la Ley 9/1991
+	// reguladora del canon…" → "Reguladora del canon…"; "por el cual" is the
+	// Balearic/Catalan-translated variant of "por el que")
+	/^.*?\bpor\s+el\s+(?:que|cual)\s+se\s+(?:aprueba|publica)\s+el\s+texto\s+refundido\s+de\s+la\s+ley\s+(?:foral\s+)?(?:[\d./]+\s*,?\s*)?(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
 	// "…por el que se aprueba/publica el/la/los/las X" (regulations, not a "Ley") → "X"
-	/^.*?\bpor\s+el\s+que\s+se\s+(?:aprueban?|publican?)\s+(?:el|la|los|las)\s+/i,
+	/^.*?\bpor\s+el\s+(?:que|cual)\s+se\s+(?:aprueban?|publican?)\s+(?:el|la|los|las)\s+/i,
 	// The norm's own number (already at the start — `RANK_WORD_ONLY` ran
 	// first) + an optional [del/de la/sobre] connector → "X". Mandatory
 	// number, on purpose: this is what tells "Ley 27/2014 del Impuesto…"
@@ -311,9 +345,9 @@ const BOILERPLATE_PREFIXES = [
  * the same truncated head before this).
  */
 const CONTENT_INTRO_INLINE =
-	/,\s*(sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se)\s+(.+)$/is;
+	/,\s*(sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+(?:que|cual(?:es)?)\s+se)\s+(.+)$/is;
 const CONTENT_INTRO_LEADING =
-	/^(sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se)\s+(.+)$/is;
+	/^(sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+(?:que|cual(?:es)?)\s+se)\s+(.+)$/is;
 
 /**
  * A conjugated verb clause is a fine SUBJECT ("por la que se establece X")
@@ -486,6 +520,11 @@ export const VERB_NOMINALIZATION: Record<string, string | null> = {
  * (never the ungrammatical "de el Observatorio…" — Spanish always contracts
  * "de" + "el" to "del"). */
 function joinNominal(nominal: string, rest: string): string {
+	// "declara de interés general…" → "declaración de interés general…", not
+	// "declaración de de interés…" (7 titles, #211 fourth review).
+	if (/^de\s+/i.test(rest)) {
+		return `${nominal.replace(/\s+de$/i, "")} ${rest}`;
+	}
 	if (/^el\s+/i.test(rest)) {
 		return `${nominal.replace(/\s+de$/i, " del")} ${rest.replace(/^el\s+/i, "")}`;
 	}
@@ -669,8 +708,7 @@ export function lawAbbreviation(
 	const number = extractNumber(titulo);
 	if (!number) return id;
 
-	const abbrev = RANK_ABBREVS[rango] ?? DEFAULT_RANK_ABBREV;
-	const base = `${abbrev} ${number}`;
+	const base = `${rankAbbrev(rango, titulo)} ${number}`;
 	if (!jurisdiccion || jurisdiccion === "es") return base;
 	if (subjectNamesJurisdiction(subject, jurisdiccion)) return base;
 	const label = JURISDICTION_LABELS[jurisdiccion] ?? jurisdiccion;
@@ -738,6 +776,7 @@ export function heuristicSubject(titulo: string): string {
 	s = s
 		.replace(/\s+/g, " ")
 		.trim()
+		.replace(/^[.,;:]+\s*/, "")
 		.replace(/[.,;:]+$/, "");
 	if (s) s = s.charAt(0).toUpperCase() + s.slice(1);
 	return s || cleanText(titulo);
@@ -776,29 +815,40 @@ export function shortLawTitle(
 			: truncateSubject(subject, maxCore);
 	}
 
-	const disambig = lawAbbreviation(
-		law.rango,
-		law.titulo,
-		law.id,
-		subject,
-		law.jurisdiccion,
-	);
+	const fit = (namedIn: string) => {
+		const disambig = lawAbbreviation(
+			law.rango,
+			law.titulo,
+			law.id,
+			namedIn,
+			law.jurisdiccion,
+		);
+		const suffix = ` (${disambig})`;
+		const suffixLen = codePointLength(suffix);
+		if (suffixLen >= maxCore) {
+			// Pathological (unreachable with real ranks/numbers/jurisdiction
+			// names): even the bare disambiguator doesn't fit the budget. Still
+			// never drop it — the budget loses, not the disambiguator.
+			return { title: disambig, shortSubject: "" };
+		}
+		const budget = maxCore - suffixLen;
+		const shortSubject =
+			codePointLength(subject) <= budget
+				? subject
+				: truncateSubject(subject, budget);
+		return { title: `${shortSubject}${suffix}`, shortSubject };
+	};
 
-	const suffix = ` (${disambig})`;
-	const suffixLen = codePointLength(suffix);
-	if (suffixLen >= maxCore) {
-		// Pathological (unreachable with real ranks/numbers/jurisdiction names):
-		// even the bare disambiguator doesn't fit the budget. Still never drop
-		// it — the budget loses, not the disambiguator.
-		return disambig;
-	}
-
-	const budget = maxCore - suffixLen;
-	const shortSubject =
-		codePointLength(subject) <= budget
-			? subject
-			: truncateSubject(subject, budget);
-	return `${shortSubject}${suffix}`;
+	// The community may only be left out of the disambiguator when the reader
+	// can still SEE it: decided on the subject as displayed, after truncation.
+	// Deciding on the full subject lost it whenever the name sat past the cut
+	// ("…personas adultas de las Illes Balears" → "…personas adultas…
+	// (L 4/2006)", 799 autonomic norms, #211 fourth review). A second pass
+	// with the visible text adds the name; the subject then only gets
+	// shorter, so the community can't reappear in it.
+	const first = fit(subject);
+	if (first.shortSubject === subject) return first.title;
+	return fit(first.shortSubject).title;
 }
 
 /**

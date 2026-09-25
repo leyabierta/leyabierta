@@ -846,3 +846,97 @@ describe("seoLawPageTitle", () => {
 		expect(title).toContain("Región de Murcia");
 	});
 });
+
+describe("#211 fourth review fixes (real corpus titles)", () => {
+	test("the community is decided on the VISIBLE subject: named past the cut → added to the disambiguator", () => {
+		// BOE-A-2006-8354: "…personas adultas de las Illes Balears" is cut off.
+		expect(
+			seoLawPageTitle({
+				id: "BOE-A-2006-8354",
+				rango: "ley",
+				jurisdiccion: "es-ib",
+				titulo:
+					"Ley 4/2006, de 30 de marzo, de educación y formación permanentes de personas adultas de las Illes Balears",
+			}),
+		).toBe("Educación y formación permanentes… (L 4/2006, Illes Balears)");
+	});
+
+	test("the community stays out when it is still visible after the cut", () => {
+		expect(
+			seoLawPageTitle({
+				id: "BOE-A-2006-844",
+				rango: "otro",
+				jurisdiccion: "es-nc",
+				titulo:
+					"Ley Foral 17/2005, de 22 de diciembre, de Caza y Pesca de Navarra",
+			}),
+		).toBe("Caza y Pesca de Navarra (LF 17/2005) — Ley Abierta");
+	});
+
+	test("Navarra's 'Ley Foral' / 'Decreto Foral Legislativo': whole rank stripped, own abbreviation (not 'Foral 2/2013…' / 'Norma')", () => {
+		expect(
+			seoLawPageTitle({
+				id: "BOE-A-2013-2561",
+				rango: "otro",
+				jurisdiccion: "es-nc",
+				titulo:
+					"Ley Foral 2/2013, de 14 de febrero, sobre atención sanitaria, continuada y urgente",
+			}),
+		).toBe("Atención sanitaria, continuada y urgente (LF 2/2013, Navarra)");
+		expect(
+			seoLawPageTitle({
+				id: "BOE-A-2017-12907",
+				rango: "otro",
+				jurisdiccion: "es-nc",
+				titulo:
+					"Decreto Foral Legislativo 1/2017, de 26 de julio, por el que se aprueba el Texto Refundido de la Ley Foral de Ordenación del Territorio y Urbanismo",
+			}),
+		).toBe("Ordenación del Territorio y Urbanismo (DFLeg 1/2017, Navarra)");
+		expect(
+			lawAbbreviation(
+				"decreto",
+				"Decreto Legislativo 1/2019, de 13 de diciembre, del Consell",
+				"X",
+				"",
+				"es",
+			),
+		).toBe("DLeg 1/2019");
+		expect(
+			lawAbbreviation(
+				"otro",
+				"Decreto-ley Foral 1/2020, de 18 de marzo",
+				"X",
+				"",
+				"es",
+			),
+		).toBe("DLF 1/2020");
+	});
+
+	test("a verb that governs 'de' is not doubled: 'declaran de interés general' → 'Declaración de interés general'", () => {
+		expect(
+			heuristicSubject(
+				"Ley 2/1983, de 4 de octubre, por la que se declaran de interés general para la Comunidad Valenciana determinadas funciones",
+			),
+		).toBe(
+			"Declaración de interés general para la Comunidad Valenciana determinadas funciones",
+		);
+	});
+
+	test("date clauses with source typos never leave a leading comma", () => {
+		expect(
+			heuristicSubject(
+				"Real Decreto 1084/1991, 5 de julio, sobre Sociedades Anónimas Deportivas",
+			),
+		).toBe("Sociedades Anónimas Deportivas");
+		expect(
+			heuristicSubject(
+				"Ley 13/2019, de 25 abril, sobre los menores robados en la Comunidad Autónoma de Canarias",
+			),
+		).toBe("Menores robados en la Comunidad Autónoma de Canarias");
+		expect(
+			heuristicSubject(
+				"Real Decreto 1520/1982, de 18 de junio (rectificado), sobre ordenación y regulación de la actividad",
+			),
+		).toBe("Ordenación y regulación de la actividad");
+	});
+});

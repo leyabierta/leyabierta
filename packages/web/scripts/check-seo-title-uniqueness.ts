@@ -20,10 +20,12 @@
  * Exits 1 (and prints details) on any failure.
  */
 import { Database } from "bun:sqlite";
+import { JURISDICTION_LABELS } from "../src/lib/law-search.ts";
 import { codePointLength } from "../src/lib/meta-description.ts";
 import {
 	BARE_PREPOSITION_START,
 	DATE_PHRASE,
+	JURISDICTION_NAME_ALIASES,
 	seoLawPageTitle,
 	VERB_NOMINALIZATION,
 } from "../src/lib/seo-title.ts";
@@ -103,6 +105,27 @@ function subjectOf(title: string): string {
 
 const VERB_WORDS = new Set(Object.keys(VERB_NOMINALIZATION));
 
+// Glitches found in the #211 fourth review, each asserted corpus-wide:
+// punctuation left as the first character (a date clause with a source typo),
+// a doubled "de" from a nominalization, a compound rank word cut in half
+// ("Foral 11/2019…", "Legislativo 1/2019…"), and a numbered autonomic law
+// whose community can't be read anywhere in the visible <title>.
+const LEADING_PUNCT = /^[.,;:]/;
+const DOUBLE_DE = /\bde\s+de\b/i;
+const RANK_FRAGMENT_START = /^(?:Foral|Legislativo|Org[aá]nica)\s/;
+const NUMBERED_DISAMBIG = /\([^()]*\d+\/\d{4}[^()]*\)/;
+
+function communityVisible(title: string, jurisdiction: string): boolean {
+	if (!jurisdiction || jurisdiction === "es") return true;
+	if (!NUMBERED_DISAMBIG.test(title)) return true; // id disambiguator: unique by itself
+	const lower = title.toLowerCase();
+	const names = [
+		...(JURISDICTION_NAME_ALIASES[jurisdiction] ?? []),
+		(JURISDICTION_LABELS[jurisdiction] ?? "").toLowerCase(),
+	].filter(Boolean);
+	return names.some((name) => lower.includes(name));
+}
+
 function main() {
 	const { db: dbPath, samples } = parseArgs(process.argv.slice(2));
 	const db = new Database(dbPath, { readonly: true });
@@ -123,6 +146,8 @@ function main() {
 	const eliCodes: string[] = [];
 	const twoDates: string[] = [];
 	const badStarts: string[] = [];
+	const glitches: string[] = [];
+	const hiddenCommunity: string[] = [];
 	const firstWordCounts = new Map<string, number>();
 
 	for (const row of rows) {
@@ -146,6 +171,16 @@ function main() {
 			twoDates.push(`${row.id}: ${title}`);
 		}
 		if (title.includes("…")) ellipsisCount++;
+		if (
+			LEADING_PUNCT.test(title) ||
+			DOUBLE_DE.test(title) ||
+			RANK_FRAGMENT_START.test(title)
+		) {
+			glitches.push(`${row.id}: ${title}`);
+		}
+		if (!communityVisible(title, row.jurisdiction)) {
+			hiddenCommunity.push(`${row.id} (${row.jurisdiction}): ${title}`);
+		}
 
 		const subject = subjectOf(title);
 		const firstWord = subject
@@ -216,6 +251,16 @@ function main() {
 	);
 	for (const line of badStarts.slice(0, 30)) console.log(`  ${line}`);
 
+	console.log(
+		`\nGlitches (leading punctuation, "de de", half a rank word): ${glitches.length} titles`,
+	);
+	for (const line of glitches.slice(0, 20)) console.log(`  ${line}`);
+
+	console.log(
+		`\nNumbered autonomic laws with no visible community: ${hiddenCommunity.length} titles`,
+	);
+	for (const line of hiddenCommunity.slice(0, 20)) console.log(`  ${line}`);
+
 	const topFirstWords = [...firstWordCounts.entries()].sort(
 		(a, b) => b[1] - a[1],
 	);
@@ -269,9 +314,21 @@ function main() {
 		);
 		failed = true;
 	}
+	if (glitches.length > 0) {
+		console.error(
+			`\nFAIL: ${glitches.length} titles with leading punctuation, "de de" or half a rank word.`,
+		);
+		failed = true;
+	}
+	if (hiddenCommunity.length > 0) {
+		console.error(
+			`\nFAIL: ${hiddenCommunity.length} numbered autonomic titles don't show their community.`,
+		);
+		failed = true;
+	}
 	if (failed) process.exit(1);
 	console.log(
-		"\nOK: every <title> in the corpus is unique, no double parentheses, no raw ELI codes, no leftover double dates, no verb-first/fragment subjects.",
+		'\nOK: every <title> in the corpus is unique, no double parentheses, no raw ELI codes, no leftover double dates, no verb-first/fragment subjects, no punctuation/"de de"/half-rank glitches, every numbered autonomic title shows its community.',
 	);
 }
 
