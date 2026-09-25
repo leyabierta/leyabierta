@@ -16,6 +16,7 @@ import { lawRoutes, type SearchResponse } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
 import { reformRoutes } from "./routes/reforms.ts";
 import { statusRoutes } from "./routes/status.ts";
+import { structuredError } from "./services/api-errors.ts";
 import { AskQuota, askLimitsFromEnv } from "./services/ask-quota.ts";
 import { LruCache } from "./services/cache.ts";
 import { defaultCacheControl } from "./services/cache-control.ts";
@@ -216,6 +217,8 @@ const app = new Elysia()
 		set.headers["X-Frame-Options"] = "DENY";
 		set.headers["X-Robots-Tag"] = "noindex";
 		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+		// Discovery: point agents/tools at the OpenAPI spec from any response.
+		set.headers.Link = '</openapi.json>; rel="service-desc"';
 		// Cache read-only endpoints at Cloudflare edge; skip for health/alerts.
 		// Errors get a short TTL or no-store — see services/cache-control.ts.
 		if (!set.headers["Cache-Control"]) {
@@ -238,6 +241,15 @@ const app = new Elysia()
 		}
 	});
 
+// ── Structured JSON errors ──────────────────────────────────────────
+// See services/api-errors.ts: normalizes unmatched routes, validation
+// failures, and unhandled throws to `{ error, code, hint }` JSON.
+app.onError(({ code, error, path, set }) => {
+	const { status, body } = structuredError(code, error, path);
+	set.status = status;
+	return body;
+});
+
 const { swagger } = await import("@elysiajs/swagger");
 app.use(
 	swagger({
@@ -256,6 +268,12 @@ app.use(
 					url: "https://github.com/leyabierta/leyabierta/blob/main/LICENSE",
 				},
 			},
+			servers: [
+				{
+					url: "https://api.leyabierta.es",
+					description: "Producción",
+				},
+			],
 			tags: [
 				{
 					name: "Leyes",
@@ -359,6 +377,20 @@ app
 				tags: ["Sistema"],
 			},
 		},
+	)
+	// Alias for the swagger plugin's `/swagger/json` spec at the conventional
+	// `/openapi.json` path that agent-readiness scanners look for. Same
+	// document (routes, `servers`, etc.), just discoverable without knowing
+	// the swagger plugin's own path.
+	.get(
+		"/openapi.json",
+		async () => {
+			const res = await app.handle(
+				new Request("http://internal.leyabierta/swagger/json"),
+			);
+			return res.json();
+		},
+		{ detail: { hide: true } },
 	);
 
 // ── Vector index preload ─────────────────────────────────────────────
