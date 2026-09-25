@@ -169,7 +169,12 @@ async function openApiResponse(
 		);
 
 	// `caches` (the Cache API) only exists in the real Workers runtime.
-	const cache = typeof caches !== "undefined" ? caches.default : undefined;
+	// Cast: under `astro check` the DOM lib's CacheStorage (no `.default`)
+	// shadows @cloudflare/workers-types.
+	const cache =
+		typeof caches !== "undefined"
+			? (caches as unknown as { default: Cache }).default
+			: undefined;
 	// One cache entry shared by GET and HEAD, keyed independently of query
 	// string / method quirks in the inbound request.
 	const cacheKey = new Request("https://leyabierta.es/openapi.json");

@@ -69,7 +69,7 @@ describe("worker /openapi.json proxy", () => {
 		const res = await get("/openapi.json");
 		expect(res.status).toBe(200);
 		expect(res.headers.get("content-type")).toContain("application/json");
-		expect(await res.json()).toEqual(spec);
+		expect((await res.json()) as Record<string, unknown>).toEqual(spec);
 	});
 
 	test("HEAD returns the same status/headers with an empty body", async () => {
@@ -97,7 +97,11 @@ describe("worker /openapi.json proxy", () => {
 		const res = await get("/openapi.json");
 		expect(res.status).toBe(503);
 		expect(res.headers.get("content-type")).toContain("application/json");
-		const body = await res.json();
+		const body = (await res.json()) as {
+			code: string;
+			error: string;
+			hint: string;
+		};
 		expect(body.code).toBe("OPENAPI_UNAVAILABLE");
 		expect(typeof body.error).toBe("string");
 		expect(typeof body.hint).toBe("string");
@@ -109,7 +113,11 @@ describe("worker /openapi.json proxy", () => {
 
 		const res = await get("/openapi.json");
 		expect(res.status).toBe(503);
-		const body = await res.json();
+		const body = (await res.json()) as {
+			code: string;
+			error: string;
+			hint: string;
+		};
 		expect(body.code).toBe("OPENAPI_UNAVAILABLE");
 	});
 
@@ -157,7 +165,9 @@ describe("worker /openapi.json proxy", () => {
 
 		const res2 = await get("/openapi.json");
 		expect(res2.status).toBe(200);
-		expect(await res2.json()).toEqual({ openapi: "3.0.3" });
+		expect((await res2.json()) as Record<string, unknown>).toEqual({
+			openapi: "3.0.3",
+		});
 		// Second request served from the fake edge cache — no second upstream call.
 		expect(calls).toBe(1);
 	});
