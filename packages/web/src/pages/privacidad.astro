@@ -8,7 +8,7 @@ import Legal from "../layouts/Legal.astro";
 	canonicalUrl="/privacidad/"
 >
 		<h1>Política de privacidad</h1>
-		<p class="legal-updated">Última actualización: 23 de septiembre de 2026</p>
+		<p class="legal-updated">Última actualización: 24 de septiembre de 2026</p>
 
 		<h2 id="responsable">Responsable del tratamiento</h2>
 		<p>
@@ -44,30 +44,6 @@ import Legal from "../layouts/Legal.astro";
 					<td>Responder a tu pregunta y mejorar la calidad de las respuestas</td>
 					<td>Interés legítimo (art. 6.1.f RGPD)</td>
 					<td>90 días; después se borran automáticamente</td>
-				</tr>
-				<tr>
-					<td>Dirección de email</td>
-					<td>Envío de alertas cuando cambian las leyes de los temas que eliges</td>
-					<td>Consentimiento (art. 6.1.a RGPD)</td>
-					<td>Hasta que canceles la suscripción</td>
-				</tr>
-				<tr>
-					<td>Comunidad autónoma</td>
-					<td>Personalización de las alertas según tu territorio</td>
-					<td>Consentimiento (art. 6.1.a RGPD)</td>
-					<td>Hasta que canceles la suscripción</td>
-				</tr>
-				<tr>
-					<td>Temas o situaciones vitales seleccionadas</td>
-					<td>Personalización de las alertas según tu perfil (ej: "trabajo por cuenta ajena", "alquilo vivienda")</td>
-					<td>Consentimiento (art. 6.1.a RGPD)</td>
-					<td>Hasta que canceles la suscripción</td>
-				</tr>
-				<tr>
-					<td>Dirección IP y fecha de la suscripción</td>
-					<td>Prueba del consentimiento (doble opt-in)</td>
-					<td>Obligación legal de poder demostrar el consentimiento (art. 7.1 RGPD)</td>
-					<td>Mientras la suscripción esté activa</td>
 				</tr>
 				<tr>
 					<td>Dirección IP (solo en memoria)</td>
@@ -158,7 +134,7 @@ import Legal from "../layouts/Legal.astro";
 			</li>
 		</ol>
 		<p>
-			No asociamos tus preguntas a tu email, a tu dirección IP ni a ningún otro
+			No asociamos tus preguntas a tu dirección IP ni a ningún otro
 			identificador. La analítica del sitio solo registra datos como la longitud de la
 			pregunta o cuánto tardó la respuesta, nunca su texto.
 		</p>
@@ -174,36 +150,19 @@ import Legal from "../layouts/Legal.astro";
 			servicio o pidiéndonos que borremos una pregunta concreta.
 		</p>
 
-		<h2 id="alertas">Alertas legislativas</h2>
+		<h2 id="mis-cambios">«Mis cambios»: tus temas se quedan en tu navegador</h2>
 		<p>
-			Si te suscribes a las alertas, almacenamos tu dirección de email, tu comunidad
-			autónoma y los temas o situaciones vitales que selecciones, con la única finalidad
-			de avisarte por email cuando se publiquen cambios legislativos que te afectan.
+			En <a href="/mi-situacion/">Mi situación</a> puedes elegir tu comunidad autónoma y tus
+			temas para ver en <a href="/cambios/para-mi/">Mis cambios</a> solo lo que te afecta.
+			Esa elección se guarda <strong>únicamente en tu navegador</strong> (almacenamiento
+			local) y puedes borrarla cuando quieras borrando los datos del sitio. Para mostrarte
+			los cambios, tu navegador pide a nuestra API las reformas de esos temas y esa
+			comunidad, sin ningún dato que te identifique; no guardamos esas peticiones.
 		</p>
-
-		<h3>Consentimiento y doble opt-in</h3>
 		<p>
-			Utilizamos un proceso de <strong>doble opt-in</strong> para verificar tu consentimiento:
-			al suscribirte, recibirás un email de confirmación que debes aceptar antes de que
-			se active tu suscripción. Este mecanismo garantiza que eres el titular del email
-			y que consientes expresamente el tratamiento de tus datos.
-		</p>
-
-		<h3>Conservación de datos</h3>
-		<p>
-			Tus datos se conservan mientras mantengas tu suscripción activa. Puedes darte de
-			baja en cualquier momento desde el enlace incluido en cada email o desde la página
-			de <a href="/alertas/cancelar">cancelación</a>. Al cancelar, tus datos se eliminan
-			de forma inmediata.
-		</p>
-
-		<h3>Envío de emails: Resend</h3>
-		<p>
-			Para el envío de emails utilizamos <strong><a href="https://resend.com" target="_blank" rel="noopener">Resend</a></strong>
-			como encargado de tratamiento. Resend, Inc. es una empresa con sede en Estados Unidos
-			que procesa los emails en nuestro nombre. La transferencia de datos se realiza bajo
-			cláusulas contractuales tipo aprobadas por la Comisión Europea. Además de en Resend,
-			tus preferencias de suscripción se guardan en nuestro servidor en Alemania.
+			No enviamos correos ni pedimos tu email. Si quieres enterarte de los cambios sin
+			entrar en la web, puedes usar nuestro <a href="/feed.xml">canal RSS</a> o el canal
+			de cambios de cada ley (en su ficha) con cualquier lector de noticias.
 		</p>
 
 		<h2 id="analitica">Analítica</h2>
@@ -276,12 +235,6 @@ import Legal from "../layouts/Legal.astro";
 					<td>Texto de la pregunta o de la búsqueda, y artículos de ley; con retención cero</td>
 					<td>Actualmente: Google (modelo Gemini, EE. UU. / UE), Microsoft (servicio Azure, modelo GPT de OpenAI, EE. UU. / UE), DeepInfra (EE. UU.) y Nebius (Países Bajos)</td>
 				</tr>
-				<tr>
-					<td>Resend, Inc.</td>
-					<td>Envío de las alertas por email</td>
-					<td>Email, preferencias de suscripción, IP y fecha del consentimiento</td>
-					<td>EE. UU.</td>
-				</tr>
 			</tbody>
 		</table>
 		</div>
@@ -317,10 +270,6 @@ import Legal from "../layouts/Legal.astro";
 				<strong>Microsoft</strong> (Azure, proveedor del modelo GPT de OpenAI):
 				certificación en el Marco de Privacidad de Datos UE-EE. UU. y cláusulas
 				contractuales tipo.
-			</li>
-			<li>
-				<strong>Resend:</strong> cláusulas contractuales tipo aprobadas por la Comisión
-				Europea (art. 46.2.c RGPD).
 			</li>
 		</ul>
 

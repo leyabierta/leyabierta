@@ -1,6 +1,6 @@
 /**
  * Copy the tables that cannot be rebuilt from the JSON cache / leyes repo into
- * a standalone SQLite file: AI-generated content (paid for) and subscriptions.
+ * a standalone SQLite file: the AI-generated content (paid for).
  *
  * Everything else in leyabierta.db is derived (`bun run ingest`), and
  * embeddings are too large for a daily copy (vectors-int8.bin is the int8
@@ -21,10 +21,6 @@ export const BACKUP_TABLES = [
 	"citizen_tags",
 	"omnibus_topics",
 	"digests",
-	"subscriptions",
-	"subscribers",
-	"norm_follows",
-	"notified_reforms",
 ] as const;
 
 export function backupGeneratedContent(

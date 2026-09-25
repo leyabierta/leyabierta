@@ -36,8 +36,7 @@ describe("defaultCacheControl", () => {
 		expect(defaultCacheControl("/v1/laws", "Totally Made Up")).toBe(NO_STORE);
 	});
 
-	test("skips alerts and health", () => {
-		expect(defaultCacheControl("/v1/alerts/subscribe", 200)).toBeUndefined();
+	test("skips health", () => {
 		expect(defaultCacheControl("/health", 200)).toBeUndefined();
 	});
 

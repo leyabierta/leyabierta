@@ -43,7 +43,6 @@ export const SECONDARY_PAGES: SitemapEntry[] = [
 	{ path: "/sobre/contribuir/", changefreq: "monthly", priority: "0.4" },
 	{ path: "/sobre/apoyar/", changefreq: "monthly", priority: "0.4" },
 	{ path: "/sobre/api/", changefreq: "monthly", priority: "0.4" },
-	{ path: "/alertas/", changefreq: "monthly", priority: "0.5" },
 	{ path: "/mi-situacion/", changefreq: "monthly", priority: "0.5" },
 	{ path: "/privacidad/", changefreq: "yearly", priority: "0.2" },
 	{ path: "/cookies/", changefreq: "yearly", priority: "0.2" },
@@ -64,12 +63,5 @@ export const SITEMAP_EXCLUDED = new Map<string, string>([
 	[
 		"/cambios/reforma/",
 		"bare shell carries noindex; real reform URLs live in sitemap-reformas.xml",
-	],
-	["/alertas/gestionar/", "transactional, reached with a one-time token"],
-	["/alertas/confirmar/", "transactional, reached with a one-time token"],
-	["/alertas/cancelar/", "transactional, reached with a one-time token"],
-	[
-		"/alertas/seguir/confirmar/",
-		"transactional, reached with a one-time token",
 	],
 ]);

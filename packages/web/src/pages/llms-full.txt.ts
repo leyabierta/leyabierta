@@ -102,8 +102,7 @@ ${rankLines}
 ## Páginas principales
 - [Inicio](https://leyabierta.es/): Buscador de leyes, estadísticas, últimas reformas
 - [Cambios legislativos](https://leyabierta.es/cambios/): Cronología de reformas recientes con resúmenes
-- [Para mí](https://leyabierta.es/cambios/para-mi/): Cambios filtrados por tu situación, opt-in a email
-- [Alertas](https://leyabierta.es/alertas/): Suscripción a notificaciones por temas y jurisdicción
+- [Para mí](https://leyabierta.es/cambios/para-mi/): Cambios filtrados por tu situación (se guarda solo en tu navegador)
 - [Sobre Ley Abierta](https://leyabierta.es/sobre/): Misión, datos, metodología
 
 ## API REST — Referencia completa
