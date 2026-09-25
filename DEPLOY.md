@@ -39,9 +39,11 @@ Los checks (`pr-checks.yml`, CodeQL, revisión automática) se disparan por `pul
 |------------|---------------|
 | `push` a `main` | al mergear cualquier PR a main |
 | `workflow_dispatch` | despliegue manual desde la pestaña Actions |
-| `repository_dispatch: leyes-updated` | **lo lanza el repo `leyes`** cada vez que el pipeline diario publica leyes nuevas |
+| `repository_dispatch: pipeline-finished` | **lo lanza `scripts/daily-pipeline.sh`** en KonarServer, al final del pipeline diario (tras ingest, ingest-analisis, los pasos de IA y el checkpoint de WAL) |
 
 La tercera es la que sorprende: **una vez que algo está en `main`, se desplegará en el siguiente ciclo diario aunque nadie toque el repo de código.** El flujo con `staging` da control sobre *cuándo entra algo en main*, no sobre si se despliega después — eso es automático.
+
+`pipeline-finished` se dispara al **final** del pipeline diario, no al principio: hasta el 2026-09-25 el disparo era `leyes-updated`, lanzado por el repo `leyes` en el instante en que se le hacía `push` (paso 1.5 de `daily-pipeline.sh`), ~20-30 minutos antes de que terminaran el ingest y los pasos de IA. El despliegue diario servía entonces contenido de **ayer** (leyes nuevas, resúmenes de reformas y de artículos), y el contenido de hoy no aparecía hasta el despliegue del día siguiente. `deploy.yml` ya no escucha `leyes-updated`; `leyes-rebuild-backstop.yml` es la red de seguridad si `pipeline-finished` nunca llega (el pipeline muere a mitad de camino, falta el token, etc.) — espera un margen (`GRACE_MINUTES`, por defecto 90 min) desde el último `push` a `leyes` antes de desplegar igualmente, para no adelantarse al pipeline diario en marcha.
 
 ### Mantener staging sana
 
@@ -101,7 +103,7 @@ El servidor de producción detecta automáticamente la nueva imagen y se actuali
 
 **Limitación:** el modo incremental (Lun-Sáb) solo detecta normas **nuevas**, no actualizaciones a normas existentes. Una reforma publicada un martes no se verá hasta el full sync del domingo.
 
-**Secrets:** `LEYES_PUSH_TOKEN` (PAT con write access a `leyabierta/leyes`)
+**Secrets:** `LEYES_PUSH_TOKEN` (PAT con write access a `leyabierta/leyes`), `LEYABIERTA_DISPATCH_TOKEN` (PAT usado para lanzar el `repository_dispatch: pipeline-finished` que dispara el despliegue web al terminar el pipeline — el mismo PAT que usa `leyes-rebuild-backstop.yml`)
 
 ## Costes
 

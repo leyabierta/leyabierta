@@ -22,10 +22,26 @@ on:
         required: false
         default: false
         type: boolean
-  # Fired by leyabierta/leyes on push to main (notify-leyabierta.yml)
-  # so the static site rebuilds whenever new laws are published.
+  # Fired by scripts/daily-pipeline.sh on KonarServer (Step 9.6) once ingest,
+  # ingest-analisis, the AI enrichment steps and the WAL checkpoint have all
+  # finished for the day — i.e. once the DB the API serves (and the leyes repo
+  # itself) actually holds today's content. leyes-rebuild-backstop.yml fires
+  # the same event type as a crash-recovery fallback if that step never runs.
+  #
+  # `leyes-updated` USED to be listed here too: the separate `leyes` repo's own
+  # workflow (notify-leyabierta.yml) dispatches it the instant `leyes` is
+  # pushed to main, which happens in Step 1.5 of daily-pipeline.sh — 20-30
+  # minutes before ingest/AI finish. Listening for it meant every daily deploy
+  # shipped a build that was missing that day's new laws and AI summaries
+  # (they only showed up on the FOLLOWING day's deploy). Removing it from
+  # `types` is what stops that: GitHub simply does not invoke this workflow
+  # for an event type it isn't listed, so `leyes-updated` dispatches from the
+  # `leyes` repo are now a harmless no-op here. See docs/ (private) and the PR
+  # that introduced `pipeline-finished` for the companion change needed in
+  # `leyabierta/leyes`'s notify-leyabierta.yml (safe to leave as-is, or point
+  # it at `pipeline-finished`/drop it — either way nothing here reacts to it).
   repository_dispatch:
-    types: [leyes-updated]
+    types: [pipeline-finished]
 
 permissions:
   contents: read
@@ -56,7 +72,7 @@ jobs:
         run: |
           TARGETS="${{ github.event.inputs.targets || '' }}"
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            # leyes-updated only changes content, never API code
+            # pipeline-finished only changes content, never API code
             echo "deploy=false" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ] || echo "$TARGETS" | grep -q "api"; then
@@ -82,8 +98,9 @@ jobs:
         run: |
           TARGETS="${{ github.event.inputs.targets || '' }}"
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            # leyes-updated → always rebuild web to pick up new laws
-            echo "Web rebuild triggered by leyes update"
+            # pipeline-finished → always rebuild web to pick up the day's
+            # new laws + AI content (fired after ingest/AI/WAL checkpoint)
+            echo "Web rebuild triggered by pipeline-finished"
             echo "deploy=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "$TARGETS" = "all" ] || [ -z "$TARGETS" ] || echo "$TARGETS" | grep -q "web"; then
@@ -564,7 +581,7 @@ jobs:
           fi
 
           # Guard: never move prod backwards. Concurrent runs (a push and a
-          # leyes-updated repository_dispatch can both be in flight) would
+          # pipeline-finished repository_dispatch can both be in flight) would
           # otherwise be able to rewind the server to an older tree.
           CURRENT=$(git ls-remote origin refs/tags/prod | head -1 | cut -f1)
           if [ -n "$CURRENT" ] \

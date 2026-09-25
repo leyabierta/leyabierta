@@ -2,16 +2,32 @@ name: Leyes rebuild backstop
 
 # Safety net for the leyes → web pipeline.
 #
-# Primary path: when `leyabierta/leyes` is pushed, its `notify-leyabierta.yml`
-# workflow fires a `repository_dispatch` event that triggers `deploy.yml` to
-# rebuild the web. That covers the happy path with ~1-2 min latency.
+# Primary path: scripts/daily-pipeline.sh on KonarServer fires a
+# `pipeline-finished` repository_dispatch (Step 9.6) once ingest,
+# ingest-analisis, the AI enrichment steps and the WAL checkpoint have all
+# finished — i.e. once the DB the API serves, and the `leyes` repo pushed
+# earlier in Step 1.5, both hold the day's content. That triggers deploy.yml.
 #
-# This workflow is the backstop in case the dispatch is dropped (GitHub Actions
-# degradation, expired PAT, workflow disabled, etc.). Every 30 minutes it:
-#   1. Reads the current HEAD SHA of `leyabierta/leyes` main.
-#   2. Compares it to the last-built SHA stored in actions/cache.
-#   3. If different → fires `repository_dispatch` to deploy.yml (same code path
-#      as the primary trigger) and refreshes the cache with the new SHA.
+# This workflow is the backstop in case that dispatch is dropped (the pipeline
+# died before Step 9.6, LEYABIERTA_DISPATCH_TOKEN missing on the server, GitHub
+# Actions degradation, etc.). Every 30 minutes it:
+#   1. Reads the current HEAD SHA (and commit date) of `leyabierta/leyes` main.
+#   2. Compares the SHA to the last-built SHA stored in actions/cache.
+#   3. If different AND the commit is older than GRACE_MINUTES → fires
+#      `repository_dispatch` (type `pipeline-finished`, same code path as the
+#      primary trigger) and refreshes the cache with the new SHA.
+#
+# Why the grace period: `leyes` is pushed by Step 1.5 of daily-pipeline.sh
+# well before ingest/AI finish (~20-30 min later) and before Step 9.6 fires
+# the real signal. Without a grace period, this workflow's very next 30-min
+# tick after that push would see "drift" and fire a premature deploy itself —
+# exactly the bug this whole change exists to fix, just moved into the
+# backstop. Skipping drift younger than GRACE_MINUTES gives the normal daily
+# run room to finish and dispatch on its own; the marker is deliberately left
+# untouched while skipped so the check repeats on the next tick. Once a drift
+# is older than GRACE_MINUTES (pipeline crashed, hung, or never ran), this
+# workflow dispatches anyway so the site is never stuck more than one grace
+# period plus one 30-min tick behind a `leyes` push.
 #
 # The marker is ALSO written by deploy.yml's deploy-web job ("Sync backstop
 # cache marker") on every successful web deploy, whatever triggered it.
@@ -47,9 +63,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SHA=$(gh api repos/leyabierta/leyes/commits/main --jq '.sha')
+          INFO=$(gh api repos/leyabierta/leyes/commits/main --jq '{sha: .sha, date: .commit.committer.date}')
+          SHA=$(echo "$INFO" | jq -r '.sha')
+          COMMIT_DATE=$(echo "$INFO" | jq -r '.date')
+          AGE_MINUTES=$(( ( $(date -u +%s) - $(date -u -d "$COMMIT_DATE" +%s) ) / 60 ))
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Remote leyes HEAD: $SHA"
+          echo "age_minutes=$AGE_MINUTES" >> "$GITHUB_OUTPUT"
+          echo "Remote leyes HEAD: $SHA (commit date $COMMIT_DATE, age ${AGE_MINUTES}m)"
 
       - name: Restore last built SHA
         id: cache-restore
@@ -99,11 +119,22 @@ jobs:
           # IMPORTANT: dispatch must use a PAT, NOT GITHUB_TOKEN. GitHub
           # explicitly suppresses workflow-triggering events fired by the
           # default GITHUB_TOKEN to prevent accidental loops — the dispatch
-          # API call returns 204 (success) but deploy.yml never runs. Use
-          # the same PAT that notify-leyabierta.yml uses on the leyes side.
+          # API call returns 204 (success) but deploy.yml never runs. This is
+          # the same PAT scripts/daily-pipeline.sh uses on KonarServer for its
+          # own pipeline-finished dispatch (as LEYABIERTA_DISPATCH_TOKEN in
+          # .env.prod there) — one token, two places it's configured.
           GH_TOKEN: ${{ secrets.LEYABIERTA_DISPATCH_TOKEN }}
           REMOTE_SHA: ${{ steps.remote.outputs.sha }}
+          AGE_MINUTES: ${{ steps.remote.outputs.age_minutes }}
           DEPLOY_BUSY: ${{ steps.inflight.outputs.busy }}
+          # How long a `leyes` push is given to be followed by the daily
+          # pipeline's own pipeline-finished dispatch before this backstop
+          # treats it as "the pipeline is never finishing" and deploys anyway.
+          # Observed pipeline runtime (push → WAL checkpoint) is ~25-30 min;
+          # this leaves generous headroom for a slow AI-step retry without
+          # letting a genuinely dead run block the site indefinitely (worst
+          # case: GRACE_MINUTES + one more 30-min tick).
+          GRACE_MINUTES: ${{ vars.LEYES_BACKSTOP_GRACE_MINUTES || '90' }}
         run: |
           set -euo pipefail
 
@@ -125,9 +156,15 @@ jobs:
             exit 0
           fi
 
-          echo "⚠ drift detected — firing repository_dispatch"
+          if [ "$AGE_MINUTES" -lt "$GRACE_MINUTES" ]; then
+            echo "⏳ drift detected but leyes HEAD is only ${AGE_MINUTES}m old (grace=${GRACE_MINUTES}m) — the daily pipeline is likely still running; standing down, re-checking in 30 min"
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "⚠ drift detected and leyes HEAD is ${AGE_MINUTES}m old (grace=${GRACE_MINUTES}m exceeded) — firing repository_dispatch as a fallback"
           gh api -X POST "repos/${{ github.repository }}/dispatches" \
-            -f event_type=leyes-updated \
+            -f event_type=pipeline-finished \
             -f "client_payload[source]=backstop" \
             -f "client_payload[remote_sha]=$REMOTE_SHA" \
             -f "client_payload[previous_sha]=${LAST_SHA:-none}"

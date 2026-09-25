@@ -200,7 +200,14 @@ if [ -r "$ENV_FILE" ]; then
   LEYES_PUSH_TOKEN=$(grep -E '^LEYES_PUSH_TOKEN=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
   BETTERSTACK_HEARTBEAT_URL=$(grep -E '^BETTERSTACK_HEARTBEAT_URL=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
   ALERT_WEBHOOK_URL=$(grep -E '^ALERT_WEBHOOK_URL=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
-  export LEYES_PUSH_TOKEN BETTERSTACK_HEARTBEAT_URL ALERT_WEBHOOK_URL
+  # PAT used to fire the `pipeline-finished` repository_dispatch below (Step
+  # 9.6). Same token value as the `LEYABIERTA_DISPATCH_TOKEN` GitHub Actions
+  # secret used by leyes-rebuild-backstop.yml to dispatch to this repo — it
+  # already has the scope needed to trigger a repository_dispatch against
+  # leyabierta/leyabierta, so the operator can copy the same value into
+  # .env.prod instead of minting a new PAT. Never checked into this repo.
+  LEYABIERTA_DISPATCH_TOKEN=$(grep -E '^LEYABIERTA_DISPATCH_TOKEN=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
+  export LEYES_PUSH_TOKEN BETTERSTACK_HEARTBEAT_URL ALERT_WEBHOOK_URL LEYABIERTA_DISPATCH_TOKEN
 fi
 
 log "=== Daily pipeline started ==="
@@ -493,6 +500,55 @@ if [ "$checkpoint_status" -ne 0 ]; then
   log "  ⚠ WAL checkpoint returned $checkpoint_status (non-fatal)"
 else
   log "  ✓ WAL checkpoint done"
+fi
+
+# ── Step 9.6: Dispatch pipeline-finished — trigger the web deploy ──────────
+# Everything the web build reads (build manifests served by the API from
+# leyabierta.db, and the leyes repo pushed in Step 1.5/9) is now in its final
+# state for today: ingest, ingest-analisis, the AI steps and the WAL
+# checkpoint have all run. This is the signal deploy.yml waits for.
+#
+# Before this step existed, `leyes-updated` — dispatched by the separate
+# `leyes` repo's own workflow the instant Step 1.5 pushed — fired the web
+# build immediately (~06:31), roughly 25 minutes before ingest/AI finished
+# (~06:57). Every daily deploy shipped yesterday's DB content: new laws,
+# reform summaries and article summaries only appeared on the NEXT day's
+# deploy. deploy.yml no longer listens for `leyes-updated`; this dispatch is
+# now the only path that fires an automatic daily deploy (see deploy.yml and
+# leyes-rebuild-backstop.yml, the latter being the crash-recovery fallback if
+# this step never runs).
+#
+# Unconditional and non-fatal on purpose, same reasoning as the heartbeat
+# below: Steps 3b-6 (AI) are gap-filling and allowed to fail (see run_ai_step
+# above) — the web must still deploy with whatever content exists today, not
+# get stuck a day behind because one OpenRouter call errored. A missing/empty
+# LEYABIERTA_DISPATCH_TOKEN alerts loudly instead of silently no-op'ing,
+# because without it NOTHING triggers the daily deploy except the 30-minute
+# backstop (which itself now waits out a grace period — see
+# leyes-rebuild-backstop.yml), so a hole here is a real ~1-2h regression, not
+# a cosmetic one.
+log "→ Step 9.6: Dispatch pipeline-finished (trigger web deploy)"
+if [ -z "${LEYABIERTA_DISPATCH_TOKEN:-}" ]; then
+  log "  ✗ LEYABIERTA_DISPATCH_TOKEN not set in $ENV_FILE — cannot dispatch; the 30-min backstop will eventually deploy"
+  send_alert "leyabierta pipeline-finished dispatch skipped" "LEYABIERTA_DISPATCH_TOKEN not set in $ENV_FILE — daily deploy depends entirely on the backstop now"
+else
+  set +e
+  dispatch_body=$(python3 -c 'import json,sys; print(json.dumps({"event_type":"pipeline-finished","client_payload":{"source":"daily-pipeline","pipeline_sha":sys.argv[1]}}))' "$PIPELINE_SHA" 2>/dev/null) \
+    || dispatch_body='{"event_type":"pipeline-finished","client_payload":{"source":"daily-pipeline"}}'
+  dispatch_http_code=$(curl -fsS --max-time 15 -o /dev/null -w '%{http_code}' \
+    -X POST "https://api.github.com/repos/leyabierta/leyabierta/dispatches" \
+    -H "Authorization: Bearer ${LEYABIERTA_DISPATCH_TOKEN}" \
+    -H "Accept: application/vnd.github+json" \
+    -H "Content-Type: application/json" \
+    -d "$dispatch_body")
+  dispatch_status=$?
+  set -e
+  if [ "$dispatch_status" -ne 0 ] || [ "$dispatch_http_code" != "204" ]; then
+    log "  ✗ pipeline-finished dispatch failed (curl exit=$dispatch_status http=$dispatch_http_code) — the 30-min backstop will eventually deploy"
+    send_alert "leyabierta pipeline-finished dispatch failed" "curl exit=$dispatch_status http=$dispatch_http_code — daily deploy will wait for the backstop's grace period"
+  else
+    log "  ✓ pipeline-finished dispatched"
+  fi
 fi
 
 # ── Step 10: Rebuild the vector search index if new embeddings were added ────
