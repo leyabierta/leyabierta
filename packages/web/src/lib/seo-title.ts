@@ -244,6 +244,31 @@ const COMUNIDAD_AUTONOMA_ASIDE =
 const MINISTERIAL_CODE_PREFIX =
 	/^(?:Orden|Resoluci[oó]n|Circular|Instrucci[oó]n)\s+[A-ZÁÉÍÓÚÑ]{2,6}\/\d+\/\d{4}\s*/;
 
+/** The rank words BOE titles start with (same list `RANK_ABBREVS` covers). */
+const RANK_WORDS =
+	"ley\\s+org[aá]nica|ley|real\\s+decreto\\s+legislativo|real\\s+decreto[- ]ley|real\\s+decreto|decreto[- ]ley|decreto|orden|resoluci[oó]n|instrucci[oó]n|reglamento|acuerdo|circular";
+
+/**
+ * Strips JUST the bare leading rank word, with no attempt at the number or a
+ * following connector — those are handled separately (see
+ * `BOILERPLATE_PREFIXES`'s number+connector entry below) precisely because
+ * they mean different things depending on whether a number follows. Always
+ * applied, whether or not the title has its own number: for a numbered
+ * title ("Ley 27/2014 del Impuesto…" → "27/2014 del Impuesto…") the number
+ * stage below immediately continues the strip; for a numberless one issued
+ * by an office ("Resolución de la Dirección General de X, sobre Y" → "de la
+ * Dirección General de X, sobre Y") it deliberately does NOT also eat the
+ * "de la" that follows — that's the issuing body, not the subject, and
+ * `CONTENT_INTRO`'s comma-anchored match reaches the real content ("Y")
+ * instead. Folding this into a single "rank + optional number + optional
+ * connector" pattern (an earlier version of this fix) got that wrong: for
+ * numberless resoluciones/órdenes it greedily swallowed "de la <issuing
+ * body>" as if it were the connector into the subject, and the truncated
+ * head went back to being the issuing body instead of the content (#211
+ * second review).
+ */
+const RANK_WORD_ONLY = new RegExp(`^(?:${RANK_WORDS})\\s+`, "i");
+
 // Applied in order — first match wins. Each strips a BOE boilerplate prefix
 // down to the law's subject.
 const BOILERPLATE_PREFIXES = [
@@ -251,13 +276,13 @@ const BOILERPLATE_PREFIXES = [
 	/^.*?\bpor\s+el\s+que\s+se\s+(?:aprueba|publica)\s+el\s+texto\s+refundido\s+de\s+la\s+ley\s+(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
 	// "…por el que se aprueba/publica el/la/los/las X" (regulations, not a "Ley") → "X"
 	/^.*?\bpor\s+el\s+que\s+se\s+(?:aprueban?|publican?)\s+(?:el|la|los|las)\s+/i,
-	// Direct "Ley/Real Decreto/… [N/AAAA] [del/de la/sobre] X" → "X". The
-	// number is optional: pre-2000 titles are often dated, not numbered
-	// ("Orden de 18 de junio de 1998 por la que se…" → after DATE_CLAUSE
-	// strips the date, just "Orden por la que se…" is left) — still worth
-	// dropping the bare rank word so LEADING_FILLER can reach the "por la
-	// que se…" clause after it (#211 second review).
-	/^(?:ley\s+org[aá]nica|ley|real\s+decreto\s+legislativo|real\s+decreto[- ]ley|real\s+decreto|decreto[- ]ley|decreto|orden|resoluci[oó]n|instrucci[oó]n|reglamento|acuerdo|circular)\s+(?:[\d./]+\s*)?(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
+	// The norm's own number (already at the start — `RANK_WORD_ONLY` ran
+	// first) + an optional [del/de la/sobre] connector → "X". Mandatory
+	// number, on purpose: this is what tells "Ley 27/2014 del Impuesto…"
+	// (connector introduces the subject) apart from "de la Dirección
+	// General…" on a numberless resolución (connector introduces the
+	// issuing body, left to `CONTENT_INTRO` — see `RANK_WORD_ONLY`).
+	/^[\d./]+\s*(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/,
 ];
 
 /**
@@ -403,7 +428,8 @@ export function heuristicSubject(titulo: string): string {
 	let s = normalizeSlashSpacing(cleanText(titulo))
 		.replace(DATE_CLAUSE, " ")
 		.replace(/\s*\([^()]*\)/g, " ")
-		.replace(MINISTERIAL_CODE_PREFIX, "");
+		.replace(MINISTERIAL_CODE_PREFIX, "")
+		.replace(RANK_WORD_ONLY, "");
 	for (const re of TRAILING_BOILERPLATE) s = s.replace(re, "");
 
 	const traspaso = s.match(TRASPASO);
