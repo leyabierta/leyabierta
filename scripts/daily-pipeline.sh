@@ -358,24 +358,23 @@ RESTORE_FLAG="$REPO_DIR/scripts/ad-hoc/restore-regressed-texts.enabled"
 RESTORE_TIMEOUT=${RESTORE_TIMEOUT:-1800}
 if [ -f "$RESTORE_FLAG" ]; then
   log "→ Step 0.5: Restore regressed law texts (flag present)"
-  set +e
-  leyes_dirty=$(docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" status --porcelain --untracked-files=no 2>&1)
-  dirty_status=$?
-  set -e
+  # `cmd || status=$?` everywhere below, never `set +e`: `set +e` does not
+  # stop the ERR trap (on_error), which would abort the run.
+  dirty_status=0
+  leyes_dirty=$(docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" status --porcelain --untracked-files=no 2>&1) || dirty_status=$?
   if [ "$dirty_status" -ne 0 ] || [ -n "$leyes_dirty" ]; then
     log "  ⚠ leyes tree not clean (or git status failed) — skipping Step 0.5: $(scrub "$leyes_dirty")"
     send_alert "leyabierta restore-regressed-texts skipped" "leyes working tree not clean before Step 0.5: $(scrub "$leyes_dirty")"
   else
-    set +e
     # scripts/ is not in the image; copy it next to packages/ (the script uses
     # relative imports). `/.` copies the contents even if /app/scripts exists.
-    docker cp "$REPO_DIR/scripts/." "$CONTAINER:/app/scripts" >> "$LOG" 2>&1 \
+    restore_status=0
+    { docker cp "$REPO_DIR/scripts/." "$CONTAINER:/app/scripts" >> "$LOG" 2>&1 \
       && docker exec "$CONTAINER" timeout "$RESTORE_TIMEOUT" \
            bun run scripts/ad-hoc/restore-regressed-texts.ts \
            --repo "$LEYES_DIR_CONTAINER" \
-           --only scripts/ad-hoc/restore-regressed-texts.enabled --apply >> "$LOG" 2>&1
-    restore_status=$?
-    set -e
+           --only scripts/ad-hoc/restore-regressed-texts.enabled --apply >> "$LOG" 2>&1; } \
+      || restore_status=$?
     if [ "$restore_status" -ne 0 ]; then
       log "  ⚠ restore-regressed-texts failed (exit $restore_status) — discarding its uncommitted changes in leyes"
       # The tree was clean when the step started, so anything uncommitted now
@@ -497,10 +496,9 @@ log "  ✓ Notifications sent"
 # lost if this is a no-op. Non-fatal, and placed before the index rebuild so it
 # runs while the API is still up (the rebuild restarts it).
 log "→ Step 9.5: Checkpoint SQLite WAL"
-set +e
-docker exec "$CONTAINER" bun -e 'const {Database}=require("bun:sqlite");const db=new Database(process.env.DB_PATH??"/data/leyabierta.db");console.log(JSON.stringify(db.query("PRAGMA wal_checkpoint(TRUNCATE)").get()));' >> "$LOG" 2>&1
-checkpoint_status=$?
-set -e
+checkpoint_status=0  # `|| status=$?`, not `set +e`: see the ERR trap
+docker exec "$CONTAINER" bun -e 'const {Database}=require("bun:sqlite");const db=new Database(process.env.DB_PATH??"/data/leyabierta.db");console.log(JSON.stringify(db.query("PRAGMA wal_checkpoint(TRUNCATE)").get()));' >> "$LOG" 2>&1 \
+  || checkpoint_status=$?
 if [ "$checkpoint_status" -ne 0 ]; then
   log "  ⚠ WAL checkpoint returned $checkpoint_status (non-fatal)"
 else
@@ -561,10 +559,8 @@ fi
 # quantize) and hot-restarts the API. Runs LAST because it restarts the
 # container, which would break the docker-exec steps above. Non-fatal.
 log "→ Step 10: Rebuild vector index (if stale)"
-set +e
-bash "$REPO_DIR/scripts/rebuild-vector-index.sh" >> "$LOG" 2>&1
-rebuild_status=$?
-set -e
+rebuild_status=0  # `|| status=$?`, not `set +e`: see the ERR trap
+bash "$REPO_DIR/scripts/rebuild-vector-index.sh" >> "$LOG" 2>&1 || rebuild_status=$?
 if [ "$rebuild_status" -ne 0 ]; then
   log "  ⚠ vector index rebuild returned $rebuild_status (non-fatal — see log)"
 else
