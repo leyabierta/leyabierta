@@ -17,6 +17,7 @@ import {
 } from "../../lib/manifest.ts";
 import { hubsForLaw } from "../../components/topic-hubs";
 import { effectiveLastUpdated, pageLastModified } from "../../lib/law-dates.ts";
+import { composeLawDescription } from "../../lib/meta-description.ts";
 import { lawContentDate } from "../../lib/page-lastmod-build.ts";
 import {
 	BUILD_TEXT_PAGES,
@@ -263,12 +264,16 @@ if (abbrev) {
 		if (short2digit !== full) seoAbbreviations.push(`${abbrev} ${short2digit}`); // "RD 769/87"
 	}
 }
-const seoDescription = [
-	seoAbbreviations[0],
-	citizenSummary || (RANK_LABELS[law.rango] ?? law.rango),
-	law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
-	law.departamento,
-].filter(Boolean).join(" · ");
+// SEO: 25–160 chars (Bing/Google flag anything outside that range). Leads
+// with the citizen summary — the most useful content — and drops status/
+// department (in that order) before ever truncating the summary itself. See
+// lib/meta-description.ts.
+const seoDescription = composeLawDescription({
+	abbreviation: seoAbbreviations[0],
+	summary: citizenSummary || (RANK_LABELS[law.rango] ?? law.rango),
+	status: law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
+	department: law.departamento,
+});
 ---
 
 <Base
