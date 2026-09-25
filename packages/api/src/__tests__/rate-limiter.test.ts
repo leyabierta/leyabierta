@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createRateLimiter, getClientIp } from "../services/rate-limiter.ts";
+import {
+	createRateLimiter,
+	getClientIp,
+	rateLimitHeader,
+	rateLimitPolicy,
+} from "../services/rate-limiter.ts";
 
 describe("createRateLimiter", () => {
 	test("allows requests under the limit", () => {
@@ -35,6 +40,29 @@ describe("createRateLimiter", () => {
 		while (Date.now() - start < 5) {} // busy-wait 5ms
 
 		expect(limiter.isLimited("1.2.3.4")).toBe(false);
+	});
+});
+
+describe("createRateLimiter.consume", () => {
+	test("reports decreasing remaining and the RateLimit-Policy/RateLimit header values", () => {
+		const limiter = createRateLimiter(2, 60_000);
+
+		const first = limiter.consume("9.9.9.9");
+		expect(first.limited).toBe(false);
+		expect(first.limit).toBe(2);
+		expect(first.windowSeconds).toBe(60);
+		expect(first.remaining).toBe(1);
+		expect(rateLimitPolicy("general", first)).toBe('"general";q=2;w=60');
+		expect(rateLimitHeader("general", first)).toBe('"general";r=1;t=60');
+
+		const second = limiter.consume("9.9.9.9");
+		expect(second.limited).toBe(false);
+		expect(second.remaining).toBe(0);
+
+		const third = limiter.consume("9.9.9.9");
+		expect(third.limited).toBe(true);
+		expect(third.remaining).toBe(0);
+		expect(rateLimitHeader("general", third)).toBe('"general";r=0;t=60');
 	});
 });
 
