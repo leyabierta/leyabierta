@@ -371,6 +371,107 @@ async function run(): Promise<void> {
 			`error: ${e}`,
 		);
 	}
+
+	// 10. llms.txt tells an agent when (and when not) to use us, not just
+	// which endpoints exist. Will fail until this PR's llms.txt.ts deploys.
+	try {
+		const res = await fetchWithTimeout(`${SITE_ORIGIN}/llms.txt`);
+		const body = await res.text();
+		const ok = res.status === 200 && body.includes("Cuándo usar Ley Abierta");
+		record(
+			"llms.txt · has a 'Cuándo usar' (when-to-use) section",
+			ok,
+			res.status !== 200
+				? `HTTP ${res.status}`
+				: ok
+					? "present"
+					: "missing 'Cuándo usar Ley Abierta' heading",
+			false,
+		);
+	} catch (e) {
+		record(
+			"llms.txt · has a 'Cuándo usar' (when-to-use) section",
+			false,
+			`error: ${e}`,
+			false,
+		);
+	}
+
+	// 11. Rate-limit response headers (RateLimit-Policy, IETF draft) on a
+	// normal API response — lets an agent back off before it gets a 429.
+	// Will fail until the API deploys this PR.
+	try {
+		const res = await fetchWithTimeout(`${API_ORIGIN}/v1/materias`);
+		const hasPolicy = !!res.headers.get("ratelimit-policy");
+		const hasRateLimit = !!res.headers.get("ratelimit");
+		const ok = res.status === 200 && hasPolicy && hasRateLimit;
+		record(
+			"API · RateLimit / RateLimit-Policy headers on a normal response",
+			ok,
+			res.status !== 200
+				? `HTTP ${res.status}`
+				: ok
+					? `RateLimit-Policy: ${res.headers.get("ratelimit-policy")}`
+					: `missing RateLimit${hasPolicy ? "" : "-Policy"} header`,
+			false,
+		);
+	} catch (e) {
+		record(
+			"API · RateLimit / RateLimit-Policy headers on a normal response",
+			false,
+			`error: ${e}`,
+			false,
+		);
+	}
+
+	// 12. Developer portal is reachable, both at its real path (/datos/) and
+	// at the friendly alias an agent following /llms.txt or the OpenAPI
+	// description would try (/desarrolladores/, redirects to /datos/).
+	// Will fail until the web build deploys this PR.
+	try {
+		const res = await fetchWithTimeout(`${SITE_ORIGIN}/datos/`);
+		const body = await res.text();
+		const ok =
+			res.status === 200 &&
+			body.includes("openapi.json") &&
+			body.includes("RateLimit");
+		record(
+			"Developer portal · /datos/ documents rate limits + OpenAPI",
+			ok,
+			res.status !== 200
+				? `HTTP ${res.status}`
+				: ok
+					? "present"
+					: "missing openapi.json/RateLimit mentions — page not yet updated?",
+			false,
+		);
+	} catch (e) {
+		record(
+			"Developer portal · /datos/ documents rate limits + OpenAPI",
+			false,
+			`error: ${e}`,
+			false,
+		);
+	}
+	try {
+		const res = await fetchWithTimeout(`${SITE_ORIGIN}/desarrolladores/`, {
+			redirect: "follow",
+		});
+		const ok = res.status === 200 && res.url.includes("/datos/");
+		record(
+			"Developer portal · /desarrolladores/ redirects to /datos/",
+			ok,
+			res.status !== 200 ? `HTTP ${res.status}` : `final URL: ${res.url}`,
+			false,
+		);
+	} catch (e) {
+		record(
+			"Developer portal · /desarrolladores/ redirects to /datos/",
+			false,
+			`error: ${e}`,
+			false,
+		);
+	}
 }
 
 await run();
