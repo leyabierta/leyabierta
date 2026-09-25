@@ -24,6 +24,8 @@ import {
 } from "../../../lib/law-labels.ts";
 import { lawBody, renderLawHtml } from "../../../lib/law-text.ts";
 import { loadArticleSummaries } from "../../../lib/manifest.ts";
+import { codePointLength } from "../../../lib/meta-description.ts";
+import { composeSeoTitle, SEO_TITLE_MAX, shortLawTitle } from "../../../lib/seo-title.ts";
 
 export async function getStaticPaths() {
 	if (!BUILD_TEXT_PAGES) return [];
@@ -46,10 +48,27 @@ if (entry.body) {
 	htmlContent = bakeArticleSummaries(renderLawHtml(lawBody(raw)), pairs);
 	summaryCount = pairs?.filter(([, s]) => s).length ?? 0;
 }
+
+// noindex, so length is not an SEO ranking concern, but a crawled page still
+// shows up in Bing's title-length report — reuse the same short subject as
+// the ficha page's <title>, prefixed instead of suffixed.
+const TEXTO_PREFIX = "Texto completo — ";
+const coreTitle = shortLawTitle(
+	{
+		id: id!,
+		titulo: law.titulo,
+		rango: law.rango,
+		jurisdiccion: law.jurisdiccion,
+	},
+	SEO_TITLE_MAX - codePointLength(TEXTO_PREFIX),
+);
+const textoTitle = composeSeoTitle(`${TEXTO_PREFIX}${coreTitle}`);
 ---
 
 <Base
-	title={`Texto completo — ${law.titulo}`}
+	title={textoTitle}
+	appendSiteSuffix={false}
+	ogTitle={`Texto completo — ${law.titulo}`}
 	description={`Texto consolidado de ${law.titulo}, tal como lo publica el BOE, con un resumen en lenguaje sencillo junto a cada artículo.`}
 	canonicalUrl={`/leyes/${id}/texto/`}
 	noindex
