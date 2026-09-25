@@ -25,6 +25,7 @@ import { DbService } from "./services/db.ts";
 import { GitService } from "./services/git.ts";
 import { HybridSearcherImpl } from "./services/hybrid-search.ts";
 import { startMemProbe } from "./services/mem-probe.ts";
+import { createOpenApiDoc } from "./services/openapi-doc.ts";
 import {
 	createAskLogPurger,
 	resolveAskLogRetentionDays,
@@ -104,6 +105,18 @@ const CORS_ORIGINS = process.env.CORS_ORIGINS
 
 // ── Request timing ──────────────────────────────────────────────────
 const reqTimings = new WeakMap<Request, number>();
+
+// Cheap, static, cacheable documents — exempt from the per-IP rate limiter
+// like /health. Also closes the specific bug this fixes for /openapi.json:
+// its handler self-calls into /swagger/json (services/openapi-doc.ts), and
+// that internal Request has no CF-Connecting-IP, so without this exemption
+// every caller's self-call would share one "unknown"-keyed bucket.
+const RATE_LIMIT_EXEMPT_PATHS = new Set([
+	"/health",
+	"/openapi.json",
+	"/swagger",
+	"/swagger/json",
+]);
 
 // ── Rate limiting ────────────────────────────────────────────────────
 const searchLimiter = createRateLimiter(30); // 30 req/min per IP for search
@@ -194,8 +207,11 @@ const app = new Elysia()
 			set.headers.Connection = "close";
 			return { error: "Server is shutting down" };
 		}
-		// Rate limiting (skip /health and trusted clients with bypass key)
-		if (path !== "/health" && !hasBypassKey(request, API_BYPASS_KEY)) {
+		// Rate limiting (skip exempt paths and trusted clients with bypass key)
+		if (
+			!RATE_LIMIT_EXEMPT_PATHS.has(path) &&
+			!hasBypassKey(request, API_BYPASS_KEY)
+		) {
 			const ip = getClientIp(request);
 			const isAsk = path === "/v1/ask" || path === "/v1/ask/stream";
 			const isSearch =
@@ -212,7 +228,13 @@ const app = new Elysia()
 			}
 		}
 	})
-	.onAfterHandle(({ request, set, path }) => {
+	// `mapResponse`, not `onAfterHandle`: onAfterHandle only runs on the
+	// success path — an onError-produced response (404/422/500) skips it
+	// entirely, so a plain onAfterHandle would leave error responses without
+	// security headers, the service-desc Link, or a log line (PR #209 review).
+	// mapResponse runs for every response, error or not, with `set.status`
+	// already reflecting whatever onError set it to.
+	.mapResponse(({ request, set, path }) => {
 		set.headers["X-Content-Type-Options"] = "nosniff";
 		set.headers["X-Frame-Options"] = "DENY";
 		set.headers["X-Robots-Tag"] = "noindex";
@@ -225,7 +247,9 @@ const app = new Elysia()
 			const cacheControl = defaultCacheControl(path, set.status);
 			if (cacheControl) set.headers["Cache-Control"] = cacheControl;
 		}
-		// Structured request logging (skip /health)
+		// Structured request logging (skip /health). A true 404 (no route
+		// matched at all) never runs onBeforeHandle, so `start` is unset —
+		// `ms` falls back to 0 rather than throwing.
 		if (path !== "/health") {
 			const start = reqTimings.get(request);
 			const ms = start ? Math.round(performance.now() - start) : 0;
@@ -247,6 +271,21 @@ const app = new Elysia()
 app.onError(({ code, error, path, set }) => {
 	const { status, body } = structuredError(code, error, path);
 	set.status = status;
+	// 5xx (and any unrecognized code that lands on 5xx) must be logged
+	// server-side — the client only ever gets the generic "Internal server
+	// error" body, never the message or stack.
+	if (status >= 500) {
+		console.error(
+			JSON.stringify({
+				level: "error",
+				path,
+				code,
+				status,
+				message: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : undefined,
+			}),
+		);
+	}
 	return body;
 });
 
@@ -304,6 +343,12 @@ app.use(
 			],
 		},
 	}),
+);
+
+// Built once (memoized) from the swagger plugin's own /swagger/json route —
+// see services/openapi-doc.ts.
+const openApiDoc = createOpenApiDoc(() =>
+	app.handle(new Request("http://internal.leyabierta/swagger/json")),
 );
 
 app
@@ -381,14 +426,16 @@ app
 	// Alias for the swagger plugin's `/swagger/json` spec at the conventional
 	// `/openapi.json` path that agent-readiness scanners look for. Same
 	// document (routes, `servers`, etc.), just discoverable without knowing
-	// the swagger plugin's own path.
+	// the swagger plugin's own path. Built once and memoized — see
+	// services/openapi-doc.ts for why (PR #209 review: a per-request self-call
+	// through the rate limiter's "unknown" IP bucket could return HTTP 200
+	// with a 429 body under load).
 	.get(
 		"/openapi.json",
-		async () => {
-			const res = await app.handle(
-				new Request("http://internal.leyabierta/swagger/json"),
-			);
-			return res.json();
+		async ({ set }) => {
+			const { status, body } = await openApiDoc.get();
+			set.status = status;
+			return body;
 		},
 		{ detail: { hide: true } },
 	);
