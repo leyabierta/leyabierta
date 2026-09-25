@@ -90,6 +90,14 @@ describe("worker reform routing", () => {
 		expect(html).toContain(
 			'<link rel="canonical" href="https://leyabierta.es/cambios/reforma/BOE-A-1978-31229/2026-05-20/" />',
 		);
+		// <title> is the short SEO form (≤ 70, Bing "Title too long"); og:title
+		// keeps the long "headline — law (date)" form.
+		expect(html).toContain(
+			"<title>Modificación del Artículo 69 (Constitución Española, 20/05/2026)</title>",
+		);
+		expect(html).toContain(
+			'<meta property="og:title" content="Modificación del Artículo 69 — Constitución Española (20 may 2026)" />',
+		);
 	});
 
 	test("query form still renders, canonical stays query form outside the path arm", async () => {

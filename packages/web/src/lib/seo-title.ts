@@ -877,3 +877,78 @@ export function seoLawPageTitle(law: {
 }): string {
 	return composeSeoTitle(shortLawTitle(law));
 }
+
+/** Longest curated name used as a reform title's law reference. */
+const CURATED_REF_MAX = 24;
+
+/** "2010-12-23" → "23/12/2010" (compact, unambiguous in Spanish). */
+function compactDate(isoDate: string): string {
+	const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+	return m ? `${m[3]}/${m[2]}/${m[1]}` : isoDate;
+}
+
+/**
+ * The `<title>` for a reform detail page (`/cambios/reforma/…`, rendered by
+ * the Worker): what changed — the AI headline, or "Cambios en <law>" when
+ * there is none — plus "(<law disambiguator>, <date>)". Same rules as
+ * `shortLawTitle`: ≤ `SEO_TITLE_MAX`, the disambiguator is never dropped (the
+ * headline is shortened instead), the community is named unless the visible
+ * headline already names it, " — Ley Abierta" only when it fits. Bing flagged
+ * the previous "<headline> — <full law title> (<date>) — Ley Abierta" as
+ * "Title too long" (12 Ley de Arrendamientos Urbanos reforms, 25/09/2026).
+ * `og:title` keeps the long form.
+ */
+export function seoReformTitle(reform: {
+	law: {
+		id: string;
+		title: string;
+		rank: string;
+		jurisdiction?: string | null;
+	};
+	headline?: string | null;
+	date: string;
+}): string {
+	const { law } = reform;
+	const lawName = POPULAR_LAW_NAMES[law.id] ?? heuristicSubject(law.title);
+	const headline = cleanText(reform.headline ?? "").replace(/[.;:]+$/, "");
+	// No headline: the law's own name — the date in the disambiguator already
+	// says this is one version of it.
+	const subject = headline || lawName;
+	const date = compactDate(reform.date);
+	// A short curated name reads better than a bare BOE id for the laws that
+	// have no number of their own ("Constitución Española", "Código Civil").
+	// Without a headline the subject IS that name, so the date alone suffices.
+	const curated = POPULAR_LAW_NAMES[law.id];
+	const curatedNoNumber = !!curated && extractNumber(law.title) === undefined;
+	const curatedRef =
+		curatedNoNumber && codePointLength(curated) <= CURATED_REF_MAX
+			? curated
+			: undefined;
+
+	const fit = (namedIn: string) => {
+		if (curatedNoNumber && !headline) {
+			return { core: `${subject} (${date})`, shortSubject: subject };
+		}
+		const ref =
+			curatedRef ??
+			lawAbbreviation(
+				law.rank,
+				law.title,
+				law.id,
+				namedIn,
+				law.jurisdiction ?? undefined,
+			);
+		const suffix = ` (${ref}, ${date})`;
+		const budget = SEO_TITLE_MAX - codePointLength(suffix);
+		const shortSubject =
+			codePointLength(subject) <= budget
+				? subject
+				: truncateSubject(subject, Math.max(budget, 0));
+		return { core: `${shortSubject}${suffix}`, shortSubject };
+	};
+	// See `shortLawTitle`: decide on the community with the visible text.
+	const first = fit(subject);
+	const core =
+		first.shortSubject === subject ? first.core : fit(first.shortSubject).core;
+	return composeSeoTitle(core);
+}

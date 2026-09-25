@@ -296,11 +296,17 @@ function injectContent(shellHtml: string, contentHtml: string): string | null {
  *  containing `$` would otherwise corrupt the document. */
 function injectMeta(
 	shellHtml: string,
-	opts: { title: string; description: string; canonicalPath: string },
+	opts: {
+		title: string;
+		/** Complete `<title>` text (already ≤ 70, suffix decided by the caller). */
+		seoTitle: string;
+		description: string;
+		canonicalPath: string;
+	},
 ): string {
 	let html = shellHtml;
 
-	const fullTitleVal = esc(`${opts.title} — Ley Abierta`);
+	const fullTitleVal = esc(opts.seoTitle);
 	const bareTitleVal = esc(opts.title);
 	const descVal = esc(opts.description);
 	const canonicalHref = esc(`https://leyabierta.es${opts.canonicalPath}`);
@@ -488,12 +494,15 @@ async function renderReformResponse(
 	try {
 		// renderReformContent can throw on a malformed 200 (e.g. missing
 		// `law`/`reform`); fetchJson only guards network/parse, not shape.
-		const { contentHtml, title, description } = renderReformContent(data, {
-			topicInfo,
-			topicBlockIds,
-			blocks,
-			unifiedDiffHtml,
-		});
+		const { contentHtml, title, seoTitle, description } = renderReformContent(
+			data,
+			{
+				topicInfo,
+				topicBlockIds,
+				blocks,
+				unifiedDiffHtml,
+			},
+		);
 
 		const shellRes = await env.ASSETS.fetch(
 			new URL(SHELL_PATH, url).toString(),
@@ -511,7 +520,12 @@ async function renderReformResponse(
 		// duplicate-content variants of the same reform for search engines.
 		const canonicalPath = reformCanonicalPath(normId, date);
 
-		html = injectMeta(injected, { title, description, canonicalPath });
+		html = injectMeta(injected, {
+			title,
+			seoTitle,
+			description,
+			canonicalPath,
+		});
 	} catch {
 		// Any render/splice error → serve the static shell (noindex) instead of
 		// a bare 500. The fall-through path resolves status 200 == the shell.

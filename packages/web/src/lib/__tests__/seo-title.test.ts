@@ -21,6 +21,7 @@ import {
 	SEO_TITLE_SUFFIX,
 	SEO_TITLE_TARGET,
 	seoLawPageTitle,
+	seoReformTitle,
 	shortLawTitle,
 } from "../seo-title.ts";
 
@@ -948,5 +949,88 @@ describe("#211 fourth review fixes (real corpus titles)", () => {
 				"Real Decreto 1520/1982, de 18 de junio (rectificado), sobre ordenación y regulación de la actividad",
 			),
 		).toBe("Ordenación y regulación de la actividad");
+	});
+});
+
+describe("seoReformTitle (reform pages, Bing 'Title too long' on 12 LAU reforms)", () => {
+	const LAU = {
+		id: "BOE-A-1994-26003",
+		title: "Ley 29/1994, de 24 de noviembre, de Arrendamientos Urbanos",
+		rank: "ley",
+		jurisdiction: "es",
+	};
+
+	test("headline + (law number, date), shortened to ≤ 70", () => {
+		const t = seoReformTitle({
+			law: LAU,
+			headline:
+				"Se amplía la prórroga obligatoria de los contratos de alquiler de vivienda a cinco años.",
+			date: "2019-03-05",
+		});
+		expect(t).toBe(
+			"Se amplía la prórroga obligatoria… (L 29/1994, 05/03/2019)",
+		);
+		expect(codePointLength(t)).toBeLessThanOrEqual(SEO_TITLE_MAX);
+	});
+
+	test("a short headline keeps the site suffix when it fits", () => {
+		expect(
+			seoReformTitle({
+				law: LAU,
+				headline: "Nueva regla de fianzas",
+				date: "2013-06-05",
+			}),
+		).toBe("Nueva regla de fianzas (L 29/1994, 05/06/2013) — Ley Abierta");
+	});
+
+	test("no headline: the law's name + (number, date)", () => {
+		expect(
+			seoReformTitle({ law: LAU, headline: null, date: "1996-12-31" }),
+		).toBe(
+			"Ley de Arrendamientos Urbanos (L 29/1994, 31/12/1996) — Ley Abierta",
+		);
+	});
+
+	test("curated law without a number: its short name, never the bare BOE id", () => {
+		const ce = {
+			id: "BOE-A-1978-31229",
+			title: "Constitución Española",
+			rank: "constitucion",
+			jurisdiction: "es",
+		};
+		expect(
+			seoReformTitle({
+				law: ce,
+				headline: "Modificación del Artículo 69",
+				date: "2026-05-20",
+			}),
+		).toBe("Modificación del Artículo 69 (Constitución Española, 20/05/2026)");
+		expect(
+			seoReformTitle({ law: ce, headline: null, date: "2024-02-17" }),
+		).toBe("Constitución Española (17/02/2024) — Ley Abierta");
+	});
+
+	test("autonomic law: the community is named unless the visible headline names it", () => {
+		const law = {
+			id: "BOE-A-2006-8354",
+			title:
+				"Ley 4/2006, de 30 de marzo, de educación y formación permanentes de personas adultas de las Illes Balears",
+			rank: "ley",
+			jurisdiction: "es-ib",
+		};
+		expect(
+			seoReformTitle({
+				law,
+				headline: "Cambia la financiación de los centros",
+				date: "2020-01-02",
+			}),
+		).toBe("Cambia la financiación… (L 4/2006, Illes Balears, 02/01/2020)");
+		expect(
+			seoReformTitle({
+				law,
+				headline: "Nuevos centros en las Illes Balears",
+				date: "2020-01-02",
+			}),
+		).toBe("Nuevos centros en las Illes Balears (L 4/2006, 02/01/2020)");
 	});
 });
