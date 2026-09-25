@@ -6,8 +6,18 @@ name: Leyes rebuild backstop
 # workflow fires a `repository_dispatch` event that triggers `deploy.yml` to
 # rebuild the web. That covers the happy path with ~1-2 min latency.
 #
+# scripts/daily-pipeline.sh pushes `leyes` as its LAST step (Step 9.6, after
+# ingest, ingest-analisis, the AI enrichment steps and the WAL checkpoint), so
+# by the time this dispatch fires the DB the API serves already holds today's
+# content too — no separate "pipeline finished" signal is needed here, the
+# push itself only happens once the day's work is actually done. (Until
+# 2026-09-25 the push ran right after bootstrap, ~20-30 min before ingest/AI
+# finished, which meant every daily deploy shipped yesterday's DB content —
+# fixed by moving the push, not by changing this workflow.)
+#
 # This workflow is the backstop in case the dispatch is dropped (GitHub Actions
-# degradation, expired PAT, workflow disabled, etc.). Every 30 minutes it:
+# degradation, expired PAT, workflow disabled, the pipeline dying before
+# reaching Step 9.6, etc.). Every 30 minutes it:
 #   1. Reads the current HEAD SHA of `leyabierta/leyes` main.
 #   2. Compares it to the last-built SHA stored in actions/cache.
 #   3. If different → fires `repository_dispatch` to deploy.yml (same code path

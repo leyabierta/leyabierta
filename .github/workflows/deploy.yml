@@ -22,8 +22,21 @@ on:
         required: false
         default: false
         type: boolean
-  # Fired by leyabierta/leyes on push to main (notify-leyabierta.yml)
-  # so the static site rebuilds whenever new laws are published.
+  # Fired by the separate `leyes` repo's own workflow (notify-leyabierta.yml)
+  # the instant `leyes` is pushed to `main` — which scripts/daily-pipeline.sh
+  # does as its LAST step (Step 9.6), after ingest, ingest-analisis, the AI
+  # enrichment steps and the WAL checkpoint have all finished for the day. So
+  # by the time this fires, the DB the API serves and the leyes repo itself
+  # both already hold today's content. leyes-rebuild-backstop.yml fires the
+  # same event type as a crash-recovery fallback if the push never happens
+  # (e.g. the pipeline died before reaching Step 9.6).
+  #
+  # Until 2026-09-25 the push (and this dispatch) ran right after Step 1
+  # (bootstrap) — 20-30 minutes before ingest/AI finished — so every daily
+  # deploy shipped a build missing that day's new laws and AI summaries (they
+  # only showed up on the FOLLOWING day's deploy). Moving the push to the end
+  # of the pipeline is the fix: this trigger itself didn't need to change,
+  # only WHEN the event it's listening for actually fires.
   repository_dispatch:
     types: [leyes-updated]
 
@@ -82,7 +95,8 @@ jobs:
         run: |
           TARGETS="${{ github.event.inputs.targets || '' }}"
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            # leyes-updated → always rebuild web to pick up new laws
+            # leyes-updated → always rebuild web to pick up new laws (now
+            # fired after ingest/AI/WAL checkpoint — see the trigger comment)
             echo "Web rebuild triggered by leyes update"
             echo "deploy=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then

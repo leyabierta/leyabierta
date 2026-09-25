@@ -39,9 +39,11 @@ Los checks (`pr-checks.yml`, CodeQL, revisión automática) se disparan por `pul
 |------------|---------------|
 | `push` a `main` | al mergear cualquier PR a main |
 | `workflow_dispatch` | despliegue manual desde la pestaña Actions |
-| `repository_dispatch: leyes-updated` | **lo lanza el repo `leyes`** cada vez que el pipeline diario publica leyes nuevas |
+| `repository_dispatch: leyes-updated` | **lo lanza el repo `leyes`** cada vez que `scripts/daily-pipeline.sh` le hace `push` en KonarServer |
 
 La tercera es la que sorprende: **una vez que algo está en `main`, se desplegará en el siguiente ciclo diario aunque nadie toque el repo de código.** El flujo con `staging` da control sobre *cuándo entra algo en main*, no sobre si se despliega después — eso es automático.
+
+**Cuándo se hace ese `push` a `leyes` importa.** Hasta el 2026-09-25 era el segundo paso del pipeline diario (justo después de generar los commits), ~20-30 minutos antes de que terminaran el ingest y los pasos de IA — así que el despliegue diario servía contenido de **ayer** (leyes nuevas, resúmenes de reformas y de artículos aparecían un día tarde). Desde entonces, `scripts/daily-pipeline.sh` hace ese `push` como su **último** paso (Step 9.6, después de ingest, ingest-analisis, los pasos de IA y el checkpoint de WAL), así que para cuando `leyes-updated` dispara el build, la base de datos que sirve la API ya tiene el contenido del día — nada cambió en `deploy.yml` ni en `leyes-rebuild-backstop.yml` para conseguir esto, solo el momento en el que el propio pipeline hace `push`. Si el pipeline muere antes de llegar a ese paso, un trap de error intenta igualmente publicar lo que ya se haya comitado localmente; si el `push` no llega de ninguna forma, `leyes-rebuild-backstop.yml` es la red de seguridad (comprueba cada 30 min si `leyes` avanzó y dispara el mismo evento).
 
 ### Mantener staging sana
 
@@ -56,52 +58,20 @@ Una `staging` que lleva meses sin sincronizarse deja de ser útil: acumula confl
 
 ## CI/CD: GitHub Actions
 
-> **Nota:** las tres secciones siguientes describen workflows que ya no existen
-> con esos nombres. Hoy el despliegue es un único `deploy.yml` (web + API) y el
-> pipeline diario corre en cron en el servidor, no en Actions. Pendiente de
-> reescribir esta parte.
+El despliegue es un único `deploy.yml` (web + API, ver la tabla de disparadores
+más arriba). El pipeline diario (`scripts/daily-pipeline.sh`) corre en cron en
+KonarServer, no en Actions — ver `docs/infrastructure.md` (privado) para el
+cron, el contenedor y las variables de entorno, y la cabecera del propio
+script para el detalle paso a paso (bootstrap → ingest → ingest-analisis → IA
+→ OG images → emails → checkpoint de WAL → push a `leyes`).
 
-### deploy-web.yml
-
-**Trigger:** push a main (paths: `packages/web/**`, `packages/pipeline/**`) + dispatch manual
-
-1. Checkout código + shallow clone de `leyabierta/leyes`
-2. Setup Node 24 + Bun
-3. Build Astro estático (~12K páginas en ~30s)
-4. Deploy a Cloudflare Pages via wrangler
-
-**Limitación conocida:** el build necesita que la API esté activa (hace fetch en build time para algunas páginas). Si la API está caída, el build falla tras 10 reintentos.
-
-**Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-
-### deploy-api.yml
-
-**Trigger:** push a main (paths: `packages/api/**`, `Dockerfile`) + dispatch manual
-
-1. Lint (`bun run check`)
-2. Tests (`bun test`)
-3. Build Docker image
-4. Push a GitHub Container Registry (`ghcr.io/leyabierta/api:latest`)
-
-El servidor de producción detecta automáticamente la nueva imagen y se actualiza sin intervención manual.
-
-**Secrets:** `GITHUB_TOKEN` (automático)
-
-### daily-pipeline.yml
-
-**Trigger:** cron dual + dispatch manual
-
-| Día | Cron | Modo | Qué hace | Tiempo |
-|-----|------|------|----------|--------|
-| Lun-Sáb | 06:00 UTC | Incremental | Lista normas del BOE, solo descarga las nuevas | ~2 min |
-| Domingo | 04:00 UTC | Full sync | Re-descarga todas las normas, detecta actualizaciones | ~20-30 min |
-| Manual | dispatch | Configurable | Con o sin `--force` | Depende |
-
-**Idempotencia:** `commitNorm()` parsea trailers existentes (`Source-Id`, `Norm-Id`) para no duplicar commits. Re-procesar una norma nunca duplica — solo añade reformas que faltan.
-
-**Limitación:** el modo incremental (Lun-Sáb) solo detecta normas **nuevas**, no actualizaciones a normas existentes. Una reforma publicada un martes no se verá hasta el full sync del domingo.
-
-**Secrets:** `LEYES_PUSH_TOKEN` (PAT con write access a `leyabierta/leyes`)
+**Secrets que usa `scripts/daily-pipeline.sh`:** `LEYES_PUSH_TOKEN` (PAT con
+write access a `leyabierta/leyes`, usado para el `push` del último paso del
+pipeline), `ALERT_WEBHOOK_URL` y `BETTERSTACK_HEARTBEAT_URL` (alertas y
+liveness, opcionales). `leyes-rebuild-backstop.yml` (en GitHub Actions) usa por
+su parte `LEYABIERTA_DISPATCH_TOKEN`, un PAT con permiso para lanzar
+`repository_dispatch` contra `leyabierta/leyabierta` — configurado como secret
+de GitHub Actions, no en el servidor.
 
 ## Costes
 

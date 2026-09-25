@@ -293,6 +293,11 @@ newest first, `REFORM_SUMMARIES_LIMIT` per run, default 200; citizen tags: norms
 with an empty `citizen_summary`, newest first, `CITIZEN_TAGS_MAX_PER_RUN`,
 default 100). In `scripts/daily-pipeline.sh` the AI steps (3b–6) are non-fatal:
 a failure alerts and the run continues to OG images and the index rebuild.
+The `leyes` repo push (Step 9.6) runs LAST — after ingest, ingest-analisis, the
+AI steps and the WAL checkpoint — which is what makes the daily web deploy
+(triggered by the `leyes` repo's own `repository_dispatch: leyes-updated` on
+that push) pick up the day's new laws and AI summaries instead of yesterday's.
+See DEPLOY.md.
 
 **Threshold note:** raw `bestScore` is NOT informative about correctness with the Qwen embedding stack (hit/miss score distributions overlap, separation ~0.04 on the eval). The `LOW_CONFIDENCE_THRESHOLD` gate is kept at 0.40 (effectively off) to catch catastrophic embedding failures only. For real "low-confidence" UX warnings we need a different signal (rerank top-1 score, candidate diversity) — TBD.
 
