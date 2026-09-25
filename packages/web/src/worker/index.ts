@@ -296,18 +296,24 @@ function injectContent(shellHtml: string, contentHtml: string): string | null {
  *  containing `$` would otherwise corrupt the document. */
 function injectMeta(
 	shellHtml: string,
-	opts: { title: string; description: string; canonicalPath: string },
+	opts: {
+		title: string;
+		/** Complete `<title>` text (already ≤ 70, suffix decided by the caller). */
+		seoTitle: string;
+		description: string;
+		canonicalPath: string;
+	},
 ): string {
 	let html = shellHtml;
 
-	const fullTitleVal = esc(`${opts.title} — Ley Abierta`);
-	const bareTitleVal = esc(opts.title);
+	const seoTitleVal = esc(opts.seoTitle); // <title>, ≤ 70 characters
+	const ogTitleVal = esc(opts.title); // og:/twitter:title, long form
 	const descVal = esc(opts.description);
 	const canonicalHref = esc(`https://leyabierta.es${opts.canonicalPath}`);
 
 	html = html.replace(
 		/<title>[^<]*<\/title>/,
-		() => `<title>${fullTitleVal}</title>`,
+		() => `<title>${seoTitleVal}</title>`,
 	);
 	html = html.replace(
 		/<meta name="description" content="[^"]*"\s*\/?>/,
@@ -316,7 +322,7 @@ function injectMeta(
 	// OG + Twitter so social cards / rich results are per-reform, not generic.
 	html = html.replace(
 		/<meta property="og:title" content="[^"]*"\s*\/?>/,
-		() => `<meta property="og:title" content="${bareTitleVal}" />`,
+		() => `<meta property="og:title" content="${ogTitleVal}" />`,
 	);
 	html = html.replace(
 		/<meta property="og:description" content="[^"]*"\s*\/?>/,
@@ -328,7 +334,7 @@ function injectMeta(
 	);
 	html = html.replace(
 		/<meta name="twitter:title" content="[^"]*"\s*\/?>/,
-		() => `<meta name="twitter:title" content="${bareTitleVal}" />`,
+		() => `<meta name="twitter:title" content="${ogTitleVal}" />`,
 	);
 	html = html.replace(
 		/<meta name="twitter:description" content="[^"]*"\s*\/?>/,
@@ -488,12 +494,15 @@ async function renderReformResponse(
 	try {
 		// renderReformContent can throw on a malformed 200 (e.g. missing
 		// `law`/`reform`); fetchJson only guards network/parse, not shape.
-		const { contentHtml, title, description } = renderReformContent(data, {
-			topicInfo,
-			topicBlockIds,
-			blocks,
-			unifiedDiffHtml,
-		});
+		const { contentHtml, title, seoTitle, description } = renderReformContent(
+			data,
+			{
+				topicInfo,
+				topicBlockIds,
+				blocks,
+				unifiedDiffHtml,
+			},
+		);
 
 		const shellRes = await env.ASSETS.fetch(
 			new URL(SHELL_PATH, url).toString(),
@@ -511,7 +520,12 @@ async function renderReformResponse(
 		// duplicate-content variants of the same reform for search engines.
 		const canonicalPath = reformCanonicalPath(normId, date);
 
-		html = injectMeta(injected, { title, description, canonicalPath });
+		html = injectMeta(injected, {
+			title,
+			seoTitle,
+			description,
+			canonicalPath,
+		});
 	} catch {
 		// Any render/splice error → serve the static shell (noindex) instead of
 		// a bare 500. The fall-through path resolves status 200 == the shell.

@@ -7,6 +7,7 @@
 
 import { reformAiBadgeHtml, reformAiNoticeHtml } from "./ai-notice.ts";
 import { escapeHtml } from "./escape.ts";
+import { seoReformTitle } from "./seo-title.ts";
 
 // ── API response shapes (mirrors packages/api/src/routes/reforms.ts, omnibus.ts, laws.ts) ──
 export interface ReformInfo {
@@ -21,6 +22,7 @@ export interface LawInfo {
 	title: string;
 	short_title?: string | null;
 	rank: string;
+	jurisdiction?: string | null;
 	status: string;
 	source_url: string;
 	last_reform_date: string | null;
@@ -290,7 +292,10 @@ export interface RenderReformOptions {
 
 export interface RenderReformResult {
 	contentHtml: string;
+	/** Long form, for og:title / twitter:title. */
 	title: string;
+	/** The complete `<title>` (≤ 70 characters, see `seoReformTitle`). */
+	seoTitle: string;
 	description: string;
 }
 
@@ -318,6 +323,11 @@ export function renderReformContent(
 	const shortTitle = law.short_title || law.title;
 
 	const title = `${headline} — ${shortTitle} (${fechaLegible})`;
+	const seoTitle = seoReformTitle({
+		law,
+		headline: hasHeadline ? reform.headline : null,
+		date: reform.date,
+	});
 	const description = reform.summary
 		? truncate(reform.summary, 150)
 		: `Qué cambió en ${law.title} el ${fechaLegible}: ${typeLabel || "modificación"}.`;
@@ -403,5 +413,5 @@ export function renderReformContent(
 	html += `<a href="${esc(apiData.source_url)}" target="_blank" rel="noopener">Ver en BOE ↗</a>`;
 	html += "</nav>";
 
-	return { contentHtml: html, title, description };
+	return { contentHtml: html, title, seoTitle, description };
 }
