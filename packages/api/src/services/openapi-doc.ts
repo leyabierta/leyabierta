@@ -23,7 +23,16 @@
  * braces: `index.ts` also exempts `/openapi.json` and `/swagger/json` from
  * the rate limiter outright, since it's a cheap, static, cacheable document —
  * see the comment there.)
+ *
+ * `build()` also runs `enrichOpenApiDoc` (openapi-schemas.ts) over the
+ * document the swagger plugin produced, adding the shared `ErrorResponse`
+ * component and per-operation response schemas. That's a pure, in-memory
+ * transform of the JSON document — it never touches request validation, so
+ * it can't turn a real response into a runtime 500 the way Elysia's
+ * `response:` route option would.
  */
+
+import { enrichOpenApiDoc } from "./openapi-schemas.ts";
 
 export interface OpenApiDoc {
 	/** GET /openapi.json: status + JSON body to send as-is. */
@@ -49,7 +58,7 @@ export function createOpenApiDoc(
 		if (!res.ok) {
 			throw new Error(`OpenAPI document source responded HTTP ${res.status}`);
 		}
-		return res.json();
+		return enrichOpenApiDoc(await res.json());
 	}
 
 	return {

@@ -18,8 +18,14 @@
 
 import { describe, expect, it } from "bun:test";
 import { createOpenApiDoc } from "../services/openapi-doc.ts";
+import { enrichOpenApiDoc } from "../services/openapi-schemas.ts";
 
 const SPEC = { openapi: "3.0.3", info: { title: "Ley Abierta API" } };
+// `build()` runs the fetched spec through `enrichOpenApiDoc` (adds the shared
+// ErrorResponse schema + per-operation response schemas) before caching it —
+// see services/openapi-doc.ts. The cached/returned body is the enriched
+// document, not the raw one `fetchSpec` returned.
+const ENRICHED_SPEC = enrichOpenApiDoc(SPEC);
 
 /** Reproduces the historical bug's exact mechanism: a limiter keyed by a
  *  single shared "unknown" bucket (as `getClientIp()` returns for a request
@@ -49,7 +55,7 @@ describe("createOpenApiDoc", () => {
 		for (let i = 0; i < 100; i++) {
 			const { status, body } = await doc.get();
 			expect(status).toBe(200);
-			expect(body).toEqual(SPEC);
+			expect(body).toEqual(ENRICHED_SPEC);
 		}
 		expect(calls).toBe(1);
 	});
@@ -67,7 +73,7 @@ describe("createOpenApiDoc", () => {
 		);
 		for (const { status, body } of results) {
 			expect(status).toBe(200);
-			expect(body).toEqual(SPEC);
+			expect(body).toEqual(ENRICHED_SPEC);
 		}
 		expect(calls).toBe(1);
 	});
@@ -78,7 +84,7 @@ describe("createOpenApiDoc", () => {
 		for (let i = 0; i < 200; i++) {
 			const { status, body } = await doc.get();
 			expect(status).toBe(200);
-			expect(body).toEqual(SPEC);
+			expect(body).toEqual(ENRICHED_SPEC);
 			// The historical bug's exact shape: a 200 whose body is actually the
 			// limiter's 429 error. Guard against it explicitly.
 			expect(body).not.toHaveProperty("error");
@@ -92,7 +98,7 @@ describe("createOpenApiDoc", () => {
 		const { status, body } = await doc.get();
 		expect(status).toBe(500);
 		expect(status).not.toBe(200);
-		expect(body).not.toEqual(SPEC);
+		expect(body).not.toEqual(ENRICHED_SPEC);
 		expect((body as { code?: string }).code).toBe("OPENAPI_BUILD_FAILED");
 	});
 
@@ -117,7 +123,7 @@ describe("createOpenApiDoc", () => {
 		// endpoint forever.
 		const second = await doc.get();
 		expect(second.status).toBe(200);
-		expect(second.body).toEqual(SPEC);
+		expect(second.body).toEqual(ENRICHED_SPEC);
 	});
 
 	it("a network-level throw from fetchSpec is handled the same way as a bad HTTP status", async () => {
