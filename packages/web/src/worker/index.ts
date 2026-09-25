@@ -88,9 +88,9 @@ export function legacyTextTabRedirect(url: URL): string | null {
 	return id ? boeUrl(id) : null;
 }
 
-function markdownBody(body: string): Response {
+function markdownBody(body: string, status = 200): Response {
 	return new Response(body, {
-		status: 200,
+		status,
 		headers: {
 			"content-type": "text/markdown; charset=utf-8",
 			// Cache HTML and Markdown variants separately at the edge/clients.
@@ -99,6 +99,61 @@ function markdownBody(body: string): Response {
 			"x-content-type-options": "nosniff",
 		},
 	});
+}
+
+/** Markdown 404 for agents requesting `Accept: text/markdown` on a path with
+ *  no Markdown (or HTML) representation. Cloudflare's "Agent-Readable" bar
+ *  (and third-party agent-readiness scanners) expect a 404 that is actually
+ *  parseable as Markdown, not an HTML error page mislabelled — or a plain
+ *  404 with no guidance back into the site. */
+function markdownNotFound(url: URL): Response {
+	const body = `# Página no encontrada
+
+La dirección \`${url.pathname}\` no corresponde a ninguna página de Ley Abierta. Puede que la URL sea incorrecta o que el contenido se haya movido.
+
+- [Mapa del sitio para agentes (llms.txt)](https://leyabierta.es/llms.txt)
+- [Mapa del sitio (sitemap.xml)](https://leyabierta.es/sitemap.xml)
+- [Documentación de la API (OpenAPI)](https://leyabierta.es/openapi.json)
+- [Página de inicio](https://leyabierta.es/)
+`;
+	return markdownBody(body, 404);
+}
+
+/** Proxies `https://api.leyabierta.es/openapi.json` under the web origin, so
+ *  the OpenAPI spec is reachable at the conventional `/openapi.json` path on
+ *  BOTH domains with no cross-domain redirect — agent-readiness scanners
+ *  check the site's own origin. Always live (no build-time fetch to go
+ *  stale or fail a deploy); safe-to-fail like the rest of this Worker. */
+async function openApiResponse(env: Env): Promise<Response> {
+	const apiBase = env.PUBLIC_API_URL || DEFAULT_API_BASE;
+	const fail = () =>
+		new Response(
+			JSON.stringify({
+				error: "No se pudo obtener la especificación OpenAPI",
+				code: "OPENAPI_UNAVAILABLE",
+				hint: "Prueba directamente en https://api.leyabierta.es/openapi.json",
+			}),
+			{
+				status: 502,
+				headers: { "content-type": "application/json; charset=utf-8" },
+			},
+		);
+	try {
+		const res = await fetch(`${apiBase}/openapi.json`, {
+			signal: AbortSignal.timeout(8000),
+		});
+		if (!res.ok) return fail();
+		return new Response(await res.text(), {
+			status: 200,
+			headers: {
+				"content-type": "application/json; charset=utf-8",
+				"cache-control": "public, s-maxage=3600, stale-while-revalidate=86400",
+				"access-control-allow-origin": "*",
+			},
+		});
+	} catch {
+		return fail();
+	}
 }
 
 /** Produce a Markdown response for the requested path, or null if this path
@@ -429,10 +484,17 @@ export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
 
+		// Same-origin OpenAPI spec: leyabierta.es/openapi.json, no cross-domain
+		// redirect. See openApiResponse() above.
+		if (url.pathname === "/openapi.json" && request.method === "GET") {
+			return openApiResponse(env);
+		}
+
 		// Markdown for Agents: honor `Accept: text/markdown` on pages that have
 		// a Markdown representation. If we can't produce one, fall through to the
 		// normal HTML handling below.
-		if (prefersMarkdown(request)) {
+		const wantsMarkdown = prefersMarkdown(request);
+		if (wantsMarkdown) {
 			const md = await markdownResponse(env, url);
 			if (md) return md;
 		}
@@ -469,6 +531,13 @@ export default {
 			});
 		}
 
-		return env.ASSETS.fetch(request);
+		const assetRes = await env.ASSETS.fetch(request);
+		// Agent-friendly 404: an agent asking for Markdown on a path that
+		// doesn't exist gets a Markdown 404 (parseable, with a way back into
+		// the site) instead of the HTML error page.
+		if (wantsMarkdown && assetRes.status === 404) {
+			return markdownNotFound(url);
+		}
+		return assetRes;
 	},
 };
