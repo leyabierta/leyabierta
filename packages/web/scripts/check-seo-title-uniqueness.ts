@@ -34,12 +34,21 @@ interface Args {
 }
 
 function parseArgs(argv: string[]): Args {
-	const db =
-		argv[argv.indexOf("--db") + 1] ??
-		process.env.DB_PATH ??
-		"data/leyabierta.db";
-	const samplesArg = argv[argv.indexOf("--samples") + 1];
-	const samples = samplesArg ? Number.parseInt(samplesArg, 10) : 20;
+	// indexOf() is -1 when a flag is absent: guard it, or `argv[0]` (e.g.
+	// "--samples") would be read as the DB path / sample count.
+	const flagValue = (flag: string): string | undefined => {
+		const i = argv.indexOf(flag);
+		return i === -1 ? undefined : argv[i + 1];
+	};
+	const db = flagValue("--db") ?? process.env.DB_PATH ?? "data/leyabierta.db";
+	const samplesArg = flagValue("--samples");
+	const samples =
+		samplesArg === undefined ? 20 : Number.parseInt(samplesArg, 10);
+	if (!Number.isInteger(samples) || samples < 0) {
+		throw new Error(
+			`--samples expects a non-negative integer, got "${samplesArg}"`,
+		);
+	}
 	return { db, samples };
 }
 

@@ -410,6 +410,72 @@ describe("heuristicSubject", () => {
 			expect(result).toMatch(/^Por la que se fomenta/i);
 		});
 
+		test("round-5 verbs: ordena, delimita, constituye, reconoce, extingue… are nominalized too", () => {
+			// Real title shapes from the corpus (RD 161/2008, L 5/2008 Murcia, RD 928/1989).
+			expect(
+				heuristicSubject(
+					"Real Decreto 161/2008, de 8 de febrero, por el que se delimita la zona de promoción económica",
+				),
+			).toBe("Delimitación de la zona de promoción económica");
+			expect(
+				heuristicSubject(
+					"Ley 5/2008, de 25 de junio, por la que se extingue la Cámara Agraria de la Región de Murcia",
+				),
+			).toBe("Extinción de la Cámara Agraria de la Región de Murcia");
+			expect(
+				heuristicSubject(
+					"Real Decreto 928/1989, de 21 de julio, por el que se constituye el Organismo de cuenca",
+				),
+			).toBe("Constitución del Organismo de cuenca");
+		});
+
+		test("an object starting with a preposition or -mente adverb keeps the clause (no 'Autorización de a…', 'Para los lagomorfos medidas…')", () => {
+			expect(
+				heuristicSubject(
+					"Orden SND/351/2020, de 16 de abril, por la que se autoriza a las Unidades NBQ de las Fuerzas Armadas",
+				),
+			).toBe(
+				"Por la que se autoriza a las Unidades NBQ de las Fuerzas Armadas",
+			);
+			expect(
+				heuristicSubject(
+					"Real Decreto 463/2011, de 1 de abril, por el que se establecen para los lagomorfos medidas singulares de aplicación",
+				),
+			).toMatch(/^Por el que se establecen para los lagomorfos/);
+			expect(
+				heuristicSubject(
+					"Ley 8/2002, de 10 de julio, por la que se reconoce como Universidad privada a la Universidad Católica",
+				),
+			).toMatch(/^Por la que se reconoce como Universidad/);
+			expect(
+				heuristicSubject(
+					"Orden ABC/7/2020, de 1 de enero, por la que se desarrolla parcialmente la Ley de Aguas",
+				),
+			).toMatch(/^Por la que se desarrolla parcialmente/);
+		});
+
+		test("'con carácter urgente' after a dropped verb is still stripped, not treated as a preposition", () => {
+			expect(
+				heuristicSubject(
+					"Decreto-ley 14/2020, de 26 de mayo, por el que se establecen con carácter extraordinario y urgente medidas para la reactivación del sector",
+				),
+			).toBe("Medidas para la reactivación del sector");
+		});
+
+		test("'de la Comunidad de Castilla y León' aside is removed whole, never leaving '… y León'", () => {
+			// Real BOE-A-2002-977 (L 13/2001) and BOE-A-2008-4483 (RD 171/2008).
+			expect(
+				heuristicSubject(
+					"Ley 13/2001, de 20 de diciembre, de Ordenación Farmacéutica de la Comunidad de Castilla y León",
+				),
+			).toBe("Ordenación Farmacéutica");
+			expect(
+				heuristicSubject(
+					"Real Decreto 171/2008, de 8 de febrero, por el que se delimita la zona de promoción económica de la Comunidad de Castilla y León",
+				),
+			).toBe("Delimitación de la zona de promoción económica");
+		});
+
 		test("bare-preposition-fragment rescue: 'a entidades…' reaches the real ', sobre …' content instead", () => {
 			// Real bug found in review: BOILERPLATE_PREFIXES' number+connector
 			// entry stripped only the number, leaving "a entidades adscritas a

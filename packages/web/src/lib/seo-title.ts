@@ -237,9 +237,11 @@ const TRASPASO =
  * elsewhere, and one of the largest sources of otherwise-avoidable
  * truncation (#211 second review: 79% of titles ended in "…"). Dropped
  * outright — the community is regional context, not the point of the law.
+ * The " y " stop must not split "Castilla y León" (it left "…Farmacéutica
+ * y León" behind).
  */
 const COMUNIDAD_AUTONOMA_ASIDE =
-	/\s+de\s+la\s+Comunidad(?:\s+Aut[oó]noma)?\s+de\s+[\p{L}][\p{L}\s'-]*?(?=[,.;]|\s+(?:en|para|y)\s|$)/giu;
+	/\s+de\s+la\s+Comunidad(?:\s+Aut[oó]noma)?\s+de\s+[\p{L}][\p{L}\s'-]*?(?=[,.;]|\s+(?:en|para|y(?!\s+Le[oó]n\b))\s|$)/giu;
 
 /**
  * "Orden ECC/1251/2012 por la que se…" — a ministerial code (uppercase
@@ -382,6 +384,98 @@ export const VERB_NOMINALIZATION: Record<string, string | null> = {
 	amplía: "ampliación de",
 	amplian: "ampliación de",
 	amplían: "ampliación de",
+	// Leftover verbs of the "por que se X" clause after round 4, every one
+	// with ≥2 occurrences whose noun reads naturally before the object.
+	// Deliberately left out (kept as "Por la que se …"): acuerda, hace, da,
+	// emite, procede, registra, incluye, completa, complementa, exceptúa,
+	// reforma (also a noun: "Reforma del Estatuto…" must not be flagged) —
+	// no noun reads well in front of their usual objects ("hace público…").
+	ordena: "ordenación de",
+	ordenan: "ordenación de",
+	reordena: "reordenación de",
+	reordenan: "reordenación de",
+	delimita: "delimitación de",
+	delimitan: "delimitación de",
+	constituye: "constitución de",
+	constituyen: "constitución de",
+	reconoce: "reconocimiento de",
+	reconocen: "reconocimiento de",
+	designa: "designación de",
+	designan: "designación de",
+	adapta: "adaptación de",
+	adaptan: "adaptación de",
+	adecua: "adecuación de",
+	adecuan: "adecuación de",
+	reduce: "reducción de",
+	reducen: "reducción de",
+	delega: "delegación de",
+	delegan: "delegación de",
+	define: "definición de",
+	definen: "definición de",
+	reorganiza: "reorganización de",
+	reorganizan: "reorganización de",
+	organiza: "organización de",
+	organizan: "organización de",
+	revisa: "revisión de",
+	revisan: "revisión de",
+	incorpora: "incorporación de",
+	incorporan: "incorporación de",
+	integra: "integración de",
+	integran: "integración de",
+	suprime: "supresión de",
+	suprimen: "supresión de",
+	reglamenta: "reglamentación de",
+	reglamentan: "reglamentación de",
+	habilita: "habilitación de",
+	habilitan: "habilitación de",
+	extiende: "extensión de",
+	extienden: "extensión de",
+	especifica: "especificación de",
+	especifican: "especificación de",
+	articula: "articulación de",
+	articulan: "articulación de",
+	restablece: "restablecimiento de",
+	restablecen: "restablecimiento de",
+	extingue: "extinción de",
+	extinguen: "extinción de",
+	concreta: "concreción de",
+	concretan: "concreción de",
+	concede: "concesión de",
+	conceden: "concesión de",
+	aclara: "aclaración de",
+	aclaran: "aclaración de",
+	transpone: "transposición de",
+	transponen: "transposición de",
+	refunde: "refundición de",
+	refunden: "refundición de",
+	recupera: "recuperación de",
+	recuperan: "recuperación de",
+	promueve: "promoción de",
+	promueven: "promoción de",
+	normaliza: "normalización de",
+	normalizan: "normalización de",
+	implanta: "implantación de",
+	implantan: "implantación de",
+	homologa: "homologación de",
+	homologan: "homologación de",
+	flexibiliza: "flexibilización de",
+	flexibilizan: "flexibilización de",
+	eleva: "elevación de",
+	elevan: "elevación de",
+	convalida: "convalidación de",
+	convalidan: "convalidación de",
+	califica: "calificación de",
+	califican: "calificación de",
+	atribuye: "atribución de",
+	atribuyen: "atribución de",
+	aplica: "aplicación de",
+	aplican: "aplicación de",
+	garantiza: "garantía de",
+	garantizan: "garantía de",
+	prohíbe: "prohibición de",
+	prohibe: "prohibición de",
+	prohíben: "prohibición de",
+	prohiben: "prohibición de",
 };
 
 /** "regula la asignación de recursos…" → "regulación de la asignación de
@@ -398,12 +492,24 @@ function joinNominal(nominal: string, rest: string): string {
 	return `${nominal} ${rest}`;
 }
 
+/**
+ * An object that starts with a preposition or an "-mente" adverb can't follow
+ * a nominalization ("desarrolla parcialmente la Ley…" → "Desarrollo de
+ * parcialmente…", "incorpora al ordenamiento…" → "Incorporación de al…") nor
+ * stand on its own once the verb is dropped ("establecen para los lagomorfos
+ * medidas…" → "Para los lagomorfos medidas…"): the clause is kept as is.
+ * "con carácter urgente…" is the exception: `LEADING_FILLER` drops it.
+ */
+const NON_NOMINAL_OBJECT_START =
+	/^(?:a|al|como|en|con(?!\s+car[aá]cter\b)|para|por|entre|sobre|desde|hasta|mediante|durante|sin|bajo|tras|ante|hacia|seg[uú]n|contra|\p{L}+mente)(?:\s|$)/iu;
+
 function resolveVerbClause(intro: string, tail: string): string {
 	const m = tail.match(/^(\p{L}+)((?:\s+.+)?)$/su);
 	if (!m) return `${intro} ${tail}`;
 	const verb = m[1]!.toLowerCase();
 	const rest = (m[2] ?? "").trim();
 	if (!(verb in VERB_NOMINALIZATION)) return `${intro} ${tail}`;
+	if (NON_NOMINAL_OBJECT_START.test(rest)) return `${intro} ${tail}`;
 	const nominal = VERB_NOMINALIZATION[verb];
 	if (nominal === null) return rest || `${intro} ${tail}`;
 	return rest ? joinNominal(nominal, rest) : `${intro} ${tail}`;
