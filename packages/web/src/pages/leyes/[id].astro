@@ -18,6 +18,7 @@ import {
 import { hubsForLaw } from "../../components/topic-hubs";
 import { effectiveLastUpdated, pageLastModified } from "../../lib/law-dates.ts";
 import { composeLawDescription } from "../../lib/meta-description.ts";
+import { seoLawPageTitle } from "../../lib/seo-title.ts";
 import { lawContentDate } from "../../lib/page-lastmod-build.ts";
 import {
 	BUILD_TEXT_PAGES,
@@ -274,10 +275,15 @@ const seoDescription = composeLawDescription({
 	status: law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
 	department: law.departamento,
 });
+// SEO: <title> ≤ 70 chars (Bing flags longer; Google truncates ~60). The
+// official BOE title (used for the <h1> and og:title below) is far too long
+// for a SERP title — see lib/seo-title.ts for the derivation and rationale.
+const seoTitle = seoLawPageTitle({ id: id!, titulo: law.titulo, rango: law.rango });
 ---
 
 <Base
-	title={seoAbbreviations[0] ? `${seoAbbreviations[0]} — ${law.titulo}` : law.titulo}
+	title={seoTitle}
+	appendSiteSuffix={false}
 	description={seoDescription}
 	ogTitle={law.titulo}
 	ogType="article"

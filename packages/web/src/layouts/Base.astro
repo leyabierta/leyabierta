@@ -4,6 +4,14 @@ import { ensureMetaDescription, FALLBACK_DESCRIPTION } from "../lib/meta-descrip
 
 interface Props {
 	title: string;
+	/**
+	 * `false` when `title` is already the complete `<title>` text (e.g. from
+	 * `lib/seo-title.ts`, which decides for itself whether " — Ley Abierta"
+	 * fits within the Bing/Google length budget and may drop it). Defaults to
+	 * `true`: the common case, where `title` is just the page name and Base
+	 * appends the site suffix.
+	 */
+	appendSiteSuffix?: boolean;
 	description?: string;
 	ogTitle?: string;
 	ogDescription?: string;
@@ -27,6 +35,7 @@ const isProd = import.meta.env.PROD;
 
 const {
 	title,
+	appendSiteSuffix = true,
 	description = FALLBACK_DESCRIPTION,
 	ogTitle,
 	ogDescription,
@@ -45,7 +54,7 @@ const {
 // this codebase gives them a distinct value today, and there's no reason for
 // the social preview to say something different from the search snippet — so
 // clamping `description` here covers all three tags at once.
-const fullTitle = `${title} — Ley Abierta`;
+const fullTitle = appendSiteSuffix ? `${title} — Ley Abierta` : title;
 const resolvedOgTitle = ogTitle ?? fullTitle;
 const resolvedDescription = ensureMetaDescription(description);
 const resolvedOgDescription = ensureMetaDescription(ogDescription ?? description);
