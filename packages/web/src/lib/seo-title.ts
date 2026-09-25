@@ -388,6 +388,16 @@ export const VERB_NOMINALIZATION: Record<string, string | null> = {
  * recursos…"; "establece medidas…" → "medidas…"; an unrecognized verb (not
  * in `VERB_NOMINALIZATION`) → `${intro} ${tail}` unchanged, so the clause
  * reads as "Por la que se fomenta…" rather than a bare "Fomenta…". */
+/** "regulación de" + "el Observatorio…" → "regulación del Observatorio…"
+ * (never the ungrammatical "de el Observatorio…" — Spanish always contracts
+ * "de" + "el" to "del"). */
+function joinNominal(nominal: string, rest: string): string {
+	if (/^el\s+/i.test(rest)) {
+		return `${nominal.replace(/\s+de$/i, " del")} ${rest.replace(/^el\s+/i, "")}`;
+	}
+	return `${nominal} ${rest}`;
+}
+
 function resolveVerbClause(intro: string, tail: string): string {
 	const m = tail.match(/^(\p{L}+)((?:\s+.+)?)$/su);
 	if (!m) return `${intro} ${tail}`;
@@ -396,7 +406,7 @@ function resolveVerbClause(intro: string, tail: string): string {
 	if (!(verb in VERB_NOMINALIZATION)) return `${intro} ${tail}`;
 	const nominal = VERB_NOMINALIZATION[verb];
 	if (nominal === null) return rest || `${intro} ${tail}`;
-	return rest ? `${nominal} ${rest}` : `${intro} ${tail}`;
+	return rest ? joinNominal(nominal, rest) : `${intro} ${tail}`;
 }
 
 /**

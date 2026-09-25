@@ -372,6 +372,14 @@ describe("heuristicSubject", () => {
 			);
 		});
 
+		test("contracts 'de el' to 'del' (never the ungrammatical 'Regulación de el Observatorio…')", () => {
+			expect(
+				heuristicSubject(
+					"Real Decreto 943/2005, de 29 de julio, por el que se regula el Observatorio de la Pequeña y Mediana Empresa",
+				),
+			).toBe("Regulación del Observatorio de la Pequeña y Mediana Empresa");
+		});
+
 		test("modifica/modifican → 'Modificación de …' (MUST keep — a modifying norm must never read as the norm it modifies)", () => {
 			expect(
 				heuristicSubject(
