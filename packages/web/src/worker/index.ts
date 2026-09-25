@@ -88,9 +88,9 @@ export function legacyTextTabRedirect(url: URL): string | null {
 	return id ? boeUrl(id) : null;
 }
 
-function markdownBody(body: string): Response {
+function markdownBody(body: string, status = 200): Response {
 	return new Response(body, {
-		status: 200,
+		status,
 		headers: {
 			"content-type": "text/markdown; charset=utf-8",
 			// Cache HTML and Markdown variants separately at the edge/clients.
@@ -99,6 +99,111 @@ function markdownBody(body: string): Response {
 			"x-content-type-options": "nosniff",
 		},
 	});
+}
+
+/** Markdown 404 for agents requesting `Accept: text/markdown` on a path with
+ *  no Markdown (or HTML) representation. Cloudflare's "Agent-Readable" bar
+ *  (and third-party agent-readiness scanners) expect a 404 that is actually
+ *  parseable as Markdown, not an HTML error page mislabelled — or a plain
+ *  404 with no guidance back into the site. */
+function markdownNotFound(url: URL): Response {
+	const body = `# Página no encontrada
+
+La dirección \`${url.pathname}\` no corresponde a ninguna página de Ley Abierta. Puede que la URL sea incorrecta o que el contenido se haya movido.
+
+- [Mapa del sitio para agentes (llms.txt)](https://leyabierta.es/llms.txt)
+- [Mapa del sitio (sitemap.xml)](https://leyabierta.es/sitemap.xml)
+- [Documentación de la API (OpenAPI)](https://leyabierta.es/openapi.json)
+- [Página de inicio](https://leyabierta.es/)
+`;
+	return markdownBody(body, 404);
+}
+
+/** Proxies `https://api.leyabierta.es/openapi.json` under the web origin, so
+ *  the OpenAPI spec is reachable at the conventional `/openapi.json` path on
+ *  BOTH domains with no cross-domain redirect — agent-readiness scanners
+ *  check the site's own origin. Always live (no build-time fetch to go
+ *  stale or fail a deploy); safe-to-fail like the rest of this Worker.
+ *
+ *  Handles GET and HEAD. Never forwards the inbound request's own headers
+ *  (cookies, `CF-Connecting-IP`, …) to the API — this is a plain, anonymous
+ *  fetch of a static, public document, not a passthrough of the caller's
+ *  request. (The API also exempts `/openapi.json` and `/swagger/json` from
+ *  its own per-IP rate limiter — see `packages/api/src/index.ts` — so even a
+ *  burst of these proxied requests can't get 429'd or starve real traffic.)
+ *
+ *  Cached at the edge via the Cache API: the document only changes on an API
+ *  deploy, so there is no reason to hit the API on every request. `ctx` is
+ *  optional so this stays callable from tests, which invoke `worker.fetch()`
+ *  directly without an `ExecutionContext` — falls back to an awaited
+ *  `cache.put` instead of `ctx.waitUntil` in that case. */
+async function openApiResponse(
+	request: Request,
+	env: Env,
+	ctx?: ExecutionContext,
+): Promise<Response> {
+	const apiBase = env.PUBLIC_API_URL || DEFAULT_API_BASE;
+	const isHead = request.method === "HEAD";
+	const asHead = (res: Response) =>
+		isHead
+			? new Response(null, { status: res.status, headers: res.headers })
+			: res;
+
+	const fail = () =>
+		asHead(
+			new Response(
+				JSON.stringify({
+					error: "No se pudo obtener la especificación OpenAPI",
+					code: "OPENAPI_UNAVAILABLE",
+					hint: "Prueba directamente en https://api.leyabierta.es/openapi.json",
+				}),
+				{
+					status: 503,
+					headers: {
+						"content-type": "application/json; charset=utf-8",
+						"access-control-allow-origin": "*",
+						"cache-control": "no-store",
+					},
+				},
+			),
+		);
+
+	// `caches` (the Cache API) only exists in the real Workers runtime.
+	// Cast: under `astro check` the DOM lib's CacheStorage (no `.default`)
+	// shadows @cloudflare/workers-types.
+	const cache =
+		typeof caches !== "undefined"
+			? (caches as unknown as { default: Cache }).default
+			: undefined;
+	// One cache entry shared by GET and HEAD, keyed independently of query
+	// string / method quirks in the inbound request.
+	const cacheKey = new Request("https://leyabierta.es/openapi.json");
+
+	const cached = await cache?.match(cacheKey);
+	if (cached) return asHead(cached);
+
+	try {
+		const res = await fetch(`${apiBase}/openapi.json`, {
+			signal: AbortSignal.timeout(5000),
+		});
+		if (!res.ok) return fail();
+		const fresh = new Response(await res.text(), {
+			status: 200,
+			headers: {
+				"content-type": "application/json; charset=utf-8",
+				"cache-control": "public, s-maxage=3600, stale-while-revalidate=86400",
+				"access-control-allow-origin": "*",
+			},
+		});
+		if (cache) {
+			const putCache = cache.put(cacheKey, fresh.clone());
+			if (ctx) ctx.waitUntil(putCache);
+			else await putCache;
+		}
+		return asHead(fresh);
+	} catch {
+		return fail();
+	}
 }
 
 /** Produce a Markdown response for the requested path, or null if this path
@@ -426,13 +531,29 @@ async function renderReformResponse(
 }
 
 export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+	async fetch(
+		request: Request,
+		env: Env,
+		ctx?: ExecutionContext,
+	): Promise<Response> {
 		const url = new URL(request.url);
+
+		// Same-origin OpenAPI spec: leyabierta.es/openapi.json, no cross-domain
+		// redirect. See openApiResponse() above. GET and HEAD only — anything
+		// else (e.g. a stray POST) falls through to the normal handling below,
+		// which ultimately 404s it via ASSETS like any other unknown route.
+		if (
+			url.pathname === "/openapi.json" &&
+			(request.method === "GET" || request.method === "HEAD")
+		) {
+			return openApiResponse(request, env, ctx);
+		}
 
 		// Markdown for Agents: honor `Accept: text/markdown` on pages that have
 		// a Markdown representation. If we can't produce one, fall through to the
 		// normal HTML handling below.
-		if (prefersMarkdown(request)) {
+		const wantsMarkdown = prefersMarkdown(request);
+		if (wantsMarkdown) {
 			const md = await markdownResponse(env, url);
 			if (md) return md;
 		}
@@ -469,6 +590,13 @@ export default {
 			});
 		}
 
-		return env.ASSETS.fetch(request);
+		const assetRes = await env.ASSETS.fetch(request);
+		// Agent-friendly 404: an agent asking for Markdown on a path that
+		// doesn't exist gets a Markdown 404 (parseable, with a way back into
+		// the site) instead of the HTML error page.
+		if (wantsMarkdown && assetRes.status === 404) {
+			return markdownNotFound(url);
+		}
+		return assetRes;
 	},
 };

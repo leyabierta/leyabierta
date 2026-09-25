@@ -4,7 +4,11 @@
       "anchor": "https://api.leyabierta.es/v1/",
       "service-desc": [
         {
-          "href": "https://api.leyabierta.es/swagger/json",
+          "href": "https://api.leyabierta.es/openapi.json",
+          "type": "application/vnd.oai.openapi+json"
+        },
+        {
+          "href": "https://leyabierta.es/openapi.json",
           "type": "application/vnd.oai.openapi+json"
         }
       ],

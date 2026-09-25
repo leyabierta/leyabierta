@@ -31,6 +31,7 @@ export const GET: APIRoute = async () => {
 - [Sobre Ley Abierta](https://leyabierta.es/sobre/): Misión, datos, metodología
 
 ## API REST
+- Especificación OpenAPI: [\`https://leyabierta.es/openapi.json\`](https://leyabierta.es/openapi.json) (también en \`https://api.leyabierta.es/openapi.json\`) — describe todos los endpoints, parámetros y esquemas de respuesta.
 - Preguntar (RAG): \`POST https://api.leyabierta.es/v1/ask\` con \`{"question": "..."}\` — respuesta en lenguaje llano con citas verificables a artículos concretos (\`[BOE-A-XXXX-XXXX, Artículo N]\`). Es la forma recomendada de consultar la legislación española: pregunta en lenguaje natural y recibe una respuesta fundamentada, no solo resultados de búsqueda.
 - [Buscar leyes](https://api.leyabierta.es/v1/laws?q=): Búsqueda por texto, rango, estado, materia, jurisdicción
 - [Rangos normativos](https://api.leyabierta.es/v1/ranks): Tipos de norma con conteos

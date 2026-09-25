@@ -22,6 +22,7 @@ import { SITE_ORIGIN } from "./lib.ts";
 /** A stable, always-present norm (Constitución Española) for page-level checks. */
 const SAMPLE_LAW = "BOE-A-1978-31229";
 const TIMEOUT_MS = 20_000;
+const API_ORIGIN = process.env.SEO_API_ORIGIN ?? "https://api.leyabierta.es";
 
 interface Check {
 	name: string;
@@ -256,6 +257,119 @@ async function run(): Promise<void> {
 		);
 	} catch (e) {
 		record("sitemap.xml · served", false, `error: ${e}`, false);
+	}
+
+	// 7. OpenAPI spec at the conventional /openapi.json path, on BOTH the API
+	// and web origins (same-origin, no cross-domain redirect for the web one),
+	// with `servers` pointing at the production API.
+	for (const [label, origin] of [
+		["API", API_ORIGIN],
+		["web", SITE_ORIGIN],
+	] as const) {
+		try {
+			const res = await fetchWithTimeout(`${origin}/openapi.json`);
+			const ct = res.headers.get("content-type") ?? "";
+			let servers: unknown;
+			let openapi: unknown;
+			try {
+				const json = (await res.json()) as {
+					servers?: { url?: string }[];
+					openapi?: unknown;
+				};
+				servers = json.servers;
+				openapi = json.openapi;
+			} catch {
+				/* body not JSON — ok flips false below */
+			}
+			const hasServer =
+				Array.isArray(servers) &&
+				servers.some((s) => s?.url === "https://api.leyabierta.es");
+			const ok =
+				res.status === 200 &&
+				ct.includes("json") &&
+				typeof openapi === "string" &&
+				hasServer;
+			record(
+				`OpenAPI spec · /openapi.json on ${label} origin`,
+				ok,
+				res.status !== 200
+					? `HTTP ${res.status}`
+					: !ct.includes("json")
+						? `content-type ${ct}`
+						: typeof openapi !== "string"
+							? "response is not an OpenAPI document (missing `openapi` field)"
+							: !hasServer
+								? "`servers` does not include https://api.leyabierta.es"
+								: "served, valid, servers OK",
+			);
+		} catch (e) {
+			record(
+				`OpenAPI spec · /openapi.json on ${label} origin`,
+				false,
+				`error: ${e}`,
+			);
+		}
+	}
+
+	// 8. API errors are structured JSON, not Elysia's default text/plain.
+	try {
+		const res = await fetchWithTimeout(`${API_ORIGIN}/v1/nope-agent-check`);
+		const ct = res.headers.get("content-type") ?? "";
+		let body: { error?: unknown; code?: unknown } = {};
+		try {
+			body = (await res.json()) as typeof body;
+		} catch {
+			/* not JSON — ok flips false below */
+		}
+		const ok =
+			res.status === 404 &&
+			ct.includes("json") &&
+			typeof body.error === "string" &&
+			typeof body.code === "string";
+		record(
+			"API · JSON error responses (404 unknown route)",
+			ok,
+			res.status !== 404
+				? `HTTP ${res.status}`
+				: !ct.includes("json")
+					? `content-type ${ct} (expected JSON)`
+					: `error=${JSON.stringify(body.error)} code=${JSON.stringify(body.code)}`,
+		);
+	} catch (e) {
+		record(
+			"API · JSON error responses (404 unknown route)",
+			false,
+			`error: ${e}`,
+		);
+	}
+
+	// 9. A missing path, with Accept: text/markdown, ends (after redirects) in a
+	// 404 that is actually Markdown — not an HTML error page mislabelled, and
+	// not a plain 404 with no way back into the site.
+	try {
+		const res = await fetchWithTimeout(
+			`${SITE_ORIGIN}/esto-no-existe-agent-check/`,
+			{ headers: { Accept: "text/markdown" }, redirect: "follow" },
+		);
+		const ct = res.headers.get("content-type") ?? "";
+		const body = await res.text();
+		const ok =
+			res.status === 404 && ct.includes("markdown") && body.length >= 20;
+		record(
+			"Agent-friendly 404 · Accept: text/markdown on a missing web path",
+			ok,
+			res.status !== 404
+				? `HTTP ${res.status}`
+				: !ct.includes("markdown")
+					? `content-type ${ct}`
+					: `HTTP 404 · ${ct} · ${body.length}b`,
+		);
+	} catch (e) {
+		record(
+			"Agent-friendly 404 · Accept: text/markdown on a missing web path",
+			false,
+			`error: ${e}`,
+		);
 	}
 }
 

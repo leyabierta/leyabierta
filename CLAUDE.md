@@ -150,6 +150,7 @@ Endpoints:
 - `GET /v1/feed-omnibus.xml` — RSS feed of omnibus laws
 - `GET /v1/feed.xml` — RSS feed of recent reforms
 - `GET /health` — status + law count
+- `GET /openapi.json` — OpenAPI 3.0 spec (alias of the swagger plugin's `/swagger/json`, `servers` pointing at `https://api.leyabierta.es`); also served same-origin at `https://leyabierta.es/openapi.json` (proxied by the web Worker, `packages/web/src/worker/index.ts`)
 - `POST /v1/ask` — RAG Q&A: ask a legal question, get a cited answer
 - `POST /v1/ask/stream` — same, as Server-Sent Events (`stage`, `quota`, `progress`, `chunk`, `done`, `error`)
 
@@ -157,6 +158,13 @@ Endpoints:
 `services/rate-limiter.ts` (search 30/min, ask 20/min, rest 60/min). Clients are
 identified by `CF-Connecting-IP`: the API port is bound to `127.0.0.1` and the
 only way in is the Cloudflare Tunnel, which sets that header itself.
+
+**Errors.** Framework-level failures (unmatched route, schema validation,
+unhandled throw) return structured JSON via a global `app.onError` —
+`{ error, code, hint }` with the matching status (`services/api-errors.ts`,
+`structuredError`). This only covers thrown/framework errors: route handlers
+that set `set.status` and `return {...}` directly (most of `routes/*.ts`,
+including the ask-quota 429 shape documented above) are untouched.
 
 **Question quota (`/v1/ask`, `/v1/ask/stream`).** Each question spends
 OpenRouter credit, so on top of the limiter there is a quota
@@ -356,6 +364,15 @@ All pages are pre-rendered at build time. Law pages render from frontmatter, mar
 
 **When to introduce islands:**
 When a feature genuinely needs client-side state or rich interactivity (e.g., live search-as-you-type, interactive timeline with zoom/filter, reactive diff controls), install a UI integration (`@astrojs/react` or `@astrojs/svelte`) and use `client:visible` or `client:idle` directives on those specific components.
+
+**Agent-readiness (`packages/web/src/worker/index.ts`).** The Cloudflare Worker in
+front of the static assets: serves Markdown instead of HTML when `Accept:
+text/markdown` (law pages from the API, the homepage from `/llms.txt`) — including
+for a missing path, which gets a Markdown 404 (not HTML) linking `/llms.txt`,
+`/sitemap.xml` and `/openapi.json`; and proxies `https://leyabierta.es/openapi.json`
+to the API's spec, same-origin, no redirect. `scripts/seo/check-agent-readiness.ts`
+guards all of this (plus the API's `/openapi.json` and structured JSON errors)
+against regressions.
 
 **Current pages:**
 - `/` — landing with stats, jurisdictions, most reformed, recent reforms; search results via API

@@ -107,6 +107,9 @@ ${rankLines}
 
 ## API REST — Referencia completa
 
+### Especificación OpenAPI
+[\`https://leyabierta.es/openapi.json\`](https://leyabierta.es/openapi.json) (también en \`https://api.leyabierta.es/openapi.json\`). Describe todos los endpoints, parámetros y esquemas de respuesta en formato OpenAPI 3.0.
+
 ### Preguntar en lenguaje natural (RAG, recomendado)
 \`POST /v1/ask\`
 
