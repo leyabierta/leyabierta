@@ -20,23 +20,64 @@
 		// the SSR/meta-injection in src/worker/index.ts would never run (every
 		// reform would stay the noindex shell — defeating the whole point).
 		//
-		// `true` (not a path list): the Worker must see EVERY request, not just
-		// reform/law/home URLs. Two agent-readiness features depend on this
-		// (PR #209 review — a path-list here silently broke both in
-		// production, even though direct `worker.fetch()` tests passed, since
-		// tests bypass this asset-routing layer entirely):
+		// An array, not `true`: the Worker must see every HTML-ish/unknown
+		// path (PR #209 review — a path list scoped to just reform/law/home
+		// URLs silently broke two agent-readiness features in production,
+		// even though direct `worker.fetch()` tests passed, since tests
+		// bypass this asset-routing layer entirely):
 		//  - `/openapi.json` is a Worker route (proxies the API), not a static
-		//    file in dist/ — with a path list excluding it, ASSETS would 404 it
+		//    file in dist/ — excluded from the list, ASSETS would 404 it
 		//    before the Worker ever ran.
 		//  - the Markdown 404 for `Accept: text/markdown` on a missing path
 		//    only fires when the Worker gets to see the ASSETS 404 and rewrite
-		//    it — a path list would let `not_found_handling` answer directly
-		//    for any path outside the list, skipping the Worker.
-		// Cost: every static-asset request (JS, fonts, images, …) now also
-		// invokes the Worker, which falls straight through to
-		// `env.ASSETS.fetch(request)` for anything it doesn't specially
-		// handle — one cheap passthrough invocation, not a behavior change.
-		"run_worker_first": true,
+		//    it — excluded from the list, `not_found_handling` answers
+		//    directly, skipping the Worker.
+		// But `true` (every request, no exceptions) is too broad: we're on
+		// the Workers Free plan (100,000 Worker requests/day). Routing every
+		// CSS/JS bundle, font, icon and image through the Worker as well —
+		// none of which the Worker ever does anything with beyond an
+		// immediate `env.ASSETS.fetch()` passthrough — burns that budget on
+		// pure overhead, and a crawler spike hitting the cap turns into a
+		// site-wide outage (error 1027) instead of just slower crawling.
+		// So: run the Worker first for everything (`/*`) EXCEPT the asset
+		// types/directories below, which negative (`!`) patterns route
+		// straight to ASSETS with no Worker invocation at all — negative
+		// patterns take precedence over positive ones, order doesn't matter
+		// (https://developers.cloudflare.com/workers/static-assets/binding/).
+		// A missing file under one of these prefixes (e.g. /_astro/x.css)
+		// still gets the plain `not_found_handling` 404 page, just without
+		// the Worker's Markdown-404 rewrite — acceptable, since an agent
+		// asking `Accept: text/markdown` for a CSS/JS/image/font URL is not
+		// a real scenario this feature needs to cover.
+		//
+		// NOT excluded on purpose: `*.json` in general — `.well-known/*`
+		// (below) covers the one static `.json` file that lives there
+		// (mcp/server-card.json), and `lastmod.json` is called out
+		// individually, so `/openapi.json` isn't accidentally caught by a
+		// blanket `!/*.json`. OG images are NOT served from this Worker/dist
+		// at all (per-law images come from `api.leyabierta.es/og/:id`; only
+		// the single static fallback `og-image.png` lives here), so there's
+		// no `/og/*` exclusion to add.
+		"run_worker_first": [
+			"/*",
+			"!/_astro/*",
+			"!/fonts/*",
+			"!/lottie/*",
+			"!/.well-known/*",
+			"!/lastmod.json",
+			"!/*.png",
+			"!/*.webp",
+			"!/*.ico",
+			"!/*.svg",
+			"!/*.jpg",
+			"!/*.jpeg",
+			"!/*.css",
+			"!/*.js",
+			"!/*.woff",
+			"!/*.woff2",
+			"!/*.xml",
+			"!/*.txt"
+		],
 		// Without this, an unmatched path returns a bare 404 with an EMPTY body
 		// (0 bytes, no content-type) and the browser shows its own native error
 		// screen instead of dist/404.html — losing the site's branding,
