@@ -1033,4 +1033,51 @@ describe("seoReformTitle (reform pages, Bing 'Title too long' on 12 LAU reforms)
 			}),
 		).toBe("Nuevos centros en las Illes Balears (L 4/2006, 02/01/2020)");
 	});
+
+	test("the reform API sends no jurisdiction: taken from the ELI in source_url", () => {
+		expect(
+			seoReformTitle({
+				law: {
+					id: "BOE-A-2006-8354",
+					title:
+						"Ley 4/2006, de 30 de marzo, de educación y formación permanentes de personas adultas de las Illes Balears",
+					rank: "ley",
+					source_url: "https://www.boe.es/eli/es-ib/l/2006/03/30/4",
+				},
+				headline: "Cambia la financiación de los centros",
+				date: "2020-01-02",
+			}),
+		).toBe("Cambia la financiación… (L 4/2006, Illes Balears, 02/01/2020)");
+	});
+
+	test("no jurisdiction and no ELI: the full id, never a bare 'L N/AAAA' two communities could share", () => {
+		expect(
+			seoReformTitle({
+				law: {
+					id: "BOIB-i-2001-90003",
+					title: "Ley 3/2001, de 14 de marzo, de Consejos Escolares",
+					rank: "ley",
+					source_url: "https://www.boe.es/buscar/act.php?id=BOIB-i-2001-90003",
+				},
+				headline: "Nuevas funciones",
+				date: "2020-01-02",
+			}),
+		).toBe("Nuevas funciones (BOIB-i-2001-90003, 02/01/2020) — Ley Abierta");
+	});
+
+	test("LECrim (curated, no own number): its usual abbreviation, never the bare BOE id", () => {
+		expect(
+			seoReformTitle({
+				law: {
+					id: "BOE-A-1882-6036",
+					title:
+						"Real Decreto de 14 de septiembre de 1882 por el que se aprueba la Ley de Enjuiciamiento Criminal",
+					rank: "real_decreto",
+					jurisdiction: "es",
+				},
+				headline: "Se actualiza el procedimiento abreviado",
+				date: "2020-01-05",
+			}),
+		).toBe("Se actualiza el procedimiento abreviado (LECrim, 05/01/2020)");
+	});
 });

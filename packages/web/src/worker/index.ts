@@ -306,14 +306,14 @@ function injectMeta(
 ): string {
 	let html = shellHtml;
 
-	const fullTitleVal = esc(opts.seoTitle);
-	const bareTitleVal = esc(opts.title);
+	const seoTitleVal = esc(opts.seoTitle); // <title>, ≤ 70 characters
+	const ogTitleVal = esc(opts.title); // og:/twitter:title, long form
 	const descVal = esc(opts.description);
 	const canonicalHref = esc(`https://leyabierta.es${opts.canonicalPath}`);
 
 	html = html.replace(
 		/<title>[^<]*<\/title>/,
-		() => `<title>${fullTitleVal}</title>`,
+		() => `<title>${seoTitleVal}</title>`,
 	);
 	html = html.replace(
 		/<meta name="description" content="[^"]*"\s*\/?>/,
@@ -322,7 +322,7 @@ function injectMeta(
 	// OG + Twitter so social cards / rich results are per-reform, not generic.
 	html = html.replace(
 		/<meta property="og:title" content="[^"]*"\s*\/?>/,
-		() => `<meta property="og:title" content="${bareTitleVal}" />`,
+		() => `<meta property="og:title" content="${ogTitleVal}" />`,
 	);
 	html = html.replace(
 		/<meta property="og:description" content="[^"]*"\s*\/?>/,
@@ -334,7 +334,7 @@ function injectMeta(
 	);
 	html = html.replace(
 		/<meta name="twitter:title" content="[^"]*"\s*\/?>/,
-		() => `<meta name="twitter:title" content="${bareTitleVal}" />`,
+		() => `<meta name="twitter:title" content="${ogTitleVal}" />`,
 	);
 	html = html.replace(
 		/<meta name="twitter:description" content="[^"]*"\s*\/?>/,

@@ -878,18 +878,22 @@ export function seoLawPageTitle(law: {
 	return composeSeoTitle(shortLawTitle(law));
 }
 
-/** Longest curated name used as a reform title's law reference. */
-const CURATED_REF_MAX = 24;
+/** Shorter reference, in a reform title, for a curated law without its own
+ * number whose name would leave almost no room for the headline. */
+const REFORM_REF_OVERRIDES: Record<string, string> = {
+	"BOE-A-1882-6036": "LECrim",
+};
 
 /** "2010-12-23" → "23/12/2010" (compact, unambiguous in Spanish). */
 function compactDate(isoDate: string): string {
+	if (!isoDate) return "";
 	const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
 	return m ? `${m[3]}/${m[2]}/${m[1]}` : isoDate;
 }
 
 /**
  * The `<title>` for a reform detail page (`/cambios/reforma/…`, rendered by
- * the Worker): what changed — the AI headline, or "Cambios en <law>" when
+ * the Worker): what changed — the AI headline, or the law's own name when
  * there is none — plus "(<law disambiguator>, <date>)". Same rules as
  * `shortLawTitle`: ≤ `SEO_TITLE_MAX`, the disambiguator is never dropped (the
  * headline is shortened instead), the community is named unless the visible
@@ -904,6 +908,7 @@ export function seoReformTitle(reform: {
 		title: string;
 		rank: string;
 		jurisdiction?: string | null;
+		source_url?: string | null;
 	};
 	headline?: string | null;
 	date: string;
@@ -920,25 +925,35 @@ export function seoReformTitle(reform: {
 	// Without a headline the subject IS that name, so the date alone suffices.
 	const curated = POPULAR_LAW_NAMES[law.id];
 	const curatedNoNumber = !!curated && extractNumber(law.title) === undefined;
-	const curatedRef =
-		curatedNoNumber && codePointLength(curated) <= CURATED_REF_MAX
-			? curated
-			: undefined;
+	const curatedRef = curatedNoNumber
+		? (REFORM_REF_OVERRIDES[law.id] ?? curated)
+		: undefined;
+	// GET /v1/reforms/:id/:date doesn't send `jurisdiction`; the ELI in
+	// `source_url` carries it for ~98% of the corpus (0 mismatches). When it
+	// can't be told, the full id is the reference: unique by construction and
+	// it carries the regional bulletin prefix (BOIB-…, BOJA-…) — never a
+	// "L 4/2022" that Murcia and Aragón would share.
+	const jurisdiction =
+		law.jurisdiction ||
+		law.source_url?.match(/\/eli\/(es(?:-[a-z]{2})?)\//)?.[1];
 
 	const fit = (namedIn: string) => {
-		if (curatedNoNumber && !headline) {
-			return { core: `${subject} (${date})`, shortSubject: subject };
-		}
+		// Curated name with no headline: the subject already is that name, so
+		// only the date follows (no `lawAbbreviation`, hence `namedIn` unused).
 		const ref =
-			curatedRef ??
-			lawAbbreviation(
-				law.rank,
-				law.title,
-				law.id,
-				namedIn,
-				law.jurisdiction ?? undefined,
-			);
-		const suffix = ` (${ref}, ${date})`;
+			curatedNoNumber && !headline
+				? undefined
+				: (curatedRef ??
+					(jurisdiction
+						? lawAbbreviation(
+								law.rank,
+								law.title,
+								law.id,
+								namedIn,
+								jurisdiction,
+							)
+						: law.id));
+		const suffix = ref ? ` (${ref}, ${date})` : ` (${date})`;
 		const budget = SEO_TITLE_MAX - codePointLength(suffix);
 		const shortSubject =
 			codePointLength(subject) <= budget
