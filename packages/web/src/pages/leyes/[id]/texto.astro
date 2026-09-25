@@ -53,7 +53,13 @@ if (entry.body) {
 // the ficha page's <title>, prefixed instead of suffixed.
 const TEXTO_PREFIX = "Texto completo — ";
 const shortSubject = shortLawTitle(
-	{ id: id!, titulo: law.titulo, rango: law.rango },
+	{
+		id: id!,
+		titulo: law.titulo,
+		rango: law.rango,
+		jurisdiccion: law.jurisdiccion,
+		fechaPublicacion: law.fecha_publicacion,
+	},
 	SEO_TITLE_MAX - TEXTO_PREFIX.length,
 );
 const textoTitle = composeSeoTitle(`${TEXTO_PREFIX}${shortSubject}`);

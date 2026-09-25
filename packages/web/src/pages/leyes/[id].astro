@@ -278,7 +278,13 @@ const seoDescription = composeLawDescription({
 // SEO: <title> ≤ 70 chars (Bing flags longer; Google truncates ~60). The
 // official BOE title (used for the <h1> and og:title below) is far too long
 // for a SERP title — see lib/seo-title.ts for the derivation and rationale.
-const seoTitle = seoLawPageTitle({ id: id!, titulo: law.titulo, rango: law.rango });
+const seoTitle = seoLawPageTitle({
+	id: id!,
+	titulo: law.titulo,
+	rango: law.rango,
+	jurisdiccion: law.jurisdiccion,
+	fechaPublicacion: law.fecha_publicacion,
+});
 ---
 
 <Base
