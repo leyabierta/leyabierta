@@ -22,11 +22,21 @@
  *      numbers its own "Ley N/AAAA" independently (Murcia's Ley 4/2022 and
  *      Aragón's Ley 4/2022 are unrelated laws) — 810 colliding rank+number
  *      keys / 3,894 norms in the corpus before this fix.
- * The fix: the disambiguator (rank + own number-or-date, + jurisdiction when
- * not "es") is now NEVER dropped to make room for the subject — the subject
- * is shortened instead, down to nothing if it must. See `shortLawTitle`.
+ * The fix: the disambiguator (rank + own number, or the full BOE/regional id
+ * when there is no own number, + jurisdiction when relevant) is now NEVER
+ * dropped to make room for the subject — the subject is shortened instead,
+ * down to nothing if it must. See `shortLawTitle`.
  * `scripts/check-seo-title-uniqueness.ts` verifies this against the full
  * corpus (not part of `bun test`/CI — the DB isn't available there).
+ *
+ * Second review (same day): raw ELI codes ("es-pv", "es-md") read as
+ * database internals, not something a citizen recognizes — fixed by mapping
+ * to the same jurisdiction names the site already shows elsewhere
+ * (`JURISDICTION_LABELS` in `law-search.ts`), and skipping the mention
+ * entirely when the subject already names the community. And the date+id
+ * fallback for number-less norms ("Res 2/7/2021 10959") was replaced with
+ * the plain BOE identifier ("BOE-A-2021-10959") — unique, recognizable, and
+ * literally what people search for a specific norm by.
  *
  * Pipeline: `shortLawTitle` → a curated popular name (a handful of laws
  * people search for by name) or a heuristic strip of the BOE's boilerplate
@@ -44,6 +54,7 @@
  * `<title>` (and therefore `document.title`) is shortened.
  */
 
+import { JURISDICTION_LABELS } from "./law-search.ts";
 import {
 	cleanText,
 	codePointLength,
@@ -78,13 +89,44 @@ const RANK_ABBREVS: Record<string, string> = {
 const DEFAULT_RANK_ABBREV = "Norma";
 
 /**
+ * Lowercased substrings that mean "this subject already names the
+ * community" — checked before appending the jurisdiction to the
+ * disambiguator (e.g. "Museos de Euskadi (L 7/2006)" doesn't need
+ * ", País Vasco" appended; "Museos (L 7/2006)" would). Reuses
+ * `JURISDICTION_LABELS`' own names plus a couple of well-known synonyms
+ * citizens use (Euskadi, Comunitat Valenciana) — kept short and specific on
+ * purpose: a false match here only makes a title *less* explicit, and if it
+ * ever caused a real collision, `check-seo-title-uniqueness.ts` catches it.
+ */
+const JURISDICTION_NAME_ALIASES: Record<string, string[]> = {
+	"es-an": ["andalucía"],
+	"es-ar": ["aragón"],
+	"es-as": ["asturias"],
+	"es-cb": ["cantabria"],
+	"es-cl": ["castilla y león"],
+	"es-cm": ["castilla-la mancha", "castilla la mancha"],
+	"es-cn": ["canarias"],
+	"es-ct": ["cataluña", "catalunya"],
+	"es-ex": ["extremadura"],
+	"es-ga": ["galicia"],
+	"es-ib": ["illes balears", "islas baleares"],
+	"es-mc": ["murcia"],
+	"es-md": ["madrid"],
+	"es-nc": ["navarra"],
+	"es-pv": ["país vasco", "euskadi"],
+	"es-ri": ["la rioja"],
+	"es-vc": ["comunidad valenciana", "comunitat valenciana"],
+};
+
+/**
  * Curated short names for laws citizens commonly search for by name, keyed
  * by BOE/regional id. Only for the handful where a popular short name is
- * clearly better than the heuristic below (e.g. well-known acronyms) — the
- * heuristic alone must handle the other ~12k laws, and most of these entries
- * exist for clarity/consistency rather than because the heuristic fails.
- * None of these may contain "(" — `shortLawTitle` always appends its own
- * "(disambiguator)"; a curated name with its own parens would read as
+ * clearly better than the heuristic below (e.g. well-known acronyms, or a
+ * pre-1900 flagship code with no own number for the heuristic to anchor on)
+ * — the heuristic alone must handle the other ~12k laws, and most of these
+ * entries exist for clarity/consistency rather than because the heuristic
+ * fails. None of these may contain "(" — `shortLawTitle` always appends its
+ * own "(disambiguator)"; a curated name with its own parens would read as
  * "LOPDGDD (protección de datos) (LO 3/2018)" (double parens, #211 review).
  */
 export const POPULAR_LAW_NAMES: Record<string, string> = {
@@ -116,6 +158,15 @@ export const POPULAR_LAW_NAMES: Record<string, string> = {
 	"BOE-A-2007-20555": "Ley de Consumidores y Usuarios",
 	// Impuesto sobre Sociedades (L 27/2014)
 	"BOE-A-2014-12328": "Ley del Impuesto sobre Sociedades",
+	// Código Civil (1889, no own number — the heuristic has nothing to anchor on)
+	"BOE-A-1889-4763": "Código Civil",
+	// Código de Comercio (1885, same reason)
+	"BOE-A-1885-6627": "Código de Comercio",
+	// Ley Hipotecaria (1946, same reason)
+	"BOE-A-1946-2453": "Ley Hipotecaria",
+	// Ley Concursal (RDLeg 1/2020) — "el texto refundido de la Ley Concursal"
+	// has no del/de la/sobre connector for the heuristic to strip cleanly
+	"BOE-A-2020-4859": "Ley Concursal",
 };
 if (Object.values(POPULAR_LAW_NAMES).some((name) => name.includes("("))) {
 	throw new Error(
@@ -127,13 +178,25 @@ const MONTH_NAME =
 	"enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre";
 
 /**
- * ", de 23 de octubre," / ", de 5 de diciembre de 2018," → removed. Global:
- * some titles embed several such clauses (e.g. a law amending several other
- * dated laws in one sentence), and only removing the first would leave the
- * rest to eat into the truncation budget for no benefit.
+ * ", de 23 de octubre," / "de 23 de octubre" / ", de 5 de diciembre de
+ * 2018," → removed. Both the leading and trailing comma are optional: pre-
+ * 2000 BOE titles routinely have neither ("Real Decreto de 24 de julio de
+ * 1889 por el que se publica el Código Civil", "Orden de 18 de junio de
+ * 1998 por la que…") — requiring a trailing comma left 551 such titles
+ * completely unstripped (#211 second review). Global: some titles embed
+ * several such clauses (e.g. a law amending several other dated laws in one
+ * sentence), and only removing the first would leave the rest to eat into
+ * the truncation budget — or, worse, read as the norm's own second date.
  */
 const DATE_CLAUSE = new RegExp(
-	`,?\\s*de\\s+\\d{1,2}\\s+de\\s+(?:${MONTH_NAME})(?:\\s+de\\s+\\d{4})?\\s*,`,
+	`,?\\s*de\\s+\\d{1,2}\\s+de\\s+(?:${MONTH_NAME})(?:\\s+de\\s+\\d{4})?\\s*,?`,
+	"gi",
+);
+
+/** A "DD de MES[ de AAAA]" phrase, for the corpus check's "no two dates left
+ * in one title" assertion (a second match means `DATE_CLAUSE` missed one). */
+export const DATE_PHRASE = new RegExp(
+	`\\d{1,2}\\s+de\\s+(?:${MONTH_NAME})(?:\\s+de\\s+\\d{4})?`,
 	"gi",
 );
 
@@ -155,15 +218,46 @@ const TRAILING_BOILERPLATE = [
 const TRASPASO =
 	/traspaso\s+de\s+funciones\s+y\s+servicios\s+(?:de\s+la\s+Administraci[oó]n\s+del\s+Estado|del\s+Estado)\s+a\s+la\s+(?:Comunidad(?:\s+Aut[oó]noma)?|Ciudad\s+Aut[oó]noma)\s+de\s+([^,]+?)(?:\s+en\s+materia\s+de\s+([^,.;]+))?\s*[.,;]?\s*$/i;
 
+/**
+ * "…de la Comunidad Autónoma de Aragón…" / "…de la Comunidad de Madrid…"
+ * appearing mid-subject (not the `TRASPASO` shape, which handles its own):
+ * low information once the jurisdiction is already named or implied
+ * elsewhere, and one of the largest sources of otherwise-avoidable
+ * truncation (#211 second review: 79% of titles ended in "…"). Dropped
+ * outright — the community is regional context, not the point of the law.
+ */
+const COMUNIDAD_AUTONOMA_ASIDE =
+	/\s+de\s+la\s+Comunidad(?:\s+Aut[oó]noma)?\s+de\s+[\p{L}][\p{L}\s'-]*?(?=[,.;]|\s+(?:en|para|y)\s|$)/giu;
+
+/**
+ * "Orden ECC/1251/2012 por la que se…" — a ministerial code (uppercase
+ * letters) before the number. Deliberately case-SENSITIVE and separate from
+ * `BOILERPLATE_PREFIXES` (which is case-insensitive throughout): under `/i`,
+ * `[A-Z]` also matches lowercase, so folding this into that shared list would
+ * make the "code" part match any run of letters at all — silently eating the
+ * entire rest of the subject. Applied first: without it, the rank word was
+ * either left completely unstripped (letters break the plain-digits `\d./`
+ * match in the mandatory-number form) or, once the number became optional,
+ * stripped alone and left the bare code dangling ("ECC/1251/2012 por la que
+ * se…", #211 second review).
+ */
+const MINISTERIAL_CODE_PREFIX =
+	/^(?:Orden|Resoluci[oó]n|Circular|Instrucci[oó]n)\s+[A-ZÁÉÍÓÚÑ]{2,6}\/\d+\/\d{4}\s*/;
+
 // Applied in order — first match wins. Each strips a BOE boilerplate prefix
 // down to the law's subject.
 const BOILERPLATE_PREFIXES = [
-	// "…por el que se aprueba el texto refundido de la Ley [del/de la/sobre] X" → "X"
-	/^.*?\bpor\s+el\s+que\s+se\s+aprueba\s+el\s+texto\s+refundido\s+de\s+la\s+ley\s+(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
-	// "…por el que se aprueba el/la/los/las X" (regulations, not a "Ley") → "X"
-	/^.*?\bpor\s+el\s+que\s+se\s+aprueban?\s+(?:el|la|los|las)\s+/i,
-	// Direct "Ley/Real Decreto/… N/AAAA [del/de la/sobre] X" → "X"
-	/^(?:ley\s+org[aá]nica|ley|real\s+decreto\s+legislativo|real\s+decreto[- ]ley|real\s+decreto|decreto[- ]ley|decreto|orden|resoluci[oó]n|instrucci[oó]n|reglamento|acuerdo|circular)\s+[\d./]+\s*(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
+	// "…por el que se aprueba/publica el texto refundido de la Ley [del/de la/sobre] X" → "X"
+	/^.*?\bpor\s+el\s+que\s+se\s+(?:aprueba|publica)\s+el\s+texto\s+refundido\s+de\s+la\s+ley\s+(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
+	// "…por el que se aprueba/publica el/la/los/las X" (regulations, not a "Ley") → "X"
+	/^.*?\bpor\s+el\s+que\s+se\s+(?:aprueban?|publican?)\s+(?:el|la|los|las)\s+/i,
+	// Direct "Ley/Real Decreto/… [N/AAAA] [del/de la/sobre] X" → "X". The
+	// number is optional: pre-2000 titles are often dated, not numbered
+	// ("Orden de 18 de junio de 1998 por la que se…" → after DATE_CLAUSE
+	// strips the date, just "Orden por la que se…" is left) — still worth
+	// dropping the bare rank word so LEADING_FILLER can reach the "por la
+	// que se…" clause after it (#211 second review).
+	/^(?:ley\s+org[aá]nica|ley|real\s+decreto\s+legislativo|real\s+decreto[- ]ley|real\s+decreto|decreto[- ]ley|decreto|orden|resoluci[oó]n|instrucci[oó]n|reglamento|acuerdo|circular)\s+(?:[\d./]+\s*)?(?:del?\s+|de\s+la\s+|de\s+los\s+|de\s+las\s+|sobre\s+)?/i,
 ];
 
 /**
@@ -180,12 +274,24 @@ const BOILERPLATE_PREFIXES = [
 const CONTENT_INTRO =
 	/^.*?,\s*(?:sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se)\s+/i;
 
+// Leading filler that reads oddly as the first word of a short title and
+// carries no meaning on its own — dropped once, only at the very start.
+// "por la que se " is the same clause `CONTENT_INTRO` strips mid-string, but
+// also shows up as the very first words once `BOILERPLATE_PREFIXES` has
+// already consumed a leading "Ley N/AAAA " ("Por la que se modifica la Ley
+// 37/1992…" → "Modifica la Ley 37/1992…"). A bare leading article ("La
+// declaración de…" → "Declaración de…") is the same headline convention
+// newspapers use. Both buy back characters on a meaningful share of
+// subjects (#211 second review: 79% of titles truncated with "…").
+const LEADING_FILLER =
+	/^(?:sobre|relativa?\s+a|por\s+(?:el|la|los|las)\s+que\s+se\s+|de\s+la\s+|del\s+|de\s+los\s+|de\s+las\s+|el\s+|la\s+|los\s+|las\s+)\s*/i;
+
 // A short connector word right before the ellipsis reads badly ("…de la Ley
 // 25/1983, de…") — `truncateAtWordBoundary` only guarantees a word boundary,
 // not that the last word is meaningful. Strip these once more before
 // settling on the final cut.
 const DANGLING_CONNECTOR =
-	/\s+(?:de|del|la|el|los|las|y|o|en|a|al|que|para|por|con|su|sus|un|una|unos|unas|se)…$/i;
+	/\s+(?:de|del|la|el|los|las|y|o|en|a|al|que|para|por|con|su|sus|un|una|unos|unas|se|sobre|desde|hasta|ante)…$/i;
 
 /** `truncateAtWordBoundary`, then drop a dangling connector word before "…". */
 function truncateSubject(text: string, max: number): string {
@@ -210,10 +316,24 @@ function truncateSubject(text: string, max: number): string {
  */
 const OWN_NUMBER_WINDOW = 45;
 
+/**
+ * A handful of BOE titles have a stray space around the number's slash
+ * ("Ley 8 /1999, de 27 de abril, de Creación de…") — a source typo, not a
+ * different format. Left alone, `\d+\/\d{4}` doesn't match "8 /1999" at all,
+ * so the number was silently dropped from both `extractNumber` and the
+ * `BOILERPLATE_PREFIXES` rank+number strip, leaving a mangled subject
+ * ("/1999 de Creación de…"). Normalized once, up front.
+ */
+function normalizeSlashSpacing(s: string): string {
+	return s
+		.replace(/(\d)\s+\/\s*(\d)/g, "$1/$2")
+		.replace(/(\d)\/\s+(\d)/g, "$1/$2");
+}
+
 /** Extract "2/2015" / "27/2014" (rank+number) from a BOE title, if present
  * and close enough to the start to plausibly be the norm's own number. */
 function extractNumber(titulo: string): string | undefined {
-	const clean = cleanText(titulo);
+	const clean = normalizeSlashSpacing(cleanText(titulo));
 	const m = clean.match(/(\d+\/\d{4})/);
 	if (!m || m.index === undefined || m.index > OWN_NUMBER_WINDOW) {
 		return undefined;
@@ -221,83 +341,69 @@ function extractNumber(titulo: string): string | undefined {
 	return m[1];
 }
 
-/** "1974-08-07" → "7/8/1974" (day/month/year, no leading zeros). */
-function compactDate(iso: string): string | undefined {
-	const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-	if (!m) return undefined;
-	const [, y, mo, d] = m;
-	return `${Number(d)}/${Number(mo)}/${y}`;
-}
-
 /**
- * The trailing id segment ("BOE-A-2020-4063" → "4063"), used ONLY as a last-
- * resort tiebreaker for the date-fallback disambiguator (see below): ranks
- * that carry no own N/AAAA number (resoluciones, órdenes with no code, …)
- * are identified by date alone, and several are routinely published on the
- * exact same date (e.g. a batch of same-day órdenes, or a resolución and the
- * one that corrects it two days later re-published under the date it
- * refers to). 36 groups / 93 norms in the corpus still collided on
- * rank+date alone (#211 review) — the id is the one field guaranteed unique
- * per norm (DB primary key), so appending it closes the gap completely.
+ * Whether `subject` already names the jurisdiction's community — checked
+ * before appending it to the disambiguator (see `JURISDICTION_NAME_ALIASES`).
  */
-function idTail(id: string): string {
-	const parts = id.split("-").filter(Boolean);
-	return parts[parts.length - 1] ?? id;
+function subjectNamesJurisdiction(
+	subject: string,
+	jurisdiccion: string,
+): boolean {
+	const aliases = JURISDICTION_NAME_ALIASES[jurisdiccion];
+	if (!aliases) return false;
+	const lower = subject.toLowerCase();
+	return aliases.some((alias) => lower.includes(alias));
 }
 
 /**
- * The disambiguator: rank + the norm's own number, or — when the title
- * carries no number close to its start (most resoluciones/órdenes: they are
- * identified by date, not by a N/AAAA number) — rank + publication date +
- * the id's trailing segment (see `idTail`; guarantees uniqueness even
- * between same-rank, same-date norms). Jurisdiction is appended when not
- * "es": every autonomous community numbers its own laws independently
+ * The disambiguator: rank + the norm's own number (never dropped by
+ * `shortLawTitle` to make room for the subject — see module docs), plus the
+ * jurisdiction's name when it's not "es" and the subject doesn't already
+ * name it — every autonomous community numbers its own laws independently
  * (Murcia's "Ley 4/2022" and Aragón's "Ley 4/2022" are unrelated — 810
- * colliding rank+number keys across 3,894 norms in the corpus before this
- * was added, #211 review). This is NEVER dropped by `shortLawTitle` to make
- * room for the subject — see module docs.
+ * colliding rank+number keys across 3,894 norms in the corpus before the
+ * jurisdiction was added, #211 review).
+ *
+ * When the title carries no number close to its start (most resoluciones/
+ * órdenes: they are identified by date, not by a N/AAAA number), the full
+ * BOE/regional id is used instead — unique by construction (it's the DB
+ * primary key), recognizable, and literally what a citizen searches for a
+ * specific norm ("BOE-A-2021-10959"), unlike a bare rank+date+id-fragment.
  */
 export function lawAbbreviation(
 	rango: string,
 	titulo: string,
 	id: string,
+	subject: string,
 	jurisdiccion?: string,
-	fechaPublicacion?: string,
-): string | undefined {
-	const abbrev = RANK_ABBREVS[rango] ?? DEFAULT_RANK_ABBREV;
+): string {
 	const number = extractNumber(titulo);
-	const core = number
-		? `${abbrev} ${number}`
-		: fechaPublicacion
-			? mapUndefined(
-					compactDate(fechaPublicacion),
-					(d) => `${abbrev} ${d} ${idTail(id)}`,
-				)
-			: undefined;
-	if (!core) return undefined;
-	return jurisdiccion && jurisdiccion !== "es"
-		? `${core} ${jurisdiccion}`
-		: core;
-}
+	if (!number) return id;
 
-function mapUndefined<T, U>(v: T | undefined, f: (v: T) => U): U | undefined {
-	return v === undefined ? undefined : f(v);
+	const abbrev = RANK_ABBREVS[rango] ?? DEFAULT_RANK_ABBREV;
+	const base = `${abbrev} ${number}`;
+	if (!jurisdiccion || jurisdiccion === "es") return base;
+	if (subjectNamesJurisdiction(subject, jurisdiccion)) return base;
+	const label = JURISDICTION_LABELS[jurisdiccion] ?? jurisdiccion;
+	return `${base}, ${label}`;
 }
 
 /**
  * Heuristic subject extraction from a BOE title: strip the date clause, any
  * parenthetical aside (never left in — it would collide with the
  * disambiguator's own parens), the "traspaso de funciones…" pattern (see
- * `TRASPASO`), the "por el que se aprueba…" / rank+number boilerplate down
- * to the subject (or, failing that, the "por el/la que se…" tail — see
- * `CONTENT_INTRO`), and trailing "y otras leyes complementarias". Titles
- * with none of that boilerplate (e.g. "Constitución Española", "Código
- * Civil") are returned unchanged.
+ * `TRASPASO`), a mid-subject "de la Comunidad Autónoma de X" aside (see
+ * `COMUNIDAD_AUTONOMA_ASIDE`), the "por el que se aprueba/publica…" /
+ * rank+number boilerplate down to the subject (or, failing that, the
+ * "por el/la que se…" tail — see `CONTENT_INTRO`), and trailing "y otras
+ * leyes complementarias". Titles with none of that boilerplate (e.g.
+ * "Constitución Española", "Código Civil") are returned unchanged.
  */
 export function heuristicSubject(titulo: string): string {
-	let s = cleanText(titulo)
+	let s = normalizeSlashSpacing(cleanText(titulo))
 		.replace(DATE_CLAUSE, " ")
-		.replace(/\s*\([^()]*\)/g, " ");
+		.replace(/\s*\([^()]*\)/g, " ")
+		.replace(MINISTERIAL_CODE_PREFIX, "");
 	for (const re of TRAILING_BOILERPLATE) s = s.replace(re, "");
 
 	const traspaso = s.match(TRASPASO);
@@ -308,6 +414,7 @@ export function heuristicSubject(titulo: string): string {
 			? `Traspaso a ${community}: ${materia}`
 			: `Traspaso a ${community}`;
 	} else {
+		s = s.replace(COMUNIDAD_AUTONOMA_ASIDE, "");
 		let matched = false;
 		for (const re of BOILERPLATE_PREFIXES) {
 			const stripped = s.replace(re, "");
@@ -323,6 +430,7 @@ export function heuristicSubject(titulo: string): string {
 		}
 	}
 
+	s = s.replace(LEADING_FILLER, "");
 	s = s
 		.replace(/\s+/g, " ")
 		.trim()
@@ -346,7 +454,6 @@ export function shortLawTitle(
 		titulo: string;
 		rango: string;
 		jurisdiccion?: string;
-		fechaPublicacion?: string;
 	},
 	maxCore: number = SEO_TITLE_MAX,
 ): string {
@@ -355,23 +462,14 @@ export function shortLawTitle(
 		law.rango,
 		law.titulo,
 		law.id,
+		subject,
 		law.jurisdiccion,
-		law.fechaPublicacion,
 	);
-
-	if (!disambig) {
-		// No number close to the start and no publication date to fall back on
-		// — shouldn't happen with real data (every norm has a publication
-		// date), but the function must still degrade gracefully.
-		return codePointLength(subject) <= maxCore
-			? subject
-			: truncateSubject(subject, maxCore);
-	}
 
 	const suffix = ` (${disambig})`;
 	const suffixLen = codePointLength(suffix);
 	if (suffixLen >= maxCore) {
-		// Pathological (unreachable with real ranks/numbers/jurisdiction codes):
+		// Pathological (unreachable with real ranks/numbers/jurisdiction names):
 		// even the bare disambiguator doesn't fit the budget. Still never drop
 		// it — the budget loses, not the disambiguator.
 		return disambig;
@@ -409,7 +507,6 @@ export function seoLawPageTitle(law: {
 	titulo: string;
 	rango: string;
 	jurisdiccion?: string;
-	fechaPublicacion?: string;
 }): string {
 	return composeSeoTitle(shortLawTitle(law));
 }

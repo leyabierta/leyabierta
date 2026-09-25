@@ -1,8 +1,15 @@
 #!/usr/bin/env bun
 /**
  * Corpus-level check for lib/seo-title.ts: computes the <title> every law
- * page would get and verifies it's unique across the whole corpus, plus
- * reports the length distribution (before/after vs. the pre-#211 scheme).
+ * page would get and verifies:
+ *   - uniqueness across the whole corpus
+ *   - no double parentheses
+ *   - no raw ELI jurisdiction code left in a title (e.g. "es-pv" instead of
+ *     "País Vasco")
+ *   - no title with two different date phrases left in it (a sign
+ *     DATE_CLAUSE missed one)
+ * …plus reports the length distribution (before/after vs. the pre-#211
+ * scheme) and the share of titles that still had to be truncated with "…".
  *
  * Not part of `bun test` / CI: the SQLite DB (`data/leyabierta.db`) is
  * gitignored and not available there. Run manually after touching
@@ -10,12 +17,11 @@
  *
  *   bun run packages/web/scripts/check-seo-title-uniqueness.ts [--db path] [--samples N]
  *
- * Exits 1 (and prints every colliding group) if any two different law ids
- * produce the same <title>.
+ * Exits 1 (and prints details) on any failure.
  */
 import { Database } from "bun:sqlite";
 import { codePointLength } from "../src/lib/meta-description.ts";
-import { seoLawPageTitle } from "../src/lib/seo-title.ts";
+import { DATE_PHRASE, seoLawPageTitle } from "../src/lib/seo-title.ts";
 
 interface Args {
 	db: string;
@@ -42,7 +48,7 @@ interface Row {
 
 // The pre-#211 scheme, for the before/after comparison in the report:
 // abbreviation dropped whenever the subject alone didn't leave room for it,
-// and no jurisdiction/date fallback.
+// and no jurisdiction/id fallback at all.
 const OLD_ABBREVS: Record<string, string> = {
 	real_decreto: "RD",
 	ley_organica: "LO",
@@ -70,6 +76,11 @@ function percentile(arr: number[], p: number): number {
 	return sorted[idx]!;
 }
 
+// Raw ELI jurisdiction codes ("es-pv", "es-md", …) — must never survive into
+// a <title>; lib/seo-title.ts maps them to a human name (JURISDICTION_LABELS)
+// or skips the mention entirely when the subject already names the community.
+const ELI_CODE = /\bes-[a-z]{2}\b/;
+
 function main() {
 	const { db: dbPath, samples } = parseArgs(process.argv.slice(2));
 	const db = new Database(dbPath, { readonly: true });
@@ -85,7 +96,10 @@ function main() {
 	let oldLe70 = 0;
 	let newLe60 = 0;
 	let newLe70 = 0;
+	let ellipsisCount = 0;
 	const doubleParens: string[] = [];
+	const eliCodes: string[] = [];
+	const twoDates: string[] = [];
 
 	for (const row of rows) {
 		const title = seoLawPageTitle({
@@ -93,7 +107,6 @@ function main() {
 			titulo: row.title,
 			rango: row.rank,
 			jurisdiccion: row.jurisdiction,
-			fechaPublicacion: row.published_at,
 		});
 		const arr = byTitle.get(title) ?? [];
 		arr.push(row.id);
@@ -102,6 +115,13 @@ function main() {
 		if ((title.match(/\(/g)?.length ?? 0) > 1) {
 			doubleParens.push(`${row.id}: ${title}`);
 		}
+		if (ELI_CODE.test(title)) {
+			eliCodes.push(`${row.id}: ${title}`);
+		}
+		if ((title.match(DATE_PHRASE)?.length ?? 0) > 1) {
+			twoDates.push(`${row.id}: ${title}`);
+		}
+		if (title.includes("…")) ellipsisCount++;
 
 		const nl = codePointLength(title);
 		newLens.push(nl);
@@ -133,6 +153,9 @@ function main() {
 	console.log(
 		`\nUniqueness: ${byTitle.size} distinct <title>s for ${n} norms — ${collidingGroups.length} colliding groups covering ${collidingNorms} norms (${((collidingNorms / n) * 100).toFixed(2)}%)`,
 	);
+	console.log(
+		`Ellipsis ("…"): ${ellipsisCount} / ${n} titles still truncated (${((ellipsisCount / n) * 100).toFixed(1)}%)`,
+	);
 
 	if (collidingGroups.length > 0) {
 		console.log("\nColliding groups:");
@@ -146,6 +169,12 @@ function main() {
 	);
 	for (const line of doubleParens.slice(0, 20)) console.log(`  ${line}`);
 
+	console.log(`\nRaw ELI codes: ${eliCodes.length} titles`);
+	for (const line of eliCodes.slice(0, 20)) console.log(`  ${line}`);
+
+	console.log(`\nTwo date phrases left: ${twoDates.length} titles`);
+	for (const line of twoDates.slice(0, 20)) console.log(`  ${line}`);
+
 	console.log(`\n${samples} random samples:`);
 	const shuffled = [...rows].sort(() => Math.random() - 0.5).slice(0, samples);
 	for (const row of shuffled) {
@@ -154,7 +183,6 @@ function main() {
 			titulo: row.title,
 			rango: row.rank,
 			jurisdiccion: row.jurisdiction,
-			fechaPublicacion: row.published_at,
 		});
 		console.log(`ID: ${row.id}`);
 		console.log(
@@ -176,9 +204,19 @@ function main() {
 		);
 		failed = true;
 	}
+	if (eliCodes.length > 0) {
+		console.error(`\nFAIL: ${eliCodes.length} titles with a raw ELI code.`);
+		failed = true;
+	}
+	if (twoDates.length > 0) {
+		console.error(
+			`\nFAIL: ${twoDates.length} titles with two date phrases left in them.`,
+		);
+		failed = true;
+	}
 	if (failed) process.exit(1);
 	console.log(
-		"\nOK: every <title> in the corpus is unique, no double parentheses.",
+		"\nOK: every <title> in the corpus is unique, no double parentheses, no raw ELI codes, no leftover double dates.",
 	);
 }
 
