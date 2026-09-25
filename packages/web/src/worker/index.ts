@@ -159,7 +159,11 @@ async function openApiResponse(
 				}),
 				{
 					status: 503,
-					headers: { "content-type": "application/json; charset=utf-8" },
+					headers: {
+						"content-type": "application/json; charset=utf-8",
+						"access-control-allow-origin": "*",
+						"cache-control": "no-store",
+					},
 				},
 			),
 		);
