@@ -132,7 +132,6 @@ describe("importReformRows", () => {
 			total: 1,
 			inserted: 1,
 			replaced: 0,
-			markedNotified: 1,
 			skipped: {},
 		});
 		const [s] = summaries();
@@ -226,7 +225,6 @@ describe("importReformRows", () => {
 				total: 1,
 				inserted: 0,
 				replaced: 1,
-				markedNotified: 1,
 				skipped: {},
 			});
 			const [s] = summaries();
@@ -286,63 +284,6 @@ describe("importReformRows", () => {
 				replace: exported(),
 			});
 			expect(report.inserted).toBe(1);
-		});
-	});
-
-	describe("alert emails", () => {
-		const notified = () =>
-			db
-				.prepare("SELECT norm_id, source_id, reform_date FROM notified_reforms")
-				.all();
-
-		test("an old reform inserted offline is marked as notified", () => {
-			const report = importReformRows(db, [row()], { apply: true });
-			expect(report.markedNotified).toBe(1);
-			expect(notified()).toEqual([
-				{ norm_id: "N", source_id: "S", reform_date: "2021-06-01" },
-			]);
-		});
-
-		test("a recent reform is left for the daily alerts", () => {
-			const report = importReformRows(db, [row()], {
-				apply: true,
-				alertCutoff: "2021-05-01",
-			});
-			expect(report.inserted).toBe(1);
-			expect(report.markedNotified).toBe(0);
-			expect(notified()).toHaveLength(0);
-		});
-
-		test("a replaced old summary is marked; a recent one keeps alerting", () => {
-			const seed = () =>
-				db.run(
-					"INSERT OR REPLACE INTO reform_summaries (norm_id, source_id, reform_date, headline, summary, importance) VALUES ('N', 'S', '2021-06-01', 'viejo', 'resumen viejo', 'skip')",
-				);
-			const replace = () =>
-				new Map([["N|S|2021-06-01", summaryHash("viejo", "resumen viejo")]]);
-			seed();
-			const recent = importReformRows(db, [row()], {
-				apply: true,
-				alertCutoff: "2021-05-01",
-				replace: replace(),
-			});
-			expect(recent.replaced).toBe(1);
-			expect(notified()).toHaveLength(0);
-
-			seed();
-			const old = importReformRows(db, [row()], {
-				apply: true,
-				replace: replace(),
-			});
-			expect(old.replaced).toBe(1);
-			expect(old.markedNotified).toBe(1);
-			expect(notified()).toHaveLength(1);
-		});
-
-		test("dry run counts but writes nothing", () => {
-			const report = importReformRows(db, [row()], { apply: false });
-			expect(report.markedNotified).toBe(1);
-			expect(notified()).toHaveLength(0);
 		});
 	});
 });

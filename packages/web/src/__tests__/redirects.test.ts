@@ -68,7 +68,6 @@ describe("/_redirects: bare-path → trailing-slash redirects exist", () => {
 	const requiredBareToSlash = [
 		["/pregunta", "/pregunta/"],
 		["/cambios", "/cambios/"],
-		["/alertas", "/alertas/"],
 		["/leyes", "/leyes/"],
 	];
 
@@ -94,6 +93,16 @@ describe("/_redirects: structural sanity", () => {
 	test("no rule redirects to itself (would create infinite loop)", () => {
 		for (const r of rules) {
 			expect(r.from).not.toBe(r.to);
+		}
+	});
+});
+
+describe("/_redirects: email alerts removed (2026-09-24)", () => {
+	test("every /alertas URL lands on /cambios/para-mi/ in one hop", () => {
+		for (const from of ["/alertas", "/alertas/", "/alertas/*"]) {
+			const rule = rules.find((r) => r.from === from);
+			expect(rule?.to).toBe("/cambios/para-mi/");
+			expect(rule?.status).toBe(301);
 		}
 	});
 });

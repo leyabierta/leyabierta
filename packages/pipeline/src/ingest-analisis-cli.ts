@@ -36,7 +36,7 @@ async function main() {
 	//   2. This script NEVER fabricates a name (see processNorm below).
 	// Note we deliberately do NOT abort when the lookup is missing: the daily
 	// pipeline runs under `set -euo pipefail`, so exiting non-zero here would
-	// also kill Steps 4-8 (reform summaries, citizen tags, subscriber emails).
+	// also kill Steps 4-7 (reform summaries, citizen tags, OG images).
 	// A degraded run that adds no new materias is recoverable and self-heals on
 	// the next run; a pipeline that stops before the emails is not.
 	let materiaLookup: Record<string, string> = {};

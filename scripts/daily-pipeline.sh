@@ -173,7 +173,7 @@ fi
 # its own alert.
 #
 # Deliberately NOT wired into the heartbeat. The heartbeat is the liveness
-# signal for steps 1-8 (including the daily emails). Suppressing it for a
+# signal for steps 1-7. Suppressing it for a
 # stale-but-working pipeline would page for the wrong thing, keep the monitor
 # permanently red (nothing moves the prod tag automatically today, so it would
 # stay red until a human acts), and make a genuinely dead pipeline
@@ -194,7 +194,7 @@ set -euo pipefail
 
 # Extract ONLY the LEYES_PUSH_TOKEN from .env.prod for the push step. Avoid
 # `set -a; source ...` because that exports every secret in the file
-# (Resend, OpenRouter, ALERTS_SECRET, etc.) into the environment of every
+# (OpenRouter, bypass keys, etc.) into the environment of every
 # subsequent `docker exec` call — much wider blast radius than necessary.
 if [ -r "$ENV_FILE" ]; then
   LEYES_PUSH_TOKEN=$(grep -E '^LEYES_PUSH_TOKEN=' "$ENV_FILE" | head -1 | cut -d= -f2- || true)
@@ -379,8 +379,8 @@ log "  ✓ Ingest done"
 #
 # Non-fatal by design. Step 3 degrades safely without the lookup (it omits
 # unresolved codes and never fabricates), and this script runs under
-# `set -euo pipefail`, so aborting here would also skip Steps 4-8 — including
-# the subscriber emails. Stale/missing reference data for one day is cheaper
+# `set -euo pipefail`, so aborting here would also skip Steps 4-7. Stale/missing
+# reference data for one day is cheaper
 # than a day with no product output. (`if` already suppresses `set -e` for the
 # command it tests, so no branch below can abort the run.)
 #
@@ -407,7 +407,7 @@ log "  ✓ Ingest-analisis done"
 # All of them call external AI providers (OpenRouter, OPENROUTER_API_KEY in
 # .env.prod). Before, they ran under `set -e` like everything else, so a dead
 # provider key made Step 4 exit 1 and skipped Steps 5-10 — no OG
-# images, no subscriber emails, no index rebuild, no heartbeat
+# images, no index rebuild, no heartbeat
 # (2026-08: NaN cancelled, Step 4 still pointed at it). AI enrichment is
 # additive and every step is gap-filling (it retries whatever is still missing
 # on the next run), so a failure here alerts and the run continues.
@@ -454,13 +454,10 @@ log "→ Step 7: OG images"
 docker exec "$CONTAINER" bun run packages/api/src/scripts/generate-og-images.ts >> "$LOG" 2>&1
 log "  ✓ OG images done"
 
-# ── Step 8: Email notifications ─────────────────────────────────────────────
-log "→ Step 8: Send notifications"
-docker exec "$CONTAINER" bun run packages/api/src/scripts/send-notifications.ts >> "$LOG" 2>&1
-log "  ✓ Notifications sent"
+# (Step 8, email notifications, was removed on 2026-09-24: no emails.)
 
 # ── Step 9: Retry push if step 1.5 failed due to a transient error ──────────
-# AI/email steps (2-8) write only to the DB, never to leyes markdown. The
+# AI steps (2-7) write only to the DB, never to leyes markdown. The
 # retry exists purely to recover from network/auth flakes in step 1.5; the
 # AI work in between bought us ~minutes of wall-clock time for whatever was
 # wrong upstream to clear.
@@ -514,8 +511,8 @@ fi
 log "=== Daily pipeline completed ==="
 
 # ── Heartbeat: signal successful completion to uptime monitor ────────────────
-# Unconditional on purpose: this is the liveness signal for steps 1-8 (the
-# daily emails included), NOT a deploy-freshness signal. Deploy staleness is
+# Unconditional on purpose: this is the liveness signal for steps 1-7, NOT a
+# deploy-freshness signal. Deploy staleness is
 # alerted separately near the top of this script — see the comment there.
 if [ -n "${BETTERSTACK_HEARTBEAT_URL:-}" ]; then
   curl -fsS --max-time 10 "$BETTERSTACK_HEARTBEAT_URL" >/dev/null 2>&1 \

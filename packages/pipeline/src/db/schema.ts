@@ -139,47 +139,6 @@ const SCHEMA_SQL = /* sql */ `
     FOREIGN KEY (norm_id, block_id) REFERENCES blocks(norm_id, block_id)
   );
 
-  -- Norm follows (users following specific laws for change notifications)
-  -- DEPRECATED: superseded by subscriptions(type='norma'). Kept for one release
-  -- so the migration script can backfill. Drop in release N+1.
-  CREATE TABLE IF NOT EXISTS norm_follows (
-    email       TEXT NOT NULL,
-    norm_id     TEXT NOT NULL REFERENCES norms(id),
-    confirmed   INTEGER NOT NULL DEFAULT 0,
-    token       TEXT NOT NULL,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (email, norm_id)
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_norm_follows_norm ON norm_follows(norm_id);
-  CREATE INDEX IF NOT EXISTS idx_norm_follows_token ON norm_follows(token);
-
-  -- Unified subscriptions table.
-  -- One row per (email, type, scope) tuple. Replaces both Resend Audiences
-  -- (materias + jurisdiccion) and norm_follows (norma-specific subscriptions).
-  -- 'query' type is reserved for saved searches (future).
-  CREATE TABLE IF NOT EXISTS subscriptions (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    email         TEXT NOT NULL,
-    type          TEXT NOT NULL CHECK(type IN ('materia','jurisdiccion','norma','query')),
-    scope         TEXT NOT NULL,
-    confirmed     INTEGER NOT NULL DEFAULT 0,
-    confirm_token TEXT NOT NULL,
-    unsub_token   TEXT NOT NULL,
-    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-    confirmed_at  TEXT,
-    UNIQUE(email, type, scope)
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_subscriptions_email
-    ON subscriptions(email);
-  CREATE INDEX IF NOT EXISTS idx_subscriptions_type_scope
-    ON subscriptions(type, scope);
-  CREATE INDEX IF NOT EXISTS idx_subscriptions_confirm_token
-    ON subscriptions(confirm_token);
-  CREATE INDEX IF NOT EXISTS idx_subscriptions_unsub_token
-    ON subscriptions(unsub_token);
-
   -- AI-generated reform summaries (separate from factual reforms table)
   CREATE TABLE IF NOT EXISTS reform_summaries (
     norm_id      TEXT NOT NULL,
@@ -197,16 +156,9 @@ const SCHEMA_SQL = /* sql */ `
       REFERENCES reforms(norm_id, date, source_id)
   );
 
-  -- Notified reforms tracking (prevents duplicate email sends)
-  CREATE TABLE IF NOT EXISTS notified_reforms (
-    norm_id      TEXT NOT NULL,
-    source_id    TEXT NOT NULL,
-    reform_date  TEXT NOT NULL,
-    notified_at  TEXT NOT NULL,
-    PRIMARY KEY (norm_id, source_id, reform_date),
-    FOREIGN KEY (norm_id, reform_date, source_id)
-      REFERENCES reforms(norm_id, date, source_id)
-  );
+  -- Email alerts (subscriptions, norm_follows, notified_reforms) were removed
+  -- on 2026-09-24: no accounts, no emails. Existing DBs keep the empty tables
+  -- until scripts/ad-hoc/remove-email-data.ts drops them; new DBs never get them.
 
   -- Omnibus law topic breakdowns (AI-generated, per-norm)
   CREATE TABLE IF NOT EXISTS omnibus_topics (

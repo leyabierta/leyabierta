@@ -17,6 +17,7 @@ import {
 } from "../../lib/manifest.ts";
 import { hubsForLaw } from "../../components/topic-hubs";
 import { effectiveLastUpdated, pageLastModified } from "../../lib/law-dates.ts";
+import { composeLawDescription } from "../../lib/meta-description.ts";
 import { lawContentDate } from "../../lib/page-lastmod-build.ts";
 import {
 	BUILD_TEXT_PAGES,
@@ -263,12 +264,16 @@ if (abbrev) {
 		if (short2digit !== full) seoAbbreviations.push(`${abbrev} ${short2digit}`); // "RD 769/87"
 	}
 }
-const seoDescription = [
-	seoAbbreviations[0],
-	citizenSummary || (RANK_LABELS[law.rango] ?? law.rango),
-	law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
-	law.departamento,
-].filter(Boolean).join(" · ");
+// SEO: 25–160 chars (Bing/Google flag anything outside that range). Leads
+// with the citizen summary — the most useful content — and drops status/
+// department (in that order) before ever truncating the summary itself. See
+// lib/meta-description.ts.
+const seoDescription = composeLawDescription({
+	abbreviation: seoAbbreviations[0],
+	summary: citizenSummary || (RANK_LABELS[law.rango] ?? law.rango),
+	status: law.estado === "vigente" ? "En vigor" : law.estado === "derogada" ? "Ya no está en vigor" : "",
+	department: law.departamento,
+});
 ---
 
 <Base
@@ -476,51 +481,10 @@ const seoDescription = [
 		.follow-desc {
 			font-size: 0.8125rem;
 			color: var(--text-muted);
-			margin: 0 0 0.75rem;
+			margin: 0;
 			line-height: 1.5;
 		}
-		.follow-input-row {
-			display: flex;
-			gap: 0.5rem;
-		}
-		.follow-input {
-			flex: 1;
-			min-width: 0;
-			padding: 0.5rem 0.75rem;
-			border: 1px solid var(--border);
-			border-radius: 6px;
-			font-size: 0.875rem;
-			font-family: var(--font-sans);
-			background: var(--bg);
-			color: var(--text);
-		}
-		.follow-input:focus {
-			outline: none;
-			border-color: var(--accent);
-			box-shadow: 0 0 0 2px rgba(26, 54, 93, 0.1);
-		}
-		.follow-btn {
-			padding: 0.5rem 1rem;
-			background: var(--accent);
-			color: #fff;
-			border: none;
-			border-radius: 6px;
-			font-size: 0.8125rem;
-			font-weight: 600;
-			font-family: var(--font-sans);
-			cursor: pointer;
-			white-space: nowrap;
-			transition: background 0.15s;
-		}
-		.follow-btn:hover { background: var(--accent); color: white; }
-		.follow-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-		.follow-msg {
-			font-size: 0.8125rem;
-			line-height: 1.5;
-			margin-top: 0.5rem;
-		}
-		.follow-msg.success { color: #22c55e; }
-		.follow-msg.error { color: #ef4444; }
+		.follow-desc a { color: var(--accent); text-decoration: underline; }
 
 		@media (max-width: 640px) {
 			.law-header { flex-direction: column; }
@@ -528,7 +492,6 @@ const seoDescription = [
 			.quick-stats { grid-template-columns: repeat(2, 1fr); }
 			.follow-card { flex-direction: column; gap: 0.5rem; }
 			.follow-icon { display: none; }
-			.follow-input-row { flex-direction: column; }
 		}
 
 		/* ── Own-content sections (summary page) ── */
@@ -866,21 +829,11 @@ const seoDescription = [
 		</div>
 		<div class="follow-content">
 			<h2 class="follow-heading">¿Quieres saber cuándo cambia esta ley?</h2>
-			<p class="follow-desc">Recibe un aviso por email cada vez que se publique una modificación.</p>
-			<form class="follow-form" id="follow-form" data-norm-id={id}>
-				<div class="follow-input-row">
-					<input
-						type="email"
-						name="email"
-						placeholder="Tu email"
-						required
-						class="follow-input"
-						autocomplete="email"
-					/>
-					<button type="submit" class="follow-btn">Seguir esta ley</button>
-				</div>
-			</form>
-			<p class="follow-msg" id="follow-msg" style="display: none;"></p>
+			<p class="follow-desc">
+				Cada cambio queda registrado en nuestro repositorio público. Síguelo con cualquier lector de noticias, sin darnos ningún dato:
+				<a href={`https://github.com/leyabierta/leyes/commits/main/${law.jurisdiccion}/${id}.md.atom`} rel="noopener">canal de cambios de esta ley</a>
+				· <a href={`https://github.com/leyabierta/leyes/commits/main/${law.jurisdiccion}/${id}.md`} rel="noopener">historial en GitHub</a>.
+			</p>
 		</div>
 	</div>
 
@@ -927,69 +880,5 @@ const seoDescription = [
 		</script>
 	)}
 
-	<!-- Follow form handler -->
-	<script is:inline define:vars={{ apiBase: import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es" }}>
-		(function() {
-			var form = document.getElementById('follow-form');
-			if (!form) return;
-
-			// Pre-fill email from /alerts/me if the user has a known cookie.
-			// One-click follow for returning users — they don't retype email.
-			var lbCookie = document.cookie.match(/(?:^|; )lb_token=([^;]+)/);
-			if (lbCookie) {
-				fetch(apiBase + '/v1/alerts/me?token=' + encodeURIComponent(decodeURIComponent(lbCookie[1])))
-					.then(function (r) { return r.json(); })
-					.then(function (data) {
-						if (data && data.email) {
-							var emailInput = form.querySelector('input[name="email"]');
-							if (emailInput && !emailInput.value) emailInput.value = data.email;
-						}
-					})
-					.catch(function () {});
-			}
-
-			form.addEventListener('submit', function(e) {
-				e.preventDefault();
-				var emailInput = form.querySelector('input[name="email"]');
-				var btn = form.querySelector('button[type="submit"]');
-				var msg = document.getElementById('follow-msg');
-				var normId = form.dataset.normId;
-				var email = emailInput.value.trim();
-
-				if (!email || !normId) return;
-
-				btn.disabled = true;
-				btn.textContent = 'Enviando...';
-				msg.style.display = 'none';
-
-				fetch(apiBase + '/v1/alerts/follow', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ email: email, normId: normId })
-				})
-				.then(function(res) { return res.json(); })
-				.then(function(data) {
-					if (data.ok) {
-						msg.textContent = 'Te hemos enviado un email de confirmación. Revisa tu bandeja de entrada.';
-						msg.className = 'follow-msg success';
-						form.style.display = 'none';
-					} else {
-						msg.textContent = data.error || 'Ocurrió un error. Inténtalo de nuevo.';
-						msg.className = 'follow-msg error';
-						btn.disabled = false;
-						btn.textContent = 'Seguir esta ley';
-					}
-					msg.style.display = 'block';
-				})
-				.catch(function() {
-					msg.textContent = 'Error de conexión. Inténtalo de nuevo.';
-					msg.className = 'follow-msg error';
-					msg.style.display = 'block';
-					btn.disabled = false;
-					btn.textContent = 'Seguir esta ley';
-				});
-			});
-		})();
-	</script>
 
 </Base>

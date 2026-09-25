@@ -10,7 +10,6 @@ import { dirname, join } from "node:path";
 import { cors } from "@elysiajs/cors";
 import { createSchema } from "@leyabierta/pipeline";
 import { Elysia } from "elysia";
-import { alertRoutes } from "./routes/alerts.ts";
 import { askRoutes } from "./routes/ask.ts";
 import { lawRoutes, type SearchResponse } from "./routes/laws.ts";
 import { omnibusRoutes } from "./routes/omnibus.ts";
@@ -241,7 +240,7 @@ const app = new Elysia()
 		set.headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 		// Discovery: point agents/tools at the OpenAPI spec from any response.
 		set.headers.Link = '</openapi.json>; rel="service-desc"';
-		// Cache read-only endpoints at Cloudflare edge; skip for health/alerts.
+		// Cache read-only endpoints at Cloudflare edge; skip for health.
 		// Errors get a short TTL or no-store — see services/cache-control.ts.
 		if (!set.headers["Cache-Control"]) {
 			const cacheControl = defaultCacheControl(path, set.status);
@@ -328,10 +327,6 @@ app.use(
 					description: "Omnibus law detection with per-topic breakdowns",
 				},
 				{
-					name: "Alertas",
-					description: "Email alert subscriptions and confirmation",
-				},
-				{
 					name: "Preguntas",
 					description:
 						"Ask questions about Spanish legislation in plain language",
@@ -362,7 +357,6 @@ app
 			hybridSearcher,
 		),
 	)
-	.use(alertRoutes(dbService))
 	.use(reformRoutes(dbService))
 	.use(statusRoutes(statusService))
 	.use(omnibusRoutes(dbService))

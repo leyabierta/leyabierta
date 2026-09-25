@@ -533,7 +533,7 @@ jobs:
       # nothing in CI currently validates the bash that KonarServer executes.
       # Since this job makes main auto-propagate to production, a syntax error
       # in daily-pipeline.sh would silently kill the 08:30 run (it is
-      # `set -euo pipefail`) and with it that day's subscriber emails. This is
+      # `set -euo pipefail`) and with it that day's AI content. This is
       # the cheapest gate that makes that impossible.
       - name: Validate the shell the server will execute
         run: |
