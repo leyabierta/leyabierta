@@ -1080,4 +1080,22 @@ describe("seoReformTitle (reform pages, Bing 'Title too long' on 12 LAU reforms)
 			}),
 		).toBe("Se actualiza el procedimiento abreviado (LECrim, 05/01/2020)");
 	});
+
+	test("an unknown ELI code is never shown raw; an empty date leaves no dangling comma", () => {
+		expect(
+			seoReformTitle({
+				law: {
+					id: "BOE-A-2020-1",
+					title: "Ley 4/2020, de 1 de enero, de algo",
+					rank: "ley",
+					source_url: "https://www.boe.es/eli/es-zz/l/2020/01/01/4",
+				},
+				headline: "Cambia un requisito",
+				date: "2020-01-02",
+			}),
+		).toBe("Cambia un requisito (BOE-A-2020-1, 02/01/2020) — Ley Abierta");
+		expect(
+			seoReformTitle({ law: LAU, headline: "Cambio de fianzas", date: "" }),
+		).toBe("Cambio de fianzas (L 29/1994) — Ley Abierta");
+	});
 });

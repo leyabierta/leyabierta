@@ -933,9 +933,14 @@ export function seoReformTitle(reform: {
 	// can't be told, the full id is the reference: unique by construction and
 	// it carries the regional bulletin prefix (BOIB-…, BOJA-…) — never a
 	// "L 4/2022" that Murcia and Aragón would share.
+	// Only a code we can name counts: an unknown one ("es-zz") must never
+	// reach the <title> raw.
+	const eliCode = law.source_url?.match(/\/eli\/(es(?:-[a-z]{2})?)\//)?.[1];
 	const jurisdiction =
 		law.jurisdiction ||
-		law.source_url?.match(/\/eli\/(es(?:-[a-z]{2})?)\//)?.[1];
+		(eliCode && (eliCode === "es" || eliCode in JURISDICTION_LABELS)
+			? eliCode
+			: undefined);
 
 	const fit = (namedIn: string) => {
 		// Curated name with no headline: the subject already is that name, so
@@ -953,7 +958,8 @@ export function seoReformTitle(reform: {
 								jurisdiction,
 							)
 						: law.id));
-		const suffix = ref ? ` (${ref}, ${date})` : ` (${date})`;
+		const parts = [ref, date].filter(Boolean);
+		const suffix = parts.length ? ` (${parts.join(", ")})` : "";
 		const budget = SEO_TITLE_MAX - codePointLength(suffix);
 		const shortSubject =
 			codePointLength(subject) <= budget
