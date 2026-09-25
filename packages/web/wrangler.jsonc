@@ -19,14 +19,24 @@
 		// /cambios/reforma/index.html would be served straight from ASSETS and
 		// the SSR/meta-injection in src/worker/index.ts would never run (every
 		// reform would stay the noindex shell — defeating the whole point).
-		// Run the Worker first for:
-		//  - reform URLs (SSR the diff into the shell, as before)
-		//  - the homepage and law pages, so the Worker can do `Accept:
-		//    text/markdown` content negotiation (Markdown for Agents). For normal
-		//    HTML requests these paths just fall straight through to ASSETS, so
-		//    the only added cost is one passthrough Worker invocation on them.
-		// Everything else (assets, other pages) still skips the Worker entirely.
-		"run_worker_first": ["/", "/leyes/*", "/cambios/reforma/*"],
+		//
+		// `true` (not a path list): the Worker must see EVERY request, not just
+		// reform/law/home URLs. Two agent-readiness features depend on this
+		// (PR #209 review — a path-list here silently broke both in
+		// production, even though direct `worker.fetch()` tests passed, since
+		// tests bypass this asset-routing layer entirely):
+		//  - `/openapi.json` is a Worker route (proxies the API), not a static
+		//    file in dist/ — with a path list excluding it, ASSETS would 404 it
+		//    before the Worker ever ran.
+		//  - the Markdown 404 for `Accept: text/markdown` on a missing path
+		//    only fires when the Worker gets to see the ASSETS 404 and rewrite
+		//    it — a path list would let `not_found_handling` answer directly
+		//    for any path outside the list, skipping the Worker.
+		// Cost: every static-asset request (JS, fonts, images, …) now also
+		// invokes the Worker, which falls straight through to
+		// `env.ASSETS.fetch(request)` for anything it doesn't specially
+		// handle — one cheap passthrough invocation, not a behavior change.
+		"run_worker_first": true,
 		// Without this, an unmatched path returns a bare 404 with an EMPTY body
 		// (0 bytes, no content-type) and the browser shows its own native error
 		// screen instead of dist/404.html — losing the site's branding,

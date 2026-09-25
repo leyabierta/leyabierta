@@ -123,27 +123,62 @@ La dirección \`${url.pathname}\` no corresponde a ninguna página de Ley Abiert
  *  the OpenAPI spec is reachable at the conventional `/openapi.json` path on
  *  BOTH domains with no cross-domain redirect — agent-readiness scanners
  *  check the site's own origin. Always live (no build-time fetch to go
- *  stale or fail a deploy); safe-to-fail like the rest of this Worker. */
-async function openApiResponse(env: Env): Promise<Response> {
+ *  stale or fail a deploy); safe-to-fail like the rest of this Worker.
+ *
+ *  Handles GET and HEAD. Never forwards the inbound request's own headers
+ *  (cookies, `CF-Connecting-IP`, …) to the API — this is a plain, anonymous
+ *  fetch of a static, public document, not a passthrough of the caller's
+ *  request. (The API also exempts `/openapi.json` and `/swagger/json` from
+ *  its own per-IP rate limiter — see `packages/api/src/index.ts` — so even a
+ *  burst of these proxied requests can't get 429'd or starve real traffic.)
+ *
+ *  Cached at the edge via the Cache API: the document only changes on an API
+ *  deploy, so there is no reason to hit the API on every request. `ctx` is
+ *  optional so this stays callable from tests, which invoke `worker.fetch()`
+ *  directly without an `ExecutionContext` — falls back to an awaited
+ *  `cache.put` instead of `ctx.waitUntil` in that case. */
+async function openApiResponse(
+	request: Request,
+	env: Env,
+	ctx?: ExecutionContext,
+): Promise<Response> {
 	const apiBase = env.PUBLIC_API_URL || DEFAULT_API_BASE;
+	const isHead = request.method === "HEAD";
+	const asHead = (res: Response) =>
+		isHead
+			? new Response(null, { status: res.status, headers: res.headers })
+			: res;
+
 	const fail = () =>
-		new Response(
-			JSON.stringify({
-				error: "No se pudo obtener la especificación OpenAPI",
-				code: "OPENAPI_UNAVAILABLE",
-				hint: "Prueba directamente en https://api.leyabierta.es/openapi.json",
-			}),
-			{
-				status: 502,
-				headers: { "content-type": "application/json; charset=utf-8" },
-			},
+		asHead(
+			new Response(
+				JSON.stringify({
+					error: "No se pudo obtener la especificación OpenAPI",
+					code: "OPENAPI_UNAVAILABLE",
+					hint: "Prueba directamente en https://api.leyabierta.es/openapi.json",
+				}),
+				{
+					status: 503,
+					headers: { "content-type": "application/json; charset=utf-8" },
+				},
+			),
 		);
+
+	// `caches` (the Cache API) only exists in the real Workers runtime.
+	const cache = typeof caches !== "undefined" ? caches.default : undefined;
+	// One cache entry shared by GET and HEAD, keyed independently of query
+	// string / method quirks in the inbound request.
+	const cacheKey = new Request("https://leyabierta.es/openapi.json");
+
+	const cached = await cache?.match(cacheKey);
+	if (cached) return asHead(cached);
+
 	try {
 		const res = await fetch(`${apiBase}/openapi.json`, {
-			signal: AbortSignal.timeout(8000),
+			signal: AbortSignal.timeout(5000),
 		});
 		if (!res.ok) return fail();
-		return new Response(await res.text(), {
+		const fresh = new Response(await res.text(), {
 			status: 200,
 			headers: {
 				"content-type": "application/json; charset=utf-8",
@@ -151,6 +186,12 @@ async function openApiResponse(env: Env): Promise<Response> {
 				"access-control-allow-origin": "*",
 			},
 		});
+		if (cache) {
+			const putCache = cache.put(cacheKey, fresh.clone());
+			if (ctx) ctx.waitUntil(putCache);
+			else await putCache;
+		}
+		return asHead(fresh);
 	} catch {
 		return fail();
 	}
@@ -481,13 +522,22 @@ async function renderReformResponse(
 }
 
 export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+	async fetch(
+		request: Request,
+		env: Env,
+		ctx?: ExecutionContext,
+	): Promise<Response> {
 		const url = new URL(request.url);
 
 		// Same-origin OpenAPI spec: leyabierta.es/openapi.json, no cross-domain
-		// redirect. See openApiResponse() above.
-		if (url.pathname === "/openapi.json" && request.method === "GET") {
-			return openApiResponse(env);
+		// redirect. See openApiResponse() above. GET and HEAD only — anything
+		// else (e.g. a stray POST) falls through to the normal handling below,
+		// which ultimately 404s it via ASSETS like any other unknown route.
+		if (
+			url.pathname === "/openapi.json" &&
+			(request.method === "GET" || request.method === "HEAD")
+		) {
+			return openApiResponse(request, env, ctx);
 		}
 
 		// Markdown for Agents: honor `Accept: text/markdown` on pages that have
