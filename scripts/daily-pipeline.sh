@@ -113,6 +113,7 @@ send_alert() {
       -d "$json" \
       >/dev/null 2>&1 || true
   fi
+  return 0  # no webhook configured is not an error (ERR trap)
 }
 
 # ── Self-update: pull latest version from the prod tag before doing anything ──
@@ -203,77 +204,12 @@ if [ -r "$ENV_FILE" ]; then
   export LEYES_PUSH_TOKEN BETTERSTACK_HEARTBEAT_URL ALERT_WEBHOOK_URL
 fi
 
-log "=== Daily pipeline started ==="
-
-# ── Step 0.5 (opt-in, one-shot): restore laws whose text regressed (A5b) ────
-# Before PR #170 a late-arriving reform re-rendered a law at an older date and
-# rolled its text back (e.g. Estatuto de los Trabajadores, leyes 93f61f1).
-# scripts/ad-hoc/restore-regressed-texts.ts re-renders those files at their
-# latest reform date and commits the correction; Step 1.5 then pushes it with
-# the day's commits, so nothing is pushed to leyes from outside this server.
+# ── Push leyes repo to GitHub — helpers ─────────────────────────────────────
+# Defined here (before any step that can fail) rather than next to the actual
+# push call (Step 9.6, near the end) for two reasons: the ERR trap installed
+# right below needs push_leyes available from the very first step that can
+# fail, and pushing itself now happens LAST — see Step 9.6 for why.
 #
-# OFF unless the flag file below exists in the deployed tree (refs/tags/prod).
-# The flag file is also the ALLOW-LIST (`--only`): one norm ID per line, `#`
-# comments. Only the laws listed there can be written, so production never
-# commits a law nobody reviewed: the list is the reviewed dry run on a clone of
-# leyes, pasted into the PR that enables this step. A flagged law that is not
-# listed is only reported in the log. An empty list = dry run in production.
-# Disable: merge a PR that removes the file. Left on, it re-scans every day and
-# is idempotent (0 commits once the listed laws are fixed). The correction
-# commits ("— texto restaurado a la versión vigente") are ordinary commits in
-# leyes and can be reverted there.
-#
-# Runs BEFORE Step 1 so data/json has been enriched by yesterday's Step 3, and
-# only on a clean leyes tree: that way the failure path can discard uncommitted
-# changes knowing they are this step's own half-written files, not leftovers of
-# an earlier run that someone may need to inspect. The run is capped with
-# `timeout` INSIDE the container, so a hung BOE request cannot hold the lock
-# all day, and the process is really dead before the reset. Non-fatal: a
-# failure alerts and the normal run goes on.
-RESTORE_FLAG="$REPO_DIR/scripts/ad-hoc/restore-regressed-texts.enabled"
-RESTORE_TIMEOUT=${RESTORE_TIMEOUT:-1800}
-if [ -f "$RESTORE_FLAG" ]; then
-  log "→ Step 0.5: Restore regressed law texts (flag present)"
-  set +e
-  leyes_dirty=$(docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" status --porcelain --untracked-files=no 2>&1)
-  dirty_status=$?
-  set -e
-  if [ "$dirty_status" -ne 0 ] || [ -n "$leyes_dirty" ]; then
-    log "  ⚠ leyes tree not clean (or git status failed) — skipping Step 0.5: $(scrub "$leyes_dirty")"
-    send_alert "leyabierta restore-regressed-texts skipped" "leyes working tree not clean before Step 0.5: $(scrub "$leyes_dirty")"
-  else
-    set +e
-    # scripts/ is not in the image; copy it next to packages/ (the script uses
-    # relative imports). `/.` copies the contents even if /app/scripts exists.
-    docker cp "$REPO_DIR/scripts/." "$CONTAINER:/app/scripts" >> "$LOG" 2>&1 \
-      && docker exec "$CONTAINER" timeout "$RESTORE_TIMEOUT" \
-           bun run scripts/ad-hoc/restore-regressed-texts.ts \
-           --repo "$LEYES_DIR_CONTAINER" \
-           --only scripts/ad-hoc/restore-regressed-texts.enabled --apply >> "$LOG" 2>&1
-    restore_status=$?
-    set -e
-    if [ "$restore_status" -ne 0 ]; then
-      log "  ⚠ restore-regressed-texts failed (exit $restore_status) — discarding its uncommitted changes in leyes"
-      # The tree was clean when the step started, so anything uncommitted now
-      # is a partial write of this step and must not be swept into Step 1's
-      # first commit. Commits already made are complete laws and stay.
-      docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" reset -q --hard HEAD >> "$LOG" 2>&1 || true
-      send_alert "leyabierta restore-regressed-texts failed" "exit=$restore_status — see /opt/leyabierta/logs/daily-pipeline.log"
-    else
-      log "  ✓ Restore regressed texts done"
-    fi
-  fi
-fi
-
-# ── Step 1: Pipeline bootstrap (BOE → markdown + git commits) ──────────────
-log "→ Step 1: Pipeline bootstrap"
-docker exec "$CONTAINER" bun run pipeline bootstrap --country es --concurrency 2 >> "$LOG" 2>&1
-log "  ✓ Pipeline done"
-
-# ── Step 1.5: Push leyes repo to GitHub ─────────────────────────────────────
-# Decoupled from AI/email steps: the law text is the product, AI enrichment is
-# additive. Pushing here triggers the web rebuild ASAP. Push failure does NOT
-# block the rest of the pipeline (DB ingest still runs, API stays current).
 # Run a git command inside the container. Network-touching ops (fetch/push/pull)
 # get LEYES_PUSH_TOKEN forwarded + an inline credential helper that supplies it
 # to the HTTPS remote. The token never lands on disk and never appears in
@@ -355,16 +291,107 @@ push_leyes() {
   return 0
 }
 
-log "→ Step 1.5: Push leyes to GitHub"
-# Run without set -e so push failure doesn't kill the rest of the pipeline
-set +e
-push_leyes
-push_status=$?
-set -e
-if [ "$push_status" -ne 0 ]; then
-  log "  ⚠ push failed (status $push_status). DB ingest + AI steps will continue."
-  send_alert "leyes push failed" "exit=$push_status — will retry in step 9"
+# ── Emergency push on early failure ─────────────────────────────────────────
+# The push itself now runs LAST (Step 9.6), after ingest/AI/WAL checkpoint —
+# see that step for why. That means a step that dies early (Step 1 bootstrap,
+# Step 2 ingest, Step 3 ingest-analisis, Step 7 OG images — anything not
+# guarded with `|| status=$?`, since those are deliberately non-fatal) would
+# otherwise leave the day's commits
+# stranded on local disk, unpublished, until tomorrow's run pushes them along
+# with tomorrow's backlog. This trap pushes whatever exists the moment
+# anything aborts the script under `set -euo pipefail`, so a norm the
+# pipeline DID finish committing is never held hostage by one that made it
+# crash. Non-fatal itself: if the emergency push also fails, it alerts and
+# gives up — the normal next-day run still recovers it via push_leyes's
+# ahead/behind divergence check.
+push_done=0
+on_error() {
+  local exit_code=$?
+  trap - ERR  # don't recurse if the emergency push itself fails under set -e
+  log "  ✗ daily pipeline aborted early (exit $exit_code)"
+  if [ "$push_done" -eq 0 ]; then
+    log "  → attempting emergency push of whatever leyes commits exist so far"
+    push_done=1
+    set +e
+    push_leyes
+    local emergency_status=$?
+    set -e
+    if [ "$emergency_status" -eq 0 ]; then
+      log "  ✓ emergency push done"
+    else
+      log "  ⚠ emergency push also failed (status $emergency_status) — will retry on next run"
+    fi
+  fi
+  send_alert "leyabierta daily pipeline aborted" "exit=$exit_code — see /opt/leyabierta/logs/daily-pipeline.log"
+  exit "$exit_code"
+}
+trap on_error ERR
+
+log "=== Daily pipeline started ==="
+
+# ── Step 0.5 (opt-in, one-shot): restore laws whose text regressed (A5b) ────
+# Before PR #170 a late-arriving reform re-rendered a law at an older date and
+# rolled its text back (e.g. Estatuto de los Trabajadores, leyes 93f61f1).
+# scripts/ad-hoc/restore-regressed-texts.ts re-renders those files at their
+# latest reform date and commits the correction; Step 9.6 then pushes it with
+# the day's commits, so nothing is pushed to leyes from outside this server.
+#
+# OFF unless the flag file below exists in the deployed tree (refs/tags/prod).
+# The flag file is also the ALLOW-LIST (`--only`): one norm ID per line, `#`
+# comments. Only the laws listed there can be written, so production never
+# commits a law nobody reviewed: the list is the reviewed dry run on a clone of
+# leyes, pasted into the PR that enables this step. A flagged law that is not
+# listed is only reported in the log. An empty list = dry run in production.
+# Disable: merge a PR that removes the file. Left on, it re-scans every day and
+# is idempotent (0 commits once the listed laws are fixed). The correction
+# commits ("— texto restaurado a la versión vigente") are ordinary commits in
+# leyes and can be reverted there.
+#
+# Runs BEFORE Step 1 so data/json has been enriched by yesterday's Step 3, and
+# only on a clean leyes tree: that way the failure path can discard uncommitted
+# changes knowing they are this step's own half-written files, not leftovers of
+# an earlier run that someone may need to inspect. The run is capped with
+# `timeout` INSIDE the container, so a hung BOE request cannot hold the lock
+# all day, and the process is really dead before the reset. Non-fatal: a
+# failure alerts and the normal run goes on.
+RESTORE_FLAG="$REPO_DIR/scripts/ad-hoc/restore-regressed-texts.enabled"
+RESTORE_TIMEOUT=${RESTORE_TIMEOUT:-1800}
+if [ -f "$RESTORE_FLAG" ]; then
+  log "→ Step 0.5: Restore regressed law texts (flag present)"
+  # `cmd || status=$?` everywhere below, never `set +e`: `set +e` does not
+  # stop the ERR trap (on_error), which would abort the run.
+  dirty_status=0
+  leyes_dirty=$(docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" status --porcelain --untracked-files=no 2>&1) || dirty_status=$?
+  if [ "$dirty_status" -ne 0 ] || [ -n "$leyes_dirty" ]; then
+    log "  ⚠ leyes tree not clean (or git status failed) — skipping Step 0.5: $(scrub "$leyes_dirty")"
+    send_alert "leyabierta restore-regressed-texts skipped" "leyes working tree not clean before Step 0.5: $(scrub "$leyes_dirty")"
+  else
+    # scripts/ is not in the image; copy it next to packages/ (the script uses
+    # relative imports). `/.` copies the contents even if /app/scripts exists.
+    restore_status=0
+    { docker cp "$REPO_DIR/scripts/." "$CONTAINER:/app/scripts" >> "$LOG" 2>&1 \
+      && docker exec "$CONTAINER" timeout "$RESTORE_TIMEOUT" \
+           bun run scripts/ad-hoc/restore-regressed-texts.ts \
+           --repo "$LEYES_DIR_CONTAINER" \
+           --only scripts/ad-hoc/restore-regressed-texts.enabled --apply >> "$LOG" 2>&1; } \
+      || restore_status=$?
+    if [ "$restore_status" -ne 0 ]; then
+      log "  ⚠ restore-regressed-texts failed (exit $restore_status) — discarding its uncommitted changes in leyes"
+      # The tree was clean when the step started, so anything uncommitted now
+      # is a partial write of this step and must not be swept into Step 1's
+      # first commit. Commits already made are complete laws and stay.
+      docker exec "$CONTAINER" git -C "$LEYES_DIR_CONTAINER" reset -q --hard HEAD >> "$LOG" 2>&1 || true
+      send_alert "leyabierta restore-regressed-texts failed" "exit=$restore_status — see /opt/leyabierta/logs/daily-pipeline.log"
+    else
+      log "  ✓ Restore regressed texts done"
+    fi
+  fi
 fi
+
+# ── Step 1: Pipeline bootstrap (BOE → markdown + git commits) ──────────────
+log "→ Step 1: Pipeline bootstrap"
+docker exec "$CONTAINER" bun run pipeline bootstrap --country es --concurrency 2 >> "$LOG" 2>&1
+log "  ✓ Pipeline done"
 
 # ── Step 2: Ingest JSON → SQLite ────────────────────────────────────────────
 log "→ Step 2: Ingest"
@@ -424,6 +451,7 @@ run_ai_step() {
   else
     log "  ✓ $name done"
   fi
+  return 0  # non-fatal by design: never hand a failure to the ERR trap
 }
 
 # ── Step 3b: RAG — embed any vigente articles missing qwen3-nan embeddings ──
@@ -456,23 +484,6 @@ log "  ✓ OG images done"
 
 # (Step 8, email notifications, was removed on 2026-09-24: no emails.)
 
-# ── Step 9: Retry push if step 1.5 failed due to a transient error ──────────
-# AI steps (2-7) write only to the DB, never to leyes markdown. The
-# retry exists purely to recover from network/auth flakes in step 1.5; the
-# AI work in between bought us ~minutes of wall-clock time for whatever was
-# wrong upstream to clear.
-if [ "$push_status" -ne 0 ]; then
-  log "→ Step 9: Retry push (step 1.5 failed earlier)"
-  set +e
-  push_leyes
-  retry_status=$?
-  set -e
-  if [ "$retry_status" -ne 0 ]; then
-    log "  ⚠ retry also failed. Will retry on next daily run. Investigate logs."
-    send_alert "leyes push retry also failed" "exit=$retry_status — investigate logs at /opt/leyabierta/logs/daily-pipeline.log"
-  fi
-fi
-
 # ── Step 9.5: Checkpoint the WAL ────────────────────────────────────────────
 # The day's ingest + AI steps push a lot through the write-ahead log, and
 # `wal_autocheckpoint` (1000 pages ≈ 4 MB) only fires when no reader holds the
@@ -482,14 +493,61 @@ fi
 # lost if this is a no-op. Non-fatal, and placed before the index rebuild so it
 # runs while the API is still up (the rebuild restarts it).
 log "→ Step 9.5: Checkpoint SQLite WAL"
-set +e
-docker exec "$CONTAINER" bun -e 'const {Database}=require("bun:sqlite");const db=new Database(process.env.DB_PATH??"/data/leyabierta.db");console.log(JSON.stringify(db.query("PRAGMA wal_checkpoint(TRUNCATE)").get()));' >> "$LOG" 2>&1
-checkpoint_status=$?
-set -e
+checkpoint_status=0  # `|| status=$?`, not `set +e`: see the ERR trap
+docker exec "$CONTAINER" bun -e 'const {Database}=require("bun:sqlite");const db=new Database(process.env.DB_PATH??"/data/leyabierta.db");console.log(JSON.stringify(db.query("PRAGMA wal_checkpoint(TRUNCATE)").get()));' >> "$LOG" 2>&1 \
+  || checkpoint_status=$?
 if [ "$checkpoint_status" -ne 0 ]; then
   log "  ⚠ WAL checkpoint returned $checkpoint_status (non-fatal)"
 else
   log "  ✓ WAL checkpoint done"
+fi
+
+# ── Step 9.6: Push leyes repo to GitHub ─────────────────────────────────────
+# Used to run right after Step 1 (as "Step 1.5"). Moved here — after ingest,
+# ingest-analisis, the AI steps and the WAL checkpoint — so the push (and the
+# `leyes-updated` repository_dispatch it triggers via the `leyes` repo's own
+# notify-leyabierta.yml, which is what deploy.yml listens for) happens once
+# today's content actually exists everywhere it needs to: the DB the API
+# serves (checkpointed above) and now the leyes repo itself.
+#
+# Before this move, the push fired right after bootstrap, ~20-30 minutes
+# before ingest/AI finished. `leyes-updated` triggered the web build
+# immediately off that early push, so every daily deploy shipped yesterday's
+# DB content — new laws, reform summaries and article summaries only appeared
+# on the FOLLOWING day's deploy. Nothing between Step 1 and here reads the
+# leyes repo from GitHub (`ingest`/`ingest-analisis` read/write the local JSON
+# cache and the DB directly — see packages/pipeline/src/db/ingest.ts and
+# ingest-analisis-cli.ts); only the web build does (it clones `leyes` fresh in
+# deploy.yml), which is exactly why pushing last is correct here.
+#
+# push_done is set so the ERR trap defined near the top of this script does
+# not attempt a second, redundant push if something below this point still
+# fails under set -e (in practice nothing does — Step 10 is non-fatal).
+#
+# A single retry with a short pause replaces the old two-attempt design (an
+# immediate push right after bootstrap + a retry after the AI steps bought a
+# few minutes of wall-clock time for a transient failure to clear) — there is
+# no later step left to buy that time now that this runs last. A failure here
+# still alerts and self-heals on the next daily run: tomorrow's Step 9.6
+# pushes today's backlog together with tomorrow's commits (push_leyes's
+# ahead/behind divergence check handles this — it is not "push today's commits
+# only", it publishes whatever local HEAD is ahead of origin/main by).
+log "→ Step 9.6: Push leyes to GitHub"
+push_done=1
+# `|| push_status=$?` (not `set +e`): a bare failing call would still fire the
+# ERR trap — `set +e` does not suppress it — and abort before the retry,
+# Step 10 and the heartbeat.
+push_status=0
+push_leyes || push_status=$?
+if [ "$push_status" -ne 0 ]; then
+  log "  ⚠ push failed — retrying once after 20s"
+  sleep 20
+  push_status=0
+  push_leyes || push_status=$?
+fi
+if [ "$push_status" -ne 0 ]; then
+  log "  ⚠ push failed after retry (status $push_status). Will retry on next daily run."
+  send_alert "leyes push failed" "exit=$push_status — will retry on next daily run (today's commits stay local until then)"
 fi
 
 # ── Step 10: Rebuild the vector search index if new embeddings were added ────
@@ -498,10 +556,8 @@ fi
 # quantize) and hot-restarts the API. Runs LAST because it restarts the
 # container, which would break the docker-exec steps above. Non-fatal.
 log "→ Step 10: Rebuild vector index (if stale)"
-set +e
-bash "$REPO_DIR/scripts/rebuild-vector-index.sh" >> "$LOG" 2>&1
-rebuild_status=$?
-set -e
+rebuild_status=0  # `|| status=$?`, not `set +e`: see the ERR trap
+bash "$REPO_DIR/scripts/rebuild-vector-index.sh" >> "$LOG" 2>&1 || rebuild_status=$?
 if [ "$rebuild_status" -ne 0 ]; then
   log "  ⚠ vector index rebuild returned $rebuild_status (non-fatal — see log)"
 else
