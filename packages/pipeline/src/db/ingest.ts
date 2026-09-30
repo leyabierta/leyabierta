@@ -124,6 +124,61 @@ export function normalizeArticle(
 	return { blockId, blockType, title, position, versions, currentText };
 }
 
+/**
+ * Re-index the given norms in `blocks_fts`, the article-level BM25 index the
+ * API's RAG search reads. The API creates and first fills the table
+ * (`packages/api/src/services/rag/blocks-fts.ts`, same columns and filter);
+ * without this refresh, laws ingested later never reach `/v1/ask`'s BM25 leg
+ * and reformed articles stay searchable only by their old text.
+ *
+ * Returns the number of articles written, or null when the table does not
+ * exist yet (the API will build it whole on its next start).
+ */
+export function refreshBlocksFts(
+	db: Database,
+	normIds: string[],
+): number | null {
+	const exists = db
+		.query(
+			"SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blocks_fts'",
+		)
+		.get();
+	if (!exists) return null;
+	if (normIds.length === 0) return 0;
+
+	// norm_id is UNINDEXED in the FTS table, so a filtered DELETE is a full
+	// scan: do it once for the whole set, not once per norm.
+	db.exec(
+		"CREATE TEMP TABLE IF NOT EXISTS blocks_fts_refresh_ids (id TEXT PRIMARY KEY)",
+	);
+	const insertId = db.prepare(
+		"INSERT OR IGNORE INTO blocks_fts_refresh_ids (id) VALUES (?)",
+	);
+	let written = 0;
+	try {
+		db.transaction(() => {
+			db.exec("DELETE FROM blocks_fts_refresh_ids");
+			for (const id of normIds) insertId.run(id);
+			db.exec(
+				"DELETE FROM blocks_fts WHERE norm_id IN (SELECT id FROM blocks_fts_refresh_ids)",
+			);
+			written = db.run(/* sql */ `
+				INSERT INTO blocks_fts (norm_id, block_id, title, norm_title, content)
+				SELECT b.norm_id, b.block_id, b.title, n.title, b.current_text
+				FROM blocks b
+				JOIN norms n ON n.id = b.norm_id
+				WHERE b.norm_id IN (SELECT id FROM blocks_fts_refresh_ids)
+				  AND b.block_type = 'precepto'
+				  AND b.current_text != ''
+			`).changes;
+		})();
+	} finally {
+		insertId.finalize();
+		db.exec("DROP TABLE IF EXISTS blocks_fts_refresh_ids");
+	}
+	return written;
+}
+
 export async function ingestJsonDir(
 	db: Database,
 	jsonDir: string,
@@ -475,6 +530,14 @@ export async function ingestJsonDir(
 
 	const ftsDuration = ((performance.now() - ftsStart) / 1000).toFixed(1);
 	console.log(`  FTS rebuild done — ${ftsDuration}s`);
+
+	const blocksFtsStart = performance.now();
+	const blocksFtsRows = refreshBlocksFts(db, ingestedIds);
+	if (blocksFtsRows !== null) {
+		console.log(
+			`  blocks_fts refreshed: ${blocksFtsRows} articles for ${ingestedIds.length} norms — ${((performance.now() - blocksFtsStart) / 1000).toFixed(1)}s`,
+		);
+	}
 
 	// Persist checksums for successfully ingested files
 	const upsertChecksum = db.prepare(/* sql */ `

@@ -43,6 +43,7 @@ import {
 	verifyCitations,
 } from "./synthesis.ts";
 import { type RagTrace, startTrace } from "./tracing.ts";
+import { getDeltaNormIds, refreshVectorDelta } from "./vector-delta.ts";
 import { getSharedVectorIndex } from "./vector-index-singleton.ts";
 
 export { normalizePeriodicTitle } from "./analyzer.ts";
@@ -92,6 +93,10 @@ const DECLINE_LOW_CONFIDENCE =
 
 export class RagPipeline {
 	private embeddedNormIds: string[] | null = null;
+	private embeddedNormIdsWithDelta: {
+		deltaSize: number;
+		ids: string[];
+	} | null = null;
 
 	private citizenSummaries: CitizenSummaryService;
 	private insertAskLogStmt: ReturnType<Database["prepare"]>;
@@ -785,7 +790,22 @@ export class RagPipeline {
 				`[rag] ${this.embeddedNormIds.length} norms with embeddings (streaming search, no bulk RAM)`,
 			);
 		}
-		return this.embeddedNormIds;
+		// Laws embedded after startup live in the vector delta; without them
+		// here the BM25 legs (scoped to this list) would skip them too.
+		refreshVectorDelta(this.db);
+		const delta = getDeltaNormIds();
+		if (delta.size === 0) return this.embeddedNormIds;
+		if (this.embeddedNormIdsWithDelta?.deltaSize !== delta.size) {
+			const base = new Set(this.embeddedNormIds);
+			this.embeddedNormIdsWithDelta = {
+				deltaSize: delta.size,
+				ids: [
+					...this.embeddedNormIds,
+					...[...delta].filter((id) => !base.has(id)),
+				],
+			};
+		}
+		return this.embeddedNormIdsWithDelta.ids;
 	}
 
 	/** Total embeddings count (used by health/diagnostics). */

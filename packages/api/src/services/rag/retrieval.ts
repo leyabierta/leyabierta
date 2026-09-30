@@ -43,6 +43,7 @@ import {
 	splitByApartados,
 } from "./subchunk.ts";
 import type { RagTrace } from "./tracing.ts";
+import { withVectorDelta } from "./vector-delta.ts";
 import { vectorSearchPooled } from "./vector-pool.ts";
 
 // ── Tunables ──
@@ -715,6 +716,7 @@ export async function runRetrievalCore(
 
 	const parallelStart = Date.now();
 	const bm25BreakT = performance.now();
+	const queryEmbedding = queryResult.embedding;
 
 	// Capture per-leg durations by closing each span when its own leg resolves,
 	// not after Promise.all. Without this, both spans would report the same wall
@@ -739,13 +741,15 @@ export async function runRetrievalCore(
 			);
 			return r;
 		}),
-		(vectorIndex && queryResult.embedding
-			? vectorSearchPooled(
-					queryResult.embedding,
-					vectorIndex.meta,
-					vectorIndex.vectors,
-					vectorIndex.dims,
-					RERANK_POOL_SIZE,
+		(vectorIndex && queryEmbedding
+			? withVectorDelta(db, vectorIndex, queryEmbedding, RERANK_POOL_SIZE, () =>
+					vectorSearchPooled(
+						queryEmbedding,
+						vectorIndex.meta,
+						vectorIndex.vectors,
+						vectorIndex.dims,
+						RERANK_POOL_SIZE,
+					),
 				)
 			: Promise.resolve([])
 		).then((r) => {

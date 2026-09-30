@@ -40,6 +40,7 @@ import {
 	reciprocalRankFusion,
 } from "./rag/rrf.ts";
 import { startHybridTrace } from "./rag/tracing.ts";
+import { withVectorDelta } from "./rag/vector-delta.ts";
 import { getSharedVectorIndex } from "./rag/vector-index-singleton.ts";
 import { vectorSearchPooled } from "./rag/vector-pool.ts";
 
@@ -341,12 +342,20 @@ export class HybridSearcherImpl implements HybridSearcher {
 				vectors_count: vectorsCount,
 				model: this.modelKey,
 			});
-			const articles: VectorSearchResult[] = await vectorSearchPooled(
-				embedding,
-				idx.meta,
-				idx.vectors,
-				idx.dims,
+			const queryEmbedding = embedding;
+			const articles: VectorSearchResult[] = await withVectorDelta(
+				this.db,
+				idx,
+				queryEmbedding,
 				articleTopK,
+				() =>
+					vectorSearchPooled(
+						queryEmbedding,
+						idx.meta,
+						idx.vectors,
+						idx.dims,
+						articleTopK,
+					),
 			);
 			const searchMs = performance.now() - searchStart;
 			knnSpan.end({

@@ -18,6 +18,7 @@
  */
 import type { Database } from "bun:sqlite";
 import { ensureVectorIndex } from "./embeddings.ts";
+import { maxEmbeddingRowid, registerVectorIndexBase } from "./vector-delta.ts";
 
 type VectorIndex = Awaited<ReturnType<typeof ensureVectorIndex>>;
 
@@ -73,9 +74,13 @@ export async function getSharedVectorIndex(
 	}
 
 	if (!inflight) {
+		const baseRowid = maxEmbeddingRowid(db);
 		inflight = loader(db, modelKey, dataDir)
 			.then((idx) => {
 				cached = idx;
+				if (idx && baseRowid !== null) {
+					registerVectorIndexBase(idx, modelKey, idx.dims, baseRowid);
+				}
 				loadedModelKey = modelKey;
 				loadedDataDir = dataDir;
 				// Reset circuit breaker on success.
