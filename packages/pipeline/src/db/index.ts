@@ -12,6 +12,7 @@ export {
 	type IngestResult,
 	ingestJsonDir,
 	normalizeArticle,
+	refreshBlocksFts,
 	validateNorm,
 } from "./ingest.ts";
 export { createSchema, hasColumn } from "./schema.ts";

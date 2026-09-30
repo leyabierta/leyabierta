@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
 	ingestJsonDir,
 	normalizeArticle,
+	refreshBlocksFts,
 	validateNorm,
 } from "../src/db/index.ts";
 import { createSchema } from "../src/db/schema.ts";
@@ -723,5 +724,111 @@ describe("normalizeArticle", () => {
 		);
 		expect(result.currentText).toBe("v2");
 		expect(result.position).toBe(2);
+	});
+});
+
+describe("blocks_fts refresh", () => {
+	// Same shape the API creates in services/rag/blocks-fts.ts.
+	const createBlocksFts = () =>
+		db.run(`CREATE VIRTUAL TABLE blocks_fts USING fts5(
+			norm_id UNINDEXED, block_id UNINDEXED, title, norm_title, content,
+			tokenize='unicode61 remove_diacritics 2')`);
+
+	const precepto = (blockId: string, text: string) => ({
+		blockId,
+		blockType: "precepto",
+		title: `Artículo ${blockId}`,
+		position: 0,
+		versions: [{ date: "2024-01-15", sourceId: "BOE-A-2024-1234", text }],
+		currentText: text,
+	});
+
+	const matches = (term: string) =>
+		db
+			.query<{ norm_id: string; block_id: string }, [string]>(
+				"SELECT norm_id, block_id FROM blocks_fts WHERE blocks_fts MATCH ? ORDER BY block_id",
+			)
+			.all(term);
+
+	test("indexes articles of newly ingested norms", async () => {
+		createBlocksFts();
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(
+				makeNormJson({
+					articles: [
+						precepto("a1", "Alquiler de vivienda habitual."),
+						{
+							...precepto("pr", "Preámbulo sobre vivienda."),
+							blockType: "preambulo",
+						},
+						precepto("a2", ""),
+					],
+				}),
+			),
+		);
+
+		await ingestJsonDir(db, tempDir);
+
+		expect(matches("vivienda")).toEqual([
+			{ norm_id: "BOE-A-2024-1234", block_id: "a1" },
+		]);
+		const row = db
+			.query<{ norm_title: string }, []>("SELECT norm_title FROM blocks_fts")
+			.get();
+		expect(row?.norm_title).toBe("Ley de Pruebas Unitarias");
+	});
+
+	test("replaces the old text of a reformed article, leaving other norms alone", async () => {
+		createBlocksFts();
+		const file = join(tempDir, "BOE-A-2024-1234.json");
+		await writeFile(
+			file,
+			JSON.stringify(
+				makeNormJson({ articles: [precepto("a1", "Texto antiguo.")] }),
+			),
+		);
+		await writeFile(
+			join(tempDir, "BOE-A-2024-9999.json"),
+			JSON.stringify(
+				makeNormJson({
+					metadata: { ...makeNormJson().metadata, id: "BOE-A-2024-9999" },
+					articles: [precepto("b1", "Otra ley antigua.")],
+				}),
+			),
+		);
+		await ingestJsonDir(db, tempDir);
+
+		await writeFile(
+			file,
+			JSON.stringify(
+				makeNormJson({ articles: [precepto("a1", "Texto reformado.")] }),
+			),
+		);
+		await ingestJsonDir(db, tempDir);
+
+		expect(matches("reformado")).toHaveLength(1);
+		expect(matches("antiguo")).toHaveLength(0);
+		expect(matches("antigua")).toEqual([
+			{ norm_id: "BOE-A-2024-9999", block_id: "b1" },
+		]);
+		const count = db
+			.query<{ n: number }, []>("SELECT count(*) AS n FROM blocks_fts")
+			.get();
+		expect(count?.n).toBe(2);
+	});
+
+	test("does nothing when the API has not created blocks_fts yet", async () => {
+		await writeFile(
+			join(tempDir, "BOE-A-2024-1234.json"),
+			JSON.stringify(makeNormJson({ articles: [precepto("a1", "Texto.")] })),
+		);
+		const result = await ingestJsonDir(db, tempDir);
+		expect(result.errors).toEqual([]);
+		expect(refreshBlocksFts(db, ["BOE-A-2024-1234"])).toBeNull();
+		const table = db
+			.query("SELECT name FROM sqlite_master WHERE name = 'blocks_fts'")
+			.get();
+		expect(table).toBeNull();
 	});
 });
