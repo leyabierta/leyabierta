@@ -22,6 +22,15 @@ function flag(argv: string[], name: string): string | undefined {
 	return i === -1 ? undefined : argv[i + 1];
 }
 
+/** A NaN here would silently stop the watcher (no pages read, never push). */
+function positiveInt(name: string, raw: string): number {
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n <= 0) {
+		throw new Error(`${name} must be a positive integer, got "${raw}"`);
+	}
+	return n;
+}
+
 async function main() {
 	const argv = process.argv.slice(3);
 	const sub = process.argv[2];
@@ -36,7 +45,7 @@ async function main() {
 				statePath,
 				dbPath,
 				client: new BoeClient(),
-				maxPages: Number(flag(argv, "--max-pages") ?? "10"),
+				maxPages: positiveInt("--max-pages", flag(argv, "--max-pages") ?? "10"),
 			});
 			break;
 		case "commit": {
@@ -48,7 +57,8 @@ async function main() {
 		case "should-push":
 			out = shouldPush({
 				statePath,
-				minIntervalMin: Number(
+				minIntervalMin: positiveInt(
+					"--min-interval-min",
 					flag(argv, "--min-interval-min") ??
 						process.env.WATCH_PUSH_MIN_INTERVAL_MIN ??
 						"60",
