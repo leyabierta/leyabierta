@@ -297,6 +297,15 @@ The `leyes` repo push (Step 9.6) runs LAST — after ingest, ingest-analisis, th
 AI steps and the WAL checkpoint — which is what makes the daily web deploy
 (triggered by the `leyes` repo's own `repository_dispatch: leyes-updated` on
 that push) pick up the day's new laws and AI summaries instead of yesterday's.
+**Watch mode:** `daily-pipeline.sh --watch` runs from cron every 15 minutes, 24/7,
+because the BOE consolidates texts on working-day mornings, long after the 08:30
+nightly run. It calls `boe-watch check` (state in `/data/watch-state.json`); only
+if the BOE changed does it run bootstrap, ingest, `ingest-analisis --ids`, the AI
+steps, OG images and the WAL checkpoint, then `boe-watch commit`. Every pass
+(changed or not) asks `boe-watch should-push`: a new law is pushed to `leyes` at
+once, reforms at most once per 60 min. It shares the nightly lockfile (watch never
+waits, the nightly run waits up to 30 min), logs to `fast-pass.log`, skips Step 10
+and the heartbeat, and alerts if the check fails 4 times in a row.
 See DEPLOY.md.
 
 **Threshold note:** raw `bestScore` is NOT informative about correctness with the Qwen embedding stack (hit/miss score distributions overlap, separation ~0.04 on the eval). The `LOW_CONFIDENCE_THRESHOLD` gate is kept at 0.40 (effectively off) to catch catastrophic embedding failures only. For real "low-confidence" UX warnings we need a different signal (rerank top-1 score, candidate diversity) — TBD.

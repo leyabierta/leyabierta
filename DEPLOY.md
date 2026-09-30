@@ -64,6 +64,11 @@ KonarServer, no en Actions — ver `docs/infrastructure.md` (privado) para el
 cron, el contenedor y las variables de entorno, y la cabecera del propio
 script para el detalle paso a paso (bootstrap → ingest → ingest-analisis → IA
 → OG images → emails → checkpoint de WAL → push a `leyes`).
+Además del cron nocturno (`30 8 * * *`), `daily-pipeline.sh --watch` corre cada
+15 minutos (`*/15 * * * *`, log en `/opt/leyabierta/logs/fast-pass.log`): si el
+BOE ha consolidado algo nuevo, ejecuta el subconjunto incremental y hace `push`
+a `leyes` (una ley nueva al momento, las reformas como mucho una vez por hora),
+de modo que el despliegue web las publica en minutos en vez de al día siguiente.
 
 **Secrets que usa `scripts/daily-pipeline.sh`:** `LEYES_PUSH_TOKEN` (PAT con
 write access a `leyabierta/leyes`, usado para el `push` del último paso del
