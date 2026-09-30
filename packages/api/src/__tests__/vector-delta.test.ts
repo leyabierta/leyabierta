@@ -35,7 +35,12 @@ beforeEach(() => {
 	_resetSharedVectorIndexForTests();
 });
 
-afterEach(() => db.close());
+afterEach(() => {
+	db.close();
+	// Shared module state: do not leak a cached index into other test files.
+	_resetVectorDeltaForTests();
+	_resetSharedVectorIndexForTests();
+});
 
 const indexed = [{ normId: "OLD", blockId: "a1", score: 0.5 }];
 const mainSearch = async () => indexed;
