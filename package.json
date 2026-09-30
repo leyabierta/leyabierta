@@ -15,6 +15,7 @@
 		"pipeline": "bun run packages/pipeline/src/cli.ts",
 		"ingest": "bun run packages/pipeline/src/ingest-cli.ts",
 		"ingest-analisis": "bun run packages/pipeline/src/ingest-analisis-cli.ts",
+		"boe-watch": "bun run packages/pipeline/src/boe-watch-cli.ts",
 		"download-auxiliar": "bun run packages/pipeline/src/download-auxiliar-cli.ts",
 		"api": "bun run packages/api/src/index.ts",
 		"api:dev": "bun --watch run packages/api/src/index.ts",

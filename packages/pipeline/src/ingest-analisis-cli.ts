@@ -1,5 +1,6 @@
 /**
- * Download and ingest análisis data (materias, notas, referencias) for all norms in DB.
+ * Download and ingest análisis data (materias, notas, referencias) for all norms in DB,
+ * or only for the given ids (fast pass for norms that just changed).
  *
  * Materias come from two sources:
  * 1. /analisis endpoint (partial)
@@ -7,23 +8,27 @@
  *
  * Uses parallel workers for speed (~4x faster than sequential).
  *
- * Usage: bun run packages/pipeline/src/ingest-analisis-cli.ts [db-path] [--concurrency N]
+ * Usage: bun run packages/pipeline/src/ingest-analisis-cli.ts [db-path] [--concurrency N] [--json DIR] [--ids A,B,C]
+ *
+ * --ids restricts both the BOE download and the JSON cache enrichment to those
+ * norms (ids missing from the DB are logged and skipped).
  */
 
 import { Database } from "bun:sqlite";
 import { createSchema } from "./db/schema.ts";
+import { parseArgs, selectNorms } from "./ingest-analisis-args.ts";
 import { BoeClient } from "./spain/boe-client.ts";
 import { resolveMaterias } from "./spain/materias.ts";
 
-const dbPath = process.argv[2] || "./data/leyabierta.db";
-const concurrency = Number(
-	process.argv.includes("--concurrency")
-		? process.argv[process.argv.indexOf("--concurrency") + 1]
-		: "6",
-);
+const { dbPath, concurrency, jsonDir, ids } = parseArgs(process.argv);
 const materiasPath = "./data/auxiliar/materias.json";
 
 async function main() {
+	if (ids !== null && ids.length === 0) {
+		console.log("--ids given but empty after parsing; nothing to do.");
+		return;
+	}
+
 	const db = new Database(dbPath);
 	createSchema(db);
 
@@ -57,9 +62,13 @@ async function main() {
 		);
 	}
 
-	const norms = db
-		.query<{ id: string }, []>("SELECT id FROM norms ORDER BY id")
-		.all();
+	const { norms, unknown } = selectNorms(
+		db.query<{ id: string }, []>("SELECT id FROM norms ORDER BY id").all(),
+		ids,
+	);
+	if (unknown.length > 0) {
+		console.log(`Not in DB, skipped: ${unknown.join(", ")}`);
+	}
 
 	console.log(
 		`Downloading análisis for ${norms.length} norms (concurrency: ${concurrency})...\n`,
@@ -188,10 +197,6 @@ async function main() {
 	);
 
 	// ── Enrich JSON cache with analisis data ──
-	const jsonDir = process.argv.includes("--json")
-		? process.argv[process.argv.indexOf("--json") + 1]!
-		: "./data/json";
-
 	console.log(`\nEnriching JSON cache in ${jsonDir}...`);
 
 	const queryMaterias = db.prepare<{ materia: string }, [string]>(

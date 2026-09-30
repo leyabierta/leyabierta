@@ -2,8 +2,21 @@
 # Unified daily pipeline — all steps sequential, fail-fast.
 # Replaces the old split cron jobs (update-db.sh, generate-ai.sh, send-notifications.sh).
 #
-# Usage: /opt/leyabierta/scripts/daily-pipeline.sh
-# Cron:  30 8 * * * /opt/leyabierta/scripts/daily-pipeline.sh
+# Usage: /opt/leyabierta/scripts/daily-pipeline.sh [--watch]
+# Cron:  30 8 * * *    /opt/leyabierta/scripts/daily-pipeline.sh
+#        */15 * * * *  /opt/leyabierta/scripts/daily-pipeline.sh --watch
+#
+# Two modes share this file, the lockfile and the steps:
+#   (no args)  nightly full run — every step below, logs to daily-pipeline.log,
+#              sends the BetterStack heartbeat.
+#   --watch    fast pass, every 15 min around the clock. BOE consolidates texts
+#              during working-day mornings, long after the 08:30 nightly run, so
+#              this asks `boe-watch check` (one cheap BOE request) whether
+#              anything changed and, only if so, runs the incremental subset
+#              (bootstrap, ingest, ingest-analisis --ids, AI, OG, WAL) and
+#              pushes leyes so the web deploy ships it within minutes. Quiet
+#              when nothing changed (no log line at all); logs to fast-pass.log.
+#              See the "Watch mode" block after the ERR trap.
 #
 # Logging — under cron this script takes ownership of $LOG with a single
 # `exec >> "$LOG" 2>&1` and log() is a plain echo. Before, log() piped through
@@ -16,12 +29,29 @@
 # so an operator running this by hand over SSH still sees output instead of a
 # silent terminal.
 
+# Paths default to production and are env-overridable so the script can run in
+# a sandbox (scripts/__tests__/daily-pipeline-watch.test.ts).
+WATCH=0
+if [ "${1:-}" = "--watch" ]; then
+  WATCH=1
+fi
+
 SCRIPT_PATH="$(readlink -f "$0")"
-REPO_DIR=/opt/leyabierta/code
+REPO_DIR=${REPO_DIR:-/opt/leyabierta/code}
 SCRIPT_IN_REPO="$REPO_DIR/scripts/daily-pipeline.sh"
-LOG=/opt/leyabierta/logs/daily-pipeline.log
-CONTAINER=code-api-1
-ENV_FILE=/opt/leyabierta/code/.env.prod
+if [ "$WATCH" -eq 1 ]; then
+  LOG=${LOG:-/opt/leyabierta/logs/fast-pass.log}
+else
+  LOG=${LOG:-/opt/leyabierta/logs/daily-pipeline.log}
+fi
+CONTAINER=${CONTAINER:-code-api-1}
+ENV_FILE=${ENV_FILE:-/opt/leyabierta/code/.env.prod}
+# Consecutive failed `boe-watch check` runs tolerated before alerting (4 x 15 min
+# = 1 h), and the counter file that survives between runs.
+WATCH_FAIL_ALERT_AT=${WATCH_FAIL_ALERT_AT:-4}
+WATCH_FAILURES_FILE=${WATCH_FAILURES_FILE:-$(dirname "$LOG")/.watch-failures}
+# Pause before the single push retry (Step 9.6 and the watch push).
+PUSH_RETRY_SLEEP=${PUSH_RETRY_SLEEP:-20}
 LEYES_DIR_CONTAINER=/data/leyes
 DIVERGENCE_CEILING=200  # abort push if local is ahead by more than this; alert + investigate
 # How old the deployed commit (refs/tags/prod) may get before we alert.
@@ -42,7 +72,12 @@ mkdir -p "$(dirname "$LOG")"
 # and it ships with the script. Rotation happens BEFORE the exec below so the
 # run always appends to a freshly rotated file. One generation is plenty: the
 # interesting history is in this log's own output, not in months of archive.
-LOG_MAX_BYTES=${LOG_MAX_BYTES:-52428800}  # 50 MB
+# The watch log has its own, smaller cap: 96 runs a day, mostly silent.
+if [ "$WATCH" -eq 1 ]; then
+  LOG_MAX_BYTES=${FAST_LOG_MAX_BYTES:-10485760}  # 10 MB
+else
+  LOG_MAX_BYTES=${LOG_MAX_BYTES:-52428800}  # 50 MB
+fi
 if [ -f "$LOG" ]; then
   log_size=$(stat -c%s "$LOG" 2>/dev/null || echo 0)
   if [ "$log_size" -gt "$LOG_MAX_BYTES" ]; then
@@ -156,11 +191,22 @@ fi
 # ── Single-instance lock ────────────────────────────────────────────────────
 # Prevents concurrent runs from racing on the leyes git working tree
 # (root cause of duplicate commits seen in production before 2026-04-27).
-LOCKFILE=/var/lock/leyabierta-pipeline.lock
+#
+# The watch pass never waits: if anything else holds the lock it logs one short
+# line and exits 0 (the next pass is 15 min away). The nightly run is the
+# opposite — it WAITS up to 30 min, so a watch pass that happens to be running
+# at 08:30 delays the nightly run instead of cancelling it for the whole day.
+LOCKFILE=${LOCKFILE:-/var/lock/leyabierta-pipeline.lock}
 exec 9>"$LOCKFILE"
-if ! flock -n 9; then
-  log "another pipeline run is in progress — skipping"
-  exit 0
+if [ "$WATCH" -eq 1 ]; then
+  if ! flock -n 9; then
+    log "watch: another pipeline run is in progress — skipping"
+    exit 0
+  fi
+elif ! flock -w 1800 9; then
+  log "✗ another pipeline run held the lock for 30 min — nightly run skipped"
+  send_alert "leyabierta daily pipeline skipped" "could not get $LOCKFILE within 30 min — another run is stuck?"
+  exit 1
 fi
 
 # ── Record which commit is actually running, and how old it is ──────────────
@@ -185,10 +231,13 @@ deploy_ts=$(git -C "$REPO_DIR" log -1 --format=%ct HEAD 2>/dev/null || true)
 if [ -n "${deploy_ts:-}" ]; then
   DEPLOY_AGE_DAYS=$(( ( $(date -u +%s) - deploy_ts ) / 86400 ))
 fi
-log "running pipeline SHA=$PIPELINE_SHA deploy-age=${DEPLOY_AGE_DAYS}d (max=${STALE_DEPLOY_MAX_AGE_DAYS}d)"
-if [ "$DEPLOY_AGE_DAYS" != "unknown" ] && [ "$DEPLOY_AGE_DAYS" -gt "$STALE_DEPLOY_MAX_AGE_DAYS" ]; then
-  log "  ⚠ deployed commit is ${DEPLOY_AGE_DAYS} days old — refs/tags/prod has not moved; newer pipeline steps may not be running"
-  send_alert "leyabierta prod tag is stale" "running SHA=$PIPELINE_SHA is ${DEPLOY_AGE_DAYS} days old (max ${STALE_DEPLOY_MAX_AGE_DAYS}d) — move refs/tags/prod forward"
+# Nightly only: a watch pass would repeat the line (and the alert) 96 times a day.
+if [ "$WATCH" -eq 0 ]; then
+  log "running pipeline SHA=$PIPELINE_SHA deploy-age=${DEPLOY_AGE_DAYS}d (max=${STALE_DEPLOY_MAX_AGE_DAYS}d)"
+  if [ "$DEPLOY_AGE_DAYS" != "unknown" ] && [ "$DEPLOY_AGE_DAYS" -gt "$STALE_DEPLOY_MAX_AGE_DAYS" ]; then
+    log "  ⚠ deployed commit is ${DEPLOY_AGE_DAYS} days old — refs/tags/prod has not moved; newer pipeline steps may not be running"
+    send_alert "leyabierta prod tag is stale" "running SHA=$PIPELINE_SHA is ${DEPLOY_AGE_DAYS} days old (max ${STALE_DEPLOY_MAX_AGE_DAYS}d) — move refs/tags/prod forward"
+  fi
 fi
 
 set -euo pipefail
@@ -308,7 +357,9 @@ push_done=0
 on_error() {
   local exit_code=$?
   trap - ERR  # don't recurse if the emergency push itself fails under set -e
-  log "  ✗ daily pipeline aborted early (exit $exit_code)"
+  local what="daily pipeline"
+  if [ "$WATCH" -eq 1 ]; then what="watch (fast pass)"; fi
+  log "  ✗ $what aborted early (exit $exit_code)"
   if [ "$push_done" -eq 0 ]; then
     log "  → attempting emergency push of whatever leyes commits exist so far"
     push_done=1
@@ -322,10 +373,183 @@ on_error() {
       log "  ⚠ emergency push also failed (status $emergency_status) — will retry on next run"
     fi
   fi
-  send_alert "leyabierta daily pipeline aborted" "exit=$exit_code — see /opt/leyabierta/logs/daily-pipeline.log"
+  send_alert "leyabierta $what aborted" "exit=$exit_code — see $LOG"
   exit "$exit_code"
 }
 trap on_error ERR
+
+# run_ai_step is shared by the watch pass and Step 3b-6 below, so it lives here.
+# ── AI steps (3b-6) are non-fatal ───────────────────────────────────────────
+# All of them call external AI providers (OpenRouter, OPENROUTER_API_KEY in
+# .env.prod). Before, they ran under `set -e` like everything else, so a dead
+# provider key made Step 4 exit 1 and skipped Steps 5-10 — no OG
+# images, no index rebuild, no heartbeat
+# (2026-08: NaN cancelled, Step 4 still pointed at it). AI enrichment is
+# additive and every step is gap-filling (it retries whatever is still missing
+# on the next run), so a failure here alerts and the run continues.
+run_ai_step() {
+  local name="$1"; shift
+  local status
+  set +e
+  docker exec "$CONTAINER" "$@" >> "$LOG" 2>&1
+  status=$?
+  set -e
+  if [ "$status" -ne 0 ]; then
+    log "  ⚠ $name failed (exit $status) — continuing; missing items are retried next run"
+    send_alert "leyabierta AI step failed: $name" "exit=$status — check OPENROUTER_API_KEY / credits and $LOG"
+  else
+    log "  ✓ $name done"
+  fi
+  return 0  # non-fatal by design: never hand a failure to the ERR trap
+}
+
+# ── Watch mode (--watch): fast pass, every 15 min ───────────────────────────
+# `boe-watch` (packages/pipeline/src/boe-watch.ts) keeps its state in
+# /data/watch-state.json inside the container: the BOE "latest update" watermark
+# and whether a push is pending. This block always ends in `exit 0`; the
+# nightly steps below never run in this mode.
+#
+# Skipped on purpose: Step 0.5 and 2.5 (nightly housekeeping), Step 10 (the API
+# picks up new embeddings through the vector delta without a restart) and the
+# BetterStack heartbeat (that is the nightly liveness signal).
+#
+# The watermark only advances (`boe-watch commit`) once Steps 1, 2 and 3 have
+# succeeded — they run under `set -e`, so a failure aborts through the ERR trap
+# (emergency push + alert) before commit and the next pass redoes the same
+# change. AI steps, OG images and the WAL checkpoint are non-fatal, as nightly.
+#
+# The push decision runs on EVERY pass, including the ones with no BOE change:
+# `boe-watch should-push` allows a new law right away but batches reforms to one
+# push per 60 min, so a pending push must be picked up by a later, quiet pass.
+# A failed push leaves pendingPush set, so the next pass retries it.
+
+# json_get JSON KEY — scalar field of a JSON object on stdout; lists come out
+# comma-joined, booleans as true/false, null as empty. Non-zero on invalid JSON.
+json_get() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import json,sys
+v=json.loads(sys.argv[1]).get(sys.argv[2])
+print(",".join(map(str,v)) if isinstance(v,list) else ("true" if v is True else "false" if v is False else "" if v is None else v))' "$1" "$2"
+  else
+    printf '%s' "$1" | jq -r --arg k "$2" '.[$k] | if .==null then "" elif type=="array" then join(",") else tostring end'
+  fi
+}
+
+if [ "$WATCH" -eq 1 ]; then
+  watch_failed() {
+    local n=0
+    if [ -r "$WATCH_FAILURES_FILE" ]; then
+      n=$(cat "$WATCH_FAILURES_FILE" 2>/dev/null || echo 0)
+    fi
+    case "$n" in ''|*[!0-9]*) n=0 ;; esac
+    n=$((n + 1))
+    echo "$n" > "$WATCH_FAILURES_FILE"
+    log "watch: boe-watch $1 failed ($n consecutive)"
+    if [ "$n" -eq "$WATCH_FAIL_ALERT_AT" ]; then
+      send_alert "leyabierta watch: BOE check failing" "boe-watch $1 failed $n times in a row — see $LOG"
+    fi
+    exit 0
+  }
+
+  check_status=0
+  check_json=$(docker exec "$CONTAINER" bun run --silent boe-watch check 2>> "$LOG" | tail -n 1) || check_status=$?
+  changed=""
+  if [ "$check_status" -eq 0 ]; then
+    changed=$(json_get "$check_json" changed) || check_status=$?
+  fi
+  if [ "$check_status" -ne 0 ]; then
+    watch_failed check
+  fi
+  rm -f "$WATCH_FAILURES_FILE"
+
+  if [ "$changed" = "true" ]; then
+    latest=$(json_get "$check_json" latest)
+    ids=$(json_get "$check_json" ids)
+    new_ids=$(json_get "$check_json" newIds)
+    log "=== Watch pass: BOE changed (latest=$latest ids=$ids new=${new_ids:-none}) ==="
+
+    log "→ Step 1: Pipeline bootstrap"
+    docker exec "$CONTAINER" bun run pipeline bootstrap --country es --concurrency 2 >> "$LOG" 2>&1
+    log "  ✓ Pipeline done"
+
+    log "→ Step 2: Ingest"
+    docker exec "$CONTAINER" bun run ingest >> "$LOG" 2>&1
+    log "  ✓ Ingest done"
+
+    if [ -n "$ids" ]; then
+      log "→ Step 3: Ingest analisis (--ids)"
+      docker exec "$CONTAINER" bun run ingest-analisis --ids "$ids" >> "$LOG" 2>&1
+      log "  ✓ Ingest-analisis done"
+    else
+      log "→ Step 3: no ids reported — skipping ingest-analisis"
+    fi
+
+    log "→ Step 3b: Embed new corpus chunks"
+    run_ai_step "Embed corpus" bun run packages/api/src/scripts/embed-corpus.ts
+    log "→ Step 4: Reform summaries"
+    run_ai_step "Reform summaries" bun run packages/api/src/scripts/generate-reform-summaries.ts
+    log "→ Step 5: Citizen tags"
+    run_ai_step "Citizen tags" bun run packages/pipeline/src/scripts/generate-citizen-tags.ts
+    log "→ Step 6: Omnibus topics"
+    run_ai_step "Omnibus topics" bun run packages/api/src/scripts/generate-omnibus-topics.ts
+
+    # Non-fatal here (fatal nightly): a broken OG generator must not keep the
+    # watermark from advancing and stall every later pass.
+    log "→ Step 7: OG images"
+    og_status=0
+    docker exec "$CONTAINER" bun run packages/api/src/scripts/generate-og-images.ts >> "$LOG" 2>&1 || og_status=$?
+    if [ "$og_status" -ne 0 ]; then
+      log "  ⚠ OG images returned $og_status (non-fatal)"
+    else
+      log "  ✓ OG images done"
+    fi
+
+    log "→ Step 9.5: Checkpoint SQLite WAL"
+    checkpoint_status=0
+    docker exec "$CONTAINER" bun -e 'const {Database}=require("bun:sqlite");const db=new Database(process.env.DB_PATH??"/data/leyabierta.db");console.log(JSON.stringify(db.query("PRAGMA wal_checkpoint(TRUNCATE)").get()));' >> "$LOG" 2>&1 \
+      || checkpoint_status=$?
+    if [ "$checkpoint_status" -ne 0 ]; then
+      log "  ⚠ WAL checkpoint returned $checkpoint_status (non-fatal)"
+    fi
+
+    commit_args=(--latest "$latest")
+    if [ -n "$new_ids" ]; then commit_args+=(--new); fi
+    docker exec "$CONTAINER" bun run boe-watch commit "${commit_args[@]}" >> "$LOG" 2>&1
+    log "  ✓ watermark advanced to $latest"
+  fi
+
+  # Push decision (every pass).
+  sp_status=0
+  sp_json=$(docker exec "$CONTAINER" bun run --silent boe-watch should-push 2>> "$LOG" | tail -n 1) || sp_status=$?
+  do_push=""
+  if [ "$sp_status" -eq 0 ]; then
+    do_push=$(json_get "$sp_json" push) || sp_status=$?
+  fi
+  if [ "$sp_status" -ne 0 ]; then
+    log "watch: boe-watch should-push failed (status $sp_status) — will retry next pass"
+    exit 0
+  fi
+  if [ "$do_push" = "true" ]; then
+    log "→ Watch push: $(json_get "$sp_json" reason)"
+    push_done=1  # the ERR trap must not push a second time
+    push_status=0
+    push_leyes || push_status=$?
+    if [ "$push_status" -ne 0 ]; then
+      log "  ⚠ push failed — retrying once after ${PUSH_RETRY_SLEEP}s"
+      sleep "$PUSH_RETRY_SLEEP"
+      push_status=0
+      push_leyes || push_status=$?
+    fi
+    if [ "$push_status" -ne 0 ]; then
+      log "  ⚠ watch push failed after retry (status $push_status). Next pass retries."
+      send_alert "leyes push failed (watch)" "exit=$push_status — the next fast pass retries (pendingPush stays set)"
+    else
+      docker exec "$CONTAINER" bun run boe-watch pushed >> "$LOG" 2>&1 \
+        || log "  ⚠ boe-watch pushed failed (non-fatal)"
+    fi
+  fi
+  exit 0
+fi
 
 log "=== Daily pipeline started ==="
 
@@ -430,29 +654,7 @@ log "→ Step 3: Ingest analisis"
 docker exec "$CONTAINER" bun run ingest-analisis >> "$LOG" 2>&1
 log "  ✓ Ingest-analisis done"
 
-# ── AI steps (3b-6) are non-fatal ───────────────────────────────────────────
-# All of them call external AI providers (OpenRouter, OPENROUTER_API_KEY in
-# .env.prod). Before, they ran under `set -e` like everything else, so a dead
-# provider key made Step 4 exit 1 and skipped Steps 5-10 — no OG
-# images, no index rebuild, no heartbeat
-# (2026-08: NaN cancelled, Step 4 still pointed at it). AI enrichment is
-# additive and every step is gap-filling (it retries whatever is still missing
-# on the next run), so a failure here alerts and the run continues.
-run_ai_step() {
-  local name="$1"; shift
-  local status
-  set +e
-  docker exec "$CONTAINER" "$@" >> "$LOG" 2>&1
-  status=$?
-  set -e
-  if [ "$status" -ne 0 ]; then
-    log "  ⚠ $name failed (exit $status) — continuing; missing items are retried next run"
-    send_alert "leyabierta AI step failed: $name" "exit=$status — check OPENROUTER_API_KEY / credits and /opt/leyabierta/logs/daily-pipeline.log"
-  else
-    log "  ✓ $name done"
-  fi
-  return 0  # non-fatal by design: never hand a failure to the ERR trap
-}
+# (AI steps 3b-6 are non-fatal: see run_ai_step above.)
 
 # ── Step 3b: RAG — embed any vigente articles missing qwen3-nan embeddings ──
 # Incremental: no-op when nothing new. Keeps /v1/ask in sync with newly
@@ -540,14 +742,19 @@ push_done=1
 push_status=0
 push_leyes || push_status=$?
 if [ "$push_status" -ne 0 ]; then
-  log "  ⚠ push failed — retrying once after 20s"
-  sleep 20
+  log "  ⚠ push failed — retrying once after ${PUSH_RETRY_SLEEP}s"
+  sleep "$PUSH_RETRY_SLEEP"
   push_status=0
   push_leyes || push_status=$?
 fi
 if [ "$push_status" -ne 0 ]; then
   log "  ⚠ push failed after retry (status $push_status). Will retry on next daily run."
   send_alert "leyes push failed" "exit=$push_status — will retry on next daily run (today's commits stay local until then)"
+else
+  # Clear the watch pass's pending-push state so it does not push again for
+  # nothing. Non-fatal: at worst the next fast pass finds "nothing to push".
+  docker exec "$CONTAINER" bun run boe-watch pushed >> "$LOG" 2>&1 \
+    || log "  ⚠ boe-watch pushed failed (non-fatal)"
 fi
 
 # ── Step 10: Rebuild the vector search index if new embeddings were added ────
