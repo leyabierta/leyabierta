@@ -308,6 +308,7 @@ See DEPLOY.md.
 - Stored as BLOBs (crash-safe, incremental add/remove)
 - For search: exported to flat binary file (`data/vectors.bin` + `data/vectors.meta.jsonl`), read in ~1GB chunks to avoid 6GB in-memory allocation
 - Sync script: `bun run packages/api/research/sync-embeddings.ts` (--add-only --all --dry-run --remove-only --migrate)
+- **Same-day laws (no restart needed):** the int8 index only changes at the nightly rebuild, so `vector-delta.ts` remembers `max(embeddings.rowid)` when the shared index loads and, at most once a minute, reads newer rows (new or re-embedded articles), searches them brute force next to the index (delta wins on duplicates) and adds their norms to the BM25 scope. Capped at 20,000 vectors until the next rebuild. `blocks_fts` (article BM25) is refreshed by `ingest` for every norm it ingests (`refreshBlocksFts`); `scripts/ad-hoc/refresh-blocks-fts.ts [--apply]` repairs drift
 
 **Evidence quality controls:**
 - Derogated norms filtered at DB level (`AND n.status != 'derogada'`)
