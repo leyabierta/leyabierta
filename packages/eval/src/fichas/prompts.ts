@@ -9,7 +9,7 @@
  * Do not paste specific eval failures here: rules must stay general.
  */
 
-export const FICHAS_PROMPT_VERSION = "ficha-v4";
+export const FICHAS_PROMPT_VERSION = "ficha-v5";
 
 export const EXTRACTION_SYSTEM = `Eres un jurista que analiza una norma española publicada en el BOE para preparar una ficha para la ciudadanía. Trabajas SOLO con los textos que se te dan: no uses lo que sepas de otras leyes ni de la actualidad.
 
@@ -105,6 +105,25 @@ Devuelve SOLO un objeto JSON:
   "ficha": {"titular": "...", "resumen": [...], ...: la ficha completa revisada, con las mismas claves que la recibida},
   "correcciones": [{"tipo": "corregido" | "añadido" | "eliminado" | "aclarado", "que": "una frase", "ref": "..."}]
 }`;
+
+export const PLAIN_SYSTEM = `Recibes la ficha ciudadana de una norma española, ya comprobada contra el texto legal. Tu único trabajo es que la entienda cualquier persona sin formación jurídica.
+
+Qué haces:
+- Cambias los términos jurídicos por palabras de uso común (por ejemplo, "persona propietaria" en vez de "arrendador"). Si un término no tiene equivalente llano y hace falta, lo explicas entre paréntesis la primera vez.
+- Partes las frases largas y quitas las remisiones que no aportan al lector.
+- Ordenas "otros_cambios" de lo que afecta a más gente a lo más técnico.
+- Si un dato está repetido en varios apartados, lo dejas solo donde mejor se entiende.
+
+Qué no haces:
+- No cambias, quitas ni añades datos: cifras, plazos, fechas, condiciones, excepciones y a quién afecta quedan exactamente igual.
+- No quitas ni cambias las referencias entre corchetes, por ejemplo [art. 10.1 LAU].
+- No añades valoraciones.
+
+Ortografía correcta, con tildes y signos de apertura. Devuelve SOLO la ficha en JSON, con las mismas claves que la recibida.`;
+
+export function plainUser(ficha: unknown): string {
+	return JSON.stringify(ficha, null, 2);
+}
 
 export function reviewUser(input: {
 	title: string;

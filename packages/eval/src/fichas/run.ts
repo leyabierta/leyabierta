@@ -22,6 +22,8 @@ import {
 	EXTRACTION_SYSTEM,
 	extractionUser,
 	FICHAS_PROMPT_VERSION,
+	PLAIN_SYSTEM,
+	plainUser,
 	REVIEW_SYSTEM,
 	reviewUser,
 	WRITING_SYSTEM,
@@ -47,6 +49,8 @@ const { values } = parseArgs({
 		"extraction-from": { type: "string" },
 		// Run the review stage after writing.
 		review: { type: "boolean", default: false },
+		// Rewrite the final ficha in plain language (sees only the ficha).
+		plain: { type: "boolean", default: false },
 	},
 });
 
@@ -280,6 +284,7 @@ async function runOne(model: string, lawId: string): Promise<void> {
 		}),
 	);
 	let ficha = parseJson(wr.content);
+	const written = ficha;
 	let rv: CallResult | null = null;
 	let correcciones: unknown[] | undefined;
 	if (values.review) {
@@ -306,6 +311,17 @@ async function runOne(model: string, lawId: string): Promise<void> {
 		} else
 			console.warn(`  ${lawId}: review unusable, keeping the written ficha`);
 	}
+	const reviewed = rv ? ficha : undefined;
+	let pl: CallResult | null = null;
+	if (values.plain) {
+		pl = await chat(model, PLAIN_SYSTEM, plainUser(ficha));
+		let out: { titular?: string } | null = null;
+		try {
+			out = parseJson(pl.content) as { titular?: string };
+		} catch {}
+		if (out?.titular) ficha = out;
+		else console.warn(`  ${lawId}: plain rewrite unusable, keeping the ficha`);
+	}
 	const checks = checkFicha(
 		extraction,
 		ficha,
@@ -317,18 +333,20 @@ async function runOne(model: string, lawId: string): Promise<void> {
 		prompt_version: FICHAS_PROMPT_VERSION,
 		reasoning: values.reasoning,
 		generated_at: new Date().toISOString(),
-		calls: [ex, wr, rv]
+		calls: [ex, wr, rv, pl]
 			.filter((c): c is CallResult => c !== null)
 			.map(({ content: _c, ...rest }) => rest),
 		extraction,
 		ficha,
+		ficha_written: written,
+		ficha_reviewed: pl ? reviewed : undefined,
 		correcciones,
 		checks,
 	};
 	await Bun.write(`${outBase}.json`, JSON.stringify(record, null, 2));
 	await Bun.write(`${outBase}.md`, renderFicha(meta.title, ficha));
 	console.log(
-		`ok ${lawId} ${model} | ${(((ex?.ms ?? 0) + wr.ms + (rv?.ms ?? 0)) / 1000).toFixed(0)}s | quotes ${checks.quotesFound}/${checks.quotesTotal} | numbers not in source: ${checks.unsupportedNumbers.join(" ") || "-"}`,
+		`ok ${lawId} ${model} | ${(((ex?.ms ?? 0) + wr.ms + (rv?.ms ?? 0) + (pl?.ms ?? 0)) / 1000).toFixed(0)}s | quotes ${checks.quotesFound}/${checks.quotesTotal} | numbers not in source: ${checks.unsupportedNumbers.join(" ") || "-"}`,
 	);
 }
 
