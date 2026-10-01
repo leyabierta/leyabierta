@@ -12,6 +12,7 @@
 
 import { readFileSync } from "node:fs";
 import type { OmnibusTopic } from "./api.ts";
+import { hasFicha } from "./fichas.ts";
 
 export interface BuildManifest {
 	citizens: Record<
@@ -144,8 +145,8 @@ export function lawOwnContent(id: string): LawOwnContent {
 
 /**
  * Whether `/leyes/[id]/` is worth indexing: it must carry at least one piece
- * of our own content (citizen summary, reform headlines or article
- * summaries); otherwise it is a thin page over the BOE text and gets
+ * of our own content (a hand-reviewed ficha, citizen summary, reform
+ * headlines or article summaries); otherwise it is a thin page over the BOE text and gets
  * `noindex` + is left out of the sitemap.
  *
  * Fails open: when either manifest is missing (local dev, or a failed fetch
@@ -153,6 +154,7 @@ export function lawOwnContent(id: string): LawOwnContent {
  * dropping thousands of laws from Google.
  */
 export function isIndexableLaw(id: string): boolean {
+	if (hasFicha(id)) return true;
 	if (!loadManifest() || !loadArticleSummaries()) return true;
 	const c = lawOwnContent(id);
 	return c.citizenSummary || c.reformHeadlines || c.articleSummaries;
