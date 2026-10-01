@@ -1,0 +1,101 @@
+Real decreto-ley · Vivienda
+
+# El alquiler de vivienda habitual se renueva por periodos de 5 años y no renovarlo tiene coste para el propietario
+
+Real Decreto-ley 27/2026, de 29 de septiembre
+
+Publicado el 1 de octubre de 2026
+
+En vigor desde el 2 de octubre
+
+Pendiente de convalidación
+
+## En 30 segundos
+
+- Al cumplirse los primeros 5 años de contrato (7 si el propietario es una empresa u otra entidad, es decir, una persona jurídica), el alquiler de tu vivienda habitual se prorroga automáticamente por periodos de 5 años (7 con empresa o entidad), uno tras otro y sin límite, salvo que alguna de las partes avise de que no quiere renovar. [art. 10.1 LAU]
+
+- El propietario que no quiera renovar debe avisar con 6 meses de antelación (antes eran 4) y pagar al inquilino una indemnización de al menos 12 meses de alquiler, calculados sobre la renta de una vivienda parecida (no necesariamente la que pagas). [art. 10.1]
+
+- No hay indemnización en algunos casos, que el propietario debe explicar por escrito en el aviso; por ejemplo, si es una persona física (no una empresa ni otra entidad) y necesita la vivienda para vivir él o familiares cercanos, o si el inquilino tiene en el mismo municipio otra vivienda adecuada de su propiedad que puede ocupar. [art. 10.2]
+
+- No cambia la renta de tu contrato: la pactada y sus actualizaciones siguen igual durante la prórroga. [exposición de motivos]
+
+## Qué cambia
+
+|  | Antes | Ahora |
+
+| Después de los primeros 5 años (7 con empresa o entidad) | Prórrogas de un año, hasta 3 años más. Después, el contrato podía terminar. | Prórrogas de 5 años (7 con empresa o entidad), una tras otra, sin límite. |
+
+| Aviso del propietario para no renovar | 4 meses antes | 6 meses antes |
+
+| Si el inquilino quiere irse | No renovar: avisar 2 meses antes del vencimiento. En las prórrogas anuales, 1 mes antes de cada anualidad. | No renovar: avisar 2 meses antes del vencimiento. Desaparece la salida anual, pero sigue pudiendo irse en cualquier momento tras 6 meses de contrato avisando con 30 días (artículo 11, sin cambios). |
+
+| Si el propietario no renueva | Sin compensación | Indemnización de al menos 12 mensualidades de una vivienda parecida, calculada cuando sea posible con el índice estatal de precios del alquiler. Nunca menos de una mensualidad por año vivido, contando también la parte proporcional de meses y días. Se paga al entregar las llaves, salvo en el caso a) de las excepciones. |
+
+| Si se vende la vivienda | No lo regulaba este artículo | La venta no quita el derecho a la indemnización: la paga el comprador que continúa el contrato, salvo las excepciones. |
+
+| Prórrogas extraordinarias | 1 año por vulnerabilidad; hasta 3 años en zonas tensionadas. En zona tensionada, el propietario podía negarse si necesitaba la vivienda para familiares de primer grado. | Siguen existiendo, pero solo cuando el propietario ha avisado de que no renueva. En zona tensionada la negativa por necesidad se amplía a familiares de segundo grado. No se suman a otras prórrogas extraordinarias; la de zona tensionada tiene preferencia. |
+
+Fuente: artículos 10 (redacción anterior y nueva) y 11 de la Ley de Arrendamientos Urbanos
+
+## Qué significa para ti
+
+### Si vives de alquiler
+
+- Tu contrato se renueva solo, por 5 años (7 si el propietario es una empresa o entidad), salvo que alguien avise a tiempo. [10.1]
+
+- Si el propietario no renueva, te corresponde la indemnización, salvo que el aviso indique por escrito y con detalle una de las excepciones, o que tengas derecho a una prórroga legal que el propietario esté obligado a aceptar (por ejemplo, la de zona tensionada, o la de vulnerabilidad si el propietario es gran tenedor), aunque no la pidas. [10.1 y 10.2]
+
+- Si recupera la vivienda para él o su familia y, pasados 3 meses desde que la entregas, no la ocupan las personas que indicó en el aviso, puedes reclamar la indemnización desde ese momento, salvo fuerza mayor. [10.2.a]
+
+- Si tras un aviso de no renovar acordáis seguir, la prórroga debe ser de al menos 5 años (7) y no puede empeorar tus condiciones. [10.3 y 10.4]
+
+- Para no renovar, avisa 2 meses antes del vencimiento. Si quieres irte antes, puedes hacerlo en cualquier momento tras 6 meses de contrato avisando con 30 días, sin pagar indemnización. [10.1] [art. 11 LAU]
+
+### Si alquilas tu vivienda
+
+- Puedes no renovar en cada vencimiento, avisando con 6 meses y pagando la indemnización. [10.1]
+
+- No pagas indemnización si lo explicas por escrito en el aviso y se da uno de estos casos: [10.2]
+
+- Eres persona física y necesitas la vivienda para ti, familiares hasta segundo grado o tu excónyuge tras sentencia firme de separación, divorcio o nulidad. Si a los 3 meses de la entrega no la ocupan las personas indicadas en el aviso, el inquilino puede reclamar la indemnización, salvo fuerza mayor.
+
+- El inquilino no ha vivido en ella más de 6 de los últimos 12 meses, salvo causa justificada (salud, trabajo, estudios, cuidado de familiares) o que hayan seguido viviendo allí su cónyuge (no separado) o sus hijos dependientes.
+
+- El inquilino tiene, en el mismo municipio, otra vivienda adecuada de su propiedad (o sobre la que tiene un derecho de uso) que puede ocupar.
+
+- Firmáis un contrato nuevo de vivienda habitual.
+
+- El inquilino rechaza, o deja sin respuesta, tu oferta formal de contrato nuevo sobre la misma vivienda, hecha dentro del plazo de preaviso, de al menos 5 años (7) y con la renta ajustada al artículo 17.6, aunque la vivienda no esté en zona tensionada.
+
+- Tienes vulnerabilidad acreditada y otra circunstancia justificada.
+
+- Tampoco pagas si el inquilino tenía derecho a una prórroga legal que estés obligado a aceptar, aunque no la pida. [10.1]
+
+## Desde cuándo y a qué contratos
+
+- En vigor desde el 2 de octubre de 2026. [DF 2.ª]
+
+- Se aplica también a los contratos ya firmados, en sus próximos vencimientos. [DT, ap. 1]
+
+- Si tu contrato vencía en menos de 6 meses, el propietario aún puede avisar con 4 meses. [DT, ap. 2]
+
+- Si ya estás en las prórrogas anuales (del año 6 al 8, o del 8 al 10 con empresa o entidad), sigues en ellas con las reglas de antes hasta que terminen; después se aplican las nuevas. [DT, ap. 3]
+
+- Si tu contrato ya había terminado y se renueva solo según el Código Civil (tácita reconducción), entra en el régimen nuevo en el primer vencimiento después de 4 meses. Cuenta todo el tiempo desde el contrato original, y para ese vencimiento el propietario puede avisar con 4 meses. Los avisos para terminarlo enviados antes del 2 de octubre siguen valiendo y no dan indemnización. [DT, ap. 5]
+
+- Los avisos de no renovar enviados antes del 2 de octubre siguen valiendo. Según la exposición de motivos, no dan derecho a indemnización, tampoco si el contrato se alarga con una prórroga extraordinaria. [exposición de motivos] [DT, ap. 5]
+
+- El Real Decreto-ley 26/2026, aprobado el mismo día, creó otra prórroga extraordinaria. No se aplica si te corresponde la nueva prórroga de 5 años. Si se aplica a un contrato que el propietario decidió no renovar, el contrato termina al acabar esa prórroga, salvo que se acuerde una prórroga de al menos 5 años (7) o se firme un contrato nuevo. La disposición adicional dice que entonces hay indemnización salvo excepción; la exposición de motivos dice que los avisos anteriores al 2 de octubre no la dan. Para esos avisos antiguos, el texto deja la cuestión abierta. [DA 1.ª, ap. 2]
+
+## Estado
+
+Es un real decreto-ley: ya se aplica, pero el Congreso debe convalidarlo o derogarlo en los 30 días siguientes a su promulgación (artículo 86 de la Constitución). Te avisaremos aquí del resultado.
+
+A 1 de octubre de 2026, el texto de la Ley de Arrendamientos Urbanos que publica el BOE todavía no incluye este cambio.
+
+Qué no hace: no cambia la renta de los contratos en curso. Solo menciona límites de precio para contratos nuevos: la oferta de la excepción e) y el contrato nuevo que evita la prórroga de zona tensionada. [exposición de motivos]
+
+Resumen en lenguaje sencillo, no asesoramiento jurídico. Lo que vale es el texto publicado en el BOE.
+
+Fuente: Agencia Estatal Boletín Oficial del Estado · BOE-A-2026-20385

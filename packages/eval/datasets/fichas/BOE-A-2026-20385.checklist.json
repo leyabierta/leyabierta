@@ -1,0 +1,42 @@
+{
+	"norm_id": "BOE-A-2026-20385",
+	"title": "Real Decreto-ley 27/2026, de 29 de septiembre, por el que se adoptan medidas urgentes para reforzar la estabilidad de los contratos de arrendamiento de vivienda habitual",
+	"modifies": [{ "norm_id": "BOE-A-1994-26003", "articles": ["10"] }],
+	"why_hard": "Ley modificadora con un artículo único muy largo: el cambio real está en el texto citado («queda redactado como sigue»), hay que compararlo con la redacción anterior, el régimen transitorio tiene cinco casos, se coordina con otro RDL del mismo día y la exposición de motivos y la DA 1.ª no dicen lo mismo. Los resúmenes anteriores afirmaron que controlaba precios.",
+	"facts": [
+		{ "id": "f01", "weight": "critical", "cite": "art. 10.1 LAU", "claim": "Tras los primeros 5 años (7 si el arrendador es persona jurídica), el contrato de vivienda habitual se prorroga por periodos sucesivos de 5 años (7), sin límite de número, salvo aviso de no renovar." },
+		{ "id": "f02", "weight": "critical", "cite": "art. 10.1 LAU", "claim": "El arrendador debe avisar con al menos 6 meses de antelación (antes 4) para no renovar." },
+		{ "id": "f03", "weight": "important", "cite": "art. 10.1 LAU", "claim": "El arrendatario avisa con al menos 2 meses para no renovar." },
+		{ "id": "f04", "weight": "critical", "cite": "art. 10.1 LAU", "claim": "Si el arrendador no renueva debe indemnizar con al menos 12 mensualidades de renta de una vivienda de análogas características (no necesariamente la renta actual)." },
+		{ "id": "f05", "weight": "important", "cite": "art. 10.1 LAU", "claim": "La indemnización se calcula cuando sea posible con el sistema estatal de referencia de precios del alquiler y nunca es inferior a una mensualidad por año de residencia (prorrateada)." },
+		{ "id": "f06", "weight": "minor", "cite": "art. 10.1 LAU", "claim": "La indemnización se paga al entregar la vivienda, salvo en el supuesto de la letra a) del 10.2." },
+		{ "id": "f07", "weight": "important", "cite": "art. 10.1 LAU", "claim": "No hay indemnización si el arrendatario reúne los requisitos de una prórroga legal de aceptación obligatoria, aunque no la pida." },
+		{ "id": "f08", "weight": "important", "cite": "art. 10.1 LAU", "claim": "La venta de la vivienda no afecta al derecho a la indemnización, que corresponde al comprador que se subroga." },
+		{ "id": "f09", "weight": "critical", "cite": "art. 10.2 LAU", "claim": "Hay excepciones a la indemnización y deben constar de forma expresa, detallada y por escrito en el preaviso." },
+		{ "id": "f10", "weight": "important", "cite": "art. 10.2.a LAU", "claim": "Excepción: arrendador persona física que necesita la vivienda para sí, familiares hasta segundo grado o cónyuge tras separación, divorcio o nulidad; si en 3 meses no la ocupan esas personas (salvo fuerza mayor), se debe la indemnización." },
+		{ "id": "f11", "weight": "minor", "cite": "art. 10.2.b LAU", "claim": "Excepción: el arrendatario no ha habitado la vivienda más de 6 de los 12 meses anteriores sin causa justificada (y sin que vivan allí cónyuge no separado o hijos dependientes)." },
+		{ "id": "f12", "weight": "minor", "cite": "art. 10.2.c LAU", "claim": "Excepción: el arrendatario tiene en el mismo municipio otra vivienda apta en propiedad o con derecho real de uso o disfrute que puede ocupar." },
+		{ "id": "f13", "weight": "minor", "cite": "art. 10.2.d LAU", "claim": "Excepción: las partes firman un nuevo contrato de vivienda habitual." },
+		{ "id": "f14", "weight": "important", "cite": "art. 10.2.e LAU", "claim": "Excepción: el arrendatario rechaza (expresa o tácitamente) una oferta fehaciente de nuevo contrato de al menos 5 años (7) con renta ajustada al art. 17.6, aunque no sea zona tensionada." },
+		{ "id": "f15", "weight": "minor", "cite": "art. 10.2.f LAU", "claim": "Excepción: arrendador con vulnerabilidad acreditada y otra circunstancia justificada." },
+		{ "id": "f16", "weight": "important", "cite": "art. 10.3 y 10.4 LAU", "claim": "Una prórroga acordada tras un aviso de no renovar debe ser de al menos 5 años (7) y son nulas las cláusulas que empeoren las condiciones del arrendatario." },
+		{ "id": "f17", "weight": "important", "cite": "art. 10.5 y 10.6 LAU", "claim": "Se mantienen las prórrogas extraordinarias por vulnerabilidad (1 año) y zona tensionada (hasta 3 años), ahora solo cuando el arrendador ha comunicado la no prórroga; no acumulables; la de zona tensionada es preferente." },
+		{ "id": "f18", "weight": "critical", "cite": "DF 2.ª", "claim": "Entra en vigor el 2 de octubre de 2026 (día siguiente a su publicación)." },
+		{ "id": "f19", "weight": "critical", "cite": "DT única, ap. 1", "claim": "Se aplica a los contratos vigentes en sus próximos vencimientos." },
+		{ "id": "f20", "weight": "important", "cite": "DT única, ap. 2", "claim": "Si quedan menos de 6 meses para el vencimiento, el arrendador puede avisar con 4 meses." },
+		{ "id": "f21", "weight": "important", "cite": "DT única, ap. 3", "claim": "Los contratos ya en la prórroga anual antigua siguen en ella hasta su término con las reglas anteriores; después se aplica el nuevo régimen." },
+		{ "id": "f22", "weight": "minor", "cite": "DT única, ap. 5", "claim": "Contratos en tácita reconducción: nuevo régimen desde el primer vencimiento tras 4 meses; se computa el tiempo desde el contrato original; aviso con 4 meses; los avisos previos válidos se mantienen sin indemnización." },
+		{ "id": "f23", "weight": "important", "cite": "DA 1.ª", "claim": "La prórroga extraordinaria del RDL 26/2026 no se aplica cuando procede la prórroga del 10.1; si se aplica tras un aviso de no renovar, el contrato se extingue al terminar." },
+		{ "id": "f24", "weight": "important", "cite": "exposición de motivos", "claim": "No modifica la renta del contrato en curso ni sus actualizaciones." },
+		{ "id": "f25", "weight": "important", "cite": "art. 86 CE", "claim": "Es un real decreto-ley: ya se aplica pero debe ser convalidado por el Congreso en 30 días." }
+	],
+	"must_not": [
+		{ "id": "x01", "claim": "Afirmar que controla, congela o limita el precio del alquiler de los contratos en curso." },
+		{ "id": "x02", "claim": "Afirmar que el contrato pasa a ser indefinido o sin vencimientos." },
+		{ "id": "x03", "claim": "Afirmar que el inquilino queda obligado a permanecer todo el periodo de 5 años (el art. 11 LAU permite desistir tras 6 meses con 30 días)." },
+		{ "id": "x04", "claim": "Afirmar que la indemnización son 12 meses de la renta que paga el inquilino." },
+		{ "id": "x05", "claim": "Afirmar que la indemnización se debe siempre, sin excepciones." },
+		{ "id": "x06", "claim": "Aplicar el régimen a alquileres que no son de vivienda habitual (temporada, locales)." },
+		{ "id": "x07", "claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto." }
+	]
+}
