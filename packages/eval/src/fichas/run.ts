@@ -43,6 +43,14 @@ const { values } = parseArgs({
 		floor: { type: "string", default: "0.40" },
 		concurrency: { type: "string", default: "3" },
 		reasoning: { type: "string", default: "low" },
+		// Per-stage model and reasoning effort ("none" disables reasoning,
+		// "omit" sends no reasoning field, for models without it).
+		"write-model": { type: "string" },
+		"review-model": { type: "string" },
+		"plain-model": { type: "string" },
+		"write-reasoning": { type: "string" },
+		"review-reasoning": { type: "string" },
+		"plain-reasoning": { type: "string" },
 		// Only run the review stage on fichas already generated in this dir.
 		"review-from": { type: "string" },
 		// Reuse the extraction of fichas already generated in this dir.
@@ -97,6 +105,8 @@ interface CallResult {
 	tokensIn: number;
 	tokensOut: number;
 	provider: string;
+	model: string;
+	effort: string;
 	ms: number;
 }
 
@@ -104,6 +114,7 @@ async function chat(
 	model: string,
 	system: string,
 	user: string,
+	effort: string = values.reasoning ?? "low",
 ): Promise<CallResult> {
 	await guard();
 	for (let attempt = 0; attempt < 4; attempt++) {
@@ -126,7 +137,11 @@ async function chat(
 				],
 				temperature: 0.2,
 				max_tokens: 32000,
-				reasoning: { effort: values.reasoning },
+				...(effort === "omit"
+					? {}
+					: {
+							reasoning: effort === "none" ? { enabled: false } : { effort },
+						}),
 				response_format: { type: "json_object" },
 				// Several providers serve the same weights at different prices;
 				// fp4 builds are excluded so quantization does not skew the eval.
@@ -164,7 +179,7 @@ async function chat(
 			console.warn(
 				`  ${model}: ${res.status} ${body?.error?.message?.slice(0, 160) ?? "empty content"}`,
 			);
-			if (res.status === 401 || res.status === 402 || res.status === 404) break;
+			if ([401, 402, 403, 404].includes(res.status)) break;
 			continue;
 		}
 		return {
@@ -173,6 +188,8 @@ async function chat(
 			tokensIn: body?.usage?.prompt_tokens ?? 0,
 			tokensOut: body?.usage?.completion_tokens ?? 0,
 			provider: body?.provider ?? "",
+			model,
+			effort,
 			ms: Date.now() - t0,
 		};
 	}
@@ -275,13 +292,14 @@ async function runOne(model: string, lawId: string): Promise<void> {
 		extraction = parseJson(ex.content);
 	}
 	const wr = await chat(
-		model,
+		values["write-model"] ?? model,
 		WRITING_SYSTEM,
 		writingUser({
 			title: meta.title,
 			publishedAt: meta.published_at,
 			extraction,
 		}),
+		values["write-reasoning"],
 	);
 	let ficha = parseJson(wr.content);
 	const written = ficha;
@@ -289,7 +307,7 @@ async function runOne(model: string, lawId: string): Promise<void> {
 	let correcciones: unknown[] | undefined;
 	if (values.review) {
 		rv = await chat(
-			model,
+			values["review-model"] ?? model,
 			REVIEW_SYSTEM,
 			reviewUser({
 				title: meta.title,
@@ -298,6 +316,7 @@ async function runOne(model: string, lawId: string): Promise<void> {
 				publishedAt: meta.published_at,
 				ficha,
 			}),
+			values["review-reasoning"],
 		);
 		type Reviewed = { ficha?: unknown; correcciones?: unknown[] };
 		let out: Reviewed | null = null;
@@ -314,11 +333,27 @@ async function runOne(model: string, lawId: string): Promise<void> {
 	const reviewed = rv ? ficha : undefined;
 	let pl: CallResult | null = null;
 	if (values.plain) {
-		pl = await chat(model, PLAIN_SYSTEM, plainUser(ficha));
 		let out: { titular?: string } | null = null;
-		try {
-			out = parseJson(pl.content) as { titular?: string };
-		} catch {}
+		// Without reasoning the model now and then echoes the ficha back
+		// untouched; one retry is cheaper than reasoning on every call.
+		for (let attempt = 0; attempt < 2; attempt++) {
+			const call = await chat(
+				values["plain-model"] ?? model,
+				PLAIN_SYSTEM,
+				plainUser(ficha),
+				// The echo repeats on a plain retry, so the retry reasons.
+				attempt === 0 ? values["plain-reasoning"] : "low",
+			);
+			pl = pl
+				? { ...call, cost: pl.cost + call.cost, ms: pl.ms + call.ms }
+				: call;
+			out = null;
+			try {
+				out = parseJson(call.content) as { titular?: string };
+			} catch {}
+			if (JSON.stringify(out) !== JSON.stringify(ficha)) break;
+			console.warn(`  ${lawId}: plain rewrite returned the ficha unchanged`);
+		}
 		if (out?.titular) ficha = out;
 		else console.warn(`  ${lawId}: plain rewrite unusable, keeping the ficha`);
 	}
