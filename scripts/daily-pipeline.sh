@@ -159,8 +159,20 @@ send_alert() {
 # Both branches used to swallow stderr (`2>/dev/null`, `>/dev/null 2>&1`) with
 # no else-branch, so a broken fetch or reset silently left whatever copy was on
 # disk running forever. Every failure is now logged and alerted.
+#
+# Serialized by its own short lock: at 08:30 the nightly line and the */15
+# watch line start in the same second, and two concurrent fetch/reset runs on
+# the same repo make one of them fail (2026-10-01: the loser fell back to a
+# stale on-disk copy that ignored --watch and ran a full old pipeline). This is
+# not the pipeline lock: that one is held for the whole run, this one only
+# while git runs. fd 8 is closed before re-exec so the child does not hold it.
+SELF_UPDATE_LOCK=${SELF_UPDATE_LOCK:-/var/lock/leyabierta-self-update.lock}
 if [ -z "${LEYABIERTA_SELF_UPDATED:-}" ] && [ -d "$REPO_DIR/.git" ]; then
   self_update_ok=0
+  exec 8>"$SELF_UPDATE_LOCK"
+  if ! flock -w 120 8; then
+    log "  ⚠ self-update: $SELF_UPDATE_LOCK busy for 120 s — trying anyway"
+  fi
   # Fetch the prod tag with explicit refspec so a force-updated remote tag
   # always overrides the local one. `git fetch --tags` (without --force) is
   # NOT enough — it silently keeps an existing local tag pointing to an old
@@ -179,10 +191,12 @@ if [ -z "${LEYABIERTA_SELF_UPDATED:-}" ] && [ -d "$REPO_DIR/.git" ]; then
       if [ -f "$SCRIPT_IN_REPO" ] && ! cmp -s "$SCRIPT_PATH" "$SCRIPT_IN_REPO"; then
         log "  → self-update: newer daily-pipeline.sh at refs/tags/prod — re-exec'ing"
         export LEYABIERTA_SELF_UPDATED=1
+        exec 8>&-
         exec "$SCRIPT_IN_REPO" "$@"
       fi
     fi
   fi
+  exec 8>&-
   if [ "$self_update_ok" -ne 1 ]; then
     log "  ⚠ self-update: continuing with the on-disk copy at $SCRIPT_PATH — version may be stale"
   fi
