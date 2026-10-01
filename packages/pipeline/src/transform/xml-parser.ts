@@ -127,13 +127,37 @@ function isEditorialNote(cssClass: string, text: string): boolean {
 
 // ─── Paragraph extraction ───
 
-function extractParagraphs(versionChildren: XmlNode[]): Paragraph[] {
+/**
+ * `quoted`: inside an amending blockquote, where the editorial-prefix filter
+ * must not run — quoted legal text can legitimately start with "Se declara…".
+ */
+function extractParagraphs(
+	versionChildren: XmlNode[],
+	quoted = false,
+): Paragraph[] {
 	const paragraphs: Paragraph[] = [];
 
 	for (const child of versionChildren) {
-		// Handle blockquotes: include "siempreSeVe" notes, skip others
+		// Handle blockquotes: amending text and "siempreSeVe" notes, skip others
 		if (child.blockquote) {
 			const bqClass = (child[":@"]?.class as string) ?? "";
+			if (bqClass === "sangrado") {
+				// The text an amending law inserts into another one ("queda
+				// redactado como sigue: «…»") — the substance of the article.
+				// Rendered as a quote: its own "Artículo N" / section headings
+				// belong to the amended law, not to this one's structure.
+				for (const p of extractParagraphs(
+					child.blockquote as XmlNode[],
+					true,
+				)) {
+					paragraphs.push(
+						p.cssClass === "__table" || p.cssClass === "nota_boe"
+							? p
+							: { cssClass: "sangrado", text: p.text },
+					);
+				}
+				continue;
+			}
 			if (bqClass === "siempreSeVe") {
 				// Extract text from <p> elements inside the blockquote
 				const bqChildren: XmlNode[] = child.blockquote ?? [];
@@ -167,7 +191,12 @@ function extractParagraphs(versionChildren: XmlNode[]): Paragraph[] {
 			const text = normalizeWhitespace(renderInlineNodes(child.p as XmlNode[]));
 
 			if (!text) continue;
-			if (isEditorialNote(cssClass, text)) continue;
+			if (
+				quoted
+					? EDITORIAL_CLASSES.has(cssClass)
+					: isEditorialNote(cssClass, text)
+			)
+				continue;
 
 			paragraphs.push({ cssClass, text });
 		}

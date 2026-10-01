@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { renderParagraphs } from "../src/transform/markdown.ts";
 import {
 	extractReforms,
 	getBlockAtDate,
@@ -137,5 +138,64 @@ describe("normalizeWhitespace via <br><br>", () => {
 		const blocks = parseTextXml(xml);
 		const text = blocks[0]!.versions[0]!.paragraphs[0]!.text;
 		expect(text).toBe("First line.\n\nSecond line.");
+	});
+});
+
+describe("amending blockquote (sangrado)", () => {
+	// BOE-A-2026-20385: "Se modifica el artículo 10 … que queda redactado como
+	// sigue:" followed by the new text in <blockquote class="sangrado">. Dropping
+	// it left the article (and its AI summary) with no substance at all.
+	const xml = new TextEncoder().encode(`<?xml version="1.0" encoding="utf-8"?>
+<response>
+  <data>
+    <texto>
+      <bloque id="au" tipo="precepto" titulo="Artículo único">
+        <version id_norma="BOE-A-TEST" fecha_publicacion="20261001" fecha_vigencia="20261002">
+          <p class="articulo">Artículo único. Modificación de la Ley 29/1994.</p>
+          <p class="parrafo">Se modifica el artículo 10, que queda redactado como sigue:</p>
+          <blockquote class="sangrado">
+            <p class="articulo">«Artículo 10. Prórroga del contrato.</p>
+            <p class="parrafo_2">1. El contrato se prorrogará por plazos de cinco años.</p>
+            <p class="parrafo">Se declara aplicable a los contratos vigentes.»</p>
+            <table><tr><td>Plazo</td><td>5 años</td></tr></table>
+            <blockquote><p class="nota_pie">Nota editorial interior.</p></blockquote>
+          </blockquote>
+          <blockquote class="soloTexto"><p class="parrafo">Téngase en cuenta que…</p></blockquote>
+          <blockquote><p class="nota_pie">Se modifica por el art. 1.</p></blockquote>
+        </version>
+      </bloque>
+    </texto>
+  </data>
+</response>`);
+	const paragraphs = parseTextXml(xml)[0]!.versions[0]!.paragraphs;
+
+	test("keeps the quoted text, as quotes, and drops editorial blockquotes", () => {
+		expect(paragraphs).toEqual([
+			{
+				cssClass: "articulo",
+				text: "Artículo único. Modificación de la Ley 29/1994.",
+			},
+			{
+				cssClass: "parrafo",
+				text: "Se modifica el artículo 10, que queda redactado como sigue:",
+			},
+			{ cssClass: "sangrado", text: "«Artículo 10. Prórroga del contrato." },
+			{
+				cssClass: "sangrado",
+				text: "1. El contrato se prorrogará por plazos de cinco años.",
+			},
+			// Editorial-prefix filter must not eat quoted legal text.
+			{
+				cssClass: "sangrado",
+				text: "Se declara aplicable a los contratos vigentes.»",
+			},
+			{ cssClass: "__table", text: "| Plazo | 5 años |\n| --- | --- |" },
+		]);
+	});
+
+	test("the quoted article heading is not a heading of this law", () => {
+		const md = renderParagraphs(paragraphs);
+		expect(md).toContain("> «Artículo 10. Prórroga del contrato.");
+		expect(md.match(/^##### /gm)).toHaveLength(1);
 	});
 });
