@@ -18,7 +18,7 @@ import "./ficha.css";
 
 interface Props {
 	ficha: Ficha;
-	/** Official title of the law (BOE), shown small under the subtitle. */
+	/** Official title of the law (BOE), shown under the titular in place of the subtitle. */
 	officialTitle: string;
 	/** The law on the BOE ("Ver en el BOE"). */
 	boeHref: string;
@@ -57,6 +57,9 @@ const isSource = (html: string) => html.startsWith("Fuente:");
 const noteText = note?.paragraphs.filter((p) => !isSource(p)) ?? [];
 const noteSources = note?.paragraphs.filter(isSource) ?? [];
 const headingId = (s: FichaSection) => `${s.id}-titulo`;
+// One title line: the full official title (it already starts with the short
+// subtitle, so showing both repeated it). Falls back to the subtitle.
+const headerTitle = officialTitle.trim() || ficha.subtitulo;
 ---
 
 <section class="ficha" id="ficha" aria-labelledby="ficha-titular">
@@ -70,12 +73,9 @@ const headingId = (s: FichaSection) => `${s.id}-titulo`;
 		</div>
 		<h1 class="ficha-titular" id="ficha-titular">{ficha.titular}</h1>
 		<div class="ficha-titles">
-			<p class="ficha-subtitulo">
-				{ficha.subtitulo}
+			<p class="ficha-subtitulo ficha-official">
+				<span class="sr-only">Título oficial: </span>{headerTitle}{" "}
 				<span class="ficha-kicker ficha-id">{ficha.identificador}</span>
-			</p>
-			<p class="ficha-official">
-				<span class="sr-only">Título oficial: </span>{officialTitle}
 			</p>
 			{alsoKnownAs.length > 0 && (
 				<span class="sr-only">También conocida como: {alsoKnownAs.join(", ")}</span>

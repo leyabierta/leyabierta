@@ -158,10 +158,9 @@
 	color: var(--text-secondary);
 }
 /* The official BOE title, for transparency: small and muted. */
-.ficha-official {
-	font-size: 0.875rem;
+.ficha-subtitulo.ficha-official {
+	font-size: 0.9375rem;
 	line-height: 1.5;
-	color: var(--text-muted);
 }
 .ficha-id {
 	margin-left: 0.5rem;
