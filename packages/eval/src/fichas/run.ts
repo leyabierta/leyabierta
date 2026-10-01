@@ -212,6 +212,7 @@ async function runOne(model: string, lawId: string): Promise<void> {
 				title: meta.title,
 				lawText,
 				previousWording,
+				publishedAt: meta.published_at,
 				ficha: base.ficha,
 			}),
 		);
@@ -285,7 +286,13 @@ async function runOne(model: string, lawId: string): Promise<void> {
 		rv = await chat(
 			model,
 			REVIEW_SYSTEM,
-			reviewUser({ title: meta.title, lawText, previousWording, ficha }),
+			reviewUser({
+				title: meta.title,
+				lawText,
+				previousWording,
+				publishedAt: meta.published_at,
+				ficha,
+			}),
 		);
 		type Reviewed = { ficha?: unknown; correcciones?: unknown[] };
 		let out: Reviewed | null = null;

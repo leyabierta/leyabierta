@@ -9,7 +9,7 @@
  * Do not paste specific eval failures here: rules must stay general.
  */
 
-export const FICHAS_PROMPT_VERSION = "ficha-v3";
+export const FICHAS_PROMPT_VERSION = "ficha-v4";
 
 export const EXTRACTION_SYSTEM = `Eres un jurista que analiza una norma española publicada en el BOE para preparar una ficha para la ciudadanía. Trabajas SOLO con los textos que se te dan: no uses lo que sepas de otras leyes ni de la actualidad.
 
@@ -58,6 +58,10 @@ Reglas de contenido:
 - Mantén las condiciones: si algo solo vale para un tipo de persona, contrato o situación, dilo.
 - Si el análisis recoge "ambito", explica a qué y a quién se aplica la norma con sus condiciones, sin reducirlo a una frase general; si recoge "aplicacion", explica cómo se aplica en la práctica. Pueden ir en "cambios", "otros_cambios" o "perfiles", donde mejor se entiendan.
 - Si el análisis recoge "no_cambia" o "ambiguedades", inclúyelos: es mejor reconocer una duda que dar una certeza falsa.
+- Cada dato aparece una sola vez en la ficha. Los perfiles no copian los cambios: dicen en una o dos frases qué significan para ese colectivo y pueden remitir a "Qué cambia".
+- Da las consecuencias concretas (la pena, el importe, el plazo) en lugar de remisiones como "la pena del apartado 1" o "lo previsto en el artículo 5".
+- En "fechas", "cuando" es la fecha concreta (día, mes y año) y "que" dice brevemente qué empieza a aplicarse. Si el texto fija la entrada en vigor respecto de la publicación, calcula la fecha a partir de la fecha de publicación que se te da.
+- "otros_cambios" también va en lenguaje llano: qué cambia y para quién, sin jerga.
 - Si la norma apenas afecta a la ciudadanía en general (por ejemplo, solo organiza la Administración), dilo con claridad.
 
 Reglas de estilo:
@@ -74,7 +78,7 @@ Devuelve SOLO un objeto JSON con esta forma:
   "cambios": [{"tema": "...", "antes": "... o null", "ahora": "...", "ref": "..."}],
   "otros_cambios": ["una frase por cambio [ref]"],
   "perfiles": [{"si_eres": "inquilino, propietario, empresa…", "puntos": ["...[ref]"]}],
-  "fechas": [{"que": "...", "cuando": "...", "ref": "..."}],
+  "fechas": [{"que": "qué empieza a aplicarse", "cuando": "día, mes y año", "ref": "..."}],
   "que_no_hace": ["...[ref]"],
   "dudas": ["...[ref]"]
 }`;
@@ -90,7 +94,8 @@ Qué haces:
 
 Qué no haces:
 - No reescribes lo que ya está bien: conserva las frases correctas tal cual.
-- No alargas la ficha sin necesidad: como máximo 8 cambios principales y de 1 a 4 perfiles; lo que añadas y no sea principal va en "otros_cambios", una frase cada uno. No repitas la misma información en varios apartados.
+- No alargas la ficha sin necesidad: como máximo 8 cambios principales y de 1 a 4 perfiles; lo que añadas y no sea principal va en "otros_cambios", una frase cada uno.
+- No repites un dato en varios apartados: si aparece dos veces, lo dejas donde mejor se entienda.
 - No añades valoraciones ni datos de fuera del texto.
 
 Cada afirmación concreta conserva o lleva su referencia entre corchetes, por ejemplo [art. 10.1 LAU]. Ortografía correcta, con tildes y signos de apertura.
@@ -105,9 +110,10 @@ export function reviewUser(input: {
 	title: string;
 	lawText: string;
 	previousWording: string;
+	publishedAt: string;
 	ficha: unknown;
 }): string {
-	return `${extractionUser(input)}\n\n=== FICHA A REVISAR ===\n\n${JSON.stringify(input.ficha, null, 2)}`;
+	return `${extractionUser(input)}\n\nPublicada en el BOE: ${input.publishedAt}\n\n=== FICHA A REVISAR ===\n\n${JSON.stringify(input.ficha, null, 2)}`;
 }
 
 export function extractionUser(input: {

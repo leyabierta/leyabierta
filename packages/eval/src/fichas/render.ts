@@ -48,7 +48,9 @@ export function renderFicha(title: string, raw: unknown): string {
 	if (f.fechas?.length) {
 		out.push("## Fechas", "");
 		for (const d of f.fechas)
-			out.push(`- ${d.que ?? ""}: ${d.cuando ?? ""} [${d.ref ?? ""}]`);
+			out.push(
+				`- **${d.cuando ?? ""}**: ${(d.que ?? "").replace(/\.$/, "")} [${d.ref ?? ""}]`,
+			);
 		out.push("");
 	}
 	if (f.que_no_hace?.length)
