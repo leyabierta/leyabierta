@@ -193,6 +193,12 @@ describe("isIndexableLaw()", () => {
 		expect(isIndexableLaw("NADA")).toBe(false);
 	});
 
+	it("counts a hand-reviewed ficha as own content", () => {
+		load(MANIFEST, ARTICLES);
+		// src/data/fichas/BOE-A-2026-20385.md; absent from both manifests.
+		expect(isIndexableLaw("BOE-A-2026-20385")).toBe(true);
+	});
+
 	it("fails open when a manifest is missing", () => {
 		load(MANIFEST, null);
 		expect(isIndexableLaw("NADA")).toBe(true);

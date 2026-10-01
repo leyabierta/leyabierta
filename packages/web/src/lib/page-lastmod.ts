@@ -78,6 +78,12 @@ export interface LastmodManifestInput {
 	>;
 	/** `[heading, summary, blockId?]` per article, see manifest.ts. */
 	articles: Record<string, [string, string, string?][]>;
+	/**
+	 * Hand-reviewed fichas (fichas.ts `fichaContentParts`): per law, the ficha
+	 * on its own page and the notices on the laws it modifies. Optional: laws
+	 * without any keep exactly the hash they had before fichas existed.
+	 */
+	fichas?: Record<string, string[]>;
 }
 
 /** Whitespace- and Unicode-normalised text, so reformatting is not a change. */
@@ -105,7 +111,8 @@ export function reformKey(lawId: string, date: string): string {
 
 /**
  * Hash of a law page's own content, or undefined when it has none (such a
- * page is `noindex`, see isIndexableLaw — the same three kinds of content).
+ * page is `noindex`, see isIndexableLaw — the same kinds of content, plus
+ * the notice a ficha puts on the laws it modifies).
  * Citizen tags only count alongside something else, as on the page.
  */
 export function lawContentHash(
@@ -118,10 +125,17 @@ export function lawContentHash(
 		(r) => normalizeText(r.headline) || normalizeText(r.summary),
 	);
 	const articles = (m.articles[id] ?? []).filter(([, s]) => normalizeText(s));
-	if (!summary && reforms.length === 0 && articles.length === 0) {
+	const fichas = (m.fichas?.[id] ?? []).filter((f) => normalizeText(f));
+	if (
+		!summary &&
+		reforms.length === 0 &&
+		articles.length === 0 &&
+		fichas.length === 0
+	) {
 		return undefined;
 	}
 	const parts: string[] = [];
+	for (const f of fichas) parts.push(`f\u0000${normalizeText(f)}`);
 	if (summary) parts.push(`s\u0000${summary}`);
 	for (const t of citizen?.tags ?? []) parts.push(`t\u0000${normalizeText(t)}`);
 	for (const r of reforms) {
@@ -166,6 +180,7 @@ export function lawContentHashes(
 		...Object.keys(m.citizens),
 		...Object.keys(m.reforms),
 		...Object.keys(m.articles),
+		...Object.keys(m.fichas ?? {}),
 	]);
 	const out: Record<string, string> = {};
 	for (const id of ids) {

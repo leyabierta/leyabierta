@@ -17,6 +17,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { fichaContentParts } from "./fichas.ts";
 import { todayIso } from "./law-dates.ts";
 import { loadArticleSummaries, loadManifest } from "./manifest.ts";
 import {
@@ -69,7 +70,12 @@ export function getLastmodState(): LastmodState {
 	// absence like a missing manifest, or every law would look changed.
 	const content =
 		manifest && articles && manifest.reforms
-			? { citizens: manifest.citizens, reforms: manifest.reforms, articles }
+			? {
+					citizens: manifest.citizens,
+					reforms: manifest.reforms,
+					articles,
+					fichas: fichaContentParts(),
+				}
 			: null;
 	const prev = readPrevState();
 	const { state, warnings } = buildLastmodState({
