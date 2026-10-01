@@ -199,7 +199,7 @@ hitos:
 describe("parseSections", () => {
 	const sections = parseSections(BODY);
 	const byKind = <K extends FichaSection["kind"]>(kind: K) =>
-		sections.find((s) => s.kind === kind) as Extract<FichaSection, { kind: K }>;
+		sections.find((s) => s.kind === kind) as FichaSection & { kind: K };
 
 	test("one section per known «##», in file order, with anchors and index", () => {
 		expect(sections.map((s) => [s.kind, s.id, s.tocLabel])).toEqual([
