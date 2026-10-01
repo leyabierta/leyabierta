@@ -1,0 +1,234 @@
+{
+	"norm_id": "BOE-A-2024-11776",
+	"title": "Ley Orgánica 1/2024, de 10 de junio, de amnistía para la normalización institucional, política y social en Cataluña",
+	"modifies": [
+		{ "norm_id": "BOE-A-1995-25444", "articles": ["130.1"] },
+		{ "norm_id": "BOE-A-1982-11584", "articles": ["39"] }
+	],
+	"why_hard": "Ley políticamente muy sensible: la ficha debe ser neutral y no adoptar ni el tono justificativo del extenso preámbulo ni valoraciones contrarias. El ámbito del art. 1.1 tiene seis letras con condiciones finas (la malversación solo sin propósito de enriquecimiento, ventana 1-11-2011 a 13-11-2023, incluye también actuaciones policiales), el art. 2 tiene exclusiones con condiciones acumulativas (terrorismo, traición, umbral de gravedad en tratos degradantes) y la amnistía no es automática: la aplica caso a caso el órgano competente por resolución firme. Además, el texto consolidado lleva notas del BOE: la STC 137/2025 declaró inconstitucional el art. 1.1 con un alcance que el texto no detalla y anuló el párrafo segundo del art. 1.3.",
+	"facts": [
+		{
+			"id": "f01",
+			"weight": "critical",
+			"cite": "art. 1.1, párrafo inicial",
+			"claim": "Quedan amnistiados actos determinantes de responsabilidad penal, administrativa o contable ejecutados en el marco de las consultas celebradas en Cataluña el 9 de noviembre de 2014 y el 1 de octubre de 2017, de su preparación o de sus consecuencias, siempre que se hayan realizado entre el 1 de noviembre de 2011 y el 13 de noviembre de 2023, así como las acciones de las letras a) a f) ejecutadas entre esas fechas en el contexto del proceso independentista catalán, aunque no estén relacionadas con las consultas."
+		},
+		{
+			"id": "f02",
+			"weight": "critical",
+			"cite": "art. 1.1.a) y b), segundos párrafos; art. 1.4",
+			"claim": "La usurpación de funciones públicas y la malversación solo se amnistían cuando estén dirigidas a financiar, sufragar o facilitar los actos de secesión o la celebración de las consultas y siempre que no haya existido propósito de enriquecimiento; no se considera enriquecimiento la aplicación de fondos públicos a esos fines, aunque no se ajuste al ordenamiento, si no tuvo el propósito de obtener un beneficio personal de carácter patrimonial."
+		},
+		{
+			"id": "f03",
+			"weight": "important",
+			"cite": "art. 1.1.a)",
+			"claim": "Se incluyen los actos cometidos con la intención de reivindicar, promover o procurar la secesión o independencia de Cataluña o que contribuyeron a ello, las actuaciones, a título personal o institucional, para divulgar el proyecto independentista, recabar información y adquirir conocimiento sobre experiencias similares o lograr que otras entidades públicas o privadas apoyaran la independencia, y los actos vinculados al proceso o a sus líderes de quienes, de forma manifiesta o constatada, prestaron asistencia, colaboración, asesoramiento, representación, protección o seguridad a sus responsables o recabaron información a estos efectos."
+		},
+		{
+			"id": "f04",
+			"weight": "important",
+			"cite": "art. 1.1.b) y c)",
+			"claim": "Se incluyen los actos para convocar o celebrar las consultas por quien carecía de competencias o cuya convocatoria o celebración fue declarada ilícita, y los que contribuyeron a ello; la desobediencia, desórdenes públicos, atentado o resistencia, y cualquier otro delito con idéntica intención, para permitir su celebración o sus consecuencias; la prevaricación y la aprobación o ejecución de leyes, normas o resoluciones para permitir, favorecer o coadyuvar a su celebración; y los actos de desconsideración, crítica o agravio contra autoridades, funcionarios, instituciones o sus símbolos (incluidos los hechos en prensa, internet, redes sociales, manifestaciones, asambleas o actividades artísticas o educativas) vinculados a la independencia, las consultas o el apoyo a los amnistiados."
+		},
+		{
+			"id": "f05",
+			"weight": "important",
+			"cite": "art. 1.1.d)",
+			"claim": "Se incluyen la desobediencia, desórdenes públicos, atentado, resistencia u otros actos contra el orden y la paz pública ejecutados para mostrar apoyo a esos fines o a los encausados o condenados por los delitos comprendidos en el artículo."
+		},
+		{
+			"id": "f06",
+			"weight": "important",
+			"cite": "art. 1.1.e)",
+			"claim": "También se amnistían las acciones realizadas en el curso de actuaciones policiales dirigidas a dificultar o impedir la realización de los actos determinantes de responsabilidad penal o administrativa comprendidos en el artículo (como todo el art. 1, sujetas a las exclusiones del art. 2)."
+		},
+		{
+			"id": "f07",
+			"weight": "important",
+			"cite": "art. 1.1.f) y art. 1.2",
+			"claim": "Se incluyen los actos para favorecer o facilitar los anteriores y los materialmente conexos, cualquiera que sea el grado de ejecución (incluidos los actos preparatorios) y la forma de autoría o participación."
+		},
+		{
+			"id": "f08",
+			"weight": "important",
+			"cite": "art. 1.3 y nota del BOE",
+			"claim": "Los actos iniciados antes del 1 de noviembre de 2011 solo entran si su ejecución terminó después de esa fecha. El párrafo que incluía los actos iniciados antes del 13 de noviembre de 2023 y terminados después fue declarado inconstitucional y nulo por la STC 137/2025, de 26 de junio (según la nota del BOE)."
+		},
+		{
+			"id": "f09",
+			"weight": "critical",
+			"cite": "art. 2",
+			"claim": "Quedan excluidos en todo caso: actos dolosos contra las personas con resultado de muerte, aborto o lesiones al feto, pérdida o inutilidad de órgano, miembro o sentido, impotencia, esterilidad o grave deformidad; torturas o tratos inhumanos o degradantes (art. 3 CEDH); terrorismo con graves violaciones de derechos humanos; delitos con motivación racista, antisemita, antigitana u otra discriminación (aunque la condición no concurra de verdad en la víctima); delitos que afecten a los intereses financieros de la Unión Europea; traición y delitos contra la paz o independencia del Estado y relativos a la Defensa Nacional (Título XXIII) con amenaza y uso efectivo de la fuerza; y delitos contra la Comunidad Internacional (Título XXIV del Libro II CP)."
+		},
+		{
+			"id": "f10",
+			"weight": "important",
+			"cite": "art. 2.b), c) y f)",
+			"claim": "Varias exclusiones son condicionadas: de los tratos degradantes se exceptúan los que no superen un umbral mínimo de gravedad por no ser idóneos para humillar o degradar a una persona o para provocar miedo, angustia o inferioridad capaz de quebrar su resistencia moral y física; el terrorismo (según la Directiva (UE) 2017/541) solo se excluye si además causó intencionadamente graves violaciones de derechos humanos; la traición y delitos contra la paz o independencia del Estado y relativos a la Defensa Nacional solo si hubo tanto una amenaza efectiva y real como un uso efectivo de la fuerza contra la integridad territorial o la independencia política de España en los términos de la Carta de las Naciones Unidas o de la Resolución 2625 (XXV) de la Asamblea General."
+		},
+		{
+			"id": "f11",
+			"weight": "critical",
+			"cite": "art. 4.a), b), d) y f)",
+			"claim": "En lo penal, el órgano judicial que conozca de la causa ordenará la inmediata puesta en libertad de los beneficiarios presos (provisionales o penados), alzará las medidas cautelares personales o reales (salvo las de carácter civil del art. 8.2), dejará sin efecto las órdenes de busca y captura e ingreso en prisión y las órdenes nacionales, europeas e internacionales de detención, dará por finalizada la ejecución de las penas (privativas de libertad, de derechos y multa, principales o accesorias) y se eliminarán los antecedentes penales."
+		},
+		{
+			"id": "f12",
+			"weight": "important",
+			"cite": "art. 4, párrafo inicial y letras c) y e)",
+			"claim": "Estos efectos se producen «sin perjuicio» del art. 163 CE (cuestión de inconstitucionalidad) y del art. 267 TFUE (cuestión prejudicial); la suspensión del procedimiento penal por cualquier causa no impide alzar las medidas cautelares acordadas antes de la entrada en vigor de la ley que priven del ejercicio de derechos fundamentales; y la prisión cumplida por actos amnistiados no puede abonarse en otros procedimientos penales, regla que se aplica también a la prisión preventiva no seguida de condena por la entrada en vigor de la ley."
+		},
+		{
+			"id": "f13",
+			"weight": "important",
+			"cite": "art. 5",
+			"claim": "En lo administrativo, se archivan definitivamente los procedimientos, se eliminan del Registro Central de Infracciones contra la Seguridad Ciudadana las infracciones y sanciones afectadas y se alzan las medidas cautelares (salvo las que deban mantenerse para la responsabilidad civil del art. 8.2), devolviéndose, en su caso, las cantidades consignadas."
+		},
+		{
+			"id": "f14",
+			"weight": "important",
+			"cite": "art. 6",
+			"claim": "Los empleados públicos sancionados o condenados se reintegran en sus derechos activos y pasivos y se reincorporan a sus cuerpos si fueron separados; no cobran haberes por el tiempo sin servicio efectivo, pero se les reconoce la antigüedad sin interrupción; se eliminan las notas desfavorables en las hojas de servicio «por cualquier otra razón que no fuera la sanción», incluso si la persona sancionada falleció o causó baja por enfermedad."
+		},
+		{
+			"id": "f15",
+			"weight": "critical",
+			"cite": "art. 7",
+			"claim": "La amnistía no da derecho a indemnización ni a derechos económicos de ningún tipo, ni a la devolución de multas, salvo las sanciones impuestas por la Ley Orgánica 4/2015 de protección de la seguridad ciudadana que no sean por infracciones muy graves, y solo si la Administración que impuso la sanción estima que concurren criterios de proporcionalidad."
+		},
+		{
+			"id": "f16",
+			"weight": "critical",
+			"cite": "art. 8.1 y 8.2",
+			"claim": "Se extinguen las responsabilidades civiles y contables derivadas de los actos del art. 1.1, incluidas las que tramita el Tribunal de Cuentas, salvo las ya declaradas por sentencia o resolución administrativa firme y ejecutada; pero queda siempre a salvo la responsabilidad civil por daños sufridos por particulares, que no se ventila en la jurisdicción penal."
+		},
+		{
+			"id": "f17",
+			"weight": "critical",
+			"cite": "art. 9",
+			"claim": "La amnistía no es automática: la aplican caso por caso los órganos judiciales (de oficio, a instancia de parte o del Ministerio Fiscal, con audiencia del Fiscal y las partes) o los órganos administrativos y contables competentes (con audiencia del interesado), y un acto solo se entiende amnistiado cuando así lo declara una resolución firme del órgano competente."
+		},
+		{
+			"id": "f18",
+			"weight": "important",
+			"cite": "art. 10",
+			"claim": "Las decisiones se tramitan con carácter preferente y urgente, en un plazo máximo de dos meses, y los recursos posteriores no tienen efectos suspensivos."
+		},
+		{
+			"id": "f19",
+			"weight": "important",
+			"cite": "art. 11",
+			"claim": "En lo penal se aplica en cualquier fase: sobreseimiento libre en instrucción o fase intermedia, auto de sobreseimiento libre o sentencia absolutoria en juicio oral, revisión de sentencias firmes en ejecución (aunque la pena esté suspendida o haya libertad condicional, y aunque hubiera indulto previo); no se revisan las resoluciones firmes que ya apreciaron la prescripción del delito."
+		},
+		{
+			"id": "f20",
+			"weight": "important",
+			"cite": "art. 13.2 y 13.3",
+			"claim": "En el Tribunal de Cuentas, el archivo de las actuaciones previas o la absolución de responsabilidad contable requiere audiencia del Ministerio Fiscal y de las entidades del sector público perjudicadas, y procede cuando estas no se hayan opuesto."
+		},
+		{
+			"id": "f21",
+			"weight": "minor",
+			"cite": "arts. 12 y 14",
+			"claim": "En lo contencioso-administrativo, el juzgado o sala aplica la amnistía declarando la nulidad sobrevenida del acto sancionador; en vía administrativa, el órgano competente archiva los procedimientos en instrucción y revisa de oficio o a instancia de parte las sanciones firmes o en ejecución."
+		},
+		{
+			"id": "f22",
+			"weight": "important",
+			"cite": "art. 15",
+			"claim": "Las acciones para el reconocimiento de los derechos establecidos en la ley prescriben a los cinco años."
+		},
+		{
+			"id": "f23",
+			"weight": "important",
+			"cite": "DF 2.ª (art. 130.1.4.º CP)",
+			"claim": "El Código Penal incluye ahora la amnistía como causa de extinción de la responsabilidad criminal («por la amnistía o el indulto»); antes el ordinal 4.º solo mencionaba el indulto."
+		},
+		{
+			"id": "f24",
+			"weight": "minor",
+			"cite": "DF 1.ª (art. 39 LO 2/1982)",
+			"claim": "Se añade a la Ley Orgánica del Tribunal de Cuentas un apartado Tres: quedan exentos de responsabilidad quienes hubiesen cometido actos amnistiados en los términos que establezca la ley."
+		},
+		{
+			"id": "f25",
+			"weight": "important",
+			"cite": "DF 3.ª y fecha de publicación (metadatos)",
+			"claim": "Entró en vigor el mismo día de su publicación en el BOE (publicada el 11 de junio de 2024; en vigor ese mismo 11 de junio de 2024)."
+		},
+		{
+			"id": "f26",
+			"weight": "important",
+			"cite": "art. 1.1, nota del BOE",
+			"claim": "Según la nota del BOE, el art. 1.1 fue declarado inconstitucional con el alcance y los efectos del FJ 8.3.5 de la STC 137/2025, de 26 de junio, y en los términos del FJ 3.A).c) de la STC 164/2025, de 8 de octubre; el texto no detalla ese alcance (a diferencia del párrafo segundo del art. 1.3, declarado inconstitucional y nulo)."
+		},
+		{
+			"id": "f27",
+			"weight": "minor",
+			"cite": "arts. 11.4, 12.3, 12.4 y 14.3",
+			"claim": "Si hay sentencia o resolución no firme, la amnistía puede invocarse al recurrir; si el recurso está en trámite se da audiencia de cinco días (penal y contencioso), y al resolverlo el tribunal u órgano la declara de oficio si concurren los presupuestos; con sentencia contencioso-administrativa firme se sigue el art. 102 de la Ley 29/1998."
+		},
+		{
+			"id": "f28",
+			"weight": "minor",
+			"cite": "art. 16",
+			"claim": "Contra las resoluciones que apliquen la ley caben los recursos previstos en el ordenamiento; contra las que resuelvan la revisión de sentencias o resoluciones administrativas firmes, los mismos que habrían procedido contra la sentencia de primera instancia."
+		},
+		{
+			"id": "f29",
+			"weight": "minor",
+			"cite": "art. 8.3",
+			"claim": "Se alzan las medidas cautelares acordadas en actuaciones previas o en primera instancia ante el Tribunal de Cuentas (arts. 47 y 67 de la Ley 7/1988)."
+		}
+	],
+	"must_not": [
+		{
+			"id": "x01",
+			"claim": "Afirmar que la ley amnistía automáticamente a personas concretas o que basta su entrada en vigor, sin la resolución firme del órgano competente en cada caso (art. 9.3), o nombrar beneficiarios concretos que el texto no nombra."
+		},
+		{
+			"id": "x02",
+			"claim": "Afirmar que se amnistía cualquier malversación o corrupción, incluida la que tuvo propósito de enriquecimiento personal, o, al revés, que la malversación queda excluida en todo caso."
+		},
+		{
+			"id": "x03",
+			"claim": "Afirmar que todo terrorismo o toda traición quedan excluidos o amnistiados sin las condiciones del art. 2.c) y f), u omitir por completo las exclusiones del art. 2."
+		},
+		{
+			"id": "x04",
+			"claim": "Afirmar que la amnistía da derecho a indemnización o a la devolución de todas las multas, o que extingue la responsabilidad civil por daños a particulares."
+		},
+		{
+			"id": "x05",
+			"claim": "Afirmar que solo beneficia a independentistas o a cargos políticos, omitiendo que también comprende actuaciones policiales (art. 1.1.e) y a particulares."
+		},
+		{
+			"id": "x06",
+			"claim": "Incluir valoraciones políticas (a favor o en contra) o presentar como hechos las tesis del preámbulo (que la ley es constitucional, que resolverá el conflicto, que refuerza el Estado de Derecho) en lugar de atribuirlas a la exposición de motivos."
+		},
+		{
+			"id": "x07",
+			"claim": "Afirmar que el Tribunal Constitucional anuló la ley entera, o atribuir a la STC 137/2025 o a la STC 164/2025 un alcance concreto sobre el art. 1.1 que el texto no detalla, o afirmar que todo el art. 1.1 fue anulado (la nota solo declara «inconstitucional y nulo» el párrafo segundo del art. 1.3), o presentar como vigente el párrafo segundo del art. 1.3 (actos iniciados antes del 13 de noviembre de 2023 y terminados después)."
+		},
+		{
+			"id": "x08",
+			"claim": "Ampliar la ventana temporal (p. ej. actos posteriores al 13 de noviembre de 2023 o iniciados y terminados antes del 1 de noviembre de 2011) o limitar el ámbito solo a los días de las dos consultas."
+		},
+		{
+			"id": "x09",
+			"claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación."
+		}
+	],
+	"ambiguities": [
+		"La nota del BOE declara inconstitucional el art. 1.1 «con el alcance y los efectos» del FJ 8.3.5 de la STC 137/2025 (y FJ 3.A).c) de la STC 164/2025) sin explicar ese alcance: no penalizar que la ficha lo mencione sin detallarlo; sí penalizar que invente su contenido.",
+		"Art. 8.1 extingue las responsabilidades civiles y contables y el 8.2 deja a salvo la civil frente a particulares; el texto no dice expresamente que la extinguida sea solo la debida al sector público, aunque esa es la lectura conjunta.",
+		"Art. 7.2: el preámbulo habla de sanciones «leves o graves» y la parte dispositiva de «con excepción de las impuestas por infracciones muy graves»; son equivalentes, y la devolución depende del criterio de proporcionalidad de la Administración, no es un derecho automático.",
+		"Art. 15 fija cinco años de prescripción pero no dice desde cuándo se computan; el preámbulo lo describe como plazo «para solicitar la amnistía». No exigir ni aceptar un dies a quo concreto.",
+		"DF 1.ª reescribe el art. 39.Uno de la LO del Tribunal de Cuentas con «imprudencia o legalidad» donde antes decía «imprudencia o ilegalidad»; el texto no explica ni califica el cambio. No exigir que la ficha lo mencione; si lo hace, debe reproducirlo literalmente sin atribuirle un efecto que el texto no dice. La novedad expresa es el apartado Tres.",
+		"Art. 13.2 y 13.3 condicionan el archivo o la absolución contable a que las entidades del sector público perjudicadas no se hayan opuesto, pero no dicen qué ocurre si se oponen: no aceptar ninguna consecuencia concreta.",
+		"Art. 4 ordena la libertad y el alzamiento de medidas «tras la entrada en vigor» y art. 10 fija un plazo de dos meses con recursos no suspensivos, mientras art. 9.3 exige resolución firme para entender amnistiado un acto; el texto no articula expresamente estas reglas entre sí. No exigir una interpretación concreta ni premiar una que el texto no contenga.",
+		"«Consecuencias» de las consultas (art. 1.1) y «materialmente conexos» (art. 1.1.f) son conceptos abiertos; una ficha que los describa en términos generales es correcta, pero no debe concretarlos con ejemplos que el texto no da.",
+		"Art. 4 se aplica «sin perjuicio» de los arts. 163 CE y 267 TFUE; la afirmación de que plantear esas cuestiones no afecta a la eficacia de la ley está en el preámbulo, no en la parte dispositiva (aunque el art. 4.c sí impide que la suspensión del proceso mantenga medidas restrictivas de derechos fundamentales)."
+	]
+}
