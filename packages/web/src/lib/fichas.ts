@@ -159,6 +159,11 @@ export type FichaSection =
 	  })
 	/** "## Desde cuándo…": the frontmatter `hitos`, then one card per item. */
 	| (SectionBase & { kind: "dates"; items: FichaItem[] })
+	/**
+	 * "## Otros cambios": one list of minor or technical changes. Not part of
+	 * the ficha itself: the law page folds it into "Para profundizar".
+	 */
+	| (SectionBase & { kind: "others"; items: FichaItem[] })
 	/** "## Estado", "## Qué no hace", "## Nota" (the footer): paragraphs. */
 	| (SectionBase & {
 			kind: "status" | "limits" | "note";
@@ -212,6 +217,12 @@ const KNOWN_SECTIONS: KnownSection[] = [
 	{ kind: "status", match: /^estado$/, id: "ficha-estado", toc: "heading" },
 	{ kind: "limits", match: /^qué no hace$/, id: "ficha-no-hace", toc: "none" },
 	{ kind: "note", match: /^nota$/, id: "ficha-nota", toc: "none" },
+	{
+		kind: "others",
+		match: /^otros cambios$/,
+		id: "ficha-otros-cambios",
+		toc: "none",
+	},
 ];
 
 function slug(s: string): string {
@@ -623,7 +634,8 @@ export function parseSections(body: string): FichaSection[] {
 		if (!known) return { ...base, kind: "prose", html: renderBlockTokens(ts) };
 		switch (known.kind) {
 			case "summary":
-			case "dates": {
+			case "dates":
+			case "others": {
 				if (bs.length !== 1) {
 					throw new Error(`${where}: debe ser una sola lista`);
 				}
@@ -675,6 +687,15 @@ export function parseSections(body: string): FichaSection[] {
 				};
 		}
 	});
+}
+
+/** The "## Otros cambios" section of a ficha, if it has one. */
+export function otherChanges(
+	ficha: Pick<Ficha, "sections">,
+): Extract<FichaSection, { kind: "others" }> | undefined {
+	return ficha.sections.find(
+		(s): s is Extract<FichaSection, { kind: "others" }> => s.kind === "others",
+	);
 }
 
 // ── Loading ───────────────────────────────────────────────────────────────

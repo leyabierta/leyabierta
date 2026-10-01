@@ -11,6 +11,7 @@ import {
 	loadFichas,
 	markReferences,
 	noticesFor,
+	otherChanges,
 	parseFicha,
 	parseFichas,
 	parseSections,
@@ -281,6 +282,51 @@ describe("parseSections", () => {
 		const html = (s as Extract<FichaSection, { kind: "prose" }>).html;
 		expect(html).toContain('<span class="ficha-ref">art. 1</span>');
 		expect(html).toContain('<h4 class="ficha-heading">Detalle</h4>');
+	});
+
+	test("«Otros cambios»: one list, references marked, out of the index", () => {
+		const withOthers = `${BODY}
+## Otros cambios
+
+- **Registro.** Se crea un registro de contratos. [DA 2.ª]
+- Cambia una remisión técnica. [art. 4] [DF 1.ª]
+  - En el apartado 2.
+`;
+		const all = parseSections(withOthers);
+		const others = all[all.length - 1] as FichaSection & { kind: "others" };
+		expect([others.kind, others.id, others.tocLabel, others.kicker]).toEqual([
+			"others",
+			"ficha-otros-cambios",
+			null,
+			null,
+		]);
+		expect(others.title).toBe("Otros cambios");
+		expect(others.items.map((i) => [i.title, i.html, i.subitems])).toEqual([
+			[
+				"Registro",
+				'Se crea un registro de contratos. <span class="ficha-ref">DA 2.ª</span>',
+				[],
+			],
+			[
+				undefined,
+				'Cambia una remisión técnica. <span class="ficha-ref">art. 4 · DF 1.ª</span>',
+				["En el apartado 2."],
+			],
+		]);
+		// The rest of the ficha is parsed as before.
+		expect(all.slice(0, -1)).toEqual(sections);
+		expect(otherChanges({ sections: all })).toBe(others);
+		expect(() => parseSections("## Otros cambios\n\nUn párrafo.")).toThrow(
+			/lista/,
+		);
+	});
+
+	test("without «Otros cambios» nothing changes", () => {
+		expect(sections.some((s) => s.kind === "others")).toBe(false);
+		expect(otherChanges({ sections })).toBeUndefined();
+		const f = parseFicha(SOURCE, "x.md");
+		expect(f.sections).toEqual(sections);
+		expect(otherChanges(f)).toBeUndefined();
 	});
 
 	test("a ficha with only some sections works", () => {
