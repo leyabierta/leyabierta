@@ -1,0 +1,37 @@
+---
+/**
+ * Calendar milestones (frontmatter `hitos`): horizontal on wide screens,
+ * vertical on narrow ones. Done = blue, in force = green (filled), pending =
+ * amber with a dashed line. The state is also written out for screen readers.
+ */
+import type { FichaFrontmatter } from "../../lib/fichas.ts";
+
+interface Props {
+	hitos: FichaFrontmatter["hitos"];
+}
+const { hitos } = Astro.props;
+const STATE_LABEL = {
+	hecho: "Hecho",
+	vigente: "Vigente",
+	pendiente: "Pendiente",
+} as const;
+---
+
+<ol class="ficha-card ficha-timeline" aria-label="Calendario">
+	{hitos.map((h) => (
+		<li class={`ficha-hito ficha-tone-${h.estado}`}>
+			<span class="ficha-hito-mark" aria-hidden="true">
+				<span class="ficha-hito-dot"></span>
+				<span class="ficha-hito-line"></span>
+			</span>
+			<span class="ficha-hito-body">
+				<span class="ficha-kicker ficha-hito-date">{h.fecha}<span class="sr-only"> · {STATE_LABEL[h.estado]}</span></span>
+				<span class="ficha-hito-title">{h.titulo}</span>
+				<span class="ficha-hito-text">
+					{h.texto}
+					{h.ref && <span class="ficha-ref">{h.ref}</span>}
+				</span>
+			</span>
+		</li>
+	))}
+</ol>

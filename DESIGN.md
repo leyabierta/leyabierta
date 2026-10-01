@@ -49,7 +49,7 @@ Three typographic registers, each with a clear role:
 | `--bg` | `#fafaf8` | Page background (warm off-white) |
 | `--surface` | `#ffffff` | Cards, inputs, elevated surfaces |
 | `--text-secondary` | `#4a6078` | Descriptions, metadata |
-| `--text-muted` | `#6b8299` | Labels, kickers, subtle text |
+| `--text-muted` | `#576b80` | Labels, kickers, subtle text (5.5:1 on white, AA) |
 | `--accent-bg` | `#e6eef8` | Accent background — pills, tags, highlights, icon blocks |
 | `--accent-bg-light` | `#f2f6fb` | Very light accent — CTA banners, featured items |
 | `--border` | `#e8ecf0` | Light borders, card outlines, dividers |
@@ -70,12 +70,15 @@ Three typographic registers, each with a clear role:
 | `--success-bg` | `#e3f4ec` | Success background |
 | `--error` | `#b91c1c` | Deleted text, derogado status, negative |
 | `--error-bg` | `#fde8e8` | Error background |
-| `--warning` | `#b8860b` | Warnings, caution states |
+| `--warning` | `#b8860b` | Borders and icons of caution states only — 3.2:1 on white, **never for text** |
+| `--caution-text` | `#8a6508` | Amber text ("Pendiente", "Duda abierta"), 4.8:1 on `--caution-bg` |
+| `--caution-bg` | `#fbf3dc` | Caution badge background |
 
 ### Dark mode
-- Surfaces invert: `--bg` → `#0f172a`, `--surface` → `#1e293b`
-- Accent lightens for contrast: `#1a365d` → `#2d5a8e`
-- Text becomes `#e2e8f0`, muted becomes `#94a3b8`
+- Surfaces invert: `--bg` → `#0f1117`, `--surface` → `#1a1d27`
+- Accent lightens for contrast: `#1a365d` → `#6ba3d6`
+- Text becomes `#e8eaf0`, muted becomes `#8494a7`
+- Caution text `#e6c065` on `#3a3018`; cream blocks (`--crema-bg`) become `#23211e`
 - Borders become `#334155`
 - Warm palette becomes dark warm: `#efe9de` → `#2a2520`
 - Semantic colors stay recognizable but lighten slightly
@@ -215,6 +218,13 @@ Inline metadata with dot separators.
 - Border: 1.5px `var(--border-medium)`
 - Color: `var(--text-secondary)`
 - Border-radius: 6px
+
+### Ficha ciudadana
+Hand-written explainer of a law (`packages/web/src/data/fichas/<id>.md`, rendered by `components/ficha/`).
+- Order: header card (kicker, serif headline, ID in mono, tone badges, "En esta página" index) → key figures (serif 2.75rem in `--accent`) → "En 30 segundos" (numbered cards) → "Qué cambia" (Tema / Antes / Ahora table, "Ahora" on `--accent-faint`, 11px mono labels, stacked under 640px) → "Qué significa para ti" (cream `--crema-bg` blocks with icons, checks or lettered exceptions) → "Desde cuándo" (4-step timeline + situation cards, "Duda abierta" badge) → "Estado" / "Qué no hace" cards → footer with disclaimer, review date and BOE source.
+- Badge tones: `hecho` (accent), `vigente` (success), `pendiente` (caution).
+- Legal references in mono 11px `--text-muted`, without brackets.
+- Layout follows the ficha's own width (container queries, 640px). No JS, no shadows, no gradients, no coloured left borders.
 
 ## Voice & Tone
 - **For citizens, not lawyers.** Plain Spanish, no jargon.

@@ -195,6 +195,13 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			--warning: #b8860b;
 			--warning-text: #664d03;
 			--warning-bg: #fdf5e0;
+			/* Amber for text ("Pendiente", "Duda abierta"): 4.8:1 on --caution-bg.
+			   --warning is only for borders and icons (3.2:1 on white). */
+			--caution-text: #8a6508;
+			--caution-bg: #fbf3dc;
+			/* Warm cream blocks (ficha "Qué significa para ti"). */
+			--crema-bg: #efe9de;
+			--crema-border: #d9cdb8;
 			--danger: #b91c1c;
 			--danger-bg: #fde8e8;
 			--tierra-warm: #efe9de;
@@ -226,6 +233,10 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 			--warning: #d4a017;
 			--warning-text: #e6b821;
 			--warning-bg: #2a2210;
+			--caution-text: #e6c065;
+			--caution-bg: #3a3018;
+			--crema-bg: #23211e;
+			--crema-border: #3d3831;
 			--danger: #e85454;
 			--danger-bg: #2a1414;
 		}

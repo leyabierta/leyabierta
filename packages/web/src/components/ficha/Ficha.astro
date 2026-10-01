@@ -1,0 +1,171 @@
+---
+/**
+ * Hand-reviewed citizen ficha (src/data/fichas/<id>.md), shown at the top of
+ * its law page. The Markdown is parsed into sections by lib/fichas.ts; this
+ * component only lays them out. Blocks without data (no `cifras`, no `hitos`,
+ * a missing section) are simply left out.
+ *
+ * Headings: the page h1 is the law title, the ficha titular is an h2, its
+ * sections h3 and the cards inside them h4.
+ */
+import type { Ficha, FichaSection } from "../../lib/fichas.ts";
+import { formatDate } from "../../lib/law-labels.ts";
+import FichaAudiences from "./FichaAudiences.astro";
+import FichaChanges from "./FichaChanges.astro";
+import FichaTimeline from "./FichaTimeline.astro";
+import "./ficha.css";
+
+interface Props {
+	ficha: Ficha;
+}
+const { ficha } = Astro.props;
+
+type Section<K extends FichaSection["kind"]> = Extract<FichaSection, { kind: K }>;
+type CardSection = Section<"status" | "limits">;
+
+// "Estado" and "Qué no hace" sit side by side when they follow each other;
+// the "Nota" section is the footer.
+type Block =
+	| { type: "section"; section: FichaSection }
+	| { type: "cards"; sections: CardSection[] };
+const blocks: Block[] = [];
+let note: Section<"note"> | undefined;
+for (const s of ficha.sections) {
+	if (s.kind === "note") {
+		note = s;
+		continue;
+	}
+	const last = blocks[blocks.length - 1];
+	if (s.kind === "status" || s.kind === "limits") {
+		if (last?.type === "cards") last.sections.push(s);
+		else blocks.push({ type: "cards", sections: [s] });
+		continue;
+	}
+	blocks.push({ type: "section", section: s });
+}
+
+const toc = ficha.sections.filter((s) => s.tocLabel);
+const pending = ficha.estado.filter((e) => e.tono === "pendiente");
+const isSource = (html: string) => html.startsWith("Fuente:");
+const noteText = note?.paragraphs.filter((p) => !isSource(p)) ?? [];
+const noteSources = note?.paragraphs.filter(isSource) ?? [];
+const headingId = (s: FichaSection) => `${s.id}-titulo`;
+---
+
+<section class="ficha" id="ficha" aria-labelledby="ficha-titular">
+	<header class="ficha-header">
+		<p class="ficha-kicker">{ficha.etiquetas.join(" · ")}</p>
+		<h2 class="ficha-titular" id="ficha-titular">{ficha.titular}</h2>
+		<p class="ficha-subtitulo">
+			{ficha.subtitulo}
+			<span class="ficha-kicker ficha-id">{ficha.identificador}</span>
+		</p>
+		{ficha.estado.length > 0 && (
+			<ul class="ficha-badges" aria-label="Estado">
+				{ficha.estado.map((e) => (
+					<li class={`ficha-badge ficha-tone-${e.tono}`}>{e.texto}</li>
+				))}
+			</ul>
+		)}
+		{toc.length > 1 && (
+			<nav class="ficha-toc" aria-label="En esta página">
+				<span class="ficha-kicker" aria-hidden="true">En esta página</span>
+				<ul>
+					{toc.map((s) => (
+						<li><a href={`#${s.id}`}>{s.tocLabel}</a></li>
+					))}
+				</ul>
+			</nav>
+		)}
+	</header>
+
+	{ficha.cifras.length > 0 && (
+		<section class="ficha-cifras" aria-label="Cifras clave">
+			<ul class="ficha-grid ficha-grid-3">
+				{ficha.cifras.map((c) => (
+					<li class="ficha-card ficha-cifra">
+						<span class="ficha-cifra-valor">{c.valor}</span>
+						<span class="ficha-cifra-texto">{c.texto}</span>
+					</li>
+				))}
+			</ul>
+		</section>
+	)}
+
+	{blocks.map((b) => {
+		if (b.type === "cards") {
+			return (
+				<div class:list={["ficha-grid", b.sections.length > 1 && "ficha-grid-2", "ficha-duo"]}>
+					{b.sections.map((s) => (
+						<section class="ficha-card ficha-note-card" id={s.id} aria-labelledby={headingId(s)}>
+							<div class="ficha-card-head">
+								<h3 class="ficha-card-title" id={headingId(s)}>{s.title}</h3>
+								{s.kind === "status" && pending.map((e) => (
+									<span class="ficha-badge ficha-badge-sm ficha-tone-pendiente">{e.texto}</span>
+								))}
+							</div>
+							{s.paragraphs.map((p, i) => (
+								<p class:list={[s.kind === "status" && i > 0 && "ficha-secondary"]} set:html={p} />
+							))}
+						</section>
+					))}
+				</div>
+			);
+		}
+		const s = b.section;
+		return (
+			<section class="ficha-section" id={s.id} aria-labelledby={headingId(s)}>
+				{s.kicker && <p class="ficha-kicker">{s.kicker}</p>}
+				<h3 class="ficha-h3" id={headingId(s)}>{s.title}</h3>
+				{s.kind === "summary" && (
+					<ol class="ficha-grid ficha-grid-2">
+						{s.items.map((item, i) => (
+							<li class="ficha-card ficha-numbered">
+								<span class="ficha-number" aria-hidden="true">{i + 1}</span>
+								<div class="ficha-stack">
+									{item.title && <h4 class="ficha-h4">{item.title}</h4>}
+									<p class="ficha-secondary" set:html={item.html} />
+								</div>
+							</li>
+						))}
+					</ol>
+				)}
+				{s.kind === "changes" && <FichaChanges section={s} />}
+				{s.kind === "audiences" && <FichaAudiences section={s} />}
+				{s.kind === "dates" && (
+					<>
+						{ficha.hitos.length > 0 && <FichaTimeline hitos={ficha.hitos} />}
+						<ul class="ficha-grid ficha-grid-2">
+							{s.items.map((item) => (
+								<li class="ficha-card ficha-situation">
+									{(item.title || item.flags.includes("duda")) && (
+										<div class="ficha-card-head ficha-card-head-split">
+											{item.title && <h4 class="ficha-h4 ficha-h4-sm">{item.title}</h4>}
+											{item.flags.includes("duda") && (
+												<span class="ficha-badge ficha-badge-sm ficha-tone-pendiente">Duda abierta</span>
+											)}
+										</div>
+									)}
+									<p class="ficha-secondary" set:html={item.html} />
+								</li>
+							))}
+						</ul>
+					</>
+				)}
+				{s.kind === "prose" && <div class="ficha-prose" set:html={s.html} />}
+			</section>
+		);
+	})}
+
+	<footer class="ficha-footer">
+		<p>
+			{noteText.map((p) => (
+				<>
+					<Fragment set:html={p} />{" "}
+				</>
+			))}
+			Revisado el {formatDate(ficha.revisado)}.
+		</p>
+		{noteSources.map((p) => <p set:html={p} />)}
+	</footer>
+</section>

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
 	FICHA_DESCRIPTION_MAX,
+	type FichaSection,
 	fichaContentParts,
 	fichaSeoTitle,
 	hasFicha,
@@ -12,6 +13,7 @@ import {
 	noticesFor,
 	parseFicha,
 	parseFichas,
+	parseSections,
 	renderFichaBody,
 	setFichasForTesting,
 } from "../fichas.ts";
@@ -38,7 +40,7 @@ modifica:
 
 const BODY = `## En 30 segundos
 
-- Primera idea. [art. 10.1 LAU]
+- **Primera idea.** Primera idea. [art. 10.1 LAU]
 - Segunda idea. [DT, ap. 2]
 
 ## Qué cambia
@@ -49,10 +51,39 @@ const BODY = `## En 30 segundos
 
 Fuente: artículo 10.
 
-### Subsección
+## Qué significa para ti
+
+### Si vives de alquiler
+
+- Te toca algo. [10.1]
+
+### Si alquilas tu vivienda
 
 - Caso general: [10.2]
   - Excepción a.
+  - Excepción b.
+- Tampoco pagas. [10.1]
+
+## Desde cuándo y a qué contratos
+
+- **Contratos ya firmados.** Se aplica también. [DT, ap. 1]
+- **Una duda.** {.duda} El texto deja la cuestión abierta. [DA 1.ª]
+
+## Estado
+
+Ya se aplica.
+
+A 1 de enero, el BOE ya lo incluye.
+
+## Qué no hace
+
+No cambia la renta. [exposición de motivos]
+
+## Nota
+
+Resumen en lenguaje sencillo.
+
+Fuente: BOE · [BOE-A-2026-1](https://www.boe.es/buscar/doc.php?id=BOE-A-2026-1)
 `;
 
 const SOURCE = FRONT + BODY;
@@ -66,6 +97,79 @@ describe("parseFicha", () => {
 		expect(f.revisado).toBe("2026-01-03");
 		expect(f.modifica[0]!.articulos).toEqual(["10"]);
 		expect(f.body.startsWith("## En 30 segundos")).toBe(true);
+	});
+
+	test("a plain estado string is a blue (hecho) badge; tones are validated", () => {
+		const f = parseFicha(SOURCE, "x.md");
+		expect(f.estado).toEqual([
+			{ texto: "En vigor desde el 2 de enero", tono: "hecho" },
+		]);
+		const toned = parseFicha(
+			SOURCE.replace(
+				'estado: ["En vigor desde el 2 de enero"]',
+				'estado:\n  - texto: "Pendiente"\n    tono: "pendiente"',
+			),
+			"x.md",
+		);
+		expect(toned.estado).toEqual([{ texto: "Pendiente", tono: "pendiente" }]);
+		expect(() =>
+			parseFicha(
+				SOURCE.replace(
+					'estado: ["En vigor desde el 2 de enero"]',
+					'estado:\n  - texto: "X"\n    tono: "rojo"',
+				),
+				"x.md",
+			),
+		).toThrow(/tono/);
+	});
+
+	test("cifras and hitos are optional and validated", () => {
+		const f = parseFicha(SOURCE, "x.md");
+		expect(f.cifras).toEqual([]);
+		expect(f.hitos).toEqual([]);
+		const withData = parseFicha(
+			SOURCE.replace(
+				'en_vigor: "2026-01-02"',
+				`en_vigor: "2026-01-02"
+cifras:
+  - valor: "5 años"
+    texto: "cada prórroga"
+hitos:
+  - fecha: "2 ene 2026"
+    titulo: "En vigor"
+    texto: "Se aplica."
+    estado: "vigente"
+    ref: "DF 2.ª"`,
+			),
+			"x.md",
+		);
+		expect(withData.cifras).toEqual([
+			{ valor: "5 años", texto: "cada prórroga" },
+		]);
+		expect(withData.hitos[0]).toEqual({
+			fecha: "2 ene 2026",
+			titulo: "En vigor",
+			texto: "Se aplica.",
+			estado: "vigente",
+			ref: "DF 2.ª",
+		});
+		expect(() =>
+			parseFicha(
+				SOURCE.replace(
+					'en_vigor: "2026-01-02"',
+					'en_vigor: "2026-01-02"\nhitos:\n  - fecha: "x"\n    titulo: "y"\n    texto: "z"\n    estado: "luego"',
+				),
+				"x.md",
+			),
+		).toThrow(/estado/);
+	});
+
+	test("hitos need a «Desde cuándo» section to be shown in", () => {
+		const src = SOURCE.replace(
+			'en_vigor: "2026-01-02"',
+			'en_vigor: "2026-01-02"\nhitos:\n  - fecha: "x"\n    titulo: "y"\n    texto: "z"\n    estado: "hecho"',
+		).replace(/## Desde cuándo[\s\S]*?(?=## Estado)/, "");
+		expect(() => parseFicha(src, "x.md")).toThrow(/hitos/);
 	});
 
 	test("fails loudly on a missing frontmatter or an invalid field", () => {
@@ -92,38 +196,152 @@ describe("parseFicha", () => {
 	});
 });
 
-describe("renderFichaBody", () => {
-	const html = renderFichaBody(BODY);
+describe("parseSections", () => {
+	const sections = parseSections(BODY);
+	const byKind = <K extends FichaSection["kind"]>(kind: K) =>
+		sections.find((s) => s.kind === kind) as Extract<FichaSection, { kind: K }>;
+
+	test("one section per known «##», in file order, with anchors and index", () => {
+		expect(sections.map((s) => [s.kind, s.id, s.tocLabel])).toEqual([
+			["summary", "ficha-resumen", "En 30 segundos"],
+			["changes", "ficha-cambios", "Qué cambia"],
+			["audiences", "ficha-para-ti", "Qué significa para ti"],
+			["dates", "ficha-fechas", "Desde cuándo"],
+			["status", "ficha-estado", "Estado"],
+			["limits", "ficha-no-hace", null],
+			["note", "ficha-nota", null],
+		]);
+		// The law page already has #resumen: every anchor is prefixed.
+		expect(sections.every((s) => s.id.startsWith("ficha-"))).toBe(true);
+		expect(byKind("changes").kicker).toBe("Antes y ahora");
+	});
+
+	test("a leading bold sentence is the card title; the rest stays as written", () => {
+		const [first, second] = byKind("summary").items;
+		expect(first!.title).toBe("Primera idea");
+		expect(first!.html).toBe(
+			'Primera idea. <span class="ficha-ref">art. 10.1 LAU</span>',
+		);
+		expect(second!.title).toBeUndefined();
+		expect(second!.html).toBe(
+			'Segunda idea. <span class="ficha-ref">DT, ap. 2</span>',
+		);
+	});
+
+	test("{.duda} marks an open question and is removed from the text", () => {
+		const [signed, doubt] = byKind("dates").items;
+		expect(signed!.flags).toEqual([]);
+		expect(doubt!.title).toBe("Una duda");
+		expect(doubt!.flags).toEqual(["duda"]);
+		expect(doubt!.html).toStartWith("El texto deja la cuestión abierta.");
+		expect(() => parseSections(BODY.replace("{.duda}", "{.urgente}"))).toThrow(
+			/marca desconocida \{\.urgente\}/,
+		);
+	});
+
+	test("the comparison table: columns, row topics, cells and source notes", () => {
+		const c = byKind("changes");
+		expect(c.corner).toBe("Situación");
+		expect(c.columns).toEqual(["Antes", "Ahora"]);
+		expect(c.rows).toEqual([{ topic: "Aviso", cells: ["4 meses", "6 meses"] }]);
+		expect(c.notes).toEqual(["Fuente: artículo 10."]);
+	});
+
+	test("audiences: one group per «###», with icon and sublists", () => {
+		const { groups } = byKind("audiences");
+		expect(groups.map((g) => [g.title, g.icon])).toEqual([
+			["Si vives de alquiler", "casa"],
+			["Si alquilas tu vivienda", "llave"],
+		]);
+		const [general, tampoco] = groups[1]!.items;
+		expect(general!.html).toBe(
+			'Caso general: <span class="ficha-ref">10.2</span>',
+		);
+		expect(general!.subitems).toEqual(["Excepción a.", "Excepción b."]);
+		expect(tampoco!.subitems).toEqual([]);
+	});
+
+	test("status, limits and note keep their paragraphs (and links)", () => {
+		expect(byKind("status").paragraphs).toEqual([
+			"Ya se aplica.",
+			"A 1 de enero, el BOE ya lo incluye.",
+		]);
+		expect(byKind("note").paragraphs[1]).toBe(
+			'Fuente: BOE · <a href="https://www.boe.es/buscar/doc.php?id=BOE-A-2026-1">BOE-A-2026-1</a>',
+		);
+	});
+
+	test("an unknown «##» is kept as plain Markdown", () => {
+		const [s] = parseSections(
+			"## Otra cosa\n\nTexto [art. 1].\n\n### Detalle\n\n- a",
+		);
+		expect(s!.kind).toBe("prose");
+		expect(s!.id).toBe("ficha-otra-cosa");
+		expect(s!.tocLabel).toBe("Otra cosa");
+		const html = (s as Extract<FichaSection, { kind: "prose" }>).html;
+		expect(html).toContain('<span class="ficha-ref">art. 1</span>');
+		expect(html).toContain('<h4 class="ficha-heading">Detalle</h4>');
+	});
+
+	test("a ficha with only some sections works", () => {
+		const s = parseSections("## Estado\n\nEn vigor.");
+		expect(s.map((x) => x.kind)).toEqual(["status"]);
+	});
+
+	test("fails loudly on structures the layout cannot show", () => {
+		expect(() => parseSections("Texto suelto.\n\n## Estado\n\nX.")).toThrow(
+			/antes del primer/,
+		);
+		expect(() => parseSections("## Estado\n\nX.\n\n## Estado\n\nY.")).toThrow(
+			/repetida/,
+		);
+		expect(() => parseSections("## En 30 segundos\n\nUn párrafo.")).toThrow(
+			/lista/,
+		);
+		expect(() => parseSections("## Qué cambia\n\n- una lista")).toThrow(
+			/tabla/,
+		);
+		expect(() =>
+			parseSections("## Qué significa para ti\n\n- sin grupo"),
+		).toThrow(/###/);
+		expect(() => parseSections("## Estado\n\n- una lista")).toThrow(/párrafos/);
+	});
+});
+
+describe("renderFichaBody (unknown sections)", () => {
+	const html = renderFichaBody(
+		"## Comparación\n\n|  | Antes | Ahora |\n| --- | --- | --- |\n| Aviso | 4 meses | 6 meses |\n\nFuente: artículo 10.\n\n- Caso general: [10.2]\n  - Excepción a.",
+	);
 
 	test("shifts headings one level down (the titular is the h2)", () => {
-		expect(html).toContain('<h3 class="ficha-heading">En 30 segundos</h3>');
-		expect(html).toContain('<h4 class="ficha-heading">Subsección</h4>');
+		expect(html).toContain('<h3 class="ficha-heading">Comparación</h3>');
 		expect(html).not.toContain("<h2");
 	});
 
 	test("makes an accessible table: caption, column and row headers, labels", () => {
-		expect(html).toContain('<caption class="sr-only">Qué cambia</caption>');
+		expect(html).toContain('<caption class="sr-only">Comparación</caption>');
 		expect(html).toContain(
 			'<th scope="col"><span class="sr-only">Situación</span></th>',
 		);
-		expect(html).toContain('<th scope="col">Antes</th>');
 		expect(html).toContain('<th scope="row">Aviso</th>');
-		expect(html).toContain('<td data-label="Antes">4 meses</td>');
 		expect(html).toContain('<td data-label="Ahora">6 meses</td>');
-		expect(html).not.toMatch(/<\/td>\s*<\/th>|<th scope="row">[^<]*<\/td>/);
 	});
 
-	test("marks legal references as secondary text and source notes", () => {
-		expect(html).toContain('<span class="ficha-ref">[art. 10.1 LAU]</span>');
-		expect(html).toContain('<span class="ficha-ref">[DT, ap. 2]</span>');
+	test("source notes, nested lists and references", () => {
 		expect(html).toContain('<p class="ficha-source">Fuente: artículo 10.</p>');
-	});
-
-	test("keeps nested lists", () => {
 		expect(html).toMatch(/Caso general:.*<ul>\s*<li>Excepción a\.<\/li>/s);
+		expect(html).toContain('<span class="ficha-ref">10.2</span>');
+	});
+});
+
+describe("markReferences", () => {
+	test("drops the brackets and joins references that follow each other", () => {
+		expect(markReferences("Texto. [10.1] [art. 11 LAU]")).toBe(
+			'Texto. <span class="ficha-ref">10.1 · art. 11 LAU</span>',
+		);
 	});
 
-	test("markReferences leaves real links alone", () => {
+	test("leaves real links alone", () => {
 		expect(markReferences('<a href="https://x">BOE</a>')).toBe(
 			'<a href="https://x">BOE</a>',
 		);
@@ -240,6 +458,42 @@ describe("published fichas (src/data/fichas)", () => {
 		expect(n!.text).toContain("Real Decreto-ley 27/2026");
 		expect(n!.text).toContain("en vigor desde el 2 de octubre de 2026");
 		expect(n!.href).toBe("/leyes/BOE-A-2026-20385/");
+	});
+
+	test("RDL 27/2026: every block of the design has its data", () => {
+		const f = fichas.get("BOE-A-2026-20385")!;
+		expect(f.cifras.map((c) => c.valor)).toEqual([
+			"5 años",
+			"6 meses",
+			"12 meses",
+		]);
+		expect(f.hitos.map((h) => h.estado)).toEqual([
+			"hecho",
+			"hecho",
+			"vigente",
+			"pendiente",
+		]);
+		expect(f.estado.map((e) => e.tono)).toEqual([
+			"hecho",
+			"vigente",
+			"pendiente",
+		]);
+		expect(f.sections.map((s) => s.kind)).toEqual([
+			"summary",
+			"changes",
+			"audiences",
+			"dates",
+			"status",
+			"limits",
+			"note",
+		]);
+		const summary = f.sections.find((s) => s.kind === "summary");
+		const dates = f.sections.find((s) => s.kind === "dates");
+		if (summary?.kind !== "summary" || dates?.kind !== "dates")
+			throw new Error();
+		expect(summary.items.every((i) => i.title)).toBe(true);
+		expect(dates.items.every((i) => i.title)).toBe(true);
+		expect(dates.items.filter((i) => i.flags.includes("duda"))).toHaveLength(1);
 	});
 
 	test("the internal reference-file note is not published", () => {
