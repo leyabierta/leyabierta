@@ -27,8 +27,9 @@ interface Props {
 }
 const { ficha, officialTitle, boeHref, alsoKnownAs = [] } = Astro.props;
 
-type Section<K extends FichaSection["kind"]> = Extract<FichaSection, { kind: K }>;
-type CardSection = Section<"status" | "limits">;
+// status, limits and note share one member of the union (plain paragraphs).
+type ParagraphSection = Extract<FichaSection, { paragraphs: string[] }>;
+type CardSection = ParagraphSection;
 
 // "Estado" and "Qué no hace" sit side by side when they follow each other;
 // the "Nota" section is the footer.
@@ -36,7 +37,7 @@ type Block =
 	| { type: "section"; section: FichaSection }
 	| { type: "cards"; sections: CardSection[] };
 const blocks: Block[] = [];
-let note: Section<"note"> | undefined;
+let note: ParagraphSection | undefined;
 for (const s of ficha.sections) {
 	if (s.kind === "note") {
 		note = s;
