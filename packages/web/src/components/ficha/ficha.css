@@ -652,6 +652,27 @@ section.ficha-more > div.law-section {
 	margin-bottom: 1.5rem;
 	background: none;
 }
+/* "Otros cambios" (FichaOtherChanges.astro): a plain list, one line each. */
+.ficha-others-list {
+	list-style: disc;
+	padding-left: 1.25rem;
+	margin: 1.25rem 0 0;
+	font-size: 0.9375rem;
+	line-height: 1.6;
+	color: var(--text-secondary);
+}
+.ficha-others-list > li + li {
+	margin-top: 0.5rem;
+}
+.ficha-others-list strong {
+	font-weight: 600;
+	color: var(--text);
+}
+.ficha-others-list ul {
+	list-style: circle;
+	padding-left: 1.25rem;
+	margin: 0.25rem 0 0;
+}
 
 /* ── Narrow: one column ── */
 @container (max-width: 640px) {

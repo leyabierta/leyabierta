@@ -39,6 +39,8 @@ type Block =
 const blocks: Block[] = [];
 let note: ParagraphSection | undefined;
 for (const s of ficha.sections) {
+	// "Otros cambios" goes in the "Para profundizar" appendix (FichaOtherChanges).
+	if (s.kind === "others") continue;
 	if (s.kind === "note") {
 		note = s;
 		continue;

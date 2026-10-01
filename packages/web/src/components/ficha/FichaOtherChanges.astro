@@ -1,0 +1,40 @@
+---
+/**
+ * "Otros cambios" of a ficha: its minor or technical changes, one sentence
+ * each. They would make the one-minute ficha longer, so they go folded (closed)
+ * in the "Para profundizar" appendix instead of in the ficha itself.
+ */
+import type { FichaSection } from "../../lib/fichas.ts";
+import FichaFold from "./FichaFold.astro";
+import "./ficha.css";
+
+interface Props {
+	section: Extract<FichaSection, { kind: "others" }>;
+}
+const { section } = Astro.props;
+const count = section.items.length;
+const headingId = `${section.id}-titulo`;
+---
+
+<FichaFold
+	fold
+	title={section.title}
+	note={`${count.toLocaleString("es-ES")} ${count === 1 ? "cambio menor o técnico" : "cambios menores o técnicos"}`}
+	headingId={headingId}
+>
+	<section class="ficha-others" id={section.id} aria-labelledby={headingId}>
+		<ul class="ficha-others-list">
+			{section.items.map((item) => (
+				<li>
+					{item.title && <strong>{item.title}.</strong>}{" "}
+					<Fragment set:html={item.html} />
+					{item.subitems.length > 0 && (
+						<ul>
+							{item.subitems.map((sub) => <li set:html={sub} />)}
+						</ul>
+					)}
+				</li>
+			))}
+		</ul>
+	</section>
+</FichaFold>

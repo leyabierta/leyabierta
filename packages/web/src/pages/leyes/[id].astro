@@ -5,6 +5,7 @@ import Base from "../../layouts/Base.astro";
 import Ficha from "../../components/ficha/Ficha.astro";
 import FichaAppendix from "../../components/ficha/FichaAppendix.astro";
 import FichaFold from "../../components/ficha/FichaFold.astro";
+import FichaOtherChanges from "../../components/ficha/FichaOtherChanges.astro";
 import { escapeHtml, safeJsonLd } from "../../lib/escape";
 import { getLaw } from "../../lib/api.ts";
 import {
@@ -38,6 +39,7 @@ import {
 	getFicha,
 	laterDate,
 	noticesFor,
+	otherChanges,
 } from "../../lib/fichas.ts";
 
 // A related norm shown in the "Normas relacionadas" internal-linking block.
@@ -228,6 +230,7 @@ const indexable = isIndexableLaw(id!);
 // Hand-reviewed ficha (src/data/fichas/<id>.md), shown first and used for SEO,
 // and notices for the fichas that say they modify this law.
 const ficha = getFicha(id!);
+const fichaOtherChanges = ficha && otherChanges(ficha);
 const notices = noticesFor(id!);
 const hasAiContent =
 	!!citizenSummary || articleItems.length > 0 || reformSummaries.size > 0;
@@ -757,6 +760,8 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 	</>)}
 
 	<FichaAppendix enabled={!!ficha}>
+	{/* The ficha's own minor changes come first, before the generic sections. */}
+	{fichaOtherChanges && <FichaOtherChanges section={fichaOtherChanges} />}
 	<!-- Qué ha cambiado: reform timeline with AI headlines where available -->
 	{/* With a ficha, only when there is something to show. */}
 	{(!ficha || reforms.length > 1) && (
