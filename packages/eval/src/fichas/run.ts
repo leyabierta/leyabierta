@@ -45,6 +45,8 @@ const { values } = parseArgs({
 		reasoning: { type: "string", default: "low" },
 		// Per-stage model and reasoning effort ("none" disables reasoning,
 		// "omit" sends no reasoning field, for models without it).
+		// Comma-separated provider order (tried first, then the rest by price).
+		providers: { type: "string" },
 		"write-model": { type: "string" },
 		"review-model": { type: "string" },
 		"plain-model": { type: "string" },
@@ -136,7 +138,9 @@ async function chat(
 					{ role: "user", content: user },
 				],
 				temperature: 0.2,
-				max_tokens: 32000,
+				// The longest good answers use ~22k tokens with reasoning; a
+				// reasoning loop that runs past this is paid for nothing.
+				max_tokens: 24000,
 				...(effort === "omit"
 					? {}
 					: {
@@ -146,6 +150,9 @@ async function chat(
 				// Several providers serve the same weights at different prices;
 				// fp4 builds are excluded so quantization does not skew the eval.
 				provider: {
+					...(values.providers
+						? { order: values.providers.split(","), allow_fallbacks: true }
+						: {}),
 					sort: "price",
 					quantizations: ["fp8", "fp16", "bf16", "fp32", "unknown"],
 				},
@@ -180,6 +187,18 @@ async function chat(
 				`  ${model}: ${res.status} ${body?.error?.message?.slice(0, 160) ?? "empty content"}`,
 			);
 			if ([401, 402, 403, 404].includes(res.status)) break;
+			// A reasoning loop tends to repeat on the same input: retry
+			// without reasoning instead of paying for it again.
+			if (
+				body?.choices?.[0]?.finish_reason === "length" &&
+				effort !== "none" &&
+				effort !== "omit"
+			) {
+				console.warn(
+					`  ${model}: reasoning ran out of tokens, retrying without`,
+				);
+				effort = "none";
+			}
 			continue;
 		}
 		return {
