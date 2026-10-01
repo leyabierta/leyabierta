@@ -2,58 +2,264 @@
 	"norm_id": "BOE-A-2025-15652",
 	"title": "Ley 7/2025, de 28 de julio, por la que se crea la Agencia Estatal de Salud Pública y se modifica la Ley 33/2011, de 4 de octubre, General de Salud Pública",
 	"modifies": [
-		{ "norm_id": "BOE-A-2011-15623", "articles": ["3 (nueva letra i)", "12.3", "13 bis (nuevo)", "14", "47", "disposición adicional cuarta (sin contenido)", "disposición adicional octava (nueva)"] },
+		{
+			"norm_id": "BOE-A-2011-15623",
+			"articles": [
+				"3 (nueva letra i)",
+				"12.3",
+				"13 bis (nuevo)",
+				"14",
+				"47",
+				"disposición adicional cuarta (sin contenido)",
+				"disposición adicional octava (nueva)"
+			]
+		},
 		{ "norm_id": "BOE-A-2015-8343", "articles": ["98"] },
-		{ "norm_id": "BOE-A-2023-16727", "articles": ["37.8", "anexo I, epígrafe 2, letra b)"] },
+		{
+			"norm_id": "BOE-A-2023-16727",
+			"articles": ["37.8", "anexo I, epígrafe 2, letra b)"]
+		},
 		{ "norm_id": "BOE-A-1991-628", "articles": ["37.4"] },
 		{ "norm_id": "BOE-A-2002-25412", "articles": ["33 (derogado)"] }
 	],
 	"why_hard": "El título y casi todo el articulado son organizativos (crear la AESAP, sus fines, personal, presupuesto, datos), y la ficha correcta debe decir que la parte de la Agencia apenas cambia nada directamente para la ciudadanía sin inventar derechos, servicios ni plazos. Pero las disposiciones finales esconden cambios que sí tocan a personas concretas y que el título no anuncia: excepciones al sistema de precios de referencia de medicamentos (DF 2.ª), la cesión por el veterinario de unidades de envases fraccionables a dueños de animales de compañía (DF 3.ª), las tasas de biocidas (DA 2.ª, con nuevos reembolsos) y la Ley de Competencia Desleal (DF 1.ª). El preámbulo afirma que la ley no afecta «en forma alguna a los derechos y deberes de la ciudadanía», pero el art. 6 y la nueva DA 8.ª de la Ley 33/2011 imponen a «todas las personas físicas o jurídicas» un deber de suministrar datos, y la tabla de cuantías de la DA 2.ª tiene importes visiblemente mal transcritos.",
 	"facts": [
-		{ "id": "f01", "weight": "critical", "cite": "art. 1; art. 8.Cinco (art. 47 Ley 33/2011)", "claim": "La ley crea la Agencia Estatal de Salud Pública (AESAP), con personalidad jurídica pública diferenciada, patrimonio y tesorería propios y autonomía de gestión, adscrita al Ministerio de Sanidad; sustituye en el art. 47 de la Ley 33/2011 al Centro Estatal de Salud Pública, que antes actuaba bajo las directrices del centro directivo responsable de la salud pública, y la nueva Agencia actúa con independencia técnica y autonomía de gestión." },
-		{ "id": "f02", "weight": "critical", "cite": "arts. 1 a 5; DF 5.ª", "claim": "La parte que crea la Agencia (fines, funciones, personal, recursos, presupuesto y control) es organizativa: no reconoce a la ciudadanía nuevos derechos, prestaciones ni servicios que pueda pedir, y será el Estatuto, que el Gobierno aprobará por real decreto, el que determine los órganos, centros y servicios de la Administración General del Estado que se integran en ella." },
-		{ "id": "f03", "weight": "important", "cite": "art. 2.2 y 2.3; art. 8.Cinco (art. 47.2 Ley 33/2011)", "claim": "Fines de la AESAP: vigilancia y evaluación del estado de salud de la población y de los riesgos, información y comunicación pública sobre la salud y sus riesgos, coordinación de la preparación y respuesta ante crisis y emergencias sanitarias, apoyo técnico a las Administraciones y evaluación de resultados en salud de las prestaciones sanitarias; ejerce las competencias técnico-científicas del Ministerio de Sanidad del título II de la Ley 33/2011, siempre sin perjuicio de las competencias de las comunidades autónomas y otras Administraciones." },
-		{ "id": "f04", "weight": "important", "cite": "art. 2.3.b).2.º", "claim": "La AESAP evalúa el riesgo para la salud humana de los biocidas, fitosanitarios y sustancias o mezclas químicas (la ley no le atribuye la autorización de esos productos)." },
-		{ "id": "f05", "weight": "important", "cite": "art. 2.3.e)", "claim": "En información y comunicación, la AESAP informará a la población de los riesgos y amenazas para la salud teniendo en cuenta las lenguas oficiales de las comunidades autónomas, y colaborará con otras Administraciones sanitarias y la sociedad civil para prevenir y combatir la desinformación en salud pública." },
-		{ "id": "f06", "weight": "important", "cite": "art. 2.3.a).4.º; art. 8.Cinco (art. 47.4 Ley 33/2011); art. 2.3.c).5.º", "claim": "La AESAP elaborará un informe anual, que se presenta a las Cortes Generales, sobre el estado de salud y bienestar, la equidad en salud y los determinantes sociales de la salud de la población española, y otro informe anual sobre el grado de preparación del SNS ante emergencias sanitarias y el funcionamiento de la reserva estratégica sanitaria." },
-		{ "id": "f07", "weight": "critical", "cite": "art. 6.1; art. 8.Siete (nueva DA 8.ª Ley 33/2011)", "claim": "Todas las Administraciones, entidades públicas y privadas, en particular centros, servicios y establecimientos sanitarios, y en general todas las personas físicas o jurídicas, están obligadas a suministrar a la AESAP, a través de la Administración competente según su ámbito territorial, los datos necesarios para sus fines; la nueva DA 8.ª de la Ley 33/2011 obliga a quienes desarrollen cualquier actividad y posean información relevante para la salud de la población a suministrarla a las autoridades sanitarias competentes. Los datos que deben aportar las comunidades autónomas se fijarán por real decreto, en los términos acordados en el Consejo Interterritorial." },
-		{ "id": "f08", "weight": "important", "cite": "art. 7", "claim": "Los datos personales se tratan conforme al RGPD y la LOPDGDD, solo pueden usarse para los fines del art. 2; los datos de salud solo cuando sea estrictamente necesario para la tutela de la salud de la población, con disociación previa cuando no haga falta identificar a la persona; el acceso a historias clínicas se somete al art. 16.3 de la Ley 41/2002 y quien acceda a los datos tiene deber de secreto." },
-		{ "id": "f09", "weight": "minor", "cite": "art. 8.Uno (art. 3.i Ley 33/2011)", "claim": "Se añade a los principios generales de acción en salud pública el principio de «Una sola salud», que integra la salud de las personas, los animales y los ecosistemas." },
-		{ "id": "f10", "weight": "minor", "cite": "art. 8.Tres (art. 13 bis Ley 33/2011)", "claim": "Nuevo art. 13 bis: Estado y comunidades autónomas (y Ceuta y Melilla) elaboran planes de preparación y respuesta frente a alertas sanitarias; el Consejo Interterritorial establecerá los instrumentos que garanticen su interoperabilidad y coherencia y el intercambio de información; un Plan estatal, que se aprobará por real decreto previo informe del Consejo Interterritorial, regulará la declaración de una situación de emergencia de salud pública de importancia estatal, su gobernanza y las capacidades y recursos para la respuesta." },
-		{ "id": "f11", "weight": "minor", "cite": "art. 8.Cuatro (art. 14 Ley 33/2011)", "claim": "El art. 14 de la Ley 33/2011 añade al Ministerio de Sanidad la difusión de la información de la vigilancia en salud pública y la elaboración de los planes estatales de preparación y respuesta (incluidas contramedidas médicas); se mantiene en el Ministerio la coordinación de los mensajes a la población en alertas que afecten a más de una comunidad autónoma." },
-		{ "id": "f12", "weight": "important", "cite": "art. 4.1", "claim": "La AESAP se financia, entre otros recursos, con transferencias de los Presupuestos Generales del Estado, ingresos propios, donaciones, patrocinios, fondos comunitarios y las tasas por servicios en materia de plaguicidas de uso ambiental y en la industria alimentaria y de biocidas." },
-		{ "id": "f13", "weight": "important", "cite": "DA 2.ª; disposición derogatoria única", "claim": "Se deroga el art. 33 de la Ley 53/2002 y la DA 2.ª regula de nuevo la tasa cuyo hecho imponible es la tramitación, estudios o evaluaciones que realizan los órganos competentes de la Administración General del Estado derivados de la autorización de sustancias y productos biocidas (desaparece la mención al «registro»); la pagan quienes soliciten esos servicios; su gestión pasa a la AESAP y lo recaudado se destina a sus gastos. Se mantienen, no son nuevas, las reducciones para PYME (sustancias activas: 60 % microempresas, 40 % pequeñas, 20 % medianas; productos biocidas: 30 %, 20 % y 10 %), salvo cuando se trate de sustancias activas candidatas a la sustitución o de productos que las contengan; corresponde al solicitante acreditar la condición de PYME." },
-		{ "id": "f14", "weight": "minor", "cite": "DA 2.ª, aps. 4 y 8", "claim": "La autoridad puede rechazar la solicitud si el solicitante no paga la tasa en treinta días desde la notificación del importe; se reembolsa el 70 % si la solicitud se rechaza antes de la fase de validación, el 40 % si, dentro de la fase de evaluación, el solicitante no presenta en plazo la información pedida, y el 40 % si retira la solicitud antes de que la autoridad competente haya finalizado su evaluación." },
-		{ "id": "f15", "weight": "critical", "cite": "DF 2.ª (art. 98.3.c Ley de garantías)", "claim": "Nuevo: podrán quedar exentos del sistema de precios de referencia, o aplicárseles un coeficiente que eleve el precio de referencia, los medicamentos que por una nueva indicación, dosificación más baja, nueva forma farmacéutica, ventaja farmacocinética u otra característica produzcan de forma objetiva una mejora para los pacientes o una ventaja estratégica para el SNS; lo decide la Comisión Interministerial de Precios de los Medicamentos con participación de las comunidades autónomas." },
-		{ "id": "f16", "weight": "important", "cite": "DF 2.ª (art. 98.3.a y b Ley de garantías)", "claim": "Nuevo: no se forman conjuntos de referencia de medicamentos derivados del plasma humano ni de medicamentos huérfanos, y se añaden como conjuntos independientes los medicamentos sometidos a reservas singulares de dispensación en farmacia hospitalaria. Ya formaban conjuntos independientes antes los de pediatría, los envases clínicos y los hospitalarios (antes «de ámbito hospitalario», ahora «calificados de uso hospitalario»)." },
-		{ "id": "f17", "weight": "important", "cite": "DF 2.ª (art. 98.6 y 98.7 Ley de garantías)", "claim": "Nuevo (art. 98.6): para medicamentos estratégicos reconocidos por la AEMPS, la Comisión Interministerial de Precios, de forma motivada y a propuesta del órgano competente del Ministerio de Sanidad, podrá revisar al alza el precio de medicamentos incluidos en conjuntos de referencia cuando concurran las circunstancias del art. 96. El sistema de precios de productos sanitarios ya estaba previsto; el art. 98.7 solo precisa que el Ministerio lo regulará por real decreto, para los financiados y dispensados con receta en oficina de farmacia, sobre principios similares adaptados a sus especificidades." },
-		{ "id": "f18", "weight": "critical", "cite": "DF 3.ª.Uno (art. 37.8 RD 666/2023)", "claim": "Nuevo: el veterinario podrá ceder durante el acto clínico, al titular o responsable de animales de compañía, las unidades de medicamentos comercializados en envases fraccionables necesarias para completar el tratamiento, acompañadas de material informativo suficiente." },
-		{ "id": "f19", "weight": "important", "cite": "DF 3.ª.Dos (anexo I, ep. 2.b RD 666/2023)", "claim": "Para los antibióticos de categoría B, el uso debe basarse en la identificación del patógeno y su sensibilidad al antibiótico «siempre que sea posible» (antes sin esa salvedad), y desaparece por completo la regla para tratamientos de urgencia sin esas pruebas (terapia basada en información epidemiológica y obligación de tomar antes una muestra biológica de los animales). Se mantiene que pueden usarse con animales de difícil manejo o en zonas de difícil acceso." },
-		{ "id": "f20", "weight": "minor", "cite": "DA 4.ª", "claim": "El Gobierno intensificará las campañas sobre la transmisión electrónica de las prescripciones de antibióticos y, en seis meses desde la aprobación de la ley, promoverá la revisión de la regulación sobre disponibilidad de medicamentos veterinarios, en particular antibióticos, en farmacias y otros centros dispensadores con presentaciones adecuadas para veterinarios y propietarios de animales; además, el Ministerio de Agricultura articulará fórmulas para simplificar los procedimientos del RD 666/2023 (en particular, porcentajes de envase utilizados y plazos de envío). Son mandatos, no un cambio ya hecho." },
-		{ "id": "f21", "weight": "minor", "cite": "DF 1.ª (art. 37.4 Ley 3/1991)", "claim": "Los sistemas de autorregulación que aplican los códigos de conducta publicitarios ya no tienen que estar establecidos por organismos sin ánimo de lucro con dedicación exclusiva y exclusión expresa de intereses profesionales; se mantienen los órganos de control independientes y la resolución extrajudicial de reclamaciones." },
-		{ "id": "f22", "weight": "minor", "cite": "DA 5.ª", "claim": "Las empresas farmacéuticas y de productos sanitarios colaborarán con la AESAP, la AEMPS, el INGESA y otras Administraciones en la preparación y respuesta ante emergencias sanitarias para garantizar el suministro en crisis." },
-		{ "id": "f23", "weight": "important", "cite": "DF 5.ª; DA 3.ª", "claim": "El Gobierno aprobará el Estatuto de la AESAP por real decreto en seis meses desde la entrada en vigor, a propuesta conjunta de los Ministerios de Hacienda, de Transformación Digital y Función Pública y de Sanidad; el Estatuto concretará la incorporación al Consejo Rector de representantes de las comunidades autónomas a propuesta del Consejo Interterritorial. El Consejo Rector nombra y separa a la persona titular de la dirección, cuya propuesta evalúa el pleno del Consejo Interterritorial." },
-		{ "id": "f24", "weight": "critical", "cite": "DF 8.ª", "claim": "Entra en vigor el día siguiente al de su publicación en el BOE (publicada el 29 de julio de 2025; en vigor el 30 de julio de 2025)." },
-		{ "id": "f25", "weight": "minor", "cite": "art. 2.3.a).1.º; art. 8.Cuatro (art. 14 Ley 33/2011)", "claim": "De las funciones del art. 14 de la Ley 33/2011, la AESAP asume solo las letras a), b), d), e) y g): gestión de alertas supraautonómicas e internacionales, coordinación y evaluación de la Red Estatal de Vigilancia en Salud Pública, homogeneidad de los criterios de vigilancia e intercambio de información; la encuesta periódica de salud, la coordinación de mensajes a la población, la difusión y los planes estatales del art. 14 siguen atribuidos al Ministerio de Sanidad." },
-		{ "id": "f26", "weight": "minor", "cite": "art. 2.3.c).1.º a 4.º", "claim": "En preparación y respuesta, la AESAP elaborará planes estatales, contribuirá a la resiliencia del SNS, coordinará los aspectos técnico-científicos de las contramedidas de la reserva estratégica sanitaria estatal (necesidades, acceso, uso, distribución, reposición) y su acceso oportuno y equitativo, y establecerá mecanismos de intercambio de información con el Sistema de Seguridad Nacional para las medidas de gestión de crisis del título III de la Ley 36/2015." },
-		{ "id": "f27", "weight": "minor", "cite": "art. 8.Dos (art. 12.3 Ley 33/2011)", "claim": "El art. 12.3 de la Ley 33/2011 pasa a exigir sistemas de alerta precoz y respuesta rápida que garanticen la detección y actuaciones precisas y coordinadas ante amenazas para la salud en cualquier parte del territorio (antes: detección y evaluación de incidentes, riesgos, síndromes, enfermedades y otras situaciones)." },
-		{ "id": "f28", "weight": "important", "cite": "art. 7.3; art. 6.2", "claim": "Los reales decretos que fijen los datos a suministrar deben respetar el principio de minimización de datos y someterse al informe preceptivo de la Agencia Española de Protección de Datos; la AESAP proporcionará a las demás Administraciones sanitarias los datos e información de su ámbito." },
-		{ "id": "f29", "weight": "minor", "cite": "DA 1.ª", "claim": "Las aplicaciones y plataformas tecnológicas las desarrolla el Ministerio de Sanidad bajo la dirección funcional de la AESAP, con los códigos identificativos del SNS y, previo acuerdo del Consejo Interterritorial, su incorporación al Espacio Nacional de Datos de Salud; el Ministerio accede a esos datos para planificación, gestión y evaluación, asistencia sanitaria, vigilancia, sanidad exterior e investigación." },
-		{ "id": "f30", "weight": "minor", "cite": "art. 8.Cinco y Seis (art. 47.3 y DA 4.ª Ley 33/2011); art. 2.3.f).4.º", "claim": "Se suprime el art. 47.3 y se deja sin contenido la DA 4.ª de la Ley 33/2011, que preveía crear el Centro Estatal por reestructuración de unidades existentes sin incremento de créditos presupuestarios; el seguimiento y evaluación de la Estrategia Estatal de Salud Pública pasa a ser función de la AESAP." },
-		{ "id": "f31", "weight": "minor", "cite": "DA 2.ª, aps. 4 y 6; art. 33.Cuatro y Seis Ley 53/2002 (derogado)", "claim": "Cambia el pago de la tasa: antes se autoliquidaba y la solicitud no se tramitaba sin pago al presentarla; ahora la autoridad notifica el importe, puede rechazar la solicitud si no se paga en treinta días y no inicia el servicio hasta el pago, aunque el ap. 6 mantiene que el justificante de pago acompañe a la solicitud." },
-		{ "id": "f32", "weight": "minor", "cite": "DF 2.ª (art. 98.1, 2, 4 y 5 Ley de garantías)", "claim": "Del art. 98 se mantienen sin cambios de fondo el precio de referencia como cuantía máxima financiada, el cálculo por el coste/tratamiento/día menor, que ningún medicamento supere el precio de referencia, la revisión anual de conjuntos y trimestral de precios menores, y la exigencia de un genérico o biosimilar salvo autorización con al menos diez años de antelación en un Estado miembro." },
-		{ "id": "f33", "weight": "minor", "cite": "DF 4.ª", "claim": "Se mantiene el rango reglamentario de las normas reglamentarias modificadas por esta ley (el art. 37.8 y el anexo I del RD 666/2023 siguen siendo reglamento)." }
+		{
+			"id": "f01",
+			"weight": "critical",
+			"cite": "art. 1; art. 8.Cinco (art. 47 Ley 33/2011)",
+			"claim": "La ley crea la Agencia Estatal de Salud Pública (AESAP), con personalidad jurídica pública diferenciada, patrimonio y tesorería propios y autonomía de gestión, adscrita al Ministerio de Sanidad; sustituye en el art. 47 de la Ley 33/2011 al Centro Estatal de Salud Pública, que antes actuaba bajo las directrices del centro directivo responsable de la salud pública, y la nueva Agencia actúa con independencia técnica y autonomía de gestión."
+		},
+		{
+			"id": "f02",
+			"weight": "critical",
+			"cite": "arts. 1 a 5; DF 5.ª",
+			"claim": "La parte que crea la Agencia (fines, funciones, personal, recursos, presupuesto y control) es organizativa: no reconoce a la ciudadanía nuevos derechos, prestaciones ni servicios que pueda pedir, y será el Estatuto, que el Gobierno aprobará por real decreto, el que determine los órganos, centros y servicios de la Administración General del Estado que se integran en ella."
+		},
+		{
+			"id": "f03",
+			"weight": "important",
+			"cite": "art. 2.2 y 2.3; art. 8.Cinco (art. 47.2 Ley 33/2011)",
+			"claim": "Fines de la AESAP: vigilancia y evaluación del estado de salud de la población y de los riesgos, información y comunicación pública sobre la salud y sus riesgos, coordinación de la preparación y respuesta ante crisis y emergencias sanitarias, apoyo técnico a las Administraciones y evaluación de resultados en salud de las prestaciones sanitarias; ejerce las competencias técnico-científicas del Ministerio de Sanidad del título II de la Ley 33/2011, siempre sin perjuicio de las competencias de las comunidades autónomas y otras Administraciones."
+		},
+		{
+			"id": "f04",
+			"weight": "important",
+			"cite": "art. 2.3.b).2.º",
+			"claim": "La AESAP evalúa el riesgo para la salud humana de los biocidas, fitosanitarios y sustancias o mezclas químicas (la ley no le atribuye la autorización de esos productos)."
+		},
+		{
+			"id": "f05",
+			"weight": "important",
+			"cite": "art. 2.3.e)",
+			"claim": "En información y comunicación, la AESAP informará a la población de los riesgos y amenazas para la salud teniendo en cuenta las lenguas oficiales de las comunidades autónomas, y colaborará con otras Administraciones sanitarias y la sociedad civil para prevenir y combatir la desinformación en salud pública."
+		},
+		{
+			"id": "f06",
+			"weight": "important",
+			"cite": "art. 2.3.a).4.º; art. 8.Cinco (art. 47.4 Ley 33/2011); art. 2.3.c).5.º",
+			"claim": "La AESAP elaborará un informe anual, que se presenta a las Cortes Generales, sobre el estado de salud y bienestar, la equidad en salud y los determinantes sociales de la salud de la población española, y otro informe anual sobre el grado de preparación del SNS ante emergencias sanitarias y el funcionamiento de la reserva estratégica sanitaria."
+		},
+		{
+			"id": "f07",
+			"weight": "critical",
+			"cite": "art. 6.1; art. 8.Siete (nueva DA 8.ª Ley 33/2011)",
+			"claim": "Todas las Administraciones, entidades públicas y privadas, en particular centros, servicios y establecimientos sanitarios, y en general todas las personas físicas o jurídicas, están obligadas a suministrar a la AESAP, a través de la Administración competente según su ámbito territorial, los datos necesarios para sus fines; la nueva DA 8.ª de la Ley 33/2011 obliga a quienes desarrollen cualquier actividad y posean información relevante para la salud de la población a suministrarla a las autoridades sanitarias competentes. Los datos que deben aportar las comunidades autónomas se fijarán por real decreto, en los términos acordados en el Consejo Interterritorial."
+		},
+		{
+			"id": "f08",
+			"weight": "important",
+			"cite": "art. 7",
+			"claim": "Los datos personales se tratan conforme al RGPD y la LOPDGDD, solo pueden usarse para los fines del art. 2; los datos de salud solo cuando sea estrictamente necesario para la tutela de la salud de la población, con disociación previa cuando no haga falta identificar a la persona; el acceso a historias clínicas se somete al art. 16.3 de la Ley 41/2002 y quien acceda a los datos tiene deber de secreto."
+		},
+		{
+			"id": "f09",
+			"weight": "minor",
+			"cite": "art. 8.Uno (art. 3.i Ley 33/2011)",
+			"claim": "Se añade a los principios generales de acción en salud pública el principio de «Una sola salud», que integra la salud de las personas, los animales y los ecosistemas."
+		},
+		{
+			"id": "f10",
+			"weight": "minor",
+			"cite": "art. 8.Tres (art. 13 bis Ley 33/2011)",
+			"claim": "Nuevo art. 13 bis: Estado y comunidades autónomas (y Ceuta y Melilla) elaboran planes de preparación y respuesta frente a alertas sanitarias; el Consejo Interterritorial establecerá los instrumentos que garanticen su interoperabilidad y coherencia y el intercambio de información; un Plan estatal, que se aprobará por real decreto previo informe del Consejo Interterritorial, regulará la declaración de una situación de emergencia de salud pública de importancia estatal, su gobernanza y las capacidades y recursos para la respuesta."
+		},
+		{
+			"id": "f11",
+			"weight": "minor",
+			"cite": "art. 8.Cuatro (art. 14 Ley 33/2011)",
+			"claim": "El art. 14 de la Ley 33/2011 añade al Ministerio de Sanidad la difusión de la información de la vigilancia en salud pública y la elaboración de los planes estatales de preparación y respuesta (incluidas contramedidas médicas); se mantiene en el Ministerio la coordinación de los mensajes a la población en alertas que afecten a más de una comunidad autónoma."
+		},
+		{
+			"id": "f12",
+			"weight": "important",
+			"cite": "art. 4.1",
+			"claim": "La AESAP se financia, entre otros recursos, con transferencias de los Presupuestos Generales del Estado, ingresos propios, donaciones, patrocinios, fondos comunitarios y las tasas por servicios en materia de plaguicidas de uso ambiental y en la industria alimentaria y de biocidas."
+		},
+		{
+			"id": "f13",
+			"weight": "important",
+			"cite": "DA 2.ª; disposición derogatoria única",
+			"claim": "Se deroga el art. 33 de la Ley 53/2002 y la DA 2.ª regula de nuevo la tasa cuyo hecho imponible es la tramitación, estudios o evaluaciones que realizan los órganos competentes de la Administración General del Estado derivados de la autorización de sustancias y productos biocidas (desaparece la mención al «registro»); la pagan quienes soliciten esos servicios; su gestión pasa a la AESAP y lo recaudado se destina a sus gastos. Se mantienen, no son nuevas, las reducciones para PYME (sustancias activas: 60 % microempresas, 40 % pequeñas, 20 % medianas; productos biocidas: 30 %, 20 % y 10 %), salvo cuando se trate de sustancias activas candidatas a la sustitución o de productos que las contengan; corresponde al solicitante acreditar la condición de PYME."
+		},
+		{
+			"id": "f14",
+			"weight": "minor",
+			"cite": "DA 2.ª, aps. 4 y 8",
+			"claim": "La autoridad puede rechazar la solicitud si el solicitante no paga la tasa en treinta días desde la notificación del importe; se reembolsa el 70 % si la solicitud se rechaza antes de la fase de validación, el 40 % si, dentro de la fase de evaluación, el solicitante no presenta en plazo la información pedida, y el 40 % si retira la solicitud antes de que la autoridad competente haya finalizado su evaluación."
+		},
+		{
+			"id": "f15",
+			"weight": "critical",
+			"cite": "DF 2.ª (art. 98.3.c Ley de garantías)",
+			"claim": "Nuevo: podrán quedar exentos del sistema de precios de referencia, o aplicárseles un coeficiente que eleve el precio de referencia, los medicamentos que por una nueva indicación, dosificación más baja, nueva forma farmacéutica, ventaja farmacocinética u otra característica produzcan de forma objetiva una mejora para los pacientes o una ventaja estratégica para el SNS; lo decide la Comisión Interministerial de Precios de los Medicamentos con participación de las comunidades autónomas."
+		},
+		{
+			"id": "f16",
+			"weight": "important",
+			"cite": "DF 2.ª (art. 98.3.a y b Ley de garantías)",
+			"claim": "Nuevo: no se forman conjuntos de referencia de medicamentos derivados del plasma humano ni de medicamentos huérfanos, y se añaden como conjuntos independientes los medicamentos sometidos a reservas singulares de dispensación en farmacia hospitalaria. Ya formaban conjuntos independientes antes los de pediatría, los envases clínicos y los hospitalarios (antes «de ámbito hospitalario», ahora «calificados de uso hospitalario»)."
+		},
+		{
+			"id": "f17",
+			"weight": "important",
+			"cite": "DF 2.ª (art. 98.6 y 98.7 Ley de garantías)",
+			"claim": "Nuevo (art. 98.6): para medicamentos estratégicos reconocidos por la AEMPS, la Comisión Interministerial de Precios, de forma motivada y a propuesta del órgano competente del Ministerio de Sanidad, podrá revisar al alza el precio de medicamentos incluidos en conjuntos de referencia cuando concurran las circunstancias del art. 96. El sistema de precios de productos sanitarios ya estaba previsto; el art. 98.7 solo precisa que el Ministerio lo regulará por real decreto, para los financiados y dispensados con receta en oficina de farmacia, sobre principios similares adaptados a sus especificidades."
+		},
+		{
+			"id": "f18",
+			"weight": "critical",
+			"cite": "DF 3.ª.Uno (art. 37.8 RD 666/2023)",
+			"claim": "Nuevo: el veterinario podrá ceder durante el acto clínico, al titular o responsable de animales de compañía, las unidades de medicamentos comercializados en envases fraccionables necesarias para completar el tratamiento, acompañadas de material informativo suficiente."
+		},
+		{
+			"id": "f19",
+			"weight": "important",
+			"cite": "DF 3.ª.Dos (anexo I, ep. 2.b RD 666/2023)",
+			"claim": "Para los antibióticos de categoría B, el uso debe basarse en la identificación del patógeno y su sensibilidad al antibiótico «siempre que sea posible» (antes sin esa salvedad), y desaparece por completo la regla para tratamientos de urgencia sin esas pruebas (terapia basada en información epidemiológica y obligación de tomar antes una muestra biológica de los animales). Se mantiene que pueden usarse con animales de difícil manejo o en zonas de difícil acceso."
+		},
+		{
+			"id": "f20",
+			"weight": "minor",
+			"cite": "DA 4.ª",
+			"claim": "El Gobierno intensificará las campañas sobre la transmisión electrónica de las prescripciones de antibióticos y, en seis meses desde la aprobación de la ley, promoverá la revisión de la regulación sobre disponibilidad de medicamentos veterinarios, en particular antibióticos, en farmacias y otros centros dispensadores con presentaciones adecuadas para veterinarios y propietarios de animales; además, el Ministerio de Agricultura articulará fórmulas para simplificar los procedimientos del RD 666/2023 (en particular, porcentajes de envase utilizados y plazos de envío). Son mandatos, no un cambio ya hecho."
+		},
+		{
+			"id": "f21",
+			"weight": "minor",
+			"cite": "DF 1.ª (art. 37.4 Ley 3/1991)",
+			"claim": "Los sistemas de autorregulación que aplican los códigos de conducta publicitarios ya no tienen que estar establecidos por organismos sin ánimo de lucro con dedicación exclusiva y exclusión expresa de intereses profesionales; se mantienen los órganos de control independientes y la resolución extrajudicial de reclamaciones."
+		},
+		{
+			"id": "f22",
+			"weight": "minor",
+			"cite": "DA 5.ª",
+			"claim": "Las empresas farmacéuticas y de productos sanitarios colaborarán con la AESAP, la AEMPS, el INGESA y otras Administraciones en la preparación y respuesta ante emergencias sanitarias para garantizar el suministro en crisis."
+		},
+		{
+			"id": "f23",
+			"weight": "important",
+			"cite": "DF 5.ª; DA 3.ª",
+			"claim": "El Gobierno aprobará el Estatuto de la AESAP por real decreto en seis meses desde la entrada en vigor, a propuesta conjunta de los Ministerios de Hacienda, de Transformación Digital y Función Pública y de Sanidad; el Estatuto concretará la incorporación al Consejo Rector de representantes de las comunidades autónomas a propuesta del Consejo Interterritorial. El Consejo Rector nombra y separa a la persona titular de la dirección, cuya propuesta evalúa el pleno del Consejo Interterritorial."
+		},
+		{
+			"id": "f24",
+			"weight": "critical",
+			"cite": "DF 8.ª",
+			"claim": "Entra en vigor el día siguiente al de su publicación en el BOE (publicada el 29 de julio de 2025; en vigor el 30 de julio de 2025)."
+		},
+		{
+			"id": "f25",
+			"weight": "minor",
+			"cite": "art. 2.3.a).1.º; art. 8.Cuatro (art. 14 Ley 33/2011)",
+			"claim": "De las funciones del art. 14 de la Ley 33/2011, la AESAP asume solo las letras a), b), d), e) y g): gestión de alertas supraautonómicas e internacionales, coordinación y evaluación de la Red Estatal de Vigilancia en Salud Pública, homogeneidad de los criterios de vigilancia e intercambio de información; la encuesta periódica de salud, la coordinación de mensajes a la población, la difusión y los planes estatales del art. 14 siguen atribuidos al Ministerio de Sanidad."
+		},
+		{
+			"id": "f26",
+			"weight": "minor",
+			"cite": "art. 2.3.c).1.º a 4.º",
+			"claim": "En preparación y respuesta, la AESAP elaborará planes estatales, contribuirá a la resiliencia del SNS, coordinará los aspectos técnico-científicos de las contramedidas de la reserva estratégica sanitaria estatal (necesidades, acceso, uso, distribución, reposición) y su acceso oportuno y equitativo, y establecerá mecanismos de intercambio de información con el Sistema de Seguridad Nacional para las medidas de gestión de crisis del título III de la Ley 36/2015."
+		},
+		{
+			"id": "f27",
+			"weight": "minor",
+			"cite": "art. 8.Dos (art. 12.3 Ley 33/2011)",
+			"claim": "El art. 12.3 de la Ley 33/2011 pasa a exigir sistemas de alerta precoz y respuesta rápida que garanticen la detección y actuaciones precisas y coordinadas ante amenazas para la salud en cualquier parte del territorio (antes: detección y evaluación de incidentes, riesgos, síndromes, enfermedades y otras situaciones)."
+		},
+		{
+			"id": "f28",
+			"weight": "important",
+			"cite": "art. 7.3; art. 6.2",
+			"claim": "Los reales decretos que fijen los datos a suministrar deben respetar el principio de minimización de datos y someterse al informe preceptivo de la Agencia Española de Protección de Datos; la AESAP proporcionará a las demás Administraciones sanitarias los datos e información de su ámbito."
+		},
+		{
+			"id": "f29",
+			"weight": "minor",
+			"cite": "DA 1.ª",
+			"claim": "Las aplicaciones y plataformas tecnológicas las desarrolla el Ministerio de Sanidad bajo la dirección funcional de la AESAP, con los códigos identificativos del SNS y, previo acuerdo del Consejo Interterritorial, su incorporación al Espacio Nacional de Datos de Salud; el Ministerio accede a esos datos para planificación, gestión y evaluación, asistencia sanitaria, vigilancia, sanidad exterior e investigación."
+		},
+		{
+			"id": "f30",
+			"weight": "minor",
+			"cite": "art. 8.Cinco y Seis (art. 47.3 y DA 4.ª Ley 33/2011); art. 2.3.f).4.º",
+			"claim": "Se suprime el art. 47.3 y se deja sin contenido la DA 4.ª de la Ley 33/2011, que preveía crear el Centro Estatal por reestructuración de unidades existentes sin incremento de créditos presupuestarios; el seguimiento y evaluación de la Estrategia Estatal de Salud Pública pasa a ser función de la AESAP."
+		},
+		{
+			"id": "f31",
+			"weight": "minor",
+			"cite": "DA 2.ª, aps. 4 y 6; art. 33.Cuatro y Seis Ley 53/2002 (derogado)",
+			"claim": "Cambia el pago de la tasa: antes se autoliquidaba y la solicitud no se tramitaba sin pago al presentarla; ahora la autoridad notifica el importe, puede rechazar la solicitud si no se paga en treinta días y no inicia el servicio hasta el pago, aunque el ap. 6 mantiene que el justificante de pago acompañe a la solicitud."
+		},
+		{
+			"id": "f32",
+			"weight": "minor",
+			"cite": "DF 2.ª (art. 98.1, 2, 4 y 5 Ley de garantías)",
+			"claim": "Del art. 98 se mantienen sin cambios de fondo el precio de referencia como cuantía máxima financiada, el cálculo por el coste/tratamiento/día menor, que ningún medicamento supere el precio de referencia, la revisión anual de conjuntos y trimestral de precios menores, y la exigencia de un genérico o biosimilar salvo autorización con al menos diez años de antelación en un Estado miembro."
+		},
+		{
+			"id": "f33",
+			"weight": "minor",
+			"cite": "DF 4.ª",
+			"claim": "Se mantiene el rango reglamentario de las normas reglamentarias modificadas por esta ley (el art. 37.8 y el anexo I del RD 666/2023 siguen siendo reglamento)."
+		}
 	],
 	"must_not": [
-		{ "id": "x01", "claim": "Afirmar que la ley crea nuevos derechos, prestaciones, servicios o trámites que la ciudadanía pueda pedir a la AESAP (consultas, atención, vacunas, pruebas, etc.)." },
-		{ "id": "x02", "claim": "Presentar la ley como puramente organizativa omitiendo los cambios en precios de referencia de medicamentos (DF 2.ª) o en medicamentos veterinarios (DF 3.ª)." },
-		{ "id": "x03", "claim": "Afirmar que los medicamentos de la DF 2.ª quedan automáticamente fuera del sistema de precios de referencia o que bajará lo que paga el paciente (la exención o el coeficiente «podrán» aplicarse y los decide la Comisión Interministerial de Precios)." },
-		{ "id": "x04", "claim": "Afirmar que el veterinario puede ceder fracciones de envase a cualquier animal o fuera del acto clínico (la cesión de unidades de envases fraccionables es para animales de compañía, durante el acto clínico), o que la DA 4.ª ya cambia la venta de antibióticos en farmacias." },
-		{ "id": "x05", "claim": "Afirmar que la AESAP autoriza o registra biocidas, fitosanitarios o sustancias químicas, o que impone medidas sanitarias obligatorias (le corresponde evaluar el riesgo y recomendar o proponer; no es error decir que gestiona alertas sanitarias supraautonómicas o internacionales y los sistemas estatales de vigilancia y alerta de riesgos ambientales, que elabora planes estatales de preparación y respuesta o que coordina aspectos técnico-científicos de la reserva estratégica sanitaria)." },
-		{ "id": "x06", "claim": "Afirmar que la AESAP puede acceder libremente a historias clínicas o datos personales identificados, o, al contrario, ocultar el deber general de suministrar datos del art. 6 y de la DA 8.ª de la Ley 33/2011." },
-		{ "id": "x07", "claim": "Dar importes concretos de las tasas de biocidas que aparecen deformados en la tabla de la DA 2.ª (60, 30, 4.8, 48, 1.92, 2.4...) como si fueran cuantías ciertas, o presentar las reducciones para PYME como una novedad." },
-		{ "id": "x08", "claim": "Presentar como mandatos de la ley las intenciones o datos del preámbulo (COVID-19, Plan de Recuperación, hitos CID, Comisión Nacional de Biocustodia, reserva estratégica como algo ya creado) o hacer valoraciones políticas sobre la Agencia." },
-		{ "id": "x09", "claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación." }
+		{
+			"id": "x01",
+			"claim": "Afirmar que la ley crea nuevos derechos, prestaciones, servicios o trámites que la ciudadanía pueda pedir a la AESAP (consultas, atención, vacunas, pruebas, etc.)."
+		},
+		{
+			"id": "x02",
+			"claim": "Presentar la ley como puramente organizativa omitiendo los cambios en precios de referencia de medicamentos (DF 2.ª) o en medicamentos veterinarios (DF 3.ª)."
+		},
+		{
+			"id": "x03",
+			"claim": "Afirmar que los medicamentos de la DF 2.ª quedan automáticamente fuera del sistema de precios de referencia o que bajará lo que paga el paciente (la exención o el coeficiente «podrán» aplicarse y los decide la Comisión Interministerial de Precios)."
+		},
+		{
+			"id": "x04",
+			"claim": "Afirmar que el veterinario puede ceder fracciones de envase a cualquier animal o fuera del acto clínico (la cesión de unidades de envases fraccionables es para animales de compañía, durante el acto clínico), o que la DA 4.ª ya cambia la venta de antibióticos en farmacias."
+		},
+		{
+			"id": "x05",
+			"claim": "Afirmar que la AESAP autoriza o registra biocidas, fitosanitarios o sustancias químicas, o que impone medidas sanitarias obligatorias (le corresponde evaluar el riesgo y recomendar o proponer; no es error decir que gestiona alertas sanitarias supraautonómicas o internacionales y los sistemas estatales de vigilancia y alerta de riesgos ambientales, que elabora planes estatales de preparación y respuesta o que coordina aspectos técnico-científicos de la reserva estratégica sanitaria)."
+		},
+		{
+			"id": "x06",
+			"claim": "Afirmar que la AESAP puede acceder libremente a historias clínicas o datos personales identificados, o, al contrario, ocultar el deber general de suministrar datos del art. 6 y de la DA 8.ª de la Ley 33/2011."
+		},
+		{
+			"id": "x07",
+			"claim": "Dar importes concretos de las tasas de biocidas que aparecen deformados en la tabla de la DA 2.ª (60, 30, 4.8, 48, 1.92, 2.4...) como si fueran cuantías ciertas, o presentar las reducciones para PYME como una novedad."
+		},
+		{
+			"id": "x08",
+			"claim": "Presentar como mandatos de la ley las intenciones o datos del preámbulo (COVID-19, Plan de Recuperación, hitos CID, Comisión Nacional de Biocustodia, reserva estratégica como algo ya creado) o hacer valoraciones políticas sobre la Agencia."
+		},
+		{
+			"id": "x09",
+			"claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación."
+		}
 	],
 	"ambiguities": [
 		"El motivo del eval dice que la ley es casi toda organizativa y apenas afecta a la ciudadanía; eso vale para la creación de la AESAP, pero las DF 2.ª (precios de referencia) y DF 3.ª (veterinarios) sí tienen efectos concretos: una ficha que los mencione no exagera.",

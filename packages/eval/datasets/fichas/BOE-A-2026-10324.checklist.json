@@ -4,38 +4,166 @@
 	"modifies": [{ "norm_id": "BOE-A-2015-8343", "articles": ["102"] }],
 	"why_hard": "Reescribe entero el art. 102 de la Ley de garantías: dos tablas cruzadas (porcentajes por tramo de renta y topes mensuales en euros, distintos para activos y pensionistas) con umbrales de 9.000, 18.000, 35.000, 60.000 y 100.000 euros y topes de 4,98, 8,23, 13,37, 18,52 y 61,75 euros que se repiten en tramos distintos; un tramo o un tope cruzado es un error grave. Además cambia la exención de pensionistas de bajos ingresos (de un umbral fijo de 5.635/11.200 euros a percibir complementos por mínimos) con una transitoria que conserva esos umbrales solo para quienes ya estaban exentos, y el preámbulo cita propuestas del CAPF (exención para todos bajo un umbral de renta) que la parte dispositiva no recoge.",
 	"facts": [
-		{ "id": "f01", "weight": "critical", "cite": "art. único (art. 102.5.b y c)", "claim": "Para asegurados activos y sus beneficiarios el antiguo tramo del 50 % (renta de 18.000 a menos de 100.000 euros) se divide: 50 % del PVP con renta igual o superior a 60.000 e inferior a 100.000 euros, y nuevo 45 % del PVP con renta igual o superior a 18.000 e inferior a 60.000 euros (renta = casilla de base liquidable general y del ahorro del IRPF)." },
-		{ "id": "f02", "weight": "important", "cite": "art. único (art. 102.5.a, d y e)", "claim": "Se mantienen el 60 % del PVP para activos o pensionistas (y sus beneficiarios) con renta igual o superior a 100.000 euros, el 40 % para los activos no incluidos en los tramos anteriores (renta inferior a 18.000 euros) y el 10 % para los pensionistas de la Seguridad Social y sus beneficiarios, salvo los de renta igual o superior a 100.000 euros, que pagan el 60 %." },
-		{ "id": "f03", "weight": "critical", "cite": "art. único (art. 102.6.b, c y d)", "claim": "Novedad: topes mensuales para asegurados activos y sus beneficiarios, que antes no tenían tope (salvo el de los medicamentos ATC de aportación reducida): 8,23 euros al mes con renta inferior a 9.000 euros; 18,52 euros al mes con renta igual o superior a 9.000 e inferior a 18.000 euros; 61,75 euros al mes con renta igual o superior a 18.000 e inferior a 35.000 euros." },
-		{ "id": "f04", "weight": "critical", "cite": "art. único (art. 102.6)", "claim": "Los activos con renta igual o superior a 35.000 euros siguen sin tope mensual general (solo les alcanza el tope del 102.6.a para medicamentos ATC de aportación reducida)." },
-		{ "id": "f05", "weight": "critical", "cite": "art. único (art. 102.6.e a h)", "claim": "Topes mensuales de pensionistas de la Seguridad Social y sus beneficiarios: 8,23 euros con renta inferior a 18.000 euros (o si no están en los párrafos f, g o h); nuevo tope de 13,37 euros con renta igual o superior a 18.000 e inferior a 60.000 euros (antes 18,52 euros para toda la renta igual o superior a 18.000 e inferior a 100.000 euros); 18,52 euros con renta igual o superior a 60.000 e inferior a 100.000 euros; 61,75 euros con renta igual o superior a 100.000 euros." },
-		{ "id": "f06", "weight": "important", "cite": "art. único (art. 102.6.a)", "claim": "Para los medicamentos de los grupos ATC de aportación reducida la aportación sigue siendo del 10 % del PVP, pero el máximo sube de 4,24 a 4,98 euros y el texto lo fija ahora como aportación máxima mensual." },
-		{ "id": "f07", "weight": "important", "cite": "art. único (art. 102.6.b)", "claim": "Las personas extranjeras no registradas ni autorizadas como residentes en España del art. 3 ter de la Ley 16/2003 siguen pagando el 40 % del PVP (art. 102.5.f) y pasan a tener un tope de 8,23 euros al mes." },
-		{ "id": "f08", "weight": "important", "cite": "art. único (art. 102.7)", "claim": "Lo pagado por encima de los topes lo reintegra la comunidad autónoma correspondiente, como máximo cada seis meses (periodicidad máxima semestral)." },
-		{ "id": "f09", "weight": "critical", "cite": "art. único (art. 102.8.i)", "claim": "Cambia la exención de pensionistas con rentas bajas: quedan exentos los pensionistas de la Seguridad Social que perciban complementos para pensiones inferiores a la mínima (complementos por mínimos, art. 59 de la Ley General de la Seguridad Social), en lugar del criterio anterior de renta anual inferior a 5.635 euros (o a 11.200 euros si no estaban obligados a declarar IRPF)." },
-		{ "id": "f10", "weight": "critical", "cite": "disposición transitoria única", "claim": "Los pensionistas que a la entrada en vigor no superaban los niveles de renta de la redacción anterior siguen exentos aunque no cobren complementos por mínimos, si su renta anual es inferior a 5.635 euros (base liquidable general y del ahorro del IRPF) o, si no están obligados a declarar, inferior a 11.200 euros; la exención se extiende a sus beneficiarios." },
-		{ "id": "f11", "weight": "important", "cite": "art. único (art. 102.8.a a h)", "claim": "Se mantienen las demás exenciones: afectados de síndrome tóxico y personas con discapacidad según su normativa, rentas de integración social, pensiones no contributivas, parados sin derecho a subsidio mientras subsista su situación, tratamientos por accidente de trabajo o enfermedad profesional, ingreso mínimo vital, menores con discapacidad igual o superior al 33 % y perceptores de la prestación por hijo o menor a cargo en acogimiento familiar permanente o guarda con fines de adopción." },
-		{ "id": "f12", "weight": "important", "cite": "art. único (art. 102.2 y 3)", "claim": "Novedad: queda expresamente sujeta a aportación la dispensación de fórmulas magistrales y vacunas individualizadas, y en estos casos y en otros productos personalizados la aportación puede pedirse al encargar el producto en lugar de al dispensarlo." },
-		{ "id": "f13", "weight": "important", "cite": "art. único (art. 102.2)", "claim": "Solo paga aportación la prestación dispensada con receta médica oficial u orden de dispensación a través de oficinas de farmacia (no la dispensada en servicios de farmacia hospitalarios)." },
-		{ "id": "f14", "weight": "minor", "cite": "art. único (art. 102.9)", "claim": "Los mutualistas de MUFACE, ISFAS y MUGEJU siguen con una aportación general del 30 %, con el tope del 102.6.a (ATC de aportación reducida) y la exención por accidente de trabajo o enfermedad profesional (102.8.e); no se les aplican la escala de porcentajes del apartado 5 ni los nuevos topes mensuales de los párrafos 6.b a 6.h." },
-		{ "id": "f15", "weight": "minor", "cite": "art. único (art. 102.10)", "claim": "Novedad: el Gobierno podrá actualizar mediante real decreto los límites máximos del apartado 6 (las cuantías de los topes), no los porcentajes ni los umbrales de renta, que quedan fijados en la ley." },
-		{ "id": "f16", "weight": "minor", "cite": "art. único (art. 102.4)", "claim": "La aportación sigue siendo proporcional al nivel de renta, que se actualiza como máximo anualmente." },
-		{ "id": "f17", "weight": "important", "cite": "disposición final tercera", "claim": "Entra en vigor el día siguiente a su publicación en el BOE: publicado el 13 de mayo de 2026, en vigor el 14 de mayo de 2026." },
-		{ "id": "f18", "weight": "minor", "cite": "disposición final segunda", "claim": "Se habilita al Gobierno para dictar las disposiciones necesarias para su desarrollo y ejecución." },
-		{ "id": "f19", "weight": "minor", "cite": "art. único (art. 102.6.h)", "claim": "El tope de 61,75 euros de los pensionistas pasa a aplicarse a renta «igual o superior» a 100.000 euros (antes decía «superior»): el pensionista con renta exactamente de 100.000 euros, que antes caía en el tope residual de 8,23 euros (antiguo 6.b), pasa al de 61,75 euros; el porcentaje (60 %) ya era el mismo." }
+		{
+			"id": "f01",
+			"weight": "critical",
+			"cite": "art. único (art. 102.5.b y c)",
+			"claim": "Para asegurados activos y sus beneficiarios el antiguo tramo del 50 % (renta de 18.000 a menos de 100.000 euros) se divide: 50 % del PVP con renta igual o superior a 60.000 e inferior a 100.000 euros, y nuevo 45 % del PVP con renta igual o superior a 18.000 e inferior a 60.000 euros (renta = casilla de base liquidable general y del ahorro del IRPF)."
+		},
+		{
+			"id": "f02",
+			"weight": "important",
+			"cite": "art. único (art. 102.5.a, d y e)",
+			"claim": "Se mantienen el 60 % del PVP para activos o pensionistas (y sus beneficiarios) con renta igual o superior a 100.000 euros, el 40 % para los activos no incluidos en los tramos anteriores (renta inferior a 18.000 euros) y el 10 % para los pensionistas de la Seguridad Social y sus beneficiarios, salvo los de renta igual o superior a 100.000 euros, que pagan el 60 %."
+		},
+		{
+			"id": "f03",
+			"weight": "critical",
+			"cite": "art. único (art. 102.6.b, c y d)",
+			"claim": "Novedad: topes mensuales para asegurados activos y sus beneficiarios, que antes no tenían tope (salvo el de los medicamentos ATC de aportación reducida): 8,23 euros al mes con renta inferior a 9.000 euros; 18,52 euros al mes con renta igual o superior a 9.000 e inferior a 18.000 euros; 61,75 euros al mes con renta igual o superior a 18.000 e inferior a 35.000 euros."
+		},
+		{
+			"id": "f04",
+			"weight": "critical",
+			"cite": "art. único (art. 102.6)",
+			"claim": "Los activos con renta igual o superior a 35.000 euros siguen sin tope mensual general (solo les alcanza el tope del 102.6.a para medicamentos ATC de aportación reducida)."
+		},
+		{
+			"id": "f05",
+			"weight": "critical",
+			"cite": "art. único (art. 102.6.e a h)",
+			"claim": "Topes mensuales de pensionistas de la Seguridad Social y sus beneficiarios: 8,23 euros con renta inferior a 18.000 euros (o si no están en los párrafos f, g o h); nuevo tope de 13,37 euros con renta igual o superior a 18.000 e inferior a 60.000 euros (antes 18,52 euros para toda la renta igual o superior a 18.000 e inferior a 100.000 euros); 18,52 euros con renta igual o superior a 60.000 e inferior a 100.000 euros; 61,75 euros con renta igual o superior a 100.000 euros."
+		},
+		{
+			"id": "f06",
+			"weight": "important",
+			"cite": "art. único (art. 102.6.a)",
+			"claim": "Para los medicamentos de los grupos ATC de aportación reducida la aportación sigue siendo del 10 % del PVP, pero el máximo sube de 4,24 a 4,98 euros y el texto lo fija ahora como aportación máxima mensual."
+		},
+		{
+			"id": "f07",
+			"weight": "important",
+			"cite": "art. único (art. 102.6.b)",
+			"claim": "Las personas extranjeras no registradas ni autorizadas como residentes en España del art. 3 ter de la Ley 16/2003 siguen pagando el 40 % del PVP (art. 102.5.f) y pasan a tener un tope de 8,23 euros al mes."
+		},
+		{
+			"id": "f08",
+			"weight": "important",
+			"cite": "art. único (art. 102.7)",
+			"claim": "Lo pagado por encima de los topes lo reintegra la comunidad autónoma correspondiente, como máximo cada seis meses (periodicidad máxima semestral)."
+		},
+		{
+			"id": "f09",
+			"weight": "critical",
+			"cite": "art. único (art. 102.8.i)",
+			"claim": "Cambia la exención de pensionistas con rentas bajas: quedan exentos los pensionistas de la Seguridad Social que perciban complementos para pensiones inferiores a la mínima (complementos por mínimos, art. 59 de la Ley General de la Seguridad Social), en lugar del criterio anterior de renta anual inferior a 5.635 euros (o a 11.200 euros si no estaban obligados a declarar IRPF)."
+		},
+		{
+			"id": "f10",
+			"weight": "critical",
+			"cite": "disposición transitoria única",
+			"claim": "Los pensionistas que a la entrada en vigor no superaban los niveles de renta de la redacción anterior siguen exentos aunque no cobren complementos por mínimos, si su renta anual es inferior a 5.635 euros (base liquidable general y del ahorro del IRPF) o, si no están obligados a declarar, inferior a 11.200 euros; la exención se extiende a sus beneficiarios."
+		},
+		{
+			"id": "f11",
+			"weight": "important",
+			"cite": "art. único (art. 102.8.a a h)",
+			"claim": "Se mantienen las demás exenciones: afectados de síndrome tóxico y personas con discapacidad según su normativa, rentas de integración social, pensiones no contributivas, parados sin derecho a subsidio mientras subsista su situación, tratamientos por accidente de trabajo o enfermedad profesional, ingreso mínimo vital, menores con discapacidad igual o superior al 33 % y perceptores de la prestación por hijo o menor a cargo en acogimiento familiar permanente o guarda con fines de adopción."
+		},
+		{
+			"id": "f12",
+			"weight": "important",
+			"cite": "art. único (art. 102.2 y 3)",
+			"claim": "Novedad: queda expresamente sujeta a aportación la dispensación de fórmulas magistrales y vacunas individualizadas, y en estos casos y en otros productos personalizados la aportación puede pedirse al encargar el producto en lugar de al dispensarlo."
+		},
+		{
+			"id": "f13",
+			"weight": "important",
+			"cite": "art. único (art. 102.2)",
+			"claim": "Solo paga aportación la prestación dispensada con receta médica oficial u orden de dispensación a través de oficinas de farmacia (no la dispensada en servicios de farmacia hospitalarios)."
+		},
+		{
+			"id": "f14",
+			"weight": "minor",
+			"cite": "art. único (art. 102.9)",
+			"claim": "Los mutualistas de MUFACE, ISFAS y MUGEJU siguen con una aportación general del 30 %, con el tope del 102.6.a (ATC de aportación reducida) y la exención por accidente de trabajo o enfermedad profesional (102.8.e); no se les aplican la escala de porcentajes del apartado 5 ni los nuevos topes mensuales de los párrafos 6.b a 6.h."
+		},
+		{
+			"id": "f15",
+			"weight": "minor",
+			"cite": "art. único (art. 102.10)",
+			"claim": "Novedad: el Gobierno podrá actualizar mediante real decreto los límites máximos del apartado 6 (las cuantías de los topes), no los porcentajes ni los umbrales de renta, que quedan fijados en la ley."
+		},
+		{
+			"id": "f16",
+			"weight": "minor",
+			"cite": "art. único (art. 102.4)",
+			"claim": "La aportación sigue siendo proporcional al nivel de renta, que se actualiza como máximo anualmente."
+		},
+		{
+			"id": "f17",
+			"weight": "important",
+			"cite": "disposición final tercera",
+			"claim": "Entra en vigor el día siguiente a su publicación en el BOE: publicado el 13 de mayo de 2026, en vigor el 14 de mayo de 2026."
+		},
+		{
+			"id": "f18",
+			"weight": "minor",
+			"cite": "disposición final segunda",
+			"claim": "Se habilita al Gobierno para dictar las disposiciones necesarias para su desarrollo y ejecución."
+		},
+		{
+			"id": "f19",
+			"weight": "minor",
+			"cite": "art. único (art. 102.6.h)",
+			"claim": "El tope de 61,75 euros de los pensionistas pasa a aplicarse a renta «igual o superior» a 100.000 euros (antes decía «superior»): el pensionista con renta exactamente de 100.000 euros, que antes caía en el tope residual de 8,23 euros (antiguo 6.b), pasa al de 61,75 euros; el porcentaje (60 %) ya era el mismo."
+		}
 	],
 	"must_not": [
-		{ "id": "x01", "claim": "Cruzar tramos o topes: p. ej. atribuir a los activos de 18.000 a 35.000 euros un tope de 13,37 o 18,52 euros, a los pensionistas de 18.000 a 60.000 euros uno de 18,52 euros, o dar el 45 % a activos de 60.000 a 100.000 euros." },
-		{ "id": "x02", "claim": "Afirmar que todos los activos tienen ya un tope mensual, o que los activos con renta igual o superior a 35.000 euros tienen tope general." },
-		{ "id": "x03", "claim": "Afirmar que los trabajadores activos con renta por debajo de un umbral quedan exentos de copago por razón de su renta o que su porcentaje general (102.5) baja del 40 % (es una propuesta del CAPF citada en el preámbulo, no recogida en la parte dispositiva); sin perjuicio del 10 % de los ATC de aportación reducida (102.6.a) y de las exenciones por categoría del 102.8." },
-		{ "id": "x04", "claim": "Afirmar que el porcentaje general de los pensionistas (102.5.e) es ahora distinto del 10 % (salvo el 60 % con renta igual o superior a 100.000 euros) o que se baja el 60 % o el 40 %; sin perjuicio de las exenciones del 102.8 y de la transitoria." },
-		{ "id": "x05", "claim": "Afirmar que los umbrales de 5.635 y 11.200 euros siguen dando la exención a cualquier pensionista, o al revés, que los pensionistas que ya estaban exentos la pierden por no cobrar complementos por mínimos." },
-		{ "id": "x06", "claim": "Presentar como novedad la exención de los medicamentos de dispensación hospitalaria, o como mandato la afirmación del preámbulo de que ningún colectivo pagará más." },
-		{ "id": "x07", "claim": "Afirmar que el tope se descuenta siempre en la farmacia en el momento, omitiendo el reintegro por la comunidad autónoma (como máximo semestral)." },
-		{ "id": "x08", "claim": "Valoraciones políticas o atribuir la norma a la crisis de Oriente Medio como si fuera contenido dispositivo." },
-		{ "id": "x09", "claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación." },
-		{ "id": "x10", "claim": "Afirmar que los mutualistas de MUFACE, ISFAS o MUGEJU pasan a la nueva escala de porcentajes (45 %, etc.) o a los nuevos topes mensuales de activos o pensionistas." },
-		{ "id": "x11", "claim": "Afirmar que los nuevos porcentajes o topes se implantan de forma escalonada en el tiempo o con un calendario de aplicación (rigen todos desde la entrada en vigor; la única transitoria es la de la exención de pensionistas)." }
+		{
+			"id": "x01",
+			"claim": "Cruzar tramos o topes: p. ej. atribuir a los activos de 18.000 a 35.000 euros un tope de 13,37 o 18,52 euros, a los pensionistas de 18.000 a 60.000 euros uno de 18,52 euros, o dar el 45 % a activos de 60.000 a 100.000 euros."
+		},
+		{
+			"id": "x02",
+			"claim": "Afirmar que todos los activos tienen ya un tope mensual, o que los activos con renta igual o superior a 35.000 euros tienen tope general."
+		},
+		{
+			"id": "x03",
+			"claim": "Afirmar que los trabajadores activos con renta por debajo de un umbral quedan exentos de copago por razón de su renta o que su porcentaje general (102.5) baja del 40 % (es una propuesta del CAPF citada en el preámbulo, no recogida en la parte dispositiva); sin perjuicio del 10 % de los ATC de aportación reducida (102.6.a) y de las exenciones por categoría del 102.8."
+		},
+		{
+			"id": "x04",
+			"claim": "Afirmar que el porcentaje general de los pensionistas (102.5.e) es ahora distinto del 10 % (salvo el 60 % con renta igual o superior a 100.000 euros) o que se baja el 60 % o el 40 %; sin perjuicio de las exenciones del 102.8 y de la transitoria."
+		},
+		{
+			"id": "x05",
+			"claim": "Afirmar que los umbrales de 5.635 y 11.200 euros siguen dando la exención a cualquier pensionista, o al revés, que los pensionistas que ya estaban exentos la pierden por no cobrar complementos por mínimos."
+		},
+		{
+			"id": "x06",
+			"claim": "Presentar como novedad la exención de los medicamentos de dispensación hospitalaria, o como mandato la afirmación del preámbulo de que ningún colectivo pagará más."
+		},
+		{
+			"id": "x07",
+			"claim": "Afirmar que el tope se descuenta siempre en la farmacia en el momento, omitiendo el reintegro por la comunidad autónoma (como máximo semestral)."
+		},
+		{
+			"id": "x08",
+			"claim": "Valoraciones políticas o atribuir la norma a la crisis de Oriente Medio como si fuera contenido dispositivo."
+		},
+		{
+			"id": "x09",
+			"claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación."
+		},
+		{
+			"id": "x10",
+			"claim": "Afirmar que los mutualistas de MUFACE, ISFAS o MUGEJU pasan a la nueva escala de porcentajes (45 %, etc.) o a los nuevos topes mensuales de activos o pensionistas."
+		},
+		{
+			"id": "x11",
+			"claim": "Afirmar que los nuevos porcentajes o topes se implantan de forma escalonada en el tiempo o con un calendario de aplicación (rigen todos desde la entrada en vigor; la única transitoria es la de la exención de pensionistas)."
+		}
 	],
 	"ambiguities": [
 		"Art. 102.6.e: el tope de 8,23 euros alcanza también a pensionistas «que no estén incluidos en los párrafos f), g) o h)» (p. ej., sin renta consignada en IRPF); no penalizar que la ficha lo simplifique a «renta inferior a 18.000 euros».",

@@ -3,47 +3,203 @@
 	"title": "Real Decreto-ley 9/2026, de 14 de abril, de medidas urgentes en materia de transporte",
 	"modifies": [
 		{ "norm_id": "BOE-A-2009-18004", "articles": ["38"] },
-		{ "norm_id": "BOE-A-2012-11324", "articles": ["anexo, condición 3.4", "anexo, condición 8.3"] },
-		{ "norm_id": "BOE-A-1987-17803", "articles": ["140.43 (nuevo)", "141.31 (nuevo)", "143.1"] },
-		{ "norm_id": "BOE-A-2026-6544", "articles": ["58.2.c (nueva)", "58.3 (tabla)", "58.8", "61"] }
+		{
+			"norm_id": "BOE-A-2012-11324",
+			"articles": ["anexo, condición 3.4", "anexo, condición 8.3"]
+		},
+		{
+			"norm_id": "BOE-A-1987-17803",
+			"articles": ["140.43 (nuevo)", "141.31 (nuevo)", "143.1"]
+		},
+		{
+			"norm_id": "BOE-A-2026-6544",
+			"articles": ["58.2.c (nueva)", "58.3 (tabla)", "58.8", "61"]
+		}
 	],
 	"why_hard": "Real decreto-ley ómnibus de transporte sin hilo común: revisión obligatoria del precio del transporte de mercancías por carretera según el gasóleo (Ley 15/2009 y Orden FOM/1882/2012, con una fórmula nueva cuyo coeficiente depende del precio antes de impuestos), nuevas infracciones para el cargador que se niegue a desglosar ese ajuste en la factura, ayudas a empresas ferroviarias de mercancías con locomotoras diésel, entrada de los eurotaxis en las ayudas del RDL 7/2026 y ampliación de la ayuda marítima a los buques de carga. La medida que afecta a más gente (todos los contratos de transporte de mercancías por carretera) queda escondida tras cambios de matiz («podrá» pasa a «incrementará», todo pacto en contrario pasa a ser nulo en la orden, desaparece la forma alternativa de reflejar el ajuste); la fórmula llega como imagen; las tablas de importes presentan cifras mal formateadas (15 € por locomotora, 1.8 y 1 euros), y el preámbulo trae cifras de contexto (30 % de costes, 95 % del transporte de mercancías) que no son medidas.",
 	"facts": [
-		{ "id": "f01", "weight": "critical", "cite": "art. 1 (art. 38.1 Ley 15/2009) y art. 2.Uno (condición 3.4)", "claim": "En el transporte de mercancías por carretera, si el precio del combustible varía entre el día del contrato y el del transporte, el porteador y el obligado al pago incrementarán o reducirán «de manera ineludible» el precio pactado según la fórmula de la Administración; en la condición 3.4 el porteador «incrementará» (antes «podrá incrementar») y el obligado al pago «exigirá» (antes «podrá exigir») la reducción cuando el gasóleo baje." },
-		{ "id": "f02", "weight": "critical", "cite": "art. 1 (art. 38.2 Ley 15/2009) y condición 3.4", "claim": "La revisión se aplica en todo caso y de forma automática cuando el precio del combustible (en la orden, el índice G) varíe un 5 % o más, salvo que se haya pactado expresamente y por escrito un umbral menor antes o al celebrar el contrato; antes la condición 3.4 permitía pactar por escrito «otra cosa distinta» y empezaba con «salvo que otra cosa se hubiera pactado»." },
-		{ "id": "f03", "weight": "critical", "cite": "art. 1 (art. 38.1, párrafo segundo, Ley 15/2009)", "claim": "La variación respecto del precio pactado debe reflejarse obligatoriamente en la factura de forma desglosada; desaparece la posibilidad de que el contrato recoja otra forma de reflejar el ajuste." },
-		{ "id": "f04", "weight": "important", "cite": "art. 1 (art. 38.3 Ley 15/2009, sin cambios) y art. 2.Uno (condición 3.4)", "claim": "El pacto en contrario es nulo: el art. 38.3 de la Ley 15/2009 ya lo decía y no cambia; la novedad está en la condición 3.4, que ahora anula todo pacto en contrario («El pacto en contrario a lo dispuesto en esta condición se considerará nulo»), cuando antes solo era nulo el pacto claramente abusivo en perjuicio del porteador y carecía de efecto el contenido en condiciones generales de aceptación o rechazo global." },
-		{ "id": "f05", "weight": "important", "cite": "art. 1 (art. 38.2, párrafo segundo) y art. 2.Dos (condición 8.3)", "claim": "En los contratos de transporte continuado el precio se revisa en todo caso y de forma automática coincidiendo con el periodo de facturación acordado, sea cual sea el porcentaje de variación del combustible; antes la revisión era trimestral salvo que se pactara otra periodicidad menor (y la condición 8.3 empezaba «Salvo pacto en contrario»). Esta revisión periódica se suma a la del umbral del 5 %." },
-		{ "id": "f06", "weight": "critical", "cite": "art. 2.Uno (condición 3.4, coeficiente C)", "claim": "La fórmula de revisión incorpora un coeficiente C que ya no es fijo (antes 0,3 / 0,2 / 0,2 / 0,1 según el vehículo) sino que depende del precio medio semanal del gasóleo antes de impuestos (PAI) del día del transporte: vehículos de 20.000 kg o más (no de obras) 0,3 si PAI < 0,85 €/l, 0,4 entre 0,85 y 1,40, 0,5 desde 1,40; de más de 3.500 y menos de 20.000 kg (no de obras) 0,2 si < 0,95, 0,3 entre 0,95 y 1,80, 0,4 desde 1,80; vehículos de obras de más de 3.500 kg 0,2 si < 0,75, 0,3 entre 0,75 y 1,45, 0,4 desde 1,45; de 3.500 kg o menos 0,1 si < 0,70, 0,2 entre 0,70 y 1,95, 0,3 desde 1,95." },
-		{ "id": "f07", "weight": "important", "cite": "art. 2.Uno (condición 3.4, índice G)", "claim": "El índice G (variación porcentual del precio medio semanal del gasóleo publicado por la Administración entre el contrato y el transporte) se calcula sin IVA y, para los vehículos con derecho a la devolución parcial del Impuesto sobre Hidrocarburos (art. 52 bis Ley 38/1992), sin tener en cuenta tampoco esa devolución por gasóleo profesional." },
-		{ "id": "f08", "weight": "important", "cite": "art. 2.Uno y Dos (condiciones 3.4 y 8.3)", "claim": "Hasta el 30 de junio de 2026 no pueden tenerse en cuenta, al calcular la revisión del precio, las bonificaciones y ayudas extraordinarias para el gasóleo del transporte por carretera del Real Decreto-ley 7/2026." },
-		{ "id": "f09", "weight": "critical", "cite": "DF 1.ª (arts. 140.43, 141.31 y 143.1 Ley 16/1987)", "claim": "Nueva infracción del cargador o del obligado al pago que se oponga a reflejar en la factura, desglosada, la variación del precio por el combustible, siempre que el transportista o porteador pruebe que emitió la factura con el ajuste desglosado y se la rechazaron o pidieron modificarla, o que se impidió por cualquier medio su expedición o aceptación. Es grave (art. 141.31) si el precio en factura es igual o inferior a 3.000 € y muy grave (art. 140.43) si es superior." },
-		{ "id": "f10", "weight": "important", "cite": "DF 1.ª.Tres (art. 143.1 d) a i) Ley 16/1987)", "claim": "Multas según el precio del transporte: inferior a 1.000 €, de 401 a 600 €; entre 1.000 y 1.500 €, de 601 a 800 €; entre 1.501 y 3.000 €, de 801 a 1.000 €; entre 3.001 y 4.000 €, de 1.001 a 2.000 €; entre 4.001 y 6.000 €, de 2.001 a 4.000 €; superior a 6.000 €, de 4.001 a 6.000 €." },
-		{ "id": "f11", "weight": "important", "cite": "DF 1.ª.Tres (art. 143.1 j) Ley 16/1987)", "claim": "La infracción del art. 140.43 se excluye de la agravación general de 6.001 a 18.000 €; tiene su propia regla: multa de 4.001 a 18.000 € si el responsable ya fue sancionado, por resolución que ponga fin a la vía administrativa, por otra infracción del art. 140.43 en los 12 meses anteriores." },
-		{ "id": "f12", "weight": "critical", "cite": "DF 5.ª; metadatos", "claim": "Entra en vigor el día siguiente al de su publicación en el BOE (publicado el 15 de abril de 2026: en vigor el 16 de abril de 2026). Las revisiones de precio y las nuevas infracciones no tienen otra fecha de aplicación propia (salvo la regla transitoria hasta el 30 de junio de 2026 sobre las ayudas del RDL 7/2026)." },
-		{ "id": "f13", "weight": "important", "cite": "art. 3.1 y 3.2", "claim": "Ayudas directas para 2026 a empresas de transporte de mercancías por ferrocarril (CNAE 4920) para paliar el aumento de costes de los productos petrolíferos: beneficiarias las empresas con licencia de empresa ferroviaria que tengan inscrita en el Registro Europeo de Vehículos, como poseedoras y en estado activa, alguna locomotora de tracción diésel empleada en el transporte de mercancías." },
-		{ "id": "f14", "weight": "important", "cite": "art. 3.3", "claim": "El importe por empresa depende del número de locomotoras de tracción diésel que explote; la tabla fija una cuantía por locomotora (no se exige la cifra; si se da, debe ser la literal «15» euros del texto)." },
-		{ "id": "f15", "weight": "important", "cite": "art. 3.2 y 3.4", "claim": "Plazos contados desde la entrada en vigor: 15 días hábiles en los que las empresas «podrán actualizar» (facultad, no obligación) ante la Agencia Estatal de Seguridad Ferroviaria su situación de poseedoras en el registro; 20 días hábiles para que la Agencia envíe el fichero al Ministerio; 30 días para solicitar la ayuda en la Sede Electrónica del Ministerio de Transportes, indicando la cuenta bancaria. La liquidación la hace la Dirección General de Transporte por Carretera y Ferrocarril y agota la vía administrativa." },
-		{ "id": "f16", "weight": "important", "cite": "art. 3.5, 3.7 y 3.8", "claim": "Las ayudas ferroviarias no están sujetas a la Ley General de Subvenciones y su plena efectividad está vinculada a un régimen de compatibilidad, un Marco temporal de ayudas estatales o una decisión de la Comisión Europea que autorice su compatibilidad." },
-		{ "id": "f17", "weight": "minor", "cite": "art. 4", "claim": "Se financian con tres créditos extraordinarios: 800.000 € para Renfe Mercancías, 150.000 € para Eusko Trenbideak-Ferrocarriles Vascos y 2.200.000 € para empresas ferroviarias (3.150.000 € en total)." },
-		{ "id": "f18", "weight": "important", "cite": "DF 2.ª.Uno, Dos y Tres (art. 58.2.c, 58.3 y 58.8 RDL 7/2026)", "claim": "Los taxis adaptados (Eurotaxis) entran en la ayuda extraordinaria por vehículo del RDL 7/2026: titulares de autorización VT con un taxi adaptado o Eurotaxi adscrito (RD 1544/2007), dados de alta en el Registro de Empresas y Actividades de Transporte a la fecha de entrada en vigor del real decreto-ley y no inscritos en el Censo de beneficiarios de devoluciones por gasóleo profesional; 200 € por vehículo, cualquiera que sea el combustible (gasolina, gasóleo, GLP, GNC o GNL). El art. 58.8 exceptúa el apartado 2 c) de la exclusión de vehículos con derecho a la devolución parcial del Impuesto sobre Hidrocarburos." },
-		{ "id": "f19", "weight": "minor", "cite": "DF 2.ª.Dos (art. 58.3 RDL 7/2026)", "claim": "En la tabla de importes los camiones pesados de GLP, GNC o GNL (o de gasóleo domiciliados en Canarias, Ceuta o Melilla) pasan a definirse con MMA igual o superior a 7,5 t (antes «> 7,5 t»); se añade la fila de Eurotaxis (200 €); las demás categorías coinciden con la tabla anterior, y donde antes figuraban 1800 y 1000 la nueva tabla escribe literalmente «1.8» (pesados de GLP/GNC/GNL y de gasóleo en Canarias, Ceuta o Melilla) y «1» (autobús VDE de gasóleo en esos territorios), mientras la última fila dice «1.000»." },
-		{ "id": "f20", "weight": "important", "cite": "DF 2.ª.Cuatro (art. 61.1 y 61.2 RDL 7/2026)", "claim": "La ayuda al transporte marítimo regular de cabotaje (0,1375266 céntimos de euro por milla navegada y tonelada de arqueo bruto) se extiende a los servicios regulares de carga y a los buques de carga, junto a los de pasaje y de pasaje y carga rodada, en el tramo que conecta la península con los territorios no peninsulares y entre estos." },
-		{ "id": "f21", "weight": "important", "cite": "DF 2.ª.Cuatro (art. 61.8, 61.10 y 61.11 RDL 7/2026)", "claim": "La ayuda marítima dura tres meses «desde el 21 de marzo de 2026» (un único plazo trimestral); la solicitud se presenta en el mes siguiente al fin de ese trimestre (antes, en tres meses); y el suplemento de crédito sube de 30 a 37 millones de euros, con carácter incorporable." },
-		{ "id": "f22", "weight": "minor", "cite": "DF 3.ª", "claim": "Las condiciones generales de la Orden FOM/1882/2012 modificadas por el real decreto-ley conservan rango reglamentario y pueden cambiarse por una norma de ese rango." },
-		{ "id": "f23", "weight": "minor", "cite": "art. 2.Dos (condición 8.3)", "claim": "La condición 8.3 pierde el párrafo que permitía pactar un plazo razonable de preaviso para otros cambios del precio durante la vigencia del contrato continuado, y pasa a dictarse en ejecución del art. 38.2 (antes 38.3) de la Ley 15/2009." },
-		{ "id": "f24", "weight": "minor", "cite": "DF 2.ª.Tres (art. 58.8 RDL 7/2026)", "claim": "La excepción del art. 58.8 a favor de los eurotaxis (apartado 2 c) solo alcanza a la exclusión por devolución del gasóleo profesional; las ayudas por vehículo siguen sin aplicarse a los vehículos eléctricos de batería (BEV), de célula de combustible (FCEV) o de combustión de hidrógeno (HICEV)." }
+		{
+			"id": "f01",
+			"weight": "critical",
+			"cite": "art. 1 (art. 38.1 Ley 15/2009) y art. 2.Uno (condición 3.4)",
+			"claim": "En el transporte de mercancías por carretera, si el precio del combustible varía entre el día del contrato y el del transporte, el porteador y el obligado al pago incrementarán o reducirán «de manera ineludible» el precio pactado según la fórmula de la Administración; en la condición 3.4 el porteador «incrementará» (antes «podrá incrementar») y el obligado al pago «exigirá» (antes «podrá exigir») la reducción cuando el gasóleo baje."
+		},
+		{
+			"id": "f02",
+			"weight": "critical",
+			"cite": "art. 1 (art. 38.2 Ley 15/2009) y condición 3.4",
+			"claim": "La revisión se aplica en todo caso y de forma automática cuando el precio del combustible (en la orden, el índice G) varíe un 5 % o más, salvo que se haya pactado expresamente y por escrito un umbral menor antes o al celebrar el contrato; antes la condición 3.4 permitía pactar por escrito «otra cosa distinta» y empezaba con «salvo que otra cosa se hubiera pactado»."
+		},
+		{
+			"id": "f03",
+			"weight": "critical",
+			"cite": "art. 1 (art. 38.1, párrafo segundo, Ley 15/2009)",
+			"claim": "La variación respecto del precio pactado debe reflejarse obligatoriamente en la factura de forma desglosada; desaparece la posibilidad de que el contrato recoja otra forma de reflejar el ajuste."
+		},
+		{
+			"id": "f04",
+			"weight": "important",
+			"cite": "art. 1 (art. 38.3 Ley 15/2009, sin cambios) y art. 2.Uno (condición 3.4)",
+			"claim": "El pacto en contrario es nulo: el art. 38.3 de la Ley 15/2009 ya lo decía y no cambia; la novedad está en la condición 3.4, que ahora anula todo pacto en contrario («El pacto en contrario a lo dispuesto en esta condición se considerará nulo»), cuando antes solo era nulo el pacto claramente abusivo en perjuicio del porteador y carecía de efecto el contenido en condiciones generales de aceptación o rechazo global."
+		},
+		{
+			"id": "f05",
+			"weight": "important",
+			"cite": "art. 1 (art. 38.2, párrafo segundo) y art. 2.Dos (condición 8.3)",
+			"claim": "En los contratos de transporte continuado el precio se revisa en todo caso y de forma automática coincidiendo con el periodo de facturación acordado, sea cual sea el porcentaje de variación del combustible; antes la revisión era trimestral salvo que se pactara otra periodicidad menor (y la condición 8.3 empezaba «Salvo pacto en contrario»). Esta revisión periódica se suma a la del umbral del 5 %."
+		},
+		{
+			"id": "f06",
+			"weight": "critical",
+			"cite": "art. 2.Uno (condición 3.4, coeficiente C)",
+			"claim": "La fórmula de revisión incorpora un coeficiente C que ya no es fijo (antes 0,3 / 0,2 / 0,2 / 0,1 según el vehículo) sino que depende del precio medio semanal del gasóleo antes de impuestos (PAI) del día del transporte: vehículos de 20.000 kg o más (no de obras) 0,3 si PAI < 0,85 €/l, 0,4 entre 0,85 y 1,40, 0,5 desde 1,40; de más de 3.500 y menos de 20.000 kg (no de obras) 0,2 si < 0,95, 0,3 entre 0,95 y 1,80, 0,4 desde 1,80; vehículos de obras de más de 3.500 kg 0,2 si < 0,75, 0,3 entre 0,75 y 1,45, 0,4 desde 1,45; de 3.500 kg o menos 0,1 si < 0,70, 0,2 entre 0,70 y 1,95, 0,3 desde 1,95."
+		},
+		{
+			"id": "f07",
+			"weight": "important",
+			"cite": "art. 2.Uno (condición 3.4, índice G)",
+			"claim": "El índice G (variación porcentual del precio medio semanal del gasóleo publicado por la Administración entre el contrato y el transporte) se calcula sin IVA y, para los vehículos con derecho a la devolución parcial del Impuesto sobre Hidrocarburos (art. 52 bis Ley 38/1992), sin tener en cuenta tampoco esa devolución por gasóleo profesional."
+		},
+		{
+			"id": "f08",
+			"weight": "important",
+			"cite": "art. 2.Uno y Dos (condiciones 3.4 y 8.3)",
+			"claim": "Hasta el 30 de junio de 2026 no pueden tenerse en cuenta, al calcular la revisión del precio, las bonificaciones y ayudas extraordinarias para el gasóleo del transporte por carretera del Real Decreto-ley 7/2026."
+		},
+		{
+			"id": "f09",
+			"weight": "critical",
+			"cite": "DF 1.ª (arts. 140.43, 141.31 y 143.1 Ley 16/1987)",
+			"claim": "Nueva infracción del cargador o del obligado al pago que se oponga a reflejar en la factura, desglosada, la variación del precio por el combustible, siempre que el transportista o porteador pruebe que emitió la factura con el ajuste desglosado y se la rechazaron o pidieron modificarla, o que se impidió por cualquier medio su expedición o aceptación. Es grave (art. 141.31) si el precio en factura es igual o inferior a 3.000 € y muy grave (art. 140.43) si es superior."
+		},
+		{
+			"id": "f10",
+			"weight": "important",
+			"cite": "DF 1.ª.Tres (art. 143.1 d) a i) Ley 16/1987)",
+			"claim": "Multas según el precio del transporte: inferior a 1.000 €, de 401 a 600 €; entre 1.000 y 1.500 €, de 601 a 800 €; entre 1.501 y 3.000 €, de 801 a 1.000 €; entre 3.001 y 4.000 €, de 1.001 a 2.000 €; entre 4.001 y 6.000 €, de 2.001 a 4.000 €; superior a 6.000 €, de 4.001 a 6.000 €."
+		},
+		{
+			"id": "f11",
+			"weight": "important",
+			"cite": "DF 1.ª.Tres (art. 143.1 j) Ley 16/1987)",
+			"claim": "La infracción del art. 140.43 se excluye de la agravación general de 6.001 a 18.000 €; tiene su propia regla: multa de 4.001 a 18.000 € si el responsable ya fue sancionado, por resolución que ponga fin a la vía administrativa, por otra infracción del art. 140.43 en los 12 meses anteriores."
+		},
+		{
+			"id": "f12",
+			"weight": "critical",
+			"cite": "DF 5.ª; metadatos",
+			"claim": "Entra en vigor el día siguiente al de su publicación en el BOE (publicado el 15 de abril de 2026: en vigor el 16 de abril de 2026). Las revisiones de precio y las nuevas infracciones no tienen otra fecha de aplicación propia (salvo la regla transitoria hasta el 30 de junio de 2026 sobre las ayudas del RDL 7/2026)."
+		},
+		{
+			"id": "f13",
+			"weight": "important",
+			"cite": "art. 3.1 y 3.2",
+			"claim": "Ayudas directas para 2026 a empresas de transporte de mercancías por ferrocarril (CNAE 4920) para paliar el aumento de costes de los productos petrolíferos: beneficiarias las empresas con licencia de empresa ferroviaria que tengan inscrita en el Registro Europeo de Vehículos, como poseedoras y en estado activa, alguna locomotora de tracción diésel empleada en el transporte de mercancías."
+		},
+		{
+			"id": "f14",
+			"weight": "important",
+			"cite": "art. 3.3",
+			"claim": "El importe por empresa depende del número de locomotoras de tracción diésel que explote; la tabla fija una cuantía por locomotora (no se exige la cifra; si se da, debe ser la literal «15» euros del texto)."
+		},
+		{
+			"id": "f15",
+			"weight": "important",
+			"cite": "art. 3.2 y 3.4",
+			"claim": "Plazos contados desde la entrada en vigor: 15 días hábiles en los que las empresas «podrán actualizar» (facultad, no obligación) ante la Agencia Estatal de Seguridad Ferroviaria su situación de poseedoras en el registro; 20 días hábiles para que la Agencia envíe el fichero al Ministerio; 30 días para solicitar la ayuda en la Sede Electrónica del Ministerio de Transportes, indicando la cuenta bancaria. La liquidación la hace la Dirección General de Transporte por Carretera y Ferrocarril y agota la vía administrativa."
+		},
+		{
+			"id": "f16",
+			"weight": "important",
+			"cite": "art. 3.5, 3.7 y 3.8",
+			"claim": "Las ayudas ferroviarias no están sujetas a la Ley General de Subvenciones y su plena efectividad está vinculada a un régimen de compatibilidad, un Marco temporal de ayudas estatales o una decisión de la Comisión Europea que autorice su compatibilidad."
+		},
+		{
+			"id": "f17",
+			"weight": "minor",
+			"cite": "art. 4",
+			"claim": "Se financian con tres créditos extraordinarios: 800.000 € para Renfe Mercancías, 150.000 € para Eusko Trenbideak-Ferrocarriles Vascos y 2.200.000 € para empresas ferroviarias (3.150.000 € en total)."
+		},
+		{
+			"id": "f18",
+			"weight": "important",
+			"cite": "DF 2.ª.Uno, Dos y Tres (art. 58.2.c, 58.3 y 58.8 RDL 7/2026)",
+			"claim": "Los taxis adaptados (Eurotaxis) entran en la ayuda extraordinaria por vehículo del RDL 7/2026: titulares de autorización VT con un taxi adaptado o Eurotaxi adscrito (RD 1544/2007), dados de alta en el Registro de Empresas y Actividades de Transporte a la fecha de entrada en vigor del real decreto-ley y no inscritos en el Censo de beneficiarios de devoluciones por gasóleo profesional; 200 € por vehículo, cualquiera que sea el combustible (gasolina, gasóleo, GLP, GNC o GNL). El art. 58.8 exceptúa el apartado 2 c) de la exclusión de vehículos con derecho a la devolución parcial del Impuesto sobre Hidrocarburos."
+		},
+		{
+			"id": "f19",
+			"weight": "minor",
+			"cite": "DF 2.ª.Dos (art. 58.3 RDL 7/2026)",
+			"claim": "En la tabla de importes los camiones pesados de GLP, GNC o GNL (o de gasóleo domiciliados en Canarias, Ceuta o Melilla) pasan a definirse con MMA igual o superior a 7,5 t (antes «> 7,5 t»); se añade la fila de Eurotaxis (200 €); las demás categorías coinciden con la tabla anterior, y donde antes figuraban 1800 y 1000 la nueva tabla escribe literalmente «1.8» (pesados de GLP/GNC/GNL y de gasóleo en Canarias, Ceuta o Melilla) y «1» (autobús VDE de gasóleo en esos territorios), mientras la última fila dice «1.000»."
+		},
+		{
+			"id": "f20",
+			"weight": "important",
+			"cite": "DF 2.ª.Cuatro (art. 61.1 y 61.2 RDL 7/2026)",
+			"claim": "La ayuda al transporte marítimo regular de cabotaje (0,1375266 céntimos de euro por milla navegada y tonelada de arqueo bruto) se extiende a los servicios regulares de carga y a los buques de carga, junto a los de pasaje y de pasaje y carga rodada, en el tramo que conecta la península con los territorios no peninsulares y entre estos."
+		},
+		{
+			"id": "f21",
+			"weight": "important",
+			"cite": "DF 2.ª.Cuatro (art. 61.8, 61.10 y 61.11 RDL 7/2026)",
+			"claim": "La ayuda marítima dura tres meses «desde el 21 de marzo de 2026» (un único plazo trimestral); la solicitud se presenta en el mes siguiente al fin de ese trimestre (antes, en tres meses); y el suplemento de crédito sube de 30 a 37 millones de euros, con carácter incorporable."
+		},
+		{
+			"id": "f22",
+			"weight": "minor",
+			"cite": "DF 3.ª",
+			"claim": "Las condiciones generales de la Orden FOM/1882/2012 modificadas por el real decreto-ley conservan rango reglamentario y pueden cambiarse por una norma de ese rango."
+		},
+		{
+			"id": "f23",
+			"weight": "minor",
+			"cite": "art. 2.Dos (condición 8.3)",
+			"claim": "La condición 8.3 pierde el párrafo que permitía pactar un plazo razonable de preaviso para otros cambios del precio durante la vigencia del contrato continuado, y pasa a dictarse en ejecución del art. 38.2 (antes 38.3) de la Ley 15/2009."
+		},
+		{
+			"id": "f24",
+			"weight": "minor",
+			"cite": "DF 2.ª.Tres (art. 58.8 RDL 7/2026)",
+			"claim": "La excepción del art. 58.8 a favor de los eurotaxis (apartado 2 c) solo alcanza a la exclusión por devolución del gasóleo profesional; las ayudas por vehículo siguen sin aplicarse a los vehículos eléctricos de batería (BEV), de célula de combustible (FCEV) o de combustión de hidrógeno (HICEV)."
+		}
 	],
 	"must_not": [
-		{ "id": "x01", "claim": "Afirmar que la revisión del precio por el gasóleo sigue siendo voluntaria u opcional para el transportista, o que puede excluirse por contrato (el único pacto admitido sobre el umbral es uno menor del 5 %, por escrito y antes o al contratar; en el transporte continuado la revisión periódica sigue el periodo de facturación acordado)." },
-		{ "id": "x02", "claim": "Atribuir las nuevas multas al transportista o al conductor, en vez de al cargador u obligado al pago que se opone a desglosar el ajuste, u omitir que el transportista debe probar la factura rechazada o la obstrucción." },
-		{ "id": "x03", "claim": "Presentar el real decreto-ley como un paquete de nuevas ayudas en metálico a los camioneros o a la ciudadanía en general (las ayudas nuevas son para empresas ferroviarias de mercancías, eurotaxis y navieras de carga; las de camiones y taxis vienen del RDL 7/2026)." },
-		{ "id": "x04", "claim": "Presentar las cifras del preámbulo (aumento de costes del 30 %, 95 % del transporte de mercancías) o su lectura sobre el HVO como medidas o mandatos de la norma." },
-		{ "id": "x05", "claim": "Afirmar que la revisión obligatoria del precio o la nueva fórmula son temporales o que vencen el 30 de junio de 2026 (esa fecha solo marca hasta cuándo no pueden tenerse en cuenta, al calcular la revisión del precio, las ayudas al gasóleo del RDL 7/2026)." },
-		{ "id": "x06", "claim": "Afirmar que todos los taxis o todos los taxis de gasóleo reciben ahora la ayuda (solo se añaden los taxis adaptados o Eurotaxis que cumplan las condiciones del art. 58.2 c)." },
-		{ "id": "x07", "claim": "Afirmar que el coeficiente C se calcula con el precio del gasóleo con impuestos o con IVA, que el índice G se calcula «antes de impuestos» (G usa el precio de adquisición sin IVA y, en su caso, sin la devolución del gasóleo profesional), o que el umbral del 5 % se mide sobre el precio del transporte en lugar de sobre el precio del gasóleo." },
-		{ "id": "x08", "claim": "Valoraciones políticas o afirmaciones sobre la guerra de Irán o el conflicto en Oriente Medio que no estén en el texto, o presentar la medida como una subida de precios para los consumidores." },
-		{ "id": "x09", "claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación." }
+		{
+			"id": "x01",
+			"claim": "Afirmar que la revisión del precio por el gasóleo sigue siendo voluntaria u opcional para el transportista, o que puede excluirse por contrato (el único pacto admitido sobre el umbral es uno menor del 5 %, por escrito y antes o al contratar; en el transporte continuado la revisión periódica sigue el periodo de facturación acordado)."
+		},
+		{
+			"id": "x02",
+			"claim": "Atribuir las nuevas multas al transportista o al conductor, en vez de al cargador u obligado al pago que se opone a desglosar el ajuste, u omitir que el transportista debe probar la factura rechazada o la obstrucción."
+		},
+		{
+			"id": "x03",
+			"claim": "Presentar el real decreto-ley como un paquete de nuevas ayudas en metálico a los camioneros o a la ciudadanía en general (las ayudas nuevas son para empresas ferroviarias de mercancías, eurotaxis y navieras de carga; las de camiones y taxis vienen del RDL 7/2026)."
+		},
+		{
+			"id": "x04",
+			"claim": "Presentar las cifras del preámbulo (aumento de costes del 30 %, 95 % del transporte de mercancías) o su lectura sobre el HVO como medidas o mandatos de la norma."
+		},
+		{
+			"id": "x05",
+			"claim": "Afirmar que la revisión obligatoria del precio o la nueva fórmula son temporales o que vencen el 30 de junio de 2026 (esa fecha solo marca hasta cuándo no pueden tenerse en cuenta, al calcular la revisión del precio, las ayudas al gasóleo del RDL 7/2026)."
+		},
+		{
+			"id": "x06",
+			"claim": "Afirmar que todos los taxis o todos los taxis de gasóleo reciben ahora la ayuda (solo se añaden los taxis adaptados o Eurotaxis que cumplan las condiciones del art. 58.2 c)."
+		},
+		{
+			"id": "x07",
+			"claim": "Afirmar que el coeficiente C se calcula con el precio del gasóleo con impuestos o con IVA, que el índice G se calcula «antes de impuestos» (G usa el precio de adquisición sin IVA y, en su caso, sin la devolución del gasóleo profesional), o que el umbral del 5 % se mide sobre el precio del transporte en lugar de sobre el precio del gasóleo."
+		},
+		{
+			"id": "x08",
+			"claim": "Valoraciones políticas o afirmaciones sobre la guerra de Irán o el conflicto en Oriente Medio que no estén en el texto, o presentar la medida como una subida de precios para los consumidores."
+		},
+		{
+			"id": "x09",
+			"claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación."
+		}
 	],
 	"ambiguities": [
 		"Art. 3.3: la cuantía por locomotora diésel figura como «15» euros, cifra incoherente con créditos de 3.150.000 €; no penalizar a la ficha que cite «15 euros» literalmente ni a la que diga que el importe se fija por locomotora sin dar cifra, pero sí a la que invente otra cantidad (p. ej. 15.000 €) como dato cierto.",

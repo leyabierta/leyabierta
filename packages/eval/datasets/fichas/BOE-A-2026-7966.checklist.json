@@ -1,40 +1,180 @@
 {
 	"norm_id": "BOE-A-2026-7966",
 	"title": "Ley Orgánica 1/2026, de 8 de abril, en materia de multirreincidencia, por la que se modifica la Ley Orgánica 10/1995, de 23 de noviembre, del Código Penal y la Ley de Enjuiciamiento Criminal, aprobada por Real Decreto de 14 de septiembre de 1882",
-	"modifies": [{ "norm_id": "BOE-A-1995-25444", "articles": ["22", "66", "80", "234", "235", "248", "250", "255", "568"] }, { "norm_id": "BOE-A-1882-6036", "articles": ["13", "105", "544 bis"] }],
+	"modifies": [
+		{
+			"norm_id": "BOE-A-1995-25444",
+			"articles": ["22", "66", "80", "234", "235", "248", "250", "255", "568"]
+		},
+		{ "norm_id": "BOE-A-1882-6036", "articles": ["13", "105", "544 bis"] }
+	],
 	"why_hard": "Ley modificadora de doce artículos de dos códigos donde el cambio suele ser una sola frase (quitar el requisito de 400 € acumulados, añadir «salvo lo dispuesto para los tipos agravados por multirreincidencia de delitos leves», «menos graves o graves»); la exposición de motivos no menciona el nuevo art. 255.3 y es fácil confundir qué antecedentes leves cuentan y cuáles no. El texto consolidado de la ley omite las redacciones citadas, que hay que tomar del Código Penal y la LECrim vigentes desde el 10 de abril de 2026.",
 	"facts": [
-		{ "id": "f01", "weight": "critical", "cite": "art. 234.2 CP (nueva redacción)", "claim": "El hurto de 400 euros o menos sin circunstancias del art. 235 (normalmente multa de uno a tres meses) se castiga con prisión de seis a dieciocho meses (pena del art. 234.1) si el autor tiene al menos tres condenas ejecutorias por delitos de la misma naturaleza de este título, siendo al menos uno de ellos leve." },
-		{ "id": "f02", "weight": "critical", "cite": "art. 234.2 CP (redacción anterior vs nueva)", "claim": "Desaparece el requisito de que la suma de lo sustraído en las infracciones anteriores supere 400 euros para aplicar esa agravación por multirreincidencia." },
-		{ "id": "f03", "weight": "important", "cite": "art. 234.2 CP", "claim": "No cuentan los antecedentes penales cancelados o que debieran estarlo." },
-		{ "id": "f04", "weight": "critical", "cite": "art. 235.1.10.º CP (nuevo)", "claim": "Nuevo hurto agravado (prisión de uno a tres años) cuando se sustraen teléfonos móviles, otros dispositivos móviles de comunicación o dispositivos de almacenamiento masivo de información digital susceptibles de contener datos personales (el requisito de los datos personales no se exige a los teléfonos móviles)." },
-		{ "id": "f05", "weight": "important", "cite": "art. 235.1.10.º CP", "claim": "No entran en esa agravante los dispositivos que estén a la venta, en almacén o en exposición en establecimientos comerciales." },
-		{ "id": "f06", "weight": "important", "cite": "art. 234.2 y 235.1 CP", "claim": "Como el art. 234.2 excluye la multa cuando concurre una circunstancia del art. 235, el hurto de un móvil u otro dispositivo de los del 235.1.10.º (salvo los que estén a la venta, en almacén o en exposición en comercios) se castiga con prisión de uno a tres años aunque valga 400 euros o menos." },
-		{ "id": "f07", "weight": "important", "cite": "art. 235.1.4.º CP (nueva redacción)", "claim": "El hurto agravado de productos agrarios o ganaderos o de sus medios de obtención en explotaciones agrícolas o ganaderas exige ahora que lo sustraído supere 400 euros, en lugar de que se cause un perjuicio grave a la explotación." },
-		{ "id": "f08", "weight": "important", "cite": "art. 235.1.7.º CP (nueva redacción)", "claim": "El hurto agravado del art. 235.1.7.º (prisión de uno a tres años por al menos tres condenas ejecutorias anteriores de la misma naturaleza del título) exige ahora que esas condenas sean por delitos menos graves o graves; los delitos leves no cuentan para este numeral." },
-		{ "id": "f09", "weight": "critical", "cite": "art. 248 CP, párrafo tercero (nueva redacción)", "claim": "La estafa de 400 euros o menos sin circunstancias del art. 250 (normalmente multa de uno a tres meses) se castiga con prisión de seis meses a tres años si el autor tiene al menos tres condenas ejecutorias por delitos de la misma naturaleza del mismo capítulo, siendo al menos uno leve." },
-		{ "id": "f10", "weight": "important", "cite": "art. 248 CP, párrafo tercero", "claim": "Novedad: la multa de la estafa de 400 euros o menos ya no se aplica si concurre alguna de las circunstancias del art. 250; en ese caso corresponde la pena de la estafa agravada del art. 250 (antes la multa se imponía siempre por debajo de 400 euros)." },
-		{ "id": "f11", "weight": "important", "cite": "art. 250.1.8.º CP (nueva redacción)", "claim": "La estafa agravada del art. 250.1.8.º (al menos tres condenas ejecutorias anteriores del mismo capítulo) exige ahora que sean por delitos menos graves o graves y de la misma naturaleza." },
-		{ "id": "f12", "weight": "important", "cite": "arts. 22.8.ª y 80.2.1.ª CP (nueva redacción); art. 66.2", "claim": "Las condenas por delitos leves siguen sin contar para la agravante de reincidencia ni para negar la suspensión de la pena, salvo cuando forman parte de un tipo agravado por multirreincidencia de delitos leves (y en esos tipos tampoco rige el libre arbitrio judicial para fijar la pena de los delitos leves, art. 66.2)." },
-		{ "id": "f13", "weight": "important", "cite": "art. 255.3 CP (nuevo)", "claim": "Defraudar electricidad (de cualquier cuantía) para abastecer instalaciones usadas para las conductas del art. 368 se castiga con prisión de seis a dieciocho meses o multa de doce a veinticuatro meses." },
-		{ "id": "f14", "weight": "important", "cite": "art. 568.2 CP (nuevo)", "claim": "Para las conductas del art. 568 (tenencia, depósito, transporte, suministro no autorizados, etc.) cuando la sustancia inflamable es un combustible líquido (el «petaqueo»), la pena es de tres a cinco años de prisión." },
-		{ "id": "f15", "weight": "minor", "cite": "art. 568.2 CP", "claim": "En ese caso los tribunales pueden imponer la pena inferior en grado para conductas de menor entidad." },
-		{ "id": "f16", "weight": "important", "cite": "arts. 13 y 544 bis LECrim (nueva redacción)", "claim": "Entre las primeras diligencias y las medidas cautelares (prohibición de residir o acudir a determinados lugares) se añade la finalidad de evitar la reiteración delictiva, además de proteger a la víctima." },
-		{ "id": "f17", "weight": "important", "cite": "art. 105.3 LECrim (nuevo)", "claim": "Las entidades locales (ayuntamientos) podrán ejercer la acción penal por los delitos de hurto." },
-		{ "id": "f18", "weight": "critical", "cite": "disposición transitoria", "claim": "No es retroactiva: los delitos cometidos antes de su entrada en vigor se juzgan con la ley anterior, salvo que la nueva sea más favorable para el reo." },
-		{ "id": "f19", "weight": "important", "cite": "DF 4.ª", "claim": "Entró en vigor el día siguiente a su publicación en el BOE (publicada el 9 de abril de 2026; en vigor el 10 de abril de 2026)." },
-		{ "id": "f20", "weight": "important", "cite": "DF 1.ª", "claim": "En un plazo máximo de dos años desde su publicación, cada Tribunal Superior de Justicia debe contar con al menos un juez de adscripción territorial por cada cien mil habitantes, cubiertos con nuevas promociones de la carrera judicial." },
-		{ "id": "f21", "weight": "minor", "cite": "DF 1.ª, ap. 3", "claim": "Se priorizan las comunidades autónomas cuya ratio de jueces esté más alejada de la media de la Unión Europea." },
-		{ "id": "f22", "weight": "minor", "cite": "DF 3.ª", "claim": "El nuevo art. 105.3 LECrim (acción penal de las entidades locales) y la DF 1.ª (planta judicial) tienen carácter de ley ordinaria." }
+		{
+			"id": "f01",
+			"weight": "critical",
+			"cite": "art. 234.2 CP (nueva redacción)",
+			"claim": "El hurto de 400 euros o menos sin circunstancias del art. 235 (normalmente multa de uno a tres meses) se castiga con prisión de seis a dieciocho meses (pena del art. 234.1) si el autor tiene al menos tres condenas ejecutorias por delitos de la misma naturaleza de este título, siendo al menos uno de ellos leve."
+		},
+		{
+			"id": "f02",
+			"weight": "critical",
+			"cite": "art. 234.2 CP (redacción anterior vs nueva)",
+			"claim": "Desaparece el requisito de que la suma de lo sustraído en las infracciones anteriores supere 400 euros para aplicar esa agravación por multirreincidencia."
+		},
+		{
+			"id": "f03",
+			"weight": "important",
+			"cite": "art. 234.2 CP",
+			"claim": "No cuentan los antecedentes penales cancelados o que debieran estarlo."
+		},
+		{
+			"id": "f04",
+			"weight": "critical",
+			"cite": "art. 235.1.10.º CP (nuevo)",
+			"claim": "Nuevo hurto agravado (prisión de uno a tres años) cuando se sustraen teléfonos móviles, otros dispositivos móviles de comunicación o dispositivos de almacenamiento masivo de información digital susceptibles de contener datos personales (el requisito de los datos personales no se exige a los teléfonos móviles)."
+		},
+		{
+			"id": "f05",
+			"weight": "important",
+			"cite": "art. 235.1.10.º CP",
+			"claim": "No entran en esa agravante los dispositivos que estén a la venta, en almacén o en exposición en establecimientos comerciales."
+		},
+		{
+			"id": "f06",
+			"weight": "important",
+			"cite": "art. 234.2 y 235.1 CP",
+			"claim": "Como el art. 234.2 excluye la multa cuando concurre una circunstancia del art. 235, el hurto de un móvil u otro dispositivo de los del 235.1.10.º (salvo los que estén a la venta, en almacén o en exposición en comercios) se castiga con prisión de uno a tres años aunque valga 400 euros o menos."
+		},
+		{
+			"id": "f07",
+			"weight": "important",
+			"cite": "art. 235.1.4.º CP (nueva redacción)",
+			"claim": "El hurto agravado de productos agrarios o ganaderos o de sus medios de obtención en explotaciones agrícolas o ganaderas exige ahora que lo sustraído supere 400 euros, en lugar de que se cause un perjuicio grave a la explotación."
+		},
+		{
+			"id": "f08",
+			"weight": "important",
+			"cite": "art. 235.1.7.º CP (nueva redacción)",
+			"claim": "El hurto agravado del art. 235.1.7.º (prisión de uno a tres años por al menos tres condenas ejecutorias anteriores de la misma naturaleza del título) exige ahora que esas condenas sean por delitos menos graves o graves; los delitos leves no cuentan para este numeral."
+		},
+		{
+			"id": "f09",
+			"weight": "critical",
+			"cite": "art. 248 CP, párrafo tercero (nueva redacción)",
+			"claim": "La estafa de 400 euros o menos sin circunstancias del art. 250 (normalmente multa de uno a tres meses) se castiga con prisión de seis meses a tres años si el autor tiene al menos tres condenas ejecutorias por delitos de la misma naturaleza del mismo capítulo, siendo al menos uno leve."
+		},
+		{
+			"id": "f10",
+			"weight": "important",
+			"cite": "art. 248 CP, párrafo tercero",
+			"claim": "Novedad: la multa de la estafa de 400 euros o menos ya no se aplica si concurre alguna de las circunstancias del art. 250; en ese caso corresponde la pena de la estafa agravada del art. 250 (antes la multa se imponía siempre por debajo de 400 euros)."
+		},
+		{
+			"id": "f11",
+			"weight": "important",
+			"cite": "art. 250.1.8.º CP (nueva redacción)",
+			"claim": "La estafa agravada del art. 250.1.8.º (al menos tres condenas ejecutorias anteriores del mismo capítulo) exige ahora que sean por delitos menos graves o graves y de la misma naturaleza."
+		},
+		{
+			"id": "f12",
+			"weight": "important",
+			"cite": "arts. 22.8.ª y 80.2.1.ª CP (nueva redacción); art. 66.2",
+			"claim": "Las condenas por delitos leves siguen sin contar para la agravante de reincidencia ni para negar la suspensión de la pena, salvo cuando forman parte de un tipo agravado por multirreincidencia de delitos leves (y en esos tipos tampoco rige el libre arbitrio judicial para fijar la pena de los delitos leves, art. 66.2)."
+		},
+		{
+			"id": "f13",
+			"weight": "important",
+			"cite": "art. 255.3 CP (nuevo)",
+			"claim": "Defraudar electricidad (de cualquier cuantía) para abastecer instalaciones usadas para las conductas del art. 368 se castiga con prisión de seis a dieciocho meses o multa de doce a veinticuatro meses."
+		},
+		{
+			"id": "f14",
+			"weight": "important",
+			"cite": "art. 568.2 CP (nuevo)",
+			"claim": "Para las conductas del art. 568 (tenencia, depósito, transporte, suministro no autorizados, etc.) cuando la sustancia inflamable es un combustible líquido (el «petaqueo»), la pena es de tres a cinco años de prisión."
+		},
+		{
+			"id": "f15",
+			"weight": "minor",
+			"cite": "art. 568.2 CP",
+			"claim": "En ese caso los tribunales pueden imponer la pena inferior en grado para conductas de menor entidad."
+		},
+		{
+			"id": "f16",
+			"weight": "important",
+			"cite": "arts. 13 y 544 bis LECrim (nueva redacción)",
+			"claim": "Entre las primeras diligencias y las medidas cautelares (prohibición de residir o acudir a determinados lugares) se añade la finalidad de evitar la reiteración delictiva, además de proteger a la víctima."
+		},
+		{
+			"id": "f17",
+			"weight": "important",
+			"cite": "art. 105.3 LECrim (nuevo)",
+			"claim": "Las entidades locales (ayuntamientos) podrán ejercer la acción penal por los delitos de hurto."
+		},
+		{
+			"id": "f18",
+			"weight": "critical",
+			"cite": "disposición transitoria",
+			"claim": "No es retroactiva: los delitos cometidos antes de su entrada en vigor se juzgan con la ley anterior, salvo que la nueva sea más favorable para el reo."
+		},
+		{
+			"id": "f19",
+			"weight": "important",
+			"cite": "DF 4.ª",
+			"claim": "Entró en vigor el día siguiente a su publicación en el BOE (publicada el 9 de abril de 2026; en vigor el 10 de abril de 2026)."
+		},
+		{
+			"id": "f20",
+			"weight": "important",
+			"cite": "DF 1.ª",
+			"claim": "En un plazo máximo de dos años desde su publicación, cada Tribunal Superior de Justicia debe contar con al menos un juez de adscripción territorial por cada cien mil habitantes, cubiertos con nuevas promociones de la carrera judicial."
+		},
+		{
+			"id": "f21",
+			"weight": "minor",
+			"cite": "DF 1.ª, ap. 3",
+			"claim": "Se priorizan las comunidades autónomas cuya ratio de jueces esté más alejada de la media de la Unión Europea."
+		},
+		{
+			"id": "f22",
+			"weight": "minor",
+			"cite": "DF 3.ª",
+			"claim": "El nuevo art. 105.3 LECrim (acción penal de las entidades locales) y la DF 1.ª (planta judicial) tienen carácter de ley ordinaria."
+		}
 	],
 	"must_not": [
-		{ "id": "x01", "claim": "Afirmar que sigue haciendo falta que lo sustraído en los hurtos anteriores sume más de 400 euros para la agravación por multirreincidencia." },
-		{ "id": "x02", "claim": "Afirmar que cualquier hurto o robo de móvil, incluido el de tiendas o almacenes, entra en la nueva agravante." },
-		{ "id": "x03", "claim": "Afirmar que los antecedentes por delitos leves cuentan ahora en general para la reincidencia o para denegar la suspensión de la pena." },
-		{ "id": "x04", "claim": "Afirmar que la ley se aplica a hechos anteriores a su entrada en vigor cuando sea más desfavorable para el acusado." },
-		{ "id": "x05", "claim": "Afirmar que los ayuntamientos pueden ejercer la acción penal por cualquier delito, y no solo por hurto." },
-		{ "id": "x06", "claim": "Atribuir al petaqueo la pena de cuatro a ocho años de los promotores del art. 568.1, o presentarlo como un delito nuevo sin relación con el art. 568." },
-		{ "id": "x07", "claim": "Afirmar que la reforma eleva la pena general de la estafa (sigue siendo de seis meses a tres años) o la del hurto básico (sigue siendo de seis a dieciocho meses)." },
-		{ "id": "x08", "claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto." }
+		{
+			"id": "x01",
+			"claim": "Afirmar que sigue haciendo falta que lo sustraído en los hurtos anteriores sume más de 400 euros para la agravación por multirreincidencia."
+		},
+		{
+			"id": "x02",
+			"claim": "Afirmar que cualquier hurto o robo de móvil, incluido el de tiendas o almacenes, entra en la nueva agravante."
+		},
+		{
+			"id": "x03",
+			"claim": "Afirmar que los antecedentes por delitos leves cuentan ahora en general para la reincidencia o para denegar la suspensión de la pena."
+		},
+		{
+			"id": "x04",
+			"claim": "Afirmar que la ley se aplica a hechos anteriores a su entrada en vigor cuando sea más desfavorable para el acusado."
+		},
+		{
+			"id": "x05",
+			"claim": "Afirmar que los ayuntamientos pueden ejercer la acción penal por cualquier delito, y no solo por hurto."
+		},
+		{
+			"id": "x06",
+			"claim": "Atribuir al petaqueo la pena de cuatro a ocho años de los promotores del art. 568.1, o presentarlo como un delito nuevo sin relación con el art. 568."
+		},
+		{
+			"id": "x07",
+			"claim": "Afirmar que la reforma eleva la pena general de la estafa (sigue siendo de seis meses a tres años) o la del hurto básico (sigue siendo de seis a dieciocho meses)."
+		},
+		{
+			"id": "x08",
+			"claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto."
+		}
 	]
 }

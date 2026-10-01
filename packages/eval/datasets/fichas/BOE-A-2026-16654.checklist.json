@@ -3,42 +3,179 @@
 	"title": "Ley 3/2026, de 29 de julio, de modificación de normas sobre el programa de cribado neonatal del Sistema Nacional de Salud y de otra normativa",
 	"modifies": [
 		{ "norm_id": "BOE-A-2003-10715", "articles": ["21"] },
-		{ "norm_id": "BOE-A-2006-16212", "articles": ["anexo I, apartado 3.3.1 (últimos párrafos)"] },
+		{
+			"norm_id": "BOE-A-2006-16212",
+			"articles": ["anexo I, apartado 3.3.1 (últimos párrafos)"]
+		},
 		{ "norm_id": "BOE-A-2015-8343", "articles": ["97", "106.1"] }
 	],
 	"why_hard": "El título y el preámbulo hablan de la prueba del talón, pero el artículo tercero («y de otra normativa») cambia la transparencia y la confidencialidad de los precios y la financiación de medicamentos, que el preámbulo solo anuncia sin describir. Además la ley no añade ninguna enfermedad al cribado (obliga a evaluar el programa al menos una vez al año) y el preámbulo cita cifras de contexto (21, 43, 7.000) que es fácil presentar como novedades.",
 	"facts": [
-		{ "id": "f01", "weight": "critical", "cite": "art. 1 (nuevo apartado «Cinco» del art. 21 Ley 16/2003)", "claim": "El Ministerio de Sanidad, en coordinación con las comunidades autónomas, debe garantizar la evaluación periódica del programa de cribado neonatal de la prueba del talón de la cartera común." },
-		{ "id": "f02", "weight": "critical", "cite": "art. 1 (nuevo apartado del art. 21 Ley 16/2003)", "claim": "La evaluación la hace la Ponencia de Cribado Poblacional (de la Comisión de Salud Pública) como mínimo una vez al año, y de ella sale una actualización anual de los programas de cribado poblacional tras su aprobación por la Comisión de Salud Pública, la Comisión de Prestaciones, Aseguramiento y Financiación y, definitivamente, el CISNS." },
-		{ "id": "f03", "weight": "critical", "cite": "art. 1 (nuevo apartado del art. 21 Ley 16/2003)", "claim": "Las evaluaciones pueden servir para ampliar la lista de enfermedades de la cartera común, pero la revisión nunca puede eliminar cribados ya implantados, salvo que cambien las evidencias en los criterios de evaluación." },
-		{ "id": "f04", "weight": "important", "cite": "art. 1 (nuevo apartado del art. 21 Ley 16/2003)", "claim": "Se definirán el procedimiento, los criterios y los requisitos de evaluación, y la participación de sociedades científicas, expertos externos y asociaciones de pacientes y familiares." },
-		{ "id": "f05", "weight": "important", "cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)", "claim": "La ley no cambia la lista de enfermedades cribadas: solo modifica los últimos párrafos del apartado 3.3.1, no la enumeración." },
-		{ "id": "f06", "weight": "important", "cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)", "claim": "Donde antes se preveía desarrollar un sistema de información, ahora el Ministerio de Sanidad debe revisar y actualizar el actual Sistema de Información del Programa de Cribado Neonatal para el seguimiento, la evaluación y la coordinación estatal y autonómica." },
-		{ "id": "f07", "weight": "important", "cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)", "claim": "Los protocolos consensuados en el CISNS deben hacer homogéneo el cribado en todas las comunidades y en Ceuta y Melilla también en tiempos, acceso y confirmación de las pruebas (novedad respecto a la redacción anterior)." },
-		{ "id": "f08", "weight": "minor", "cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)", "claim": "Se mantiene el informe técnico anual de evaluación del programa, publicado en la web del Ministerio de Sanidad." },
-		{ "id": "f09", "weight": "important", "cite": "DA 1.ª", "claim": "El Gobierno tiene 12 meses desde la entrada en vigor para actualizar el Documento Marco de Cribado Poblacional, en el marco del CISNS, con el procedimiento, criterios y requisitos de evaluación y los mecanismos de participación." },
-		{ "id": "f10", "weight": "minor", "cite": "DA 2.ª", "claim": "El Gobierno debe mejorar la formación de los profesionales sanitarios en enfermedades raras y diagnóstico relacionados con el cribado neonatal, conforme al título II de la Ley 44/2003." },
-		{ "id": "f11", "weight": "minor", "cite": "DF 1.ª", "claim": "La financiación del programa de cribado neonatal debe ser suficiente y se fijará cada año en los Presupuestos Generales del Estado." },
-		{ "id": "f12", "weight": "minor", "cite": "preámbulo II", "claim": "Las comunidades autónomas pueden seguir añadiendo a sus carteras cribados neonatales adicionales no incluidos en la cartera común." },
-		{ "id": "f13", "weight": "critical", "cite": "art. 3 (art. 97 y 106.1 Ley de garantías)", "claim": "La ley modifica también el texto refundido de la Ley de garantías y uso racional de los medicamentos (arts. 97 y 106.1): información económica, confidencialidad y transparencia de la financiación y los precios de medicamentos y productos sanitarios, y datos de consumo y precio real de adquisición." },
-		{ "id": "f14", "weight": "important", "cite": "art. 97.1 Ley de garantías (nueva redacción)", "claim": "La obligación de dar al Ministerio de Sanidad la información técnica, económica y financiera para fijar precios pasa de los «laboratorios farmacéuticos» a las «compañías comercializadoras»." },
-		{ "id": "f15", "weight": "important", "cite": "art. 97.1 Ley de garantías (nueva redacción)", "claim": "Nuevo: las compañías deben comunicar al Ministerio cualquier ayuda financiera, directa o de otro tipo, de Administraciones públicas y sus entidades dependientes o de entidades filantrópicas o sin ánimo de lucro, recibida para desarrollar su medicamento o producto sanitario, y todo el apoyo financiero público directo a la investigación de antimicrobianos o antivirales de reserva o de cualquier otro medicamento que pueda tener carácter estratégico." },
-		{ "id": "f16", "weight": "important", "cite": "art. 97.3 Ley de garantías (nueva redacción)", "claim": "Nuevo: los acuerdos de financiación, la información derivada de ellos y los precios de adjudicación de los contratos públicos de suministro de medicamentos son confidenciales y no pueden revelarlos ni la Administración General del Estado ni las empresas u otras entidades que sean parte en esos acuerdos." },
-		{ "id": "f17", "weight": "minor", "cite": "art. 97.3 Ley de garantías (nueva redacción)", "claim": "Esa confidencialidad se entiende sin perjuicio del art. 106 y del acceso que, en su caso, requieran las autoridades de competencia, supervisoras del mercado u otras actividades inspectoras, y las unidades administrativas de los órganos colegiados de decisión farmacéutica y sanitaria." },
-		{ "id": "f18", "weight": "important", "cite": "art. 97.4 Ley de garantías (nuevo)", "claim": "Nuevo: el Ministerio de Sanidad publicará información accesible sobre la financiación de cada producto e información agregada sobre el gasto en medicamentos y productos sanitarios, en formatos abiertos y reutilizables y con periodicidad suficiente." },
-		{ "id": "f19", "weight": "important", "cite": "art. 106.1 Ley de garantías (nueva redacción)", "claim": "Las Administraciones deben facilitar también datos de consumo de productos sanitarios (antes solo medicamentos) y el precio real de adquisición." },
-		{ "id": "f20", "weight": "minor", "cite": "art. 106.1 Ley de garantías (nueva redacción)", "claim": "Las comunidades autónomas envían esa información al menos cada mes al Ministerio de Sanidad y, ahora también, al Ministerio de Hacienda, por vía telemática con el canal y la estructura que fije un reglamento." },
-		{ "id": "f21", "weight": "important", "cite": "DF 4.ª", "claim": "Entra en vigor al día siguiente de su publicación en el BOE. (La fecha de publicación, 31 de julio de 2026, viene de los metadatos del BOE que recibe el redactor; el 1 de agosto de 2026 es correcto, pero no es obligatorio dar la fecha de calendario.)" },
-		{ "id": "f22", "weight": "minor", "cite": "DF 3.ª.2", "claim": "Los preceptos del RD 1030/2006 modificados mantienen rango de real decreto y pueden cambiarse por otro real decreto." }
+		{
+			"id": "f01",
+			"weight": "critical",
+			"cite": "art. 1 (nuevo apartado «Cinco» del art. 21 Ley 16/2003)",
+			"claim": "El Ministerio de Sanidad, en coordinación con las comunidades autónomas, debe garantizar la evaluación periódica del programa de cribado neonatal de la prueba del talón de la cartera común."
+		},
+		{
+			"id": "f02",
+			"weight": "critical",
+			"cite": "art. 1 (nuevo apartado del art. 21 Ley 16/2003)",
+			"claim": "La evaluación la hace la Ponencia de Cribado Poblacional (de la Comisión de Salud Pública) como mínimo una vez al año, y de ella sale una actualización anual de los programas de cribado poblacional tras su aprobación por la Comisión de Salud Pública, la Comisión de Prestaciones, Aseguramiento y Financiación y, definitivamente, el CISNS."
+		},
+		{
+			"id": "f03",
+			"weight": "critical",
+			"cite": "art. 1 (nuevo apartado del art. 21 Ley 16/2003)",
+			"claim": "Las evaluaciones pueden servir para ampliar la lista de enfermedades de la cartera común, pero la revisión nunca puede eliminar cribados ya implantados, salvo que cambien las evidencias en los criterios de evaluación."
+		},
+		{
+			"id": "f04",
+			"weight": "important",
+			"cite": "art. 1 (nuevo apartado del art. 21 Ley 16/2003)",
+			"claim": "Se definirán el procedimiento, los criterios y los requisitos de evaluación, y la participación de sociedades científicas, expertos externos y asociaciones de pacientes y familiares."
+		},
+		{
+			"id": "f05",
+			"weight": "important",
+			"cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)",
+			"claim": "La ley no cambia la lista de enfermedades cribadas: solo modifica los últimos párrafos del apartado 3.3.1, no la enumeración."
+		},
+		{
+			"id": "f06",
+			"weight": "important",
+			"cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)",
+			"claim": "Donde antes se preveía desarrollar un sistema de información, ahora el Ministerio de Sanidad debe revisar y actualizar el actual Sistema de Información del Programa de Cribado Neonatal para el seguimiento, la evaluación y la coordinación estatal y autonómica."
+		},
+		{
+			"id": "f07",
+			"weight": "important",
+			"cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)",
+			"claim": "Los protocolos consensuados en el CISNS deben hacer homogéneo el cribado en todas las comunidades y en Ceuta y Melilla también en tiempos, acceso y confirmación de las pruebas (novedad respecto a la redacción anterior)."
+		},
+		{
+			"id": "f08",
+			"weight": "minor",
+			"cite": "art. 2 (anexo I, ap. 3.3.1 RD 1030/2006)",
+			"claim": "Se mantiene el informe técnico anual de evaluación del programa, publicado en la web del Ministerio de Sanidad."
+		},
+		{
+			"id": "f09",
+			"weight": "important",
+			"cite": "DA 1.ª",
+			"claim": "El Gobierno tiene 12 meses desde la entrada en vigor para actualizar el Documento Marco de Cribado Poblacional, en el marco del CISNS, con el procedimiento, criterios y requisitos de evaluación y los mecanismos de participación."
+		},
+		{
+			"id": "f10",
+			"weight": "minor",
+			"cite": "DA 2.ª",
+			"claim": "El Gobierno debe mejorar la formación de los profesionales sanitarios en enfermedades raras y diagnóstico relacionados con el cribado neonatal, conforme al título II de la Ley 44/2003."
+		},
+		{
+			"id": "f11",
+			"weight": "minor",
+			"cite": "DF 1.ª",
+			"claim": "La financiación del programa de cribado neonatal debe ser suficiente y se fijará cada año en los Presupuestos Generales del Estado."
+		},
+		{
+			"id": "f12",
+			"weight": "minor",
+			"cite": "preámbulo II",
+			"claim": "Las comunidades autónomas pueden seguir añadiendo a sus carteras cribados neonatales adicionales no incluidos en la cartera común."
+		},
+		{
+			"id": "f13",
+			"weight": "critical",
+			"cite": "art. 3 (art. 97 y 106.1 Ley de garantías)",
+			"claim": "La ley modifica también el texto refundido de la Ley de garantías y uso racional de los medicamentos (arts. 97 y 106.1): información económica, confidencialidad y transparencia de la financiación y los precios de medicamentos y productos sanitarios, y datos de consumo y precio real de adquisición."
+		},
+		{
+			"id": "f14",
+			"weight": "important",
+			"cite": "art. 97.1 Ley de garantías (nueva redacción)",
+			"claim": "La obligación de dar al Ministerio de Sanidad la información técnica, económica y financiera para fijar precios pasa de los «laboratorios farmacéuticos» a las «compañías comercializadoras»."
+		},
+		{
+			"id": "f15",
+			"weight": "important",
+			"cite": "art. 97.1 Ley de garantías (nueva redacción)",
+			"claim": "Nuevo: las compañías deben comunicar al Ministerio cualquier ayuda financiera, directa o de otro tipo, de Administraciones públicas y sus entidades dependientes o de entidades filantrópicas o sin ánimo de lucro, recibida para desarrollar su medicamento o producto sanitario, y todo el apoyo financiero público directo a la investigación de antimicrobianos o antivirales de reserva o de cualquier otro medicamento que pueda tener carácter estratégico."
+		},
+		{
+			"id": "f16",
+			"weight": "important",
+			"cite": "art. 97.3 Ley de garantías (nueva redacción)",
+			"claim": "Nuevo: los acuerdos de financiación, la información derivada de ellos y los precios de adjudicación de los contratos públicos de suministro de medicamentos son confidenciales y no pueden revelarlos ni la Administración General del Estado ni las empresas u otras entidades que sean parte en esos acuerdos."
+		},
+		{
+			"id": "f17",
+			"weight": "minor",
+			"cite": "art. 97.3 Ley de garantías (nueva redacción)",
+			"claim": "Esa confidencialidad se entiende sin perjuicio del art. 106 y del acceso que, en su caso, requieran las autoridades de competencia, supervisoras del mercado u otras actividades inspectoras, y las unidades administrativas de los órganos colegiados de decisión farmacéutica y sanitaria."
+		},
+		{
+			"id": "f18",
+			"weight": "important",
+			"cite": "art. 97.4 Ley de garantías (nuevo)",
+			"claim": "Nuevo: el Ministerio de Sanidad publicará información accesible sobre la financiación de cada producto e información agregada sobre el gasto en medicamentos y productos sanitarios, en formatos abiertos y reutilizables y con periodicidad suficiente."
+		},
+		{
+			"id": "f19",
+			"weight": "important",
+			"cite": "art. 106.1 Ley de garantías (nueva redacción)",
+			"claim": "Las Administraciones deben facilitar también datos de consumo de productos sanitarios (antes solo medicamentos) y el precio real de adquisición."
+		},
+		{
+			"id": "f20",
+			"weight": "minor",
+			"cite": "art. 106.1 Ley de garantías (nueva redacción)",
+			"claim": "Las comunidades autónomas envían esa información al menos cada mes al Ministerio de Sanidad y, ahora también, al Ministerio de Hacienda, por vía telemática con el canal y la estructura que fije un reglamento."
+		},
+		{
+			"id": "f21",
+			"weight": "important",
+			"cite": "DF 4.ª",
+			"claim": "Entra en vigor al día siguiente de su publicación en el BOE. (La fecha de publicación, 31 de julio de 2026, viene de los metadatos del BOE que recibe el redactor; el 1 de agosto de 2026 es correcto, pero no es obligatorio dar la fecha de calendario.)"
+		},
+		{
+			"id": "f22",
+			"weight": "minor",
+			"cite": "DF 3.ª.2",
+			"claim": "Los preceptos del RD 1030/2006 modificados mantienen rango de real decreto y pueden cambiarse por otro real decreto."
+		}
 	],
 	"must_not": [
-		{ "id": "x01", "claim": "Afirmar que la ley añade enfermedades concretas a la prueba del talón o nombrar enfermedades nuevas que se criban." },
-		{ "id": "x02", "claim": "Presentar las cifras del preámbulo (21 enfermedades en la cartera común, hasta 43 en algunas comunidades, más de 7.000 enfermedades raras) como cambios que introduce la ley, o afirmar que unifica el cribado en 43 enfermedades." },
-		{ "id": "x03", "claim": "Omitir los cambios sobre medicamentos (arts. 97 y 106.1 de la Ley de garantías) o resumir la ley solo como una ley de cribado neonatal." },
-		{ "id": "x04", "claim": "Afirmar que la ley hace públicos los precios de adjudicación o los acuerdos de financiación de medicamentos (los declara confidenciales; se publica la financiación de cada producto y el gasto agregado, art. 97.4, y, por el art. 106.1, la información de consumo y precio real una vez agregada y depurada)." },
-		{ "id": "x05", "claim": "Afirmar que las evaluaciones anuales pueden eliminar libremente cribados ya implantados, o al revés, que nunca pueden eliminarse en ningún caso." },
-		{ "id": "x06", "claim": "Afirmar que la ley quita a las comunidades autónomas la posibilidad de cribar enfermedades adicionales." },
-		{ "id": "x07", "claim": "Confundir el plazo de 12 meses (actualizar el Documento Marco) con un plazo para incorporar nuevas enfermedades o para la primera evaluación." },
-		{ "id": "x08", "claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación." }
+		{
+			"id": "x01",
+			"claim": "Afirmar que la ley añade enfermedades concretas a la prueba del talón o nombrar enfermedades nuevas que se criban."
+		},
+		{
+			"id": "x02",
+			"claim": "Presentar las cifras del preámbulo (21 enfermedades en la cartera común, hasta 43 en algunas comunidades, más de 7.000 enfermedades raras) como cambios que introduce la ley, o afirmar que unifica el cribado en 43 enfermedades."
+		},
+		{
+			"id": "x03",
+			"claim": "Omitir los cambios sobre medicamentos (arts. 97 y 106.1 de la Ley de garantías) o resumir la ley solo como una ley de cribado neonatal."
+		},
+		{
+			"id": "x04",
+			"claim": "Afirmar que la ley hace públicos los precios de adjudicación o los acuerdos de financiación de medicamentos (los declara confidenciales; se publica la financiación de cada producto y el gasto agregado, art. 97.4, y, por el art. 106.1, la información de consumo y precio real una vez agregada y depurada)."
+		},
+		{
+			"id": "x05",
+			"claim": "Afirmar que las evaluaciones anuales pueden eliminar libremente cribados ya implantados, o al revés, que nunca pueden eliminarse en ningún caso."
+		},
+		{
+			"id": "x06",
+			"claim": "Afirmar que la ley quita a las comunidades autónomas la posibilidad de cribar enfermedades adicionales."
+		},
+		{
+			"id": "x07",
+			"claim": "Confundir el plazo de 12 meses (actualizar el Documento Marco) con un plazo para incorporar nuevas enfermedades o para la primera evaluación."
+		},
+		{
+			"id": "x08",
+			"claim": "Cualquier cifra, plazo o fecha que no aparezca en el texto ni se derive directamente de él y de la fecha de publicación."
+		}
 	]
 }
