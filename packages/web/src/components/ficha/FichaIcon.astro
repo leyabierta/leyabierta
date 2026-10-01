@@ -1,0 +1,45 @@
+---
+/** Stroke icons of the ficha (decorative: always aria-hidden). */
+interface Props {
+	name: "casa" | "llave" | "persona" | "check";
+	size?: number;
+}
+const { name, size = name === "check" ? 20 : 28 } = Astro.props;
+const strokeWidth = name === "check" ? 2 : 1.6;
+---
+
+<svg
+	class={`ficha-icon ficha-icon-${name}`}
+	width={size}
+	height={size}
+	viewBox="0 0 24 24"
+	fill="none"
+	stroke="currentColor"
+	stroke-width={strokeWidth}
+	stroke-linecap="round"
+	stroke-linejoin="round"
+	aria-hidden="true"
+	focusable="false"
+>
+	{name === "casa" && (
+		<>
+			<path d="M3 11l9-7 9 7" />
+			<path d="M5 10v10h14V10" />
+			<path d="M10 20v-6h4v6" />
+		</>
+	)}
+	{name === "llave" && (
+		<>
+			<circle cx="8" cy="15" r="4" />
+			<path d="M11 12l9-9" />
+			<path d="M17 6l3 3" />
+		</>
+	)}
+	{name === "persona" && (
+		<>
+			<circle cx="12" cy="8" r="4" />
+			<path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+		</>
+	)}
+	{name === "check" && <path d="M5 12l5 5 9-10" />}
+</svg>

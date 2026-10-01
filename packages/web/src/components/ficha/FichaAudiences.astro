@@ -1,0 +1,67 @@
+---
+/**
+ * "Qué significa para ti": one block per audience ("Si vives de alquiler",
+ * "Si alquilas tu vivienda"). A plain list becomes a checklist; an item with a
+ * sublist (the exceptions) becomes a box with lettered entries a), b)…, which
+ * the rest of the text refers to by letter.
+ */
+import type { FichaSection } from "../../lib/fichas.ts";
+import FichaIcon from "./FichaIcon.astro";
+
+interface Props {
+	section: Extract<FichaSection, { kind: "audiences" }>;
+}
+const { section } = Astro.props;
+const letter = (i: number) => String.fromCharCode(97 + i);
+---
+
+<div class="ficha-grid ficha-grid-2 ficha-audiences">
+	{section.groups.map((g) => {
+		const checklist = g.items.every((it) => it.subitems.length === 0);
+		return (
+			<div class="ficha-audience">
+				<div class="ficha-audience-head">
+					<FichaIcon name={g.icon} />
+					<h4 class="ficha-audience-title">{g.title}</h4>
+				</div>
+				{checklist ? (
+					<ul class="ficha-checks">
+						{g.items.map((it) => (
+							<li>
+								<FichaIcon name="check" />
+								<span>
+									{it.title && <strong>{it.title}. </strong>}
+									<Fragment set:html={it.html} />
+								</span>
+							</li>
+						))}
+					</ul>
+				) : (
+					g.items.map((it) =>
+						it.subitems.length > 0 ? (
+							<div class="ficha-exceptions">
+								<p class="ficha-exceptions-lead">
+									{it.title && <>{it.title}. </>}
+									<Fragment set:html={it.html} />
+								</p>
+								<ol>
+									{it.subitems.map((sub, i) => (
+										<li>
+											<span class="ficha-letter">{letter(i)}<span class="sr-only">)</span></span>
+											<span set:html={sub} />
+										</li>
+									))}
+								</ol>
+							</div>
+						) : (
+							<p>
+								{it.title && <strong>{it.title}. </strong>}
+								<Fragment set:html={it.html} />
+							</p>
+						),
+					)
+				)}
+			</div>
+		);
+	})}
+</div>

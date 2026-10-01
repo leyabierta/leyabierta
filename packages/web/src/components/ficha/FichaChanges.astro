@@ -1,0 +1,47 @@
+---
+/**
+ * "Qué cambia": a real table (row headers, column headers, caption) laid out
+ * as a grid on wide screens and as one card per row on narrow ones. The last
+ * column is the new rule ("Ahora") and is highlighted. Each cell repeats its
+ * column name as a small label (hidden from screen readers, which already
+ * announce the column header).
+ */
+import type { FichaSection } from "../../lib/fichas.ts";
+
+interface Props {
+	section: Extract<FichaSection, { kind: "changes" }>;
+}
+const { section } = Astro.props;
+const last = section.columns.length - 1;
+---
+
+<div class="ficha-card ficha-changes">
+	<table class="ficha-table">
+		<caption class="sr-only">{section.title}</caption>
+		<thead>
+			<tr>
+				<th scope="col" class="ficha-kicker">
+					<span aria-hidden="true">Tema</span>
+					<span class="sr-only">{section.corner}</span>
+				</th>
+				{section.columns.map((c, i) => (
+					<th scope="col" class:list={["ficha-kicker", i === last && "ficha-new"]} set:html={c} />
+				))}
+			</tr>
+		</thead>
+		<tbody>
+			{section.rows.map((r) => (
+				<tr>
+					<th scope="row" set:html={r.topic} />
+					{r.cells.map((cell, i) => (
+						<td class:list={[i === last ? "ficha-new" : "ficha-old"]}>
+							<span class="ficha-cell-label ficha-kicker" aria-hidden="true" set:html={section.columns[i]} />
+							<span set:html={cell} />
+						</td>
+					))}
+				</tr>
+			))}
+		</tbody>
+	</table>
+</div>
+{section.notes.map((n) => <p class="ficha-source" set:html={n} />)}

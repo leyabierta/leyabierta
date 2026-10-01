@@ -1,0 +1,622 @@
+/*
+ * Citizen ficha (components/ficha/). Everything is scoped under .ficha and
+ * uses the site tokens of layouts/Base.astro (light and dark). The layout
+ * follows the width of the ficha itself (container queries), not the window.
+ * No shadows, gradients or coloured left borders (DESIGN.md).
+ */
+
+.ficha {
+	container-type: inline-size;
+	display: flex;
+	flex-direction: column;
+	gap: 3.5rem;
+	margin: 0 0 3rem;
+	color: var(--text);
+}
+
+/* Resets weigh one class, so component classes declared later (e.g. the
+   timeline padding) override them. */
+.ficha :where(p) {
+	margin: 0;
+}
+.ficha :where(ul, ol) {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.ficha a {
+	color: var(--accent);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.ficha a:hover {
+	color: var(--text);
+}
+
+/* ── Shared pieces ── */
+.ficha-kicker {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	font-weight: 400;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+}
+/* Legal references ("art. 10.1"): secondary text, never mistaken for a link. */
+.ficha-ref {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	color: var(--text-muted);
+	white-space: nowrap;
+	margin-left: 0.25rem;
+}
+.ficha-card {
+	background: var(--surface);
+	border: 1px solid var(--border-light);
+	border-radius: 12px;
+}
+.ficha-grid {
+	display: grid;
+	gap: 1rem;
+}
+.ficha-grid-2 {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ficha-grid-3 {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ficha-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+	min-width: 0;
+}
+.ficha-secondary {
+	font-size: 0.9375rem;
+	line-height: 1.6;
+	color: var(--text-secondary);
+}
+
+/* Badges: blue = done, green = in force, amber = pending / open question. */
+.ficha-badge {
+	display: inline-block;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	line-height: 1.4;
+	padding: 0.3125rem 0.75rem;
+	border-radius: 4px;
+}
+.ficha-badge-sm {
+	flex: none;
+	font-size: 0.75rem;
+	padding: 0.1875rem 0.5rem;
+}
+.ficha-badge.ficha-tone-hecho {
+	background: var(--accent-bg);
+	color: var(--accent);
+}
+.ficha-badge.ficha-tone-vigente {
+	background: var(--success-bg);
+	color: var(--success);
+}
+.ficha-badge.ficha-tone-pendiente {
+	background: var(--caution-bg);
+	color: var(--caution-text);
+}
+
+/* ── Header ── */
+.ficha-header {
+	background: var(--surface);
+	border: 1px solid var(--border-light);
+	border-radius: 12px;
+	padding: 2rem 2rem 1.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+.ficha-titular {
+	font-family: var(--font-serif);
+	font-size: 2.25rem;
+	font-weight: 700;
+	line-height: 1.15;
+	letter-spacing: -0.01em;
+	text-wrap: balance;
+	margin: 0;
+}
+.ficha-subtitulo {
+	font-size: 1.0625rem;
+	color: var(--text-secondary);
+}
+.ficha-id {
+	margin-left: 0.5rem;
+	white-space: nowrap;
+}
+.ficha-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.ficha-toc {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 1.5rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--border-light);
+	font-size: 0.875rem;
+}
+.ficha-toc ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.5rem;
+}
+
+/* ── Key figures ── */
+.ficha-cifras {
+	margin-top: -1.5rem; /* closer to the header than the other sections */
+}
+.ficha-cifra {
+	padding: 1.25rem 1.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.ficha-cifra-valor {
+	font-family: var(--font-serif);
+	font-size: 2.75rem;
+	font-weight: 700;
+	line-height: 1.1;
+	color: var(--accent);
+}
+.ficha-cifra-texto {
+	font-size: 0.9375rem;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+/* ── Sections ── */
+.ficha-section {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+	scroll-margin-top: 1.5rem;
+}
+.ficha-section > .ficha-kicker {
+	margin-bottom: -0.75rem;
+}
+.ficha-h3 {
+	font-family: var(--font-serif);
+	font-size: 1.75rem;
+	font-weight: 700;
+	line-height: 1.2;
+	margin: 0;
+}
+.ficha-h4 {
+	font-family: var(--font-serif);
+	font-size: 1.1875rem;
+	font-weight: 600;
+	line-height: 1.3;
+	margin: 0;
+}
+.ficha-h4-sm {
+	font-size: 1.0625rem;
+}
+
+/* "En 30 segundos": numbered cards. */
+.ficha-numbered {
+	padding: 1.5rem;
+	display: flex;
+	gap: 1rem;
+}
+.ficha-number {
+	flex: none;
+	width: 2.25rem;
+	height: 2.25rem;
+	border-radius: 9999px;
+	background: var(--accent-bg);
+	color: var(--accent);
+	font-family: var(--font-serif);
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* "Qué cambia": a table laid out as a grid. */
+.ficha-changes {
+	overflow: hidden;
+}
+.ficha-table {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+	font-size: 0.9375rem;
+	line-height: 1.55;
+}
+.ficha-table th,
+.ficha-table td {
+	text-align: left;
+	vertical-align: top;
+	padding: 1.125rem 1.25rem;
+	border-bottom: 1px solid var(--border-light);
+}
+.ficha-table tbody tr:last-child > * {
+	border-bottom: none;
+}
+.ficha-table thead th {
+	padding-top: 0.75rem;
+	padding-bottom: 0.75rem;
+	background: var(--bg);
+}
+.ficha-table thead th:first-child {
+	width: 12.5rem;
+}
+.ficha-table thead th.ficha-new {
+	color: var(--accent);
+	background: var(--accent-faint);
+}
+.ficha-table tbody th {
+	font-family: var(--font-serif);
+	font-size: 1rem;
+	font-weight: 600;
+	line-height: 1.35;
+	color: var(--text);
+}
+.ficha-table td.ficha-old {
+	color: var(--text-secondary);
+}
+.ficha-table td.ficha-new {
+	background: var(--accent-faint);
+	color: var(--text);
+}
+.ficha-cell-label {
+	display: block;
+	margin-bottom: 0.125rem;
+}
+.ficha-new .ficha-cell-label {
+	color: var(--accent);
+}
+.ficha-source {
+	font-size: 0.8125rem;
+	color: var(--text-muted);
+}
+
+/* "Qué significa para ti": cream blocks per audience. */
+.ficha-audiences {
+	align-items: start;
+}
+.ficha-audience {
+	background: var(--crema-bg);
+	border: 1px solid var(--crema-border);
+	border-radius: 12px;
+	padding: 1.75rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	font-size: 0.9375rem;
+	line-height: 1.6;
+}
+.ficha-audience-head {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+.ficha-audience-head .ficha-icon {
+	flex: none;
+	color: var(--text);
+}
+.ficha-audience-title {
+	font-family: var(--font-serif);
+	font-size: 1.375rem;
+	font-weight: 700;
+	line-height: 1.25;
+	margin: 0;
+}
+.ficha-checks {
+	display: flex;
+	flex-direction: column;
+	gap: 0.875rem;
+}
+.ficha-checks li {
+	display: grid;
+	grid-template-columns: 1.25rem minmax(0, 1fr);
+	gap: 0.625rem;
+}
+.ficha-checks .ficha-icon {
+	color: var(--success);
+	margin-top: 0.1875rem;
+}
+.ficha-exceptions {
+	background: var(--surface);
+	border: 1px solid var(--crema-border);
+	border-radius: 10px;
+	padding: 1.125rem 1.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+.ficha-exceptions-lead {
+	font-weight: 600;
+}
+.ficha-exceptions-lead .ficha-ref {
+	font-weight: 400;
+}
+.ficha-exceptions ol {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	font-size: 0.90625rem;
+}
+.ficha-exceptions li {
+	display: grid;
+	grid-template-columns: 1.625rem minmax(0, 1fr);
+	gap: 0.625rem;
+}
+.ficha-letter {
+	width: 1.5rem;
+	height: 1.5rem;
+	border-radius: 4px;
+	background: var(--accent-bg);
+	color: var(--accent);
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* "Desde cuándo": timeline + situation cards. */
+.ficha-timeline {
+	padding: 1.75rem 1.5rem 1.5rem;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.ficha-hito {
+	display: flex;
+	flex-direction: column;
+	gap: 0.625rem;
+	padding-right: 1rem;
+	--hito-color: var(--accent);
+}
+.ficha-hito.ficha-tone-vigente {
+	--hito-color: var(--success);
+}
+.ficha-hito.ficha-tone-pendiente {
+	--hito-color: var(--caution-text);
+}
+.ficha-hito-mark {
+	display: flex;
+	align-items: center;
+}
+.ficha-hito-dot {
+	flex: none;
+	box-sizing: border-box;
+	width: 14px;
+	height: 14px;
+	border-radius: 9999px;
+	border: 2px solid var(--hito-color);
+	background: var(--surface);
+}
+.ficha-tone-vigente .ficha-hito-dot {
+	background: var(--hito-color);
+}
+.ficha-tone-pendiente .ficha-hito-dot {
+	border-style: dashed;
+}
+.ficha-hito-line {
+	flex: 1;
+	margin-left: 0.5rem;
+	border-top: 1px solid var(--border);
+}
+.ficha-tone-pendiente .ficha-hito-line {
+	border-top-style: dashed;
+}
+.ficha-hito-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.ficha-hito-date {
+	color: var(--hito-color);
+}
+.ficha-hito-title {
+	font-family: var(--font-serif);
+	font-size: 1.0625rem;
+	font-weight: 600;
+	line-height: 1.3;
+}
+.ficha-hito-text {
+	font-size: 0.875rem;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+.ficha-situation {
+	padding: 1.25rem 1.375rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+.ficha-card-head {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.625rem;
+}
+.ficha-card-head-split {
+	flex-wrap: nowrap;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+/* "Estado" + "Qué no hace". */
+.ficha-duo {
+	align-items: stretch;
+}
+.ficha-note-card {
+	padding: 1.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.625rem;
+	font-size: 0.9375rem;
+	line-height: 1.6;
+	scroll-margin-top: 1.5rem;
+}
+.ficha-card-title {
+	font-family: var(--font-serif);
+	font-size: 1.375rem;
+	font-weight: 700;
+	line-height: 1.25;
+	margin: 0;
+}
+.ficha-note-card .ficha-secondary {
+	font-size: 0.875rem;
+}
+
+/* Any other section: plain Markdown. */
+.ficha-prose {
+	line-height: 1.65;
+}
+.ficha-prose > * + * {
+	margin-top: 0.75rem;
+}
+.ficha-prose ul {
+	list-style: disc;
+	padding-left: 1.25rem;
+}
+.ficha-prose ol {
+	list-style: decimal;
+	padding-left: 1.25rem;
+}
+.ficha-prose table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.ficha-prose th,
+.ficha-prose td {
+	text-align: left;
+	vertical-align: top;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--border-light);
+}
+
+/* Footer: disclaimer, review date, source. */
+/* Overrides the site-wide footer style of Base.astro. */
+.ficha .ficha-footer {
+	background: none;
+	margin: 0;
+	border-top: 1px solid var(--border);
+	padding: 1.25rem 0 0;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 0.5rem 2rem;
+	font-size: 0.8125rem;
+	line-height: 1.55;
+	color: var(--text-muted);
+}
+
+/* ── Narrow: one column ── */
+@container (max-width: 640px) {
+	.ficha {
+		gap: 3rem;
+	}
+	.ficha-grid-2,
+	.ficha-grid-3 {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.ficha-header {
+		padding: 1.5rem 1.25rem 1.25rem;
+	}
+	.ficha-titular {
+		font-size: 1.75rem;
+	}
+	.ficha-toc {
+		display: none;
+	}
+	.ficha-cifras {
+		margin-top: -1.5rem;
+	}
+	.ficha-cifra-valor {
+		font-size: 2.25rem;
+	}
+	.ficha-h3 {
+		font-size: 1.5rem;
+	}
+	.ficha-numbered {
+		padding: 1.25rem;
+	}
+	.ficha-audience {
+		padding: 1.25rem;
+	}
+
+	/* Table: one card-like block per row, each cell keeps its small label. */
+	.ficha-table,
+	.ficha-table tbody,
+	.ficha-table tr,
+	.ficha-table th,
+	.ficha-table td {
+		display: block;
+		width: auto;
+	}
+	.ficha-table thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+	.ficha-table tbody tr {
+		border-bottom: 1px solid var(--border-light);
+	}
+	.ficha-table tbody tr:last-child {
+		border-bottom: none;
+	}
+	.ficha-table th,
+	.ficha-table td {
+		border-bottom: none;
+		padding: 0.75rem 1rem;
+	}
+	.ficha-table tbody th {
+		padding-top: 1rem;
+		padding-bottom: 0.25rem;
+	}
+	.ficha-table tbody tr td:last-child {
+		padding-bottom: 1rem;
+	}
+
+	/* Timeline: vertical. */
+	.ficha-timeline {
+		grid-template-columns: minmax(0, 1fr);
+		padding: 1.5rem 1.25rem 0.25rem;
+	}
+	.ficha-hito {
+		display: grid;
+		grid-template-columns: 1.5rem minmax(0, 1fr);
+		column-gap: 0.75rem;
+		padding: 0 0 1.25rem;
+	}
+	.ficha-hito-mark {
+		flex-direction: column;
+		align-items: center;
+		padding-top: 0.125rem;
+	}
+	.ficha-hito-line {
+		margin: 0.375rem 0 0;
+		border-top: none;
+		border-left: 1px solid var(--border);
+		min-height: 1rem;
+	}
+	.ficha-tone-pendiente .ficha-hito-line {
+		border-left-style: dashed;
+	}
+	.ficha-hito:last-child .ficha-hito-line {
+		display: none;
+	}
+	.ficha-card-head-split {
+		flex-wrap: wrap;
+	}
+	.ficha-footer {
+		flex-direction: column;
+	}
+}
