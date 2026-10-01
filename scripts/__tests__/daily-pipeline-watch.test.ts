@@ -37,6 +37,7 @@ exit 0
 `;
 
 const FAKE_FLOCK = `#!/bin/bash
+if [ -n "\${FLOCK_LOG:-}" ]; then echo "$*" >> "$FLOCK_LOG"; fi
 if [ -n "\${FAKE_FLOCK_BUSY:-}" ]; then exit 1; fi
 exit 0
 `;
@@ -64,12 +65,17 @@ beforeEach(() => {
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-function run(extra: Record<string, string> = {}, args = ["--watch"]) {
-	const proc = Bun.spawnSync(["bash", SCRIPT, ...args], {
+function run(
+	extra: Record<string, string> = {},
+	args = ["--watch"],
+	script = SCRIPT,
+) {
+	const proc = Bun.spawnSync(["bash", script, ...args], {
 		env: {
 			...process.env,
 			PATH: `${join(dir, "bin")}:${process.env.PATH}`,
 			LEYABIERTA_SELF_UPDATED: "1",
+			SELF_UPDATE_LOCK: join(dir, "self-update.lock"),
 			LOG: log,
 			LOCKFILE: join(dir, "lock"),
 			REPO_DIR: join(dir, "repo"),
@@ -204,5 +210,65 @@ describe("nightly run", () => {
 		const code = run({ FAKE_FLOCK_BUSY: "1", LOG: logNightly }, []);
 		expect(code).toBe(1);
 		expect(readFileSync(logNightly, "utf8")).toContain("nightly run skipped");
+	});
+});
+
+describe("self-update", () => {
+	const git = (cwd: string, ...args: string[]) => {
+		const r = Bun.spawnSync(["git", ...args], {
+			cwd,
+			env: {
+				...process.env,
+				GIT_AUTHOR_NAME: "t",
+				GIT_AUTHOR_EMAIL: "t@t",
+				GIT_COMMITTER_NAME: "t",
+				GIT_COMMITTER_EMAIL: "t@t",
+			},
+		});
+		if (r.exitCode !== 0) throw new Error(r.stderr.toString());
+	};
+
+	test("a stale copy re-execs the prod-tag script under the self-update lock, keeping --watch", () => {
+		// origin: a commit with the current script, tagged prod.
+		const origin = join(dir, "origin");
+		mkdirSync(join(origin, "scripts"), { recursive: true });
+		writeFileSync(
+			join(origin, "scripts", "daily-pipeline.sh"),
+			readFileSync(SCRIPT),
+		);
+		chmodSync(join(origin, "scripts", "daily-pipeline.sh"), 0o755);
+		git(origin, "init", "-q");
+		git(origin, "add", ".");
+		git(origin, "commit", "-qm", "prod");
+		git(origin, "tag", "prod");
+		git(dir, "clone", "-q", origin, "repo");
+
+		// The on-disk copy cron runs is older than the one at refs/tags/prod.
+		const stale = join(dir, "stale-daily-pipeline.sh");
+		writeFileSync(stale, `${readFileSync(SCRIPT, "utf8")}\n# stale\n`);
+		const flockLog = join(dir, "flock.log");
+
+		const code = run(
+			{
+				LEYABIERTA_SELF_UPDATED: "",
+				FLOCK_LOG: flockLog,
+				CHECK_JSON: '{"changed":false,"ids":[],"newIds":[]}',
+			},
+			["--watch"],
+			stale,
+		);
+		expect(code).toBe(0);
+		expect(logText()).toContain("re-exec'ing");
+		expect(logText()).not.toContain("self-update failed");
+		// The re-exec'd script ran in watch mode, not a full pipeline.
+		expect(calls()).toEqual([
+			"bun run --silent boe-watch check",
+			"bun run --silent boe-watch should-push",
+		]);
+		// Self-update lock (fd 8) first, then the pipeline lock (fd 9).
+		expect(readFileSync(flockLog, "utf8").trim().split("\n")).toEqual([
+			"-w 120 8",
+			"-n 9",
+		]);
 	});
 });
