@@ -10,7 +10,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 3.5rem;
-	margin: 0 0 3rem;
+	margin: 0.75rem 0 3rem;
 	color: var(--text);
 }
 
@@ -123,9 +123,45 @@
 	text-wrap: balance;
 	margin: 0;
 }
+.ficha-header-top {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem 1rem;
+}
+/* Outline button (DESIGN.md), secondary to the content of the ficha. */
+.ficha .ficha-boe-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	padding: 0.375rem 0.75rem;
+	border: 1.5px solid var(--border);
+	border-radius: 6px;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--text-secondary);
+	text-decoration: none;
+	white-space: nowrap;
+}
+.ficha .ficha-boe-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.ficha-titles {
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
 .ficha-subtitulo {
 	font-size: 1.0625rem;
 	color: var(--text-secondary);
+}
+/* The official BOE title, for transparency: small and muted. */
+.ficha-official {
+	font-size: 0.875rem;
+	line-height: 1.5;
+	color: var(--text-muted);
 }
 .ficha-id {
 	margin-left: 0.5rem;
@@ -515,6 +551,109 @@
 	color: var(--text-muted);
 }
 
+/* ── "Para profundizar": appendix after the ficha (FichaAppendix.astro) ──
+   The generic sections of the law page, each folded in a <details> (no JS,
+   the content stays in the HTML). Same width as the ficha. */
+.ficha-more {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	margin: 0 0 1rem;
+	scroll-margin-top: 1.5rem;
+}
+.ficha-more-head {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-bottom: 0.25rem;
+}
+.ficha-more-head > * {
+	margin: 0;
+}
+.ficha-more-intro {
+	font-size: 0.9375rem;
+	line-height: 1.6;
+	color: var(--text-secondary);
+	margin: 0;
+}
+.ficha-fold {
+	background: var(--surface);
+	border: 1px solid var(--border-light);
+	border-radius: 12px;
+}
+.ficha-fold > summary {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.125rem 1rem;
+	padding: 1.125rem 1.5rem;
+	cursor: pointer;
+	list-style: none;
+	border-radius: 12px;
+}
+.ficha-fold > summary::-webkit-details-marker {
+	display: none;
+}
+.ficha-fold > summary:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.ficha-fold-title {
+	font-family: var(--font-serif);
+	font-size: 1.1875rem;
+	font-weight: 600;
+	line-height: 1.3;
+	margin: 0;
+	color: var(--text);
+}
+.ficha-fold-note {
+	font-size: 0.875rem;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+/* Chevron: points down when closed, up when open. */
+.ficha-fold-icon {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+	width: 0.625rem;
+	height: 0.625rem;
+	margin: 0 0.25rem 0.25rem;
+	border-right: 2px solid var(--text-muted);
+	border-bottom: 2px solid var(--text-muted);
+	transform: rotate(45deg);
+}
+.ficha-fold[open] > summary .ficha-fold-icon {
+	transform: rotate(-135deg);
+	margin-bottom: -0.25rem;
+}
+.ficha-fold > summary:hover .ficha-fold-title {
+	color: var(--accent);
+}
+.ficha-fold[open] > summary {
+	border-bottom: 1px solid var(--border-light);
+	border-radius: 12px 12px 0 0;
+}
+.ficha-fold-body {
+	padding: 0.25rem 1.5rem 1.5rem;
+}
+/* The law page's own section spacing does not apply in the appendix. */
+section.ficha-more > div.law-section {
+	margin-top: 0;
+}
+.ficha-more .ficha-fold-body > .law-section,
+.ficha-more .ficha-fold-body > .law-section > :first-child {
+	margin-top: 0;
+}
+.ficha-more .ficha-fold-body .law-section-intro {
+	margin-top: 1.25rem;
+}
+.ficha-more .ficha-fold-body .card {
+	border: none;
+	padding: 1rem 0 0;
+	margin-bottom: 1.5rem;
+	background: none;
+}
+
 /* ── Narrow: one column ── */
 @container (max-width: 640px) {
 	.ficha {
@@ -529,6 +668,14 @@
 	}
 	.ficha-titular {
 		font-size: 1.75rem;
+	}
+	/* "Ver en el BOE" goes to the end of the header, after the badges. */
+	.ficha-header-top {
+		display: contents;
+	}
+	.ficha .ficha-boe-btn {
+		order: 1;
+		align-self: flex-start;
 	}
 	.ficha-toc {
 		display: none;
@@ -618,5 +765,13 @@
 	}
 	.ficha-footer {
 		flex-direction: column;
+	}
+}
+@media (max-width: 640px) {
+	.ficha-fold > summary {
+		padding: 1rem 1.125rem;
+	}
+	.ficha-fold-body {
+		padding: 0.25rem 1.125rem 1.25rem;
 	}
 }

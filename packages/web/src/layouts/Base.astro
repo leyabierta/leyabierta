@@ -19,6 +19,11 @@ interface Props {
 	ogImage?: string;
 	canonicalUrl?: string;
 	fullWidth?: boolean;
+	/**
+	 * Wider content column (65rem = 1040px instead of `--max-w`), e.g. law
+	 * pages with a citizen ficha. The side padding stays that of `.container`.
+	 */
+	wide?: boolean;
 	noindex?: boolean;
 }
 
@@ -43,6 +48,7 @@ const {
 	ogImage,
 	canonicalUrl,
 	fullWidth = false,
+	wide = false,
 	noindex = false,
 } = Astro.props;
 
@@ -530,7 +536,7 @@ const resolvedOgUrl = resolvedCanonicalUrl ?? `${SITE_URL}${Astro.url.pathname}`
 	<a href="#main" class="skip-to-content">Saltar al contenido</a>
 	<Navbar />
 
-	<main id="main" class={fullWidth ? "" : "container"} style={fullWidth ? "" : "padding-top: 2rem; padding-bottom: 2rem;"}>
+	<main id="main" class={fullWidth ? "" : "container"} style={fullWidth ? "" : `padding-top: 2rem; padding-bottom: 2rem;${wide ? " max-width: 65rem;" : ""}`}>
 		<slot />
 	</main>
 
