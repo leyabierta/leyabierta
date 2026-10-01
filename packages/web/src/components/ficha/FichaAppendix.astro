@@ -1,0 +1,31 @@
+---
+/**
+ * "Para profundizar": the generic sections of a law page (article summaries,
+ * general information, changes), placed after the ficha with its section
+ * style. Each one goes in a FichaFold.
+ *
+ * With `enabled` false it renders its content as is, so the law pages without
+ * a ficha keep exactly the same markup.
+ */
+import "./ficha.css";
+
+interface Props {
+	enabled: boolean;
+}
+const { enabled } = Astro.props;
+---
+
+{enabled ? (
+	<section class="ficha-more" id="para-profundizar" aria-labelledby="para-profundizar-titulo">
+		<div class="ficha-more-head">
+			<p class="ficha-kicker">Texto oficial y datos</p>
+			<h2 class="ficha-h3" id="para-profundizar-titulo">Para profundizar</h2>
+			<p class="ficha-more-intro">
+				El resumen de cada artículo, los datos de la ley y sus cambios. Pulsa en cada apartado para verlo.
+			</p>
+		</div>
+		<slot />
+	</section>
+) : (
+	<slot />
+)}

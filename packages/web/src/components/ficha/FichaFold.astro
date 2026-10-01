@@ -1,0 +1,35 @@
+---
+/**
+ * One folded block of the "Para profundizar" appendix: a <details> whose
+ * <summary> carries the heading. No JS: the folded content stays in the HTML.
+ *
+ * With `fold` false it renders its content as is, so the law pages without a
+ * ficha keep exactly the same markup.
+ */
+import "./ficha.css";
+
+interface Props {
+	fold: boolean;
+	title?: string;
+	/** Short line under the title ("6 artículos con resumen"). */
+	note?: string;
+	/** id of the heading, for the `aria-labelledby` of the folded section. */
+	headingId?: string;
+}
+const { fold, title, note, headingId } = Astro.props;
+---
+
+{fold ? (
+	<details class="ficha-fold">
+		<summary>
+			<h3 class="ficha-fold-title" id={headingId}>{title}</h3>
+			{note && <span class="ficha-fold-note">{note}</span>}
+			<span class="ficha-fold-icon" aria-hidden="true"></span>
+		</summary>
+		<div class="ficha-fold-body">
+			<slot />
+		</div>
+	</details>
+) : (
+	<slot />
+)}

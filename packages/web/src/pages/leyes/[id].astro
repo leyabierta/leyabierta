@@ -3,6 +3,8 @@ import { getCollection } from "astro:content";
 import { promises as fs } from "node:fs";
 import Base from "../../layouts/Base.astro";
 import Ficha from "../../components/ficha/Ficha.astro";
+import FichaAppendix from "../../components/ficha/FichaAppendix.astro";
+import FichaFold from "../../components/ficha/FichaFold.astro";
 import { escapeHtml, safeJsonLd } from "../../lib/escape";
 import { getLaw } from "../../lib/api.ts";
 import {
@@ -311,6 +313,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 	ogImage={`${import.meta.env.PUBLIC_API_URL ?? "https://api.leyabierta.es"}/og/${id}`}
 	canonicalUrl={`/leyes/${id}/`}
 	noindex={!indexable}
+	wide={!!ficha}
 >
 	<!-- JSON-LD: Legislation -->
 	<script type="application/ld+json" set:html={safeJsonLd({
@@ -632,6 +635,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 		})();
 	</script>
 
+	{!ficha && (<>
 	<div class="law-header">
 		<div>
 			<div style="display: flex; gap: 0.375rem; margin-bottom: 0.375rem;">
@@ -675,6 +679,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 			</>
 		))}
 	</div>
+	</>)}
 
 	{notices.map((n) => (
 		<aside class="mod-notice" aria-label="Aviso de modificación">
@@ -682,11 +687,19 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 		</aside>
 	))}
 
-	{ficha && <Ficha ficha={ficha} />}
+	{ficha && (
+		<Ficha
+			ficha={ficha}
+			officialTitle={law.titulo}
+			boeHref={`https://www.boe.es/buscar/act.php?id=${law.identificador}`}
+			alsoKnownAs={seoAbbreviations}
+		/>
+	)}
 
 	<!-- Own content only: no BOE article text on this page. The full text is on
 	     the BOE (or on /leyes/[id]/texto/, noindex, when BUILD_TEXT_PAGES builds
 	     it), linked from here and from every article. -->
+	{!ficha && (<>
 	<div id="resumen">
 		{citizenSummary && (
 			<div class="citizen-summary-card">
@@ -741,10 +754,20 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 			<div class="stat-card"><div><div class="stat-value">{materias.length}</div><div class="stat-label">Categorías</div></div></div>
 		)}
 	</div>
+	</>)}
 
+	<FichaAppendix enabled={!!ficha}>
 	<!-- Qué ha cambiado: reform timeline with AI headlines where available -->
+	{/* With a ficha, only when there is something to show. */}
+	{(!ficha || reforms.length > 1) && (
+	<FichaFold
+		fold={!!ficha}
+		title="Qué ha cambiado"
+		note={`${reforms.length - 1} ${reforms.length - 1 === 1 ? "modificación" : "modificaciones"} desde su publicación`}
+		headingId="reformas-heading"
+	>
 	<section class="law-section" id="reformas" aria-labelledby="reformas-heading">
-		<h2 class="law-section-heading" id="reformas-heading">Qué ha cambiado</h2>
+		{!ficha && <h2 class="law-section-heading" id="reformas-heading">Qué ha cambiado</h2>}
 		{reforms.length <= 1 ? (
 			<p class="law-section-intro">Esta ley no tiene modificaciones registradas desde su publicación.</p>
 		) : (
@@ -782,37 +805,72 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 			</>
 		)}
 	</section>
+	</FichaFold>
+	)}
 
 	<!-- Artículo por artículo: every plain-language article summary -->
 	{articleItems.length > 0 && (
+		<FichaFold
+			fold={!!ficha}
+			title="Artículo por artículo"
+			note={`${articleItems.length.toLocaleString("es-ES")} ${articleItems.length === 1 ? "artículo resumido" : "artículos resumidos"} en lenguaje sencillo`}
+			headingId="articulos-heading"
+		>
 		<section class="law-section" id="articulos" aria-labelledby="articulos-heading">
-			<h2 class="law-section-heading" id="articulos-heading">Artículo por artículo</h2>
+			{!ficha && <h2 class="law-section-heading" id="articulos-heading">Artículo por artículo</h2>}
+			{ficha ? (
+				<p class="law-section-intro">
+					{BUILD_TEXT_PAGES
+						? "Pulsa en un artículo para leer su texto oficial."
+						: "Pulsa en un artículo para leer su texto oficial en el BOE."}
+				</p>
+			) : (
 			<p class="law-section-intro">
 				Qué dice cada artículo, en lenguaje sencillo ({articleItems.length.toLocaleString("es-ES")} {articleItems.length === 1 ? "artículo" : "artículos"} con resumen).
 				{BUILD_TEXT_PAGES
 					? "Pulsa en un artículo para leer su texto oficial."
 					: "Pulsa en un artículo para leer su texto oficial en el BOE."}
 			</p>
+			)}
 			<ol class="art-list" set:html={articleListHtml} />
+			{ficha && (
+				<p class="ai-note">
+					Estos resúmenes están escritos en lenguaje sencillo y generados con IA a partir del texto
+					oficial. No son asesoramiento jurídico: lo que vale es el texto publicado en el BOE.{" "}
+					<a href={AI_SUMMARIES_EXPLAINER_HREF}>Cómo los hacemos</a>.
+				</p>
+			)}
 		</section>
+		</FichaFold>
 	)}
 
 	<div class="law-section">
 	<!-- Technical details (always visible) -->
+	{/* With a ficha the generic sections go, folded, in a "Para profundizar"
+	    appendix (h2 > h3 in each summary > h4); their sub-headings drop two
+	    levels. Without one the page is unchanged. */}
+	<FichaFold
+		fold={!!ficha}
+		title="Información general"
+		note="Tipo de ley, fechas, temas y leyes relacionadas"
+	>
 	<div class="technical-details" id="technical-details">
 		<div class="card">
-			<h2 class="card-heading">Información general</h2>
+			{!ficha && <h2 class="card-heading">Información general</h2>}
 			<div class="meta-grid">
 				<div><div class="meta-item-label">Tipo de ley</div><div class="meta-item-value">{RANK_LABELS[law.rango] ?? capitalize(law.rango.replace(/_/g, ' '))}</div></div>
 				<div><div class="meta-item-label">Vigencia</div><div class="meta-item-value">{STATUS_LABELS[law.estado] ?? capitalize(law.estado.replace(/_/g, ' '))}</div></div>
 				<div><div class="meta-item-label">Publicación</div><div class="meta-item-value">{formatDate(law.fecha_publicacion)}</div></div>
 				<div><div class="meta-item-label">Departamento</div><div class="meta-item-value">{law.departamento}</div></div>
+				{ficha && lawHubs.length > 0 && (
+					<div><div class="meta-item-label">Más leyes del tema</div><div class="meta-item-value">{lawHubs.map((hub, i) => (<>{i > 0 && " · "}<a class="meta-hub" href={hub.path}>{hub.backlinkLabel}</a></>))}</div></div>
+				)}
 			</div>
 		</div>
 
 		{materias.length > 0 && (
 			<div class="section">
-				<h2 class="section-heading">Temas</h2>
+				{ficha ? <h4 class="section-heading">Temas</h4> : <h2 class="section-heading">Temas</h2>}
 				<div>
 					{materias.map((m) => (
 						<a href={`/?materia=${encodeURIComponent(m)}`} class="materia-tag">{m}</a>
@@ -823,7 +881,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 
 		{notas.length > 0 && (
 			<div class="section">
-				<h2 class="section-heading">Notas oficiales</h2>
+				{ficha ? <h4 class="section-heading">Notas oficiales</h4> : <h2 class="section-heading">Notas oficiales</h2>}
 				{notas.map((nota) => (
 					<p class="nota-item">{nota}</p>
 				))}
@@ -832,7 +890,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 
 		{refsAnt.length > 0 && (
 			<div class="section">
-				<h2 class="section-heading">Leyes en las que se basa</h2>
+				{ficha ? <h4 class="section-heading">Leyes en las que se basa</h4> : <h2 class="section-heading">Leyes en las que se basa</h2>}
 				<ul class="ref-list">
 					{refsAnt.map((ref) => (
 						<li>
@@ -846,7 +904,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 
 		{refsPost.length > 0 && (
 			<div class="section">
-				<h2 class="section-heading">Leyes que la modifican</h2>
+				{ficha ? <h4 class="section-heading">Leyes que la modifican</h4> : <h2 class="section-heading">Leyes que la modifican</h2>}
 				<ul class="ref-list">
 					{refsPost.map((ref) => (
 						<li>
@@ -861,7 +919,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 
 	{related.length > 0 && (
 		<div class="section" id="related-laws">
-			<h2 class="section-heading">Normas relacionadas</h2>
+			{ficha ? <h4 class="section-heading">Normas relacionadas</h4> : <h2 class="section-heading">Normas relacionadas</h2>}
 			<ul class="ref-list ref-list-related">
 				{related.map((r) => (
 					<li><a href={`/leyes/${r.id}/`}>{r.titulo}</a></li>
@@ -869,6 +927,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 			</ul>
 		</div>
 	)}
+	</FichaFold>
 
 	<!-- Follow this law -->
 	<div class="follow-card" id="follow-card">
@@ -878,8 +937,8 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 		<div class="follow-content">
 			<h2 class="follow-heading">¿Quieres saber cuándo cambia esta ley?</h2>
 			<p class="follow-desc">
-				Cada cambio queda registrado en nuestro repositorio público. Síguelo con cualquier lector de noticias, sin darnos ningún dato:
-				<a href={`https://github.com/leyabierta/leyes/commits/main/${law.jurisdiccion}/${id}.md.atom`} rel="noopener">canal de cambios de esta ley</a>
+				Cada cambio queda registrado en nuestro repositorio público. Síguelo con cualquier lector de noticias, sin darnos ningún dato:{" "}
+				<a href={`https://github.com/leyabierta/leyes/commits/main/${law.jurisdiccion}/${id}.md.atom`} rel="noopener">canal de cambios de esta ley</a>{" "}
 				· <a href={`https://github.com/leyabierta/leyes/commits/main/${law.jurisdiccion}/${id}.md`} rel="noopener">historial en GitHub</a>.
 			</p>
 		</div>
@@ -893,6 +952,7 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 		</div>
 	)}
 	</div>
+	</FichaAppendix>
 
 	<!-- Old links pointed at tabs and article anchors on this page (/leyes/X/#texto,
 	     /leyes/X/#articulo-14, ?tab=texto). With BUILD_TEXT_PAGES the text lives
@@ -928,5 +988,26 @@ const webPageModified = laterDate(pageModified, ficha?.revisado);
 		</script>
 	)}
 
+	{/* With a ficha the generic sections are folded: a link to something
+	    inside one (#articulos, #technical-details, an article summary) opens
+	    it. Progressive enhancement: without JS the content is in the HTML. */}
+	{ficha && (
+		<script is:inline>
+			(function() {
+				function openTarget() {
+					var hash;
+					try { hash = decodeURIComponent(location.hash.slice(1)); } catch (e) { return; }
+					var el = hash && document.getElementById(hash);
+					var fold = el && el.closest('details');
+					if (fold && !fold.open) {
+						fold.open = true;
+						el.scrollIntoView();
+					}
+				}
+				openTarget();
+				window.addEventListener('hashchange', openTarget);
+			})();
+		</script>
+	)}
 
 </Base>
